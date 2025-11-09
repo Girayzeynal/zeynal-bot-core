@@ -1,0 +1,11 @@
+app = "zeynal-bot-core"
+primary_region = "fra"
+
+[env]
+
+[processes]
+  worker = "python bot.py"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
