@@ -1,11 +1,17 @@
 app = "zeynal-bot-core"
+
 primary_region = "fra"
 
 [env]
 
-[processes]
-  worker = "python bot.py"
+[build]
+  builder = "heroku/buildpacks:20"
 
 [[services]]
   internal_port = 8080
+  processes = ["app"]
   protocol = "tcp"
+  [[services.ports]]
+    port = 80
+  [[services.ports]]
+    port = 443
