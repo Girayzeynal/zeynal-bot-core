@@ -12,3 +12,4 @@ bot = "python bot.py"
 [[services]]
   internal_port = 8080
   processes = ["bot"]
+  protocol = "tcp"
