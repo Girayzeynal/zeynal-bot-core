@@ -2,7 +2,7 @@ import os
 import telebot
 
 # Token ortam değişkeni (Fly.io için)
-TOKEN = os.getenv("8395841768:AAEmrUCXtIr3n2t2Pf2jTw46Py2w9M9AC-A ")
+TOKEN = os.getenv("BOT_TOKEN ")
 
 bot = telebot.TeleBot(TOKEN)
 
