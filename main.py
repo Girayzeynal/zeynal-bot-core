@@ -45,5 +45,9 @@ def main():
     log_event("INFO", "Zeynal Core FAZ-3 başlatılıyor...")
     bot.polling(none_stop=True, skip_pending=True, interval=1)
 
+@bot.message_handler(func=lambda message: True)
+def echo_all(message):
+    bot.reply_to(message, f"📡 Komut algılandı: {message.text}")
+    
 if __name__ == "__main__":
     main()
