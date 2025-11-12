@@ -8,15 +8,4 @@ primary_region = "fra"
   buildpacks = ["heroku/python"]
 
 [processes]
-  worker = "python bot.py"
-
-[[services]]
-  internal_port = 8080
-  processes = ["worker"]
-  protocol = "tcp"
-
-  [[services.ports]]
-    port = 80
-
-  [[services.ports]]
-    port = 443 
+  app = "python bot.py" 
