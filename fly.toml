@@ -4,7 +4,7 @@ primary_region = "fra"
 [env]
 
 [build]
-  builder = "heroku/buildpacks:20"
+  builder = "heroku/builder:24" 
 
 [processes]
   worker = "python bot.py"
