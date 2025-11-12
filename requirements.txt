@@ -1,4 +1,6 @@
-pyTelegramBotAPI==4.16.1 
-requests
-urllib3
-python-dotenv
+pyTelegramBotAPI==4.16.1
+requests==2.31.0
+urllib3==2.2.1
+certifi==2024.7.4
+idna==3.7
+charset-normalizer==3.3.2 
