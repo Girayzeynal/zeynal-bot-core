@@ -2,10 +2,10 @@
 # FAZ 3 - Komut senkronizasyonu + veri akışı + simülasyon + sonuç gösterimi
 
 import telebot
+import os
 from data_pipe import fetch_upcoming_mock
 from sim_engine import simulate_game
 from utils import log_event, format_game_result
-import os
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -43,7 +43,7 @@ def analyze_league(message):
 
 def main():
     log_event("INFO", "Zeynal Core FAZ-3 başlatılıyor...")
-    bot.polling(none_stop=True)
+    bot.polling(none_stop=True, skip_pending=True, interval=1)
 
 if __name__ == "__main__":
     main()
