@@ -4,9 +4,6 @@ primary_region = "fra"
 [env]
 
 [build]
-  builder = "heroku/builder:24" 
-
-  [build]
   builder = "heroku/builder:24"
   buildpacks = ["heroku/python"]
 
@@ -22,4 +19,4 @@ primary_region = "fra"
     port = 80
 
   [[services.ports]]
-    port = 443
+    port = 443 
