@@ -1,11 +1,21 @@
-app = "zeynal-bot-core"
-primary_region = "fra"
+# fly.toml
+# FAZ 3 – Zeynal Core Konfigürasyonu
 
-[env]
+app = "zeynal-bot-core"
+primary_region = "ams"
 
 [build]
-  builder = "heroku/builder:24"
-  buildpacks = ["heroku/python"]
+  builder = "heroku/buildpacks:20"
 
-[processes]
-  app = "python bot.py" 
+[env]
+  PYTHONUNBUFFERED = "1"
+  PORT = "8080"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 80
+  [[services.ports]]
+    port = 443 
