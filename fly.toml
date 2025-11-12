@@ -1,15 +1,10 @@
-# fly.toml
-# FAZ 3 – Zeynal Core Konfigürasyonu
-
 app = "zeynal-bot-core"
-primary_region = "ams"
+primary_region = "fra"
 
 [build]
-  [build]
-builder = "dockerfile"
+  dockerfile = "Dockerfile"
 
 [env]
-  PYTHONUNBUFFERED = "1"
   PORT = "8080"
 
 [[services]]
@@ -17,6 +12,9 @@ builder = "dockerfile"
   protocol = "tcp"
 
   [[services.ports]]
+    handlers = ["http"]
     port = 80
+
   [[services.ports]]
+    handlers = ["tls", "http"]
     port = 443 
