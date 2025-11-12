@@ -5,7 +5,8 @@ app = "zeynal-bot-core"
 primary_region = "ams"
 
 [build]
-  builder = "heroku/buildpacks:20"
+  [build]
+builder = "dockerfile"
 
 [env]
   PYTHONUNBUFFERED = "1"
