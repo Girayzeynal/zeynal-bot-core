@@ -5,7 +5,7 @@ import telebot
 import os
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
+bot = telebot.TeleBot(BOT_TOKEN)
 
 @bot.message_handler(commands=["start"])
 def start_cmd(message):
@@ -36,7 +36,7 @@ def analyze_cmd(message):
 
 @bot.message_handler(func=lambda m: True)
 def echo_all(message):
-    bot.reply_to(message, f"🐾 Komut algılandı: {message.text}")
+    bot.reply_to(message, f"🧾 Komut algılandı: {message.text}")
 
 def main():
     print("INFO: Zeynal Core FAZ-3 başlatılıyor...")
