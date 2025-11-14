@@ -1,35 +1,27 @@
 # main.py
 # HoopBrain Core
-# FAZ-3 Komut Sistemi + FAZ-4 NBA Simülasyon Testi
+# FAZ-3 Komut Sistemi + FAZ-4 NBA Simülasyon Testi + FAZ-5 Heavy Sim
 
 import os
 import telebot
 
 from typing import List
 from nba_fetcher import fetch_nba_live_games
-from nba_analyzer import analyze_live_games
-from nba_models import NBAGameState, NBATeamStatsLite
+from nba_analyzer import analyze_live_games, analyze_sim_results
+from nba_models import NBAGameState
 
-# -------------------------------------------------
-#  BOT AYARLARI
-# -------------------------------------------------
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
 
 
-# -------------------------------------------------
-#  FAZ-4: NBA SİMÜLASYON TEST KOMUTU
-# -------------------------------------------------
+# -----------------------------------------------------------
+# FAZ-4 SIMPLE SIM (TEST AMAÇLI)
+# -----------------------------------------------------------
 
 def _simple_sim_from_game(game: NBAGameState) -> dict:
-    """
-    NBAGameState için basit simülasyon:
-    - Mevcut dummy istatistiklerden tahmini toplam skor ve tempo çıkarır.
-    - Kimin daha güçlü göründüğüne göre pick yapar.
-    """
-    hs: NBATeamStatsLite | None = game.home_stats
-    aw: NBATeamStatsLite | None = game.away_stats
+    hs = game.home_stats
+    aw = game.away_stats
 
     if not hs or not aw:
         return {
@@ -41,15 +33,12 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
             "confidence": 0.0,
         }
 
-    # Tahmini toplam skor (dummy)
     score_est = hs.pts + aw.pts
 
-    # Pace tahmini – varsa pace_est kullan, yoksa 100 kabul et
     home_pace = hs.pace_est if hs.pace_est is not None else 100.0
     away_pace = aw.pace_est if aw.pace_est is not None else 100.0
     pace_est = round((home_pace + away_pace) / 2, 1)
 
-    # Basit güç farkı: skor farkı
     diff = hs.pts - aw.pts
     if diff > 0:
         pick = game.home_team
@@ -58,7 +47,6 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
     else:
         pick = "DENGELİ"
 
-    # Güven skoru (tamamen dummy, sadece test için)
     confidence = max(0.5, min(0.99, abs(diff) / 20.0 + 0.5))
 
     return {
@@ -73,65 +61,83 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
 
 @bot.message_handler(commands=["simulate_nba"])
 def simulate_nba(message):
-    """
-    FAZ-4 NBA Simülasyon Test Komutu
-
-    Akış:
-    1) nba_fetcher -> dummy canlı maç verisi (NBAGameState list)
-    2) basit simülasyon (_simple_sim_from_game)
-    3) nba_analyzer -> metinsel analiz
-    """
     try:
         bot.send_message(message.chat.id, "⏳ Simülasyon başlatılıyor...")
 
-        # 1) Canlı (dummy) NBA maçlarını çek
         games: List[NBAGameState] = fetch_nba_live_games()
-
         if not games:
-            bot.send_message(
-                message.chat.id,
-                "Simülasyon için canlı maç datası bulunamadı."
-            )
+            bot.send_message(message.chat.id, "Simülasyon için canlı maç datası bulunamadı.")
             return
 
-        # 2) Her maç için basit simülasyon
-        simulation_results: list[dict] = []
+        simulation_results = []
         for g in games:
             sim = _simple_sim_from_game(g)
             simulation_results.append(sim)
 
-        # 3) Metinsel analiz (mevcut analyzer'ı kullan)
         analysis_text = analyze_live_games(games)
 
-        # 4) Çıktıyı formatla
         reply = "🔮 *FAZ-4 NBA Simülasyon Sonuçları*\n\n"
         for r in simulation_results:
             reply += f"🏀 {r['home']} vs {r['away']}\n"
-            reply += f"   🎯 Tahmini Toplam Skor: {r['score_est']}\n"
-            reply += f"   🏃 Tempo Tahmini (pace): {r['pace_est']}\n"
-            reply += f"   ✅ Tahmini Kazanan: *{r['pick']}* "
-            reply += f"(güven: {int(r['confidence'] * 100)}%)\n"
-            reply += "──────────\n"
+            reply += f"🎯 Tahmini Toplam Skor: {r['score_est']}\n"
+            reply += f"👟 Tempo Tahmini (pace): {r['pace_est']}\n"
+            reply += f"✅ Tahmini Kazanan: {r['pick']}\n"
+            reply += f"🧪 Güven: {int(r['confidence'] * 100)}%\n"
+            reply += "──────────────\n"
 
         reply += "\n📊 *Ham Maç Analizi:*\n"
         reply += analysis_text
 
-        bot.send_message(
-            message.chat.id,
-            reply,
-            parse_mode="Markdown"
-        )
+        bot.send_message(message.chat.id, reply, parse_mode="Markdown")
 
     except Exception as e:
-        bot.send_message(
-            message.chat.id,
-            f"❌ Simülasyon Hatası: {str(e)}"
-        )
+        bot.send_message(message.chat.id, f"❌ Simülasyon Hatası: {str(e)}")
 
 
-# -------------------------------------------------
-#  FAZ-3: TELEGRAM KOMUT SİSTEMİ
-# -------------------------------------------------
+# -----------------------------------------------------------
+# FAZ-5 — HEAVY SIM
+# -----------------------------------------------------------
+
+@bot.message_handler(commands=["heavy_sim_nba"])
+def heavy_sim_nba_cmd(message):
+    try:
+        bot.send_message(message.chat.id, "🧪 Heavy NBA simülasyonu başlatılıyor...")
+
+        from heavy_sim_engine import run_heavy_sim
+
+        games = fetch_nba_live_games()
+        if not games:
+            bot.send_message(message.chat.id, "Heavy simülasyon için canlı maç bulunamadı.")
+            return
+
+        results = run_heavy_sim(games, n_sims=5000)
+        if not results:
+            bot.send_message(message.chat.id, "Heavy simülasyon sonuç üretemedi.")
+            return
+
+        analysis_text = analyze_sim_results(results)
+
+        reply = "🧠 *FAZ-5 Heavy NBA Simülasyon Sonuçları*\n\n"
+        for r in results:
+            reply += f"🏀 {r['home']} vs {r['away']}\n"
+            reply += f"🎯 Tahmini Skor: {r['score_est']}\n"
+            if r['pace_est'] is not None:
+                reply += f"👟 Tempo Tahmini (pace): {r['pace_est']}\n"
+            reply += f"✅ Kazanan Tahmini: {r['pick']} (güven: {r['confidence']}%)\n"
+            reply += "──────────────\n"
+
+        reply += "\n📊 *Ham Heavy Analizi:*\n"
+        reply += analysis_text
+
+        bot.send_message(message.chat.id, reply, parse_mode="Markdown")
+
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Heavy Sim Hatası: {str(e)}")
+
+
+# -----------------------------------------------------------
+# FAZ-3 — TELEGRAM KOMUT SİSTEMİ
+# -----------------------------------------------------------
 
 @bot.message_handler(commands=["start"])
 def start_cmd(message):
@@ -145,13 +151,13 @@ def status_cmd(message):
 
 @bot.message_handler(commands=["help"])
 def help_cmd(message):
-    bot.reply_to(
-        message,
+    bot.reply_to(message,
         "📘 Komutlar:\n"
         "/start - Botu başlatır\n"
         "/status - Sistem durumunu gösterir\n"
-        "/analyze <liga> - Belirtilen lig için analiz yapar\n"
-        "/simulate_nba - FAZ-4 NBA simülasyon testini çalıştırır\n"
+        "/analyze <liga>\n"
+        "/simulate_nba - FAZ-4 simülasyonu\n"
+        "/heavy_sim_nba - FAZ-5 Heavy Simulation\n"
     )
 
 
@@ -159,23 +165,22 @@ def help_cmd(message):
 def analyze_cmd(message):
     try:
         league = message.text.split(" ")[1].upper()
-    except Exception:
-        league = "GENEL"
-
-    bot.reply_to(message, f"📊 {league} ligi analizi başlatıldı!")
+        bot.reply_to(message, f"📊 {league} Ligi analizi başlatıldı!")
+    except:
+        bot.reply_to(message, "⚠️ Lig formatı hatalı.")
 
 
 @bot.message_handler(func=lambda m: True)
 def echo_all(message):
-    bot.reply_to(message, f"🧠 Komut algılandı: {message.text}")
+    bot.reply_to(message, f"📄 Komut algılandı: {message.text}")
 
 
-# -------------------------------------------------
-#  ÇALIŞTIRMA NOKTASI
-# -------------------------------------------------
+# -----------------------------------------------------------
+# ÇALIŞTIRMA NOKTASI
+# -----------------------------------------------------------
 
 def main():
-    print("INFO: Zeynal Core FAZ-3/FAZ-4 başlatılıyor...")
+    print("INFO: Zeynal Core FAZ-3/FAZ-4/FAZ-5 başlatılıyor...")
     bot.polling(non_stop=True, skip_pending=True, interval=0)
 
 
