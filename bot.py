@@ -61,3 +61,6 @@ def run():
 
 if __name__ == "__main__":
     run()
+dp.add_handler(CommandHandler("nba_today", handle_nba_today))
+dp.add_handler(CommandHandler("nba_live", handle_nba_live))
+dp.add_handler(CommandHandler("nba_finished", handle_nba_finished))
