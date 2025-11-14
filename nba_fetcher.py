@@ -1,40 +1,84 @@
 """
-FAZ-4 – NBA Fetcher (İskelet Sürümü)
+FAZ-4 – NBA Fetcher (Tam İskelet + Gerçek API Test Fonksiyonu)
 
 Bu sürüm:
-- API çağrısı yapmaz (dummy veri üretir)
-- nba_models içindeki NBAGameState yapısını döner
-- Zaman dönüşümleri doğru çalışır
-- Sonraki sürümlerde gerçek API bağlanacak
+- Dummy veri üretir (FAZ-4 motor işleri için)
+- ESPN gerçek API test fonksiyonu içerir (/nba_raw)
+- Hata korumalı HTTP istemcisi (safe_get) içerir
+- NBAGameState modellerine uygun dummy yapı döndürür
 """
 
+import requests
 from datetime import datetime, timedelta, timezone
 from typing import List
 
 from nba_config import (
     NBA_LEAGUE_CODE,
-    CURRENT_SEASON,
-    to_utc,
-    from_utc_to_nba
+    CURRENT_SEASON
 )
-from nba_models import NBAGameState, NBABoxScoreLite, NBATeamStatsLite
 
+from nba_models import (
+    NBAGameState,
+    NBATeamStatsLite
+)
+
+
+# ---------------------------------------------------------
+#  GERÇEK API İSTEĞİ İÇİN GÜVENLİ HTTP İSTEMCİSİ
+# ---------------------------------------------------------
+
+def safe_get(url: str):
+    """
+    Güvenli GET isteği.
+    - Hata durumunda botun çökmesini engeller
+    - JSON dönmeye çalışır
+    - ESPN HTML hata sayfası gibi durumlarda raw text döner
+    """
+    try:
+        r = requests.get(url, timeout=8)
+        r.raise_for_status()
+
+        try:
+            return r.json()
+        except Exception:
+            return {"error": "Invalid JSON", "raw": r.text}
+
+    except Exception as e:
+        return {"error": str(e), "raw": None}
+
+
+
+# ---------------------------------------------------------
+#  ESPN — GERÇEK NBA VERİSİ ÇEKME (TEST MODU)
+# ---------------------------------------------------------
+
+def fetch_nba_schedule_real():
+    """
+    ESPN NBA scoreboard endpoint.
+    Bu fonksiyon henüz NBAGameState formatına dönüştürmüyor.
+    Ama gerçek verinin gelip gelmediğini test etmek için kritik.
+    /nba_raw komutu bu fonksiyonu kullanır.
+    """
+    url = "https://site.api.espn.com/apis/v2/sports/basketball/nba/scoreboard"
+    data = safe_get(url)
+    return data
+
+
+
+# ---------------------------------------------------------
+#  FAZ-4 MOTOR İÇİN DUMMY VERİLER (TEST)
+# ---------------------------------------------------------
 
 def fetch_nba_today_games() -> List[NBAGameState]:
     """
-    Şu an dummy veri dönüyor. 
-    Amacı: sistem iskeletinin akmasını sağlamak.
-    
-    Sonra buraya gerçek API bağlanacak.
+    FAZ-4 test modu:
+    Bugünkü planlanan maçlar için dummy veri döner.
+    Sistem akışını test etmek için kullanılır.
     """
 
-    # Örnek maç ID (dummy)
     game_id = "20250101-LAL-BOS"
-
-    # Dummy tipoff zamanı (UTC)
     tipoff_utc = datetime.now(timezone.utc) + timedelta(hours=3)
 
-    # Dummy skor/istatistik (maç başlamamış)
     game = NBAGameState(
         league=NBA_LEAGUE_CODE,
         game_id=game_id,
@@ -50,13 +94,14 @@ def fetch_nba_today_games() -> List[NBAGameState]:
     return [game]
 
 
+
 def fetch_nba_live_games() -> List[NBAGameState]:
     """
-    Maç devam eden durumlar için dummy veri.
+    FAZ-4 test modu:
+    Canlı maçlar için dummy veri.
     """
 
     game_id = "20250101-MIA-NYK"
-
     tipoff_utc = datetime.now(timezone.utc) - timedelta(hours=1)
 
     home = NBATeamStatsLite(
@@ -101,11 +146,14 @@ def fetch_nba_live_games() -> List[NBAGameState]:
     return [game]
 
 
+
 def fetch_nba_finished_games() -> List[NBAGameState]:
-    """Bitmiş maçlar için dummy veri."""
+    """
+    FAZ-4 test modu:
+    Bitmiş maçlar için dummy veri.
+    """
 
     game_id = "20250101-GSW-DEN"
-
     tipoff_utc = datetime.now(timezone.utc) - timedelta(hours=4)
 
     home = NBATeamStatsLite(
