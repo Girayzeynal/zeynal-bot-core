@@ -1,4 +1,34 @@
-# data_pipe.py
+def transform_game_data(games):
+    """
+    NBAGameState -> Game (SimEngine formatı)
+    Dummy odds/totals otomatik eklenir.
+    """
+    transformed = []
+
+    for g in games:
+
+        # Eğer gerçek veri yoksa dummy OU ve ML üret
+        odds = {
+            "home_ml": 2.0,
+            "away_ml": 1.90
+        }
+
+        totals = {
+            "ou": 215.5
+        }
+
+        game = Game(
+            league=g.league,
+            home=g.home_team,
+            away=g.away_team,
+            tipoff_utc=g.tipoff_utc,
+            odds=odds,
+            totals=totals
+        )
+
+        transformed.append(game)
+
+    return transformed# data_pipe.py
 # FAZ 3 – Data Link (mock + normalize)
 from datetime import datetime, timezone
 
