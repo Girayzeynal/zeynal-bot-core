@@ -1,4 +1,25 @@
-"""
+def analyze_sim_results(results: list) -> str:
+    """
+    SimEngine çıktısını (Game sonuçları) metne çevirir.
+    """
+    lines = ["📊 *FAZ-4 Simülasyon Özeti*"]
+
+    for r in results:
+        home = r.get("home")
+        away = r.get("away")
+        pick = r.get("pick")
+        home_prob = r.get("home_prob")
+        total_avg = r.get("total_avg")
+        pace = r.get("pace_est")
+
+        lines.append(
+            f"\n🔥 {home} vs {away}"
+            f"\n📈 Tahmin Edilen Üst: {total_avg}"
+            f"\n⏱ Pace Tahmini: {pace}"
+            f"\n🎯 Kazanma: {pick} (%{int(home_prob*100)})"
+        )
+
+    return "\n".join(lines)"""
 FAZ-4 – NBA Analyzer
 Bu dosya:
 - nba_fetcher'dan gelen NBAGameState verisini işler
