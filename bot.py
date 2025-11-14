@@ -1,66 +1,81 @@
-# bot.py — sağlam sürüm
-import os
-import time
-import logging
-import telebot
-from telebot import apihelper, util
+"""
+FAZ-4 – bot.py (Telegram Bot Çekirdeği)
 
-# ——— LOG AYARLARI ———
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler("bot.log", encoding="utf-8"),
-        logging.StreamHandler()
-    ],
+Bu dosya:
+- Botun ana iskeletini
+- Komut handler kayıtlarını
+- Application (telegram bot) başlatıcısını
+içerir.
+
+Tamamen python-telegram-bot v20+ ile uyumludur.
+"""
+
+import os
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler
 )
 
-# ——— TOKEN ———
-TOKEN = os.getenv("BOT_TOKEN")
-if not TOKEN:
-    logging.error("BOT_TOKEN ortam değişkeni TANIMSIZ! Fly.io Secrets → BOT_TOKEN olarak ekleyip yeniden deploy et.")
-    raise SystemExit(1)
+# Core handlers (FAZ-4)
+from core_handlers import (
+    handle_start,
+    handle_help,
+    handle_ping,
+    handle_nba_today,
+    handle_nba_live,
+    handle_nba_finished,
+    handle_nba_raw,
+)
 
-# ——— BOT ———
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# Ana handler’ları içeri al ve kaydet
-try:
-    from core_handlers import register_handlers
-    register_handlers(bot)
-except Exception as e:
-    logging.exception("core_handlers yüklenirken hata: %s", e)
+# ---------------------------------------------------------
+#  BOT TOKEN
+# ---------------------------------------------------------
 
-# Basit sağlık kontrolü
-@bot.message_handler(commands=["start"])
-def start_cmd(message):
-    bot.send_message(message.chat.id, "🔥 Bot aktif kardeşim. Devam ediyoruz!")
+BOT_TOKEN = os.getenv("BOT_TOKEN")  # Fly.io / Render environment'dan gelir
 
-# ——— ÇALIŞTIRMA DÖNGÜSÜ ———
-def run():
-    while True:
-        try:
-            logging.info("Bot polling başlıyor...")
-            if hasattr(bot, "infinity_polling"):
-                # pyTelegramBotAPI >= 4.x
-                bot.infinity_polling(timeout=30, long_polling_timeout=30, allowed_updates=util.update_types)
-            else:
-                # Eski sürüm uyumluluğu
-                bot.polling(non_stop=True, interval=0, timeout=30, allowed_updates=util.update_types)
-        except apihelper.ApiTelegramException as e:
-            logging.exception("ApiTelegramException: %s", e)
-            # 409 = başka bir instance çalışıyor / webhook çatışması
-            if "409" in str(e) or "Conflict" in str(e):
-                logging.warning("409 Conflict — başka bir instance olabilir. 10 sn bekleyip yeniden deniyorum.")
-                time.sleep(10)
-            else:
-                time.sleep(5)
-        except Exception as e:
-            logging.exception("Genel hata: %s", e)
-            time.sleep(5)
+if BOT_TOKEN is None:
+    raise RuntimeError("❌ BOT_TOKEN environment değişkeni tanımlı değil!")
+
+
+# ---------------------------------------------------------
+#  TELEGRAM BOT UYGULAMASI
+# ---------------------------------------------------------
+
+def create_app():
+    """
+    Telegram Application nesnesini oluşturur.
+    Tüm handler'lar burada kaydedilir.
+    """
+
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    # Genel komutlar
+    app.add_handler(CommandHandler("start", handle_start))
+    app.add_handler(CommandHandler("help", handle_help))
+    app.add_handler(CommandHandler("ping", handle_ping))
+
+    # FAZ-4 NBA komutları
+    app.add_handler(CommandHandler("nba_today", handle_nba_today))
+    app.add_handler(CommandHandler("nba_live", handle_nba_live))
+    app.add_handler(CommandHandler("nba_finished", handle_nba_finished))
+    app.add_handler(CommandHandler("nba_raw", handle_nba_raw))
+
+    return app
+
+
+# ---------------------------------------------------------
+#  MAIN
+# ---------------------------------------------------------
+
+def main():
+    """
+    Botu başlatır.
+    """
+    app = create_app()
+    print("🤖 Zeynal Core Bot – FAZ-4 çekirdek başlatıldı.")
+    app.run_polling()
+
 
 if __name__ == "__main__":
-    run()
-dp.add_handler(CommandHandler("nba_today", handle_nba_today))
-dp.add_handler(CommandHandler("nba_live", handle_nba_live))
-dp.add_handler(CommandHandler("nba_finished", handle_nba_finished))
+    main()
