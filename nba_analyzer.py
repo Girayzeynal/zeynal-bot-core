@@ -1,6 +1,13 @@
-def analyze_sim_results(results: list) -> str:
+from typing import List
+from nba_models import NBAGameState, NBATeamStatsLite
+
+
+# -------------------------------------------------------------
+#  SIMÜLASYON SONUÇ ANALİZİ
+# -------------------------------------------------------------
+def analyze_sim_results(results: List[dict]) -> str:
     """
-    SimEngine çıktısını (Game sonuçları) metne çevirir.
+    SimEngine çıktısını (game sim sonuçları) formatlı hale getirir.
     """
     lines = ["📊 *FAZ-4 Simülasyon Özeti*"]
 
@@ -13,46 +20,34 @@ def analyze_sim_results(results: list) -> str:
         pace = r.get("pace_est")
 
         lines.append(
-            f"\n🔥 {home} vs {away}"
-            f"\n📈 Tahmin Edilen Üst: {total_avg}"
-            f"\n⏱ Pace Tahmini: {pace}"
-            f"\n🎯 Kazanma: {pick} (%{int(home_prob*100)})"
+            f"\n🏀 {home} vs {away}\n"
+            f"🔢 Tahmin Edilen Üst: {total_avg}\n"
+            f"⏱ Pace Tahmini: {pace}\n"
+            f"🎯 Kazanma: {pick} (%{int(home_prob * 100)})"
         )
 
     return "\n".join(lines)
-FAZ-4 – NBA Analyzer
-Bu dosya:
-- nba_fetcher'dan gelen NBAGameState verisini işler
-- Canlı maçlar için hızlı tempo + verimlilik analizi üretir
-- Biten maçlar için kısa özet çıkarır
-- /nba_today, /nba_live, /nba_finished komutları için temiz metin üretir
-"""
-
-from typing import List
-from nba_models import NBAGameState, NBATeamStatsLite
 
 
-# ------------------------------------------------------------
-# PLANLANMIŞ (SCHEDULED) MAÇ ANALİZİ
-# ------------------------------------------------------------
-
+# -------------------------------------------------------------
+#  PLANLANMIŞ (SCHEDULED) MAÇ ANALİZİ
+# -------------------------------------------------------------
 def analyze_scheduled_games(games: List[NBAGameState]) -> str:
     if not games:
-        return "Bugün NBA'de planlanan maç bulunmuyor."
+        return "Bugün NBA’de planlanan maç yok."
 
-    lines = ["🗓️ *NBA – Bugünkü Maçlar*"]
+    lines = ["📅 *NBA – Bugünkü Maçlar*"]
 
     for g in games:
-        line = f"- {g.home_team} vs {g.away_team} – Tipoff (UTC): {g.tipoff_utc.strftime('%H:%M')}"
+        line = f"🏀 {g.home_team} vs {g.away_team} – Tipoff (UTC): {g.tipoff_utc.strftime('%H:%M')}"
         lines.append(line)
 
     return "\n".join(lines)
 
 
-# ------------------------------------------------------------
-# CANLI MAÇ ANALİZİ
-# ------------------------------------------------------------
-
+# -------------------------------------------------------------
+#  CANLI MAÇ ANALİZİ
+# -------------------------------------------------------------
 def analyze_live_games(games: List[NBAGameState]) -> str:
     if not games:
         return "Şu anda canlı NBA maçı bulunmuyor."
@@ -64,30 +59,29 @@ def analyze_live_games(games: List[NBAGameState]) -> str:
             hs: NBATeamStatsLite = g.home_stats
             aw: NBATeamStatsLite = g.away_stats
 
-            # Tempo tahmini (ortalama pace)
+            # Tempo tahmini
             if hs.pace_est and aw.pace_est:
                 pace = round((hs.pace_est + aw.pace_est) / 2, 1)
             else:
                 pace = "?"
 
             line = (
-                f"- {g.home_team} {hs.pts} – {aw.pts} {g.away_team} "
-                f"(Pace tahmini: {pace})"
+                f"🏀 {g.home_team} ({hs.pts}) – {g.away_team} ({aw.pts})\n"
+                f"⏱ Pace Tahmini: {pace}"
             )
             lines.append(line)
 
         else:
             lines.append(
-                f"- {g.home_team} vs {g.away_team} (Canlı skor yükleniyor...)"
+                f"⌛ {g.home_team} vs {g.away_team} (Canlı skor yükleniyor...)"
             )
 
     return "\n".join(lines)
 
 
-# ------------------------------------------------------------
-# BİTMİŞ MAÇ ANALİZİ
-# ------------------------------------------------------------
-
+# -------------------------------------------------------------
+#  BİTMİŞ MAÇ ANALİZİ
+# -------------------------------------------------------------
 def analyze_finished_games(games: List[NBAGameState]) -> str:
     if not games:
         return "Bugün bitmiş NBA maçı yok."
@@ -106,12 +100,15 @@ def analyze_finished_games(games: List[NBAGameState]) -> str:
             else:
                 winner = "Berabere"
 
-            line = f"- {g.home_team} {hs.pts} – {aw.pts} {g.away_team} (Kazanan: {winner})"
+            line = (
+                f"🏀 {g.home_team} ({hs.pts}) – {g.away_team} ({aw.pts}) "
+                f"(Kazan: {winner})"
+            )
             lines.append(line)
 
         else:
             lines.append(
-                f"- {g.home_team} vs {g.away_team} (detay bulunamadı)"
+                f"🏀 {g.home_team} vs {g.away_team} (Detay bulunamadı)"
             )
 
     return "\n".join(lines)
