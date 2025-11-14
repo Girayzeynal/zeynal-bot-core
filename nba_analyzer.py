@@ -19,7 +19,7 @@ def analyze_sim_results(results: list) -> str:
             f"\n🎯 Kazanma: {pick} (%{int(home_prob*100)})"
         )
 
-    return "\n".join(lines)"""
+    return "\n".join(lines)
 FAZ-4 – NBA Analyzer
 Bu dosya:
 - nba_fetcher'dan gelen NBAGameState verisini işler
