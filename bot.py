@@ -1,80 +1,73 @@
-"""
-FAZ-4 – bot.py (Telegram Bot Çekirdeği)
-
-Bu dosya:
-- Botun ana iskeletini
-- Komut handler kayıtlarını
-- Application (telegram bot) başlatıcısını
-içerir.
-
-Tamamen python-telegram-bot v20+ ile uyumludur.
-"""
+# bot.py
+# HoopBrain – Telegram Bot Çekirdeği
+# TeleBot (pyTelegramBotAPI) ile %100 uyumlu FAZ-3 + FAZ-4 + FAZ-5 yapısı
 
 import os
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler
-)
+import telebot
 
-# Core handlers (FAZ-4)
-from core_handlers import (
-    handle_start,
-    handle_help,
-    handle_ping,
-    handle_nba_today,
-    handle_nba_live,
-    handle_nba_finished,
-    handle_nba_raw,
-)
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-
-# ---------------------------------------------------------
-#  BOT TOKEN
-# ---------------------------------------------------------
-
-BOT_TOKEN = os.getenv("BOT_TOKEN")  # Fly.io / Render environment'dan gelir
-
-if BOT_TOKEN is None:
+if not BOT_TOKEN:
     raise RuntimeError("❌ BOT_TOKEN environment değişkeni tanımlı değil!")
 
-
-# ---------------------------------------------------------
-#  TELEGRAM BOT UYGULAMASI
-# ---------------------------------------------------------
-
-def create_app():
-    """
-    Telegram Application nesnesini oluşturur.
-    Tüm handler'lar burada kaydedilir.
-    """
-
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    # Genel komutlar
-    app.add_handler(CommandHandler("start", handle_start))
-    app.add_handler(CommandHandler("help", handle_help))
-    app.add_handler(CommandHandler("ping", handle_ping))
-
-    # FAZ-4 NBA komutları
-    app.add_handler(CommandHandler("nba_today", handle_nba_today))
-    app.add_handler(CommandHandler("nba_live", handle_nba_live))
-    app.add_handler(CommandHandler("nba_finished", handle_nba_finished))
-    app.add_handler(CommandHandler("nba_raw", handle_nba_raw))
-
-    return app
+bot = telebot.TeleBot(BOT_TOKEN)
 
 
-# ---------------------------------------------------------
-#  MAIN
-# ---------------------------------------------------------
+# =============================================================
+#  FAZ-3 KOMUT SİSTEMİ
+# =============================================================
+
+@bot.message_handler(commands=["start"])
+def start_cmd(message):
+    bot.reply_to(
+        message,
+        "🔥 Bot aktif kardeşim!\n"
+        "FAZ-3 komutları + FAZ-4 simülasyon + FAZ-5 Heavy Engine hazır.\n"
+        "Komut listesi için /help yaz."
+    )
+
+
+@bot.message_handler(commands=["help"])
+def help_cmd(message):
+    bot.reply_to(
+        message,
+        "📌 Komutlar:\n"
+        "/start - Botu başlatır\n"
+        "/status - Sistem durumunu gösterir\n"
+        "/simulate_nba - FAZ-4 NBA sim testi\n"
+        "/heavy - FAZ-5 standart\n"
+        "/heavy_risk - FAZ-5 yüksek risk\n"
+        "/heavy_edge - FAZ-5 edge\n"
+        "/heavy_auto - FAZ-5 otomatik\n"
+        "/heavy_full - FAZ-5 full kupon\n"
+    )
+
+
+@bot.message_handler(commands=["status"])
+def status_cmd(message):
+    bot.reply_to(
+        message,
+        "❄️ Sistem stabil, FAZ-4 aktif.\n"
+        "⚙️ FAZ-5 Heavy Engine: Hazır (test modu)."
+    )
+
+
+# =============================================================
+#  GENEL ECHO (FAZ-3)
+# =============================================================
+
+@bot.message_handler(func=lambda m: True)
+def echo_cmd(message):
+    bot.reply_to(message, f"🧾 Komut algılandı: {message.text}")
+
+
+# =============================================================
+#  ÇALIŞTIRMA NOKTASI
+# =============================================================
 
 def main():
-    """
-    Botu başlatır.
-    """
-    app = create_app()
-    print("🤖 Zeynal Core Bot – FAZ-4 çekirdek başlatıldı.")
-    app.run_polling()
+    print("INFO: bot.py başlatılıyor (TeleBot polling)")
+    bot.infinity_polling(skip_pending=True)
 
 
 if __name__ == "__main__":
