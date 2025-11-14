@@ -5,7 +5,7 @@
 import os
 import telebot
 
-from typing import List
+from typing import List, Optional
 from nba_fetcher import fetch_nba_live_games
 from nba_analyzer import analyze_live_games
 from nba_models import NBAGameState, NBATeamStatsLite
@@ -27,8 +27,8 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
     - Mevcut dummy istatistiklerden tahmini toplam skor ve tempo çıkarır.
     - Kimin daha güçlü göründüğüne göre pick yapar.
     """
-    hs: NBATeamStatsLite | None = game.home_stats
-    aw: NBATeamStatsLite | None = game.away_stats
+    hs: Optional[NBATeamStatsLite] = game.home_stats
+    aw: Optional[NBATeamStatsLite] = game.away_stats
 
     if not hs or not aw:
         return {
@@ -89,7 +89,7 @@ def simulate_nba(message):
             return
 
         # 2) Her maç için basit simülasyon
-        simulation_results: list[dict] = []
+        simulation_results: List[dict] = []
         for g in games:
             sim = _simple_sim_from_game(g)
             simulation_results.append(sim)
@@ -131,9 +131,14 @@ def simulate_nba(message):
 def start_cmd(message):
     bot.reply_to(message, "🔥 Bot aktif kardeşim. Devam ediyoruz!")
 
+
 @bot.message_handler(commands=["status"])
 def status_cmd(message):
-    bot.reply_to(message, "❄️ Sistem stabil. FAZ-3 aktif durumda.")
+    bot.reply_to(
+        message,
+        "🧊 Sistem stabil. FAZ-4 aktif durumda. (Crove v1.0 - Stabil Çekirdek)"
+    )
+
 
 @bot.message_handler(commands=["help"])
 def help_cmd(message):
@@ -167,7 +172,7 @@ def echo_all(message):
 # -------------------------------------------------------------
 
 def main():
-    print("INFO: Zeynal Core FAZ-3/FAZ-4 başlatılıyor...")
+    print("INFO: Zeynal Core FAZ-3/FAZ-4 (Crove v1.0) başlatılıyor...")
     bot.polling(non_stop=True, skip_pending=True, interval=0)
 
 
