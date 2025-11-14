@@ -1,36 +1,38 @@
 """
-FAZ-4 – NBA Analyzer (İskelet)
-
+FAZ-4 – NBA Analyzer
 Bu dosya:
-- nba_fetcher’dan gelen NBAGameState verisini alır
-- Basit analizler üretir
-- Telegram botun /nba_today ve /nba_live komutları için temiz metin döndürür
+- nba_fetcher'dan gelen NBAGameState verisini işler
+- Canlı maçlar için hızlı tempo + verimlilik analizi üretir
+- Biten maçlar için kısa özet çıkarır
+- /nba_today, /nba_live, /nba_finished komutları için temiz metin üretir
 """
 
 from typing import List
 from nba_models import NBAGameState, NBATeamStatsLite
 
 
-def analyze_scheduled_games(games: List[NBAGameState]) -> str:
-    """
-    Henüz başlamamış (scheduled) maçlar için basit özet.
-    İleride model skor tahmini eklenecek.
-    """
-    if not games:
-        return "Bugün NBA’de planlanan maç bulunmuyor."
+# ------------------------------------------------------------
+# PLANLANMIŞ (SCHEDULED) MAÇ ANALİZİ
+# ------------------------------------------------------------
 
-    lines = ["📅 *NBA – Bugünkü Maçlar*"]
+def analyze_scheduled_games(games: List[NBAGameState]) -> str:
+    if not games:
+        return "Bugün NBA'de planlanan maç bulunmuyor."
+
+    lines = ["🗓️ *NBA – Bugünkü Maçlar*"]
+
     for g in games:
-        line = f"• {g.home_team} vs {g.away_team} — Tipoff (UTC): {g.tipoff_utc.strftime('%H:%M')}"
+        line = f"- {g.home_team} vs {g.away_team} – Tipoff (UTC): {g.tipoff_utc.strftime('%H:%M')}"
         lines.append(line)
 
     return "\n".join(lines)
 
 
+# ------------------------------------------------------------
+# CANLI MAÇ ANALİZİ
+# ------------------------------------------------------------
+
 def analyze_live_games(games: List[NBAGameState]) -> str:
-    """
-    Canlı maçlar için skor + basit tempo analizi.
-    """
     if not games:
         return "Şu anda canlı NBA maçı bulunmuyor."
 
@@ -38,21 +40,34 @@ def analyze_live_games(games: List[NBAGameState]) -> str:
 
     for g in games:
         if g.home_stats and g.away_stats:
-            hs = g.home_stats
-            aw = g.away_stats
+            hs: NBATeamStatsLite = g.home_stats
+            aw: NBATeamStatsLite = g.away_stats
+
+            # Tempo tahmini (ortalama pace)
+            if hs.pace_est and aw.pace_est:
+                pace = round((hs.pace_est + aw.pace_est) / 2, 1)
+            else:
+                pace = "?"
+
             line = (
-                f"• {g.home_team} {hs.pts} – {aw.pts} {g.away_team} "
-                f"(Pace: {round((hs.pace_est + aw.pace_est) / 2, 1)})"
+                f"- {g.home_team} {hs.pts} – {aw.pts} {g.away_team} "
+                f"(Pace tahmini: {pace})"
             )
             lines.append(line)
+
         else:
-            lines.append(f"• {g.home_team} vs {g.away_team} (Skor verisi yükleniyor...)")
+            lines.append(
+                f"- {g.home_team} vs {g.away_team} (Canlı skor yükleniyor...)"
+            )
 
     return "\n".join(lines)
 
 
+# ------------------------------------------------------------
+# BİTMİŞ MAÇ ANALİZİ
+# ------------------------------------------------------------
+
 def analyze_finished_games(games: List[NBAGameState]) -> str:
-    """Bitmiş maçlar için basit özet."""
     if not games:
         return "Bugün bitmiş NBA maçı yok."
 
@@ -63,11 +78,19 @@ def analyze_finished_games(games: List[NBAGameState]) -> str:
         aw = g.away_stats
 
         if hs and aw:
-            winner = g.home_team if hs.pts > aw.pts else g.away_team
-            line = f"• {hs.pts}-{aw.pts} sonucu ile kazanan: {winner}"
-        else:
-            line = f"• {g.home_team} vs {g.away_team} (detay yok)"
+            if hs.pts > aw.pts:
+                winner = g.home_team
+            elif aw.pts > hs.pts:
+                winner = g.away_team
+            else:
+                winner = "Berabere"
 
-        lines.append(line)
+            line = f"- {g.home_team} {hs.pts} – {aw.pts} {g.away_team} (Kazanan: {winner})"
+            lines.append(line)
+
+        else:
+            lines.append(
+                f"- {g.home_team} vs {g.away_team} (detay bulunamadı)"
+            )
 
     return "\n".join(lines)
