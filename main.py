@@ -1,4 +1,12 @@
-from faz6_engine.faz6_engine_main import run_faz6_engine
+# === FAZ-6 TEST KOMUTU ===
+@bot.message_handler(commands=['faz6_test'])
+def faz6_test_command(message):
+    try:
+        from faz6_engine.faz6_engine_main import run_faz6_engine
+        result = run_faz6_engine()
+        bot.reply_to(message, f"FAZ-6 TEST BAŞARILI 🟢\n\n{result}")
+    except Exception as e:
+        bot.reply_to(message, f"FAZ-6 TEST HATASI ❌\n{str(e)}")from faz6_engine.faz6_engine_main import run_faz6_engine
 from faz5_engine.heavy_engine_main import run_heavy_engine
 
 import sys
