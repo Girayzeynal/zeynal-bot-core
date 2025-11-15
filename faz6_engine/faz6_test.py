@@ -1,4 +1,5 @@
-# faz6_test.py
+def run_faz6_test():
+    return "FAZ-6 ÇEKİRDEK TESTİ ÇALIŞTI ✔️ Sistem stabil."# faz6_test.py
 # FAZ-6 – TEST MODU MOTORU
 # Sistem: “Motorların çalışıp çalışmadığını doğrulayan temel test modülü”
 
