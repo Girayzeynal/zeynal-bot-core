@@ -6,13 +6,15 @@ from .faz6_core import (
     run_faz6_real,
 )
 
+from faz5_engine.heavy_engine_main import run_heavy_engine
+from faz6_engine.faz6_balance import FAZ6Balance
 
-def run_faz6_engine(mode: str = "test") -> str:
+
+def run_faz6_engine(mode: str = "test") -> dict:
     """
     Telegram için FAZ-6 metin çıktısını üreten ana fonksiyon.
-    main.py burayı çağırıyor.
     """
-
+    
     if mode == "test":
         data = run_faz6_test()
     elif mode == "auto":
@@ -23,8 +25,10 @@ def run_faz6_engine(mode: str = "test") -> str:
         data = run_faz6_edge()
     elif mode == "real":
         data = run_faz6_real()
+    elif mode == "balance":
+        balancer = FAZ6Balance()
+        data = balancer.run()
     else:
-        # bilinmeyen mod gelirse güvenli fallback
         data = run_faz6_test()
 
     score = data.get("score", 105)
@@ -32,14 +36,14 @@ def run_faz6_engine(mode: str = "test") -> str:
     mod = data.get("mod", mode)
 
     text = (
-        "🧠 FAZ-6 Engine Çalıştı!\n"
+        f"🧠 FAZ-6 Engine Çalıştı!\n"
         f"🎯 Tahmini Skor: {score}\n"
         f"🔐 Güven: {confidence}\n"
-        f"Mod: {mod}"
+        f"▶️ Mod: {mod}"
     )
+
     return text
 
 
-# Eski alışkanlıklar için kısayol (main.py 'run' ismini kullanıyorsa)
 def run(mode: str = "test") -> str:
     return run_faz6_engine(mode) 
