@@ -1,4 +1,5 @@
-# main.py
+# FAZ-6 Engine bağlantısı
+from faz6_engine.faz6_engine_main import run_faz6_engine# main.py
 # HoopBrain Core
 # FAZ-3 Komut Sistemi + FAZ-4 NBA Simülasyon Testi + FAZ-5 Heavy Engine Stabil Çekirdek
 
