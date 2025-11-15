@@ -1,4 +1,9 @@
-# faz6_engine_main.py
+def run_faz6_engine():
+    try:
+        from .faz6_test import run_faz6_test
+        return run_faz6_test()
+    except Exception as e:
+        return f"FAZ-6 TEST MODÜL HATASI: {str(e)}"# faz6_engine_main.py
 # FAZ-6 Ana Motor – tüm modları yöneten merkez
 
 from faz6_engine.faz6_test import run_faz6_test
