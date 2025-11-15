@@ -1,20 +1,20 @@
-from .faz6_core import (
-    run_faz6_test,
-    run_faz6_auto,
-    run_faz6_risk,
-    run_faz6_edge,
-    run_faz6_real,
-)
+from faz6_engine.faz6_core import FAZ6Core
+from faz6_engine.faz6_balance import run_faz6_balance
+from faz6_engine.faz6_test import run_faz6_test
+from faz6_engine.faz6_auto import run_faz6_auto
+from faz6_engine.faz6_risk import run_faz6_risk
+from faz6_engine.faz6_edge import run_faz6_edge
+from faz6_engine.faz6_real import run_faz6_real
 
-from faz5_engine.heavy_engine_main import run_heavy_engine
-from faz6_engine.faz6_balance import FAZ6Balance
+# =======================================================
+# FAZ-6 ENGINE ANA ÇAĞIRICI
+# =======================================================
 
-
-def run_faz6_engine(mode: str = "test") -> dict:
+def run_faz6_engine(mode: str = "test") -> str:
     """
-    Telegram için FAZ-6 metin çıktısını üreten ana fonksiyon.
+    Telegram için FAZ-6 motoru çıktı üreten fonksiyon.
     """
-    
+
     if mode == "test":
         data = run_faz6_test()
     elif mode == "auto":
@@ -26,8 +26,7 @@ def run_faz6_engine(mode: str = "test") -> dict:
     elif mode == "real":
         data = run_faz6_real()
     elif mode == "balance":
-        balancer = FAZ6Balance()
-        data = balancer.run()
+        data = run_faz6_balance()
     else:
         data = run_faz6_test()
 
@@ -36,14 +35,15 @@ def run_faz6_engine(mode: str = "test") -> dict:
     mod = data.get("mod", mode)
 
     text = (
-        f"🧠 FAZ-6 Engine Çalıştı!\n"
+        "🧠 *FAZ-6 Engine Çalıştı!*\n"
         f"🎯 Tahmini Skor: {score}\n"
         f"🔐 Güven: {confidence}\n"
-        f"▶️ Mod: {mod}"
+        f"📘 Mod: {mod}"
     )
 
     return text
 
 
+# Eski kullanım için kısayol
 def run(mode: str = "test") -> str:
-    return run_faz6_engine(mode) 
+    return run_faz6_engine(mode)
