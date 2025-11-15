@@ -1,49 +1,43 @@
-from faz6_engine.faz6_core import FAZ6Core
-from faz6_engine.faz6_balance import run_faz6_balance
+# faz6_engine_main.py  
+# FAZ-6 Merkezi Motor – tüm modülleri yönetir
+
+import time
+
+# Modüllerin import edilmesi
 from faz6_engine.faz6_test import run_faz6_test
-from faz6_engine.faz6_auto import run_faz6_auto
-from faz6_engine.faz6_risk import run_faz6_risk
-from faz6_engine.faz6_edge import run_faz6_edge
-from faz6_engine.faz6_real import run_faz6_real
+from faz6_engine.faz6_balance import run_faz6_balance
+from faz6_engine.optimizer import run_faz6_risk
 
-# =======================================================
-# FAZ-6 ENGINE ANA ÇAĞIRICI
-# =======================================================
 
-def run_faz6_engine(mode: str = "test") -> str:
+def run_faz6_engine(mode="test"):
     """
-    Telegram için FAZ-6 motoru çıktı üreten fonksiyon.
+    FAZ-6 Ana Motor
+    mode parametresi ile hangi alt modülün çalışacağı seçilir.
     """
+
+    print(f"FAZ-6 ENGINE BAŞLATILDI → mode={mode}")
 
     if mode == "test":
-        data = run_faz6_test()
-    elif mode == "auto":
-        data = run_faz6_auto()
-    elif mode == "risk":
-        data = run_faz6_risk()
-    elif mode == "edge":
-        data = run_faz6_edge()
-    elif mode == "real":
-        data = run_faz6_real()
+        print("TEST modu çalıştırılıyor...")
+        return run_faz6_test()
+
     elif mode == "balance":
-        data = run_faz6_balance()
+        print("BALANCE modu çalıştırılıyor...")
+        return run_faz6_balance()
+
+    elif mode == "risk":
+        print("RISK modu çalıştırılıyor...")
+        return run_faz6_risk()
+
     else:
-        data = run_faz6_test()
-
-    score = data.get("score", 105)
-    confidence = data.get("confidence", 0.25)
-    mod = data.get("mod", mode)
-
-    text = (
-        "🧠 *FAZ-6 Engine Çalıştı!*\n"
-        f"🎯 Tahmini Skor: {score}\n"
-        f"🔐 Güven: {confidence}\n"
-        f"📘 Mod: {mod}"
-    )
-
-    return text
+        print(f"Tanımsız mode alındı: {mode}")
+        return {"status": "error", "message": "Geçersiz mode", "timestamp": time.time()}
 
 
-# Eski kullanım için kısayol
-def run(mode: str = "test") -> str:
-    return run_faz6_engine(mode)
+def run():
+    """
+    Varsayılan çalıştırıcı.
+    Deploy sonrası sistem testi için FAZ-6 TEST modunu çağırır.
+    """
+    print("FAZ-6 varsayılan RUN fonksiyonu çalıştı.")
+    return run_faz6_engine("test")
