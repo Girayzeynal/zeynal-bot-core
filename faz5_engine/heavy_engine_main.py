@@ -1,12 +1,29 @@
 """
 FAZ-5 Heavy Engine Ana Modül
 Her mod çalıştırıldığında bu dosya devreye girer.
-MatchPack → EngineCore → EngineRouter zincirini yönetir.
+Bu sürüm FAZ-5’in bağımsız, sade, stabil çekirdeğidir.
 """
 
-from engine_core import EngineCore
-from engine_router import route_mode
-from match_pack import MatchPack, TeamPack
+import random
+import math
+
+
+class EngineCore:
+    """FAZ-5'in basit motor sınıfı."""
+    def evaluate_match(self, match, mode):
+        home, away = match
+        score_est = int((home["pts"] + away["pts"]) / 2)
+        pace = (home["pace"] + away["pace"]) / 2
+        power_diff = home["power"] - away["power"]
+
+        winner = home["code"] if power_diff >= 0 else away["code"]
+
+        return {
+            "score_est": score_est,
+            "pace": round(pace, 1),
+            "power_diff": power_diff,
+            "winner": winner
+        }
 
 
 def run_heavy_engine(mode="standard"):
@@ -14,27 +31,28 @@ def run_heavy_engine(mode="standard"):
     FAZ-5 motorunu seçilen moda göre çalıştırır.
     Dönüş: string (Telegram için hazır metin)
     """
+
     core = EngineCore()
-    mode_info = route_mode(mode)
 
     # Örnek dummy paket:
-    home = TeamPack(code="LAL", pts=110, pace=102, power=78)
-    away = TeamPack(code="BOS", pts=104, pace=99, power=75)
-    match = MatchPack(home, away)
+    home = {"code": "LAL", "pts": 110, "pace": 102, "power": 78}
+    away = {"code": "BOS", "pts": 104, "pace": 99, "power": 75}
 
-    result = core.evaluate_match(match, mode_info)
+    match = (home, away)
+
+    result = core.evaluate_match(match, mode)
 
     text = f"""
-🔥 *FAZ-5 Heavy Engine Çalıştırıldı*
-🎯 Mod: {mode}
-————————————
-🏀 {home.code} vs {away.code}
-📊 Tahmini Skor: {result['score_est']}
-⚡ Tempo (Pace): {result['pace']}
-🎯 Güç Dengesi: {result['power_diff']}
+🛡 *FAZ-5 Heavy Engine Çalıştırıldı*
+
+🏀 {home['code']} vs {away['code']}
+
+🎯 Tahmini Skor: {result['score_est']}
+⏱ Tempo (Pace): {result['pace']}
+💪 Güç Dengesi: {result['power_diff']}
 🏆 Tahmini Kazanan: {result['winner']}
-————————————
 """
+
     return text
 
 
@@ -43,4 +61,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main() 
