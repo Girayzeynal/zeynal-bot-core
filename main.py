@@ -1,4 +1,8 @@
-# FAZ-6 Engine bağlantısı
+# FAZ-6 Test komutu
+@bot.message_handler(commands=["faz6_test"])
+def faz6_test_cmd(message):
+    text = run_faz6_engine(mode="test")
+    bot.reply_to(message, text, parse_mode="Markdown")# FAZ-6 Engine bağlantısı
 from faz6_engine.faz6_engine_main import run_faz6_engine# main.py
 # HoopBrain Core
 # FAZ-3 Komut Sistemi + FAZ-4 NBA Simülasyon Testi + FAZ-5 Heavy Engine Stabil Çekirdek
