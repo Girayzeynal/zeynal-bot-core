@@ -1,43 +1,43 @@
-# faz6_engine_main.py  
-# FAZ-6 Merkezi Motor – tüm modülleri yönetir
+# faz6_engine_main.py
+# FAZ-6 Ana Motor – tüm modları yöneten merkez
 
-import time
-
-# Modüllerin import edilmesi
 from faz6_engine.faz6_test import run_faz6_test
 from faz6_engine.faz6_balance import run_faz6_balance
 from faz6_engine.optimizer import run_faz6_risk
 
-
-def run_faz6_engine(mode="test"):
+def run_faz6_engine(mode: str = "test", context: dict = None) -> dict:
     """
-    FAZ-6 Ana Motor
-    mode parametresi ile hangi alt modülün çalışacağı seçilir.
+    FAZ-6'nın tüm modlarını yöneten ana motor.
+    Mode seçenekleri:
+      - test
+      - balance
+      - risk
     """
 
-    print(f"FAZ-6 ENGINE BAŞLATILDI → mode={mode}")
+    if context is None:
+        context = {}
 
+    # TEST MODU
     if mode == "test":
-        print("TEST modu çalıştırılıyor...")
-        return run_faz6_test()
+        return run_faz6_test(context)
 
-    elif mode == "balance":
-        print("BALANCE modu çalıştırılıyor...")
-        return run_faz6_balance()
+    # BALANCE MODU
+    if mode == "balance":
+        return run_faz6_balance(context)
 
-    elif mode == "risk":
-        print("RISK modu çalıştırılıyor...")
-        return run_faz6_risk()
+    # RISK MODU
+    if mode == "risk":
+        return run_faz6_risk(context)
 
-    else:
-        print(f"Tanımsız mode alındı: {mode}")
-        return {"status": "error", "message": "Geçersiz mode", "timestamp": time.time()}
+    # BİLİNMEYEN MOD — güvenlik
+    return {
+        "status": "error",
+        "msg": f"Bilinmeyen FAZ-6 modu: {mode}"
+    }
 
-
-def run():
+# Telegram tarafından çağrılan ana fonksiyon
+def run(context: dict) -> dict:
     """
-    Varsayılan çalıştırıcı.
-    Deploy sonrası sistem testi için FAZ-6 TEST modunu çağırır.
+    Ana entrypoint — varsayılan olarak test modunu çalıştırır.
     """
-    print("FAZ-6 varsayılan RUN fonksiyonu çalıştı.")
-    return run_faz6_engine("test")
+    return run_faz6_engine("test", context) 
