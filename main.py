@@ -171,7 +171,17 @@ from faz6_engine.faz6_engine_main import run_faz6_engine
 
 @bot.message_handler(commands=["faz6_test"])
 def faz6_test_cmd(message):
-    bot.reply_to(message, run_faz6_engine(mode="test"))
+    try:
+        result = run_faz6_engine(mode="test")
+        bot.reply_to(
+            message,
+            f"🧪 FAZ-6 TEST SONUCU:\n\n{result}"
+        )
+    except Exception as e:
+        bot.reply_to(
+            message,
+            f"❌ FAZ-6 TEST HATASI:\n\n{e}"
+        )
 
 @bot.message_handler(commands=["faz6_auto"])
 def faz6_auto_cmd(message):
@@ -202,4 +212,4 @@ def main():
     bot.infinity_polling(skip_pending=True)
 
 if __name__ == "__main__":
-    main()
+    main() 
