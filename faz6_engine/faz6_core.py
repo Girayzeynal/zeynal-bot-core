@@ -29,10 +29,10 @@ class FAZ6Core:
 
 
 # =====================================================
-#                FAZ-6 MODLARI (TEST / AUTO / RISK / EDGE / REAL)
+#      FAZ-6 MODLARI (TEST / AUTO / RISK / EDGE / REAL)
 # =====================================================
 
-def _std_ok(module: str, score: int, conf: float, mod: str, extra=None):
+def _std_ok(module: str, score: int, conf: float, mod: str, extra=None) -> dict:
     """Tüm modların ortak JSON protokolü."""
     return {
         "status": "ok",
@@ -40,7 +40,7 @@ def _std_ok(module: str, score: int, conf: float, mod: str, extra=None):
         "score": score,
         "confidence": conf,
         "mod": mod,
-        "context": extra or {}
+        "context": extra or {},
     }
 
 
