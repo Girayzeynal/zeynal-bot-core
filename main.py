@@ -1,37 +1,23 @@
 import sys
 import os
-import logging
 from typing import List
 from telebot import TeleBot
 
-# ===============================
-#  LOG AYARLARI
-# ===============================
-
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-
-logging.basicConfig(
-    level=getattr(logging, LOG_LEVEL, logging.INFO),
-    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-)
-logger = logging.getLogger("zeynal_bot_core")
-
-# ===============================
-#  BOT AYARLARI
-# ===============================
+# ============================================================
+#                     BOT AYARLARI
+# ============================================================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
-    logger.error("BOT_TOKEN ortam değişkeni tanımlı değil. Çıkılıyor.")
     print("ERROR: BOT_TOKEN ortam değişkeni tanımlı değil.")
     sys.exit(1)
 
 bot = TeleBot(BOT_TOKEN)
-logger.info("TeleBot örneği oluşturuldu.")
 
-# ===============================
-#  FAZ-4 NBA SİMÜLASYON MOTORU
-# ===============================
+
+# ============================================================
+#            FAZ-4 NBA SİMÜLASYON MOTORU
+# ============================================================
 
 from nba_fetcher import fetch_nba_live_games
 from nba_analyzer import analyze_live_games
@@ -39,20 +25,10 @@ from nba_models import NBAGameState
 
 
 def _simple_sim_from_game(game: NBAGameState) -> dict:
-    """
-    FAZ-4 basit simülasyon çekirdeği.
-    Burada kasıtlı olarak model sade tutuluyor; FAZ-5 / FAZ-6 tarafı
-    heavy engine ile daha karmaşık hale gelecek.
-    """
     hs = game.home_stats
     aw = game.away_stats
 
     if not hs or not aw:
-        logger.warning(
-            "Eksik istatistik verisi nedeniyle basit sim yapılmadı: %s vs %s",
-            game.home_team,
-            game.away_team,
-        )
         return {
             "home": game.home_team,
             "away": game.away_team,
@@ -62,15 +38,12 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
             "confidence": 0.0,
         }
 
-    # Toplam skor tahmini (çok basit, FAZ-4)
     score_est = hs.pts + aw.pts
 
-    # Pace tahmini
-    home_pace = hs.pace_est if getattr(hs, "pace_est", None) is not None else 0
-    away_pace = aw.pace_est if getattr(aw, "pace_est", None) is not None else 0
-    pace_est = round((home_pace + away_pace) / 2, 1) if (home_pace or away_pace) else 0.0
+    home_pace = hs.pace_est if hs.pace_est is not None else 0
+    away_pace = aw.pace_est if aw.pace_est is not None else 0
+    pace_est = round((home_pace + away_pace) / 2, 1)
 
-    # Fark ve kazanan tahmini
     diff = hs.pts - aw.pts
     if diff > 0:
         pick = game.home_team
@@ -80,12 +53,9 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
         pick = "DENGELİ"
 
     from math import fabs
+    confidence = max(0.5, min(0.99, fabs(diff) / 20.0))
 
-    # Güven skoru (çok kaba FAZ-4 modeli; 0.50 - 0.99 aralığına sıkıştırılmış)
-    raw_conf = fabs(diff) / 20.0
-    confidence = max(0.5, min(0.99, raw_conf))
-
-    result = {
+    return {
         "home": game.home_team,
         "away": game.away_team,
         "score_est": round(score_est, 1),
@@ -94,48 +64,61 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
         "confidence": round(confidence, 2),
     }
 
-    logger.debug(
-        "Basit sim sonucu | %s vs %s | pick=%s | conf=%.2f",
-        result["home"],
-        result["away"],
-        result["pick"],
-        result["confidence"],
-    )
 
-    return result
+# ============================================================
+#             FAZ-6 ÇIKTISI TELEGRAM FORMATLAYICI
+# ============================================================
+
+def format_faz6_message(result: dict) -> str:
+    # Hata varsa direkt yaz
+    if result.get("status") != "ok":
+        return f"❌ *FAZ-6 HATA*\n{result.get('detail')}"
+
+    mode = result.get("mode", "").upper()
+    output = result.get("result", {})
+    preds = output.get("predictions") or output.get("portfolio") or []
+
+    text = f"🧠 *FAZ-6 {mode} SONUCU*\n\n"
+
+    # Prediction'ları kısa ve temiz formatta yaz
+    for p in preds:
+        text += (
+            f"📌 {p.get('id')}\n"
+            f"🎯 {p.get('pick')} ({p.get('market')})\n"
+            f"📈 Güven: {p.get('confidence')} | Edge: {p.get('edge')}\n"
+            f"💰 Stake: {p.get('recommended_stake')}\n"
+            f"— — —\n"
+        )
+
+    # Telegram 4096 karakter sınırına göre kırp
+    if len(text) > 3800:
+        text = text[:3800] + "\n… (çıktı kısaltıldı)"
+
+    return text
 
 
-# ===============================
-#  FAZ-3 TELEGRAM KOMUT SİSTEMİ
-# ===============================
-
+# ============================================================
+#              FAZ-3 TELEGRAM KOMUT SİSTEMİ
+# ============================================================
 
 @bot.message_handler(commands=["start"])
 def start_cmd(message):
-    try:
-        logger.info("Kullanıcı /start komutunu çalıştırdı. chat_id=%s", message.chat.id)
-        bot.reply_to(
-            message,
-            "🔥 Bot aktif!\n"
-            "FAZ-3 + FAZ-4 + FAZ-5 + FAZ-6 hazır durumda.\n"
-            "Komut listesi için /help yaz."
-        )
-    except Exception as e:
-        logger.exception("start_cmd sırasında hata: %s", e)
-        bot.reply_to(message, "❌ /start sırasında beklenmeyen bir hata oluştu.")
+    bot.reply_to(
+        message,
+        "🔥 Bot aktif!\nFAZ-3 + FAZ-4 + FAZ-5 + FAZ-6 bağlı.\nKomut listesi için /help yaz."
+    )
 
 
 @bot.message_handler(commands=["help"])
 def help_cmd(message):
-    try:
-        logger.info("Kullanıcı /help komutunu çalıştırdı. chat_id=%s", message.chat.id)
-        bot.reply_to(
-            message,
-            """
+    bot.reply_to(
+        message,
+        """
 📌 Komutlar:
 
 /start - Botu başlatır
 /status - Sistemi gösterir
+
 /simulate_nba - NBA canlı simülasyon
 
 /heavy - FAZ-5 Standart
@@ -151,204 +134,120 @@ def help_cmd(message):
 /faz6_real - FAZ-6 Real
 /faz6_balance - FAZ-6 Balance
 """
-        )
-    except Exception as e:
-        logger.exception("help_cmd sırasında hata: %s", e)
-        bot.reply_to(message, "❌ /help sırasında beklenmeyen bir hata oluştu.")
+    )
 
 
 @bot.message_handler(commands=["status"])
 def status_cmd(message):
-    try:
-        logger.info("Kullanıcı /status komutunu çalıştırdı. chat_id=%s", message.chat.id)
-        # Buraya ileride FAZ-4 / FAZ-5 / FAZ-6 health-check sonuçları eklenebilir.
-        bot.reply_to(
-            message,
-            "🟢 Sistem stabil.\n"
-            "FAZ-4 aktif.\nFAZ-5 hazır.\nFAZ-6 tam bağlı."
-        )
-    except Exception as e:
-        logger.exception("status_cmd sırasında hata: %s", e)
-        bot.reply_to(message, "❌ /status sırasında beklenmeyen bir hata oluştu.")
+    bot.reply_to(
+        message,
+        "🟢 Sistem stabil.\nFAZ-4 aktif.\nFAZ-5 bağlı.\nFAZ-6 tam online."
+    )
 
 
-# ===============================
-#  FAZ-4 NBA SİMÜLASYON
-# ===============================
-
+# ============================================================
+#                       FAZ-4 NBA
+# ============================================================
 
 @bot.message_handler(commands=["simulate_nba"])
 def simulate_nba_cmd(message):
-    logger.info("Kullanıcı /simulate_nba komutunu çalıştırdı. chat_id=%s", message.chat.id)
     bot.send_message(message.chat.id, "🏀 Simülasyon başlatılıyor...")
 
-    try:
-        games: List[NBAGameState] = fetch_nba_live_games()
-        logger.info("NBA canlı maç sayısı: %d", len(games) if games else 0)
+    games: List[NBAGameState] = fetch_nba_live_games()
+    if not games:
+        bot.send_message(message.chat.id, "Canlı NBA verisi bulunamadı.")
+        return
 
-        if not games:
-            bot.send_message(message.chat.id, "Canlı maç verisi bulunamadı.")
-            return
+    results = [_simple_sim_from_game(g) for g in games]
+    analysis = analyze_live_games(games)
 
-        simulation_results = []
-        for g in games:
-            try:
-                sim_res = _simple_sim_from_game(g)
-                simulation_results.append(sim_res)
-            except Exception as e:
-                logger.exception(
-                    "Tekil maç simülasyonunda hata: %s vs %s | hata=%s",
-                    getattr(g, "home_team", "?"),
-                    getattr(g, "away_team", "?"),
-                    e,
-                )
-
-        # FAZ-4 ham analiz
-        try:
-            analysis_text = analyze_live_games(games)
-        except Exception as e:
-            logger.exception("analyze_live_games sırasında hata: %s", e)
-            analysis_text = "Analiz sırasında hata oluştu, ham FAZ-4 analizi getirilemedi."
-
-        reply = "📊 *FAZ-4 NBA Simülasyon Sonuçları*\n\n"
-        for r in simulation_results:
-            reply += f"🏠 {r['home']} vs 🛫 {r['away']}\n"
-            if r["score_est"] is not None:
-                reply += f"📈 Tahmini Skor: {r['score_est']}\n"
-            else:
-                reply += "📈 Tahmini Skor: YOK (eksik veri)\n"
-            reply += f"⏱ Tempo: {r['pace_est']}\n"
-            reply += f"🎯 Kazanan: {r['pick']} ({int(r['confidence'] * 100)}%)\n\n"
-
-        reply += "🧠 Ham Analiz:\n" + analysis_text
-
-        bot.send_message(message.chat.id, reply, parse_mode="Markdown")
-    except Exception as e:
-        logger.exception("simulate_nba_cmd genel hata: %s", e)
-        bot.send_message(
-            message.chat.id,
-            "❌ /simulate_nba sırasında beklenmeyen bir hata oluştu."
+    reply = "📊 *NBA Simülasyon Sonuçları*\n\n"
+    for r in results:
+        reply += (
+            f"🏠 {r['home']} vs ✈️ {r['away']}\n"
+            f"📈 Tahmini Skor: {r['score_est']}\n"
+            f"⏱ Tempo: {r['pace_est']}\n"
+            f"🎯 Kazanan: {r['pick']} ({int(r['confidence'] * 100)}%)\n\n"
         )
 
+    reply += "🧠 Ham Analiz:\n" + analysis
 
-# ===============================
-#  FAZ-5 HEAVY ENGINE
-# ===============================
+    bot.send_message(message.chat.id, reply, parse_mode="Markdown")
+
+
+# ============================================================
+#                       FAZ-5 ENGINE
+# ============================================================
 
 from faz5_engine.heavy_engine_main import run_heavy_engine
 
-
-def _run_heavy_safe(message, mode: str):
-    logger.info("FAZ-5 heavy_engine çağrısı: mode=%s | chat_id=%s", mode, message.chat.id)
-    try:
-        result = run_heavy_engine(mode=mode)
-        bot.reply_to(message, result)
-    except Exception as e:
-        logger.exception("run_heavy_engine(%s) sırasında hata: %s", mode, e)
-        bot.reply_to(
-            message,
-            f"❌ FAZ-5 ({mode}) çalıştırılırken hata oluştu.\n\n{e}"
-        )
-
-
 @bot.message_handler(commands=["heavy"])
 def heavy_cmd(message):
-    _run_heavy_safe(message, mode="standard")
-
+    bot.reply_to(message, run_heavy_engine(mode="standard"))
 
 @bot.message_handler(commands=["heavy_risk"])
 def heavy_risk_cmd(message):
-    _run_heavy_safe(message, mode="risk")
-
+    bot.reply_to(message, run_heavy_engine(mode="risk"))
 
 @bot.message_handler(commands=["heavy_edge"])
 def heavy_edge_cmd(message):
-    _run_heavy_safe(message, mode="edge")
-
+    bot.reply_to(message, run_heavy_engine(mode="edge"))
 
 @bot.message_handler(commands=["heavy_auto"])
 def heavy_auto_cmd(message):
-    _run_heavy_safe(message, mode="auto")
-
+    bot.reply_to(message, run_heavy_engine(mode="auto"))
 
 @bot.message_handler(commands=["heavy_full"])
 def heavy_full_cmd(message):
-    _run_heavy_safe(message, mode="full")
+    bot.reply_to(message, run_heavy_engine(mode="full"))
 
 
-# ===============================
-#  FAZ-6 ENGINE KOMUTLARI
-# ===============================
+# ============================================================
+#                       FAZ-6 ENGINE
+# ============================================================
 
 from faz6_engine.faz6_engine_main import run_faz6_engine
 
 
-def _run_faz6_safe(message, mode: str, label: str):
-    logger.info("FAZ-6 engine çağrısı: mode=%s | chat_id=%s", mode, message.chat.id)
-    try:
-        result = run_faz6_engine(mode=mode)
-        prefix = f"{label} SONUCU:" if label else "FAZ-6 SONUCU:"
-        bot.reply_to(
-            message,
-            f"🧠 {prefix}\n\n{result}"
-        )
-    except Exception as e:
-        logger.exception("run_faz6_engine(%s) sırasında hata: %s", mode, e)
-        bot.reply_to(
-            message,
-            f"❌ FAZ-6 ({mode}) sırasında hata oluştu.\n\n{e}"
-        )
+def _run_faz6_and_reply(message, mode: str):
+    result = run_faz6_engine(mode=mode)
+    msg = format_faz6_message(result)
+    bot.reply_to(message, msg, parse_mode="Markdown")
 
 
 @bot.message_handler(commands=["faz6_test"])
 def faz6_test_cmd(message):
-    _run_faz6_safe(message, mode="test", label="FAZ-6 TEST")
-
+    _run_faz6_and_reply(message, "test")
 
 @bot.message_handler(commands=["faz6_auto"])
 def faz6_auto_cmd(message):
-    _run_faz6_safe(message, mode="auto", label="FAZ-6 AUTO")
-
+    _run_faz6_and_reply(message, "auto")
 
 @bot.message_handler(commands=["faz6_risk"])
 def faz6_risk_cmd(message):
-    _run_faz6_safe(message, mode="risk", label="FAZ-6 RISK")
-
+    _run_faz6_and_reply(message, "risk")
 
 @bot.message_handler(commands=["faz6_edge"])
 def faz6_edge_cmd(message):
-    _run_faz6_safe(message, mode="edge", label="FAZ-6 EDGE")
-
+    _run_faz6_and_reply(message, "edge")
 
 @bot.message_handler(commands=["faz6_real"])
 def faz6_real_cmd(message):
-    _run_faz6_safe(message, mode="real", label="FAZ-6 REAL")
-
+    _run_faz6_and_reply(message, "real")
 
 @bot.message_handler(commands=["faz6_balance"])
 def faz6_balance_cmd(message):
-    _run_faz6_safe(message, mode="balance", label="FAZ-6 BALANCE")
+    _run_faz6_and_reply(message, "balance")
 
 
-# ===============================
-#  ÇALIŞTIRMA NOKTASI
-# ===============================
-
+# ============================================================
+#                      ÇALIŞTIRMA NOKTASI
+# ============================================================
 
 def main():
-    logger.info("Bot başlatılıyor. Tüm motorlar aktif edilmeye hazırlanıyor...")
-    print("INFO: Tüm motorlar aktif. Bot başlatılıyor...")
-
-    try:
-        # İleride buraya FAZ-4/5/6 self-check adımları eklenebilir.
-        bot.infinity_polling(skip_pending=True)
-    except KeyboardInterrupt:
-        logger.warning("KeyboardInterrupt alındı, bot durduruluyor...")
-        print("Bot manuel olarak durduruldu.")
-    except Exception as e:
-        logger.exception("Bot ana döngüsünde kritik hata: %s", e)
-        print(f"CRITICAL: Bot ana döngüsünde hata oluştu: {e}")
+    print("INFO: Bot başlatıldı. Tüm motorlar aktif.")
+    bot.infinity_polling(skip_pending=True)
 
 
 if __name__ == "__main__":
-    main() 
+    main()
