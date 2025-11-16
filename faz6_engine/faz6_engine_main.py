@@ -15,7 +15,7 @@ class FAZ6Core:
 
     def analyze(self, stats: dict) -> dict:
         """
-        Temel tahmin fonksiyonu.
+        Temel tahmin fonksiyonu (FAZ-6 ortak çekirdeği).
         """
         base = self.brain.simple_predict(stats)
         return base
@@ -29,11 +29,13 @@ class FAZ6Core:
 
 
 # =====================================================
-#                FAZ-6 MODLARI (TEST / AUTO / RISK / EDGE / REAL)
+#       FAZ-6 MODLARI – Standart JSON Protokolü
 # =====================================================
 
 def _std_ok(module: str, score: int, conf: float, mod: str, extra=None):
-    """Tüm modların ortak JSON protokolü."""
+    """
+    Tüm FAZ-6 modları için ortak JSON dönüş protokolü.
+    """
     return {
         "status": "ok",
         "module": module,
@@ -44,12 +46,17 @@ def _std_ok(module: str, score: int, conf: float, mod: str, extra=None):
     }
 
 
+# =====================================================
+#                  MOD: TEST
+# =====================================================
+
 def run_faz6_test() -> dict:
     """
-    FAZ-6 TEST modu
+    FAZ-6 TEST modu – düşük risk, sade tahmin
     """
     core = FAZ6Core()
     stats = {"pts": 105, "pace": 97, "power": 0.25}
+
     result = core.analyze(stats)
 
     score = result.get("score", 105)
@@ -58,9 +65,13 @@ def run_faz6_test() -> dict:
     return _std_ok("FAZ-6 TEST", score, conf, "test")
 
 
+# =====================================================
+#                  MOD: AUTO
+# =====================================================
+
 def run_faz6_auto() -> dict:
     """
-    Otomatik öğrenme modu
+    FAZ-6 AUTO – otomatik öğrenme modu
     """
     core = FAZ6Core()
     stats = {"pts": 108, "pace": 99, "power": 0.45}
@@ -74,9 +85,13 @@ def run_faz6_auto() -> dict:
     return _std_ok("FAZ-6 AUTO", score, conf, "auto")
 
 
+# =====================================================
+#                  MOD: RISK
+# =====================================================
+
 def run_faz6_risk() -> dict:
     """
-    Yüksek risk modu
+    Yüksek risk modu – agresif tahmin
     """
     core = FAZ6Core()
     stats = {"pts": 112, "pace": 103, "power": 0.65}
@@ -88,6 +103,10 @@ def run_faz6_risk() -> dict:
 
     return _std_ok("FAZ-6 RISK", score, conf, "risk")
 
+
+# =====================================================
+#                  MOD: EDGE
+# =====================================================
 
 def run_faz6_edge() -> dict:
     """
@@ -104,6 +123,10 @@ def run_faz6_edge() -> dict:
     return _std_ok("FAZ-6 EDGE", score, conf, "edge")
 
 
+# =====================================================
+#                  MOD: REAL
+# =====================================================
+
 def run_faz6_real() -> dict:
     """
     Gerçek maç tahmin modu (REAL)
@@ -117,4 +140,4 @@ def run_faz6_real() -> dict:
     score = base.get("score", 107)
     conf = adj.get("conf", 0.45)
 
-    return _std_ok("FAZ-6 REAL", score, conf, "real")
+    return _std_ok("FAZ-6 REAL", score, conf, "real") 
