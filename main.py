@@ -1,6 +1,9 @@
 import sys
 import os
+import time
 from typing import List
+from threading import Thread
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from telebot import TeleBot
 
 # ============================================================
@@ -12,7 +15,7 @@ if not BOT_TOKEN:
     print("ERROR: BOT_TOKEN ortam değişkeni tanımlı değil.")
     sys.exit(1)
 
-bot = TeleBot(BOT_TOKEN, parse_mode="Markdown")
+bot = TeleBot(BOT_TOKEN)
 
 # ============================================================
 #            FAZ-4 NBA SİMÜLASYON MOTORU
@@ -38,12 +41,18 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
         }
 
     score_est = hs.pts + aw.pts
-    home_pace = hs.pace_est if hs.pace_est else 0
-    away_pace = aw.pace_est if aw.pace_est else 0
+
+    home_pace = hs.pace_est if hs.pace_est is not None else 0
+    away_pace = aw.pace_est if aw.pace_est is not None else 0
     pace_est = round((home_pace + away_pace) / 2, 1)
 
     diff = hs.pts - aw.pts
-    pick = game.home_team if diff > 0 else game.away_team if diff < 0 else "DENGELİ"
+    if diff > 0:
+        pick = game.home_team
+    elif diff < 0:
+        pick = game.away_team
+    else:
+        pick = "DENGELİ"
 
     from math import fabs
     confidence = max(0.5, min(0.99, fabs(diff) / 20.0))
@@ -63,12 +72,19 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
 # ============================================================
 
 def format_faz6_message(result: dict) -> str:
+    """
+    run_faz6_engine çıktısını Telegram mesajına çevirir.
+    Hata varsa artık 'None' yerine gerçek sebebi gösterir.
+    """
     if not isinstance(result, dict):
         return f"❌ *FAZ-6 HATA*\nGeçersiz sonuç tipi: {type(result).__name__}"
 
     status = result.get("status", "ok")
     if status != "ok":
-        detail = result.get("detail", repr(result))
+        detail = result.get("detail")
+        # detail yoksa tüm sözlüğü göster (debug için)
+        if not detail:
+            detail = f"Detay yok. Ham sonuç: {repr(result)}"
         return f"❌ *FAZ-6 HATA*\n{detail}"
 
     mode = result.get("mode", "").upper()
@@ -86,6 +102,7 @@ def format_faz6_message(result: dict) -> str:
             f"— — —\n"
         )
 
+    # Telegram 4096 karakter sınırı için güvenlik payı
     if len(text) > 3800:
         text = text[:3800] + "\n… (çıktı kısaltıldı)"
 
@@ -168,7 +185,7 @@ def simulate_nba_cmd(message):
 
     reply += "🧠 Ham Analiz:\n" + analysis
 
-    bot.send_message(message.chat.id, reply)
+    bot.send_message(message.chat.id, reply, parse_mode="Markdown")
 
 
 # ============================================================
@@ -212,6 +229,10 @@ from faz6_engine.faz6_coupon import build_coupon_message
 
 
 def safe_run_faz6_engine(mode: str) -> dict:
+    """
+    Her türlü hatayı yakalayıp anlamlı dict dönen güvenli wrapper.
+    İçerideki gerçek run_faz6_engine'e dokunmuyor.
+    """
     try:
         result = _raw_run_faz6_engine(mode=mode)
         if not isinstance(result, dict):
@@ -221,12 +242,13 @@ def safe_run_faz6_engine(mode: str) -> dict:
                 "raw": result,
             }
 
+        # 'status' alanı yoksa varsayılan olarak 'ok' kabul et
         if "status" not in result:
             result = {"status": "ok", **result}
 
         return result
-
     except Exception as e:
+        # Artık 'None' yerine gerçek exception görünecek
         return {
             "status": "error",
             "detail": f"FAZ-6 motor exception: {repr(e)}",
@@ -236,7 +258,7 @@ def safe_run_faz6_engine(mode: str) -> dict:
 def _run_faz6_and_reply(message, mode: str):
     result = safe_run_faz6_engine(mode=mode)
     msg = format_faz6_message(result)
-    bot.reply_to(message, msg)
+    bot.reply_to(message, msg, parse_mode="Markdown")
 
 
 @bot.message_handler(commands=["faz6_test"])
@@ -269,26 +291,25 @@ def faz6_balance_cmd(message):
     _run_faz6_and_reply(message, "balance")
 
 
+# ============================================================
+#                    FAZ-6 KUPON (3 Kupon)
+# ============================================================
+
 @bot.message_handler(commands=["faz6_coupon"])
 def faz6_coupon_cmd(message):
-    result = safe_run_faz6_engine("balance")
+    result = safe_run_faz6_engine(mode="balance")
     msg = build_coupon_message(result, max_coupons=3)
-    bot.reply_to(message, msg)
+    bot.reply_to(message, msg, parse_mode="Markdown")
 
 
 # ============================================================
-#               FLY.IO HEALTHCHECK SERVER (8080)
+#                FLY.IO HEALTHCHECK SERVER
 # ============================================================
-
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from threading import Thread
-import time
-
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
-        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"OK")
 
@@ -300,28 +321,40 @@ def start_health_server():
 
 
 # ============================================================
-#                   ÇALIŞTIRMA NOKTASI
+#                    BOT POLLING LOOP
 # ============================================================
 
-def start_polling():
-    print("INFO: Telegram polling başlatıldı.")
-    bot.infinity_polling(skip_pending=True, timeout=30)
+def start_bot():
+    """
+    TeleBot infinity_polling için auto-restart loop.
+    Ağ hatası vs olursa 3 saniye bekleyip tekrar dener.
+    """
+    while True:
+        try:
+            print("INFO: Telegram bot polling başlıyor...")
+            bot.infinity_polling(
+                skip_pending=True,
+                timeout=60,
+                long_polling_timeout=60,
+            )
+        except Exception as e:
+            print(f"ERROR: Polling hata verdi: {e!r}")
+            time.sleep(3)
 
+
+# ============================================================
+#                      ÇALIŞTIRMA NOKTASI
+# ============================================================
 
 def main():
-    print("INFO: Bot başlatılıyor...")
+    print("INFO: Bot başlatıldı. Tüm motorlar aktif.")
 
-    # Health server thread
+    # Health server'i ayrı thread'de başlat
     health_thread = Thread(target=start_health_server, daemon=True)
     health_thread.start()
 
-    # Telegram polling ayrı thread
-    polling_thread = Thread(target=start_polling, daemon=True)
-    polling_thread.start()
-
-    # Ana thread kapanmasın
-    while True:
-        time.sleep(5)
+    # Bot loop'u ana thread'de çalışsın
+    start_bot()
 
 
 if __name__ == "__main__":
