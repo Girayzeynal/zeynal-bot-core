@@ -1,16 +1,17 @@
 class MLBrain:
     """
-    FAZ-6 yapay zekâ beyni.
-    Bu versiyon temel matematiktir — gerçek model sonraki adımlarda gelir.
+    FAZ-6 için basit tahmin beyni.
+    Şimdilik dummy hesap, ileride gerçek modelle değiştirilebilir.
     """
-
     def simple_predict(self, stats: dict) -> dict:
-        try:
-            score = stats.get("home_pts", 50) + stats.get("away_pts", 50)
-            confidence = min(0.99, abs(stats.get("home_pts", 0) - stats.get("away_pts", 0)) / 20)
-            return {
-                "predicted_score": score,
-                "confidence": round(confidence, 2)
-            }
-        except:
-            return {"predicted_score": None, "confidence": 0.0} 
+        pts = float(stats.get("pts", 100))
+        pace = float(stats.get("pace", 100))
+        power = float(stats.get("power", 0.5))
+
+        score = pts * (pace / 100.0) * (0.9 + power * 0.2)
+        conf = 0.30 + power * 0.4
+
+        return {
+            "score": int(round(score)),
+            "conf": float(round(conf, 2)),
+        } 
