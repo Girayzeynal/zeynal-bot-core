@@ -14,7 +14,6 @@ if not BOT_TOKEN:
 
 bot = TeleBot(BOT_TOKEN)
 
-
 # ============================================================
 #            FAZ-4 NBA SİMÜLASYON MOTORU
 # ============================================================
@@ -39,6 +38,7 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
         }
 
     score_est = hs.pts + aw.pts
+
     home_pace = hs.pace_est if hs.pace_est is not None else 0
     away_pace = aw.pace_est if aw.pace_est is not None else 0
     pace_est = round((home_pace + away_pace) / 2, 1)
@@ -69,8 +69,20 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
 # ============================================================
 
 def format_faz6_message(result: dict) -> str:
-    if result.get("status") != "ok":
-        return f"❌ *FAZ-6 HATA*\n{result.get('detail')}"
+    """
+    run_faz6_engine çıktısını Telegram mesajına çevirir.
+    Hata varsa artık 'None' yerine gerçek sebebi gösterir.
+    """
+    if not isinstance(result, dict):
+        return f"❌ *FAZ-6 HATA*\nGeçersiz sonuç tipi: {type(result).__name__}"
+
+    status = result.get("status", "ok")
+    if status != "ok":
+        detail = result.get("detail")
+        # detail yoksa tüm sözlüğü göster (debug için)
+        if not detail:
+            detail = f"Detay yok. Ham sonuç: {repr(result)}"
+        return f"❌ *FAZ-6 HATA*\n{detail}"
 
     mode = result.get("mode", "").upper()
     output = result.get("result", {})
@@ -87,6 +99,7 @@ def format_faz6_message(result: dict) -> str:
             f"— — —\n"
         )
 
+    # Telegram 4096 karakter sınırı için güvenlik payı
     if len(text) > 3800:
         text = text[:3800] + "\n… (çıktı kısaltıldı)"
 
@@ -178,21 +191,26 @@ def simulate_nba_cmd(message):
 
 from faz5_engine.heavy_engine_main import run_heavy_engine
 
+
 @bot.message_handler(commands=["heavy"])
 def heavy_cmd(message):
     bot.reply_to(message, run_heavy_engine(mode="standard"))
+
 
 @bot.message_handler(commands=["heavy_risk"])
 def heavy_risk_cmd(message):
     bot.reply_to(message, run_heavy_engine(mode="risk"))
 
+
 @bot.message_handler(commands=["heavy_edge"])
 def heavy_edge_cmd(message):
     bot.reply_to(message, run_heavy_engine(mode="edge"))
 
+
 @bot.message_handler(commands=["heavy_auto"])
 def heavy_auto_cmd(message):
     bot.reply_to(message, run_heavy_engine(mode="auto"))
+
 
 @bot.message_handler(commands=["heavy_full"])
 def heavy_full_cmd(message):
@@ -203,12 +221,40 @@ def heavy_full_cmd(message):
 #                       FAZ-6 ENGINE
 # ============================================================
 
-from faz6_engine import run_faz6_engine
+# Burada iç motora dokunmuyoruz, sadece güvenli wrapper ekliyoruz.
+from faz6_engine import run_faz6_engine as _raw_run_faz6_engine
 from faz6_engine.faz6_coupon import build_coupon_message
 
 
+def safe_run_faz6_engine(mode: str) -> dict:
+    """
+    Her türlü hatayı yakalayıp anlamlı dict dönen güvenli wrapper.
+    İçerideki gerçek run_faz6_engine'e dokunmuyor.
+    """
+    try:
+        result = _raw_run_faz6_engine(mode=mode)
+        if not isinstance(result, dict):
+            return {
+                "status": "error",
+                "detail": f"Motor beklenmeyen tip döndürdü: {type(result).__name__}",
+                "raw": result,
+            }
+
+        # 'status' alanı yoksa varsayılan olarak 'ok' kabul et
+        if "status" not in result:
+            result = {"status": "ok", **result}
+
+        return result
+    except Exception as e:
+        # Artık 'None' yerine gerçek exception görünecek
+        return {
+            "status": "error",
+            "detail": f"FAZ-6 motor exception: {repr(e)}",
+        }
+
+
 def _run_faz6_and_reply(message, mode: str):
-    result = run_faz6_engine(mode=mode)
+    result = safe_run_faz6_engine(mode=mode)
     msg = format_faz6_message(result)
     bot.reply_to(message, msg, parse_mode="Markdown")
 
@@ -217,30 +263,39 @@ def _run_faz6_and_reply(message, mode: str):
 def faz6_test_cmd(message):
     _run_faz6_and_reply(message, "test")
 
+
 @bot.message_handler(commands=["faz6_auto"])
 def faz6_auto_cmd(message):
     _run_faz6_and_reply(message, "auto")
+
 
 @bot.message_handler(commands=["faz6_risk"])
 def faz6_risk_cmd(message):
     _run_faz6_and_reply(message, "risk")
 
+
 @bot.message_handler(commands=["faz6_edge"])
 def faz6_edge_cmd(message):
     _run_faz6_and_reply(message, "edge")
 
+
 @bot.message_handler(commands=["faz6_real"])
 def faz6_real_cmd(message):
     _run_faz6_and_reply(message, "real")
+
 
 @bot.message_handler(commands=["faz6_balance"])
 def faz6_balance_cmd(message):
     _run_faz6_and_reply(message, "balance")
 
 
+# ============================================================
+#                    FAZ-6 KUPON (3 Kupon)
+# ============================================================
+
 @bot.message_handler(commands=["faz6_coupon"])
 def faz6_coupon_cmd(message):
-    result = run_faz6_engine(mode="balance")
+    result = safe_run_faz6_engine(mode="balance")
     msg = build_coupon_message(result, max_coupons=3)
     bot.reply_to(message, msg, parse_mode="Markdown")
 
@@ -255,4 +310,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
