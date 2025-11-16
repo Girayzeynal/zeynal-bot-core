@@ -1,195 +1,58 @@
-# ============================================================
-#                  FAZ-6 KUPON MOTORU (3 KUPON)
-# ============================================================
-
-from __future__ import annotations
-from typing import Dict, Any, List, Tuple
-
-Prediction = Dict[str, Any]
+from typing import Dict, Any, List
 
 
-def _extract_predictions(result: Dict[str, Any]) -> List[Prediction]:
+def _normalize_engine_result(result: Dict[str, Any]) -> Dict[str, Any]:
     """
-    FAZ-6 engine çıktısından maç listesini çıkarır.
-    balance -> result['portfolio']
-    diğer modlar -> result['predictions']
+    FAZ-6 motorundan gelen ham sonucu normalize eder.
+    Hata durumunda detay yoksa, tüm result'u metinle görebilelim diye.
     """
     if not isinstance(result, dict):
-        return []
+        return {
+            "status": "error",
+            "detail": f"Geçersiz sonuç tipi: {type(result).__name__}",
+            "raw": result,
+        }
 
-    inner = result.get("result", {})
-    if not isinstance(inner, dict):
-        return []
+    status = result.get("status", "ok")
+    detail = result.get("detail")
 
-    preds = inner.get("portfolio") or inner.get("predictions") or []
-    if not isinstance(preds, list):
-        return []
+    if status != "ok" and not detail:
+        detail = f"Detay yok. Ham sonuç: {repr(result)}"
 
-    out: List[Prediction] = []
-    for p in preds:
-        if isinstance(p, dict):
-            out.append(p)
-
-    return out
+    normalized = dict(result)
+    normalized["status"] = status
+    normalized["detail"] = detail
+    return normalized
 
 
-def _classify_tier(p: Prediction) -> str:
+def build_coupon_message(engine_result: Dict[str, Any], max_coupons: int = 3) -> str:
     """
-    Maçı Tier S / A / B / C seviyesine ayır.
+    FAZ-6 engine_result çıktısından, max_coupons adet kupon metni üretir.
     """
-    conf = float(p.get("confidence", 0.0) or 0.0)
-    edge = float(p.get("edge", 0.0) or 0.0)
+    data = _normalize_engine_result(engine_result)
 
-    if conf >= 0.70 and edge >= 0.06:
-        return "S"
-    if conf >= 0.65 and edge >= 0.04:
-        return "A"
-    if conf >= 0.60 and edge >= 0.02:
-        return "B"
-    return "C"
+    if data["status"] != "ok":
+        detail = data.get("detail") or "Bilinmeyen hata"
+        return f"❌ *FAZ-6 KUPON HATASI*\n{detail}"
 
+    output = data.get("result", {})
+    preds: List[Dict[str, Any]] = output.get("portfolio") or output.get("predictions") or []
 
-def _sort_by_stake(preds: List[Prediction]) -> List[Prediction]:
-    """
-    Maçları recommended_stake'e göre büyükten küçüğe sırala.
-    """
-    return sorted(
-        preds,
-        key=lambda p: float(p.get("recommended_stake", 0.0) or 0.0),
-        reverse=True,
-    )
+    if not preds:
+        return "⚠️ Kupon oluşturmak için uygun seçim bulunamadı."
 
+    # En iyi max_coupons adet seçimi al
+    selected = preds[:max_coupons]
 
-def _build_coupons(
-    preds: List[Prediction],
-    max_coupons: int = 3,
-) -> Tuple[List[List[Prediction]], int]:
-    """
-    Tahmin listesini max_coupons adet kupona böler.
-    Geri kalan maç sayısını da döndürür.
-    """
-    tiers: Dict[str, List[Prediction]] = {"S": [], "A": [], "B": [], "C": []}
-
-    for p in preds:
-        tier = _classify_tier(p)
-        q = dict(p)
-        q["tier"] = tier
-        tiers[tier].append(q)
-
-    # Tier içlerini stake'e göre sırala
-    for k in tiers:
-        tiers[k] = _sort_by_stake(tiers[k])
-
-    coupons: List[List[Prediction]] = [[] for _ in range(max_coupons)]
-
-    # Kupon 1: S + A
-    coupons[0].extend(tiers["S"])
-    remaining_A = tiers["A"][:]
-    need_A_for_coupon1 = max(0, 5 - len(coupons[0]))
-    coupons[0].extend(remaining_A[:need_A_for_coupon1])
-    remaining_A = remaining_A[need_A_for_coupon1:]
-
-    # Kupon 2: kalan A + güçlü B
-    remaining_B = tiers["B"][:]
-    coupons[1].extend(remaining_A)
-
-    need_B_for_coupon2 = max(0, 6 - len(coupons[1]))
-    strong_B = [p for p in remaining_B if p.get("tier") == "B"]
-    coupons[1].extend(strong_B[:need_B_for_coupon2])
-
-    used_in_coupon2 = set(id(p) for p in strong_B[:need_B_for_coupon2])
-    leftover_B = [p for p in remaining_B if id(p) not in used_in_coupon2]
-
-    # Kupon 3: kalan B (varsa)
-    coupons[2].extend(leftover_B[:6])
-
-    # Kuponlara girmeyenler:
-    used = set()
-    for c in coupons:
-        for p in c:
-            used.add(id(p))
-
-    filtered_out = 0
-    for tier_name, lst in tiers.items():
-        for p in lst:
-            if id(p) not in used:
-                filtered_out += 1
-
-    # C tier tamamen kupon dışı
-    filtered_out += len(tiers["C"])
-
-    # Boş kuponları sondan kırp
-    while coupons and not coupons[-1]:
-        coupons.pop()
-
-    return coupons, filtered_out
-
-
-def _format_single_coupon(idx: int, matches: List[Prediction]) -> str:
-    """
-    Tek bir kuponu Telegram metnine çevirir.
-    """
-    if not matches:
-        return ""
-
-    header = f"🎟 Kupon {idx}  _(toplam {len(matches)} maç)_\n"
-    lines: List[str] = [header]
-
-    for p in matches:
-        match_id = p.get("id", "N/A")
-        pick = p.get("pick", "N/A")
-        market = p.get("market", "")
-        conf = float(p.get("confidence", 0.0) or 0.0)
-        edge = float(p.get("edge", 0.0) or 0.0)
-        stake = float(p.get("recommended_stake", 0.0) or 0.0)
-        tier = p.get("tier", "?")
-
-        lines.append(
-            f"📌 {match_id}  *Tier {tier}*\n"
-            f"🎯 {pick} ({market})\n"
-            f"📈 Güven: {conf:.2f} | Edge: {edge:.3f}\n"
-            f"💰 Stake: {stake:.3f}\n"
+    text = "🧾 *FAZ-6 KUPON ÖNERİSİ*\n\n"
+    for idx, p in enumerate(selected, start=1):
+        text += (
+            f"#{idx}\n"
+            f"📌 {p.get('id')}\n"
+            f"🎯 {p.get('pick')} ({p.get('market')})\n"
+            f"📈 Güven: {p.get('confidence')} | Edge: {p.get('edge')}\n"
+            f"💰 Stake: {p.get('recommended_stake')}\n"
             f"— — —\n"
         )
 
-    return "\n".join(lines) + "\n"
-
-
-def build_coupon_message(faz6_result: Dict[str, Any], max_coupons: int = 3) -> str:
-    """
-    FAZ-6 balance çıktısından Telegram için kupon mesajı üretir.
-    """
-    if not isinstance(faz6_result, dict):
-        return "❌ FAZ-6 KUPON: Geçersiz sonuç yapısı."
-
-    if faz6_result.get("status") != "ok":
-        detail = faz6_result.get("detail") or "Bilinmeyen hata"
-        return f"❌ *FAZ-6 KUPON HATASI*\n{detail}"
-
-    preds = _extract_predictions(faz6_result)
-    if not preds:
-        return "❌ FAZ-6 KUPON: Kullanılabilir seçim bulunamadı."
-
-    coupons, filtered_out = _build_coupons(preds, max_coupons=max_coupons)
-
-    text_lines: List[str] = []
-    text_lines.append(
-        "🎯 *FAZ-6 KUPON ÇIKTISI*\n"
-        "_balance modundan türetilmiştir._\n"
-    )
-
-    for idx, c in enumerate(coupons, start=1):
-        text_lines.append(_format_single_coupon(idx, c))
-
-    if filtered_out > 0:
-        text_lines.append(
-            f"📉 Kupon limitleri nedeniyle {filtered_out} seçim liste dışı bırakıldı."
-        )
-
-    full_text = "\n".join(text_lines)
-
-    # Telegram 4096 karakter sınırı için emniyet payı
-    if len(full_text) > 3800:
-        full_text = full_text[:3800] + "\n… (çıktı kısaltıldı)"
-
-    return full_text
+    return text
