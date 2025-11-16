@@ -16,7 +16,7 @@ primary_region = "ams"
 
   auto_stop_machines = false     # Bot kapanmasın
   auto_start_machines = true
-  min_machines_running = 1       # Daima açık olsun
+  min_machines_running = 1       # Daima açık kalsın
 
   processes = ["app"]
 
