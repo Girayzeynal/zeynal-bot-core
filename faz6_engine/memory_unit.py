@@ -1,17 +1,13 @@
 class MemoryUnit:
     """
-    FAZ-6 hafıza sistemi — maç sonuçlarını, tahminleri ve hata örneklerini saklar.
-    Bu bir iskelet yapıdır.
+    FAZ-6 hafıza birimi – çok basit in-memory kayıt.
+    Gerçek sistemde dosya / DB olabilir.
     """
-
     def __init__(self):
-        self.storage = []
+        self._store = []
 
-    def save(self, data: dict):
-        self.storage.append(data)
+    def save(self, result: dict) -> None:
+        self._store.append(result)
 
-    def get_all(self):
-        return self.storage
-
-    def clear(self):
-        self.storage = []
+    def get_all(self) -> list[dict]:
+        return list(self._store)
