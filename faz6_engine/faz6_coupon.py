@@ -1,10 +1,9 @@
-# ================================================================
-#                 FAZ-6 KUPON MOTORU (3 KUPON)
-# ================================================================
+# ============================================================
+#                  FAZ-6 KUPON MOTORU (3 KUPON)
+# ============================================================
 
 from __future__ import annotations
 from typing import Dict, Any, List, Tuple
-
 
 Prediction = Dict[str, Any]
 
@@ -30,6 +29,7 @@ def _extract_predictions(result: Dict[str, Any]) -> List[Prediction]:
     for p in preds:
         if isinstance(p, dict):
             out.append(p)
+
     return out
 
 
@@ -50,6 +50,9 @@ def _classify_tier(p: Prediction) -> str:
 
 
 def _sort_by_stake(preds: List[Prediction]) -> List[Prediction]:
+    """
+    Maçları recommended_stake'e göre büyükten küçüğe sırala.
+    """
     return sorted(
         preds,
         key=lambda p: float(p.get("recommended_stake", 0.0) or 0.0),
@@ -65,7 +68,8 @@ def _build_coupons(
     Tahmin listesini max_coupons adet kupona böler.
     Geri kalan maç sayısını da döndürür.
     """
-    tiers = {"S": [], "A": [], "B": [], "C": []}
+    tiers: Dict[str, List[Prediction]] = {"S": [], "A": [], "B": [], "C": []}
+
     for p in preds:
         tier = _classify_tier(p)
         q = dict(p)
@@ -81,18 +85,22 @@ def _build_coupons(
     # Kupon 1: S + A
     coupons[0].extend(tiers["S"])
     remaining_A = tiers["A"][:]
-    coupons[0].extend(remaining_A[: max(0, 5 - len(coupons[0]))])
-    remaining_A = remaining_A[max(0, 5 - len(coupons[0])) :]
+    need_A_for_coupon1 = max(0, 5 - len(coupons[0]))
+    coupons[0].extend(remaining_A[:need_A_for_coupon1])
+    remaining_A = remaining_A[need_A_for_coupon1:]
 
     # Kupon 2: kalan A + güçlü B
     remaining_B = tiers["B"][:]
     coupons[1].extend(remaining_A)
+
+    need_B_for_coupon2 = max(0, 6 - len(coupons[1]))
     strong_B = [p for p in remaining_B if p.get("tier") == "B"]
-    coupons[1].extend(strong_B[: max(0, 6 - len(coupons[1]))])
+    coupons[1].extend(strong_B[:need_B_for_coupon2])
+
+    used_in_coupon2 = set(id(p) for p in strong_B[:need_B_for_coupon2])
+    leftover_B = [p for p in remaining_B if id(p) not in used_in_coupon2]
 
     # Kupon 3: kalan B (varsa)
-    used_in_coupon2 = set(id(p) for p in strong_B[: max(0, 6 - len(remaining_A))])
-    leftover_B = [p for p in remaining_B if id(p) not in used_in_coupon2]
     coupons[2].extend(leftover_B[:6])
 
     # Kuponlara girmeyenler:
@@ -118,27 +126,30 @@ def _build_coupons(
 
 
 def _format_single_coupon(idx: int, matches: List[Prediction]) -> str:
+    """
+    Tek bir kuponu Telegram metnine çevirir.
+    """
     if not matches:
         return ""
 
-    header = f"🎟 *Kupon {idx}*  _(toplam {len(matches)} maç)_\n"
-    lines = [header]
+    header = f"🎟 Kupon {idx}  _(toplam {len(matches)} maç)_\n"
+    lines: List[str] = [header]
 
     for p in matches:
         match_id = p.get("id", "N/A")
         pick = p.get("pick", "N/A")
         market = p.get("market", "")
-        conf = p.get("confidence", 0.0)
-        edge = p.get("edge", 0.0)
-        stake = p.get("recommended_stake", 0.0)
+        conf = float(p.get("confidence", 0.0) or 0.0)
+        edge = float(p.get("edge", 0.0) or 0.0)
+        stake = float(p.get("recommended_stake", 0.0) or 0.0)
         tier = p.get("tier", "?")
 
         lines.append(
-            f"📌 {match_id}  *(Tier {tier})*\n"
+            f"📌 {match_id}  *Tier {tier}*\n"
             f"🎯 {pick} ({market})\n"
             f"📈 Güven: {conf:.2f} | Edge: {edge:.3f}\n"
             f"💰 Stake: {stake:.3f}\n"
-            f"— — —"
+            f"— — —\n"
         )
 
     return "\n".join(lines) + "\n"
@@ -161,20 +172,23 @@ def build_coupon_message(faz6_result: Dict[str, Any], max_coupons: int = 3) -> s
 
     coupons, filtered_out = _build_coupons(preds, max_coupons=max_coupons)
 
-    text_lines = []
-    text_lines.append("🧠 *FAZ-6 KUPON ÇIKTISI*\n_balance modundan türetilmiştir._\n")
+    text_lines: List[str] = []
+    text_lines.append(
+        "🎯 *FAZ-6 KUPON ÇIKTISI*\n"
+        "_balance modundan türetilmiştir._\n"
+    )
 
     for idx, c in enumerate(coupons, start=1):
         text_lines.append(_format_single_coupon(idx, c))
 
     if filtered_out > 0:
         text_lines.append(
-            f"ℹ️ Kupon limitleri nedeniyle {filtered_out} seçim liste dışı bırakıldı."
+            f"📉 Kupon limitleri nedeniyle {filtered_out} seçim liste dışı bırakıldı."
         )
 
     full_text = "\n".join(text_lines)
 
-    # Telegram limitine karşı güvenlik
+    # Telegram 4096 karakter sınırı için emniyet payı
     if len(full_text) > 3800:
         full_text = full_text[:3800] + "\n… (çıktı kısaltıldı)"
 
