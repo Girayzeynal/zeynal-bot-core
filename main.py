@@ -133,7 +133,6 @@ def help_cmd(message):
 /faz6_edge - FAZ-6 Edge
 /faz6_real - FAZ-6 Real
 /faz6_balance - FAZ-6 Balance
-/faz6_coupon - FAZ-6 Kupon (3 kupon)
 """
     )
 
@@ -208,7 +207,6 @@ def heavy_full_cmd(message):
 # ============================================================
 
 from faz6_engine.faz6_engine_main import run_faz6_engine
-from faz6_engine.faz6_coupon import build_coupon_message
 
 
 def _run_faz6_and_reply(message, mode: str):
@@ -240,15 +238,6 @@ def faz6_real_cmd(message):
 @bot.message_handler(commands=["faz6_balance"])
 def faz6_balance_cmd(message):
     _run_faz6_and_reply(message, "balance")
-
-@bot.message_handler(commands=["faz6_coupon"])
-def faz6_coupon_cmd(message):
-    """
-    FAZ-6 balance çıktısından 3 kupon üretir.
-    """
-    result = run_faz6_engine(mode="balance")
-    msg = build_coupon_message(result, max_coupons=3)
-    bot.reply_to(message, msg, parse_mode="Markdown")
 
 
 # ============================================================
