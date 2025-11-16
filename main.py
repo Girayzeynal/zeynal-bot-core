@@ -1,13 +1,3 @@
-# === FAZ-6 TEST KOMUTU ===
-@bot.message_handler(commands=["faz6_test"])
-def faz6_test_command(message):
-    try:
-        from faz6_engine.faz6_engine_main import run_faz6_engine
-        result = run_faz6_engine(mode="test")
-        bot.reply_to(message, f"FAZ-6 TEST BAŞARILI ✔️\n\n{result}")
-    except Exception as e:
-        bot.reply_to(message, f"FAZ-6 TEST HATASI ❌\n\n{e}")
-
 import sys
 import os
 from telebot import TeleBot
