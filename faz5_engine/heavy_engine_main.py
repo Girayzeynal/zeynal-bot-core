@@ -1,23 +1,22 @@
 # ============================================================
-#               FAZ-5 HEAVY ENGINE ÇEKİRDEĞİ
-#   Bu dosya FAZ-5 için bağımsız, sade, stabil çekirdektir.
-#   main.py içinden:
-#       from faz5_engine.heavy_engine_main import run_heavy_engine
-#   ile kullanılır.
+#               FAZ-5 HEAVY ENGINE (STABİL ÇEKİRDEK)
 # ============================================================
 
 from __future__ import annotations
-
 import random
-import math
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import List, Dict, Any, Literal
+
+
+# ------------------------------------------------------------
+# Mod tipleri
+# ------------------------------------------------------------
 
 HeavyMode = Literal["standard", "risk", "edge", "auto", "full"]
 
 
 # ------------------------------------------------------------
-#  İç veri modeli (FAZ-5 tahmin objesi)
+# İç veri modeli
 # ------------------------------------------------------------
 
 @dataclass
@@ -34,11 +33,10 @@ class HeavyPick:
 
 
 # ------------------------------------------------------------
-#  Mode bazlı parametre profilleri
+# Mode tabanlı parametre profilleri
 # ------------------------------------------------------------
 
 _MODE_CONFIG: Dict[str, Dict[str, Any]] = {
-    # Dengeli, referans yapı
     "standard": {
         "base_conf": 0.63,
         "base_edge": 0.03,
@@ -46,15 +44,13 @@ _MODE_CONFIG: Dict[str, Dict[str, Any]] = {
         "size": 4,
         "note": "Dengeli portföy (risk/getiri orta seviye)",
     },
-    # Daha agresif yapı
     "risk": {
         "base_conf": 0.60,
         "base_edge": 0.05,
         "max_stake": 3.0,
         "size": 5,
-        "note": "Yüksek risk / yüksek getiri odaklı portföy",
+        "note": "Yüksek risk / yüksek getirir odaklı portföy",
     },
-    # Value (edge) odaklı
     "edge": {
         "base_conf": 0.62,
         "base_edge": 0.06,
@@ -62,7 +58,6 @@ _MODE_CONFIG: Dict[str, Dict[str, Any]] = {
         "size": 4,
         "note": "Edge odaklı value seçimler",
     },
-    # Otomatik dengeli (bir tık daha güvenli)
     "auto": {
         "base_conf": 0.64,
         "base_edge": 0.03,
@@ -70,29 +65,31 @@ _MODE_CONFIG: Dict[str, Dict[str, Any]] = {
         "size": 3,
         "note": "Otomatik dengeli ve kontrollü yapı",
     },
-    # Geniş portföy, dağıtılmış risk
     "full": {
         "base_conf": 0.61,
         "base_edge": 0.035,
         "max_stake": 2.2,
         "size": 6,
-        "note": "Geniş portföy – risk yayılmış yapı",
+        "note": "Geniş portföy – risk yayılımı yüksek",
     },
 }
 
 
 # ------------------------------------------------------------
-#  Yardımcı fonksiyonlar
+# Clamp fonksiyonu
 # ------------------------------------------------------------
 
 def _clamp(val: float, lo: float, hi: float) -> float:
-    return max(lo, min(hi, val))
+    return max(lo, min(val, hi))
 
+
+# ------------------------------------------------------------
+# Basit Kelly fraksiyon hesaplayıcı
+# ------------------------------------------------------------
 
 def _kelly_fraction(conf: float, odds: float) -> float:
     """
-    Basit Kelly fraksiyonu.
-    conf: kazanma olasılığı (0–1)
+    conf: kazanma olasılığı (0-1)
     odds: decimal oran (ör: 1.70)
     """
     b = odds - 1.0
@@ -107,18 +104,16 @@ def _kelly_fraction(conf: float, odds: float) -> float:
     return _clamp(frac, 0.0, 1.0)
 
 
+# ------------------------------------------------------------
+# FAZ-5 geçici MOCK market havuzu (gerçek data gelene kadar)
+# ------------------------------------------------------------
+
 def _mock_market_pool() -> List[Dict[str, Any]]:
-    """
-    Gerçek data entegrasyonu gelene kadar FAZ-5 çekirdeğinin
-    test edilmesi için sentetik bir market havuzu üretir.
-    """
     teams = [
         ("Lakers", "Warriors"),
-        ("Celtics", "Bucks"),
-        ("Real Madrid", "Barcelona"),
-        ("Fenerbahçe", "Efes"),
-        ("CSKA", "Olympiacos"),
         ("Heat", "Knicks"),
+        ("Celtics", "Nets"),
+        ("Suns", "Clippers"),
     ]
 
     markets = [
@@ -138,12 +133,12 @@ def _mock_market_pool() -> List[Dict[str, Any]]:
         for m in markets:
             pool.append(
                 {
-                    "id": f"F5-{gid:03d}",
+                    "id": f"F5{gid:03d}",
                     "home": home,
                     "away": away,
                     "market": m,
                     "league": random.choice(leagues),
-                    "odds": round(random.uniform(1.55, 2.30), 2),
+                    "odds": round(random.uniform(1.55, 2.20), 2),
                 }
             )
             gid += 1
@@ -152,11 +147,12 @@ def _mock_market_pool() -> List[Dict[str, Any]]:
 
 
 # ------------------------------------------------------------
-#  Mode’a göre portföy üretimi
+# Portföy üretici — seçilen moda göre
 # ------------------------------------------------------------
 
 def _build_portfolio_for_mode(mode: HeavyMode) -> List[HeavyPick]:
     cfg = _MODE_CONFIG[mode]
+
     base_conf = cfg["base_conf"]
     base_edge = cfg["base_edge"]
     max_stake = cfg["max_stake"]
@@ -168,31 +164,26 @@ def _build_portfolio_for_mode(mode: HeavyMode) -> List[HeavyPick]:
     portfolio: List[HeavyPick] = []
 
     for i, mk in enumerate(pool[:size], start=1):
-        # Confidence & edge varyasyonu
-        jitter = random.uniform(-0.04, 0.04)
+        jitter = random.uniform(0.02, 0.04)
+
         conf = _clamp(base_conf + jitter, 0.52, 0.80)
 
-        odds = mk["odds"]
-        kelly_frac = _kelly_fraction(conf, odds)
-        stake = round(
-            _clamp(kelly_frac * max_stake, 0.25, max_stake),
-            2,
-        )
+        kelly_frac = _kelly_fraction(conf, mk["odds"])
+        stake = round(_clamp(kelly_frac * max_stake, 0.25, max_stake), 2)
 
-        # Edge kabaca: (conf - implied_prob)
-        implied_prob = 1.0 / odds
+        implied_prob = 1.0 / mk["odds"]
         raw_edge = conf - implied_prob
         edge = round(raw_edge if raw_edge > 0 else base_edge, 3)
 
-        pick_label = f"{mk['home']} vs {mk['away']} – {mk['market']}"
+        pick_label = f"{mk['home']} vs {mk['away']} 🏀 {mk['market']}"
 
         portfolio.append(
             HeavyPick(
-                id=f"H5-{mode.upper()}-{i:02d}",
+                id=mk["id"],
                 pick=pick_label,
                 market=mk["market"],
                 league=mk["league"],
-                odds=odds,
+                odds=mk["odds"],
                 confidence=round(conf, 3),
                 edge=edge,
                 recommended_stake=stake,
@@ -204,29 +195,27 @@ def _build_portfolio_for_mode(mode: HeavyMode) -> List[HeavyPick]:
 
 
 # ------------------------------------------------------------
-#  Dışa açılan ana fonksiyon
+# DIŞA AÇILAN ANA FONKSİYON
 # ------------------------------------------------------------
 
 def run_heavy_engine(mode: str = "standard") -> str:
     """
     FAZ-5 için tek giriş noktası.
-    main.py içindeki /heavy, /heavy_risk, /heavy_edge, /heavy_auto, /heavy_full
-    komutları bu fonksiyon üzerinden çalışır.
-
-    Dönüş: Telegram için hazır text (str)
+    Telegram için hazır TEXT döner.
     """
+
     mode = (mode or "standard").lower().strip()
 
     if mode not in _MODE_CONFIG:
         return f"⚠️ Geçersiz FAZ-5 modu: {mode}"
 
-    picks = _build_portfolio_for_mode(mode)  # type: ignore[arg-type]
+    picks = _build_portfolio_for_mode(mode)
     cfg = _MODE_CONFIG[mode]
 
     header = [
         "🧠 *FAZ-5 Heavy Engine*",
-        f"Mod: *{mode.upper()}*",
-        f"Not: _{cfg['note']}_",
+        f"🎛 Mod: *{mode.upper()}*",
+        f"ℹ️ Not: _{cfg['note']}_",
         "",
         "Seçilen maçlar:",
     ]
@@ -237,11 +226,11 @@ def run_heavy_engine(mode: str = "standard") -> str:
         lines.append(
             "\n".join(
                 [
-                    f"🎯 *{p.pick}*",
-                    f"🏆 Lig: `{p.league}`",
-                    f"📊 Oran: `{p.odds}`",
-                    f"✅ Güven: *{int(p.confidence * 100)}%*",
-                    f"📈 Edge: `{p.edge}`",
+                    f"📌 *{p.pick}*",
+                    f"🏛 Lig: {p.league}",
+                    f"📉 Oran: {p.odds}",
+                    f"📈 Güven: *{int(p.confidence * 100)}%*",
+                    f"💹 Edge: {p.edge}",
                     f"💰 Önerilen Stake: *{p.recommended_stake}u*",
                     f"📝 {p.note}",
                     "",
@@ -250,4 +239,4 @@ def run_heavy_engine(mode: str = "standard") -> str:
         )
 
     text = "\n".join(header) + "\n\n" + "\n".join(lines)
-    return text
+    return text 
