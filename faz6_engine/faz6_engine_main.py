@@ -1,6 +1,6 @@
-# ================================
-#  FAZ-6 ANA MOTOR (TAM SÜRÜM)
-# ================================
+# =====================================================
+#                FAZ-6 ANA MOTOR (TAM SÜRÜM)
+# =====================================================
 
 from .faz6_core import (
     run_faz6_test,
@@ -17,8 +17,9 @@ def run_faz6_engine(mode: str = "auto", context: dict | None = None) -> dict:
     FAZ-6 ana motoru – tüm modları tek çatıdan yönetir.
 
     Modlar:
-      test / auto / risk / edge / real / balance
+        test / auto / risk / edge / real / balance
     """
+
     if context is None:
         context = {}
 
