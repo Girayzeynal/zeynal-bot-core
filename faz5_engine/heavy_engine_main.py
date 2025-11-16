@@ -1,80 +1,82 @@
-# faz6_engine/faz6_engine_main.py
 # ============================================================
-#                    FAZ-6 ENGINE ÇEKİRDEĞİ
+#               FAZ-5 HEAVY ENGINE ÇEKİRDEĞİ
+#   Bu dosya FAZ-5 için bağımsız, sade, stabil çekirdektir.
+#   main.py içinden:
+#       from faz5_engine.heavy_engine_main import run_heavy_engine
+#   ile kullanılır.
 # ============================================================
 
 from __future__ import annotations
 
-import math
 import random
-from dataclasses import dataclass, asdict
-from typing import List, Dict, Any, Literal, Optional
+import math
+from dataclasses import dataclass
+from typing import List, Dict, Any, Literal
 
-Faz6Mode = Literal["test", "auto", "risk", "edge", "real", "balance"]
+HeavyMode = Literal["standard", "risk", "edge", "auto", "full"]
 
 
 # ------------------------------------------------------------
-#  İç veri modeli (FAZ-6 tahmin objesi)
+#  İç veri modeli (FAZ-5 tahmin objesi)
 # ------------------------------------------------------------
 
 @dataclass
-class Faz6Prediction:
+class HeavyPick:
     id: str
     pick: str
     market: str
+    league: str
+    odds: float
     confidence: float
     edge: float
     recommended_stake: float
-    league: Optional[str] = None
-    note: Optional[str] = None
+    note: str
 
 
 # ------------------------------------------------------------
 #  Mode bazlı parametre profilleri
 # ------------------------------------------------------------
 
-_MODE_CONFIG = {
-    "test": {
-        "base_conf": 0.60,
-        "base_edge": 0.02,
-        "max_stake": 1.0,
-        "size": 3,
-        "note": "TEST MODU - CANLI PARA KULLANMA"
-    },
-    "auto": {
-        "base_conf": 0.64,
+_MODE_CONFIG: Dict[str, Dict[str, Any]] = {
+    # Dengeli, referans yapı
+    "standard": {
+        "base_conf": 0.63,
         "base_edge": 0.03,
         "max_stake": 2.0,
         "size": 4,
-        "note": "Otomatik dengeli portföy"
+        "note": "Dengeli portföy (risk/getiri orta seviye)",
     },
+    # Daha agresif yapı
     "risk": {
-        "base_conf": 0.58,
+        "base_conf": 0.60,
         "base_edge": 0.05,
         "max_stake": 3.0,
         "size": 5,
-        "note": "Yüksek risk / yüksek getirili yapı"
+        "note": "Yüksek risk / yüksek getiri odaklı portföy",
     },
+    # Value (edge) odaklı
     "edge": {
         "base_conf": 0.62,
         "base_edge": 0.06,
         "max_stake": 2.5,
         "size": 4,
-        "note": "Edge odaklı value seçimler"
+        "note": "Edge odaklı value seçimler",
     },
-    "real": {
-        "base_conf": 0.67,
-        "base_edge": 0.025,
-        "max_stake": 2.0,
+    # Otomatik dengeli (bir tık daha güvenli)
+    "auto": {
+        "base_conf": 0.64,
+        "base_edge": 0.03,
+        "max_stake": 1.8,
         "size": 3,
-        "note": "Gerçek para senaryosu için konservatif yapı"
+        "note": "Otomatik dengeli ve kontrollü yapı",
     },
-    "balance": {
-        "base_conf": 0.65,
+    # Geniş portföy, dağıtılmış risk
+    "full": {
+        "base_conf": 0.61,
         "base_edge": 0.035,
         "max_stake": 2.2,
-        "size": 4,
-        "note": "Risk / getiri dengeli portföy"
+        "size": 6,
+        "note": "Geniş portföy – risk yayılmış yapı",
     },
 }
 
@@ -89,24 +91,26 @@ def _clamp(val: float, lo: float, hi: float) -> float:
 
 def _kelly_fraction(conf: float, odds: float) -> float:
     """
-    Basit Kelly fraksiyonu. conf: kazanma olasılığı (0-1),
-    odds: decimal oran (örn 1.70).
+    Basit Kelly fraksiyonu.
+    conf: kazanma olasılığı (0–1)
+    odds: decimal oran (ör: 1.70)
     """
     b = odds - 1.0
     p = conf
     q = 1.0 - p
+
     edge = b * p - q
     if edge <= 0:
         return 0.0
+
     frac = edge / b
     return _clamp(frac, 0.0, 1.0)
 
 
 def _mock_market_pool() -> List[Dict[str, Any]]:
     """
-    Gerçek data entegrasyonu yapılana kadar FAZ-6 çekirdeğinin
-    TELEGRAM tarafını, kupon üretimini ve formatlayıcılarını
-    test etmek için sentetik bir market havuzu üretir.
+    Gerçek data entegrasyonu gelene kadar FAZ-5 çekirdeğinin
+    test edilmesi için sentetik bir market havuzu üretir.
     """
     teams = [
         ("Lakers", "Warriors"),
@@ -116,16 +120,25 @@ def _mock_market_pool() -> List[Dict[str, Any]]:
         ("CSKA", "Olympiacos"),
         ("Heat", "Knicks"),
     ]
-    markets = ["ML", "HC -3.5", "HC +5.5", "TOTAL O 164.5", "TOTAL U 158.5"]
+
+    markets = [
+        "ML",
+        "HC -3.5",
+        "HC +5.5",
+        "TOTAL O 164.5",
+        "TOTAL U 158.5",
+    ]
+
     leagues = ["NBA", "EUROLEAGUE", "TURKEY BSL"]
 
-    pool = []
+    pool: List[Dict[str, Any]] = []
     gid = 1
+
     for home, away in teams:
         for m in markets:
             pool.append(
                 {
-                    "id": f"G{gid:03d}",
+                    "id": f"F5-{gid:03d}",
                     "home": home,
                     "away": away,
                     "market": m,
@@ -134,10 +147,15 @@ def _mock_market_pool() -> List[Dict[str, Any]]:
                 }
             )
             gid += 1
+
     return pool
 
 
-def _build_portfolio_for_mode(mode: Faz6Mode) -> List[Faz6Prediction]:
+# ------------------------------------------------------------
+#  Mode’a göre portföy üretimi
+# ------------------------------------------------------------
+
+def _build_portfolio_for_mode(mode: HeavyMode) -> List[HeavyPick]:
     cfg = _MODE_CONFIG[mode]
     base_conf = cfg["base_conf"]
     base_edge = cfg["base_edge"]
@@ -147,34 +165,38 @@ def _build_portfolio_for_mode(mode: Faz6Mode) -> List[Faz6Prediction]:
     pool = _mock_market_pool()
     random.shuffle(pool)
 
-    portfolio: List[Faz6Prediction] = []
+    portfolio: List[HeavyPick] = []
+
     for i, mk in enumerate(pool[:size], start=1):
-        # Confidence & edge varyasyon
+        # Confidence & edge varyasyonu
         jitter = random.uniform(-0.04, 0.04)
-        conf = _clamp(base_conf + jitter, 0.52, 0.78)
+        conf = _clamp(base_conf + jitter, 0.52, 0.80)
 
         odds = mk["odds"]
         kelly_frac = _kelly_fraction(conf, odds)
-        # FAZ-6 için kelly'nin konservatif bir skalası
-        stake = round(_clamp(kelly_frac * max_stake, 0.25, max_stake), 2)
+        stake = round(
+            _clamp(kelly_frac * max_stake, 0.25, max_stake),
+            2,
+        )
 
         # Edge kabaca: (conf - implied_prob)
         implied_prob = 1.0 / odds
-        edge = conf - implied_prob
-        edge = round(edge if edge > 0 else base_edge, 3)
+        raw_edge = conf - implied_prob
+        edge = round(raw_edge if raw_edge > 0 else base_edge, 3)
 
-        pick_label = f"{mk['home']} vs {mk['away']} - {mk['market']}"
+        pick_label = f"{mk['home']} vs {mk['away']} – {mk['market']}"
 
         portfolio.append(
-            Faz6Prediction(
-                id=f"F6-{mode.upper()}-{i:02d}",
+            HeavyPick(
+                id=f"H5-{mode.upper()}-{i:02d}",
                 pick=pick_label,
                 market=mk["market"],
+                league=mk["league"],
+                odds=odds,
                 confidence=round(conf, 3),
                 edge=edge,
                 recommended_stake=stake,
-                league=mk["league"],
-                note=_MODE_CONFIG[mode]["note"],
+                note=cfg["note"],
             )
         )
 
@@ -182,43 +204,50 @@ def _build_portfolio_for_mode(mode: Faz6Mode) -> List[Faz6Prediction]:
 
 
 # ------------------------------------------------------------
-#  DIŞA AÇILAN ANA FONKSİYON
+#  Dışa açılan ana fonksiyon
 # ------------------------------------------------------------
 
-def run_faz6_engine(mode: Faz6Mode = "auto") -> Dict[str, Any]:
+def run_heavy_engine(mode: str = "standard") -> str:
     """
-    FAZ-6 için tek giriş noktası.
-    main.py ve faz6_coupon bu fonksiyona göre çalışır.
+    FAZ-5 için tek giriş noktası.
+    main.py içindeki /heavy, /heavy_risk, /heavy_edge, /heavy_auto, /heavy_full
+    komutları bu fonksiyon üzerinden çalışır.
 
-    DÖNÜŞ ŞEMASI (STANDART):
-    {
-        "status": "ok" | "error",
-        "mode": "<test|auto|risk|edge|real|balance>",
-        "result": {
-            "predictions": [ {Faz6Prediction dict}, ... ],
-            "meta": {...opsiyonel...}
-        }
-    }
+    Dönüş: Telegram için hazır text (str)
     """
+    mode = (mode or "standard").lower().strip()
 
     if mode not in _MODE_CONFIG:
-        return {
-            "status": "error",
-            "mode": mode,
-            "result": {},
-            "detail": f"Geçersiz FAZ-6 modu: {mode}",
-        }
+        return f"⚠️ Geçersiz FAZ-5 modu: {mode}"
 
-    portfolio = _build_portfolio_for_mode(mode)
+    picks = _build_portfolio_for_mode(mode)  # type: ignore[arg-type]
+    cfg = _MODE_CONFIG[mode]
 
-    return {
-        "status": "ok",
-        "mode": mode,
-        "result": {
-            "predictions": [asdict(p) for p in portfolio],
-            "meta": {
-                "size": len(portfolio),
-                "profile": _MODE_CONFIG[mode],
-            },
-        },
-    }
+    header = [
+        "🧠 *FAZ-5 Heavy Engine*",
+        f"Mod: *{mode.upper()}*",
+        f"Not: _{cfg['note']}_",
+        "",
+        "Seçilen maçlar:",
+    ]
+
+    lines: List[str] = []
+
+    for p in picks:
+        lines.append(
+            "\n".join(
+                [
+                    f"🎯 *{p.pick}*",
+                    f"🏆 Lig: `{p.league}`",
+                    f"📊 Oran: `{p.odds}`",
+                    f"✅ Güven: *{int(p.confidence * 100)}%*",
+                    f"📈 Edge: `{p.edge}`",
+                    f"💰 Önerilen Stake: *{p.recommended_stake}u*",
+                    f"📝 {p.note}",
+                    "",
+                ]
+            )
+        )
+
+    text = "\n".join(header) + "\n\n" + "\n".join(lines)
+    return text
