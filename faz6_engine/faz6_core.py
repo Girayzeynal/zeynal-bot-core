@@ -19,7 +19,7 @@ Prediction = Dict[str, Any]
 
 
 # ------------------------------------------------
-# Ortak yardımcı: standart çıktı
+# Ortak yardımcı: STANDART FAZ-6 ÇIKTI
 # ------------------------------------------------
 
 def _build_output(
@@ -29,14 +29,41 @@ def _build_output(
     memory_before: Dict[str, Any],
     memory_after_key: str,
 ) -> Dict[str, Any]:
+    """
+    FAZ-6 ENGINE ana protokolü ile %100 uyumlu çıktı üretir.
+
+    Dönüş formatı:
+
+    {
+        "status": "ok",
+        "mode": "<mode>",
+        "result": {
+            "predictions": [...],
+            "ml_meta": {...},
+            "memory_snapshot": {...},
+        },
+        "context": {
+            "memory_after_key": "<key>"
+        },
+    }
+    """
+
     # Hafızaya kaydet
     save_memory({memory_after_key: predictions})
 
-    return {
-        "mode": mode,
+    payload: Dict[str, Any] = {
         "predictions": predictions,
         "ml_meta": ml_meta,
         "memory_snapshot": memory_before,
+    }
+
+    return {
+        "status": "ok",
+        "mode": mode,
+        "result": payload,
+        "context": {
+            "memory_after_key": memory_after_key,
+        },
     }
 
 
@@ -168,4 +195,4 @@ def run_faz6_real() -> Dict[str, Any]:
         ml_meta=ml_meta,
         memory_before=memory_before,
         memory_after_key="real_last",
-    )
+) 
