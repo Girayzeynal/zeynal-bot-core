@@ -1,111 +1,77 @@
-# FAZ-6 BALANCE MODÜLÜ
-# REAL ve TEST sonuçlarını birleştiren, denge ve koordinasyon modülü.
+from .faz6_core import (
+    run_faz6_test,
+    run_faz6_auto,
+    run_faz6_risk,
+    run_faz6_edge,
+    run_faz6_real,
+)
 
-from faz6_engine.faz6_real import run_faz6_real
-from faz6_engine.faz6_test import run_faz6_test
 
-
-def _safe_run(func, context: dict) -> dict:
+def run_faz6_balance(context: dict | None = None, mode: str = "auto") -> dict:
     """
-    Alt modülü güvenli çalıştıran yardımcı fonksiyon.
-    Hata olursa status=error döner, sistem kırılmaz.
-    """
-    try:
-        result = func(context)
-        if not isinstance(result, dict):
-            return {
-                "status": "error",
-                "module": func.__name__,
-                "detail": "Modül dict yerine başka tip döndürdü.",
-            }
-        return result
-    except Exception as e:
-        return {
-            "status": "error",
-            "module": func.__name__,
-            "detail": str(e),
-        }
+    FAZ-6 BALANCE modu.
 
-
-def run_faz6_balance(context: dict = None, mode: str = "auto") -> dict:
+    Amaç:
+      - test / auto / risk / edge / real çıktılarından
+        tek bir 'dengeli' skor üretmek.
     """
-    FAZ-6 BALANCE modülü.
 
-    Görevleri:
-    - REAL ve TEST modüllerini koordine eder.
-    - Seçilen moda göre (real/test/auto) sonuç üretir.
-    - AUTO modunda:
-        - REAL ve TEST ikisini de çalıştırır,
-        - REAL sorunsuzsa onu ana sonuç yapar,
-        - REAL hata verirse TEST'i yedek plan olarak kullanır.
-    """
     if context is None:
         context = {}
 
-    # --- MODE: real → direkt REAL çalıştır, aynen ilet ---
-    if mode == "real":
-        real_result = _safe_run(run_faz6_real, context)
-        return {
-            "status": "ok" if real_result.get("status") == "ok" else "error",
-            "module": "FAZ-6 BALANCE",
-            "selected_mode": "real",
-            "selected": real_result,
-            "real": real_result,
-            "test": None,
-            "context": context,
-        }
+    # Tüm modları çalıştır
+    res_test = run_faz6_test()
+    res_auto = run_faz6_auto()
+    res_risk = run_faz6_risk()
+    res_edge = run_faz6_edge()
+    res_real = run_faz6_real()
 
-    # --- MODE: test → direkt TEST çalıştır, aynen ilet ---
-    if mode == "test":
-        test_result = _safe_run(run_faz6_test, context)
-        return {
-            "status": "ok" if test_result.get("status") == "ok" else "error",
-            "module": "FAZ-6 BALANCE",
-            "selected_mode": "test",
-            "selected": test_result,
-            "real": None,
-            "test": test_result,
-            "context": context,
-        }
+    # Skorlara ağırlık verelim
+    weights = {
+        "test": 0.15,
+        "auto": 0.30,
+        "risk": 0.15,
+        "edge": 0.20,
+        "real": 0.20,
+    }
 
-    # --- MODE: auto (varsayılan) ---
-    # Hem REAL hem TEST çalışır, REAL öncelikli, TEST yedek plan.
-    real_result = _safe_run(run_faz6_real, context)
-    test_result = _safe_run(run_faz6_test, context)
+    scores = [
+        (res_test["score"], weights["test"]),
+        (res_auto["score"], weights["auto"]),
+        (res_risk["score"], weights["risk"]),
+        (res_edge["score"], weights["edge"]),
+        (res_real["score"], weights["real"]),
+    ]
 
-    # Varsayılan seçim REAL olsun
-    selected_mode = "real"
-    selected = real_result
+    total = sum(s * w for s, w in scores)
+    total_w = sum(w for _, w in scores)
+    balanced_score = round(total / total_w)
 
-    # REAL hata verdiyse TEST'e düş
-    if real_result.get("status") != "ok" and test_result.get("status") == "ok":
-        selected_mode = "test"
-        selected = test_result
-
-    # İkisi de hatalıysa genel hata döndür
-    if real_result.get("status") != "ok" and test_result.get("status") != "ok":
-        return {
-            "status": "error",
-            "module": "FAZ-6 BALANCE",
-            "selected_mode": None,
-            "selected": None,
-            "real": real_result,
-            "test": test_result,
-            "context": context,
-            "detail": "REAL ve TEST modüllerinin ikisi de hata döndürdü.",
-        }
-
-    # Seçilen sonuca göre pick & confidence bilgilerini üst seviyeye çıkar
-    pick = selected.get("pick")
-    confidence = selected.get("confidence")
+    # Ortalama güven
+    confs = [
+        res_test["confidence"],
+        res_auto["confidence"],
+        res_risk["confidence"],
+        res_edge["confidence"],
+        res_real["confidence"],
+    ]
+    balanced_conf = round(sum(confs) / len(confs), 2)
 
     return {
         "status": "ok",
         "module": "FAZ-6 BALANCE",
-        "selected_mode": selected_mode,
-        "selected_pick": pick,
-        "selected_confidence": confidence,
-        "real": real_result,
-        "test": test_result,
-        "context": context,
+        "score": balanced_score,
+        "confidence": balanced_conf,
+        "mod": "balance",
+        "context": {
+            "raw": {
+                "test": res_test,
+                "auto": res_auto,
+                "risk": res_risk,
+                "edge": res_edge,
+                "real": res_real,
+            },
+            "input_context": context,
+            "mode": mode,
+        },
     } 
