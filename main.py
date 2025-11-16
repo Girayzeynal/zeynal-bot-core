@@ -1,12 +1,16 @@
 import sys
 import os
-from telebot import TeleBot
 from typing import List
+from telebot import TeleBot
 
 # ===============================
 #  BOT AYARLARI
 # ===============================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+if not BOT_TOKEN:
+    print("ERROR: BOT_TOKEN ortam değişkeni tanımlı değil.")
+    sys.exit(1)
+
 bot = TeleBot(BOT_TOKEN)
 
 # ===============================
@@ -14,7 +18,7 @@ bot = TeleBot(BOT_TOKEN)
 # ===============================
 from nba_fetcher import fetch_nba_live_games
 from nba_analyzer import analyze_live_games
-from nba_models import NBAGameState, NBATeamStatsLite
+from nba_models import NBAGameState
 
 def _simple_sim_from_game(game: NBAGameState) -> dict:
     hs = game.home_stats
@@ -31,6 +35,7 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
         }
 
     score_est = hs.pts + aw.pts
+
     home_pace = hs.pace_est if hs.pace_est is not None else 0
     away_pace = aw.pace_est if aw.pace_est is not None else 0
     pace_est = round((home_pace + away_pace) / 2, 1)
@@ -63,7 +68,8 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
 def start_cmd(message):
     bot.reply_to(
         message,
-        "🔥 Bot aktif!\nFAZ-3 + FAZ-4 + FAZ-5 + FAZ-6 hazır durumda.\n"
+        "🔥 Bot aktif!\n"
+        "FAZ-3 + FAZ-4 + FAZ-5 + FAZ-6 hazır durumda.\n"
         "Komut listesi için /help yaz."
     )
 
