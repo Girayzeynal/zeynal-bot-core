@@ -70,7 +70,6 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
 # ============================================================
 
 def format_faz6_message(result: dict) -> str:
-    # Hata varsa direkt yaz
     if result.get("status") != "ok":
         return f"❌ *FAZ-6 HATA*\n{result.get('detail')}"
 
@@ -80,7 +79,6 @@ def format_faz6_message(result: dict) -> str:
 
     text = f"🧠 *FAZ-6 {mode} SONUCU*\n\n"
 
-    # Prediction'ları kısa ve temiz formatta yaz
     for p in preds:
         text += (
             f"📌 {p.get('id')}\n"
@@ -90,7 +88,6 @@ def format_faz6_message(result: dict) -> str:
             f"— — —\n"
         )
 
-    # Telegram 4096 karakter sınırına göre kırp
     if len(text) > 3800:
         text = text[:3800] + "\n… (çıktı kısaltıldı)"
 
@@ -133,6 +130,7 @@ def help_cmd(message):
 /faz6_edge - FAZ-6 Edge
 /faz6_real - FAZ-6 Real
 /faz6_balance - FAZ-6 Balance
+/faz6_coupon - FAZ-6 Kupon (3 kupon)
 """
     )
 
@@ -207,6 +205,7 @@ def heavy_full_cmd(message):
 # ============================================================
 
 from faz6_engine.faz6_engine_main import run_faz6_engine
+from faz6_engine.faz6_coupon import build_coupon_message   # YENİ EKLENDİ ✔
 
 
 def _run_faz6_and_reply(message, mode: str):
@@ -238,6 +237,16 @@ def faz6_real_cmd(message):
 @bot.message_handler(commands=["faz6_balance"])
 def faz6_balance_cmd(message):
     _run_faz6_and_reply(message, "balance")
+
+# ============================================================
+#                    FAZ-6 KUPON (3 Kupon)
+# ============================================================
+
+@bot.message_handler(commands=["faz6_coupon"])
+def faz6_coupon_cmd(message):
+    result = run_faz6_engine(mode="balance")
+    msg = build_coupon_message(result, max_coupons=3)
+    bot.reply_to(message, msg, parse_mode="Markdown")
 
 
 # ============================================================
