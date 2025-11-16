@@ -224,4 +224,4 @@ def run_faz6_engine(mode: str = "auto", context: dict = None) -> str:
         f"✅ Güven: %{int(conf * 100)}",
     ]
 
-    return "FAZ-6 ENGINE SONUÇ ✅\n" + "\n".join(lines) 
+    return "FAZ-6 ENGINE SONUÇ ✅\n" + "\n".join(lines)
