@@ -1,6 +1,6 @@
-# =====================================================
-#                FAZ-6 ANA MOTOR (TAM SÜRÜM)
-# =====================================================
+# ================================================================
+#                      FAZ-6 ANA MOTOR  (TAM SÜRÜM)
+# ================================================================
 
 from .faz6_core import (
     run_faz6_test,
@@ -9,19 +9,22 @@ from .faz6_core import (
     run_faz6_edge,
     run_faz6_real,
 )
+
 from .faz6_balance import run_faz6_balance
 
 
 def run_faz6_engine(mode: str = "auto", context: dict | None = None) -> dict:
     """
-    FAZ-6 ana motoru – tüm modları tek çatıdan yönetir.
+    FAZ-6 ana motoru - tüm modları tek çatıdan yönetir.
 
-    Modlar:
+    Kullanılabilir Modlar:
         test / auto / risk / edge / real / balance
     """
 
     if context is None:
         context = {}
+
+    mode = mode.lower().strip()
 
     if mode == "test":
         return run_faz6_test()
@@ -39,8 +42,7 @@ def run_faz6_engine(mode: str = "auto", context: dict | None = None) -> dict:
         return run_faz6_real()
 
     if mode == "balance":
-        # Balance modunu AUTO modunda çalıştırıyoruz,
-        # context'i de ileriye taşıyoruz.
+        # Balance modu AUTO modunda çalışır ve context taşır
         return run_faz6_balance(context=context, mode="auto")
 
     # Geçersiz mod:
@@ -49,4 +51,4 @@ def run_faz6_engine(mode: str = "auto", context: dict | None = None) -> dict:
         "module": "FAZ-6 ENGINE",
         "detail": f"Geçersiz FAZ-6 modu: {mode}",
         "context": context,
-    }
+    } 
