@@ -2,6 +2,9 @@ import sys
 import os
 from typing import List
 from telebot import TeleBot
+from threading import Thread
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 
 # ============================================================
 #                     BOT AYARLARI
@@ -13,6 +16,25 @@ if not BOT_TOKEN:
     sys.exit(1)
 
 bot = TeleBot(BOT_TOKEN)
+
+
+# ============================================================
+#              FLY.IO HEALTHCHECK SERVER (0.0.0.0:8080)
+# ============================================================
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+
+def start_health_server():
+    server = HTTPServer(("0.0.0.0", 8080), HealthHandler)
+    print("INFO: Health server 0.0.0.0:8080 üzerinde çalışıyor.")
+    server.serve_forever()
+
 
 # ============================================================
 #            FAZ-4 NBA SİMÜLASYON MOTORU
@@ -38,9 +60,8 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
         }
 
     score_est = hs.pts + aw.pts
-
-    home_pace = hs.pace_est if hs.pace_est is not None else 0
-    away_pace = aw.pace_est if aw.pace_est is not None else 0
+    home_pace = hs.pace_est or 0
+    away_pace = aw.pace_est or 0
     pace_est = round((home_pace + away_pace) / 2, 1)
 
     diff = hs.pts - aw.pts
@@ -69,19 +90,12 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
 # ============================================================
 
 def format_faz6_message(result: dict) -> str:
-    """
-    run_faz6_engine çıktısını Telegram mesajına çevirir.
-    Hata varsa artık 'None' yerine gerçek sebebi gösterir.
-    """
     if not isinstance(result, dict):
         return f"❌ *FAZ-6 HATA*\nGeçersiz sonuç tipi: {type(result).__name__}"
 
     status = result.get("status", "ok")
     if status != "ok":
-        detail = result.get("detail")
-        # detail yoksa tüm sözlüğü göster (debug için)
-        if not detail:
-            detail = f"Detay yok. Ham sonuç: {repr(result)}"
+        detail = result.get("detail") or repr(result)
         return f"❌ *FAZ-6 HATA*\n{detail}"
 
     mode = result.get("mode", "").upper()
@@ -99,7 +113,6 @@ def format_faz6_message(result: dict) -> str:
             f"— — —\n"
         )
 
-    # Telegram 4096 karakter sınırı için güvenlik payı
     if len(text) > 3800:
         text = text[:3800] + "\n… (çıktı kısaltıldı)"
 
@@ -107,7 +120,7 @@ def format_faz6_message(result: dict) -> str:
 
 
 # ============================================================
-#              FAZ-3 TELEGRAM KOMUT SİSTEMİ
+#                       FAZ-3 KOMUTLAR
 # ============================================================
 
 @bot.message_handler(commands=["start"])
@@ -125,38 +138,35 @@ def help_cmd(message):
         """
 📌 Komutlar:
 
-/start - Botu başlatır
-/status - Sistemi gösterir
+/start
+/status
 
-/simulate_nba - NBA canlı simülasyon
+/simulate_nba
 
-/heavy - FAZ-5 Standart
-/heavy_risk - FAZ-5 Risk
-/heavy_edge - FAZ-5 Edge
-/heavy_auto - FAZ-5 Otomatik
-/heavy_full - FAZ-5 Full
+/heavy
+/heavy_risk
+/heavy_edge
+/heavy_auto
+/heavy_full
 
-/faz6_test - FAZ-6 Test
-/faz6_auto - FAZ-6 Auto
-/faz6_risk - FAZ-6 Risk
-/faz6_edge - FAZ-6 Edge
-/faz6_real - FAZ-6 Real
-/faz6_balance - FAZ-6 Balance
-/faz6_coupon - FAZ-6 Kupon (3 kupon)
+/faz6_test
+/faz6_auto
+/faz6_risk
+/faz6_edge
+/faz6_real
+/faz6_balance
+/faz6_coupon
 """
     )
 
 
 @bot.message_handler(commands=["status"])
 def status_cmd(message):
-    bot.reply_to(
-        message,
-        "🟢 Sistem stabil.\nFAZ-4 aktif.\nFAZ-5 bağlı.\nFAZ-6 tam online."
-    )
+    bot.reply_to(message, "🟢 Sistem stabil. FAZ-4 + FAZ-5 + FAZ-6 aktif.")
 
 
 # ============================================================
-#                       FAZ-4 NBA
+#                     NBA KOMUTU
 # ============================================================
 
 @bot.message_handler(commands=["simulate_nba"])
@@ -194,67 +204,49 @@ from faz5_engine.heavy_engine_main import run_heavy_engine
 
 @bot.message_handler(commands=["heavy"])
 def heavy_cmd(message):
-    bot.reply_to(message, run_heavy_engine(mode="standard"))
+    bot.reply_to(message, run_heavy_engine("standard"))
 
 
 @bot.message_handler(commands=["heavy_risk"])
 def heavy_risk_cmd(message):
-    bot.reply_to(message, run_heavy_engine(mode="risk"))
+    bot.reply_to(message, run_heavy_engine("risk"))
 
 
 @bot.message_handler(commands=["heavy_edge"])
 def heavy_edge_cmd(message):
-    bot.reply_to(message, run_heavy_engine(mode="edge"))
+    bot.reply_to(message, run_heavy_engine("edge"))
 
 
 @bot.message_handler(commands=["heavy_auto"])
 def heavy_auto_cmd(message):
-    bot.reply_to(message, run_heavy_engine(mode="auto"))
+    bot.reply_to(message, run_heavy_engine("auto"))
 
 
 @bot.message_handler(commands=["heavy_full"])
 def heavy_full_cmd(message):
-    bot.reply_to(message, run_heavy_engine(mode="full"))
+    bot.reply_to(message, run_heavy_engine("full"))
 
 
 # ============================================================
 #                       FAZ-6 ENGINE
 # ============================================================
 
-# Burada iç motora dokunmuyoruz, sadece güvenli wrapper ekliyoruz.
 from faz6_engine import run_faz6_engine as _raw_run_faz6_engine
 from faz6_engine.faz6_coupon import build_coupon_message
 
 
 def safe_run_faz6_engine(mode: str) -> dict:
-    """
-    Her türlü hatayı yakalayıp anlamlı dict dönen güvenli wrapper.
-    İçerideki gerçek run_faz6_engine'e dokunmuyor.
-    """
     try:
         result = _raw_run_faz6_engine(mode=mode)
         if not isinstance(result, dict):
-            return {
-                "status": "error",
-                "detail": f"Motor beklenmeyen tip döndürdü: {type(result).__name__}",
-                "raw": result,
-            }
-
-        # 'status' alanı yoksa varsayılan olarak 'ok' kabul et
-        if "status" not in result:
-            result = {"status": "ok", **result}
-
-        return result
+            return {"status": "error", "detail": f"Beklenmeyen tip: {type(result).__name__}"}
+        return {"status": "ok", **result}
     except Exception as e:
-        # Artık 'None' yerine gerçek exception görünecek
-        return {
-            "status": "error",
-            "detail": f"FAZ-6 motor exception: {repr(e)}",
-        }
+        return {"status": "error", "detail": repr(e)}
 
 
 def _run_faz6_and_reply(message, mode: str):
-    result = safe_run_faz6_engine(mode=mode)
+    result = safe_run_faz6_engine(mode)
     msg = format_faz6_message(result)
     bot.reply_to(message, msg, parse_mode="Markdown")
 
@@ -289,23 +281,25 @@ def faz6_balance_cmd(message):
     _run_faz6_and_reply(message, "balance")
 
 
-# ============================================================
-#                    FAZ-6 KUPON (3 Kupon)
-# ============================================================
-
 @bot.message_handler(commands=["faz6_coupon"])
 def faz6_coupon_cmd(message):
-    result = safe_run_faz6_engine(mode="balance")
+    result = safe_run_faz6_engine("balance")
     msg = build_coupon_message(result, max_coupons=3)
     bot.reply_to(message, msg, parse_mode="Markdown")
 
 
 # ============================================================
-#                      ÇALIŞTIRMA NOKTASI
+#                    ÇALIŞTIRMA NOKTASI
 # ============================================================
 
 def main():
     print("INFO: Bot başlatıldı. Tüm motorlar aktif.")
+
+    # 1) Fly.io HealthCheck server thread
+    health_thread = Thread(target=start_health_server, daemon=True)
+    health_thread.start()
+
+    # 2) Telegram bot
     bot.infinity_polling(skip_pending=True)
 
 
