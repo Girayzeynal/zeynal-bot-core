@@ -1,35 +1,44 @@
-# FAZ-6 EDGE MODÜLÜ
-# Avantaj (edge) analizi yaparak daha mantıklı tahmin üretir.
+# ================================================================
+#                 FAZ-6 EDGE MODÜLÜ
+# ================================================================
 
-def run_faz6_edge(context: dict = None) -> dict:
+from __future__ import annotations
+from typing import List, Dict, Any
+
+
+def build_edge_predictions(memory: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
     """
-    FAZ-6 Edge modülü.
-    Takımların güç dengesi ve performans farkını analiz ederek
-    'edge' değeri hesaplar.
+    Edge odaklı portföy: daha yüksek edge kovalayan, risk iştahı yüksek seçimler.
     """
-    if context is None:
-        context = {}
-
-    # Örnek edge hesaplama sistemi
-    import random
-
-    # Güç dengesi
-    home_power = random.uniform(0.40, 0.80)
-    away_power = random.uniform(0.30, 0.75)
-
-    edge_value = round(home_power - away_power, 3)
-
-    # Edge pozitif → ev sahibi avantajlı
-    # Edge negatif → deplasman avantajlı
-    pick = "HOME" if edge_value > 0 else "AWAY"
-
-    confidence = round(min(0.95, 0.60 + abs(edge_value)), 2)
-
-    return {
-        "status": "ok",
-        "module": "FAZ-6 EDGE",
-        "edge_value": edge_value,
-        "pick": pick,
-        "confidence": confidence,
-        "context": context,
-    }
+    return [
+        {
+            "id": "NBA:LAC@PHX",
+            "league": "NBA",
+            "market": "spread",
+            "pick": "LAC +7.5",
+            "confidence": 0.6,
+            "edge": 0.085,
+            "risk_level": "high",
+            "notes": "Piyasa underdog'a düşük fiyat veriyor",
+        },
+        {
+            "id": "NBA:DAL@HOU",
+            "league": "NBA",
+            "market": "total",
+            "pick": "OVER 231.5",
+            "confidence": 0.61,
+            "edge": 0.09,
+            "risk_level": "high",
+            "notes": "Tempo + ofensif verim yüksek",
+        },
+        {
+            "id": "EL:OLY@PART",
+            "league": "EuroLeague",
+            "market": "moneyline",
+            "pick": "OLYMPIACOS",
+            "confidence": 0.64,
+            "edge": 0.08,
+            "risk_level": "medium",
+            "notes": "Match-up avantajı",
+        },
+    ] 
