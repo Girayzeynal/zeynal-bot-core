@@ -8,6 +8,7 @@ class FAZ6Core:
     FAZ-6 temel çekirdeği.
     Hafıza + ML tahmini + optimize edilmiş ayarlama.
     """
+
     def __init__(self):
         self.memory = MemoryUnit()
         self.brain = MLBrain()
@@ -29,8 +30,9 @@ class FAZ6Core:
 
 
 # =====================================================
-#      FAZ-6 MODLARI (TEST / AUTO / RISK / EDGE / REAL)
+#          FAZ-6 MODLARI (TEST / AUTO / RISK / EDGE / REAL)
 # =====================================================
+
 
 def _std_ok(module: str, score: int, conf: float, mod: str, extra=None) -> dict:
     """Tüm modların ortak JSON protokolü."""
