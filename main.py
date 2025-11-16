@@ -4,6 +4,8 @@ import time
 from typing import List
 from threading import Thread
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+import requests
 from telebot import TeleBot
 
 # ============================================================
@@ -16,6 +18,7 @@ if not BOT_TOKEN:
     sys.exit(1)
 
 bot = TeleBot(BOT_TOKEN)
+
 
 # ============================================================
 #            FAZ-4 NBA SİMÜLASYON MOTORU
@@ -321,6 +324,24 @@ def start_health_server():
 
 
 # ============================================================
+#                    HEARTBEAT (ANTI-IDLE)
+# ============================================================
+
+def heartbeat():
+    """
+    Fly.io'nun idle / autostop mantığını keklemek için
+    her 20 saniyede bir local health endpoint'e istek atar.
+    """
+    while True:
+        try:
+            requests.get("http://127.0.0.1:8080", timeout=3)
+        except Exception:
+            # Sessiz geç, amaç sadece hareket göstermek
+            pass
+        time.sleep(20)
+
+
+# ============================================================
 #                    BOT POLLING LOOP
 # ============================================================
 
@@ -352,6 +373,10 @@ def main():
     # Health server'i ayrı thread'de başlat
     health_thread = Thread(target=start_health_server, daemon=True)
     health_thread.start()
+
+    # Heartbeat thread (Fly.io anti-idle)
+    heartbeat_thread = Thread(target=heartbeat, daemon=True)
+    heartbeat_thread.start()
 
     # Bot loop'u ana thread'de çalışsın
     start_bot()
