@@ -204,7 +204,6 @@ def heavy_full_cmd(message):
 #                       FAZ-6 ENGINE
 # ============================================================
 
-from faz6_engine.faz6_engine_main import run_faz6_engine
 from faz6_engine.faz6_coupon import build_coupon_message   # YENİ EKLENDİ ✔
 
 
