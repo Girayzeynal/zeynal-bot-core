@@ -1,5 +1,5 @@
 # ================================================================
-#                      FAZ-6 ANA MOTOR  (TAM SÜRÜM)
+#                FAZ-6 ANA MOTOR – GELİŞTİRİLMİŞ SÜRÜM
 # ================================================================
 
 from .faz6_core import (
@@ -13,12 +13,38 @@ from .faz6_core import (
 from .faz6_balance import run_faz6_balance
 
 
+def _safe_run(func, mode, context):
+    """
+    Tüm FAZ-6 fonksiyonlarını güvenli şekilde çalıştıran koruyucu.
+    Motor çökse bile stabil çıktı üretir.
+    """
+
+    try:
+        raw = func() if context is None else func()
+
+        # Motorların çoğu raw dict döner — hepsini standart formata sokuyoruz.
+        return {
+            "status": "ok",
+            "mode": mode,
+            "engine": "FAZ-6",
+            "result": raw,
+            "context_used": context or {},
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "mode": mode,
+            "engine": "FAZ-6",
+            "detail": str(e),
+            "context_used": context or {},
+        }
+
+
 def run_faz6_engine(mode: str = "auto", context: dict | None = None) -> dict:
     """
-    FAZ-6 ana motoru - tüm modları tek çatıdan yönetir.
-
-    Kullanılabilir Modlar:
-        test / auto / risk / edge / real / balance
+    FAZ-6 ana motoru – tüm modları tek çatıdan yönetir.
+    Dönen değer main.py ile %100 uyumludur.
     """
 
     if context is None:
@@ -26,29 +52,46 @@ def run_faz6_engine(mode: str = "auto", context: dict | None = None) -> dict:
 
     mode = mode.lower().strip()
 
+    # MODE ROUTER
     if mode == "test":
-        return run_faz6_test()
+        return _safe_run(run_faz6_test, mode, context)
 
     if mode == "auto":
-        return run_faz6_auto()
+        return _safe_run(run_faz6_auto, mode, context)
 
     if mode == "risk":
-        return run_faz6_risk()
+        return _safe_run(run_faz6_risk, mode, context)
 
     if mode == "edge":
-        return run_faz6_edge()
+        return _safe_run(run_faz6_edge, mode, context)
 
     if mode == "real":
-        return run_faz6_real()
+        return _safe_run(run_faz6_real, mode, context)
 
     if mode == "balance":
-        # Balance modu AUTO modunda çalışır ve context taşır
-        return run_faz6_balance(context=context, mode="auto")
+        # Balance modu özel: context’i aktif aktarır
+        try:
+            raw = run_faz6_balance(context=context, mode="auto")
+            return {
+                "status": "ok",
+                "mode": "balance",
+                "engine": "FAZ-6",
+                "result": raw,
+                "context_used": context,
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "mode": "balance",
+                "engine": "FAZ-6",
+                "detail": str(e),
+                "context_used": context,
+            }
 
-    # Geçersiz mod:
+    # GEÇERSİZ MOD
     return {
         "status": "error",
-        "module": "FAZ-6 ENGINE",
+        "engine": "FAZ-6",
         "detail": f"Geçersiz FAZ-6 modu: {mode}",
-        "context": context,
-    } 
+        "context_used": context,
+    }
