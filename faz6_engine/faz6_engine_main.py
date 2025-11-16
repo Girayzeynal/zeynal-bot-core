@@ -1,5 +1,5 @@
 # =============================
-# FAZ-6 ANA MOTOR (DÜZELTİLDİ)
+# FAZ-6 ANA MOTOR (TAM SÜRÜM)
 # =============================
 
 from faz6_engine.faz6_core import (
@@ -16,7 +16,7 @@ def run_faz6_engine(mode="test", context=None):
     """
     FAZ-6 ana seçim motoru.
     Tüm modları tek çatıdan yönetir:
-    
+
     test / auto / risk / edge / real / balance
     """
 
