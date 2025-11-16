@@ -1,77 +1,81 @@
-from .faz6_core import (
-    run_faz6_test,
-    run_faz6_auto,
-    run_faz6_risk,
-    run_faz6_edge,
-    run_faz6_real,
-)
+# ================================================================
+#                 FAZ-6 BALANCE MODÜLÜ
+# ================================================================
+
+from __future__ import annotations
+from typing import Dict, Any, List
+
+from .faz6_core import run_faz6_auto, run_faz6_risk, run_faz6_edge
 
 
-def run_faz6_balance(context: dict | None = None, mode: str = "auto") -> dict:
+def _mix_portfolio(
+    auto_preds: List[Dict[str, Any]],
+    risk_preds: List[Dict[str, Any]],
+    edge_preds: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
     """
-    FAZ-6 BALANCE modu.
-
-    Amaç:
-      - test / auto / risk / edge / real çıktılarından
-        tek bir 'dengeli' skor üretmek.
+    Basit portföy karıştırıcı:
+    - Risk'ten güvenli parçalar
+    - Edge'den yüksek edge'li ama limitli sayı
+    - Auto'dan genel denge
     """
+    portfolio: List[Dict[str, Any]] = []
 
-    if context is None:
-        context = {}
+    # Risk'ten düşük riskli olanları çek
+    for p in risk_preds:
+        if p.get("risk_level") in ("low", "medium"):
+            portfolio.append(dict(p))
 
-    # Tüm modları çalıştır
-    res_test = run_faz6_test()
-    res_auto = run_faz6_auto()
-    res_risk = run_faz6_risk()
-    res_edge = run_faz6_edge()
-    res_real = run_faz6_real()
+    # Edge'den gerçekten güçlü olanları ekle (adet limiti ile)
+    edge_strong = [
+        p for p in edge_preds
+        if p.get("edge", 0.0) >= 0.07 and p.get("confidence", 0) >= 0.62
+    ][:5]
 
-    # Skorlara ağırlık verelim
-    weights = {
-        "test": 0.15,
-        "auto": 0.30,
-        "risk": 0.15,
-        "edge": 0.20,
-        "real": 0.20,
-    }
+    for p in edge_strong:
+        q = dict(p)
+        q.setdefault("tag", "edge_balance")
+        portfolio.append(q)
 
-    scores = [
-        (res_test["score"], weights["test"]),
-        (res_auto["score"], weights["auto"]),
-        (res_risk["score"], weights["risk"]),
-        (res_edge["score"], weights["edge"]),
-        (res_real["score"], weights["real"]),
-    ]
+    # Auto'dan portföyü tamamla
+    for p in auto_preds[:10]:
+        q = dict(p)
+        q.setdefault("tag", "auto_balance")
+        portfolio.append(q)
 
-    total = sum(s * w for s, w in scores)
-    total_w = sum(w for _, w in scores)
-    balanced_score = round(total / total_w)
+    # Basit tekrar temizliği (id + market'e göre)
+    seen = set()
+    unique: List[Dict[str, Any]] = []
+    for p in portfolio:
+        key = (p.get("id"), p.get("market"))
+        if key not in seen:
+            seen.add(key)
+            unique.append(p)
 
-    # Ortalama güven
-    confs = [
-        res_test["confidence"],
-        res_auto["confidence"],
-        res_risk["confidence"],
-        res_edge["confidence"],
-        res_real["confidence"],
-    ]
-    balanced_conf = round(sum(confs) / len(confs), 2)
+    return unique
+
+
+def run_faz6_balance(context: Dict[str, Any] | None = None, mode: str = "auto") -> Dict[str, Any]:
+    """
+    Balance modu: risk + edge + auto çıktılarından dengeli portföy.
+    """
+    auto_res = run_faz6_auto()
+    risk_res = run_faz6_risk()
+    edge_res = run_faz6_edge()
+
+    auto_preds = auto_res.get("predictions", [])
+    risk_preds = risk_res.get("predictions", [])
+    edge_preds = edge_res.get("predictions", [])
+
+    portfolio = _mix_portfolio(auto_preds, risk_preds, edge_preds)
 
     return {
-        "status": "ok",
-        "module": "FAZ-6 BALANCE",
-        "score": balanced_score,
-        "confidence": balanced_conf,
-        "mod": "balance",
-        "context": {
-            "raw": {
-                "test": res_test,
-                "auto": res_auto,
-                "risk": res_risk,
-                "edge": res_edge,
-                "real": res_real,
-            },
-            "input_context": context,
-            "mode": mode,
+        "mode": "balance",
+        "portfolio": portfolio,
+        "sources": {
+            "auto": auto_res.get("ml_meta", {}),
+            "risk": risk_res.get("ml_meta", {}),
+            "edge": edge_res.get("ml_meta", {}),
         },
+        "context": context or {},
     } 
