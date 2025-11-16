@@ -1,122 +1,149 @@
-from .memory_unit import MemoryUnit
-from .ml_brain import MLBrain
-from .optimizer import Optimizer
+# ================================================================
+#                      FAZ-6 ÇEKİRDEK (CORE)
+# ================================================================
+
+from .memory_unit import load_memory, save_memory
+from .optimizer import optimize_prediction
+from .ml_brain import ml_evaluate
+
+from .faz6_test import faz6_test_run
+from .faz6_auto import faz6_auto_run
+from .faz6_risk import faz6_risk_run
+from .faz6_edge import faz6_edge_run
+from .faz6_real import faz6_real_run
 
 
-class FAZ6Core:
-    """
-    FAZ-6 temel çekirdeği.
-    Hafıza + ML tahmini + optimize edilmiş ayarlama.
-    """
+# ================================================================
+#  Ortak çıkış formatlayıcı
+# ================================================================
 
-    def __init__(self):
-        self.memory = MemoryUnit()
-        self.brain = MLBrain()
-        self.optimizer = Optimizer()
-
-    def analyze(self, stats: dict) -> dict:
-        """
-        Temel tahmin fonksiyonu.
-        """
-        base = self.brain.simple_predict(stats)
-        return base
-
-    def learn(self, result: dict) -> dict:
-        """
-        Hafıza + optimizasyon döngüsü.
-        """
-        self.memory.save(result)
-        return self.optimizer.adjust(self.memory.get_all())
-
-
-# =====================================================
-#          FAZ-6 MODLARI (TEST / AUTO / RISK / EDGE / REAL)
-# =====================================================
-
-
-def _std_ok(module: str, score: int, conf: float, mod: str, extra=None) -> dict:
-    """Tüm modların ortak JSON protokolü."""
+def _format_output(mode, status, data, memory=None, detail=None):
     return {
-        "status": "ok",
-        "module": module,
-        "score": score,
-        "confidence": conf,
-        "mod": mod,
-        "context": extra or {},
+        "mode": mode,
+        "status": status,
+        "engine": "FAZ-6",
+        "detail": detail,
+        "result": data,
+        "memory_used": memory or {}
     }
 
 
-def run_faz6_test() -> dict:
-    """
-    FAZ-6 TEST modu
-    """
-    core = FAZ6Core()
-    stats = {"pts": 105, "pace": 97, "power": 0.25}
-    result = core.analyze(stats)
+# ================================================================
+#  TEST MODU
+# ================================================================
 
-    score = result.get("score", 105)
-    conf = result.get("conf", 0.25)
+def run_faz6_test():
+    try:
+        mem = load_memory()
+        raw = faz6_test_run()
 
-    return _std_ok("FAZ-6 TEST", score, conf, "test")
+        # ML & optimize
+        ml = ml_evaluate(raw)
+        opt = optimize_prediction(raw)
 
+        save_memory({"test_last": raw})
 
-def run_faz6_auto() -> dict:
-    """
-    Otomatik öğrenme modu
-    """
-    core = FAZ6Core()
-    stats = {"pts": 108, "pace": 99, "power": 0.45}
-
-    base = core.analyze(stats)
-    adj = core.learn(base)
-
-    score = base.get("score", 108)
-    conf = adj.get("conf", 0.40)
-
-    return _std_ok("FAZ-6 AUTO", score, conf, "auto")
+        return _format_output(
+            mode="test",
+            status="ok",
+            data={"raw": raw, "ml": ml, "optimized": opt},
+            memory=mem
+        )
+    except Exception as e:
+        return _format_output("test", "error", None, detail=str(e))
 
 
-def run_faz6_risk() -> dict:
-    """
-    Yüksek risk modu
-    """
-    core = FAZ6Core()
-    stats = {"pts": 112, "pace": 103, "power": 0.65}
+# ================================================================
+#  AUTO MODU
+# ================================================================
 
-    base = core.analyze(stats)
+def run_faz6_auto():
+    try:
+        mem = load_memory()
+        raw = faz6_auto_run(memory=mem)
 
-    score = base.get("score", 112)
-    conf = 0.55
+        ml = ml_evaluate(raw)
+        opt = optimize_prediction(raw)
 
-    return _std_ok("FAZ-6 RISK", score, conf, "risk")
+        save_memory({"auto_last": opt})
 
-
-def run_faz6_edge() -> dict:
-    """
-    Edge modu – ML + güç dengesi analizi
-    """
-    core = FAZ6Core()
-    stats = {"pts": 110, "pace": 101, "power": 0.52}
-
-    base = core.analyze(stats)
-
-    score = base.get("score", 110)
-    conf = 0.50
-
-    return _std_ok("FAZ-6 EDGE", score, conf, "edge")
+        return _format_output(
+            mode="auto",
+            status="ok",
+            data={"raw": raw, "ml": ml, "optimized": opt},
+            memory=mem
+        )
+    except Exception as e:
+        return _format_output("auto", "error", None, detail=str(e))
 
 
-def run_faz6_real() -> dict:
-    """
-    Gerçek maç tahmin modu (REAL)
-    """
-    core = FAZ6Core()
-    stats = {"pts": 107, "pace": 100, "power": 0.40}
+# ================================================================
+#  RISK MODU
+# ================================================================
 
-    base = core.analyze(stats)
-    adj = core.learn(base)
+def run_faz6_risk():
+    try:
+        mem = load_memory()
+        raw = faz6_risk_run(memory=mem)
 
-    score = base.get("score", 107)
-    conf = adj.get("conf", 0.45)
+        ml = ml_evaluate(raw)
+        opt = optimize_prediction(raw, risk=True)
 
-    return _std_ok("FAZ-6 REAL", score, conf, "real")
+        save_memory({"risk_last": opt})
+
+        return _format_output(
+            mode="risk",
+            status="ok",
+            data={"raw": raw, "ml": ml, "optimized": opt},
+            memory=mem
+        )
+    except Exception as e:
+        return _format_output("risk", "error", None, detail=str(e))
+
+
+# ================================================================
+#  EDGE MODU
+# ================================================================
+
+def run_faz6_edge():
+    try:
+        mem = load_memory()
+        raw = faz6_edge_run(memory=mem)
+
+        ml = ml_evaluate(raw)
+        opt = optimize_prediction(raw, aggressive=True)
+
+        save_memory({"edge_last": opt})
+
+        return _format_output(
+            mode="edge",
+            status="ok",
+            data={"raw": raw, "ml": ml, "optimized": opt},
+            memory=mem
+        )
+    except Exception as e:
+        return _format_output("edge", "error", None, detail=str(e))
+
+
+# ================================================================
+#  REAL MODU (GERÇEK ZAMANLI)
+# ================================================================
+
+def run_faz6_real():
+    try:
+        mem = load_memory()
+        raw = faz6_real_run(memory=mem)
+
+        ml = ml_evaluate(raw)
+        opt = optimize_prediction(raw, realtime=True)
+
+        save_memory({"real_last": opt})
+
+        return _format_output(
+            mode="real",
+            status="ok",
+            data={"raw": raw, "ml": ml, "optimized": opt},
+            memory=mem
+        )
+    except Exception as e:
+        return _format_output("real", "error", None, detail=str(e))
