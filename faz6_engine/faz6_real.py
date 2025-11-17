@@ -1,29 +1,41 @@
-"""
-FAZ-6 REAL MODE
-Gerçek zamanlı canlı veri, momentum ve trend analizi.
-Burada daha agresif kararlar ve anlık edge düzeltmeleri olabilir.
-"""
-
 from __future__ import annotations
-from typing import List, Dict, Any
+from typing import Dict, Any, List
+
+Prediction = Dict[str, Any]
 
 
-def build_real_predictions(memory: Dict[str, Any] | None) -> List[Dict[str, Any]]:
-    return [
+def build_real_predictions(memory: Dict[str, Any] | None) -> List[Prediction]:
+    """
+    REAL modu: gerçek zaman odaklı, daha temkinli tahminler.
+    Şimdilik sabit örnek; ileride canlı veri ve hafızayı buraya bağlayacağız.
+    """
+    preds: List[Prediction] = [
         {
-            "id": "REAL-1",
-            "market": "live_over_under",
-            "pick": "OVER 168.5",
-            "edge": 0.055,
-            "confidence": 0.68,
-            "league": "NBA-LIVE",
+            "id": "NBA:LAL@GSW",
+            "league": "NBA",
+            "match": "LAL@GSW",
+            "market": "spread",
+            "selection": "LAL +4.5",
+            "confidence": 0.58,
+            "edge": 0.04,
         },
         {
-            "id": "REAL-2",
-            "market": "live_match_winner",
-            "pick": "HOME",
-            "edge": 0.047,
-            "confidence": 0.72,
-            "league": "EUROLEAGUE-LIVE",
-        }
+            "id": "NBA:CHI@NYK",
+            "league": "NBA",
+            "match": "CHI@NYK",
+            "market": "total",
+            "selection": "UNDER 217.5",
+            "confidence": 0.57,
+            "edge": 0.035,
+        },
+        {
+            "id": "EL:OLY@REAL",
+            "league": "EuroLeague",
+            "match": "OLY@REAL",
+            "market": "moneyline",
+            "selection": "REAL MADRID",
+            "confidence": 0.6,
+            "edge": 0.04,
+        },
     ]
+    return preds 
