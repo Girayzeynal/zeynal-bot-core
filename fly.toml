@@ -1,20 +1,17 @@
-app = 'zeynal-bot-core'
-primary_region = 'ams'
+app = "zeynal-bot-core"
+primary_region = "ams"
 
 [build]
 
 [http_service]
   internal_port = 8080
-  force_https = false
+  force_https = true
   auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
-  processes = ['app']
-
-[checks]
-  auto_stop = "off"
+  processes = ["app"]
 
 [[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1 
