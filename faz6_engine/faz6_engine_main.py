@@ -1,34 +1,19 @@
 """
-FAZ-6 ENGINE - ULTIMATE CORE
+FAZ-6 ENGINE - ULTIMATE CORE (HYBRID V1)
 
-Bu dosya FAZ-6'nın tek giriş noktasıdır.
+Bu dosya FAZ-6'nın ana giriş noktasıdır.
 
-Dış API (main.py ve Telegram için):
-    from faz6_engine.faz6_engine_main import run_faz6_engine
+Dış kullanım (main.py ve Telegram için):
+    from faz6_engine import run_faz6_engine
 
-Kullanılabilir modlar:
+Modlar:
     - test
     - auto
     - risk
     - edge
     - real
     - balance
-    - ultimate   (FAZ-6 Ultimate Mode)
-
-Standart dönüş formatı:
-    {
-        "status": "ok" | "error",
-        "mode": "...",
-        "result": {
-            "predictions": [ ... ]  # veya "portfolio"
-            ... ek meta alanları ...
-        },
-        "context": {...},
-
-        # Geriye dönük uyum için:
-        "predictions": [...],
-        "portfolio": [...],
-    }
+    - ultimate
 """
 
 from __future__ import annotations
@@ -49,7 +34,7 @@ EngineResult = Dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
-#  Yardımcı fonksiyonlar
+#  Yardımcılar
 # ---------------------------------------------------------------------------
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -63,9 +48,8 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
 
 def _extract_predictions(result: EngineResult | None) -> List[Prediction]:
     """
-    Bir FAZ-6 modundan dönen dict içinden tahmin listesini çıkarır.
-
-    Beklenen yapılar:
+    Bir FAZ-6 modundan tahmin listesini çek.
+    Aşağıdaki yapıların hepsi ile uyumlu çalışır:
         result["result"]["predictions"]
         result["result"]["portfolio"]
         result["predictions"]
@@ -74,7 +58,6 @@ def _extract_predictions(result: EngineResult | None) -> List[Prediction]:
     if not isinstance(result, dict):
         return []
 
-    # Önce içteki "result"/"data"
     payload = result.get("result") or result.get("data") or result
     if not isinstance(payload, dict):
         return []
@@ -93,7 +76,9 @@ def _extract_predictions(result: EngineResult | None) -> List[Prediction]:
 
 
 def _merge_predictions(*lists: List[Prediction]) -> List[Prediction]:
-    """Aynı maç + market kombinasyonunu tekilleştirerek listeleri birleştirir."""
+    """
+    Aynı maç + market kombinasyonunu tekilleştirerek listeleri birleştirir.
+    """
     merged: List[Prediction] = []
     seen: set[Tuple[str, str]] = set()
 
@@ -115,11 +100,7 @@ def _merge_predictions(*lists: List[Prediction]) -> List[Prediction]:
 def _score_prediction(p: Prediction) -> float:
     """
     Ultimate Mode skor fonksiyonu.
-
-    Temel mantık:
-        - edge önemli (0.7)
-        - confidence da önemli (0.3)
-        - bazı liglere küçük bonus / ceza
+    edge (%70) + confidence (%30) + lig bonus/ceza
     """
     edge = _safe_float(p.get("edge"), 0.0)
     conf = _safe_float(p.get("confidence"), 0.0)
@@ -143,9 +124,9 @@ def _filter_and_rank_predictions(
 ) -> List[Prediction]:
     """
     Ultimate Mode filtresi:
-        - edge/conf threshold
-        - skora göre sıralama
-        - en fazla max_picks adet seçim
+      - edge/conf threshold
+      - skora göre sıralama
+      - max_picks kadar seçim
     """
     filtered: List[Prediction] = []
 
@@ -170,15 +151,15 @@ def _filter_and_rank_predictions(
 
 def _run_faz6_ultimate(context: Dict[str, Any]) -> EngineResult:
     """
-    Ultimate Mode:
-        - auto, risk, edge, real, balance modlarının çıktısını toplar,
-        - tekilleştirir,
-        - skorlar ve en iyi N seçimi döner.
+    Ultimate:
+      - auto, risk, edge, real, balance çıktılarını toplar
+      - tekilleştirir
+      - skorlar ve en iyi N tahmini döner
     """
     raw_outputs: Dict[str, EngineResult] = {}
     errors: Dict[str, str] = {}
 
-    # 1) Alt modları çalıştır
+    # Alt modlar
     try:
         raw_outputs["auto"] = run_faz6_auto()
     except Exception as e:  # noqa: BLE001
@@ -204,7 +185,7 @@ def _run_faz6_ultimate(context: Dict[str, Any]) -> EngineResult:
     except Exception as e:  # noqa: BLE001
         errors["balance"] = f"run_faz6_balance hata: {e!r}"
 
-    # 2) Tahminleri topla
+    # Tahminleri topla
     all_predictions = _merge_predictions(
         _extract_predictions(raw_outputs.get("auto")),
         _extract_predictions(raw_outputs.get("risk")),
@@ -213,7 +194,7 @@ def _run_faz6_ultimate(context: Dict[str, Any]) -> EngineResult:
         _extract_predictions(raw_outputs.get("balance")),
     )
 
-    # 3) Filtre / sıralama
+    # Filtre / sıralama
     max_picks = int(context.get("ultimate_max_picks") or 6)
     min_edge = float(context.get("ultimate_min_edge") or 0.01)
     min_conf = float(context.get("ultimate_min_conf") or 0.50)
@@ -258,7 +239,7 @@ def _run_faz6_ultimate(context: Dict[str, Any]) -> EngineResult:
 
 def run_faz6_engine(mode: str = "auto", context: Optional[Dict[str, Any]] = None) -> EngineResult:
     """
-    FAZ-6 ana motoru - tüm modları tek çatıdan yönetir.
+    FAZ-6 ana motoru.
 
     Kullanılabilir Modlar:
         test / auto / risk / edge / real / balance / ultimate
@@ -290,10 +271,11 @@ def run_faz6_engine(mode: str = "auto", context: Optional[Dict[str, Any]] = None
     if mode == "ultimate":
         return _run_faz6_ultimate(context=context)
 
+    # Geçersiz mod
     return {
         "status": "error",
         "mode": mode,
         "module": "FAZ-6 ENGINE",
         "detail": f"Geçersiz FAZ-6 modu: {mode}",
         "context": context,
-  }
+    }
