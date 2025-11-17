@@ -3,9 +3,9 @@ from typing import Dict, Any, List
 
 Prediction = Dict[str, Any]
 
-def build_test_predictions(memory: Dict[str, Any] | None = None) -> List[Prediction]:
+def build_test_predictions(memory: Dict[str, Any]) -> List[Prediction]:
     """
-    Test modu için sabit birkaç örnek tahmin.
+    Test modu: sabit birkaç örnek tahmin.
     """
 
     preds: List[Prediction] = [
@@ -25,12 +25,12 @@ def build_test_predictions(memory: Dict[str, Any] | None = None) -> List[Predict
             "league": "NBA",
             "match": "DAL@HOU",
             "market": "spread",
-            "selection": "DAL +3.5",
-            "pick": "DAL +3.5",
+            "selection": "DAL -3.5",
+            "pick": "DAL -3.5",
             "confidence": 0.55,
-            "edge": 0.05,
-            "risk_level": "low",
-        },
+            "edge": 0.07,
+            "risk_level": "medium",
+        }
     ]
 
-    return preds 
+    return preds
