@@ -15,26 +15,11 @@ def build_test_predictions(memory: Dict[str, Any] | None) -> List[Prediction]:
             "match": "LAC@PHX",
             "market": "spread",
             "selection": "LAC +7.5",
-            "confidence": 0.6,
+            "pick": "LAC +7.5",
+            "confidence": 0.60,
             "edge": 0.08,
+            "risk_level": "medium",
         },
         {
             "id": "NBA:DAL@HOU",
-            "league": "NBA",
-            "match": "DAL@HOU",
-            "market": "total",
-            "selection": "OVER 231.5",
-            "confidence": 0.61,
-            "edge": 0.09,
-        },
-        {
-            "id": "EL:OLY@PART",
-            "league": "EuroLeague",
-            "match": "OLY@PART",
-            "market": "moneyline",
-            "selection": "OLYMPIACOS",
-            "confidence": 0.64,
-            "edge": 0.08,
-        },
-    ]
-    return preds
+            "league": "
