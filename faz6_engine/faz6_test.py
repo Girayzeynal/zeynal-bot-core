@@ -3,11 +3,11 @@ from typing import Dict, Any, List
 
 Prediction = Dict[str, Any]
 
+def build_test_predictions(memory: Dict[str, Any]) -> List[Prediction]:
+    """
+    Test modu: sabit birkaç örnek tahmin.
+    """
 
-def build_test_predictions(memory: Dict[str, Any] | None) -> List[Prediction]:
-    """
-    Test modu için sabit birkaç örnek tahmin.
-    """
     preds: List[Prediction] = [
         {
             "id": "NBA:LAC@PHX",
@@ -22,4 +22,15 @@ def build_test_predictions(memory: Dict[str, Any] | None) -> List[Prediction]:
         },
         {
             "id": "NBA:DAL@HOU",
-            "league": "
+            "league": "NBA",
+            "match": "DAL@HOU",
+            "market": "spread",
+            "selection": "DAL -3.5",
+            "pick": "DAL -3.5",
+            "confidence": 0.55,
+            "edge": 0.07,
+            "risk_level": "medium",
+        }
+    ]
+
+    return preds

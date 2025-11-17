@@ -78,4 +78,3 @@ def build_risk_predictions(memory: Dict[str, Any] | None) -> List[Prediction]:
                 preds.append(q)
 
     return preds
-```0
