@@ -1,201 +1,186 @@
-# ================================================================
-#                      FAZ-6 ÇEKİRDEK (CORE)
-# ================================================================
+"""
+FAZ-6 Core Helpers
+------------------
+Bu dosya FAZ-6 için ortak çekirdek fonksiyonları tutar.
+
+Amaç:
+- Tüm modlar (test / risk / auto / balance / real / coupon)
+  için ortak preset ve filtreleme mantığını tek yerde toplamak.
+- Hiçbir network / I/O yapmaz. Sadece hesaplama yapar.
+"""
 
 from __future__ import annotations
-from typing import List, Dict, Any
 
-from .memory_unit import load_memory, save_memory
-from .ml_brain import evaluate_predictions
-from .optimizer import optimize_predictions
-
-from .faz6_test import build_test_predictions
-from .faz6_risk import build_risk_predictions
-from .faz6_edge import build_edge_predictions
-from .faz6_real import build_real_predictions
-
-Prediction = Dict[str, Any]
-EngineResult = Dict[str, Any]
-Memory = Dict[str, Any]
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, List, Optional
 
 
-# ------------------------------------------------
-# Ortak çıktı wrapper
-# ------------------------------------------------
+# ===========================
+#  Preset Tanımı
+# ===========================
 
-def _wrap_result(
-    mode: str,
-    predictions: List[Prediction],
-    ml_meta: Dict[str, Any],
-    memory_before: Memory,
-    memory_after_key: str,
-    context: Dict[str, Any] | None = None,
-    extra_result: Dict[str, Any] | None = None,
-) -> EngineResult:
+@dataclass
+class Faz6Preset:
+    code: str               # örn: "test", "risk", "auto", "balance", "real", "coupon"
+    title: str              # insan okunabilir isim
+    min_confidence: float   # eşik: güven
+    min_edge: float         # eşik: edge
+    max_picks: Optional[int] = None   # maksimum seçim sayısı (None = sınırsız)
+
+
+# Buradaki değerler güvenli, muhafazakâr default'lar.
+# İleride FAZ-7 geçişinde sadece burayı değiştirerek
+# tüm faz6_* dosyalarını güncellemek mümkün olacak.
+PRESETS: Dict[str, Faz6Preset] = {
+    "test": Faz6Preset(
+        code="test",
+        title="FAZ-6 TEST PRESET",
+        min_confidence=0.55,
+        min_edge=0.03,
+        max_picks=5,
+    ),
+    "risk": Faz6Preset(
+        code="risk",
+        title="FAZ-6 RISK PRESET",
+        min_confidence=0.60,
+        min_edge=0.04,
+        max_picks=7,
+    ),
+    "auto": Faz6Preset(
+        code="auto",
+        title="FAZ-6 AUTO PRESET",
+        min_confidence=0.58,
+        min_edge=0.04,
+        max_picks=10,
+    ),
+    "balance": Faz6Preset(
+        code="balance",
+        title="FAZ-6 BALANCE PRESET",
+        min_confidence=0.60,
+        min_edge=0.04,
+        max_picks=12,
+    ),
+    "real": Faz6Preset(
+        code="real",
+        title="FAZ-6 REAL PRESET",
+        min_confidence=0.57,
+        min_edge=0.035,
+        max_picks=None,  # gerçek maç listesi serbest kalabilir
+    ),
+    "coupon": Faz6Preset(
+        code="coupon",
+        title="FAZ-6 COUPON PRESET",
+        min_confidence=0.60,
+        min_edge=0.04,
+        max_picks=None,
+    ),
+}
+
+
+def get_preset(code: str) -> Faz6Preset:
     """
-    Tüm FAZ-6 modları için standart çıktı.
-    main.py, faz6_coupon, faz6_balance ve ultimate ile uyumlu.
+    Verilen kod için preset döndürür.
+    Bilinmeyen kod gelirse 'balance' preset'ini kullanır.
     """
-    if context is None:
-        context = {}
+    code = (code or "").lower().strip()
+    if code in PRESETS:
+        return PRESETS[code]
+    return PRESETS["balance"]
 
-    # Hafızaya basit snapshot kaydı
+
+# ===========================
+#  Filtreleme ve Sıralama
+# ===========================
+
+def filter_and_rank_games(
+    games: Iterable[Dict[str, Any]],
+    preset: Faz6Preset,
+) -> List[Dict[str, Any]]:
+    """
+    Ortak filtreleme mantığı:
+
+    - game["confidence"]  >= preset.min_confidence
+    - game["edge"]        >= preset.min_edge
+    - confidence DESC + edge DESC sıralama
+    - max_picks varsa, o kadar ile sınırla
+
+    games içindeki elemanlar sözlük kabul edilir.
+    Eksik alanlar varsa 0.0 gibi davranır; böylece
+    hiçbir yerde KeyError patlamaz.
+    """
+    filtered: List[Dict[str, Any]] = []
+
+    for game in games:
+        try:
+            conf = float(game.get("confidence", game.get("guven", 0.0)))
+        except (TypeError, ValueError):
+            conf = 0.0
+
+        try:
+            edge = float(game.get("edge", 0.0))
+        except (TypeError, ValueError):
+            edge = 0.0
+
+        if conf < preset.min_confidence:
+            continue
+        if edge < preset.min_edge:
+            continue
+
+        filtered.append(game)
+
+    # Güven → Edge sırasına göre tersten sırala
+    filtered.sort(
+        key=lambda g: (
+            float(g.get("confidence", g.get("guven", 0.0))),
+            float(g.get("edge", 0.0)),
+        ),
+        reverse=True,
+    )
+
+    if preset.max_picks is not None and len(filtered) > preset.max_picks:
+        filtered = filtered[: preset.max_picks]
+
+    return filtered
+
+
+# ===========================
+#  Format Yardımcıları
+# ===========================
+
+def safe_float(value: Any, default: float = 0.0) -> float:
+    """
+    Her türlü tipi güvenle floata çevirir.
+    Hata olursa default döner.
+    """
     try:
-        mem = dict(memory_before)
-        mem[memory_after_key] = predictions
-        save_memory(mem)
-    except Exception:
-        mem = memory_before
-
-    result_body: Dict[str, Any] = {
-        "predictions": predictions,
-        "portfolio": predictions,
-        "ml_meta": ml_meta,
-    }
-    if extra_result:
-        result_body.update(extra_result)
-
-    return {
-        "status": "ok",
-        "mode": mode,
-        "result": result_body,
-        "context": context,
-        # geri uyum
-        "predictions": predictions,
-        "portfolio": predictions,
-    }
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
-# ------------------------------------------------
-# AUTO MODE – genel otomatik portföy
-# ------------------------------------------------
-
-def _build_auto_predictions(memory: Memory) -> List[Prediction]:
+def format_pick_for_telegram(game: Dict[str, Any]) -> str:
     """
-    Auto modu için temel prediction seti.
-    Hafızadaki son risk/edge bilgilerini karıştırır.
+    Tek bir maçı Telegram mesajı satırı olarak formatlar.
+
+    game sözlüğünde beklenen alanlar:
+    - "label"      → 'NBA:LAC@PHX' gibi lig+maç kodu
+    - "market_str" → 'LAC +7.5 (spread)' gibi market
+    - "confidence" → 0.60
+    - "edge"       → 0.04
+    - "stake"      → 1.54
+
+    Eksik alanlarda da çökmemesi için hepsi defansif yazılmıştır.
     """
-    base: List[Prediction] = []
+    label = str(game.get("label") or game.get("match") or "UNKNOWN")
+    market = str(game.get("market_str") or game.get("market") or "None")
+    conf = safe_float(game.get("confidence", game.get("guven", 0.0)))
+    edge = safe_float(game.get("edge", 0.0))
+    stake = safe_float(game.get("stake", 0.0))
 
-    last_risk = memory.get("risk_last", [])
-    last_edge = memory.get("edge_last", [])
-
-    # Risk'ten güvenli parçalar
-    for p in last_risk[:5]:
-        q = dict(p)
-        q.setdefault("tag", "risk_carry")
-        base.append(q)
-
-    # Edge'den yüksek edge'li olanlar
-    for p in last_edge[:5]:
-        if p.get("edge", 0) >= 0.05:
-            q = dict(p)
-            q.setdefault("tag", "edge_boost")
-            base.append(q)
-
-    # Hafıza boşsa test datasını kullan
-    if not base:
-        base = build_test_predictions(memory=None)
-
-    return base
-
-
-def run_faz6_auto(context: Dict[str, Any] | None = None) -> EngineResult:
-    memory_before = load_memory()
-    raw = _build_auto_predictions(memory_before)
-
-    ml_meta = evaluate_predictions(raw, memory_before, mode="auto")
-    optimized = optimize_predictions(raw, ml_meta, mode="auto")
-
-    return _wrap_result(
-        mode="auto",
-        predictions=optimized,
-        ml_meta=ml_meta,
-        memory_before=memory_before,
-        memory_after_key="auto_last",
-        context=context,
-    )
-
-
-# ------------------------------------------------
-# TEST MODE
-# ------------------------------------------------
-
-def run_faz6_test(context: Dict[str, Any] | None = None) -> EngineResult:
-    memory_before = load_memory()
-    raw = build_test_predictions(memory_before)
-
-    ml_meta = evaluate_predictions(raw, memory_before, mode="test")
-    optimized = optimize_predictions(raw, ml_meta, mode="test")
-
-    return _wrap_result(
-        mode="test",
-        predictions=optimized,
-        ml_meta=ml_meta,
-        memory_before=memory_before,
-        memory_after_key="test_last",
-        context=context,
-    )
-
-
-# ------------------------------------------------
-# RISK MODE
-# ------------------------------------------------
-
-def run_faz6_risk(context: Dict[str, Any] | None = None) -> EngineResult:
-    memory_before = load_memory()
-    raw = build_risk_predictions(memory_before)
-
-    ml_meta = evaluate_predictions(raw, memory_before, mode="risk")
-    optimized = optimize_predictions(raw, ml_meta, mode="risk", risk=True)
-
-    return _wrap_result(
-        mode="risk",
-        predictions=optimized,
-        ml_meta=ml_meta,
-        memory_before=memory_before,
-        memory_after_key="risk_last",
-        context=context,
-    )
-
-
-# ------------------------------------------------
-# EDGE MODE
-# ------------------------------------------------
-
-def run_faz6_edge(context: Dict[str, Any] | None = None) -> EngineResult:
-    memory_before = load_memory()
-    raw = build_edge_predictions(memory_before)
-
-    ml_meta = evaluate_predictions(raw, memory_before, mode="edge")
-    optimized = optimize_predictions(raw, ml_meta, mode="edge", aggressive=True)
-
-    return _wrap_result(
-        mode="edge",
-        predictions=optimized,
-        ml_meta=ml_meta,
-        memory_before=memory_before,
-        memory_after_key="edge_last",
-        context=context,
-    )
-
-
-# ------------------------------------------------
-# REAL MODE (Gerçek zaman odaklı)
-# ------------------------------------------------
-
-def run_faz6_real(context: Dict[str, Any] | None = None) -> EngineResult:
-    memory_before = load_memory()
-    raw = build_real_predictions(memory_before)
-
-    ml_meta = evaluate_predictions(raw, memory_before, mode="real")
-    optimized = optimize_predictions(raw, ml_meta, mode="real", realtime=True)
-
-    return _wrap_result(
-        mode="real",
-        predictions=optimized,
-        ml_meta=ml_meta,
-        memory_before=memory_before,
-        memory_after_key="real_last",
-        context=context,
-    )
+    lines = [
+        f"📌 {label}",
+        f"🎯 {market}",
+        f"📈 Güven: {conf:.2f} | Edge: {edge:.3f}",
+        f"💰 Stake: {stake:.3f}",
+    ]
+    return "\n".join(lines)
