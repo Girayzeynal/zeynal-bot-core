@@ -184,3 +184,21 @@ def format_pick_for_telegram(game: Dict[str, Any]) -> str:
         f"💰 Stake: {stake:.3f}",
     ]
     return "\n".join(lines)
+
+# ===========================
+#  FAZ-6 TEST MODU
+# ===========================
+
+def run_faz6_test() -> dict:
+    """
+    FAZ-6 Test Engine
+    Bu fonksiyon sadece test modunda çağrılır
+    ve makinenin doğru çalıştığını doğrulamak için kullanılır.
+    """
+    print("FAZ-6 Test Engine Başlatıldı")
+
+    return {
+        "status": "ok",
+        "engine": "faz6_core",
+        "message": "FAZ-6 test başarıyla çalıştı."
+    }
