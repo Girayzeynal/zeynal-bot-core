@@ -1,3 +1,4 @@
+
 app = "zeynal-bot-core"
 primary_region = "iad"
 
@@ -42,4 +43,4 @@ primary_region = "iad"
   path = "/metrics"
 
 [experimental]
-  auto_rollback = true 
+  auto_rollback = true
