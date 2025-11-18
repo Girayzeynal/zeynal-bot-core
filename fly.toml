@@ -10,7 +10,6 @@ primary_region = "iad"
 [[services]]
   internal_port = 8080
   protocol = "tcp"
-  processes = ["app"]
 
   [services.concurrency]
     type = "requests"
@@ -24,16 +23,6 @@ primary_region = "iad"
   [[services.ports]]
     port = 443
     handlers = ["tls", "http"]
-
-[checks]
-  [checks.main]
-    type = "http"
-    port = 8080
-    interval = "10s"
-    timeout = "2s"
-    grace_period = "5s"
-    method = "get"
-    path = "/health"
 
 [metrics]
   port = 9091
