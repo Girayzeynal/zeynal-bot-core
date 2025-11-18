@@ -1,43 +1,56 @@
 """
-FAZ-6 ENGINE - ULTIMATE CORE
-
-Bu dosya FAZ-6'nın tek giriş noktasıdır.
+FAZ-6 ENGINE - ANA GİRİŞ NOKTASI
 
 Dış API (main.py ve Telegram için):
     from faz6_engine.faz6_engine_main import run_faz6_engine
 
-Modlar:
+Kullanılabilir modlar:
     - test
     - auto
     - risk
     - edge
     - real
     - balance
-    - ultimate
+    - ultimate   (FAZ-6 Ultimate Mode)
 
-Tüm modlar FAZ-6 preset mimarisine göre yönetilir.
+Standart dönüş formatı:
+    {
+        "status": "ok" | "error",
+        "mode": "...",
+        "result": {
+            "predictions": [ ... ],   # veya "portfolio"
+            "portfolio": [ ... ],
+            "ml_meta": {...},         # varsa
+            "memory_snapshot": {...}, # varsa
+            "meta": {...},            # varsa
+        },
+        "context": {...},
+
+        # Geriye dönük uyum için:
+        "predictions": [...],
+        "portfolio": [...],
+    }
 """
 
 from __future__ import annotations
+
 from typing import Any, Dict, List, Optional, Tuple
 
-# İç modüller
 from .faz6_core import (
-    get_preset,
-    filter_and_rank_games,
+    run_faz6_test,
+    run_faz6_auto,
+    run_faz6_risk,
+    run_faz6_edge,
+    run_faz6_real,
 )
-from .faz6_test import build_test_predictions
-from .faz6_real import build_real_predictions
-from .faz6_balance import build_balance_predictions
-from .faz6_risk import build_risk_predictions
-
+from .faz6_balance import run_faz6_balance
 
 Prediction = Dict[str, Any]
 EngineResult = Dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
-# Güvenli float
+#  Yardımcı fonksiyonlar
 # ---------------------------------------------------------------------------
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -49,62 +62,160 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
-# ---------------------------------------------------------------------------
-# Prediction extractor
-# ---------------------------------------------------------------------------
-
-def _extract_predictions(result: EngineResult | None) -> List[Prediction]:
-    if not isinstance(result, dict):
+def _extract_predictions_from_raw(raw: EngineResult | None) -> List[Prediction]:
+    """
+    Eski/Yeni tüm FAZ-6 mod çıktılarından tahmin listesini çıkar.
+    """
+    if not isinstance(raw, dict):
         return []
 
-    payload = result.get("result") or result.get("data") or result
-    if not isinstance(payload, dict):
-        return []
+    # Yeni stil: içte result / data
+    payload = raw.get("result") or raw.get("data")
+    if isinstance(payload, dict):
+        preds = payload.get("predictions") or payload.get("portfolio")
+        if isinstance(preds, list):
+            return preds
 
-    preds = (
-        payload.get("predictions")
-        or payload.get("portfolio")
-        or result.get("predictions")
-        or result.get("portfolio")
-        or []
-    )
+    # Eski stil: direkt top-level
+    preds = raw.get("predictions") or raw.get("portfolio")
+    if isinstance(preds, list):
+        return preds
 
-    return preds if isinstance(preds, list) else []
+    return []
 
 
-# ---------------------------------------------------------------------------
-# Merge predictions (unique match + market)
-# ---------------------------------------------------------------------------
+def _normalize_engine_result(raw: EngineResult | None, fallback_mode: str) -> EngineResult:
+    """
+    Her FAZ-6 modundan gelen çıktıyı tek, standart forma çevirir.
+
+    Çıktı formatı:
+        {
+            "status": "ok" | "error",
+            "mode": "...",
+            "result": {
+                "predictions": [...],
+                "portfolio": [...],
+                "ml_meta": {...}  # varsa
+                "memory_snapshot": {...},  # varsa
+                "meta": {...},  # varsa
+            },
+            "context": {...},  # varsa
+            # geri uyum:
+            "predictions": [...],
+            "portfolio": [...],
+        }
+    """
+    if raw is None:
+        return {
+            "status": "error",
+            "mode": fallback_mode,
+            "detail": "FAZ-6 modundan None döndü.",
+            "result": {
+                "predictions": [],
+                "portfolio": [],
+                "meta": {},
+            },
+            "context": {},
+            "predictions": [],
+            "portfolio": [],
+        }
+
+    if not isinstance(raw, dict):
+        return {
+            "status": "error",
+            "mode": fallback_mode,
+            "detail": f"FAZ-6 modundan beklenmeyen tip döndü: {type(raw).__name__}",
+            "result": {
+                "predictions": [],
+                "portfolio": [],
+                "meta": {"raw": repr(raw)},
+            },
+            "context": {},
+            "predictions": [],
+            "portfolio": [],
+        }
+
+    mode = str(raw.get("mode") or fallback_mode)
+    status = str(raw.get("status") or "ok")
+
+    preds = _extract_predictions_from_raw(raw)
+
+    # ml_meta & memory_snapshot hem eski hem yeni formatta aranıyor
+    ml_meta: Dict[str, Any] = {}
+    memory_snapshot: Dict[str, Any] = {}
+    meta: Dict[str, Any] = {}
+
+    result_block = raw.get("result")
+    if isinstance(result_block, dict):
+        ml_meta = result_block.get("ml_meta") or {}
+        memory_snapshot = result_block.get("memory_snapshot") or {}
+        meta = result_block.get("meta") or {}
+
+    # eski format alanları
+    if not ml_meta:
+        ml_meta = raw.get("ml_meta") or {}
+    if not memory_snapshot:
+        memory_snapshot = raw.get("memory_snapshot") or {}
+
+    context = raw.get("context") or {}
+
+    normalized_result: Dict[str, Any] = {
+        "predictions": preds,
+        "portfolio": preds,
+    }
+
+    if ml_meta:
+        normalized_result["ml_meta"] = ml_meta
+    if memory_snapshot:
+        normalized_result["memory_snapshot"] = memory_snapshot
+    if meta:
+        normalized_result["meta"] = meta
+
+    normalized: EngineResult = {
+        "status": status,
+        "mode": mode,
+        "result": normalized_result,
+        "context": context,
+        # geri uyumluluk:
+        "predictions": preds,
+        "portfolio": preds,
+    }
+
+    # error durumunda detail alanını koru
+    if "detail" in raw and "detail" not in normalized:
+        normalized["detail"] = raw["detail"]
+
+    return normalized
+
 
 def _merge_predictions(*lists: List[Prediction]) -> List[Prediction]:
+    """
+    Aynı maç + market kombinasyonunu tekilleştirerek listeleri birleştirir.
+    """
     merged: List[Prediction] = []
     seen: set[Tuple[str, str]] = set()
 
     for lst in lists:
         if not lst:
             continue
-
         for p in lst:
             pid = str(p.get("id") or p.get("match_id") or p.get("code") or "")
             market = str(p.get("market") or p.get("type") or "")
             key = (pid, market)
-
             if key in seen:
                 continue
-
             seen.add(key)
             merged.append(p)
 
     return merged
 
 
-# ---------------------------------------------------------------------------
-# Ultimate Mode scorer
-# ---------------------------------------------------------------------------
-
 def _score_prediction(p: Prediction) -> float:
+    """
+    Ultimate Mode skor fonksiyonu.
+    """
     edge = _safe_float(p.get("edge"), 0.0)
-    conf = _safe_float(p.get("confidence"), 0.0)
+    conf = _safe_float(p.get("confidence") or p.get("guven"), 0.0)
 
     score = edge * 0.7 + conf * 0.3
 
@@ -119,169 +230,110 @@ def _score_prediction(p: Prediction) -> float:
 
 def _filter_and_rank_predictions(
     predictions: List[Prediction],
-    preset_overrides: Dict[str, Any],
+    max_picks: int = 6,
+    min_edge: float = 0.01,
+    min_conf: float = 0.50,
 ) -> List[Prediction]:
+    """
+    Ultimate Mode filtresi:
+        - edge / confidence eşikleri
+        - skora göre sıralama
+        - en fazla max_picks adet seçim
+    """
+    filtered: List[Prediction] = []
 
-    max_picks = int(preset_overrides.get("max_picks") or 6)
-    min_edge = float(preset_overrides.get("min_edge") or 0.01)
-    min_conf = float(preset_overrides.get("min_conf") or 0.50)
-
-    selected = []
     for p in predictions:
-        if _safe_float(p.get("edge")) < min_edge:
+        edge = _safe_float(p.get("edge"), 0.0)
+        conf = _safe_float(p.get("confidence") or p.get("guven"), 0.0)
+
+        if edge < min_edge:
             continue
-        if _safe_float(p.get("confidence")) < min_conf:
+        if conf < min_conf:
             continue
-        selected.append(p)
 
-    selected.sort(key=_score_prediction, reverse=True)
-    return selected[:max_picks]
+        filtered.append(p)
 
-
-# ---------------------------------------------------------------------------
-# Tek tek mod çalıştırıcılar
-# ---------------------------------------------------------------------------
-
-def _run_test() -> EngineResult:
-    preset = get_preset("test")
-    games = build_test_predictions()
-    filtered = filter_and_rank_games(games, preset)
-
-    return {
-        "status": "ok",
-        "mode": "test",
-        "result": {
-            "predictions": filtered,
-            "preset": preset.code,
-        },
-        "predictions": filtered,
-    }
-
-
-def _run_risk() -> EngineResult:
-    preset = get_preset("risk")
-    games = build_risk_predictions()
-    filtered = filter_and_rank_games(games, preset)
-
-    return {
-        "status": "ok",
-        "mode": "risk",
-        "result": {
-            "predictions": filtered,
-            "preset": preset.code,
-        },
-        "predictions": filtered,
-    }
-
-
-def _run_auto() -> EngineResult:
-    preset = get_preset("auto")
-    games = build_risk_predictions()
-    filtered = filter_and_rank_games(games, preset)
-
-    return {
-        "status": "ok",
-        "mode": "auto",
-        "result": {
-            "predictions": filtered,
-            "preset": preset.code,
-        },
-        "predictions": filtered,
-    }
-
-
-def _run_balance(context: Dict[str, Any]) -> EngineResult:
-    preset = get_preset("balance")
-    games = build_balance_predictions(context=context)
-    filtered = filter_and_rank_games(games, preset)
-
-    return {
-        "status": "ok",
-        "mode": "balance",
-        "result": {
-            "predictions": filtered,
-            "preset": preset.code,
-        },
-        "predictions": filtered,
-    }
-
-
-def _run_real() -> EngineResult:
-    preset = get_preset("real")
-    games = build_real_predictions()
-    filtered = filter_and_rank_games(games, preset)
-
-    return {
-        "status": "ok",
-        "mode": "real",
-        "result": {
-            "predictions": filtered,
-            "preset": preset.code,
-        },
-        "predictions": filtered,
-    }
+    filtered.sort(key=_score_prediction, reverse=True)
+    return filtered[:max_picks]
 
 
 # ---------------------------------------------------------------------------
-# ULTIMATE MODE
+#  FAZ-6 ULTIMATE MODE
 # ---------------------------------------------------------------------------
 
-def _run_ultimate(context: Dict[str, Any]) -> EngineResult:
-    outputs = {}
-    errors = {}
-
-    try:
-        outputs["auto"] = _run_auto()
-    except Exception as e:
-        errors["auto"] = str(e)
-
-    try:
-        outputs["risk"] = _run_risk()
-    except Exception as e:
-        errors["risk"] = str(e)
-
-    try:
-        outputs["real"] = _run_real()
-    except Exception as e:
-        errors["real"] = str(e)
-
-    try:
-        outputs["balance"] = _run_balance(context)
-    except Exception as e:
-        errors["balance"] = str(e)
-
-    all_preds = _merge_predictions(
-        _extract_predictions(outputs.get("auto")),
-        _extract_predictions(outputs.get("risk")),
-        _extract_predictions(outputs.get("real")),
-        _extract_predictions(outputs.get("balance")),
+def _run_faz6_ultimate(context: Dict[str, Any]) -> EngineResult:
+    """
+    Ultimate Mode:
+        - auto, risk, edge, real, balance modlarının çıktısını toplar,
+        - tekilleştirir,
+        - skorlar ve en iyi N seçimi döner.
+    """
+    raw_auto = _normalize_engine_result(run_faz6_auto(), "auto")
+    raw_risk = _normalize_engine_result(run_faz6_risk(), "risk")
+    raw_edge = _normalize_engine_result(run_faz6_edge(), "edge")
+    raw_real = _normalize_engine_result(run_faz6_real(), "real")
+    raw_balance = _normalize_engine_result(
+        run_faz6_balance(context=context, mode="auto"),
+        "balance",
     )
 
-    overrides = {
-        "max_picks": context.get("ultimate_max_picks", 6),
-        "min_edge": context.get("ultimate_min_edge", 0.01),
-        "min_conf": context.get("ultimate_min_conf", 0.50),
+    all_predictions = _merge_predictions(
+        raw_auto["result"]["predictions"],
+        raw_risk["result"]["predictions"],
+        raw_edge["result"]["predictions"],
+        raw_real["result"]["predictions"],
+        raw_balance["result"]["predictions"],
+    )
+
+    max_picks = int(context.get("ultimate_max_picks") or 6)
+    min_edge = float(context.get("ultimate_min_edge") or 0.01)
+    min_conf = float(context.get("ultimate_min_conf") or 0.50)
+
+    selected = _filter_and_rank_predictions(
+        all_predictions,
+        max_picks=max_picks,
+        min_edge=min_edge,
+        min_conf=min_conf,
+    )
+
+    result_payload: Dict[str, Any] = {
+        "predictions": selected,
+        "portfolio": selected,
+        "meta": {
+            "source_modes": ["auto", "risk", "edge", "real", "balance"],
+            "total_collected": len(all_predictions),
+            "total_selected": len(selected),
+            "thresholds": {
+                "max_picks": max_picks,
+                "min_edge": min_edge,
+                "min_conf": min_conf,
+            },
+        },
     }
 
-    best = _filter_and_rank_predictions(all_preds, overrides)
-
-    return {
+    final: EngineResult = {
         "status": "ok",
         "mode": "ultimate",
-        "result": {
-            "predictions": best,
-            "source_modes": list(outputs.keys()),
-            "errors": errors,
-        },
-        "predictions": best,
+        "result": result_payload,
+        "context": context,
+        "predictions": selected,
+        "portfolio": selected,
     }
+
+    return final
 
 
 # ---------------------------------------------------------------------------
-# ANA GİRİŞ
+#  ANA GİRİŞ NOKTASI
 # ---------------------------------------------------------------------------
 
 def run_faz6_engine(mode: str = "auto", context: Optional[Dict[str, Any]] = None) -> EngineResult:
+    """
+    FAZ-6 ana motoru - tüm modları tek çatıdan yönetir.
+
+    Kullanılabilir Modlar:
+        test / auto / risk / edge / real / balance / ultimate
+    """
     if context is None:
         context = {}
 
@@ -289,26 +341,40 @@ def run_faz6_engine(mode: str = "auto", context: Optional[Dict[str, Any]] = None
     context["requested_mode"] = mode
 
     if mode == "test":
-        return _run_test()
-
-    if mode == "risk":
-        return _run_risk()
+        return _normalize_engine_result(run_faz6_test(), "test")
 
     if mode == "auto":
-        return _run_auto()
+        return _normalize_engine_result(run_faz6_auto(), "auto")
 
-    if mode == "balance":
-        return _run_balance(context)
+    if mode == "risk":
+        return _normalize_engine_result(run_faz6_risk(), "risk")
+
+    if mode == "edge":
+        return _normalize_engine_result(run_faz6_edge(), "edge")
 
     if mode == "real":
-        return _run_real()
+        return _normalize_engine_result(run_faz6_real(), "real")
+
+    if mode == "balance":
+        return _normalize_engine_result(
+            run_faz6_balance(context=context, mode="auto"),
+            "balance",
+        )
 
     if mode == "ultimate":
-        return _run_ultimate(context)
+        return _run_faz6_ultimate(context=context)
 
     return {
         "status": "error",
         "mode": mode,
-        "detail": f"Geçersiz mod: {mode}",
+        "module": "FAZ-6 ENGINE",
+        "detail": f"Geçersiz FAZ-6 modu: {mode}",
+        "result": {
+            "predictions": [],
+            "portfolio": [],
+            "meta": {},
+        },
         "context": context,
+        "predictions": [],
+        "portfolio": [],
     }
