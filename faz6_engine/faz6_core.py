@@ -1,12 +1,8 @@
 """
 FAZ-6 Core Helpers
 ------------------
-Bu dosya FAZ-6 için ortak çekirdek fonksiyonları tutar.
-
-Amaç:
-- Tüm modlar (test / risk / auto / balance / real / coupon)
-  için ortak preset ve filtreleme mantığını tek yerde toplamak.
-- Hiçbir network / I/O yapmaz. Sadece hesaplama yapar.
+Modlar arası paylaşılan çekirdek preset + filtre + sıralama sistemidir.
+Network yapmaz, sadece hesaplama yapar.
 """
 
 from __future__ import annotations
@@ -15,22 +11,20 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional
 
 
-# ===========================
-#  Preset Tanımı
-# ===========================
+# ======================================================
+#  PRESET YAPISI
+# ======================================================
 
 @dataclass
 class Faz6Preset:
-    code: str               # örn: "test", "risk", "auto", "balance", "real", "coupon"
-    title: str              # insan okunabilir isim
-    min_confidence: float   # eşik: güven
-    min_edge: float         # eşik: edge
-    max_picks: Optional[int] = None   # maksimum seçim sayısı (None = sınırsız)
+    code: str
+    title: str
+    min_confidence: float
+    min_edge: float
+    max_picks: Optional[int] = None
 
 
-# Buradaki değerler güvenli, muhafazakâr default'lar.
-# İleride FAZ-7 geçişinde sadece burayı değiştirerek
-# tüm faz6_* dosyalarını güncellemek mümkün olacak.
+# Varsayılan preset’ler (FAZ-7 uyumlu)
 PRESETS: Dict[str, Faz6Preset] = {
     "test": Faz6Preset(
         code="test",
@@ -65,7 +59,7 @@ PRESETS: Dict[str, Faz6Preset] = {
         title="FAZ-6 REAL PRESET",
         min_confidence=0.57,
         min_edge=0.035,
-        max_picks=None,  # gerçek maç listesi serbest kalabilir
+        max_picks=None,
     ),
     "coupon": Faz6Preset(
         code="coupon",
@@ -79,46 +73,39 @@ PRESETS: Dict[str, Faz6Preset] = {
 
 def get_preset(code: str) -> Faz6Preset:
     """
-    Verilen kod için preset döndürür.
-    Bilinmeyen kod gelirse 'balance' preset'ini kullanır.
+    Preset seçici.
+    Bilinmeyen kod gelirse 'balance' preset'i döner.
     """
     code = (code or "").lower().strip()
-    if code in PRESETS:
-        return PRESETS[code]
-    return PRESETS["balance"]
+    return PRESETS.get(code, PRESETS["balance"])
 
 
-# ===========================
-#  Filtreleme ve Sıralama
-# ===========================
+# ======================================================
+#  FİLTRE + SIRALAMA
+# ======================================================
 
 def filter_and_rank_games(
     games: Iterable[Dict[str, Any]],
     preset: Faz6Preset,
 ) -> List[Dict[str, Any]]:
     """
-    Ortak filtreleme mantığı:
-
-    - game["confidence"]  >= preset.min_confidence
-    - game["edge"]        >= preset.min_edge
-    - confidence DESC + edge DESC sıralama
-    - max_picks varsa, o kadar ile sınırla
-
-    games içindeki elemanlar sözlük kabul edilir.
-    Eksik alanlar varsa 0.0 gibi davranır; böylece
-    hiçbir yerde KeyError patlamaz.
+    Ortak FAZ-6 filtreleme:
+        - confidence >= preset.min_confidence
+        - edge >= preset.min_edge
+        - confidence DESC + edge DESC sıralama
+        - max_picks uygula
     """
     filtered: List[Dict[str, Any]] = []
 
     for game in games:
         try:
             conf = float(game.get("confidence", game.get("guven", 0.0)))
-        except (TypeError, ValueError):
+        except:
             conf = 0.0
 
         try:
             edge = float(game.get("edge", 0.0))
-        except (TypeError, ValueError):
+        except:
             edge = 0.0
 
         if conf < preset.min_confidence:
@@ -128,7 +115,6 @@ def filter_and_rank_games(
 
         filtered.append(game)
 
-    # Güven → Edge sırasına göre tersten sırala
     filtered.sort(
         key=lambda g: (
             float(g.get("confidence", g.get("guven", 0.0))),
@@ -137,39 +123,26 @@ def filter_and_rank_games(
         reverse=True,
     )
 
-    if preset.max_picks is not None and len(filtered) > preset.max_picks:
+    if preset.max_picks and len(filtered) > preset.max_picks:
         filtered = filtered[: preset.max_picks]
 
     return filtered
 
 
-# ===========================
-#  Format Yardımcıları
-# ===========================
+# ======================================================
+#  FORMAT HELPERS
+# ======================================================
 
 def safe_float(value: Any, default: float = 0.0) -> float:
-    """
-    Her türlü tipi güvenle floata çevirir.
-    Hata olursa default döner.
-    """
     try:
         return float(value)
-    except (TypeError, ValueError):
+    except:
         return default
 
 
 def format_pick_for_telegram(game: Dict[str, Any]) -> str:
     """
-    Tek bir maçı Telegram mesajı satırı olarak formatlar.
-
-    game sözlüğünde beklenen alanlar:
-    - "label"      → 'NBA:LAC@PHX' gibi lig+maç kodu
-    - "market_str" → 'LAC +7.5 (spread)' gibi market
-    - "confidence" → 0.60
-    - "edge"       → 0.04
-    - "stake"      → 1.54
-
-    Eksik alanlarda da çökmemesi için hepsi defansif yazılmıştır.
+    Telegram için tek maç formatlayıcı.
     """
     label = str(game.get("label") or game.get("match") or "UNKNOWN")
     market = str(game.get("market_str") or game.get("market") or "None")
@@ -177,28 +150,9 @@ def format_pick_for_telegram(game: Dict[str, Any]) -> str:
     edge = safe_float(game.get("edge", 0.0))
     stake = safe_float(game.get("stake", 0.0))
 
-    lines = [
-        f"📌 {label}",
-        f"🎯 {market}",
-        f"📈 Güven: {conf:.2f} | Edge: {edge:.3f}",
-        f"💰 Stake: {stake:.3f}",
-    ]
-    return "\n".join(lines)
-
-# ===========================
-#  FAZ-6 TEST MODU
-# ===========================
-
-def run_faz6_test() -> dict:
-    """
-    FAZ-6 Test Engine
-    Bu fonksiyon sadece test modunda çağrılır
-    ve makinenin doğru çalıştığını doğrulamak için kullanılır.
-    """
-    print("FAZ-6 Test Engine Başlatıldı")
-
-    return {
-        "status": "ok",
-        "engine": "faz6_core",
-        "message": "FAZ-6 test başarıyla çalıştı."
-    }
+    return (
+        f"📌 {label}\n"
+        f"🎯 {market}\n"
+        f"📈 Güven: {conf:.2f} | Edge: {edge:.3f}\n"
+        f"💰 Stake: {stake:.3f}"
+    ) 
