@@ -1,4 +1,3 @@
-
 app = "zeynal-bot-core"
 primary_region = "iad"
 
@@ -18,7 +17,7 @@ primary_region = "iad"
     method = "get"
     path = "/health"
 
-[restart]
+[[restart]]
   policy = "always"
 
 [[services]]
@@ -43,4 +42,4 @@ primary_region = "iad"
   path = "/metrics"
 
 [experimental]
-  auto_rollback = true
+  auto_rollback = true 
