@@ -4,21 +4,49 @@ primary_region = "iad"
 [build]
 
 [env]
-PORT = "8080"
+  PORT = "8080"
 
+[processes]
+  app = "python3 main.py"
+
+# —— Health Check (watchdog gibi davranır) ——
+[checks]
+  [checks.main]
+    type = "http"
+    port = 8080
+    interval = "10s"
+    timeout = "2s"
+    grace_period = "5s"
+    method = "get"
+    path = "/health"
+
+# —— Kapanınca otomatik yeniden başlat ——
+[restart]
+  policy = "always"
+
+# —— Servis Ayarları ——
 [[services]]
-internal_port = 8080
-protocol = "tcp"
-
-  [[services.ports]]
-  port = 80
-  handlers = ["http"]
-
-  [[services.ports]]
-  port = 443
-  handlers = ["tls", "http"]
+  internal_port = 8080
+  protocol = "tcp"
 
   [services.concurrency]
-    hard_limit = 25
-    soft_limit = 20
     type = "requests"
+    soft_limit = 20
+    hard_limit = 25
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+# —— Metrics (CPU, RAM, Traffic telemetry) ——
+[metrics]
+  port = 9091
+  path = "/metrics"
+
+# —— Deploy güvenliği: build çakılırsa eski sürüme dön ——
+[experimental]
+  auto_rollback = true
