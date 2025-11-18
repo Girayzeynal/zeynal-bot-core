@@ -9,7 +9,6 @@ primary_region = "iad"
 [processes]
   app = "python3 main.py"
 
-# —— Health Check (watchdog gibi davranır) ——
 [checks]
   [checks.main]
     type = "http"
@@ -20,11 +19,9 @@ primary_region = "iad"
     method = "get"
     path = "/health"
 
-# —— Kapanınca otomatik yeniden başlat ——
 [restart]
   policy = "always"
 
-# —— Servis Ayarları ——
 [[services]]
   internal_port = 8080
   protocol = "tcp"
@@ -42,11 +39,9 @@ primary_region = "iad"
     port = 443
     handlers = ["tls", "http"]
 
-# —— Metrics (CPU, RAM, Traffic telemetry) ——
 [metrics]
   port = 9091
   path = "/metrics"
 
-# —— Deploy güvenliği: build çakılırsa eski sürüme dön ——
 [experimental]
   auto_rollback = true
