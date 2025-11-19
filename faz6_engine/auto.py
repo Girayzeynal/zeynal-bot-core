@@ -1,35 +1,38 @@
-from __future__ import annotations
+from future import annotations
 from typing import Dict, Any, List
 
-Prediction = Dict[str, Any]
+from .ml_brain import MLBrain
+from .memory_unit import MemoryUnit
+from .optimizer import Optimizer
+from .faz6_balance import BalanceEngine
+from .faz6_core import Faz6Core
 
-def build_risk_predictions(memory: Dict[str, Any] | None) -> List[Prediction]:
-    preds: List[Prediction] = [
-        {
-            "id": "NBA:BOS@MIA",
-            "league": "NBA",
-            "match": "BOS@MIA",
-            "market": "spread",
-            "selection": "BOS -2.5",
-            "confidence": 0.67,
-            "edge": 0.045,
-        },
-    ]
-    return preds
+class Faz6AutoEngine:
+"""
+FAZ-6 otomatik motor:
+- memory → brain → optimizer → balance → core
+"""
+def init(self):
+self.memory = MemoryUnit()
+self.brain = MLBrain()
+self.optimizer = Optimizer()
+self.balance = BalanceEngine()
+self.core = Faz6Core()
 
+def run(self) -> Dict[str, Any]:  
+    last = self.memory.load()  
 
-def run_faz6_risk(context: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    preds = build_risk_predictions(None)
+    preds = self.brain.predict(last)  
+    optimized = self.optimizer.optimize(preds)  
+    balanced = self.balance.rebalance(optimized)  
+    final = self.core.process(balanced)  
 
-    return {
-        "status": "ok",
-        "mode": "risk",
-        "result": {
-            "predictions": preds,
-            "portfolio": preds,
-            "meta": {},
-        },
-        "context": context or {},
-        "predictions": preds,
-        "portfolio": preds,
-    } 
+    self.memory.save(final)  
+    return {  
+        "status": "ok",  
+        "mode": "auto",  
+        "result": final  
+    }
+
+def run_faz6_auto():
+return Faz6AutoEngine().run()
