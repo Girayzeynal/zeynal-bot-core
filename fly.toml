@@ -1,33 +1,49 @@
 app = "zeynal-bot-core"
-primary_region = "iad"
+primary_region = "ams"
 
 [env]
 PORT = "8080"
 
+# ============================================================
+#               PROCESS: Bot'u main.py ile çalıştır
+# ============================================================
 [processes]
-app = "python3 main.py"
+app = "python main.py"
 
+# ============================================================
+#               SERVICES (Healthcheck + HTTP + TLS)
+# ============================================================
 [[services]]
+processes = ["app"]
 internal_port = 8080
 protocol = "tcp"
-processes = ["app"]
 
   [services.concurrency]
   type = "requests"
   soft_limit = 20
-  hard_limit = 25
+  hard_limit = 30
 
+  # HTTP Port (80)
   [[services.ports]]
   port = 80
   handlers = ["http"]
 
+  # HTTPS Port (443)
   [[services.ports]]
   port = 443
   handlers = ["tls", "http"]
 
-[metrics]
-port = 9091
-path = "/metrics"
+  # Healthcheck (Fly.io tarafından kontrol edilir)
+  [services.http_checks]
+  interval = "15s"
+  timeout = "3s"
+  grace_period = "10s"
+  method = "get"
+  path = "/"
+  protocol = "http"
 
+# ============================================================
+#            EXPERIMENTAL — Auto Rollback açık
+# ============================================================
 [experimental]
-auto_rollack = true
+auto_rollback = true
