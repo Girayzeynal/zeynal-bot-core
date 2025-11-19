@@ -44,18 +44,12 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
         }
 
     score_est = hs.pts + aw.pts
-
     home_pace = hs.pace_est if hs.pace_est is not None else 0
     away_pace = aw.pace_est if aw.pace_est is not None else 0
     pace_est = round((home_pace + away_pace) / 2, 1)
 
     diff = hs.pts - aw.pts
-    if diff > 0:
-        pick = game.home_team
-    elif diff < 0:
-        pick = game.away_team
-    else:
-        pick = "DENGELİ"
+    pick = game.home_team if diff > 0 else (game.away_team if diff < 0 else "DENGELİ")
 
     from math import fabs
     confidence = max(0.5, min(0.99, fabs(diff) / 20.0))
@@ -80,9 +74,7 @@ def format_faz6_message(result: dict) -> str:
 
     status = result.get("status", "ok")
     if status != "ok":
-        detail = result.get("detail")
-        if not detail:
-            detail = f"Detay yok. Ham sonuç: {repr(result)}"
+        detail = result.get("detail") or f"Detay yok. Ham sonuç: {repr(result)}"
         return f"❌ *FAZ-6 HATA*\n{detail}"
 
     mode = result.get("mode", "").upper()
@@ -100,55 +92,75 @@ def format_faz6_message(result: dict) -> str:
             f"— — —\n"
         )
 
-    if len(text) > 3800:
-        text = text[:3800] + "\n… (çıktı kısaltıldı)"
-
-    return text
+    return text[:3800]
 
 
 # ============================================================
-#               FAZ-6 KUPON MOTORU (YENİ - İÇERDE)
+#        NEW — FAZ-6 KUPON MOTORU (3 SEVİYE – main.py inside)
 # ============================================================
 
-def build_coupon_message(result: dict, max_coupons: int = 3) -> str:
-    if not isinstance(result, dict):
-        return "❌ Kupon üretilemedi (geçersiz sonuç)."
+def build_coupon_message(result: dict) -> str:
+    """
+    3 seviyeli FAZ-6 kupon motoru:
+    - Kupon 1: Güvenli
+    - Kupon 2: Orta Risk
+    - Kupon 3: Edge
+    """
 
     status = result.get("status", "ok")
     if status != "ok":
-        detail = result.get("detail", "Kupon için geçerli sonuç yok.")
-        return f"❌ Kupon üretilemedi:\n{detail}"
+        return f"❌ Kupon üretilemedi:\n{result.get('detail')}"
 
-    body = result.get("result", result)
-    preds = body.get("portfolio") or body.get("predictions") or []
+    preds = (
+        result.get("result", {}).get("portfolio")
+        or result.get("result", {}).get("predictions")
+        or []
+    )
 
     if not preds:
-        return "❌ Kupon üretilemedi: uygun tahmin bulunamadı."
+        return "⚠ Kupon oluşturmak için yeterli maç yok."
 
-    per_coupon = max(1, len(preds) // max_coupons or 1)
+    # 1) Güvenli
+    safe = sorted(preds, key=lambda p: p.get("confidence", 0), reverse=True)[:3]
 
-    coupons = []
-    for i in range(0, len(preds), per_coupon):
-        coupons.append(preds[i:i + per_coupon])
-        if len(coupons) >= max_coupons:
-            break
+    # 2) Orta Risk (conf + edge)
+    medium = sorted(
+        preds,
+        key=lambda p: (p.get("confidence", 0) * 0.6 + p.get("edge", 0) * 0.4),
+        reverse=True,
+    )[3:6]
+
+    # 3) Edge Kuponu
+    high_edge = sorted(preds, key=lambda p: p.get("edge", 0), reverse=True)[6:9]
+
+    coupons = [
+        ("🔥 Kupon 1 (Güvenli)", safe),
+        ("🚀 Kupon 2 (Orta Risk)", medium),
+        ("⚡ Kupon 3 (Edge)", high_edge),
+    ]
 
     text = "💵 *FAZ-6 Kupon Önerileri*\n\n"
-    for idx, coupon in enumerate(coupons, start=1):
-        text += f"🎟 Kupon {idx}\n"
+
+    for title, coupon in coupons:
+        if not coupon:
+            continue
+
+        text += f"{title}\n"
+        total_stake = 0.0
+
         for p in coupon:
-            sel = p.get("pick") or p.get("selection") or "N/A"
-            market = p.get("market", "")
-            conf = p.get("confidence", p.get("conf", 0))
-            edge = p.get("edge", 0)
-            match_id = p.get("id", p.get("match", "?"))
+            stake = p.get("recommended_stake", 1.0)
+            total_stake += stake
+
             text += (
-                f"• {match_id} → {sel} ({market})\n"
-                f"  Güven: {conf} | Edge: {edge}\n"
+                f"• {p['id']} → {p['pick']} ({p['market']})\n"
+                f"  Güven: {p['confidence']} | Edge: {p['edge']} | Stake: {stake}\n"
             )
+
+        text += f"💰 Toplam Stake: {round(total_stake, 2)}\n"
         text += "— — —\n"
 
-    return text
+    return text[:3800]
 
 
 # ============================================================
@@ -188,17 +200,14 @@ def help_cmd(message):
 /faz6_real - FAZ-6 Real
 /faz6_balance - FAZ-6 Balance
 /faz6_coupon - FAZ-6 Kupon (3 kupon)
-/cupon - FAZ-6 Kupon (kısayol)
+/cupon - Kısa komut (3 kupon)
 """
     )
 
 
 @bot.message_handler(commands=["status"])
 def status_cmd(message):
-    bot.reply_to(
-        message,
-        "🟢 Sistem stabil.\nFAZ-4 aktif.\nFAZ-5 bağlı.\nFAZ-6 tam online."
-    )
+    bot.reply_to(message, "🟢 Sistem stabil.\nFAZ-4 aktif.\nFAZ-6 online.")
 
 
 # ============================================================
@@ -227,7 +236,6 @@ def simulate_nba_cmd(message):
         )
 
     reply += "🧠 Ham Analiz:\n" + analysis
-
     bot.send_message(message.chat.id, reply, parse_mode="Markdown")
 
 
@@ -274,71 +282,51 @@ def safe_run_faz6_engine(mode: str) -> dict:
     try:
         result = _raw_run_faz6_engine(mode=mode)
         if not isinstance(result, dict):
-            return {
-                "status": "error",
-                "detail": f"Motor beklenmeyen tip döndürdü: {type(result).__name__}",
-                "raw": result,
-            }
-
+            return {"status": "error", "detail": "Motor geçersiz veri döndürdü."}
         if "status" not in result:
             result = {"status": "ok", **result}
-
         return result
-
     except Exception as e:
-        return {
-            "status": "error",
-            "detail": f"FAZ-6 motor exception: {repr(e)}",
-        }
+        return {"status": "error", "detail": f"FAZ-6 motor exception: {e!r}"}
 
 
 def _run_faz6_and_reply(message, mode: str):
-    result = safe_run_faz6_engine(mode=mode)
+    result = safe_run_faz6_engine(mode)
     msg = format_faz6_message(result)
     bot.reply_to(message, msg, parse_mode="Markdown")
 
 
+# FAZ-6 Komutları
 @bot.message_handler(commands=["faz6_test"])
-def faz6_test_cmd(message):
-    _run_faz6_and_reply(message, "test")
-
+def faz6_test_cmd(message): _run_faz6_and_reply(message, "test")
 
 @bot.message_handler(commands=["faz6_auto"])
-def faz6_auto_cmd(message):
-    _run_faz6_and_reply(message, "auto")
-
+def faz6_auto_cmd(message): _run_faz6_and_reply(message, "auto")
 
 @bot.message_handler(commands=["faz6_risk"])
-def faz6_risk_cmd(message):
-    _run_faz6_and_reply(message, "risk")
-
+def faz6_risk_cmd(message): _run_faz6_and_reply(message, "risk")
 
 @bot.message_handler(commands=["faz6_edge"])
-def faz6_edge_cmd(message):
-    _run_faz6_and_reply(message, "edge")
-
+def faz6_edge_cmd(message): _run_faz6_and_reply(message, "edge")
 
 @bot.message_handler(commands=["faz6_real"])
-def faz6_real_cmd(message):
-    _run_faz6_and_reply(message, "real")
-
+def faz6_real_cmd(message): _run_faz6_and_reply(message, "real")
 
 @bot.message_handler(commands=["faz6_balance"])
-def faz6_balance_cmd(message):
-    _run_faz6_and_reply(message, "balance")
+def faz6_balance_cmd(message): _run_faz6_and_reply(message, "balance")
 
 
-# ============================================================
-#                 FAZ-6 KUPON (alias: /cupon)
-# ============================================================
-
-@bot.message_handler(commands=["faz6_coupon", "cupon"])
+# Kupon komutları
+@bot.message_handler(commands=["faz6_coupon"])
 def faz6_coupon_cmd(message):
-    """
-    /faz6_coupon ve /cupon tamamen eşitlendi.
-    """
-    result = safe_run_faz6_engine(mode="balance")
-    msg = build_coupon_message(result, max_coupons=3)
+    result = safe_run_faz6_engine("balance")
+    msg = build_coupon_message(result)
+    bot.reply_to(message, msg, parse_mode="Markdown")
+
+@bot.message_handler(commands=["cupon"])
+def cupon_cmd(message):
+    result = safe_run_faz6_engine("balance")
+    msg = build_coupon_message(result)
     bot.reply_to(message, msg, parse_mode="Markdown")
 
 
@@ -398,12 +386,8 @@ def start_bot():
 def main():
     print("INFO: Bot başlatıldı. Tüm motorlar aktif.")
 
-    health_thread = Thread(target=start_health_server, daemon=True)
-    health_thread.start()
-
-    heartbeat_thread = Thread(target=heartbeat, daemon=True)
-    heartbeat_thread.start()
-
+    Thread(target=start_health_server, daemon=True).start()
+    Thread(target=heartbeat, daemon=True).start()
     start_bot()
 
 
