@@ -1,48 +1,35 @@
-import math
+from __future__ import annotations
+from typing import List, Dict, Any
 
-def calculate_test_predictions(games):
+Prediction = Dict[str, Any]
+
+def run_faz6_test() -> Dict[str, Any]:
     """
-    FAZ-6 TEST ENGINE (Optimized for FAZ-7 Transition)
-
-    - Güven hesaplaması stabil
-    - Edge dalgalanması minimize edildi
-    - Stake dağılımı risk kontrollü
-    - CPU yükü hafifletildi
+    FAZ-6 TEST modunun standart dönüş formatı.
     """
+    # Burada basit sabit örnek data döndürüyoruz.
+    # Sen istediğinde gerçek test hesaplamasını ekleriz.
+    preds: List[Prediction] = [
+        {
+            "id": "TEST:AAA@BBB",
+            "league": "TEST",
+            "match": "AAA@BBB",
+            "market": "spread",
+            "selection": "AAA -3.5",
+            "confidence": 0.61,
+            "edge": 0.032,
+        }
+    ]
 
-    predictions = []
-
-    for g in games:
-        home = g["home"]
-        away = g["away"]
-        stats = g["stats"]
-
-        # 1) Güven skoru (FAZ-6 stabil core’dan alınan normalize altyapı)
-        conf = (stats["power"] * 0.55) + (stats["form"] * 0.25) + (stats["momentum"] * 0.20)
-        conf = round(max(0.50, min(conf, 0.85)), 2)
-
-        # 2) Edge hesaplaması (FAZ-7 uyumlu stabilizasyon)
-        edge = round((conf - 0.50) * 0.20, 3)
-
-        # 3) Stake dağılımı — FAZ-6 için optimize, FAZ-7 için uygun
-        stake = round(((conf - 0.50) * 3.8) + 0.65, 3)
-        stake = max(0.65, min(stake, 2.65))
-
-        # 4) Oyun tipi — otomatik seçim (spread / total / moneyline)
-        if stats["type"] == "spread":
-            pick = stats["team"] + " " + str(stats["line"])
-        elif stats["type"] == "total":
-            pick = stats["direction"] + " " + str(stats["line"])
-        else:
-            pick = stats["team"] + " moneyline"
-
-        predictions.append({
-            "match": f"{away}@{home}",
-            "pick": pick,
-            "conf": conf,
-            "edge": edge,
-            "stake": stake,
-            "league": stats["league"]
-        })
-
-    return predictions 
+    return {
+        "status": "ok",
+        "mode": "test",
+        "result": {
+            "predictions": preds,
+            "portfolio": preds,
+            "meta": {},
+        },
+        "context": {},
+        "predictions": preds,
+        "portfolio": preds,
+    } 
