@@ -3,39 +3,27 @@ from typing import Dict, Any, List
 
 Prediction = Dict[str, Any]
 
-
-def build_edge_predictions(memory: Dict[str, Any] | None) -> List[Prediction]:
-    """
-    EDGE modu: yüksek edge odaklı tahminler.
-    Hafıza doluysa ileride buradan ince ayar yapabiliriz.
-    """
+def run_faz6_edge(context: Dict[str, Any] | None = None) -> Dict[str, Any]:
     preds: List[Prediction] = [
         {
-            "id": "NBA:BOS@DEN",
+            "id": "NBA:DEN@SAC",
             "league": "NBA",
-            "match": "BOS@DEN",
+            "match": "DEN@SAC",
             "market": "spread",
-            "selection": "BOS -2.5",
-            "confidence": 0.63,
+            "selection": "DEN -3.5",
+            "confidence": 0.62,
             "edge": 0.07,
-        },
-        {
-            "id": "NBA:MIA@MIL",
-            "league": "NBA",
-            "match": "MIA@MIL",
-            "market": "total",
-            "selection": "OVER 221.5",
-            "confidence": 0.64,
-            "edge": 0.08,
-        },
-        {
-            "id": "EL:FENER@EFES",
-            "league": "EuroLeague",
-            "match": "FENER@EFES",
-            "market": "moneyline",
-            "selection": "FENERBAHÇE",
-            "confidence": 0.66,
-            "edge": 0.09,
-        },
+        }
     ]
-    return preds
+
+    return {
+        "status": "ok",
+        "mode": "edge",
+        "result": {
+            "predictions": preds,
+            "portfolio": preds,
+        },
+        "context": context or {},
+        "predictions": preds,
+        "portfolio": preds,
+    } 
