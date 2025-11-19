@@ -1,235 +1,50 @@
-"""
-FAZ-6 Core Helpers
-------------------
-Modlar arası paylaşılan çekirdek preset + filtre + sıralama sistemidir.
-Network yapmaz, sadece hesaplama yapar.
-"""
-
 from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Dict, Any, List
 
 
-# ======================================================
-#  PRESET YAPISI
-# ======================================================
-
-@dataclass
-class Faz6Preset:
-    code: str
-    title: str
-    min_confidence: float
-    min_edge: float
-    max_picks: Optional[int] = None
-
-
-# Varsayılan preset’ler (FAZ-7 uyumlu)
-PRESETS: Dict[str, Faz6Preset] = {
-    "test": Faz6Preset(
-        code="test",
-        title="FAZ-6 TEST PRESET",
-        min_confidence=0.55,
-        min_edge=0.03,
-        max_picks=5,
-    ),
-    "risk": Faz6Preset(
-        code="risk",
-        title="FAZ-6 RISK PRESET",
-        min_confidence=0.60,
-        min_edge=0.04,
-        max_picks=7,
-    ),
-    "auto": Faz6Preset(
-        code="auto",
-        title="FAZ-6 AUTO PRESET",
-        min_confidence=0.58,
-        min_edge=0.04,
-        max_picks=10,
-    ),
-    "balance": Faz6Preset(
-        code="balance",
-        title="FAZ-6 BALANCE PRESET",
-        min_confidence=0.60,
-        min_edge=0.04,
-        max_picks=12,
-    ),
-    "real": Faz6Preset(
-        code="real",
-        title="FAZ-6 REAL PRESET",
-        min_confidence=0.57,
-        min_edge=0.035,
-        max_picks=None,
-    ),
-    "coupon": Faz6Preset(
-        code="coupon",
-        title="FAZ-6 COUPON PRESET",
-        min_confidence=0.60,
-        min_edge=0.04,
-        max_picks=None,
-    ),
-}
-
-
-def get_preset(code: str) -> Faz6Preset:
+class Faz6Core:
     """
-    Preset seçici.
-    Bilinmeyen kod gelirse 'balance' preset'i döner.
+    FAZ-6 ANA ÇEKİRDEK
+    ------------------
+    Auto Engine → MLBrain → Optimizer → Faz6Core → Balance Engine
+    zincirinde 'final karar + çıktıyı' oluşturan katman.
+
+    Görev:
+        - Optimizasyon sonrası tahminleri işlemek
+        - Risk katsayılarını uygulamak
+        - FAZ-6 formatında final paket döndürmek
     """
-    code = (code or "").lower().strip()
-    return PRESETS.get(code, PRESETS["balance"])
 
+    def __init__(self) -> None:
+        pass
 
-# ======================================================
-#  FİLTRE + SIRALAMA
-# ======================================================
-
-def filter_and_rank_games(
-    games: Iterable[Dict[str, Any]],
-    preset: Faz6Preset,
-) -> List[Dict[str, Any]]:
-    """
-    Ortak FAZ-6 filtreleme:
-        - confidence >= preset.min_confidence
-        - edge >= preset.min_edge
-        - confidence DESC + edge DESC sıralama
-        - max_picks uygula
-    """
-    filtered: List[Dict[str, Any]] = []
-
-    for game in games:
+    def _safe_float(self, v: Any, default: float = 0.0) -> float:
         try:
-            conf = float(game.get("confidence", game.get("guven", 0.0)))
+            return float(v)
         except:
-            conf = 0.0
+            return default
 
-        try:
-            edge = float(game.get("edge", 0.0))
-        except:
-            edge = 0.0
+    def process(self, preds: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Optimize edilmiş tahminleri alır (Optimizer çıkışı)
+        FAZ-6 risk/rating hesaplamalarını uygular.
+        """
+        final_list: List[Dict[str, Any]] = []
 
-        if conf < preset.min_confidence:
-            continue
-        if edge < preset.min_edge:
-            continue
+        for p in preds:
+            conf = self._safe_float(p.get("confidence", 0.0))
+            edge = self._safe_float(p.get("edge", 0.0))
+            stake = self._safe_float(p.get("stake", 0.0))
 
-        filtered.append(game)
+            # FAZ-6 rating formülü
+            rating = round((conf * 0.60) + (edge * 3.0) + (stake * 0.13), 3)
+            rating = max(0.10, min(rating, 1.00))
 
-    filtered.sort(
-        key=lambda g: (
-            float(g.get("confidence", g.get("guven", 0.0))),
-            float(g.get("edge", 0.0)),
-        ),
-        reverse=True,
-    )
+            q = dict(p)
+            q["rating"] = rating
+            q["risk"] = round(1.0 - conf, 3)
+            q["faz6_tag"] = "FAZ6_CORE_OK"
 
-    if preset.max_picks and len(filtered) > preset.max_picks:
-        filtered = filtered[: preset.max_picks]
+            final_list.append(q)
 
-    return filtered
-
-
-# ======================================================
-#  FORMAT HELPERS
-# ======================================================
-
-def safe_float(value: Any, default: float = 0.0) -> float:
-    try:
-        return float(value)
-    except:
-        return default
-
-
-def format_pick_for_telegram(game: Dict[str, Any]) -> str:
-    """
-    Telegram için tek maç formatlayıcı.
-    """
-    label = str(game.get("label") or game.get("match") or "UNKNOWN")
-    market = str(game.get("market_str") or game.get("market") or "None")
-    conf = safe_float(game.get("confidence", game.get("guven", 0.0)))
-    edge = safe_float(game.get("edge", 0.0))
-    stake = safe_float(game.get("stake", 0.0))
-
-    return (
-        f"📌 {label}\n"
-        f"🎯 {market}\n"
-        f"📈 Güven: {conf:.2f} | Edge: {edge:.3f}\n"
-        f"💰 Stake: {stake:.3f}"
-    ) 
-
-# ======================================================
-#  FAZ-6 MOD FONKSIYONLARI (MAIN ENGINE İÇİN ZORUNLU)
-# ======================================================
-
-def _build_fake_games(preset: Faz6Preset) -> List[Dict[str, Any]]:
-    """
-    Gerçek veri olmadığı durumlarda motorun çökmesini engellemek için
-    basit dummy (fake) tahmin listesi döner.
-    """
-    fake = []
-    for i in range(1, 6):
-        fake.append({
-            "id": f"FAKE-{preset.code}-{i}",
-            "label": f"Fake Match {i}",
-            "market": "moneyline",
-            "confidence": preset.min_confidence + 0.02,
-            "edge": preset.min_edge + 0.01,
-            "stake": 0.5,
-            "league": "FAKE",
-        })
-    return fake
-
-
-def _run_mode_core(mode: str) -> Dict[str, Any]:
-    """
-    Tüm modlar için ortak çalışma mantığı:
-        1) preset seç
-        2) dummy game listesi oluştur
-        3) preset'e göre filtrele/sırala
-        4) FAZ-6 ENGINE standart çıktısını üret
-    """
-    preset = get_preset(mode)
-    raw_games = _build_fake_games(preset)
-
-    picks = filter_and_rank_games(raw_games, preset)
-
-    return {
-        "status": "ok",
-        "mode": mode,
-        "result": {
-            "predictions": picks,
-            "portfolio": picks,
-            "meta": {
-                "preset": preset.code,
-                "raw_count": len(raw_games),
-                "filtered_count": len(picks),
-            },
-        },
-        "context": {},
-        "predictions": picks,
-        "portfolio": picks,
-    }
-
-
-# -----------------------------
-# Mod fonksiyonları
-# -----------------------------
-
-def run_faz6_test() -> Dict[str, Any]:
-    return _run_mode_core("test")
-
-
-def run_faz6_auto() -> Dict[str, Any]:
-    return _run_mode_core("auto")
-
-
-def run_faz6_risk() -> Dict[str, Any]:
-    return _run_mode_core("risk")
-
-
-def run_faz6_edge() -> Dict[str, Any]:
-    return _run_mode_core("edge")
-
-
-def run_faz6_real() -> Dict[str, Any]:
-    return _run_mode_core("real")
+        return final_list 
