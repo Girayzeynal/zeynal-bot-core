@@ -1,75 +1,81 @@
 from __future__ import annotations
-
-from typing import Any, Dict, List
-
-from .presets import ModePreset
-
-Prediction = Dict[str, Any]
+from typing import Dict, Any
 
 
-def safe_float(value: Any, default: float = 0.0) -> float:
-    try:
-        if value is None:
-            return default
-        return float(value)
-    except (TypeError, ValueError):
-        return default
+class ModePreset:
+    def __init__(
+        self,
+        code: str,
+        title: str,
+        min_confidence: float,
+        min_edge: float,
+        max_picks: int,
+        base_stake: float,
+    ):
+        self.code = code
+        self.title = title
+        self.min_confidence = min_confidence
+        self.min_edge = min_edge
+        self.max_picks = max_picks
+        self.base_stake = base_stake
 
 
-def score_prediction(p: Prediction) -> float:
-    """
-    Basit skor fonksiyonu:
-      - confidence %60 ağırlık
-      - edge %40 ağırlık
-      - EuroLeague için hafif boost
-    """
-    conf = safe_float(p.get("confidence") or p.get("guven"), 0.0)
-    edge = safe_float(p.get("edge"), 0.0)
+# ============================================================
+# PRESET SEÇİCİ
+# ============================================================
 
-    score = conf * 0.6 + edge * 0.4
+def get_preset(mode: str) -> ModePreset:
+    mode = mode.lower().strip()
 
-    league = str(p.get("league") or "").lower()
-    if "euroleague" in league or league == "el":
-        score *= 1.03
+    presets: Dict[str, ModePreset] = {
+        "test": ModePreset(
+            code="TEST",
+            title="Test Modu",
+            min_confidence=0.50,
+            min_edge=0.01,
+            max_picks=5,
+            base_stake=1.0,
+        ),
+        "auto": ModePreset(
+            code="AUTO",
+            title="Otomatik Mod",
+            min_confidence=0.55,
+            min_edge=0.02,
+            max_picks=8,
+            base_stake=1.0,
+        ),
+        "risk": ModePreset(
+            code="RISK",
+            title="Risk Modu",
+            min_confidence=0.50,
+            min_edge=0.03,
+            max_picks=10,
+            base_stake=1.0,
+        ),
+        "edge": ModePreset(
+            code="EDGE",
+            title="Edge Odaklı",
+            min_confidence=0.60,
+            min_edge=0.04,
+            max_picks=6,
+            base_stake=1.0,
+        ),
+        "real": ModePreset(
+            code="REAL",
+            title="Gerçekçi Mod",
+            min_confidence=0.58,
+            min_edge=0.03,
+            max_picks=7,
+            base_stake=1.0,
+        ),
+        "balance": ModePreset(
+            code="BAL",
+            title="Dengeli Kupon",
+            min_confidence=0.57,
+            min_edge=0.025,
+            max_picks=6,
+            base_stake=1.0,
+        )
+    }
 
-    return score
-
-
-def filter_and_rank_predictions(
-    predictions: List[Prediction],
-    preset: ModePreset,
-) -> List[Prediction]:
-    """
-    Ortak FAZ-6 filtreleme:
-      - confidence >= preset.min_confidence
-      - edge >= preset.min_edge
-      - skor DESC
-      - max_picks sınırlaması
-      - recommended_stake hesaplama
-    """
-    filtered: List[Prediction] = []
-
-    for p in predictions:
-        conf = safe_float(p.get("confidence") or p.get("guven"), 0.0)
-        edge = safe_float(p.get("edge"), 0.0)
-
-        if conf < preset.min_confidence:
-            continue
-        if edge < preset.min_edge:
-            continue
-
-        # stake hesaplama (basit ama kararlı)
-        stake = preset.base_stake * max(0.5, min(2.0, (conf - 0.5) * 8.0 + edge * 20.0))
-        p = dict(p)
-        p["confidence"] = round(conf, 2)
-        p["edge"] = round(edge, 3)
-        p["recommended_stake"] = round(stake, 3)
-
-        filtered.append(p)
-
-    filtered.sort(key=score_prediction, reverse=True)
-
-    if preset.max_picks is not None and len(filtered) > preset.max_picks:
-        filtered = filtered[: preset.max_picks]
-
-    return filtered
+    return presets.get(mode, presets["auto"]) 
