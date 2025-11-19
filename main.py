@@ -19,7 +19,6 @@ if not BOT_TOKEN:
 
 bot = TeleBot(BOT_TOKEN)
 
-
 # ============================================================
 #            FAZ-4 NBA SİMÜLASYON MOTORU
 # ============================================================
@@ -44,18 +43,10 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
         }
 
     score_est = hs.pts + aw.pts
-
-    home_pace = hs.pace_est if hs.pace_est is not None else 0
-    away_pace = aw.pace_est if aw.pace_est is not None else 0
-    pace_est = round((home_pace + away_pace) / 2, 1)
+    pace_est = round(((hs.pace_est or 0) + (aw.pace_est or 0)) / 2, 1)
 
     diff = hs.pts - aw.pts
-    if diff > 0:
-        pick = game.home_team
-    elif diff < 0:
-        pick = game.away_team
-    else:
-        pick = "DENGELİ"
+    pick = game.home_team if diff > 0 else (game.away_team if diff < 0 else "DENGELİ")
 
     from math import fabs
     confidence = max(0.5, min(0.99, fabs(diff) / 20.0))
@@ -78,17 +69,14 @@ def format_faz6_message(result: dict) -> str:
     if not isinstance(result, dict):
         return f"❌ *FAZ-6 HATA*\nGeçersiz sonuç tipi: {type(result).__name__}"
 
-    status = result.get("status", "ok")
-    if status != "ok":
-        detail = result.get("detail") or f"Ham sonuç: {repr(result)}"
-        return f"❌ *FAZ-6 HATA*\n{detail}"
+    if result.get("status") != "ok":
+        return f"❌ *FAZ-6 HATA*\n{result.get('detail','Detay yok')}"
 
     mode = result.get("mode", "").upper()
-    output = result.get("result", {})
-    preds = output.get("predictions") or output.get("portfolio") or []
+    data = result.get("result", {})
+    preds = data.get("predictions") or []
 
     text = f"🧠 *FAZ-6 {mode} SONUCU*\n\n"
-
     for p in preds:
         text += (
             f"📌 {p.get('id')}\n"
@@ -98,144 +86,44 @@ def format_faz6_message(result: dict) -> str:
             f"— — —\n"
         )
 
-    if len(text) > 3800:
-        text = text[:3800] + "\n… (çıktı kısaltıldı)"
-
-    return text
+    return text[:3800]
 
 
 # ============================================================
-#               FAZ-6 4-SEVİYELİ KUPON MOTORU
+#              FAZ-6 KUPON MOTORU
 # ============================================================
 
-def build_coupon_message(result: dict, max_coupons: int = 4) -> str:
-    if not isinstance(result, dict):
-        return "❌ Kupon üretilemedi (geçersiz sonuç)."
+def build_coupon_message(result: dict, max_coupons: int = 3) -> str:
+    if result.get("status") != "ok":
+        return f"❌ Kupon üretilemedi:\n{result.get('detail','-')}"
 
-    status = result.get("status", "ok")
-    if status != "ok":
-        detail = result.get("detail", "Kupon için geçerli sonuç yok.")
-        return f"❌ Kupon üretilemedi:\n{detail}"
-
-    body = result.get("result", result)
-    preds = body.get("portfolio") or body.get("predictions") or []
+    preds = (
+        result.get("result", {}).get("portfolio")
+        or result.get("result", {}).get("predictions")
+        or []
+    )
 
     if not preds:
         return "❌ Kupon üretilemedi: uygun tahmin yok."
 
-    safe = preds[:2]
-    balanced = preds[2:4]
-    aggressive = preds[4:5]
-    ultra = preds[5:6]
+    per_coupon = max(1, len(preds) // max_coupons or 1)
+    coupons = []
+    for i in range(0, len(preds), per_coupon):
+        coupons.append(preds[i:i + per_coupon])
+        if len(coupons) >= max_coupons:
+            break
 
-    buckets = [
-        ("SAFE", safe),
-        ("BALANCED", balanced),
-        ("AGGRESSIVE", aggressive),
-        ("ULTRA", ultra),
-    ]
-
-    text = "💰 *FAZ-6 KUPONLARI (4-Seviyeli AI Dağılım)*\n\n"
-
-    for idx, (title, group) in enumerate(buckets, start=1):
-        if not group:
-            continue
-        text += f"🔥 *Kupon {idx} — {title}*\n"
-        total = 0.0
-        for p in group:
-            stake = float(p.get("recommended_stake", 1.0))
-            total += stake
+    text = "💵 *FAZ-6 Kupon Önerileri*\n\n"
+    for idx, cp in enumerate(coupons, start=1):
+        text += f"🎟 Kupon {idx}\n"
+        for p in cp:
             text += (
-                f"- {p.get('id')} | {p.get('pick')} ({p.get('market')})\n"
-                f"  Güven: {p.get('confidence')} | Edge: {p.get('edge')} | Stake: {stake}\n"
+                f"• {p['id']} → {p['pick']} ({p['market']})\n"
+                f"  Güven: {p['confidence']} | Edge: {p['edge']}\n"
             )
-        text += f"💵 Toplam Stake: {round(total, 2)}\n— — —\n\n"
-
-    if len(text) > 3900:
-        text = text[:3900] + "\n… (kısaltıldı)"
+        text += "— — —\n"
 
     return text
-
-
-# ============================================================
-#                    FAZ-3 TELEGRAM KOMUTLARI
-# ============================================================
-
-@bot.message_handler(commands=["start"])
-def start_cmd(message):
-    bot.reply_to(
-        message,
-        "🔥 Bot aktif!\nFAZ-3 + FAZ-4 + FAZ-5 + FAZ-6 bağlı.\nKomut listesi için /help yaz."
-    )
-
-
-@bot.message_handler(commands=["help"])
-def help_cmd(message):
-    bot.reply_to(
-        message,
-        """
-📌 Komutlar:
-
-/start - Botu başlatır
-/status - Sistemi gösterir
-
-/simulate_nba - NBA canlı simülasyon
-
-/heavy - FAZ-5 Standart
-/heavy_risk - FAZ-5 Risk
-/heavy_edge - FAZ-5 Edge
-/heavy_auto - FAZ-5 Otomatik
-/heavy_full - FAZ-5 Full
-
-/faz6_test - FAZ-6 Test
-/faz6_auto - FAZ-6 Auto
-/faz6_risk - FAZ-6 Risk
-/faz6_edge - FAZ-6 Edge
-/faz6_real - FAZ-6 Real
-/faz6_balance - FAZ-6 Balance
-/faz6_coupon - FAZ-6 Kupon (4 seviye)
-
-/cupon - Kısayol (4 seviye)
-"""
-    )
-
-
-@bot.message_handler(commands=["status"])
-def status_cmd(message):
-    bot.reply_to(
-        message,
-        "🟢 Sistem stabil.\nFAZ-4 aktif.\nFAZ-5 bağlı.\nFAZ-6 tam online."
-    )
-
-
-# ============================================================
-#                       FAZ-4 NBA KOMUTU
-# ============================================================
-
-@bot.message_handler(commands=["simulate_nba"])
-def simulate_nba_cmd(message):
-    bot.send_message(message.chat.id, "🏀 Simülasyon başlatılıyor...")
-
-    games: List[NBAGameState] = fetch_nba_live_games()
-    if not games:
-        bot.send_message(message.chat.id, "Canlı NBA verisi bulunamadı.")
-        return
-
-    results = [_simple_sim_from_game(g) for g in games]
-    analysis = analyze_live_games(games)
-
-    reply = "📊 *NBA Simülasyon Sonuçları*\n\n"
-    for r in results:
-        reply += (
-            f"🏠 {r['home']} vs ✈️ {r['away']}\n"
-            f"📈 Tahmini Skor: {r['score_est']}\n"
-            f"⏱ Tempo: {r['pace_est']}\n"
-            f"🎯 Kazanan: {r['pick']} ({int(r['confidence'] * 100)}%)\n\n"
-        )
-
-    reply += "🧠 Ham Analiz:\n" + analysis
-
-    bot.send_message(message.chat.id, reply, parse_mode="Markdown")
 
 
 # ============================================================
@@ -271,7 +159,7 @@ def heavy_full_cmd(message):
 
 
 # ============================================================
-#                       FAZ-6 ENGINE WRAPPER
+#                 FAZ-6 ENGINE WRAPPER
 # ============================================================
 
 from faz6_engine import run_faz6_engine as _raw_run_faz6_engine
@@ -283,7 +171,7 @@ def safe_run_faz6_engine(mode: str) -> dict:
         if not isinstance(result, dict):
             return {
                 "status": "error",
-                "detail": f"Motor beklenmeyen tip döndürdü: {type(result).__name__}",
+                "detail": "Motor geçersiz tip döndürdü.",
                 "raw": result,
             }
 
@@ -295,66 +183,116 @@ def safe_run_faz6_engine(mode: str) -> dict:
     except Exception as e:
         return {
             "status": "error",
-            "detail": f"FAZ-6 motor exception: {repr(e)}",
+            "detail": f"FAZ-6 exception: {repr(e)}",
         }
 
 
 def _run_faz6_and_reply(message, mode: str):
-    result = safe_run_faz6_engine(mode=mode)
-    msg = format_faz6_message(result)
+    msg = format_faz6_message(safe_run_faz6_engine(mode))
     bot.reply_to(message, msg, parse_mode="Markdown")
 
 
 @bot.message_handler(commands=["faz6_test"])
-def faz6_test_cmd(message):
-    _run_faz6_and_reply(message, "test")
+def faz6_test_cmd(message): _run_faz6_and_reply(message, "test")
 
 
 @bot.message_handler(commands=["faz6_auto"])
-def faz6_auto_cmd(message):
-    _run_faz6_and_reply(message, "auto")
+def faz6_auto_cmd(message): _run_faz6_and_reply(message, "auto")
 
 
 @bot.message_handler(commands=["faz6_risk"])
-def faz6_risk_cmd(message):
-    _run_faz6_and_reply(message, "risk")
+def faz6_risk_cmd(message): _run_faz6_and_reply(message, "risk")
 
 
 @bot.message_handler(commands=["faz6_edge"])
-def faz6_edge_cmd(message):
-    _run_faz6_and_reply(message, "edge")
+def faz6_edge_cmd(message): _run_faz6_and_reply(message, "edge")
 
 
 @bot.message_handler(commands=["faz6_real"])
-def faz6_real_cmd(message):
-    _run_faz6_and_reply(message, "real")
+def faz6_real_cmd(message): _run_faz6_and_reply(message, "real")
 
 
 @bot.message_handler(commands=["faz6_balance"])
-def faz6_balance_cmd(message):
-    _run_faz6_and_reply(message, "balance")
+def faz6_balance_cmd(message): _run_faz6_and_reply(message, "balance")
 
-
-# ============================================================
-#           FAZ-6 /faz6_coupon (4-Seviyeli Kupon)
-# ============================================================
 
 @bot.message_handler(commands=["faz6_coupon"])
 def faz6_coupon_cmd(message):
-    result = safe_run_faz6_engine(mode="balance")
-    msg = build_coupon_message(result, max_coupons=4)
+    msg = build_coupon_message(safe_run_faz6_engine("balance"), max_coupons=3)
     bot.reply_to(message, msg, parse_mode="Markdown")
 
 
 # ============================================================
-#           /cupon — kısa komut (4 Seviye)
+#                       FAZ-7 STRATEJİ
 # ============================================================
 
-@bot.message_handler(commands=["cupon"])
-def cupon_cmd(message):
-    result = safe_run_faz6_engine(mode="balance")
-    msg = build_coupon_message(result, max_coupons=4)
-    bot.reply_to(message, msg, parse_mode="Markdown")
+def faz7_strategy(engine_result: dict,
+                  bankroll: float = 100.0,
+                  mood: str = "normal") -> dict:
+
+    preds = (engine_result.get("result", {}).get("portfolio") or [])
+    if not preds:
+        return {
+            "status": "error",
+            "detail": "FAZ-6 geçersiz çıktı."
+        }
+
+    avg_conf = sum(p.get("confidence", 0) for p in preds) / len(preds)
+    avg_edge = sum(p.get("edge", 0) for p in preds) / len(preds)
+
+    if mood == "tilt_risk":
+        daily_limit = bankroll * 0.02
+    elif mood == "hot_streak":
+        daily_limit = bankroll * 0.06
+    else:
+        daily_limit = bankroll * 0.04
+
+    total_raw = sum(p.get("recommended_stake", 1.0) for p in preds)
+    scale_factor = min(1.0, daily_limit / max(total_raw, 1.0))
+
+    for p in preds:
+        raw = float(p.get("recommended_stake", 1.0))
+        p["normalized_stake"] = round(raw * scale_factor, 2)
+
+    return {
+        "status": "ok",
+        "avg_conf": round(avg_conf, 3),
+        "avg_edge": round(avg_edge, 3),
+        "daily_limit": round(daily_limit, 2),
+        "scale_factor": round(scale_factor, 3),
+        "play": {
+            "safe": True,
+            "balanced": avg_edge >= 0.028,
+            "aggressive": avg_edge >= 0.035 and mood != "tilt_risk",
+            "ultra": avg_edge >= 0.040 and mood == "hot_streak",
+        },
+        "predictions": preds,
+    }
+
+
+@bot.message_handler(commands=["faz7_plan"])
+def faz7_plan_cmd(message):
+    f6 = safe_run_faz6_engine("balance")
+    f7 = faz7_strategy(f6, bankroll=100.0, mood="normal")
+
+    if f7["status"] != "ok":
+        bot.reply_to(message, "FAZ-7 strateji hatası.")
+        return
+
+    txt = (
+        "🧠 *FAZ-7 Günlük Strateji*\n\n"
+        f"📈 Ortalama Güven: {f7['avg_conf']}\n"
+        f"📊 Ortalama Edge: {f7['avg_edge']}\n"
+        f"💰 Günlük Limit: {f7['daily_limit']}\n"
+        f"🔧 Stake Normalize: {f7['scale_factor']}x\n\n"
+        f"🎛 Oynanacak Seviye:\n"
+        f"• SAFE: {f7['play']['safe']}\n"
+        f"• BALANCED: {f7['play']['balanced']}\n"
+        f"• AGGRESSIVE: {f7['play']['aggressive']}\n"
+        f"• ULTRA: {f7['play']['ultra']}\n"
+    )
+
+    bot.reply_to(message, txt, parse_mode="Markdown")
 
 
 # ============================================================
@@ -371,7 +309,7 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 def start_health_server():
     server = HTTPServer(("0.0.0.0", 8080), HealthHandler)
-    print("INFO: Health server 0.0.0.0:8080 üzerinde çalışıyor.")
+    print("INFO: Health server 8080 çalışıyor.")
     server.serve_forever()
 
 
@@ -395,14 +333,14 @@ def heartbeat():
 def start_bot():
     while True:
         try:
-            print("INFO: Telegram bot polling başlıyor...")
+            print("INFO: Polling başlıyor...")
             bot.infinity_polling(
                 skip_pending=True,
                 timeout=60,
                 long_polling_timeout=60,
             )
         except Exception as e:
-            print(f"ERROR: Polling hata verdi: {e!r}")
+            print(f"ERROR: Polling hata: {e!r}")
             time.sleep(3)
 
 
@@ -411,13 +349,10 @@ def start_bot():
 # ============================================================
 
 def main():
-    print("INFO: Bot başlatıldı. Tüm motorlar aktif.")
+    print("INFO: Bot başlatıldı. FAZ-4/5/6/7 aktif.")
 
-    health_thread = Thread(target=start_health_server, daemon=True)
-    health_thread.start()
-
-    heartbeat_thread = Thread(target=heartbeat, daemon=True)
-    heartbeat_thread.start()
+    Thread(target=start_health_server, daemon=True).start()
+    Thread(target=heartbeat, daemon=True).start()
 
     start_bot()
 
