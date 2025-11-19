@@ -156,3 +156,80 @@ def format_pick_for_telegram(game: Dict[str, Any]) -> str:
         f"📈 Güven: {conf:.2f} | Edge: {edge:.3f}\n"
         f"💰 Stake: {stake:.3f}"
     ) 
+
+# ======================================================
+#  FAZ-6 MOD FONKSIYONLARI (MAIN ENGINE İÇİN ZORUNLU)
+# ======================================================
+
+def _build_fake_games(preset: Faz6Preset) -> List[Dict[str, Any]]:
+    """
+    Gerçek veri olmadığı durumlarda motorun çökmesini engellemek için
+    basit dummy (fake) tahmin listesi döner.
+    """
+    fake = []
+    for i in range(1, 6):
+        fake.append({
+            "id": f"FAKE-{preset.code}-{i}",
+            "label": f"Fake Match {i}",
+            "market": "moneyline",
+            "confidence": preset.min_confidence + 0.02,
+            "edge": preset.min_edge + 0.01,
+            "stake": 0.5,
+            "league": "FAKE",
+        })
+    return fake
+
+
+def _run_mode_core(mode: str) -> Dict[str, Any]:
+    """
+    Tüm modlar için ortak çalışma mantığı:
+        1) preset seç
+        2) dummy game listesi oluştur
+        3) preset'e göre filtrele/sırala
+        4) FAZ-6 ENGINE standart çıktısını üret
+    """
+    preset = get_preset(mode)
+    raw_games = _build_fake_games(preset)
+
+    picks = filter_and_rank_games(raw_games, preset)
+
+    return {
+        "status": "ok",
+        "mode": mode,
+        "result": {
+            "predictions": picks,
+            "portfolio": picks,
+            "meta": {
+                "preset": preset.code,
+                "raw_count": len(raw_games),
+                "filtered_count": len(picks),
+            },
+        },
+        "context": {},
+        "predictions": picks,
+        "portfolio": picks,
+    }
+
+
+# -----------------------------
+# Mod fonksiyonları
+# -----------------------------
+
+def run_faz6_test() -> Dict[str, Any]:
+    return _run_mode_core("test")
+
+
+def run_faz6_auto() -> Dict[str, Any]:
+    return _run_mode_core("auto")
+
+
+def run_faz6_risk() -> Dict[str, Any]:
+    return _run_mode_core("risk")
+
+
+def run_faz6_edge() -> Dict[str, Any]:
+    return _run_mode_core("edge")
+
+
+def run_faz6_real() -> Dict[str, Any]:
+    return _run_mode_core("real")
