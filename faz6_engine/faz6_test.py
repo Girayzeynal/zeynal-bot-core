@@ -1,35 +1,77 @@
 from __future__ import annotations
-from typing import List, Dict, Any
 
-Prediction = Dict[str, Any]
+from typing import Any, Dict, List, Optional
 
-def run_faz6_test() -> Dict[str, Any]:
+from .faz6_core import (
+    Prediction,
+    EngineResult,
+    get_preset,
+    filter_and_rank_games,
+    normalize_engine_result,
+)
+
+
+def _build_test_games() -> List[Prediction]:
     """
-    FAZ-6 TEST modunun standart dönüş formatı.
+    Basit sabit test datası.
+    Gerçek veri entegrasyonu geldiğinde context üzerinden geçilecektir.
     """
-    # Burada basit sabit örnek data döndürüyoruz.
-    # Sen istediğinde gerçek test hesaplamasını ekleriz.
-    preds: List[Prediction] = [
+    return [
         {
-            "id": "TEST:AAA@BBB",
-            "league": "TEST",
-            "match": "AAA@BBB",
+            "id": "TEST:NBA:LAL@BOS",
+            "league": "NBA",
+            "match": "LAL@BOS",
             "market": "spread",
-            "selection": "AAA -3.5",
-            "confidence": 0.61,
-            "edge": 0.032,
-        }
+            "selection": "BOS -3.5",
+            "confidence": 0.65,
+            "edge": 0.045,
+            "stake": 1.2,
+        },
+        {
+            "id": "TEST:EL:FENER@REAL",
+            "league": "EuroLeague",
+            "match": "FENER@REAL",
+            "market": "total",
+            "selection": "OVER 160.5",
+            "confidence": 0.62,
+            "edge": 0.040,
+            "stake": 1.1,
+        },
+        {
+            "id": "TEST:NBA:GSW@MIA",
+            "league": "NBA",
+            "match": "GSW@MIA",
+            "market": "moneyline",
+            "selection": "MIA",
+            "confidence": 0.60,
+            "edge": 0.035,
+            "stake": 1.0,
+        },
     ]
 
-    return {
-        "status": "ok",
-        "mode": "test",
-        "result": {
-            "predictions": preds,
-            "portfolio": preds,
-            "meta": {},
-        },
-        "context": {},
-        "predictions": preds,
-        "portfolio": preds,
-    } 
+
+def run_faz6_test(context: Optional[Dict[str, Any]] = None) -> EngineResult:
+    """
+    FAZ-6 TEST modu.
+    """
+    if context is None:
+        context = {}
+
+    # İleride: context["games"] varsa onu kullan.
+    games = context.get("games") or _build_test_games()
+
+    preset = get_preset("test")
+    picks = filter_and_rank_games(games, preset)
+
+    meta = {
+        "preset": preset.code,
+        "preset_detail": preset.title,
+        "source": "faz6_test",
+    }
+
+    return normalize_engine_result(
+        mode="test",
+        predictions=picks,
+        context=context,
+        meta=meta,
+    ) 
