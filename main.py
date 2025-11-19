@@ -75,9 +75,6 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
 # ============================================================
 
 def format_faz6_message(result: dict) -> str:
-    """
-    run_faz6_engine çıktısını Telegram mesajına çevirir.
-    """
     if not isinstance(result, dict):
         return f"❌ *FAZ-6 HATA*\nGeçersiz sonuç tipi: {type(result).__name__}"
 
@@ -105,6 +102,51 @@ def format_faz6_message(result: dict) -> str:
 
     if len(text) > 3800:
         text = text[:3800] + "\n… (çıktı kısaltıldı)"
+
+    return text
+
+
+# ============================================================
+#               FAZ-6 KUPON MOTORU (YENİ - İÇERDE)
+# ============================================================
+
+def build_coupon_message(result: dict, max_coupons: int = 3) -> str:
+    if not isinstance(result, dict):
+        return "❌ Kupon üretilemedi (geçersiz sonuç)."
+
+    status = result.get("status", "ok")
+    if status != "ok":
+        detail = result.get("detail", "Kupon için geçerli sonuç yok.")
+        return f"❌ Kupon üretilemedi:\n{detail}"
+
+    body = result.get("result", result)
+    preds = body.get("portfolio") or body.get("predictions") or []
+
+    if not preds:
+        return "❌ Kupon üretilemedi: uygun tahmin bulunamadı."
+
+    per_coupon = max(1, len(preds) // max_coupons or 1)
+
+    coupons = []
+    for i in range(0, len(preds), per_coupon):
+        coupons.append(preds[i:i + per_coupon])
+        if len(coupons) >= max_coupons:
+            break
+
+    text = "💵 *FAZ-6 Kupon Önerileri*\n\n"
+    for idx, coupon in enumerate(coupons, start=1):
+        text += f"🎟 Kupon {idx}\n"
+        for p in coupon:
+            sel = p.get("pick") or p.get("selection") or "N/A"
+            market = p.get("market", "")
+            conf = p.get("confidence", p.get("conf", 0))
+            edge = p.get("edge", 0)
+            match_id = p.get("id", p.get("match", "?"))
+            text += (
+                f"• {match_id} → {sel} ({market})\n"
+                f"  Güven: {conf} | Edge: {edge}\n"
+            )
+        text += "— — —\n"
 
     return text
 
@@ -146,6 +188,7 @@ def help_cmd(message):
 /faz6_real - FAZ-6 Real
 /faz6_balance - FAZ-6 Balance
 /faz6_coupon - FAZ-6 Kupon (3 kupon)
+/cupon - FAZ-6 Kupon (kısayol)
 """
     )
 
@@ -221,17 +264,13 @@ def heavy_full_cmd(message):
 
 
 # ============================================================
-#                       FAZ-6 ENGINE
+#                       FAZ-6 ENGINE WRAPPER
 # ============================================================
 
-from faz6_engine import run_faz6_engine as _raw_run_faz6_engine, build_coupon_message
+from faz6_engine import run_faz6_engine as _raw_run_faz6_engine
 
 
 def safe_run_faz6_engine(mode: str) -> dict:
-    """
-    Her türlü hatayı yakalayıp anlamlı dict dönen güvenli wrapper.
-    İçerideki gerçek run_faz6_engine'e dokunmuyor.
-    """
     try:
         result = _raw_run_faz6_engine(mode=mode)
         if not isinstance(result, dict):
@@ -290,11 +329,14 @@ def faz6_balance_cmd(message):
 
 
 # ============================================================
-#                    FAZ-6 KUPON (3 Kupon)
+#                 FAZ-6 KUPON (alias: /cupon)
 # ============================================================
 
-@bot.message_handler(commands=["faz6_coupon"])
+@bot.message_handler(commands=["faz6_coupon", "cupon"])
 def faz6_coupon_cmd(message):
+    """
+    /faz6_coupon ve /cupon tamamen eşitlendi.
+    """
     result = safe_run_faz6_engine(mode="balance")
     msg = build_coupon_message(result, max_coupons=3)
     bot.reply_to(message, msg, parse_mode="Markdown")
@@ -323,10 +365,6 @@ def start_health_server():
 # ============================================================
 
 def heartbeat():
-    """
-    Fly.io'nun idle/autostop mantığını uyutmak için
-    her 20 saniyede bir local health endpoint'e istek atar.
-    """
     while True:
         try:
             requests.get("http://127.0.0.1:8080", timeout=3)
@@ -340,10 +378,6 @@ def heartbeat():
 # ============================================================
 
 def start_bot():
-    """
-    TeleBot infinity_polling için auto-restart loop.
-    Ağ hatası vs olursa 3 saniye bekleyip tekrar dener.
-    """
     while True:
         try:
             print("INFO: Telegram bot polling başlıyor...")
@@ -364,15 +398,12 @@ def start_bot():
 def main():
     print("INFO: Bot başlatıldı. Tüm motorlar aktif.")
 
-    # Health server'i ayrı thread'de başlat
     health_thread = Thread(target=start_health_server, daemon=True)
     health_thread.start()
 
-    # Heartbeat thread (Fly.io anti-idle)
     heartbeat_thread = Thread(target=heartbeat, daemon=True)
     heartbeat_thread.start()
 
-    # Bot loop'u ana thread'de çalışsın
     start_bot()
 
 
