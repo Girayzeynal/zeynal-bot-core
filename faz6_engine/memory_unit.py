@@ -1,36 +1,87 @@
-# ================================================================
-#                 FAZ-6 MEMORY UNIT (BASİT)
-# ================================================================
-
 from __future__ import annotations
-from typing import Dict, Any
+
 import json
-import os
-
-MEMORY_FILE = "faz6_memory.json"
+from typing import Any, Dict, Optional, List
 
 
-def load_memory() -> Dict[str, Any]:
+class MemoryUnit:
     """
-    Basit JSON tabanlı hafıza.
-    Dosya yoksa veya bozuksa boş dict döner.
+    FAZ-6 Bellek Modülü (FAZ-7 uyumlu)
+    -----------------------------------
+    Amaç:
+        - AutoEngine zincirinde hafıza okuma / yazma görevini üstlenir.
+        - JSON tabanlı hafıza tutar.
+        - Kırılma yaşanmaması için ultra güvenli try/except blokları içerir.
+
+    Kullanım zinciri:
+        last = memory.load()
+        new_preds = brain.predict(last)
+        optimized = optimizer.optimize(new_preds)
+        balanced = balance.rebalance(optimized)
+        final = core.process(balanced)
+        memory.save(final)
     """
-    if not os.path.exists(MEMORY_FILE):
+
+    MEMORY_FILE = "faz6_memory.json"
+
+    def __init__(self) -> None:
+        pass
+
+    # --------------------------------
+    #  Güvenli float helper
+    # --------------------------------
+    def _safe_float(self, v: Any, default: float = 0.0) -> float:
+        try:
+            if v is None:
+                return default
+            return float(v)
+        except (TypeError, ValueError):
+            return default
+
+    # --------------------------------
+    #  LOAD
+    # --------------------------------
+    def load(self) -> Dict[str, Any]:
+        """
+        Belleği JSON dosyasından yükler.
+        Dosya yoksa boş hafıza döner.
+        """
+        try:
+            with open(self.MEMORY_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    return data
+        except FileNotFoundError:
+            return {}
+        except Exception:
+            return {}
+
         return {}
-    try:
-        with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, dict):
-            return data
-    except Exception:
-        pass
-    return {}
 
+    # --------------------------------
+    #  SAVE
+    # --------------------------------
+    def save(self, result: Dict[str, Any]) -> bool:
+        """
+        Son prediction setini hafızaya kaydeder.
+        result → AutoEngine final çıktısıdır.
+        """
+        try:
+            if not isinstance(result, dict):
+                return False
 
-def save_memory(data: Dict[str, Any]) -> None:
-    try:
-        with open(MEMORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception:
-        # Fly.io ephemeral disk veya izin sorunlarında sessiz geç
-        pass
+            preds = result.get("predictions") or result.get("portfolio") or []
+
+            mem = {
+                "predictions": preds,
+                "portfolio": preds,
+                "auto_last": preds,
+            }
+
+            with open(self.MEMORY_FILE, "w", encoding="utf-8") as f:
+                json.dump(mem, f, indent=2, ensure_ascii=False)
+
+            return True
+
+        except Exception:
+            return False 
