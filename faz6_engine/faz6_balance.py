@@ -1,53 +1,41 @@
 from __future__ import annotations
-from typing import Dict, Any, List
-
-from .auto import run_faz6_auto
-from .faz6_risk import run_faz6_risk
-from .faz6_edge import run_faz6_edge
-
-Prediction = Dict[str, Any]
-EngineResult = Dict[str, Any]
+from typing import List, Dict, Any
 
 
-def _mix(auto_preds, risk_preds, edge_preds):
-    portfolio = []
+class BalanceEngine:
+    """
+    FAZ-6 BALANCE ENGINE
+    --------------------
+    AutoEngine → CoreEngine sonrası çıkan tahminleri
+    kupon mantığı için yeniden dengeler.
+    """
 
-    portfolio.extend(risk_preds[:5])
-    portfolio.extend(edge_preds[:3])
-    portfolio.extend(auto_preds[:10])
+    def __init__(self):
+        pass
 
-    seen = set()
-    uniq = []
+    def balance(self, predictions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Basit ama FAZ-6 uyumlu bir dengeleme formülü.
+        """
+        if not predictions:
+            return []
 
-    for p in portfolio:
-        key = (p.get("id"), p.get("market"))
-        if key not in seen:
-            seen.add(key)
-            uniq.append(p)
+        preds = list(predictions)
 
-    return uniq
+        # Güven + Edge + Rating → final sıralama
+        preds.sort(
+            key=lambda x: (
+                float(x.get("rating", 0.0)),
+                float(x.get("confidence", 0.0)),
+                float(x.get("edge", 0.0)),
+            ),
+            reverse=True,
+        )
 
+        # Basit stake normalizasyonu
+        for p in preds:
+            conf = float(p.get("confidence", 0.0))
+            edge = float(p.get("edge", 0.0))
+            p["final_stake"] = round((conf * 0.5) + (edge * 2.0), 3)
 
-def run_faz6_balance(context: Dict[str, Any] | None = None, mode="auto") -> Dict[str, Any]:
-    auto_res = run_faz6_auto()
-    risk_res = run_faz6_risk()
-    edge_res = run_faz6_edge()
-
-    auto_preds = auto_res["result"]["predictions"]
-    risk_preds = risk_res["result"]["predictions"]
-    edge_preds = edge_res["result"]["predictions"]
-
-    final = _mix(auto_preds, risk_preds, edge_preds)
-
-    return {
-        "status": "ok",
-        "mode": "balance",
-        "result": {
-            "predictions": final,
-            "portfolio": final,
-            "meta": {},
-        },
-        "context": context or {},
-        "predictions": final,
-        "portfolio": final,
-    } 
+        return preds 
