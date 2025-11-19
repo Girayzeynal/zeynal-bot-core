@@ -1,54 +1,52 @@
-# ================================================================
-#                 FAZ-6 OPTIMIZER (BASİT)
-# ================================================================
-
 from __future__ import annotations
 from typing import List, Dict, Any
 
-Prediction = Dict[str, Any]
 
-
-def optimize_predictions(
-    predictions: List[Prediction],
-    ml_meta: Dict[str, Any],
-    mode: str,
-    risk: bool = False,
-    aggressive: bool = False,
-    realtime: bool = False,
-) -> List[Prediction]:
+class Optimizer:
     """
-    Basit stake / filtre mantığı.
-    Gerçek bir optimizer yerine lightweight ayar yapıyor.
+    FAZ-6 OPTIMIZER (FAZ-7 uyumlu mini çekirdek)
+    -------------------------------------------
+    Bu modülün görevi:
+        - MLBrain tarafından üretilen tahminleri normalize etmek
+        - Edge & Confidence güvenli sınırlar içine almak
+        - Stake değerlerini stabil hale getirmek
+        - FAZ-6 çekirdeğine uygun formata sokmak
     """
-    optimized: List[Prediction] = []
 
-    for p in predictions:
-        q = dict(p)
+    def __init__(self) -> None:
+        pass
 
-        edge = float(q.get("edge", 0) or 0.0)
-        conf = float(q.get("confidence", 0) or 0.0)
+    def _safe_float(self, v: Any, default: float = 0.0) -> float:
+        try:
+            return float(v)
+        except:
+            return default
 
-        # Varsayılan stake
-        base_stake = 1.0
+    def optimize(self, preds: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Tahmin listesini optimize eder.
+        """
+        optimized: List[Dict[str, Any]] = []
 
-        if risk:
-            # daha korumacı
-            base_stake = 0.5
-            if edge < 0.03 or conf < 0.55:
-                continue
-        if aggressive:
-            base_stake = 1.5
-            if edge < 0.05 or conf < 0.58:
-                continue
-        if realtime:
-            # gerçek zaman modunda hafif sıkılaştır
-            if edge < 0.02 or conf < 0.56:
-                continue
+        for p in preds:
+            conf = self._safe_float(p.get("confidence", p.get("guven", 0.0)))
+            edge = self._safe_float(p.get("edge", 0.0))
 
-        # Edge + confidence'e göre stake modifiye
-        stake = base_stake * (1.0 + edge * 5.0) * (0.5 + conf)
+            # Güven normalize
+            conf = max(0.50, min(conf, 0.85))
 
-        q["recommended_stake"] = round(stake, 3)
-        optimized.append(q)
+            # Edge stabilize
+            edge = max(0.010, min(edge, 0.120))
 
-    return optimized
+            # Stake formülü
+            stake = round(((conf - 0.50) * 3.4) + 0.75, 3)
+            stake = max(0.65, min(stake, 3.0))
+
+            q = dict(p)
+            q["confidence"] = round(conf, 3)
+            q["edge"] = round(edge, 3)
+            q["stake"] = stake
+
+            optimized.append(q)
+
+        return optimized 
