@@ -1,7 +1,7 @@
 import sys
 import os
 import time
-from typing import List, Dict, Any
+from typing import List
 from threading import Thread
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -75,17 +75,12 @@ def _simple_sim_from_game(game: NBAGameState) -> dict:
 # ============================================================
 
 def format_faz6_message(result: dict) -> str:
-    """
-    run_faz6_engine çıktısını Telegram mesajına çevirir.
-    """
     if not isinstance(result, dict):
         return f"❌ *FAZ-6 HATA*\nGeçersiz sonuç tipi: {type(result).__name__}"
 
     status = result.get("status", "ok")
     if status != "ok":
-        detail = result.get("detail")
-        if not detail:
-            detail = f"Detay yok. Ham sonuç: {repr(result)}"
+        detail = result.get("detail") or f"Ham sonuç: {repr(result)}"
         return f"❌ *FAZ-6 HATA*\n{detail}"
 
     mode = result.get("mode", "").upper()
@@ -110,103 +105,55 @@ def format_faz6_message(result: dict) -> str:
 
 
 # ============================================================
-#         YENİ FAZ-6 4-KUPON HİBRİT KUPON MOTORU (main.py)
+#               FAZ-6 4-SEVİYELİ KUPON MOTORU
 # ============================================================
 
-def build_coupon_message(engine_result: Dict[str, Any],
-                         max_coupons: int = 4) -> str:
-    """
-    FAZ-6 motor çıktısından 4 seviyeli kupon seti üretir.
+def build_coupon_message(result: dict, max_coupons: int = 4) -> str:
+    if not isinstance(result, dict):
+        return "❌ Kupon üretilemedi (geçersiz sonuç)."
 
-    - 4 kupon: SAFE, BALANCED, AGGRESSIVE, ULTRA
-    - Her kupon 3–4 maç arasında (veri yettiği kadar)
-    - Dağıtım, confidence+edge skoruna göre round-robin yapılır
-    """
-
-    status = engine_result.get("status", "ok")
+    status = result.get("status", "ok")
     if status != "ok":
-        detail = engine_result.get("detail", "Bilinmeyen hata")
-        return f"❌ *FAZ-6 KUPON HATASI*\n{detail}"
+        detail = result.get("detail", "Kupon için geçerli sonuç yok.")
+        return f"❌ Kupon üretilemedi:\n{detail}"
 
-    result = engine_result.get("result", {})
-    preds: List[Dict[str, Any]] = (
-        result.get("portfolio")
-        or result.get("predictions")
-        or []
-    )
+    body = result.get("result", result)
+    preds = body.get("portfolio") or body.get("predictions") or []
 
     if not preds:
-        return "⚠ Kupon oluşturmak için yeterli maç bulunamadı."
+        return "❌ Kupon üretilemedi: uygun tahmin yok."
 
-    # Güç sıralaması: önce edge, sonra confidence
-    sorted_preds = sorted(
-        preds,
-        key=lambda p: (float(p.get("edge", 0.0)), float(p.get("confidence", 0.0))),
-        reverse=True,
-    )
+    safe = preds[:2]
+    balanced = preds[2:4]
+    aggressive = preds[4:5]
+    ultra = preds[5:6]
 
-    # Kupon slotları
-    coupon_count = min(max_coupons, 4)
-    coupons: List[List[Dict[str, Any]]] = [[] for _ in range(coupon_count)]
+    buckets = [
+        ("SAFE", safe),
+        ("BALANCED", balanced),
+        ("AGGRESSIVE", aggressive),
+        ("ULTRA", ultra),
+    ]
 
-    MAX_PICKS_PER_COUPON = 4
-    # 3–4 arası hedef; veri azsa doğal olarak daha az olabilir.
+    text = "💰 *FAZ-6 KUPONLARI (4-Seviyeli AI Dağılım)*\n\n"
 
-    pointer = 0
-    total_capacity = coupon_count * MAX_PICKS_PER_COUPON
-    used = 0
-
-    for p in sorted_preds:
-        if used >= total_capacity:
-            break
-
-        # Uygun slot bul (round-robin ama dolu olanları geç)
-        attempts = 0
-        while attempts < coupon_count and len(coupons[pointer]) >= MAX_PICKS_PER_COUPON:
-            pointer = (pointer + 1) % coupon_count
-            attempts += 1
-
-        if attempts >= coupon_count and all(
-            len(c) >= MAX_PICKS_PER_COUPON for c in coupons
-        ):
-            break
-
-        coupons[pointer].append(p)
-        used += 1
-        pointer = (pointer + 1) % coupon_count
-
-    labels = ["SAFE", "BALANCED", "AGGRESSIVE", "ULTRA"]
-    lines: List[str] = []
-    lines.append("🎟 *FAZ-6 KUPONLARI (4-Seviyeli AI Dağılım)*\n")
-
-    for idx, coupon in enumerate(coupons, start=1):
-        if not coupon:
+    for idx, (title, group) in enumerate(buckets, start=1):
+        if not group:
             continue
-
-        label = labels[idx - 1] if idx - 1 < len(labels) else "MIXED"
-        lines.append(f"🔥 *Kupon {idx} — {label}*")
-
-        total_stake = 0.0
-        for p in coupon:
+        text += f"🔥 *Kupon {idx} — {title}*\n"
+        total = 0.0
+        for p in group:
             stake = float(p.get("recommended_stake", 1.0))
-            total_stake += stake
-
-            match_id = p.get("id") or p.get("match") or "?"
-            pick = p.get("pick") or p.get("selection") or "N/A"
-            market = p.get("market", "")
-            conf = p.get("confidence", p.get("conf", 0))
-            edge = p.get("edge", 0)
-
-            lines.append(
-                f"- {match_id} | {pick} ({market})\n"
-                f"  Güven: {conf} | Edge: {edge} | Stake: {stake}"
+            total += stake
+            text += (
+                f"- {p.get('id')} | {p.get('pick')} ({p.get('market')})\n"
+                f"  Güven: {p.get('confidence')} | Edge: {p.get('edge')} | Stake: {stake}\n"
             )
+        text += f"💵 Toplam Stake: {round(total, 2)}\n— — —\n\n"
 
-        lines.append(f"💰 Toplam Stake: {round(total_stake, 2)}\n")
+    if len(text) > 3900:
+        text = text[:3900] + "\n… (kısaltıldı)"
 
-    text = "\n".join(lines)
-    if len(text) > 3800:
-        text = text[:3800] + "\n… (çıktı kısaltıldı)"
     return text
 
 
@@ -247,6 +194,8 @@ def help_cmd(message):
 /faz6_real - FAZ-6 Real
 /faz6_balance - FAZ-6 Balance
 /faz6_coupon - FAZ-6 Kupon (4 seviye)
+
+/cupon - Kısayol (4 seviye)
 """
     )
 
@@ -387,12 +336,22 @@ def faz6_balance_cmd(message):
 
 
 # ============================================================
-#                    FAZ-6 KUPON (4 Kupon)
+#           FAZ-6 /faz6_coupon (4-Seviyeli Kupon)
 # ============================================================
 
 @bot.message_handler(commands=["faz6_coupon"])
 def faz6_coupon_cmd(message):
-    # Kuponlar her zaman FAZ-6 "balance" modunun çıktısından
+    result = safe_run_faz6_engine(mode="balance")
+    msg = build_coupon_message(result, max_coupons=4)
+    bot.reply_to(message, msg, parse_mode="Markdown")
+
+
+# ============================================================
+#           /cupon — kısa komut (4 Seviye)
+# ============================================================
+
+@bot.message_handler(commands=["cupon"])
+def cupon_cmd(message):
     result = safe_run_faz6_engine(mode="balance")
     msg = build_coupon_message(result, max_coupons=4)
     bot.reply_to(message, msg, parse_mode="Markdown")
