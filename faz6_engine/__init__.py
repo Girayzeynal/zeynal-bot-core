@@ -1,5 +1,5 @@
 # faz6_engine/__init__.py
-# Tek dosyalı FAZ-6 çekirdeği: preset + selector + engine + coupon hepsi burada.
+# Tek dosyalı FAZ-6 çekirdeği (Preset + Prediction Filter + Stake + Portfolio + 4-Seviye Kuponluk ham veri)
 
 from __future__ import annotations
 
@@ -22,54 +22,12 @@ class ModePreset:
 
 
 _PRESETS: Dict[str, ModePreset] = {
-    "test": ModePreset(
-        code="TEST",
-        title="FAZ-6 Test Modu",
-        min_confidence=0.00,
-        min_edge=0.00,
-        max_picks=6,
-        base_stake=1.0,
-    ),
-    "auto": ModePreset(
-        code="AUTO",
-        title="FAZ-6 Otomatik",
-        min_confidence=0.55,
-        min_edge=0.01,
-        max_picks=8,
-        base_stake=1.0,
-    ),
-    "risk": ModePreset(
-        code="RISK",
-        title="FAZ-6 Risk Modu",
-        min_confidence=0.52,
-        min_edge=0.005,
-        max_picks=10,
-        base_stake=1.2,
-    ),
-    "edge": ModePreset(
-        code="EDGE",
-        title="FAZ-6 Edge Odaklı",
-        min_confidence=0.60,
-        min_edge=0.02,
-        max_picks=6,
-        base_stake=1.3,
-    ),
-    "real": ModePreset(
-        code="REAL",
-        title="FAZ-6 Gerçekçilik",
-        min_confidence=0.58,
-        min_edge=0.015,
-        max_picks=7,
-        base_stake=1.0,
-    ),
-    "balance": ModePreset(
-        code="BAL",
-        title="FAZ-6 Denge",
-        min_confidence=0.56,
-        min_edge=0.012,
-        max_picks=7,
-        base_stake=1.1,
-    ),
+    "test": ModePreset("TEST", "FAZ-6 Test Modu", 0.00, 0.00, 6, 1.0),
+    "auto": ModePreset("AUTO", "FAZ-6 Otomatik", 0.55, 0.01, 8, 1.0),
+    "risk": ModePreset("RISK", "FAZ-6 Risk", 0.52, 0.005, 10, 1.2),
+    "edge": ModePreset("EDGE", "FAZ-6 Edge", 0.60, 0.02, 6, 1.3),
+    "real": ModePreset("REAL", "FAZ-6 Gerçekçilik", 0.58, 0.015, 7, 1.0),
+    "balance": ModePreset("BAL", "FAZ-6 Denge", 0.56, 0.012, 7, 1.1),
 }
 
 
@@ -79,7 +37,7 @@ def get_preset(mode: str) -> ModePreset:
 
 
 # ============================================================
-#                    TAHMİN TİPİ
+#                        PREDICTION TİPİ
 # ============================================================
 
 class Prediction(TypedDict):
@@ -96,13 +54,12 @@ EngineResult = Dict[str, Any]
 
 
 # ============================================================
-#          ÖRNEK / TEMPORARY TAHMİN ÜRETİCİ
+#           GEÇİCİ — FAZ-5 ENTEGRASYON YOLDA
 # ============================================================
 
 def _base_predictions() -> List[Prediction]:
     """
-    Şimdilik FAZ-5 entegrasyonu yok.
-    Stabil olsun diye sabit birkaç maç dönüyoruz.
+    Stabil demo dataset — FAZ-5 bağlanınca otomatik değişecek.
     """
     return [
         {
@@ -163,20 +120,10 @@ def _base_predictions() -> List[Prediction]:
 
 
 # ============================================================
-#              SEÇİM / SIRALAMA / STAKE HESABI
+#         FİLTRE — RANK — STAKE HESABI
 # ============================================================
 
-def filter_and_rank_predictions(
-    predictions: List[Prediction],
-    preset: ModePreset,
-) -> List[Prediction]:
-    """
-    - confidence & edge ile filtre
-    - edge + confidence’e göre sırala
-    - max_picks kadar seçim
-    - recommended_stake hesapla
-    """
-
+def filter_and_rank_predictions(predictions: List[Prediction], preset: ModePreset) -> List[Prediction]:
     filtered: List[Prediction] = [
         p
         for p in predictions
@@ -203,16 +150,10 @@ def filter_and_rank_predictions(
 
 
 # ============================================================
-#                    ANA FAZ-6 MOTORU
+#                   ANA FAZ-6 MOTORU
 # ============================================================
 
-def run_faz6_engine(
-    mode: str = "auto",
-    context: Optional[Dict[str, Any]] = None,
-) -> EngineResult:
-    """
-    main.py + format_faz6_message ile uyumlu çekirdek.
-    """
+def run_faz6_engine(mode: str = "auto", context: Optional[Dict[str, Any]] = None) -> EngineResult:
     if context is None:
         context = {}
 
@@ -223,29 +164,20 @@ def run_faz6_engine(
 
     try:
         raw_preds = _base_predictions()
-        final_preds = filter_and_rank_predictions(raw_preds, preset)
-
-        result_block: Dict[str, Any] = {
-            "predictions": final_preds,
-            "portfolio": final_preds,
-            "meta": {
-                "preset": {
-                    "code": preset.code,
-                    "title": preset.title,
-                    "min_confidence": preset.min_confidence,
-                    "min_edge": preset.min_edge,
-                    "max_picks": preset.max_picks,
-                    "base_stake": preset.base_stake,
-                },
-                "total_input": len(raw_preds),
-                "total_output": len(final_preds),
-            },
-        }
+        final = filter_and_rank_predictions(raw_preds, preset)
 
         return {
             "status": "ok",
             "mode": mode_norm,
-            "result": result_block,
+            "result": {
+                "predictions": final,
+                "portfolio": final,
+                "meta": {
+                    "preset": preset.__dict__,
+                    "total_input": len(raw_preds),
+                    "total_output": len(final),
+                },
+            },
             "context": context,
         }
 
@@ -254,67 +186,65 @@ def run_faz6_engine(
             "status": "error",
             "mode": mode_norm,
             "detail": f"FAZ-6 engine exception: {repr(e)}",
-            "result": {
-                "predictions": [],
-                "portfolio": [],
-                "meta": {},
-            },
+            "result": {"predictions": [], "portfolio": [], "meta": {}},
             "context": context,
         }
 
 
 # ============================================================
-#                    KUPON MESAJ ÜRETİCİ
+#        4-SEVİYE KUPON MOTORU (SAFE / BALANCED / AGG / ULTRA)
 # ============================================================
 
-def build_coupon_message(engine_result: Dict[str, Any],
-                         max_coupons: int = 3) -> str:
-    """
-    FAZ-6 motor çıktısından 3 kuponluk Telegram metni üretir.
-    """
+def build_coupon_message(engine_result: Dict[str, Any], max_coupons: int = 4) -> str:
     status = engine_result.get("status", "ok")
     if status != "ok":
-        detail = engine_result.get("detail", "Bilinmeyen hata")
-        return f"❌ *FAZ-6 KUPON HATASI*\n{detail}"
+        return f"❌ *FAZ-6 KUPON HATASI*\n{engine_result.get('detail','Bilinmeyen hata')}"
 
-    result = engine_result.get("result", {})
-    preds: List[Dict[str, Any]] = (
-        result.get("portfolio")
-        or result.get("predictions")
+    preds = (
+        engine_result.get("result", {})
+        .get("portfolio")
+        or engine_result.get("result", {})
+        .get("predictions")
         or []
     )
 
     if not preds:
         return "⚠ Kupon oluşturmak için yeterli maç bulunamadı."
 
-    preds = preds[: max_coupons * 3]
-    coupons: List[List[Dict[str, Any]]] = [
-        preds[i : i + 3] for i in range(0, len(preds), 3)
+    safe = preds[:2]
+    balanced = preds[2:4]
+    aggressive = preds[4:5]
+    ultra = preds[5:6]
+
+    buckets = [
+        ("SAFE", safe),
+        ("BALANCED", balanced),
+        ("AGGRESSIVE", aggressive),
+        ("ULTRA", ultra),
     ]
-    coupons = coupons[:max_coupons]
 
-    lines: List[str] = []
-    lines.append("🎟 *FAZ-6 KUPONLARI*\n")
+    out = ["🔥 *FAZ-6 KUPONLARI (4-Seviyeli AI Dağılım)*\n"]
 
-    for idx, coupon in enumerate(coupons, start=1):
-        lines.append(f"🔥 *Kupon {idx}*")
-        total_stake = 0.0
+    for idx, (title, group) in enumerate(buckets, start=1):
+        if not group:
+            continue
+        out.append(f"🔥 *Kupon {idx} — {title}*")
+        total = 0.0
 
-        for p in coupon:
-            stake = float(p.get("recommended_stake", 1.0))
-            total_stake += stake
-            lines.append(
-                f"- {p.get('id')} | {p.get('pick')} ({p.get('market')})\n"
-                f"  Güven: {p.get('confidence')} | "
-                f"Edge: {p.get('edge')} | "
-                f"Stake: {stake}"
+        for p in group:
+            stake = float(p.get("recommended_stake", 0))
+            total += stake
+            out.append(
+                f"- {p['id']} | {p['pick']} ({p['market']})\n"
+                f"  Güven: {p['confidence']} | Edge: {p['edge']} | Stake: {stake}"
             )
 
-        lines.append(f"💰 Toplam Stake: {round(total_stake, 2)}\n")
+        out.append(f"💰 Toplam Stake: {round(total, 2)}\n— — —")
 
-    text = "\n".join(lines)
-    if len(text) > 3800:
-        text = text[:3800] + "\n… (çıktı kısaltıldı)"
+    text = "\n".join(out)
+    if len(text) > 3900:
+        text = text[:3900] + "\n… (çıktı kısaltıldı)"
+
     return text
 
 
