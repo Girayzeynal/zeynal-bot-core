@@ -1,576 +1,451 @@
 import os
 import json
-import logging
-import threading
-from datetime import datetime, date
-from statistics import mean, pstdev
+from dataclasses import dataclass, asdict
+from datetime import date
+from typing import List, Dict, Tuple
+import statistics
+import random
 
-from flask import Flask
-from telegram import Update, ParseMode
-from telegram.ext import Updater, CommandHandler, CallbackContext
+import telebot
 
-# -------------------------------------------------
-#  Genel Ayarlar
-# -------------------------------------------------
+# ============================================
+#  TELEGRAM BOT AYARI
+#  - Fly.io Secret: BOT_TOKEN veya TELEGRAM_BOT_TOKEN
+# ============================================
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
-logger = logging.getLogger(__name__)
+BOT_TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN")
+if not BOT_TOKEN:
+    raise RuntimeError("Environment variable BOT_TOKEN or TELEGRAM_BOT_TOKEN must be set")
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
-if not TELEGRAM_TOKEN:
-    logger.warning("TELEGRAM_TOKEN env değişkeni tanımlı değil!")
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 
-MEMORY_FILE = "faz7_memory.json"  # FAZ-7.9 hafıza dosyası
-
-# -------------------------------------------------
-#  ÖRNEK FAZ-6 MAÇ DATASI
-#  (Eski engine yerine placeholder. İstersen burayı
-#   kendi data_fetcher / faz6_engine çıktınla değiştirebilirsin.)
-# -------------------------------------------------
-
-SAMPLE_MATCHES = [
-    {
-        "id": "EL:EFES@REAL",
-        "league": "EL",
-        "match": "EL:EFES@REAL",
-        "pick": "REAL MADRID -5.5",
-        "pick_type": "spread",
-        "confidence": 0.66,
-        "edge": 0.045,
-        "base_stake": 0.80,
-    },
-    {
-        "id": "EL:FENER@OLY",
-        "league": "EL",
-        "match": "EL:FENER@OLY",
-        "pick": "OLYMPIACOS -3.5",
-        "pick_type": "spread",
-        "confidence": 0.64,
-        "edge": 0.041,
-        "base_stake": 0.76,
-    },
-    {
-        "id": "NBA:BOS@MIA",
-        "league": "NBA",
-        "match": "NBA:BOS@MIA",
-        "pick": "UNDER 224.5",
-        "pick_type": "total",
-        "confidence": 0.63,
-        "edge": 0.036,
-        "base_stake": 0.73,
-    },
-    {
-        "id": "NBA:LAL@DEN",
-        "league": "NBA",
-        "match": "NBA:LAL@DEN",
-        "pick": "DEN -4.5",
-        "pick_type": "spread",
-        "confidence": 0.61,
-        "edge": 0.032,
-        "base_stake": 0.70,
-    },
-    {
-        "id": "NBA:CHI@NYK",
-        "league": "NBA",
-        "match": "NBA:CHI@NYK",
-        "pick": "NYK ML",
-        "pick_type": "moneyline",
-        "confidence": 0.60,
-        "edge": 0.031,
-        "base_stake": 0.69,
-    },
-    {
-        "id": "NBA:GSW@PHX",
-        "league": "NBA",
-        "match": "NBA:GSW@PHX",
-        "pick": "OVER 230.5",
-        "pick_type": "total",
-        "confidence": 0.59,
-        "edge": 0.028,
-        "base_stake": 0.67,
-    },
-]
+MEMORY_FILE = "faz7_memory.json"
+WINDOW_DAYS = 7
+DATE_FMT = "%Y-%m-%d"
 
 
-# -------------------------------------------------
-#  FAZ-7.9 HAFIZA YARDIMCI FONKSİYONLARI
-# -------------------------------------------------
+# ============================================
+#  FAZ-7.9 HAFIZA MODELİ
+# ============================================
+
+@dataclass
+class Faz7DayRecord:
+    day: str          # YYYY-MM-DD
+    matches: int
+    confidence: float
+    edge: float
+    mode: str         # SAFE / BAL / AGG
 
 
-def load_memory():
-    """faz7_memory.json dosyasını yükle."""
-    if not os.path.exists(MEMORY_FILE):
-        return {"days": []}
-    try:
-        with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if "days" not in data or not isinstance(data["days"], list):
-            return {"days": []}
-        return data
-    except Exception as e:
-        logger.error("Hafıza yüklenirken hata: %s", e)
-        return {"days": []}
+class Faz7Memory:
+    def __init__(self, path: str = MEMORY_FILE, window_days: int = WINDOW_DAYS) -> None:
+        self.path = path
+        self.window_days = window_days
+        self.records: List[Faz7DayRecord] = []
+        self._load()
+
+    def _load(self) -> None:
+        if not os.path.exists(self.path):
+            self.records = []
+            return
+        try:
+            with open(self.path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.records = [Faz7DayRecord(**item) for item in data]
+        except Exception:
+            # Dosya bozulmuşsa temiz başla
+            self.records = []
+
+    def _save(self) -> None:
+        data = [asdict(r) for r in self.records]
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    def update_today(self, matches: int, confidence: float, edge: float, mode: str) -> None:
+        """Bugünün FAZ-7 kaydını güncelle (veya oluştur)."""
+        day_str = date.today().strftime(DATE_FMT)
+
+        # Bugüne ait kayıt varsa sil → yerine yenisini koy
+        filtered = [r for r in self.records if r.day != day_str]
+        filtered.append(Faz7DayRecord(
+            day=day_str,
+            matches=matches,
+            confidence=confidence,
+            edge=edge,
+            mode=mode,
+        ))
+
+        # Sadece son window_days günü tut
+        filtered.sort(key=lambda r: r.day)
+        if len(filtered) > self.window_days:
+            filtered = filtered[-self.window_days:]
+
+        self.records = filtered
+        self._save()
+
+    def recent(self) -> List[Faz7DayRecord]:
+        return list(self.records)
+
+    def averages(self) -> Tuple[float, float]:
+        if not self.records:
+            return 0.0, 0.0
+        confs = [r.confidence for r in self.records]
+        edges = [r.edge for r in self.records]
+        return float(sum(confs) / len(confs)), float(sum(edges) / len(edges))
+
+    def trend_slope(self) -> float:
+        """Confidence üzerinden basit lineer trend (eğim)."""
+        if len(self.records) < 2:
+            return 0.0
+        xs = list(range(len(self.records)))
+        ys = [r.confidence for r in self.records]
+        x_mean = statistics.mean(xs)
+        y_mean = statistics.mean(ys)
+        num = sum((x - x_mean) * (y - y_mean) for x, y in zip(xs, ys))
+        den = sum((x - x_mean) ** 2 for x in xs)
+        if den == 0:
+            return 0.0
+        return num / den
+
+    def volatility(self) -> float:
+        """7 günlük confidence oynaklığı (standart sapma)."""
+        if len(self.records) < 2:
+            return 0.0
+        confs = [r.confidence for r in self.records]
+        return float(statistics.pstdev(confs))
+
+    def mode_stats(self) -> Dict[str, Dict[str, float]]:
+        """SAFE / BAL / AGG için run ve ortalamalar."""
+        result: Dict[str, Dict[str, float]] = {}
+        for mode in ("SAFE", "BAL", "AGG"):
+            recs = [r for r in self.records if r.mode == mode]
+            if not recs:
+                result[mode] = {
+                    "runs": 0,
+                    "avg_conf": 0.0,
+                    "avg_edge": 0.0,
+                }
+            else:
+                result[mode] = {
+                    "runs": len(recs),
+                    "avg_conf": float(sum(r.confidence for r in recs) / len(recs)),
+                    "avg_edge": float(sum(r.edge for r in recs) / len(recs)),
+                }
+        return result
 
 
-def save_memory(memory):
-    """Hafızayı dosyaya yaz."""
-    try:
-        with open(MEMORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(memory, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.error("Hafıza kaydedilirken hata: %s", e)
+memory = Faz7Memory()
 
 
-def compute_today_stats(matches):
-    """Günün maçlarından FAZ-7 için ortalama güven ve edge hesapla."""
-    if not matches:
-        return {
-            "date": date.today().isoformat(),
-            "matches": 0,
-            "avg_conf": 0.0,
-            "avg_edge": 0.0,
-            "mode": "BAL",
-        }
+# ============================================
+#  FAZ-6 ÖRNEK MOTOR (PLACEHOLDER)
+#  (Gerçek motoru sonra buraya entegre edebiliriz)
+# ============================================
 
-    avg_conf = mean(m["confidence"] for m in matches)
-    avg_edge = mean(m["edge"] for m in matches)
-    return {
-        "date": date.today().isoformat(),
-        "matches": len(matches),
-        "avg_conf": round(avg_conf, 3),
-        "avg_edge": round(avg_edge, 3),
-        "mode": "BAL",  # şimdilik varsayılan
-    }
+def _deterministic_random_base() -> float:
+    """Her gün için hafif farklı ama deterministik jitter."""
+    seed = int(date.today().strftime("%Y%m%d"))
+    random.seed(seed)
+    return random.uniform(-0.01, 0.01)
 
 
-def update_memory_with_today(memory, today_stats):
-    """Bugünün verisini hafızaya ekle / güncelle (maks 7 gün tut)."""
-    days = memory.get("days", [])
-    today_str = today_stats["date"]
-
-    # Aynı gün varsa güncelle
-    for d in days:
-        if d["date"] == today_str:
-            d.update(today_stats)
-            break
-    else:
-        # Yeni gün ekle
-        days.append(today_stats)
-
-    # Eski günleri at (son 7 gün)
-    days = sorted(days, key=lambda x: x["date"])[-7:]
-    memory["days"] = days
-    return memory
-
-
-def summarize_last_7_days(memory):
-    """Son 7 günün ortalama conf/edge + mod dağılımını hesapla."""
-    days = memory.get("days", [])
-    if not days:
-        return {
-            "avg_conf_7g": 0.0,
-            "avg_edge_7g": 0.0,
-            "mode_counts": {"SAFE": 0, "BAL": 0, "AGG": 0},
-            "volatility_conf": 0.0,
-            "volatility_edge": 0.0,
-            "trend_slope": 0.0,
-        }
-
-    avg_conf_7g = mean(d["avg_conf"] for d in days)
-    avg_edge_7g = mean(d["avg_edge"] for d in days)
-
-    # Mod sayaçları (şimdilik sadece BAL kullanıyoruz ama yapı hazır)
-    mode_counts = {"SAFE": 0, "BAL": 0, "AGG": 0}
-    for d in days:
-        mode = d.get("mode", "BAL").upper()
-        if mode in mode_counts:
-            mode_counts[mode] += 1
-
-    # Volatilite (standart sapma)
-    if len(days) >= 2:
-        volatility_conf = pstdev(d["avg_conf"] for d in days)
-        volatility_edge = pstdev(d["avg_edge"] for d in days)
-    else:
-        volatility_conf = 0.0
-        volatility_edge = 0.0
-
-    # Basit trend (conf için ilk-son farkına göre slope)
-    if len(days) >= 2:
-        first = days[0]["avg_conf"]
-        last = days[-1]["avg_conf"]
-        trend_slope = (last - first) / (len(days) - 1)
-    else:
-        trend_slope = 0.0
-
-    return {
-        "avg_conf_7g": round(avg_conf_7g, 3),
-        "avg_edge_7g": round(avg_edge_7g, 3),
-        "mode_counts": mode_counts,
-        "volatility_conf": round(volatility_conf, 3),
-        "volatility_edge": round(volatility_edge, 3),
-        "trend_slope": round(trend_slope, 4),
-    }
-
-
-def decide_faz79_strategy(today_stats, summary_7g):
+def build_faz6_examples() -> Tuple[list, dict, dict]:
     """
-    FAZ-7.9 strateji beyninin karar mantığı.
+    Basit FAZ-6 örnek hesaplama.
 
-    Çıktı:
-      {
-        "mode": "SAFE" | "BAL" | "AGG",
-        "stake_normalize": float,
-        "level_flags": {"SAFE": bool, "BAL": bool, "AGG": bool},
-        "stake_multipliers": {"SAFE": float, "BAL": float, "AGG": float},
-    }
+    Dönüş:
+        matches: /faz6_auto için maç listesi
+        coupons: SAFE/BAL/AGG -> maç listeleri
+        summary: {matches, avg_conf, avg_edge}
     """
-    avg_conf_7g = summary_7g["avg_conf_7g"]
-    avg_edge_7g = summary_7g["avg_edge_7g"]
-    vol_conf = summary_7g["volatility_conf"]
-    trend = summary_7g["trend_slope"]
+    base_jitter = _deterministic_random_base()
 
-    # Başlangıç varsayılanları
-    stake_normalize = 1.0
-    level_flags = {"SAFE": False, "BAL": False, "AGG": False}
-    stake_multipliers = {"SAFE": 1.0, "BAL": 1.0, "AGG": 0.9}
-    mode = "BAL"
-
-    # 1) Hafıza boşsa INIT
-    if avg_conf_7g == 0.0 and avg_edge_7g == 0.0:
-        # INIT modu: sadece BAL açık, stake 1.0
-        level_flags["BAL"] = True
-        stake_normalize = 1.0
-        mode = "BAL"
-        return {
-            "mode": mode,
-            "stake_normalize": stake_normalize,
-            "level_flags": level_flags,
-            "stake_multipliers": stake_multipliers,
-        }
-
-    # 2) Güven yüksek ve volatilite düşük: SAFE + BAL açık
-    if avg_conf_7g >= 0.62 and vol_conf < 0.01 and abs(trend) < 0.002:
-        level_flags["SAFE"] = True
-        level_flags["BAL"] = True
-        level_flags["AGG"] = False
-        stake_normalize = 0.90  # örnek: hafif korumacı
-        mode = "BAL"
-
-    # 3) Güven orta, volatilite orta: sadece BAL açık
-    elif avg_conf_7g >= 0.58:
-        level_flags["SAFE"] = False
-        level_flags["BAL"] = True
-        level_flags["AGG"] = False
-        stake_normalize = 0.95
-        mode = "BAL"
-
-    # 4) Güven düşük veya volatilite yüksek: sadece SAFE
-    else:
-        level_flags["SAFE"] = True
-        level_flags["BAL"] = False
-        level_flags["AGG"] = False
-        stake_normalize = 0.80
-        mode = "SAFE"
-
-    return {
-        "mode": mode,
-        "stake_normalize": stake_normalize,
-        "level_flags": level_flags,
-        "stake_multipliers": stake_multipliers,
-    }
-
-
-# -------------------------------------------------
-#  FORMATLAYICI FONKSİYONLAR
-# -------------------------------------------------
-
-
-def format_faz6_auto(matches):
-    lines = ["🧠 FAZ-6 AUTO SONUCU"]
-    for m in matches:
-        lines.append(f"📌 {m['match']}")
-        if m["pick_type"] == "total":
-            pick_str = f"{m['pick']} (total)"
-        elif m["pick_type"] == "moneyline":
-            pick_str = f"{m['pick']} (moneyline)"
-        else:
-            pick_str = f"{m['pick']} (spread)"
-        lines.append(f"🎯 {pick_str}")
-        lines.append(
-            f"📈 Güven: {m['confidence']:.2f} | Edge: {m['edge']:.3f} | Stake: {m['base_stake']:.2f}"
-        )
-        lines.append("— — —")
-    return "\n".join(lines)
-
-
-def format_faz6_coupons(matches, strategy, summary_7g):
-    """
-    FAZ-7.9 + FAZ-6 birleşik kupon mesajı.
-    3 kupon: SAFE, BALANCED, AGGRESSIVE (içerikleri sabit segmentlenmiş).
-    """
-    avg_conf_7g = summary_7g["avg_conf_7g"]
-    avg_edge_7g = summary_7g["avg_edge_7g"]
-    stake_norm = strategy["stake_normalize"]
-    active_mode = strategy["mode"]
-    level_flags = strategy["level_flags"]
-    stake_mult = strategy["stake_multipliers"]
-
-    daily_limit = 4.0  # şimdilik sabit
-
-    header_lines = [
-        "💰 FAZ-7 + FAZ-6 BİRLEŞİK KUPONLAR",
-        f"📊 Ortalama Güven (7g): {avg_conf_7g:.3f}",
-        f"📊 Ortalama Edge (7g): {avg_edge_7g:.3f}",
-        f"📅 Günlük Limit: {daily_limit:.1f}",
-        f"🤖 Aktif Mod: {active_mode}",
-        f"🛠 Stake Normalize: {stake_norm:.2f}x",
-        "",
+    raw_matches = [
+        {
+            "league": "EL",
+            "code": "EFES@REAL",
+            "pick": "REAL MADRID -5.5 (spread)",
+            "conf": 0.66 + base_jitter,
+            "edge": 0.045 + base_jitter / 2,
+        },
+        {
+            "league": "EL",
+            "code": "FENER@OLY",
+            "pick": "OLYMPIACOS -3.5 (spread)",
+            "conf": 0.64 + base_jitter / 1.5,
+            "edge": 0.041 + base_jitter / 2,
+        },
+        {
+            "league": "NBA",
+            "code": "BOS@MIA",
+            "pick": "UNDER 224.5 (total)",
+            "conf": 0.63 - base_jitter,
+            "edge": 0.036 + base_jitter / 2,
+        },
+        {
+            "league": "NBA",
+            "code": "LAL@DEN",
+            "pick": "DEN -4.5 (spread)",
+            "conf": 0.61 + base_jitter / 3,
+            "edge": 0.032 + base_jitter / 2,
+        },
+        {
+            "league": "NBA",
+            "code": "CHI@NYK",
+            "pick": "NYK ML (moneyline)",
+            "conf": 0.60 + base_jitter / 4,
+            "edge": 0.031 + base_jitter / 2,
+        },
+        {
+            "league": "NBA",
+            "code": "GSW@PHX",
+            "pick": "OVER 230.5 (total)",
+            "conf": 0.59 + base_jitter / 5,
+            "edge": 0.028 + base_jitter / 2,
+        },
     ]
 
-    # Maçları 3 kupona böl (0-1, 2-3, 4-5)
-    coupon_indices = {
-        "SAFE": [0, 1],
-        "BAL": [2, 3],
-        "AGG": [4, 5],
+    # Stake = confidence * edge’e göre küçük bir ölçek
+    for m in raw_matches:
+        score = m["conf"] * max(m["edge"], 0.0001)
+        m["stake"] = round(0.6 + score * 5, 2)
+
+    # Kuponlar: 1=SAFE (ilk 2), 2=BAL (sonraki 2), 3=AGG (son 2)
+    coupons = {
+        "SAFE": raw_matches[0:2],
+        "BAL": raw_matches[2:4],
+        "AGG": raw_matches[4:6],
     }
 
-    def build_coupon(title, key):
-        idxs = coupon_indices[key]
-        lines = [f"🔥 Kupon {1 if key=='SAFE' else 2 if key=='BAL' else 3} — {title}"]
-        total_stake = 0.0
-        for i in idxs:
-            if i >= len(matches):
-                continue
-            m = matches[i]
-            base = m["base_stake"]
-            # ilgili seviye stake çarpanı + genel normalize
-            mult = stake_mult.get(key.replace("BAL", "BAL"), 1.0)
-            stake = base * stake_norm * mult
-            total_stake += stake
+    avg_conf = sum(m["conf"] for m in raw_matches) / len(raw_matches)
+    avg_edge = sum(m["edge"] for m in raw_matches) / len(raw_matches)
+    summary = {
+        "matches": len(raw_matches),
+        "avg_conf": float(round(avg_conf, 3)),
+        "avg_edge": float(round(avg_edge, 3)),
+    }
 
-            if m["pick_type"] == "total":
-                pick_str = f"{m['pick']} (total)"
-            elif m["pick_type"] == "moneyline":
-                pick_str = f"{m['pick']} (moneyline)"
-            else:
-                pick_str = f"{m['pick']} (spread)"
-
-            lines.append(f"- {m['match']} → {pick_str}")
-            lines.append(
-                f"  Güven: {m['confidence']:.2f} | Edge: {m['edge']:.3f} | Stake: {stake:.2f}"
-            )
-        lines.append(f"💰 Kupon Toplam Stake: {total_stake:.2f}")
-        lines.append("— — —")
-        return "\n".join(lines)
-
-    coupons = []
-    coupons.append(build_coupon("SAFE", "SAFE"))
-    coupons.append(build_coupon("BALANCED", "BAL"))
-    coupons.append(build_coupon("AGGRESSIVE", "AGG"))
-
-    return "\n".join(header_lines + coupons)
+    return raw_matches, coupons, summary
 
 
-def format_faz7_plan(today_stats, summary_7g, strategy):
-    lines = ["🧠 FAZ-7.9 STRATEJİ BEYNİ", ""]
-    lines.append(f"🎯 Mod: {strategy['mode']}")
+# ============================================
+#  FAZ-7.9 STAKE & STRATEJİ BEYNİ
+# ============================================
+
+def compute_stake_multipliers(mem: Faz7Memory) -> Dict[str, float]:
+    avg_conf, avg_edge = mem.averages()
+    vol = mem.volatility()
+    trend = mem.trend_slope()
+
+    # Temel çarpanlar
+    stake_safe = 1.0
+    stake_bal = 1.0
+    stake_agg = 0.9
+
+    # Sistem güçlü & trend pozitif → AGG biraz cesaretlendir
+    strength = (avg_conf - 0.60) + (avg_edge - 0.03) * 8
+    if strength > 0.02 and trend > 0:
+        stake_agg += 0.1
+
+    # Volatilite yüksek → AGG kısmı kıs, SAFE’i hafif boostla
+    if vol > 0.01:
+        stake_agg -= 0.1
+        stake_safe += 0.05
+
+    # Sınırlar
+    stake_safe = max(0.7, min(stake_safe, 1.3))
+    stake_bal = max(0.8, min(stake_bal, 1.2))
+    stake_agg = max(0.7, min(stake_agg, 1.3))
+
+    return {
+        "SAFE": round(stake_safe, 2),
+        "BAL": round(stake_bal, 2),
+        "AGG": round(stake_agg, 2),
+    }
+
+
+def select_mode(stake_multipliers: Dict[str, float]) -> str:
+    """En yüksek stake çarpanına sahip modu seç (eşitlikte BAL)."""
+    best_mode = "BAL"
+    best_value = stake_multipliers.get("BAL", 1.0)
+    for mode in ("SAFE", "AGG"):
+        value = stake_multipliers.get(mode, 1.0)
+        if value > best_value + 1e-6:
+            best_mode = mode
+            best_value = value
+    return best_mode
+
+
+def format_faz7_plan(today_summary: Dict[str, float], mem: Faz7Memory) -> str:
+    avg_conf7, avg_edge7 = mem.averages()
+    vol = mem.volatility()
+    trend = mem.trend_slope()
+    stakes = compute_stake_multipliers(mem)
+    active_mode = select_mode(stakes)
+
+    def flag(mode: str) -> str:
+        mark = "✅" if mode == active_mode or (
+            mode == "BAL" and active_mode not in ("SAFE", "AGG")
+        ) else "❌"
+        return f"{mode}: {mark} (x{stakes[mode]:.2f})"
+
+    lines = []
+    lines.append("🧠 <b>FAZ-7.9 STRATEJİ BEYNİ</b>")
+    lines.append("")
+    lines.append(f"🎯 Mod: <b>{active_mode}</b>")
     lines.append(
-        f"📊 Günlük: conf={today_stats['avg_conf']:.3f} edge={today_stats['avg_edge']:.3f}"
+        f"📊 Bugün: maç={today_summary['matches']} | conf={today_summary['avg_conf']:.3f} | edge={today_summary['avg_edge']:.3f}"
     )
+    lines.append(f"📊 7g Ort.: conf={avg_conf7:.3f} | edge={avg_edge7:.3f}")
     lines.append(
-        f"📊 7 Gün Ort.: conf={summary_7g['avg_conf_7g']:.3f} edge={summary_7g['avg_edge_7g']:.3f}"
+        f"📊 Trend: {'INIT' if len(mem.recent()) < 2 else f'slope {trend:.4f}'}"
     )
-    lines.append(
-        f"📈 Trend: {'INIT' if summary_7g['avg_conf_7g']==0.0 else 'slope ' + str(summary_7g['trend_slope'])}"
-    )
-    lines.append(
-        f"🌊 Volatilite: {summary_7g['volatility_conf']:.3f} (conf), {summary_7g['volatility_edge']:.3f} (edge)"
-    )
-    lines.append(f"🛠 Stake Normalize: {strategy['stake_normalize']:.2f}x")
+    lines.append(f"🌪 Volatilite: {vol:.4f}")
+    lines.append(f"🛠 Stake Normalize: {stakes[active_mode]:.2f}")
     lines.append("")
     lines.append("📦 Seviye Durumu")
-    lines.append(
-        f"- SAFE: {'✅' if strategy['level_flags']['SAFE'] else '❌'} (x{strategy['stake_multipliers']['SAFE']:.1f})"
-    )
-    lines.append(
-        f"- BALANCED: {'✅' if strategy['level_flags']['BAL'] else '❌'} (x{strategy['stake_multipliers']['BAL']:.1f})"
-    )
-    lines.append(
-        f"- AGGRESSIVE: {'✅' if strategy['level_flags']['AGG'] else '❌'} (x{strategy['stake_multipliers']['AGG']:.1f})"
-    )
-    lines.append("- ULTRA: 🚫 (manuel kapalı)")
-    lines.append("")
-
-    # Son kayıt
-    lines.append("🗓 Son FAZ-7 Kayıt")
-    lines.append(
-        f"- {today_stats['date']} | Maç: {today_stats['matches']} | Conf: {today_stats['avg_conf']:.3f} | Edge: {today_stats['avg_edge']:.3f} | Mod: {strategy['mode']}"
-    )
-    if len(load_memory().get("days", [])) < 2:
-        lines.append("")
-        lines.append("ℹ Dün ile karşılaştırma için yeterli veri yok.")
-    if len(load_memory().get("days", [])) < 3:
-        lines.append("ℹ Trend analizi için en az 3 gün gerekli.")
-
+    lines.append(f"- {flag('SAFE')}")
+    lines.append(f"- {flag('BAL')}")
+    lines.append(f"- {flag('AGG')}")
     return "\n".join(lines)
 
 
-def format_faz7_status(summary_7g, memory):
-    days = memory.get("days", [])
-    lines = ["🧠 FAZ-7.9 HAFIZA ÖZETİ (Son 7 Gün)", ""]
+def format_faz7_status(mem: Faz7Memory) -> str:
+    stakes = compute_stake_multipliers(mem)
+    mode_stats = mem.mode_stats()
 
-    if not days:
-        lines.append("Hafızada kayıt yok. INIT modundasın.")
-        return "\n".join(lines)
-
-    mc = summary_7g["mode_counts"]
-    lines.append(f"SAFE: {mc.get('SAFE',0)}")
-    lines.append(f"BAL : {mc.get('BAL',0)}")
-    lines.append(f"AGG : {mc.get('AGG',0)}")
+    lines = []
+    lines.append("🧠 <b>FAZ-7.9 HAFIZA ÖZETİ</b> (Son 7 Gün)")
+    lines.append("")
+    lines.append("Mod | Run | Avg Conf | Avg Edge | Stake x")
+    lines.append("----|-----|----------|----------|--------")
+    for mode in ("SAFE", "BAL", "AGG"):
+        s = mode_stats[mode]
+        line = (
+            f"{mode:<4}| {s['runs']:<3} | {s['avg_conf']:.3f}   | "
+            f"{s['avg_edge']:.4f}   | {stakes[mode]:.2f}"
+        )
+        lines.append(line)
     lines.append("")
     lines.append(
-        f"7 Günlük Ortalama Confidence: {summary_7g['avg_conf_7g']:.3f}"
+        "Not: Stake çarpanları FAZ-7.9 beyni tarafından son 7 güne ve oynaklığa göre ayarlanır."
     )
-    lines.append(f"7 Günlük Ortalama Edge: {summary_7g['avg_edge_7g']:.3f}")
-    lines.append("")
-    lines.append(
-        f"Volatilite (conf): {summary_7g['volatility_conf']:.3f}, trend slope: {summary_7g['trend_slope']:.4f}"
-    )
-    lines.append("")
-    lines.append("Not: Stake çarpanları FAZ-7.9 beyni tarafından son 7 güne göre ayarlanır.")
-
     return "\n".join(lines)
 
 
-# -------------------------------------------------
+# ============================================
 #  TELEGRAM KOMUTLARI
-# -------------------------------------------------
+# ============================================
+
+@bot.message_handler(commands=["start", "help"])
+def cmd_start(message):
+    text = (
+        "Selam, ben <b>Zeynal Core AI</b> 🤖\n\n"
+        "Komutlar:\n"
+        " • /status – Sistem özeti\n"
+        " • /faz6_auto – FAZ-6 otomatik maç listesi\n"
+        " • /faz6_coupon – FAZ-6 kupon + FAZ-7.9 güncelle\n"
+        " • /faz7_plan – Günlük FAZ-7.9 strateji beyni\n"
+        " • /faz7_status – Son 7 gün hafıza özeti\n"
+    )
+    bot.reply_to(message, text)
 
 
-def cmd_start(update: Update, context: CallbackContext):
-    msg = (
-        "🔥 Bot aktif!\n"
+@bot.message_handler(commands=["status"])
+def cmd_status(message):
+    avg_conf7, avg_edge7 = memory.averages()
+    vol = memory.volatility()
+    text = (
+        "🟢 <b>Sistem stabil.</b>\n"
         "FAZ-4 aktif.\n"
         "FAZ-5 bağlı.\n"
         "FAZ-6 tam online.\n"
-        "FAZ-7.9 strateji beyni ve hafıza sistemi çalışıyor.\n"
-        "Komut listesi için /help yaz."
+        "FAZ-7.9 strateji beyni ve hafıza sistemi çalışıyor.\n\n"
+        f"7g Ortalama Conf: {avg_conf7:.3f}\n"
+        f"7g Ortalama Edge: {avg_edge7:.3f}\n"
+        f"Volatilite: {vol:.4f}\n"
     )
-    update.message.reply_text(msg)
+    bot.reply_to(message, text)
 
 
-def cmd_help(update: Update, context: CallbackContext):
-    msg = (
-        "📌 Komutlar:\n\n"
-        "/start - Botu başlatır\n"
-        "/status - Sistemi gösterir\n\n"
-        "/faz6_test - FAZ-6 Test (placeholder)\n"
-        "/faz6_auto - FAZ-6 Auto maç listesi\n"
-        "/faz6_coupon - FAZ-7 + FAZ-6 birleşik kuponlar\n\n"
-        "/faz7_plan - FAZ-7.9 günlük strateji beyni\n"
-        "/faz7_status - FAZ-7.9 hafıza özeti\n"
+@bot.message_handler(commands=["faz6_auto"])
+def cmd_faz6_auto(message):
+    matches, _, _ = build_faz6_examples()
+    lines = ["🧠 <b>FAZ-6 AUTO SONUCU</b>", ""]
+    for m in matches:
+        lines.append(f"📌 {m['league']}:{m['code']}")
+        lines.append(f"🎯 {m['pick']}")
+        lines.append(f"📈 Güven: {m['conf']:.2f} | Edge: {m['edge']:.3f}")
+        lines.append(f"💰 Stake: {m['stake']:.2f}")
+        lines.append("— — —")
+    bot.reply_to(message, "\n".join(lines))
+
+
+@bot.message_handler(commands=["faz6_coupon"])
+def cmd_faz6_coupon(message):
+    matches, coupons, summary = build_faz6_examples()
+
+    # Günlük FAZ-7 kaydı → şu an BAL varsayıyoruz
+    memory.update_today(
+        matches=summary["matches"],
+        confidence=summary["avg_conf"],
+        edge=summary["avg_edge"],
+        mode="BAL",
     )
-    update.message.reply_text(msg)
+
+    avg_conf7, avg_edge7 = memory.averages()
+    stakes = compute_stake_multipliers(memory)
+    active_mode = select_mode(stakes)
+
+    lines = []
+    lines.append("💰 <b>FAZ-7 + FAZ-6 BİRLEŞİK KUPONLAR</b>")
+    lines.append("")
+    lines.append(f"📊 Ortalama Güven (7g): {avg_conf7:.3f}")
+    lines.append(f"📊 Ortalama Edge (7g): {avg_edge7:.3f}")
+    lines.append("📅 Günlük Limit: 4.0")
+    lines.append(f"🤖 Aktif Mod: {active_mode}")
+    lines.append(f"🛠 Stake Normalize: {stakes[active_mode]:.2f}")
+    lines.append("")
+
+    names = {
+        "SAFE": "Kupon 1 — SAFE",
+        "BAL": "Kupon 2 — BALANCED",
+        "AGG": "Kupon 3 — AGGRESSIVE",
+    }
+    order = ["SAFE", "BAL", "AGG"]
+    for key in order:
+        lines.append(f"🔥 {names[key]}")
+        for m in coupons[key]:
+            lines.append(f"- {m['league']}:{m['code']} | {m['pick']}")
+            lines.append(
+                f"  Güven: {m['conf']:.2f} | Edge: {m['edge']:.3f} | Stake: {m['stake']:.2f}"
+            )
+        lines.append("— — —")
+
+    bot.reply_to(message, "\n".join(lines))
 
 
-def cmd_status(update: Update, context: CallbackContext):
-    msg = (
-        "🟢 Sistem stabil.\n"
-        "FAZ-4 aktif.\n"
-        "FAZ-5 bağlı.\n"
-        "FAZ-6 tam online.\n"
-        "FAZ-7.9 strateji beyni ve hafıza sistemi çalışıyor."
-    )
-    update.message.reply_text(msg)
+@bot.message_handler(commands=["faz7_plan"])
+def cmd_faz7_plan(message):
+    _, _, summary = build_faz6_examples()
+    plan_text = format_faz7_plan(summary, memory)
+    bot.reply_to(message, plan_text)
 
 
-def cmd_faz6_test(update: Update, context: CallbackContext):
-    update.message.reply_text("🧪 FAZ-6 TEST: Placeholder sonuç (engine entegrasyonu yok).")
+@bot.message_handler(commands=["faz7_status"])
+def cmd_faz7_status(message):
+    text = format_faz7_status(memory)
+    bot.reply_to(message, text)
 
 
-def cmd_faz6_auto(update: Update, context: CallbackContext):
-    text = format_faz6_auto(SAMPLE_MATCHES)
-    update.message.reply_text(text)
+# ============================================
+#  MAIN
+# ============================================
 
-
-def cmd_faz6_coupon(update: Update, context: CallbackContext):
-    # 1) Günün maçlarından istatistik
-    today_stats = compute_today_stats(SAMPLE_MATCHES)
-    memory = load_memory()
-    memory = update_memory_with_today(memory, today_stats)
-    save_memory(memory)
-    summary_7g = summarize_last_7_days(memory)
-    strategy = decide_faz79_strategy(today_stats, summary_7g)
-
-    text = format_faz6_coupons(SAMPLE_MATCHES, strategy, summary_7g)
-    update.message.reply_text(text)
-
-
-def cmd_faz7_plan(update: Update, context: CallbackContext):
-    today_stats = compute_today_stats(SAMPLE_MATCHES)
-    memory = load_memory()
-    memory = update_memory_with_today(memory, today_stats)
-    save_memory(memory)
-    summary_7g = summarize_last_7_days(memory)
-    strategy = decide_faz79_strategy(today_stats, summary_7g)
-
-    text = format_faz7_plan(today_stats, summary_7g, strategy)
-    update.message.reply_text(text)
-
-
-def cmd_faz7_status(update: Update, context: CallbackContext):
-    memory = load_memory()
-    summary_7g = summarize_last_7_days(memory)
-    text = format_faz7_status(summary_7g, memory)
-    update.message.reply_text(text)
-
-
-# -------------------------------------------------
-#  TELEGRAM BOT BOOTSTRAP
-# -------------------------------------------------
-
-
-def run_bot():
-    updater = Updater(TELEGRAM_TOKEN, use_context=True)
-    dp = updater.dispatcher
-
-    dp.add_handler(CommandHandler("start", cmd_start))
-    dp.add_handler(CommandHandler("help", cmd_help))
-    dp.add_handler(CommandHandler("status", cmd_status))
-
-    dp.add_handler(CommandHandler("faz6_test", cmd_faz6_test))
-    dp.add_handler(CommandHandler("faz6_auto", cmd_faz6_auto))
-    dp.add_handler(CommandHandler("faz6_coupon", cmd_faz6_coupon))
-
-    dp.add_handler(CommandHandler("faz7_plan", cmd_faz7_plan))
-    dp.add_handler(CommandHandler("faz7_status", cmd_faz7_status))
-
-    updater.start_polling()
-    logger.info("Telegram bot polling başladı.")
-    updater.idle()
-
-
-# -------------------------------------------------
-#  HEALTHCHECK İÇİN FLASK APP
-# -------------------------------------------------
-
-app = Flask(__name__)
-
-
-@app.route("/")
-def index():
-    return "Zeynal Core AI - OK", 200
-
-
-def start_all():
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
-    port = int(os.environ.get("PORT", "8080"))
-    app.run(host="0.0.0.0", port=port)
+def main():
+    print("Zeynal Core AI bot starting with FAZ-7.9 strategy engine...")
+    bot.infinity_polling(timeout=60, long_polling_timeout=60)
 
 
 if __name__ == "__main__":
-    start_all()
+    main()
