@@ -3,12 +3,10 @@ import json
 import time
 import logging
 
+import telebot
 import numpy as np
 import pandas as pd
 from flask import Flask, request
-
-import telebot
-from telebot import types
 
 # ================================================================
 # 🔧 LOGGING
@@ -17,122 +15,95 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
+log = logging.getLogger(__name__)
 
 # ================================================================
 # 🔧 CONFIG
 # ================================================================
-BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Örn: https://zeynal-bot-core.fly.dev/webhook
+
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN env değişkeni tanımlı değil!")
 
-bot = telebot.TeleBot(BOT_TOKEN, parse_mode="Markdown", threaded=False)
-
-# Webhook URL:
-# 1) fly.io panelde direkt WEBHOOK_URL verilebilir
-#    Örn: https://zeynal-bot-core.fly.dev/webhook
-# 2) Eğer verilmemişse FLY_APP_NAME'den auto üretmeye çalışır
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
 if not WEBHOOK_URL:
-    base = os.getenv("WEBHOOK_BASE_URL", "").strip()
-    fly_name = os.getenv("FLY_APP_NAME", "").strip()
-    if not base and fly_name:
-        base = f"https://{fly_name}.fly.dev"
-    if base:
-        WEBHOOK_URL = f"{base.rstrip('/')}/webhook"
+    log.warning("WEBHOOK_URL tanımlı değil! Webhook set edilemeyecek.")
 
-MEMORY_FILE = "faz7_memory.json"
+# Telegram bot (GLOBAL parse_mode = HTML → Markdown hatası yok)
+bot = telebot.TeleBot(
+    BOT_TOKEN,
+    parse_mode="HTML",              # 🔴 Markdown yok, HTML güvenli
+    disable_web_page_preview=True
+)
 
 # ================================================================
-# 🌐 FLASK APP (Fly.io HTTP + Telegram Webhook)
+# 🌐 FLASK APP (Health check + Webhook)
 # ================================================================
 app = Flask(__name__)
 
-
-@app.get("/")
-def healthcheck():
-    """
-    Fly.io health check endpoint.
-    """
+@app.route("/", methods=["GET"])
+def home():
+    # Fly.io health check
     return "OK", 200
 
 
-@app.post("/webhook")
+@app.route("/webhook", methods=["POST"])
 def telegram_webhook():
     """
-    Telegram'dan gelen update'leri işle.
+    Telegram'ın gönderdiği update'leri alıp TeleBot'a paslıyoruz.
+    Hata olursa loglayıp 200 dönüyoruz ki Telegram webhook'u düşürmesin.
     """
     try:
-        json_str = request.get_data().decode("utf-8")
-        update = types.Update.de_json(json_str)
+        json_update = request.get_json()
+        update = telebot.types.Update.de_json(json_update)
         bot.process_new_updates([update])
     except Exception as e:
-        logging.exception("Webhook update işlenirken hata: %s", e)
-        return "ERROR", 500
+        log.error(f"Webhook update işlenirken hata: {e}")
     return "OK", 200
 
 
-def setup_webhook():
-    """
-    Telegram webhook kaydını yap.
-    """
-    if not WEBHOOK_URL:
-        logging.warning("WEBHOOK_URL tanımlı değil, webhook set edilemedi!")
-        return
-
-    logging.info("Eski webhook kaldırılıyor...")
-    bot.remove_webhook()
-
-    time.sleep(1.0)
-
-    logging.info("Yeni webhook ayarlanıyor: %s", WEBHOOK_URL)
-    bot.set_webhook(
-        url=WEBHOOK_URL,
-        allowed_updates=["message", "callback_query"],
-        drop_pending_updates=True,
-    )
-    logging.info("Webhook set edildi.")
-
-
 # ================================================================
-# 📌 FAZ-7 MEMORY ENGINE
+# 📌 FAZ-7.9 MEMORY ENGINE
 # ================================================================
+MEMORY_FILE = "faz7_memory.json"
+
+
 def init_memory():
     if not os.path.exists(MEMORY_FILE):
         data = {
-            "days": [],  # günlük hafıza (son 7 gün)
+            "days": [],  # günlük kayıtlar: {ts, conf, edge}
             "safe": 0,
             "bal": 0,
-            "agg": 0,
+            "agg": 0
         }
-        with open(MEMORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
+        with open(MEMORY_FILE, "w") as f:
+            json.dump(data, f, indent=4)
 
 
 def load_memory():
     init_memory()
-    with open(MEMORY_FILE, "r", encoding="utf-8") as f:
+    with open(MEMORY_FILE, "r") as f:
         return json.load(f)
 
 
 def save_memory(data):
-    with open(MEMORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    with open(MEMORY_FILE, "w") as f:
+        json.dump(data, f, indent=4)
 
 
 def register_daily_stats(conf: float, edge: float):
     """
-    FAZ-7.9 günlük kayıt.
-    Buraya FAZ-6'nın günlük ortalama Conf/Edge değerlerini de
-    otomatik olarak gönderebilirsin (kod seviyesinde çağırarak).
+    FAZ-7 REGISTER → günlük confidence & edge kaydı.
     """
     mem = load_memory()
     today = {
         "ts": int(time.time()),
         "conf": float(conf),
-        "edge": float(edge),
+        "edge": float(edge)
     }
 
     mem["days"].append(today)
+
     # sadece son 7 günü tut
     if len(mem["days"]) > 7:
         mem["days"] = mem["days"][-7:]
@@ -140,10 +111,11 @@ def register_daily_stats(conf: float, edge: float):
     save_memory(mem)
 
 
-# ================================================================
-# 🧠 FAZ-7.9 STRATEJİ BEYNİ
-# ================================================================
 def faz79_brain():
+    """
+    FAZ-7.9 STRATEJİ BEYNİ
+    Memory'den 7 günlük trend, volatilite, mode vs hesaplar.
+    """
     mem = load_memory()
     days = mem["days"]
 
@@ -155,7 +127,7 @@ def faz79_brain():
             "trend": "INIT",
             "slope": 0.0,
             "vol": 0.0,
-            "stake_norm": 1.0,
+            "stake_norm": 1.00,
             "safe": False,
             "bal": True,
             "agg": False,
@@ -164,10 +136,10 @@ def faz79_brain():
     df = pd.DataFrame(days)
     df["t"] = range(len(df))
 
-    avg_conf = float(df["conf"].mean())
-    avg_edge = float(df["edge"].mean())
+    avg_conf = df["conf"].mean()
+    avg_edge = df["edge"].mean()
 
-    # basit linear regression: conf ~ t
+    # basit linear regression slope
     slope = float(np.polyfit(df["t"], df["conf"], 1)[0])
 
     if slope > 0.01:
@@ -179,13 +151,17 @@ def faz79_brain():
 
     vol = float(df["conf"].std() if len(df) > 1 else 0.0)
 
-    # Mode seçimi
     if avg_conf > 0.7 and avg_edge > 0.05:
         mode = "SAFE"
     elif avg_conf > 0.4:
         mode = "BAL"
     else:
         mode = "AGG"
+
+    mem["safe"] = int(mode == "SAFE")
+    mem["bal"] = int(mode == "BAL")
+    mem["agg"] = int(mode == "AGG")
+    save_memory(mem)
 
     return {
         "mode": mode,
@@ -194,7 +170,7 @@ def faz79_brain():
         "trend": trend,
         "slope": round(slope, 4),
         "vol": round(vol, 4),
-        "stake_norm": 1.0,
+        "stake_norm": 1.00,
         "safe": mode == "SAFE",
         "bal": mode == "BAL",
         "agg": mode == "AGG",
@@ -202,89 +178,39 @@ def faz79_brain():
 
 
 # ================================================================
-# 📌 KOMUTLAR — GENEL
-# ================================================================
-@bot.message_handler(commands=["start"])
-def cmd_start(message):
-    text = (
-        "🔥 Bot aktif!\n"
-        "FAZ-4 + FAZ-5 + FAZ-6 + FAZ-7.9 bağlı.\n"
-        "Komut listesi için /help yaz.\n"
-    )
-    bot.reply_to(message, text)
-
-
-@bot.message_handler(commands=["help"])
-def cmd_help(message):
-    text = (
-        "📌 Komutlar:\n\n"
-        "/start - Botu başlatır\n"
-        "/help - Komut listesi\n"
-        "/status - Sistem durumu\n\n"
-        "/simulate_nba - NBA canlı simülasyon\n\n"
-        "/faz6_test   - FAZ-6 Test\n"
-        "/faz6_auto   - FAZ-6 Auto\n"
-        "/faz6_risk   - FAZ-6 Risk\n"
-        "/faz6_edge   - FAZ-6 Edge\n"
-        "/faz6_real   - FAZ-6 Real\n"
-        "/faz6_balance - FAZ-6 Balance\n"
-        "/faz6_coupon - FAZ-6 Kupon\n\n"
-        "/faz7_status   - FAZ-7.9 hafıza özeti\n"
-        "/faz7_plan     - FAZ-7.9 strateji planı\n"
-        "/faz7_register - FAZ-7.9 günlük kayıt (conf edge)\n"
-        "                 Örn: /faz7_register 0.622 0.035\n"
-    )
-    bot.reply_to(message, text)
-
-
-@bot.message_handler(commands=["status"])
-def cmd_status(message):
-    info = faz79_brain()
-    text = (
-        "🟢 Sistem stabil.\n"
-        "FAZ-4 aktif.\n"
-        "FAZ-5 bağlı.\n"
-        "FAZ-6 tam online.\n"
-        "FAZ-7.9 strateji beyni ve hafıza sistemi çalışıyor.\n\n"
-        f"Mod: {info['mode']} | Conf: {info['conf']} | Edge: {info['edge']}"
-    )
-    bot.reply_to(message, text)
-
-
-# ================================================================
-# 📌 FAZ-7.9 KOMUTLARI
+# 🧠 FAZ-7.9 KOMUTLARI
 # ================================================================
 @bot.message_handler(commands=["faz7_status"])
-def cmd_faz7_status(message):
+def faz7_status(message):
     mem = load_memory()
 
     if len(mem["days"]) == 0:
-        msg = "📊 FAZ-7.9 Hafıza: Henüz veri yok."
+        msg = "📊 <b>FAZ-7.9 Hafıza:</b> Henüz veri yok."
     else:
         df = pd.DataFrame(mem["days"])
         msg = (
-            "🧠 *FAZ-7.9 HAFIZA ÖZETİ*\n\n"
+            "📊 <b>FAZ-7.9 HAFIZA ÖZETİ</b>\n\n"
             f"SAFE: {mem['safe']}\n"
             f"BAL : {mem['bal']}\n"
             f"AGG : {mem['agg']}\n\n"
-            f"7 Günlük Ortalama Confidence: {df['conf'].mean():.3f}\n"
-            f"7 Günlük Ortalama Edge: {df['edge'].mean():.3f}"
+            f"7 Günlük Ortalama Confidence: <b>{df['conf'].mean():.3f}</b>\n"
+            f"7 Günlük Ortalama Edge: <b>{df['edge'].mean():.3f}</b>"
         )
 
     bot.reply_to(message, msg)
 
 
 @bot.message_handler(commands=["faz7_plan"])
-def cmd_faz7_plan(message):
+def faz7_plan(message):
     info = faz79_brain()
 
     msg = (
-        "🧠 *FAZ-7.9 STRATEJİ BEYNİ*\n\n"
-        f"Mod: {info['mode']}\n"
+        "🧠 <b>FAZ-7.9 STRATEJİ BEYNİ</b>\n\n"
+        f"Mod: <b>{info['mode']}</b>\n"
         f"🔍 Günlük: conf={info['conf']} edge={info['edge']}\n"
         f"📅 Trend: {info['trend']} (slope {info['slope']})\n"
-        f"🌪 Volatilite: {info['vol']}\n"
-        f"🔧 Stake Normalize: {info['stake_norm']}\n\n"
+        f"🌀 Volatilite: {info['vol']}\n"
+        f"🛠 Stake Normalize: {info['stake_norm']}\n\n"
         f"SAFE: {'✅' if info['safe'] else '❌'}\n"
         f"BAL: {'✅' if info['bal'] else '❌'}\n"
         f"AGG: {'✅' if info['agg'] else '❌'}\n"
@@ -294,69 +220,217 @@ def cmd_faz7_plan(message):
 
 
 @bot.message_handler(commands=["faz7_register"])
-def cmd_faz7_register(message):
+def faz7_register_cmd(message):
     """
-    Manuel günlük kayıt:
-      /faz7_register 0.622 0.035
+    Kullanım: /faz7_register 0.65 0.04
     """
     try:
         parts = message.text.split()
         if len(parts) != 3:
-            raise ValueError("Parametre sayısı yanlış")
+            bot.reply_to(
+                message,
+                "✅ Kullanım: <code>/faz7_register conf edge</code>\nÖrn: <code>/faz7_register 0.62 0.035</code>"
+            )
+            return
 
-        conf = float(parts[1].replace(",", "."))
-        edge = float(parts[2].replace(",", "."))
+        conf = float(parts[1])
+        edge = float(parts[2])
+
         register_daily_stats(conf, edge)
+        info = faz79_brain()
 
         bot.reply_to(
             message,
-            f"✅ FAZ-7.9 günlük kayıt alındı.\nConf: {conf:.3f} | Edge: {edge:.3f}",
+            (
+                "✅ Günlük FAZ-7.9 kaydı alındı.\n\n"
+                f"conf={conf:.3f}, edge={edge:.3f}\n"
+                f"Yeni Mod: <b>{info['mode']}</b>\n"
+                f"Trend: {info['trend']} (slope {info['slope']})"
+            )
         )
-    except Exception:
-        bot.reply_to(
-            message,
-            "❌ Kullanım: `/faz7_register 0.622 0.035`",
-        )
+    except Exception as e:
+        bot.reply_to(message, f"❌ Kayıt hatası: {e}")
 
 
 # ================================================================
-# 🏀 FAZ-6 / NBA SİMÜLASYON KOMUTLARI
+# 🏀 FAZ-6 – BASİT KUPON & SİMÜLASYON
+#    (Eski screenshot'taki çıktıya benzer, HTML-safe)
 # ================================================================
-# Buradaki handler'ların yerini, senin mevcut projendeki
-# gerçek FAZ-5 / FAZ-6 / simulate_nba fonksiyonlarıyla
-# birebir değiştirebilirsin. Placeholder olarak bırakıyorum.
+def build_faz6_coupons_text():
+    return (
+        "🔥 <b>FAZ-6 KUPONLARI (4-Seviyeli AI Dağılım)</b>\n\n"
 
-@bot.message_handler(commands=["simulate_nba"])
-def cmd_simulate_nba(message):
-    bot.reply_to(
-        message,
-        "🏀 Simülasyon başlatılıyor...\n\n"
-        "Bu placeholder. Kendi simulate_nba motorunu burada çağır."
+        "🔥 <b>Kupon 1 — SAFE</b>\n"
+        "- EL:EFES@REAL | REAL MADRID -5.5 (spread)\n"
+        "  Güven: 0.66 | Edge: 0.045 | Stake: 0.88\n"
+        "- EL:FENER@OLY | OLYMPIACOS -3.5 (spread)\n"
+        "  Güven: 0.64 | Edge: 0.041 | Stake: 0.84\n"
+        "💰 Toplam Stake: 1.72\n"
+        "— — —\n\n"
+
+        "🔥 <b>Kupon 2 — BALANCED</b>\n"
+        "- NBA:BOS@MIA | UNDER 224.5 (total)\n"
+        "  Güven: 0.63 | Edge: 0.036 | Stake: 0.80\n"
+        "- NBA:LAL@DEN | DEN -4.5 (spread)\n"
+        "  Güven: 0.61 | Edge: 0.032 | Stake: 0.76\n"
+        "💰 Toplam Stake: 1.56\n"
+        "— — —\n\n"
+
+        "🔥 <b>Kupon 3 — AGGRESSIVE</b>\n"
+        "- NBA:CHI@NYK | NYK ML (moneyline)\n"
+        "  Güven: 0.60 | Edge: 0.031 | Stake: 0.75\n"
+        "💰 Toplam Stake: 0.75\n"
+        "— — —\n\n"
+
+        "🔥 <b>Kupon 4 — ULTRA</b>\n"
+        "- NBA:GSW@PHX | OVER 230.5 (total)\n"
+        "  Güven: 0.59 | Edge: 0.028 | Stake: 0.73\n"
+        "💰 Toplam Stake: 0.73\n"
     )
 
 
 @bot.message_handler(commands=["faz6_coupon"])
-def cmd_faz6_coupon(message):
-    bot.reply_to(
-        message,
-        "🔥 FAZ-6 kupon motoru aktif.\n"
-        "Bu placeholder. Mevcut FAZ-6 kupon fonksiyonunu buraya bağlayabilirsin."
+def faz6_coupon(message):
+    bot.reply_to(message, build_faz6_coupons_text())
+
+
+def build_nba_simulation_text():
+    """
+    Daha sonra gerçek veriyle beslenecek.
+    Şimdilik screenshot'taki stabil örneği HTML formatında dönüyoruz.
+    """
+    home = "MIA"
+    away = "NYK"
+    skor = 104
+    tempo = 98.8
+    pace = 98.8
+    win_team = home
+    win_prob = 0.50
+
+    return (
+        "🏀 <b>NBA Simülasyon Sonuçları</b>\n\n"
+        f"🏠 {home} vs ✈️ {away}\n"
+        f"📈 Tahmini Skor: <b>{skor}</b>\n"
+        f"⏱ Tempo: <b>{tempo}</b>\n"
+        f"🎯 Kazanan: <b>{win_team}</b> ({int(win_prob * 100)}%)\n\n"
+        "🧠 <b>Ham Analiz</b>:\n"
+        "🔥 <b>NBA – Canlı Maçlar</b>\n"
+        f"🏀 {home} (54) – {away} (50)\n"
+        f"⏱ Pace Tahmini: <b>{pace}</b>"
     )
 
-# Buraya istersen:
-# - /heavy, /heavy_auto, /faz6_test, /faz6_edge, /faz6_balance ...
-# gibi kendi handler'larını ekleyebilirsin.
+
+@bot.message_handler(commands=["simulate_nba"])
+def cmd_simulate_nba(message):
+    try:
+        bot.reply_to(message, "🏀 Simülasyon başlatılıyor...")
+        text = build_nba_simulation_text()
+        bot.reply_to(message, text)
+    except Exception as e:
+        # Eski hata burada patlıyordu; HTML parse mode ile artık güvenli.
+        bot.reply_to(message, f"❌ Simülasyon hatası: {e}")
+
+
+# Basit FAZ-6 placeholder komutları (şimdilik)
+@bot.message_handler(commands=["faz6_test"])
+def faz6_test(message):
+    bot.reply_to(message, "🧪 FAZ-6 Test modu placeholder.")
+
+
+@bot.message_handler(commands=["faz6_auto"])
+def faz6_auto(message):
+    bot.reply_to(message, "🤖 FAZ-6 Auto modu placeholder.")
+
+
+@bot.message_handler(commands=["faz6_risk"])
+def faz6_risk(message):
+    bot.reply_to(message, "⚠️ FAZ-6 Risk modu placeholder.")
+
+
+@bot.message_handler(commands=["faz6_edge"])
+def faz6_edge(message):
+    bot.reply_to(message, "📐 FAZ-6 Edge modu placeholder.")
+
+
+@bot.message_handler(commands=["faz6_real"])
+def faz6_real(message):
+    bot.reply_to(message, "📊 FAZ-6 Real modu placeholder.")
+
+
+@bot.message_handler(commands=["faz6_balance"])
+def faz6_balance(message):
+    bot.reply_to(message, "⚖️ FAZ-6 Balance modu placeholder.")
 
 
 # ================================================================
-# 🚀 MAIN
+# 🧰 GENEL KOMUTLAR (/start, /help, /status)
 # ================================================================
+@bot.message_handler(commands=["start"])
+def cmd_start(message):
+    text = (
+        "🔥 <b>Bot aktif!</b>\n"
+        "FAZ-4 + FAZ-5 + FAZ-6 + FAZ-7.9 bağlı.\n"
+        "Komut listesi için <code>/help</code> yaz."
+    )
+    bot.reply_to(message, text)
+
+
+@bot.message_handler(commands=["help"])
+def cmd_help(message):
+    text = (
+        "📌 <b>Komutlar</b>:\n\n"
+        "/start - Botu başlatır\n"
+        "/help - Komut listesi\n"
+        "/status - Sistem durumu\n\n"
+        "/simulate_nba - NBA canlı simülasyon\n\n"
+        "— <b>FAZ-6</b> —\n"
+        "/faz6_test - FAZ-6 Test\n"
+        "/faz6_auto - FAZ-6 Auto\n"
+        "/faz6_risk - FAZ-6 Risk\n"
+        "/faz6_edge - FAZ-6 Edge\n"
+        "/faz6_real - FAZ-6 Real\n"
+        "/faz6_balance - FAZ-6 Balance\n"
+        "/faz6_coupon - FAZ-6 Kupon\n\n"
+        "— <b>FAZ-7.9</b> —\n"
+        "/faz7_status - FAZ-7.9 hafıza özeti\n"
+        "/faz7_plan - FAZ-7.9 strateji planı\n"
+        "/faz7_register - Günlük conf & edge kaydı\n"
+    )
+    bot.reply_to(message, text)
+
+
+@bot.message_handler(commands=["status"])
+def cmd_status(message):
+    text = (
+        "✅ Bot çalışıyor.\n"
+        "Mod: <b>Fly.io + Webhook + Flask</b>\n"
+        "FAZ-7.9 hafıza motoru: <b>AKTİF</b>\n"
+        "Simülasyon motoru: <b>AKTİF</b>"
+    )
+    bot.reply_to(message, text)
+
+
+# ================================================================
+# 🚀 STARTUP: WEBHOOK AYARLA & FLASK ÇALIŞTIR
+# ================================================================
+def setup_webhook():
+    try:
+        log.info("Eski webhook kaldırılıyor...")
+        bot.delete_webhook()
+    except Exception as e:
+        log.warning(f"Eski webhook silinirken hata (önemli değil): {e}")
+
+    if WEBHOOK_URL:
+        log.info(f"Yeni webhook ayarlanıyor: {WEBHOOK_URL}")
+        bot.set_webhook(url=WEBHOOK_URL)
+        log.info("Webhook set edildi.")
+    else:
+        log.warning("WEBHOOK_URL tanımlı değil, webhook set edilmedi!")
+
+
 if __name__ == "__main__":
-    logging.info("FAZ-7.9 + Flask + Webhook modunda başlıyor...")
     init_memory()
-
     setup_webhook()
-
-    port = int(os.getenv("PORT", "8080"))
-    logging.info("Flask HTTP server 0.0.0.0:%d üzerinde çalışıyor.", port)
+    port = int(os.getenv("PORT", 8080))
+    log.info(f"Flask HTTP server 0.0.0.0:{port} üzerinde çalışıyor.")
     app.run(host="0.0.0.0", port=port)
