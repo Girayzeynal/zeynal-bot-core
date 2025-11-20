@@ -2,10 +2,9 @@ import os
 import json
 import time
 import logging
-import re  # FAZ-8 için
+import html
 
 import telebot
-from telebot.apihelper import ApiTelegramException  # FAZ-8 için
 import numpy as np
 import pandas as pd
 from flask import Flask, request
@@ -62,6 +61,101 @@ def telegram_webhook():
     except Exception as e:
         log.error(f"Webhook update işlenirken hata: {e}")
     return "OK", 200
+
+
+# ================================================================
+# 🛡️ FAZ-8 OUTPUT SHIELD + UPGRADE (8.1 / 8.2 / 8.3)
+# ================================================================
+MAX_MESSAGE_LENGTH = 3900   # Telegram limiti 4096, biraz pay bıraktık
+FAZ8_SEND_DELAY = 0.07      # Flood riskine karşı küçük gecikme
+
+
+def faz8_safe_html(text: str) -> str:
+    """
+    FAZ-8.1 Dynamic Output Sanitizer (basit ama etkili):
+    - Eğer '<' ve '>' sayıları uyuşmuyorsa HTML bozulmuştur → tamamını escape et.
+    - Normal durumda metni aynen döner (Telegraph HTML güvenli).
+    """
+    if text is None:
+        return ""
+
+    if text.count("<") != text.count(">"):
+        # Kırık tag varsa komple escape → Telegram'a düz metin gider, patlamaz.
+        return html.escape(text)
+
+    return text
+
+
+def faz8_chunk_text(text: str, max_len: int = MAX_MESSAGE_LENGTH):
+    """
+    Uzun mesajları satır bazlı parçalara böler.
+    Telegram 4096 karakter limitine takılmadan gönderir.
+    """
+    if len(text) <= max_len:
+        yield text
+        return
+
+    lines = text.split("\n")
+    current = ""
+
+    for line in lines:
+        # Eğer tek satır bile çok uzunsa sert kes
+        if len(line) > max_len:
+            if current:
+                yield current
+                current = ""
+            for i in range(0, len(line), max_len):
+                yield line[i:i + max_len]
+            continue
+
+        if len(current) + len(line) + 1 <= max_len:
+            if current:
+                current += "\n" + line
+            else:
+                current = line
+        else:
+            if current:
+                yield current
+            current = line
+
+    if current:
+        yield current
+
+
+def faz8_send_message(chat_id: int, text: str, reply_to_message_id=None, **kwargs):
+    """
+    FAZ-8.2 Anti-Flood Engine:
+    - Tüm çıkışlar buradan geçer.
+    - Mesajı sanitize eder, chunk'lara böler, araya küçük delay koyar.
+    """
+    safe_text = faz8_safe_html(text)
+
+    for chunk in faz8_chunk_text(safe_text):
+        try:
+            if reply_to_message_id is not None:
+                bot.send_message(
+                    chat_id,
+                    chunk,
+                    reply_to_message_id=reply_to_message_id,
+                    **kwargs
+                )
+            else:
+                bot.send_message(chat_id, chunk, **kwargs)
+            time.sleep(FAZ8_SEND_DELAY)
+        except Exception as e:
+            log.error(f"FAZ-8 send error: {e}")
+
+
+def faz8_reply(message, text: str, **kwargs):
+    """
+    Eski bot.reply_to yerine kullanılacak FAZ-8 korumalı cevaplayıcı.
+    """
+    faz8_send_message(
+        chat_id=message.chat.id,
+        text=text,
+        reply_to_message_id=message.message_id,
+        **kwargs
+    )
 
 
 # ================================================================
@@ -180,53 +274,6 @@ def faz79_brain():
 
 
 # ================================================================
-# 🛡️ FAZ-8 – SMART OUTPUT & ANTI-PARSE SHIELD (GLOBAL)
-# ================================================================
-def strip_html_tags(text: str) -> str:
-    """
-    FAZ-8: HTML tag'lerini temizleyip düz metin yapar.
-    Telegram parse patladığında fallback olarak kullanılır.
-    """
-    if not isinstance(text, str):
-        text = str(text)
-    return re.sub(r"<[^>]+>", "", text)
-
-
-def safe_send_message(chat_id, text: str, **kwargs):
-    """
-    FAZ-8: Tüm send_message çıkışları buradan geçer.
-    - İlk denemede normal (HTML) gönderir.
-    - ApiTelegramException (özellikle 'can't parse entities') alırsa
-      HTML tag'lerini temizler, parse_mode'u kapatıp düz metin yollar.
-    """
-    try:
-        return bot.send_message(chat_id, text, **kwargs)
-    except ApiTelegramException as e:
-        log.error(f"[FAZ-8] send_message parse hatası, fallback'e geçiliyor: {e}")
-        plain = strip_html_tags(text)
-        kwargs.pop("parse_mode", None)
-        return bot.send_message(chat_id, plain, **kwargs)
-    except Exception as e:
-        # Her ihtimale karşı hard fallback
-        log.error(f"[FAZ-8] send_message genel hata, saf fallback: {e}")
-        plain = strip_html_tags(text)
-        try:
-            return bot.send_message(chat_id, plain)
-        except Exception as e2:
-            log.error(f"[FAZ-8] send_message fallback da patladı: {e2}")
-            return None
-
-
-def safe_reply(message, text: str, **kwargs):
-    """
-    FAZ-8: Tüm reply_to çağrıları buradan geçecek.
-    Böylece tek noktadan kalkan kurulmuş oluyor.
-    """
-    chat_id = message.chat.id
-    return safe_send_message(chat_id, text, **kwargs)
-
-
-# ================================================================
 # 🧠 FAZ-7.9 KOMUTLARI
 # ================================================================
 @bot.message_handler(commands=["faz7_status"])
@@ -246,7 +293,7 @@ def faz7_status(message):
             f"7 Günlük Ortalama Edge: <b>{df['edge'].mean():.3f}</b>"
         )
 
-    safe_reply(message, msg)
+    faz8_reply(message, msg)
 
 
 @bot.message_handler(commands=["faz7_plan"])
@@ -265,7 +312,7 @@ def faz7_plan(message):
         f"AGG: {'✅' if info['agg'] else '❌'}\n"
     )
 
-    safe_reply(message, msg)
+    faz8_reply(message, msg)
 
 
 @bot.message_handler(commands=["faz7_register"])
@@ -276,7 +323,7 @@ def faz7_register_cmd(message):
     try:
         parts = message.text.split()
         if len(parts) != 3:
-            safe_reply(
+            faz8_reply(
                 message,
                 "✅ Kullanım: <code>/faz7_register conf edge</code>\nÖrn: <code>/faz7_register 0.62 0.035</code>"
             )
@@ -288,7 +335,7 @@ def faz7_register_cmd(message):
         register_daily_stats(conf, edge)
         info = faz79_brain()
 
-        safe_reply(
+        faz8_reply(
             message,
             (
                 "✅ Günlük FAZ-7.9 kaydı alındı.\n\n"
@@ -298,12 +345,11 @@ def faz7_register_cmd(message):
             )
         )
     except Exception as e:
-        safe_reply(message, f"❌ Kayıt hatası: {e}")
+        faz8_reply(message, f"❌ Kayıt hatası: {e}")
 
 
 # ================================================================
 # 🏀 FAZ-6 – BASİT KUPON & SİMÜLASYON
-#    (Eski screenshot'taki çıktıya benzer, HTML-safe)
 # ================================================================
 def build_faz6_coupons_text():
     return (
@@ -340,7 +386,7 @@ def build_faz6_coupons_text():
 
 @bot.message_handler(commands=["faz6_coupon"])
 def faz6_coupon(message):
-    safe_reply(message, build_faz6_coupons_text())
+    faz8_reply(message, build_faz6_coupons_text())
 
 
 def build_nba_simulation_text():
@@ -372,43 +418,42 @@ def build_nba_simulation_text():
 @bot.message_handler(commands=["simulate_nba"])
 def cmd_simulate_nba(message):
     try:
-        safe_reply(message, "🏀 Simülasyon başlatılıyor...")
+        faz8_reply(message, "🏀 Simülasyon başlatılıyor...")
         text = build_nba_simulation_text()
-        safe_reply(message, text)
+        faz8_reply(message, text)
     except Exception as e:
-        # FAZ-8 ile birlikte parse hatalarında bile fallback var.
-        safe_reply(message, f"❌ Simülasyon hatası: {e}")
+        faz8_reply(message, f"❌ Simülasyon hatası: {e}")
 
 
 # Basit FAZ-6 placeholder komutları (şimdilik)
 @bot.message_handler(commands=["faz6_test"])
 def faz6_test(message):
-    safe_reply(message, "🧪 FAZ-6 Test modu placeholder.")
+    faz8_reply(message, "🧪 FAZ-6 Test modu placeholder.")
 
 
 @bot.message_handler(commands=["faz6_auto"])
 def faz6_auto(message):
-    safe_reply(message, "🤖 FAZ-6 Auto modu placeholder.")
+    faz8_reply(message, "🤖 FAZ-6 Auto modu placeholder.")
 
 
 @bot.message_handler(commands=["faz6_risk"])
 def faz6_risk(message):
-    safe_reply(message, "⚠️ FAZ-6 Risk modu placeholder.")
+    faz8_reply(message, "⚠️ FAZ-6 Risk modu placeholder.")
 
 
 @bot.message_handler(commands=["faz6_edge"])
 def faz6_edge(message):
-    safe_reply(message, "📐 FAZ-6 Edge modu placeholder.")
+    faz8_reply(message, "📐 FAZ-6 Edge modu placeholder.")
 
 
 @bot.message_handler(commands=["faz6_real"])
 def faz6_real(message):
-    safe_reply(message, "📊 FAZ-6 Real modu placeholder.")
+    faz8_reply(message, "📊 FAZ-6 Real modu placeholder.")
 
 
 @bot.message_handler(commands=["faz6_balance"])
 def faz6_balance(message):
-    safe_reply(message, "⚖️ FAZ-6 Balance modu placeholder.")
+    faz8_reply(message, "⚖️ FAZ-6 Balance modu placeholder.")
 
 
 # ================================================================
@@ -421,7 +466,7 @@ def cmd_start(message):
         "FAZ-4 + FAZ-5 + FAZ-6 + FAZ-7.9 + FAZ-8 OUTPUT SHIELD bağlı.\n"
         "Komut listesi için <code>/help</code> yaz."
     )
-    safe_reply(message, text)
+    faz8_reply(message, text)
 
 
 @bot.message_handler(commands=["help"])
@@ -445,37 +490,63 @@ def cmd_help(message):
         "/faz7_plan - FAZ-7.9 strateji planı\n"
         "/faz7_register - Günlük conf & edge kaydı\n"
     )
-    safe_reply(message, text)
+    faz8_reply(message, text)
 
 
 @bot.message_handler(commands=["status"])
 def cmd_status(message):
+    info = faz79_brain()
     text = (
         "✅ Bot çalışıyor.\n"
         "Mod: <b>Fly.io + Webhook + Flask</b>\n"
         "FAZ-7.9 hafıza motoru: <b>AKTİF</b>\n"
-        "FAZ-8 output kalkanı: <b>AKTİF</b>\n"
-        "Simülasyon motoru: <b>AKTİF</b>"
+        "Simülasyon motoru: <b>AKTİF</b>\n"
+        "FAZ-8 OUTPUT SHIELD: <b>AKTİF</b>\n\n"
+        f"Son Mod: <b>{info['mode']}</b>, conf={info['conf']}, edge={info['edge']}"
     )
-    safe_reply(message, text)
+    faz8_reply(message, text)
 
 
 # ================================================================
 # 🚀 STARTUP: WEBHOOK AYARLA & FLASK ÇALIŞTIR
 # ================================================================
 def setup_webhook():
+    """
+    FAZ-8.3 Self-Healing Webhook Cycle
+    - Eski hook'u siler.
+    - Yeni WEBHOOK_URL için 3 deneme yapar.
+    - Telegram tarafında gerçekten set olduğunu get_webhook_info ile doğrular.
+    """
     try:
         log.info("Eski webhook kaldırılıyor...")
         bot.delete_webhook()
     except Exception as e:
         log.warning(f"Eski webhook silinirken hata (önemli değil): {e}")
 
-    if WEBHOOK_URL:
-        log.info(f"Yeni webhook ayarlanıyor: {WEBHOOK_URL}")
-        bot.set_webhook(url=WEBHOOK_URL)
-        log.info("Webhook set edildi.")
-    else:
+    if not WEBHOOK_URL:
         log.warning("WEBHOOK_URL tanımlı değil, webhook set edilmedi!")
+        return
+
+    for attempt in range(1, 4):
+        try:
+            log.info(f"[FAZ-8.3] Webhook deneme {attempt}: {WEBHOOK_URL}")
+            bot.set_webhook(url=WEBHOOK_URL)
+            time.sleep(0.5)
+            info = bot.get_webhook_info()
+
+            if info and info.url == WEBHOOK_URL:
+                log.info("[FAZ-8.3] Webhook başarıyla set edildi.")
+                return
+            else:
+                log.warning(
+                    f"[FAZ-8.3] Webhook doğrulanamadı (attempt={attempt}, "
+                    f"url={getattr(info, 'url', None)}, last_error_date={getattr(info, 'last_error_date', None)})"
+                )
+        except Exception as e:
+            log.warning(f"[FAZ-8.3] Webhook set denemesi hata aldı (attempt={attempt}): {e}")
+            time.sleep(1.0)
+
+    log.error("[FAZ-8.3] Webhook 3 denemede de doğrulanamadı! Telegram tarafını kontrol et.")
 
 
 if __name__ == "__main__":
