@@ -3,4 +3,11 @@ requests==2.31.0
 urllib3==2.2.1
 certifi==2024.7.4
 idna==3.7
-charset-normalizer==3.3.2 
+charset-normalizer==3.3.2
+
+# FAZ-7.x BEYİN & HAFIZA & TREND ANALİZİ
+numpy==1.26.4
+pandas==2.2.3
+
+# Fly.io health check için mini HTTP server
+Flask==3.0.2 
