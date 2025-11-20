@@ -11,7 +11,7 @@ PORT = "8080"
 app = "python main.py"
 
 # ============================================================
-#               SERVICES (Healthcheck + HTTP + TLS)
+#               SERVICES (Stable Healthcheck + HTTP + TLS)
 # ============================================================
 [[services]]
 processes = ["app"]
@@ -33,14 +33,16 @@ protocol = "tcp"
   port = 443
   handlers = ["tls", "http"]
 
-  # Healthcheck (Fly.io tarafından kontrol edilir)
-  [services.http_checks]
-  interval = "15s"
-  timeout = "3s"
-  grace_period = "10s"
-  method = "get"
-  path = "/"
-  protocol = "http"
+  # ============================================================
+  #        🛡️  STABLE HEALTH CHECK (FAZ-8 UPGRADE VERSION)
+  # ============================================================
+  [[services.http_checks]]
+    interval = "30s"       # Daha yavaş → daha kararlı
+    timeout = "3s"         # Mantıklı timeout
+    grace_period = "30s"   # Bot açılırken zaman tanır
+    method = "get"
+    path = "/"             # Sadece home endpoint kontrol edilir
+    protocol = "http"
 
 # ============================================================
 #            EXPERIMENTAL — Auto Rollback açık
