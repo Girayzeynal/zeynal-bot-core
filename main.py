@@ -152,7 +152,6 @@ def faz79_brain():
     elif slope < -0.01:
         trend = "DOWN"
     else:
-        # flat aralık
         trend = "FLAT"
 
     vol = float(df["conf"].std() if len(df) > 1 else 0.0)
@@ -185,38 +184,8 @@ def faz79_brain():
 
 
 # ================================================================
-# 🧠 FAZ-8 STATE (FAZ-8.3 stabilizer için mini state dosyası)
-# ================================================================
-FAZ8_STATE_FILE = "faz8_state.json"
-
-
-def init_faz8_state():
-    if not os.path.exists(FAZ8_STATE_FILE):
-        data = {
-            "last_conf": None,
-            "last_stake": None,
-            "last_mode": None,
-            "mode_lock_counter": 0
-        }
-        with open(FAZ8_STATE_FILE, "w") as f:
-            json.dump(data, f, indent=4)
-
-
-def load_faz8_state():
-    init_faz8_state()
-    with open(FAZ8_STATE_FILE, "r") as f:
-        return json.load(f)
-
-
-def save_faz8_state(data):
-    with open(FAZ8_STATE_FILE, "w") as f:
-        json.dump(data, f, indent=4)
-
-
-# ================================================================
 # 🧠 FAZ-8.1 – CORE CALIBRATION ENGINE
 #    (FAZ-7.9 hafızasını kullanarak conf/edge/stake ayarı)
-#    Bu çekirdek, FAZ-8.2 LMF SHIELD + FAZ-8.3 Stabilizer ile refine ediliyor.
 # ================================================================
 def _faz81_core_calibration(raw_conf: float,
                             raw_edge: float,
@@ -298,7 +267,6 @@ def _faz81_core_calibration(raw_conf: float,
 
 # ================================================================
 # 🧠 FAZ-8.2 – LMF SHIELD (Loss Minimization Filters)
-#    8.1 çıktısını alıp daha agresif kayıp koruması uygular.
 # ================================================================
 def _faz82_lmf_shield(calib: dict) -> dict:
     """
@@ -383,69 +351,6 @@ def _faz82_lmf_shield(calib: dict) -> dict:
     return calib
 
 
-# ================================================================
-# 🧠 FAZ-8.3 – STABILIZER & MODE-LOCK
-# ================================================================
-def _faz83_stabilizer(calib: dict) -> dict:
-    """
-    FAZ-8.3:
-      - Son conf/stake değerlerini kullanarak EMA tarzı smoothing
-      - Ani sıçramaları stake jump limiter ile frenler
-      - Mode-lock ile modun sürekli SAFE/BAL/AGG arasında zıplamasını engeller
-    """
-    state = load_faz8_state()
-    last_conf = state.get("last_conf")
-    last_stake = state.get("last_stake")
-    last_mode = state.get("last_mode")
-    lock_cnt = int(state.get("mode_lock_counter", 0))
-
-    mode = calib.get("mode")
-    conf = float(calib.get("conf", 0.0))
-    stake = float(calib.get("stake", 1.0))
-
-    # 1) MODE-LOCK: mod değişimi geldiğinde bir kaç sinyal boyunca eski moda sadık kal
-    if last_mode is not None and mode != last_mode:
-        if lock_cnt < 2:
-            # Eski modu koru, lock sayacını artır
-            mode = last_mode
-            calib["mode"] = last_mode
-            lock_cnt += 1
-        else:
-            # Yeterince denedik, artık yeni moda geç
-            lock_cnt = 0
-
-    # 2) CONF smoothing (EMA)
-    if last_conf is not None:
-        alpha = 0.4  # yeni veriye ağırlık
-        conf = (1.0 - alpha) * last_conf + alpha * conf
-
-    # 3) STAKE smoothing + jump limiter
-    if last_stake is not None:
-        alpha_s = 0.4
-        smoothed = (1.0 - alpha_s) * last_stake + alpha_s * stake
-        max_jump_ratio = 0.22  # %22 üzeri zıplamalara fren
-        max_up = last_stake * (1.0 + max_jump_ratio)
-        max_down = last_stake * (1.0 - max_jump_ratio)
-        stake = min(max(smoothed, max_down), max_up)
-
-    # Final clamp
-    conf = max(0.0, min(conf, 0.99))
-    stake = max(0.1, stake)
-
-    calib["conf"] = round(conf, 3)
-    calib["stake"] = round(stake, 2)
-    calib["engine"] = "FAZ-8.3"
-
-    # State güncelle
-    state["last_conf"] = conf
-    state["last_stake"] = stake
-    state["last_mode"] = mode
-    state["mode_lock_counter"] = lock_cnt
-    save_faz8_state(state)
-
-    return calib
-
-
 def faz8_calibrate_signal(raw_conf: float,
                           raw_edge: float,
                           base_stake: float = 1.0) -> dict:
@@ -453,18 +358,111 @@ def faz8_calibrate_signal(raw_conf: float,
     PUBLIC FAZ-8 API
       1) FAZ-8.1 core hesap
       2) FAZ-8.2 LMF SHIELD ile kayıp korumalı refine
-      3) FAZ-8.3 Stabilizer ile smoothing + mode-lock
     """
     core = _faz81_core_calibration(raw_conf, raw_edge, base_stake)
-
-    # INIT moddaysa: 8.2 & 8.3 çok agresif dokunmasın
+    # INIT moddaysa 8.2 pek dokunmasın
     if core.get("mode") not in ("SAFE", "BAL", "AGG"):
-        core["engine"] = "FAZ-8.3"
+        core["engine"] = "FAZ-8.2"
         return core
+    return _faz82_lmf_shield(core)
 
-    shielded = _faz82_lmf_shield(core)
-    stabilized = _faz83_stabilizer(shielded)
-    return stabilized
+
+# ================================================================
+# 🧠 FAZ-8.3 – OPTIMIZED RISK SUITE
+# ================================================================
+def _faz83_opt_risk_profile(brain: dict,
+                            raw_conf: float,
+                            raw_edge: float,
+                            calib: dict) -> tuple[str, float]:
+    """
+    FAZ-8.3 optimize:
+      - mode / trend / vol / calib farkını kullanarak 0–1 arası risk skoru üretir
+      - skoru LOW / MID / HIGH bucket'a map eder
+    """
+    mode = brain.get("mode", "INIT")
+    trend = brain.get("trend", "INIT")
+    vol = float(brain.get("vol", 0.0))
+
+    score = 0.0
+
+    # 1) Volatilite katkısı (daha yumuşak baseline)
+    if vol < 0.02:
+        score += 0.08
+    elif vol < 0.05:
+        score += 0.14
+    elif vol < 0.10:
+        score += 0.22
+    else:
+        score += 0.32
+
+    # 2) Trend katkısı
+    if trend == "UP":
+        score += 0.14
+    elif trend == "FLAT":
+        score += 0.18
+    elif trend == "DOWN":
+        score += 0.26
+    else:  # INIT vs diğerleri
+        score += 0.20
+
+    # 3) Mode katkısı
+    if mode == "SAFE":
+        score += 0.10
+    elif mode == "BAL":
+        score += 0.18
+    elif mode == "AGG":
+        score += 0.26
+    else:
+        score += 0.18
+
+    # 4) Kalibrasyon baskısı (ham ile cal farkı)
+    diff_conf = abs(float(calib.get("conf", raw_conf)) - float(raw_conf))
+    diff_edge = abs(float(calib.get("edge", raw_edge)) - float(raw_edge))
+
+    score += diff_conf * 0.9
+    score += min(0.05, diff_edge * 2.0)
+
+    # Clamp
+    score = max(0.0, min(1.0, score))
+
+    if score < 0.33:
+        bucket = "LOW"
+    elif score < 0.66:
+        bucket = "MID"
+    else:
+        bucket = "HIGH"
+
+    return bucket, round(score, 4)
+
+
+def faz83_dynamic_calibration(raw_conf: float,
+                              raw_edge: float,
+                              base_stake: float = 1.0) -> dict:
+    """
+    FAZ-8.3 public API:
+      - FAZ-7.9 hafızasını okur
+      - FAZ-8.2 kalibrasyonu çalıştırır
+      - Optimize risk bucket + skor hesaplar
+    """
+    brain = faz79_brain()
+    calib = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
+
+    bucket, score = _faz83_opt_risk_profile(brain, raw_conf, raw_edge, calib)
+
+    return {
+        "mode": brain["mode"],
+        "trend": brain["trend"],
+        "vol": float(brain["vol"]),
+        "engine": "FAZ-8.3",
+        "risk_bucket": bucket,
+        "risk_score": score,
+        "raw_conf": float(raw_conf),
+        "raw_edge": float(raw_edge),
+        "raw_stake": float(base_stake),
+        "cal_conf": float(calib["conf"]),
+        "cal_edge": float(calib["edge"]),
+        "cal_stake": float(calib["stake"]),
+    }
 
 
 # ================================================================
@@ -546,24 +544,27 @@ def faz7_register_cmd(message):
 @bot.message_handler(commands=["faz8_status"])
 def faz8_status(message):
     """
-    FAZ-8.3 kalibrasyon motorunun örnek davranışı
+    FAZ-8.3 optimize edilmiş kalibrasyon özetini gösterir.
     """
-    # örnek sinyal
     raw_conf = 0.64
     raw_edge = 0.038
     base_stake = 1.0
 
-    calib = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
+    suite = faz83_dynamic_calibration(raw_conf, raw_edge, base_stake)
 
     msg = (
-        "🧪 <b>FAZ-8.3 DYNAMIC CALIBRATION</b>\n\n"
-        f"Mode: <b>{calib['mode']}</b>\n"
-        f"Trend: {calib['trend']} | Vol: {calib['vol']}\n"
-        f"Engine: <b>{calib.get('engine','FAZ-8.3')}</b>\n\n"
-        f"Raw → conf={raw_conf:.3f}, edge={raw_edge:.3f}, stake={base_stake:.2f}\n"
-        f"Cal → conf=<b>{calib['conf']:.3f}</b>, "
-        f"edge=<b>{calib['edge']:.3f}</b>, "
-        f"stake=<b>{calib['stake']:.2f}</b>\n"
+        "🧪 <b>FAZ-8.3 DYNAMIC CALIBRATION SUITE</b>\n\n"
+        f"Mode: <b>{suite['mode']}</b>\n"
+        f"Trend: {suite['trend']} | Vol: {suite['vol']:.4f}\n"
+        f"Engine: <b>{suite['engine']}</b>\n"
+        f"Risk Bucket: <b>{suite['risk_bucket']}</b> "
+        f"(score={suite['risk_score']:.4f})\n\n"
+        f"Raw  → conf={suite['raw_conf']:.3f}, "
+        f"edge={suite['raw_edge']:.3f}, "
+        f"stake={suite['raw_stake']:.2f}\n"
+        f"Cal  → conf=<b>{suite['cal_conf']:.3f}</b>, "
+        f"edge=<b>{suite['cal_edge']:.3f}</b>, "
+        f"stake=<b>{suite['cal_stake']:.2f}</b>\n"
     )
     bot.reply_to(message, msg)
 
@@ -588,28 +589,33 @@ def faz8_test(message):
         raw_edge = float(parts[2])
         base_stake = float(parts[3]) if len(parts) == 4 else 1.0
 
-        calib = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
+        suite = faz83_dynamic_calibration(raw_conf, raw_edge, base_stake)
 
         msg = (
             "🧪 <b>FAZ-8.3 TEST</b>\n\n"
-            f"Input: conf={raw_conf:.3f}, edge={raw_edge:.3f}, stake={base_stake:.2f}\n\n"
-            f"Mode: <b>{calib['mode']}</b> | Trend: {calib['trend']} | Vol: {calib['vol']}\n"
-            f"Engine: <b>{calib.get('engine','FAZ-8.3')}</b>\n\n"
-            f"Output → conf=<b>{calib['conf']:.3f}</b>, "
-            f"edge=<b>{calib['edge']:.3f}</b>, "
-            f"stake=<b>{calib['stake']:.2f}</b>\n"
+            f"Input: conf={suite['raw_conf']:.3f}, "
+            f"edge={suite['raw_edge']:.3f}, "
+            f"stake={suite['raw_stake']:.2f}\n\n"
+            f"Mode: <b>{suite['mode']}</b> | "
+            f"Trend: {suite['trend']} | Vol: {suite['vol']:.4f}\n"
+            f"Engine: <b>{suite['engine']}</b>\n"
+            f"Risk Bucket: <b>{suite['risk_bucket']}</b> "
+            f"(score={suite['risk_score']:.4f})\n\n"
+            f"Output → conf=<b>{suite['cal_conf']:.3f}</b>, "
+            f"edge=<b>{suite['cal_edge']:.3f}</b>, "
+            f"stake=<b>{suite['cal_stake']:.2f}</b>\n"
         )
         bot.reply_to(message, msg)
     except Exception as e:
-        bot.reply_to(message, f"❌ FAZ-8 test hatası: {e}")
+        bot.reply_to(message, f"❌ FAZ-8.3 test hatası: {e}")
 
 
 # ================================================================
-# 🏀 FAZ-6 – KUPON & SİMÜLASYON (FAZ-8.3 ENTEGRE)
+# 🏀 FAZ-6 – KUPON & SİMÜLASYON (FAZ-8.2 ENTEGRE)
 # ================================================================
 def build_faz6_coupons_text():
     """
-    Eski sabit değerler yerine her satır FAZ-8.3 ile kalibre ediliyor.
+    Eski sabit değerler yerine her satır FAZ-8.2 ile kalibre ediliyor.
     Raw değerler screenshot mantığına yakın tutuldu.
     """
 
@@ -670,7 +676,7 @@ def build_nba_simulation_text():
     """
     Daha sonra gerçek veriyle beslenecek.
     Şimdilik screenshot'taki stabil örneği HTML formatında dönüyoruz.
-    FAZ-8.3 → win_prob ve güvenlik şerhi ekler.
+    FAZ-8.2 → win_prob ve güvenlik şerhi ekler.
     """
     home = "MIA"
     away = "NYK"
@@ -678,7 +684,7 @@ def build_nba_simulation_text():
     tempo = 98.8
     pace = 98.8
 
-    # Raw sinyal → FAZ-8.3
+    # Raw sinyal → FAZ-8.2
     raw_conf = 0.62
     raw_edge = 0.034
     calib = faz8_calibrate_signal(raw_conf, raw_edge, base_stake=1.0)
@@ -694,7 +700,7 @@ def build_nba_simulation_text():
     }.get(calib["mode"], calib["mode"])
 
     return (
-        "🏀 <b>NBA Simülasyon Sonuçları (FAZ-8.3)</b>\n\n"
+        "🏀 <b>NBA Simülasyon Sonuçları (FAZ-8.2)</b>\n\n"
         f"🏠 {home} vs ✈️ {away}\n"
         f"📈 Tahmini Skor: <b>{skor}</b>\n"
         f"⏱ Tempo: <b>{tempo}</b>\n"
@@ -711,7 +717,7 @@ def build_nba_simulation_text():
 @bot.message_handler(commands=["simulate_nba"])
 def cmd_simulate_nba(message):
     try:
-        bot.reply_to(message, "🏀 Simülasyon başlatılıyor (FAZ-8.3 kalibreli)...")
+        bot.reply_to(message, "🏀 Simülasyon başlatılıyor (FAZ-8.2 kalibreli)...")
         text = build_nba_simulation_text()
         bot.reply_to(message, text)
     except Exception as e:
@@ -769,7 +775,7 @@ def cmd_help(message):
         "/start - Botu başlatır\n"
         "/help - Komut listesi\n"
         "/status - Sistem durumu\n\n"
-        "/simulate_nba - NBA canlı simülasyon (FAZ-8.3)\n\n"
+        "/simulate_nba - NBA canlı simülasyon (FAZ-8.2)\n\n"
         "— <b>FAZ-6</b> —\n"
         "/faz6_test - FAZ-6 Test\n"
         "/faz6_auto - FAZ-6 Auto\n"
@@ -784,7 +790,7 @@ def cmd_help(message):
         "/faz7_register - Günlük conf & edge kaydı\n\n"
         "— <b>FAZ-8.3</b> —\n"
         "/faz8_status - Kalibrasyon özet\n"
-        "/faz8_test - Manuel FAZ-8 sinyal testi\n"
+        "/faz8_test - Manuel FAZ-8.3 sinyal testi\n"
     )
     bot.reply_to(message, text)
 
@@ -796,7 +802,7 @@ def cmd_status(message):
         "✅ Bot çalışıyor.\n"
         "Mod: <b>Fly.io + Webhook + Flask</b>\n"
         "FAZ-7.9 hafıza motoru: <b>AKTİF</b>\n"
-        "FAZ-8.3 kalibrasyon: <b>AKTİF</b>\n"
+        "FAZ-8.3 kalibrasyon suite: <b>AKTİF</b>\n"
         f"Strateji Modu: <b>{info['mode']}</b> | Trend: {info['trend']} | Vol: {info['vol']}\n"
     )
     bot.reply_to(message, text)
@@ -828,7 +834,6 @@ def setup_webhook():
 
 if __name__ == "__main__":
     init_memory()
-    init_faz8_state()
     setup_webhook()
     port = int(os.getenv("PORT", 8080))
     log.info(f"Flask HTTP server 0.0.0.0:{port} üzerinde çalışıyor.")
