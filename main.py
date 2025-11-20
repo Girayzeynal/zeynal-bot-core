@@ -3,7 +3,6 @@ import requests
 import json
 import os
 import time
-import threading
 import numpy as np
 import pandas as pd
 from flask import Flask
@@ -15,7 +14,6 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
 
 MEMORY_FILE = "faz7_memory.json"
-
 
 # ================================================================
 # 📌 HEALTH CHECK (Fly.io için mini http server)
@@ -63,6 +61,8 @@ def register_daily_stats(conf, edge):
     }
 
     mem["days"].append(today)
+
+    # sadece son 7 günü tut
     if len(mem["days"]) > 7:
         mem["days"] = mem["days"][-7:]
 
@@ -105,7 +105,7 @@ def faz79_brain():
     else:
         trend = "FLAT"
 
-    vol = float(df["conf"].std()) if len(df) > 1 else 0.0
+    vol = float(df["conf"].std() if len(df) > 1 else 0.0)
 
     if avg_conf > 0.7 and avg_edge > 0.05:
         mode = "SAFE"
@@ -129,7 +129,7 @@ def faz79_brain():
 
 
 # ================================================================
-# 📌 FAZ-7 Commands
+# 📌 FAZ-7 STATUS MESAJI
 # ================================================================
 @bot.message_handler(commands=["faz7_status"])
 def faz7_status(message):
@@ -151,6 +151,9 @@ def faz7_status(message):
     bot.reply_to(message, msg, parse_mode="Markdown")
 
 
+# ================================================================
+# 📌 FAZ-7 PLAN
+# ================================================================
 @bot.message_handler(commands=["faz7_plan"])
 def faz7_plan(message):
     info = faz79_brain()
@@ -171,7 +174,40 @@ def faz7_plan(message):
 
 
 # ================================================================
-# 📌 FAZ-6 Placeholder
+# 📌 FAZ-7 REGISTER (Yeni eklenen komut)
+# ================================================================
+@bot.message_handler(commands=["faz7_register"])
+def faz7_register(message):
+    try:
+        parts = message.text.split()
+        if len(parts) != 3:
+            bot.reply_to(
+                message,
+                "Kullanım:\n`/faz7_register <confidence> <edge>`",
+                parse_mode="Markdown"
+            )
+            return
+
+        conf = float(parts[1])
+        edge = float(parts[2])
+
+        register_daily_stats(conf, edge)
+
+        reply = (
+            "📝 *FAZ-7 Günlük Veri Kaydedildi*\n\n"
+            f"Confidence: `{conf}`\n"
+            f"Edge: `{edge}`\n\n"
+            "Hafıza güncellendi. Trend ve volatilite yeniden hesaplandı."
+        )
+
+        bot.reply_to(message, reply, parse_mode="Markdown")
+
+    except Exception as e:
+        bot.reply_to(message, f"Hata: {e}")
+
+
+# ================================================================
+# 🏀 FAZ-6 KUPON (şu an placeholder)
 # ================================================================
 @bot.message_handler(commands=["faz6_coupon"])
 def faz6_coupon(message):
@@ -179,27 +215,10 @@ def faz6_coupon(message):
 
 
 # ================================================================
-# 🧵 THREADS: Telebot + Flask paralel çalışma
-# ================================================================
-def run_bot():
-    bot.infinity_polling()
-
-def run_flask():
-    app.run(host="0.0.0.0", port=8080)
-
-
-# ================================================================
 # 📌 START
 # ================================================================
 if __name__ == "__main__":
     init_memory()
-    print("Zeynal Core AI: FAZ-7.9 Online...")
-
-    t1 = threading.Thread(target=run_bot)
-    t2 = threading.Thread(target=run_flask)
-
-    t1.start()
-    t2.start()
-
-    t1.join()
-    t2.join()
+    print("Bot çalışıyor...")
+    bot.infinity_polling()
+    app.run(host="0.0.0.0", port=8080)
