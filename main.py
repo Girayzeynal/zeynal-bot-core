@@ -2,8 +2,10 @@ import os
 import json
 import time
 import logging
+import re  # FAZ-8 için
 
 import telebot
+from telebot.apihelper import ApiTelegramException  # FAZ-8 için
 import numpy as np
 import pandas as pd
 from flask import Flask, request
@@ -178,6 +180,53 @@ def faz79_brain():
 
 
 # ================================================================
+# 🛡️ FAZ-8 – SMART OUTPUT & ANTI-PARSE SHIELD (GLOBAL)
+# ================================================================
+def strip_html_tags(text: str) -> str:
+    """
+    FAZ-8: HTML tag'lerini temizleyip düz metin yapar.
+    Telegram parse patladığında fallback olarak kullanılır.
+    """
+    if not isinstance(text, str):
+        text = str(text)
+    return re.sub(r"<[^>]+>", "", text)
+
+
+def safe_send_message(chat_id, text: str, **kwargs):
+    """
+    FAZ-8: Tüm send_message çıkışları buradan geçer.
+    - İlk denemede normal (HTML) gönderir.
+    - ApiTelegramException (özellikle 'can't parse entities') alırsa
+      HTML tag'lerini temizler, parse_mode'u kapatıp düz metin yollar.
+    """
+    try:
+        return bot.send_message(chat_id, text, **kwargs)
+    except ApiTelegramException as e:
+        log.error(f"[FAZ-8] send_message parse hatası, fallback'e geçiliyor: {e}")
+        plain = strip_html_tags(text)
+        kwargs.pop("parse_mode", None)
+        return bot.send_message(chat_id, plain, **kwargs)
+    except Exception as e:
+        # Her ihtimale karşı hard fallback
+        log.error(f"[FAZ-8] send_message genel hata, saf fallback: {e}")
+        plain = strip_html_tags(text)
+        try:
+            return bot.send_message(chat_id, plain)
+        except Exception as e2:
+            log.error(f"[FAZ-8] send_message fallback da patladı: {e2}")
+            return None
+
+
+def safe_reply(message, text: str, **kwargs):
+    """
+    FAZ-8: Tüm reply_to çağrıları buradan geçecek.
+    Böylece tek noktadan kalkan kurulmuş oluyor.
+    """
+    chat_id = message.chat.id
+    return safe_send_message(chat_id, text, **kwargs)
+
+
+# ================================================================
 # 🧠 FAZ-7.9 KOMUTLARI
 # ================================================================
 @bot.message_handler(commands=["faz7_status"])
@@ -197,7 +246,7 @@ def faz7_status(message):
             f"7 Günlük Ortalama Edge: <b>{df['edge'].mean():.3f}</b>"
         )
 
-    bot.reply_to(message, msg)
+    safe_reply(message, msg)
 
 
 @bot.message_handler(commands=["faz7_plan"])
@@ -216,7 +265,7 @@ def faz7_plan(message):
         f"AGG: {'✅' if info['agg'] else '❌'}\n"
     )
 
-    bot.reply_to(message, msg)
+    safe_reply(message, msg)
 
 
 @bot.message_handler(commands=["faz7_register"])
@@ -227,7 +276,7 @@ def faz7_register_cmd(message):
     try:
         parts = message.text.split()
         if len(parts) != 3:
-            bot.reply_to(
+            safe_reply(
                 message,
                 "✅ Kullanım: <code>/faz7_register conf edge</code>\nÖrn: <code>/faz7_register 0.62 0.035</code>"
             )
@@ -239,7 +288,7 @@ def faz7_register_cmd(message):
         register_daily_stats(conf, edge)
         info = faz79_brain()
 
-        bot.reply_to(
+        safe_reply(
             message,
             (
                 "✅ Günlük FAZ-7.9 kaydı alındı.\n\n"
@@ -249,7 +298,7 @@ def faz7_register_cmd(message):
             )
         )
     except Exception as e:
-        bot.reply_to(message, f"❌ Kayıt hatası: {e}")
+        safe_reply(message, f"❌ Kayıt hatası: {e}")
 
 
 # ================================================================
@@ -291,7 +340,7 @@ def build_faz6_coupons_text():
 
 @bot.message_handler(commands=["faz6_coupon"])
 def faz6_coupon(message):
-    bot.reply_to(message, build_faz6_coupons_text())
+    safe_reply(message, build_faz6_coupons_text())
 
 
 def build_nba_simulation_text():
@@ -323,43 +372,43 @@ def build_nba_simulation_text():
 @bot.message_handler(commands=["simulate_nba"])
 def cmd_simulate_nba(message):
     try:
-        bot.reply_to(message, "🏀 Simülasyon başlatılıyor...")
+        safe_reply(message, "🏀 Simülasyon başlatılıyor...")
         text = build_nba_simulation_text()
-        bot.reply_to(message, text)
+        safe_reply(message, text)
     except Exception as e:
-        # Eski hata burada patlıyordu; HTML parse mode ile artık güvenli.
-        bot.reply_to(message, f"❌ Simülasyon hatası: {e}")
+        # FAZ-8 ile birlikte parse hatalarında bile fallback var.
+        safe_reply(message, f"❌ Simülasyon hatası: {e}")
 
 
 # Basit FAZ-6 placeholder komutları (şimdilik)
 @bot.message_handler(commands=["faz6_test"])
 def faz6_test(message):
-    bot.reply_to(message, "🧪 FAZ-6 Test modu placeholder.")
+    safe_reply(message, "🧪 FAZ-6 Test modu placeholder.")
 
 
 @bot.message_handler(commands=["faz6_auto"])
 def faz6_auto(message):
-    bot.reply_to(message, "🤖 FAZ-6 Auto modu placeholder.")
+    safe_reply(message, "🤖 FAZ-6 Auto modu placeholder.")
 
 
 @bot.message_handler(commands=["faz6_risk"])
 def faz6_risk(message):
-    bot.reply_to(message, "⚠️ FAZ-6 Risk modu placeholder.")
+    safe_reply(message, "⚠️ FAZ-6 Risk modu placeholder.")
 
 
 @bot.message_handler(commands=["faz6_edge"])
 def faz6_edge(message):
-    bot.reply_to(message, "📐 FAZ-6 Edge modu placeholder.")
+    safe_reply(message, "📐 FAZ-6 Edge modu placeholder.")
 
 
 @bot.message_handler(commands=["faz6_real"])
 def faz6_real(message):
-    bot.reply_to(message, "📊 FAZ-6 Real modu placeholder.")
+    safe_reply(message, "📊 FAZ-6 Real modu placeholder.")
 
 
 @bot.message_handler(commands=["faz6_balance"])
 def faz6_balance(message):
-    bot.reply_to(message, "⚖️ FAZ-6 Balance modu placeholder.")
+    safe_reply(message, "⚖️ FAZ-6 Balance modu placeholder.")
 
 
 # ================================================================
@@ -369,10 +418,10 @@ def faz6_balance(message):
 def cmd_start(message):
     text = (
         "🔥 <b>Bot aktif!</b>\n"
-        "FAZ-4 + FAZ-5 + FAZ-6 + FAZ-7.9 bağlı.\n"
+        "FAZ-4 + FAZ-5 + FAZ-6 + FAZ-7.9 + FAZ-8 OUTPUT SHIELD bağlı.\n"
         "Komut listesi için <code>/help</code> yaz."
     )
-    bot.reply_to(message, text)
+    safe_reply(message, text)
 
 
 @bot.message_handler(commands=["help"])
@@ -396,7 +445,7 @@ def cmd_help(message):
         "/faz7_plan - FAZ-7.9 strateji planı\n"
         "/faz7_register - Günlük conf & edge kaydı\n"
     )
-    bot.reply_to(message, text)
+    safe_reply(message, text)
 
 
 @bot.message_handler(commands=["status"])
@@ -405,9 +454,10 @@ def cmd_status(message):
         "✅ Bot çalışıyor.\n"
         "Mod: <b>Fly.io + Webhook + Flask</b>\n"
         "FAZ-7.9 hafıza motoru: <b>AKTİF</b>\n"
+        "FAZ-8 output kalkanı: <b>AKTİF</b>\n"
         "Simülasyon motoru: <b>AKTİF</b>"
     )
-    bot.reply_to(message, text)
+    safe_reply(message, text)
 
 
 # ================================================================
