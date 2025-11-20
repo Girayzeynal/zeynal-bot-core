@@ -29,10 +29,10 @@ if not BOT_TOKEN:
 if not WEBHOOK_URL:
     log.warning("WEBHOOK_URL tanımlı değil! Webhook set edilemeyecek.")
 
-# Telegram bot (GLOBAL parse_mode = HTML → Markdown hatası yok)
+# Telegram bot (GLOBAL parse_mode = HTML → Markdown yok, HTML güvenli)
 bot = telebot.TeleBot(
     BOT_TOKEN,
-    parse_mode="HTML",              # Markdown yok, HTML güvenli
+    parse_mode="HTML",
     disable_web_page_preview=True
 )
 
@@ -151,8 +151,8 @@ def faz79_brain():
         trend = "UP"
     elif slope < -0.01:
         trend = "DOWN"
-        # flat aralık
     else:
+        # flat aralık
         trend = "FLAT"
 
     vol = float(df["conf"].std() if len(df) > 1 else 0.0)
@@ -269,7 +269,7 @@ def _faz81_core_calibration(raw_conf: float,
 
 # ================================================================
 # 🧠 FAZ-8.2 – LMF SHIELD (Loss Minimization Filters)
-#    8.1 çıktısını alıp daha agressif kayıp koruması uygular.
+#    8.1 çıktısını alıp daha agresif kayıp koruması uygular.
 # ================================================================
 def _faz82_lmf_shield(calib: dict) -> dict:
     """
@@ -647,7 +647,7 @@ def faz6_real(message):
     bot.reply_to(message, "📊 FAZ-6 Real modu placeholder.")
 
 
-@bot.message_handler(commands()["faz6_balance"])
+@bot.message_handler(commands=["faz6_balance"])
 def faz6_balance(message):
     bot.reply_to(message, "⚖️ FAZ-6 Balance modu placeholder.")
 
