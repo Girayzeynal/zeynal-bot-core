@@ -267,6 +267,7 @@ def _faz81_core_calibration(raw_conf: float,
 
 # ================================================================
 # 🧠 FAZ-8.2 – LMF SHIELD (Loss Minimization Filters)
+#    8.1 çıktısını alıp daha agresif kayıp koruması uygular.
 # ================================================================
 def _faz82_lmf_shield(calib: dict) -> dict:
     """
@@ -337,7 +338,6 @@ def _faz82_lmf_shield(calib: dict) -> dict:
     elif trend == "UP":
         stake *= prof["trend_up_factor"]
         conf *= prof["trend_up_factor"]
-    # FLAT / INIT → dokunma
 
     # Clamp ve normalize
     conf = max(0.0, min(conf, 0.99))
@@ -368,66 +368,32 @@ def faz8_calibrate_signal(raw_conf: float,
 
 
 # ================================================================
-# 🧠 FAZ-8.3 – OPTIMIZED RISK SUITE
+# 🧠 FAZ-8.3 — DYNAMIC CALIBRATION ENGINE (FULL)
+#    8.2 çıktısını, 7.9 ortalamalarına göre yeniden inceler.
 # ================================================================
-def _faz83_opt_risk_profile(brain: dict,
-                            raw_conf: float,
-                            raw_edge: float,
-                            calib: dict) -> tuple[str, float]:
+def faz83_compute_risk_bucket(conf: float,
+                              edge: float,
+                              conf_avg: float,
+                              edge_avg: float) -> tuple[str, float]:
     """
-    FAZ-8.3 optimize:
-      - mode / trend / vol / calib farkını kullanarak 0–1 arası risk skoru üretir
-      - skoru LOW / MID / HIGH bucket'a map eder
+    FAZ-8.3 risk puanı:
+      score = 0.6 * (conf/conf_avg) + 0.4 * (edge/edge_avg)
+    Bucket:
+      LOW  < 0.95
+      MID  < 1.10
+      HIGH ≥ 1.10
     """
-    mode = brain.get("mode", "INIT")
-    trend = brain.get("trend", "INIT")
-    vol = float(brain.get("vol", 0.0))
+    conf_avg = max(conf_avg, 1e-6)
+    edge_avg = max(edge_avg, 1e-6)
 
-    score = 0.0
+    rel_conf = conf / conf_avg
+    rel_edge = edge / edge_avg
 
-    # 1) Volatilite katkısı (daha yumuşak baseline)
-    if vol < 0.02:
-        score += 0.08
-    elif vol < 0.05:
-        score += 0.14
-    elif vol < 0.10:
-        score += 0.22
-    else:
-        score += 0.32
+    score = 0.6 * rel_conf + 0.4 * rel_edge
 
-    # 2) Trend katkısı
-    if trend == "UP":
-        score += 0.14
-    elif trend == "FLAT":
-        score += 0.18
-    elif trend == "DOWN":
-        score += 0.26
-    else:  # INIT vs diğerleri
-        score += 0.20
-
-    # 3) Mode katkısı
-    if mode == "SAFE":
-        score += 0.10
-    elif mode == "BAL":
-        score += 0.18
-    elif mode == "AGG":
-        score += 0.26
-    else:
-        score += 0.18
-
-    # 4) Kalibrasyon baskısı (ham ile cal farkı)
-    diff_conf = abs(float(calib.get("conf", raw_conf)) - float(raw_conf))
-    diff_edge = abs(float(calib.get("edge", raw_edge)) - float(raw_edge))
-
-    score += diff_conf * 0.9
-    score += min(0.05, diff_edge * 2.0)
-
-    # Clamp
-    score = max(0.0, min(1.0, score))
-
-    if score < 0.33:
+    if score < 0.95:
         bucket = "LOW"
-    elif score < 0.66:
+    elif score < 1.10:
         bucket = "MID"
     else:
         bucket = "HIGH"
@@ -435,33 +401,79 @@ def _faz83_opt_risk_profile(brain: dict,
     return bucket, round(score, 4)
 
 
-def faz83_dynamic_calibration(raw_conf: float,
-                              raw_edge: float,
-                              base_stake: float = 1.0) -> dict:
+def faz83_dynamic_calibration(conf: float,
+                              edge: float,
+                              stake: float,
+                              mode: str,
+                              trend_slope: float,
+                              vol: float,
+                              conf_avg: float,
+                              edge_avg: float) -> dict:
     """
-    FAZ-8.3 public API:
-      - FAZ-7.9 hafızasını okur
-      - FAZ-8.2 kalibrasyonu çalıştırır
-      - Optimize risk bucket + skor hesaplar
+    FAZ-8.3 ana motor:
+      - FAZ-7.9 ortalamalarına göre risk bucket belirler
+      - Trend & volatilite ile stake ayarı yapar
+      - Mode SAFE/BAL/AGG'e göre hafif modifikasyon uygular
+      - conf/edge soft-boost / soft-cut yapar
     """
-    brain = faz79_brain()
-    calib = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
 
-    bucket, score = _faz83_opt_risk_profile(brain, raw_conf, raw_edge, calib)
+    # 1) Risk bucket
+    bucket, score = faz83_compute_risk_bucket(conf, edge, conf_avg, edge_avg)
+
+    base_mult_map = {
+        "LOW": 0.70,
+        "MID": 0.90,
+        "HIGH": 1.10
+    }
+    base_mult = base_mult_map[bucket]
+
+    # 2) Trend etkisi
+    slope_clamped = max(min(trend_slope, 0.05), -0.05)
+    trend_mult = 1.0 + (slope_clamped * 1.5)
+
+    # 3) Volatilite etkisi
+    vol_clamped = max(min(vol, 0.08), 0.0)
+    vol_mult = 1.0 - (vol_clamped * 1.5)
+
+    # 4) Mode etkisi
+    mode = (mode or "BAL").upper()
+    if mode == "SAFE":
+        mode_mult = 0.85
+    elif mode == "AGG":
+        mode_mult = 1.10
+    else:
+        mode_mult = 1.0
+
+    # 5) Nihai stake çarpanı
+    total_mult = base_mult * trend_mult * vol_mult * mode_mult
+    total_mult = max(0.40, min(total_mult, 1.40))
+
+    cal_stake = round(stake * total_mult, 2)
+
+    # 6) Conf/edge soft ayarlama
+    if bucket == "LOW":
+        conf_mult = 0.92
+        edge_mult = 0.92
+    elif bucket == "MID":
+        conf_mult = 0.97
+        edge_mult = 0.97
+    else:  # HIGH
+        conf_mult = 1.02
+        edge_mult = 1.00
+
+    cal_conf = max(0.0, min(0.99, conf * conf_mult))
+    cal_edge = max(0.0, edge * edge_mult)
 
     return {
-        "mode": brain["mode"],
-        "trend": brain["trend"],
-        "vol": float(brain["vol"]),
         "engine": "FAZ-8.3",
-        "risk_bucket": bucket,
-        "risk_score": score,
-        "raw_conf": float(raw_conf),
-        "raw_edge": float(raw_edge),
-        "raw_stake": float(base_stake),
-        "cal_conf": float(calib["conf"]),
-        "cal_edge": float(calib["edge"]),
-        "cal_stake": float(calib["stake"]),
+        "bucket": bucket,
+        "score": score,
+        "raw_conf": round(conf, 3),
+        "raw_edge": round(edge, 3),
+        "raw_stake": round(stake, 2),
+        "cal_conf": round(cal_conf, 3),
+        "cal_edge": round(cal_edge, 3),
+        "cal_stake": cal_stake,
     }
 
 
@@ -544,27 +556,23 @@ def faz7_register_cmd(message):
 @bot.message_handler(commands=["faz8_status"])
 def faz8_status(message):
     """
-    FAZ-8.3 optimize edilmiş kalibrasyon özetini gösterir.
+    FAZ-8.2 kalibrasyon motorunun örnek davranışı
     """
     raw_conf = 0.64
     raw_edge = 0.038
     base_stake = 1.0
 
-    suite = faz83_dynamic_calibration(raw_conf, raw_edge, base_stake)
+    calib = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
 
     msg = (
-        "🧪 <b>FAZ-8.3 DYNAMIC CALIBRATION SUITE</b>\n\n"
-        f"Mode: <b>{suite['mode']}</b>\n"
-        f"Trend: {suite['trend']} | Vol: {suite['vol']:.4f}\n"
-        f"Engine: <b>{suite['engine']}</b>\n"
-        f"Risk Bucket: <b>{suite['risk_bucket']}</b> "
-        f"(score={suite['risk_score']:.4f})\n\n"
-        f"Raw  → conf={suite['raw_conf']:.3f}, "
-        f"edge={suite['raw_edge']:.3f}, "
-        f"stake={suite['raw_stake']:.2f}\n"
-        f"Cal  → conf=<b>{suite['cal_conf']:.3f}</b>, "
-        f"edge=<b>{suite['cal_edge']:.3f}</b>, "
-        f"stake=<b>{suite['cal_stake']:.2f}</b>\n"
+        "🧪 <b>FAZ-8.2 DYNAMIC CALIBRATION</b>\n\n"
+        f"Mode: <b>{calib['mode']}</b>\n"
+        f"Trend: {calib['trend']} | Vol: {calib['vol']}\n"
+        f"Engine: <b>{calib.get('engine','FAZ-8.2')}</b>\n\n"
+        f"Raw → conf={raw_conf:.3f}, edge={raw_edge:.3f}, stake={base_stake:.2f}\n"
+        f"Cal → conf=<b>{calib['conf']:.3f}</b>, "
+        f"edge=<b>{calib['edge']:.3f}</b>, "
+        f"stake=<b>{calib['stake']:.2f}</b>\n"
     )
     bot.reply_to(message, msg)
 
@@ -589,21 +597,75 @@ def faz8_test(message):
         raw_edge = float(parts[2])
         base_stake = float(parts[3]) if len(parts) == 4 else 1.0
 
-        suite = faz83_dynamic_calibration(raw_conf, raw_edge, base_stake)
+        calib = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
 
         msg = (
-            "🧪 <b>FAZ-8.3 TEST</b>\n\n"
-            f"Input: conf={suite['raw_conf']:.3f}, "
-            f"edge={suite['raw_edge']:.3f}, "
-            f"stake={suite['raw_stake']:.2f}\n\n"
-            f"Mode: <b>{suite['mode']}</b> | "
-            f"Trend: {suite['trend']} | Vol: {suite['vol']:.4f}\n"
-            f"Engine: <b>{suite['engine']}</b>\n"
-            f"Risk Bucket: <b>{suite['risk_bucket']}</b> "
-            f"(score={suite['risk_score']:.4f})\n\n"
-            f"Output → conf=<b>{suite['cal_conf']:.3f}</b>, "
-            f"edge=<b>{suite['cal_edge']:.3f}</b>, "
-            f"stake=<b>{suite['cal_stake']:.2f}</b>\n"
+            "🧪 <b>FAZ-8.2 TEST</b>\n\n"
+            f"Input: conf={raw_conf:.3f}, edge={raw_edge:.3f}, stake={base_stake:.2f}\n\n"
+            f"Mode: <b>{calib['mode']}</b> | Trend: {calib['trend']} | Vol: {calib['vol']}\n"
+            f"Engine: <b>{calib.get('engine','FAZ-8.2')}</b>\n\n"
+            f"Output → conf=<b>{calib['conf']:.3f}</b>, "
+            f"edge=<b>{calib['edge']:.3f}</b>, "
+            f"stake=<b>{calib['stake']:.2f}</b>\n"
+        )
+        bot.reply_to(message, msg)
+    except Exception as e:
+        bot.reply_to(message, f"❌ FAZ-8 test hatası: {e}")
+
+
+@bot.message_handler(commands=["faz83_test"])
+def faz83_test(message):
+    """
+    Kullanım: /faz83_test 0.60 0.03 1.0
+      → raw_conf, raw_edge, (opsiyonel) base_stake
+    Pipeline:
+      raw → FAZ-8.2 → FAZ-8.3
+    """
+    try:
+        parts = message.text.split()
+        if len(parts) not in (3, 4):
+            bot.reply_to(
+                message,
+                "✅ Kullanım: <code>/faz83_test conf edge [stake]</code>\n"
+                "Örn: <code>/faz83_test 0.63 0.035 0.80</code>"
+            )
+            return
+
+        raw_conf = float(parts[1])
+        raw_edge = float(parts[2])
+        base_stake = float(parts[3]) if len(parts) == 4 else 1.0
+
+        # 1) FAZ-8.2 kalibrasyon
+        c82 = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
+
+        # 2) FAZ-7.9 beyni ile ortalamalar
+        brain = faz79_brain()
+        conf_avg = brain["conf"] if brain["conf"] > 0 else max(raw_conf, 0.01)
+        edge_avg = brain["edge"] if brain["edge"] > 0 else max(raw_edge, 0.01)
+
+        # 3) FAZ-8.3 refine
+        c83 = faz83_dynamic_calibration(
+            conf=c82["conf"],
+            edge=c82["edge"],
+            stake=c82["stake"],
+            mode=brain["mode"],
+            trend_slope=brain["slope"],
+            vol=brain["vol"],
+            conf_avg=conf_avg,
+            edge_avg=edge_avg,
+        )
+
+        msg = (
+            "🧪 <b>FAZ-8.3 FULL PIPELINE</b>\n\n"
+            f"Input RAW → conf={raw_conf:.3f}, edge={raw_edge:.3f}, stake={base_stake:.2f}\n\n"
+            f"FAZ-7.9 Brain → mode=<b>{brain['mode']}</b>, "
+            f"trend={brain['trend']} (slope {brain['slope']}), vol={brain['vol']}\n"
+            f"7g avg → conf={brain['conf']}, edge={brain['edge']}\n\n"
+            f"FAZ-8.2 → conf={c82['conf']:.3f}, edge={c82['edge']:.3f}, stake={c82['stake']:.2f}\n"
+            f"FAZ-8.3 → bucket=<b>{c83['bucket']}</b>, score={c83['score']}\n"
+            f"Calibrated → conf=<b>{c83['cal_conf']:.3f}</b>, "
+            f"edge=<b>{c83['cal_edge']:.3f}</b>, "
+            f"stake=<b>{c83['cal_stake']:.2f}</b>\n"
         )
         bot.reply_to(message, msg)
     except Exception as e:
@@ -611,36 +673,74 @@ def faz8_test(message):
 
 
 # ================================================================
-# 🏀 FAZ-6 – KUPON & SİMÜLASYON (FAZ-8.2 ENTEGRE)
+# 🏀 FAZ-6 – KUPON & SİMÜLASYON (FAZ-8.2 + FAZ-8.3)
 # ================================================================
+def _faz83_from_raw(raw_conf: float,
+                    raw_edge: float,
+                    base_stake: float) -> dict:
+    """
+    Helper:
+      RAW → FAZ-8.2 → FAZ-8.3
+    FAZ-7.9 beyin verisini dahile alır.
+    """
+    c82 = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
+    brain = faz79_brain()
+
+    conf_avg = brain["conf"] if brain["conf"] > 0 else max(raw_conf, 0.01)
+    edge_avg = brain["edge"] if brain["edge"] > 0 else max(raw_edge, 0.01)
+
+    c83 = faz83_dynamic_calibration(
+        conf=c82["conf"],
+        edge=c82["edge"],
+        stake=c82["stake"],
+        mode=brain["mode"],
+        trend_slope=brain["slope"],
+        vol=brain["vol"],
+        conf_avg=conf_avg,
+        edge_avg=edge_avg,
+    )
+
+    # Kupon formatı için sadeleştirme
+    return {
+        "mode": brain["mode"],
+        "trend": brain["trend"],
+        "bucket": c83["bucket"],
+        "conf": c83["cal_conf"],
+        "edge": c83["cal_edge"],
+        "stake": c83["cal_stake"],
+    }
+
+
 def build_faz6_coupons_text():
     """
-    Eski sabit değerler yerine her satır FAZ-8.2 ile kalibre ediliyor.
+    Eski sabit değerler yerine her satır FAZ-8.2 + FAZ-8.3 ile kalibre ediliyor.
     Raw değerler screenshot mantığına yakın tutuldu.
     """
-
     # Kupon 1 — SAFE
-    k1_g1 = faz8_calibrate_signal(0.66, 0.045, 0.88)
-    k1_g2 = faz8_calibrate_signal(0.64, 0.041, 0.84)
+    k1_g1 = _faz83_from_raw(0.66, 0.045, 0.88)
+    k1_g2 = _faz83_from_raw(0.64, 0.041, 0.84)
 
     # Kupon 2 — BALANCED
-    k2_g1 = faz8_calibrate_signal(0.63, 0.036, 0.80)
-    k2_g2 = faz8_calibrate_signal(0.61, 0.032, 0.76)
+    k2_g1 = _faz83_from_raw(0.63, 0.036, 0.80)
+    k2_g2 = _faz83_from_raw(0.61, 0.032, 0.76)
 
     # Kupon 3 — AGGRESSIVE
-    k3_g1 = faz8_calibrate_signal(0.60, 0.031, 0.75)
+    k3_g1 = _faz83_from_raw(0.60, 0.031, 0.75)
 
     # Kupon 4 — ULTRA
-    k4_g1 = faz8_calibrate_signal(0.59, 0.028, 0.73)
+    k4_g1 = _faz83_from_raw(0.59, 0.028, 0.73)
 
     def fmt(game, calib):
         return (
             f"{game}\n"
-            f"  Güven: {calib['conf']:.2f} | Edge: {calib['edge']:.3f} | Stake: {calib['stake']:.2f}\n"
+            f"  Güven: {calib['conf']:.2f} | "
+            f"Edge: {calib['edge']:.3f} | "
+            f"Stake: {calib['stake']:.2f} | "
+            f"Risk: {calib['bucket']}\n"
         )
 
     text = (
-        "🔥 <b>FAZ-6 KUPONLARI (FAZ-8.3 Kalibreli)</b>\n\n"
+        "🔥 <b>FAZ-6 KUPONLARI (FAZ-8.3 Full Kalibre)</b>\n\n"
 
         "🔥 <b>Kupon 1 — SAFE</b>\n" +
         fmt("- EL:EFES@REAL | REAL MADRID -5.5 (spread)", k1_g1) +
@@ -675,8 +775,8 @@ def faz6_coupon(message):
 def build_nba_simulation_text():
     """
     Daha sonra gerçek veriyle beslenecek.
-    Şimdilik screenshot'taki stabil örneği HTML formatında dönüyoruz.
-    FAZ-8.2 → win_prob ve güvenlik şerhi ekler.
+    Şimdilik stabil örnek:
+      RAW → FAZ-8.2 → FAZ-8.3 (full pipeline)
     """
     home = "MIA"
     away = "NYK"
@@ -684,29 +784,31 @@ def build_nba_simulation_text():
     tempo = 98.8
     pace = 98.8
 
-    # Raw sinyal → FAZ-8.2
     raw_conf = 0.62
     raw_edge = 0.034
-    calib = faz8_calibrate_signal(raw_conf, raw_edge, base_stake=1.0)
+
+    # 8.2 + 8.3 pipeline
+    c = _faz83_from_raw(raw_conf, raw_edge, base_stake=1.0)
 
     win_team = home
-    win_prob = calib["conf"]  # 0.0–0.99 arası kalibre güvenini win_prob gibi kullanıyoruz
+    win_prob = c["conf"]  # 0.0–0.99
 
     risk_label = {
         "SAFE": "🛡 SAFE",
         "BAL": "⚖ BALANCED",
         "AGG": "⚡ AGGRESSIVE",
         "INIT": "⏳ INIT"
-    }.get(calib["mode"], calib["mode"])
+    }.get(c["mode"], c["mode"])
 
     return (
-        "🏀 <b>NBA Simülasyon Sonuçları (FAZ-8.2)</b>\n\n"
+        "🏀 <b>NBA Simülasyon Sonuçları (FAZ-8.3)</b>\n\n"
         f"🏠 {home} vs ✈️ {away}\n"
         f"📈 Tahmini Skor: <b>{skor}</b>\n"
         f"⏱ Tempo: <b>{tempo}</b>\n"
         f"🎯 Kazanan: <b>{win_team}</b> ({int(win_prob * 100)}%)\n"
-        f"📊 Risk Profili: {risk_label}\n"
-        f"🔍 Edge: <b>{calib['edge']:.3f}</b> | Vol: {calib['vol']}\n\n"
+        f"📊 Risk Profili: {risk_label} | Bucket: <b>{c['bucket']}</b>\n"
+        f"🔍 Edge: <b>{c['edge']:.3f}</b>\n"
+        f"💰 Stake: <b>{c['stake']:.2f}</b>\n\n"
         "🧠 <b>Ham Analiz</b>:\n"
         "🔥 <b>NBA – Canlı Maçlar</b>\n"
         f"🏀 {home} (54) – {away} (50)\n"
@@ -717,7 +819,7 @@ def build_nba_simulation_text():
 @bot.message_handler(commands=["simulate_nba"])
 def cmd_simulate_nba(message):
     try:
-        bot.reply_to(message, "🏀 Simülasyon başlatılıyor (FAZ-8.2 kalibreli)...")
+        bot.reply_to(message, "🏀 Simülasyon başlatılıyor (FAZ-8.3 full pipeline)...")
         text = build_nba_simulation_text()
         bot.reply_to(message, text)
     except Exception as e:
@@ -762,7 +864,7 @@ def faz6_balance(message):
 def cmd_start(message):
     text = (
         "🔥 <b>Bot aktif!</b>\n"
-        "FAZ-4 + FAZ-5 + FAZ-6 + FAZ-7.9 + FAZ-8.3 bağlı.\n"
+        "FAZ-4 + FAZ-5 + FAZ-6 + FAZ-7.9 + FAZ-8.2 + FAZ-8.3 bağlı.\n"
         "Komut listesi için <code>/help</code> yaz."
     )
     bot.reply_to(message, text)
@@ -775,7 +877,7 @@ def cmd_help(message):
         "/start - Botu başlatır\n"
         "/help - Komut listesi\n"
         "/status - Sistem durumu\n\n"
-        "/simulate_nba - NBA canlı simülasyon (FAZ-8.2)\n\n"
+        "/simulate_nba - NBA canlı simülasyon (FAZ-8.3 full pipeline)\n\n"
         "— <b>FAZ-6</b> —\n"
         "/faz6_test - FAZ-6 Test\n"
         "/faz6_auto - FAZ-6 Auto\n"
@@ -788,9 +890,11 @@ def cmd_help(message):
         "/faz7_status - FAZ-7.9 hafıza özeti\n"
         "/faz7_plan - FAZ-7.9 strateji planı\n"
         "/faz7_register - Günlük conf & edge kaydı\n\n"
+        "— <b>FAZ-8.2</b> —\n"
+        "/faz8_status - Kalibrasyon özet (8.2)\n"
+        "/faz8_test - Manuel FAZ-8.2 sinyal testi\n\n"
         "— <b>FAZ-8.3</b> —\n"
-        "/faz8_status - Kalibrasyon özet\n"
-        "/faz8_test - Manuel FAZ-8.3 sinyal testi\n"
+        "/faz83_test - FAZ-8.3 full pipeline testi\n"
     )
     bot.reply_to(message, text)
 
@@ -802,8 +906,10 @@ def cmd_status(message):
         "✅ Bot çalışıyor.\n"
         "Mod: <b>Fly.io + Webhook + Flask</b>\n"
         "FAZ-7.9 hafıza motoru: <b>AKTİF</b>\n"
-        "FAZ-8.3 kalibrasyon suite: <b>AKTİF</b>\n"
-        f"Strateji Modu: <b>{info['mode']}</b> | Trend: {info['trend']} | Vol: {info['vol']}\n"
+        "FAZ-8.2 kalibrasyon: <b>AKTİF</b>\n"
+        "FAZ-8.3 full pipeline: <b>AKTİF</b>\n"
+        f"Strateji Modu: <b>{info['mode']}</b> | "
+        f"Trend: {info['trend']} | Vol: {info['vol']}\n"
     )
     bot.reply_to(message, text)
 
