@@ -1,51 +1,69 @@
 app = "zeynal-bot-core"
 primary_region = "ams"
 
+# ============================================================
+#                  ENVIRONMENT VARIABLES
+# ============================================================
 [env]
 PORT = "8080"
 
 # ============================================================
-#               PROCESS: Bot'u main.py ile çalıştır
+#                  PROCESS (MAIN BOT)
 # ============================================================
 [processes]
 app = "python main.py"
 
 # ============================================================
-#               SERVICES (Stable Healthcheck + HTTP + TLS)
+#                  SERVICES (HTTP + TLS + HEALTHCHECK)
 # ============================================================
 [[services]]
 processes = ["app"]
 internal_port = 8080
 protocol = "tcp"
 
+  # -------------------------------------
+  # Concurrency (FAZ-8.5 Stabil Mod)
+  # -------------------------------------
   [services.concurrency]
   type = "requests"
-  soft_limit = 20
-  hard_limit = 30
+  soft_limit = 40
+  hard_limit = 60
 
-  # HTTP Port (80)
+  # -------------------------------------
+  # HTTP (80)
+  # -------------------------------------
   [[services.ports]]
   port = 80
   handlers = ["http"]
 
-  # HTTPS Port (443)
+  # -------------------------------------
+  # HTTPS (443)
+  # -------------------------------------
   [[services.ports]]
   port = 443
   handlers = ["tls", "http"]
 
-  # ============================================================
-  #        🛡️  STABLE HEALTH CHECK (FAZ-8 UPGRADE VERSION)
-  # ============================================================
+  # -------------------------------------
+  # HEALTHCHECK (FAZ-9 Upgrade)
+  # -------------------------------------
   [[services.http_checks]]
-    interval = "30s"       # Daha yavaş → daha kararlı
-    timeout = "3s"         # Mantıklı timeout
-    grace_period = "30s"   # Bot açılırken zaman tanır
+    interval = "20s"          # Daha hızlı → daha duyarlı
+    timeout = "3s"
+    grace_period = "45s"      # Boot esnasında daha güvenli süre
     method = "get"
-    path = "/"             # Sadece home endpoint kontrol edilir
+    path = "/"                # Flask home endpoint
     protocol = "http"
+    tls_skip_verify = false
 
 # ============================================================
-#            EXPERIMENTAL — Auto Rollback açık
+#                 AUTO ROLLBACK (FAZ-9)
 # ============================================================
 [experimental]
 auto_rollback = true
+
+# ============================================================
+#                 METRICS (OPSIONAL)
+# ============================================================
+[metrics]
+port = 8080
+path = "/"
