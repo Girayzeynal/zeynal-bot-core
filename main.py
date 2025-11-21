@@ -9,7 +9,7 @@ import pandas as pd
 from flask import Flask, request
 
 # ================================================================
-# LOGGING
+# 🔧 LOGGING
 # ================================================================
 logging.basicConfig(
     level=logging.INFO,
@@ -18,7 +18,7 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # ================================================================
-# CONFIG
+# 🔧 CONFIG
 # ================================================================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Örn: https://zeynal-bot-core.fly.dev/webhook
@@ -29,15 +29,15 @@ if not BOT_TOKEN:
 if not WEBHOOK_URL:
     log.warning("WEBHOOK_URL tanımlı değil! Webhook set edilemeyecek.")
 
-# Telegram bot (GLOBAL parse_mode = HTML)
+# Telegram bot (GLOBAL parse_mode = HTML → Markdown hatası yok)
 bot = telebot.TeleBot(
     BOT_TOKEN,
-    parse_mode="HTML",
+    parse_mode="HTML",              # Markdown yok, HTML güvenli
     disable_web_page_preview=True
 )
 
 # ================================================================
-# FLASK APP (Health check + Webhook)
+# 🌐 FLASK APP (Health check + Webhook)
 # ================================================================
 app = Flask(__name__)
 
@@ -64,7 +64,7 @@ def telegram_webhook():
 
 
 # ================================================================
-# FAZ-7.9 MEMORY ENGINE
+# 📌 FAZ-7.9 MEMORY ENGINE
 # ================================================================
 MEMORY_FILE = "faz7_memory.json"
 
@@ -184,7 +184,8 @@ def faz79_brain():
 
 
 # ================================================================
-# FAZ-8.1 – CORE CALIBRATION ENGINE
+# 🧠 FAZ-8.1 – CORE CALIBRATION ENGINE
+#    (FAZ-7.9 hafızasını kullanarak conf/edge/stake ayarı)
 # ================================================================
 def _faz81_core_calibration(raw_conf: float,
                             raw_edge: float,
@@ -265,7 +266,8 @@ def _faz81_core_calibration(raw_conf: float,
 
 
 # ================================================================
-# FAZ-8.2 – LMF SHIELD (Loss Minimization Filters)
+# 🧠 FAZ-8.2 – LMF SHIELD (Loss Minimization Filters)
+#    8.1 çıktısını alıp daha agresif kayıp koruması uygular.
 # ================================================================
 def _faz82_lmf_shield(calib: dict) -> dict:
     """
@@ -336,7 +338,6 @@ def _faz82_lmf_shield(calib: dict) -> dict:
     elif trend == "UP":
         stake *= prof["trend_up_factor"]
         conf *= prof["trend_up_factor"]
-    # FLAT / INIT → dokunma
 
     # Clamp ve normalize
     conf = max(0.0, min(conf, 0.99))
@@ -367,31 +368,40 @@ def faz8_calibrate_signal(raw_conf: float,
 
 
 # ================================================================
-# FAZ-8.3 — DYNAMIC CALIBRATION ENGINE (FULL)
+# 🧠 FAZ-8.3 — DYNAMIC CALIBRATION ENGINE (FULL)
+#    8.2 çıktısını, 7.9 ortalamalarına göre yeniden inceler.
 # ================================================================
 def faz83_compute_risk_bucket(conf: float,
                               edge: float,
                               conf_avg: float,
-                              edge_avg: float):
+                              edge_avg: float) -> tuple[str, float]:
     """
     FAZ-8.3 risk puanı:
       score = 0.6 * (conf/conf_avg) + 0.4 * (edge/edge_avg)
-    Bucket:
-      LOW  < 0.95
-      MID  < 1.10
-      HIGH ≥ 1.10
+
+    Optimization Pack:
+      - conf_avg / edge_avg çok küçükse korumalı
+      - rel_conf / rel_edge 0.4–1.6 aralığına clamp
+      - Bucket eşikleri hafif daraltıldı:
+          LOW  < 0.90
+          MID  < 1.05
+          HIGH ≥ 1.05
     """
-    conf_avg = max(conf_avg, 1e-6)
-    edge_avg = max(edge_avg, 1e-6)
+    conf_avg = max(conf_avg, 1e-3)
+    edge_avg = max(edge_avg, 1e-4)
 
     rel_conf = conf / conf_avg
     rel_edge = edge / edge_avg
 
+    # Tek uç verinin tüm score'u bozmasını engelle
+    rel_conf = max(0.4, min(rel_conf, 1.6))
+    rel_edge = max(0.4, min(rel_edge, 1.6))
+
     score = 0.6 * rel_conf + 0.4 * rel_edge
 
-    if score < 0.95:
+    if score < 0.90:
         bucket = "LOW"
-    elif score < 1.10:
+    elif score < 1.05:
         bucket = "MID"
     else:
         bucket = "HIGH"
@@ -411,50 +421,55 @@ def faz83_dynamic_calibration(conf: float,
     FAZ-8.3 ana motor:
       - FAZ-7.9 ortalamalarına göre risk bucket belirler
       - Trend & volatilite ile stake ayarı yapar
-      - Mode SAFE/BAL/AGG'e göre modifikasyon uygular
+      - Mode SAFE/BAL/AGG'e göre hafif modifikasyon uygular
       - conf/edge soft-boost / soft-cut yapar
+
+    Optimization Pack:
+      - Bucket bazlı stake multiplier'lar yeniden dengelendi
+      - Trend ve volatilite etkileri daha yumuşak (overshoot yok)
+      - Total multiplier 0.40–1.35 aralığına clamp
     """
 
     # 1) Risk bucket
     bucket, score = faz83_compute_risk_bucket(conf, edge, conf_avg, edge_avg)
 
     base_mult_map = {
-        "LOW": 0.70,
+        "LOW": 0.65,
         "MID": 0.90,
-        "HIGH": 1.10
+        "HIGH": 1.15,
     }
-    base_mult = base_mult_map[bucket]
+    base_mult = base_mult_map.get(bucket, 0.90)
 
-    # 2) Trend etkisi
+    # 2) Trend etkisi (slope -0.05 .. 0.05 → yaklaşık -7.5% .. +7.5%)
     slope_clamped = max(min(trend_slope, 0.05), -0.05)
     trend_mult = 1.0 + (slope_clamped * 1.5)
 
-    # 3) Volatilite etkisi
+    # 3) Volatilite etkisi (0 .. 0.08 → 0% .. -12% civarı)
     vol_clamped = max(min(vol, 0.08), 0.0)
     vol_mult = 1.0 - (vol_clamped * 1.5)
 
-    # 4) Mode etkisi
+    # 4) Mode etkisi (hafif)
     mode = (mode or "BAL").upper()
     if mode == "SAFE":
-        mode_mult = 0.85
+        mode_mult = 0.92
     elif mode == "AGG":
-        mode_mult = 1.10
+        mode_mult = 1.08
     else:
-        mode_mult = 1.0
+        mode_mult = 1.00
 
     # 5) Nihai stake çarpanı
     total_mult = base_mult * trend_mult * vol_mult * mode_mult
-    total_mult = max(0.40, min(total_mult, 1.40))
+    total_mult = max(0.40, min(total_mult, 1.35))
 
     cal_stake = round(stake * total_mult, 2)
 
-    # 6) Conf/edge soft ayarlama
+    # 6) Conf/edge soft ayarlama – bucket bazlı
     if bucket == "LOW":
-        conf_mult = 0.92
-        edge_mult = 0.92
+        conf_mult = 0.93
+        edge_mult = 0.93
     elif bucket == "MID":
-        conf_mult = 0.97
-        edge_mult = 0.97
+        conf_mult = 0.98
+        edge_mult = 0.98
     else:  # HIGH
         conf_mult = 1.02
         edge_mult = 1.00
@@ -476,7 +491,7 @@ def faz83_dynamic_calibration(conf: float,
 
 
 # ================================================================
-# TELEGRAM KOMUTLARI – FAZ-7.9 & FAZ-8.x
+# 🧠 FAZ-7.9 & FAZ-8 KOMUTLARI
 # ================================================================
 @bot.message_handler(commands=["faz7_status"])
 def faz7_status(message):
@@ -555,8 +570,8 @@ def faz7_register_cmd(message):
 def faz8_status(message):
     """
     FAZ-8.2 kalibrasyon motorunun örnek davranışı
+    (Optimization Pack: 8.3 içerde kupon & simülasyonda devrede)
     """
-    # örnek sinyal
     raw_conf = 0.64
     raw_edge = 0.038
     base_stake = 1.0
@@ -672,7 +687,7 @@ def faz83_test(message):
 
 
 # ================================================================
-# FAZ-6 – KUPON & SİMÜLASYON (FAZ-8.2 + FAZ-8.3)
+# 🏀 FAZ-6 – KUPON & SİMÜLASYON (FAZ-8.2 + FAZ-8.3)
 # ================================================================
 def _faz83_from_raw(raw_conf: float,
                     raw_edge: float,
@@ -680,7 +695,7 @@ def _faz83_from_raw(raw_conf: float,
     """
     Helper:
       RAW → FAZ-8.2 → FAZ-8.3
-    FAZ-7.9 beyin verisini dahil alır.
+    FAZ-7.9 beyin verisini dahile alır.
     """
     c82 = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
     brain = faz79_brain()
@@ -857,7 +872,7 @@ def faz6_balance(message):
 
 
 # ================================================================
-# GENEL KOMUTLAR (/start, /help, /status)
+# 🧰 GENEL KOMUTLAR (/start, /help, /status)
 # ================================================================
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
@@ -914,7 +929,7 @@ def cmd_status(message):
 
 
 # ================================================================
-# STARTUP: WEBHOOK & FLASK
+# 🚀 STARTUP: WEBHOOK AYARLA & FLASK ÇALIŞTIR
 # ================================================================
 def setup_webhook():
     try:
