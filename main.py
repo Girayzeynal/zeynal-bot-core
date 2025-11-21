@@ -210,7 +210,7 @@ def faz79_brain():
 
 # ================================================================
 # 🧠 FAZ-8.1 – CORE CALIBRATION ENGINE
-#    (FAZ-7.9 v2.0 hafızasını kullanarak conf/edge/stake ayarı)
+#    (FAZ-7.9 hafızasını kullanarak conf/edge/stake ayarı)
 # ================================================================
 def _faz81_core_calibration(raw_conf: float,
                             raw_edge: float,
@@ -322,7 +322,8 @@ def _faz82_lmf_shield(calib: dict) -> dict:
             "edge_floor": 0.028,
             "edge_hard_floor": 0.018,
             "vol_soft": 0.10,
-            "vol_hard": 0.22,
+            "vol_hard": 0.0
+            22,
             "trend_up_factor": 1.04,
             "trend_down_factor": 0.90,
         },
@@ -782,6 +783,65 @@ def faz83_test(message):
 
 
 # ================================================================
+# 🧠 FAZ-8.4 – DEVELOPER TEST KOMUTU
+#   /faz84_coupon → FAZ-8.4 motorunu parametreli test et
+# ================================================================
+@bot.message_handler(commands=["faz84_coupon"])
+def faz84_coupon_cmd(message):
+    """
+    Kullanım:
+      /faz84_coupon
+        → default örnek değerlerle FAZ-8.4 test
+
+      /faz84_coupon PROFIL conf edge [stake]
+        PROFIL: SAFE | BAL | AGG | ULTRA
+        Örn:
+        /faz84_coupon SAFE 0.64 0.038 0.90
+    """
+    try:
+        parts = message.text.split()
+        # Sadece komut yazılmışsa default demo
+        if len(parts) == 1:
+            profile = "BAL"
+            raw_conf = 0.62
+            raw_edge = 0.034
+            base_stake = 1.0
+        elif len(parts) in (4, 5):
+            profile = parts[1].upper()
+            raw_conf = float(parts[2])
+            raw_edge = float(parts[3])
+            base_stake = float(parts[4]) if len(parts) == 5 else 1.0
+        else:
+            bot.reply_to(
+                message,
+                (
+                    "✅ Kullanım:\n"
+                    "<code>/faz84_coupon</code>\n"
+                    "veya\n"
+                    "<code>/faz84_coupon PROFIL conf edge [stake]</code>\n"
+                    "Örn: <code>/faz84_coupon SAFE 0.64 0.038 0.90</code>"
+                ),
+            )
+            return
+
+        res = faz84_coupon_engine(profile, raw_conf, raw_edge, base_stake)
+
+        msg = (
+            "🔥 <b>FAZ-8.4 COUPON POWER ENGINE</b>\n\n"
+            f"Profil: <b>{profile}</b>\n"
+            f"Input → conf={raw_conf:.3f}, edge={raw_edge:.3f}, stake={base_stake:.2f}\n\n"
+            f"Mode: <b>{res['mode']}</b> | Trend: {res['trend']}\n"
+            f"Bucket: <b>{res['bucket']}</b> | Risk: <b>{res['risk']}</b>\n\n"
+            f"Output → conf=<b>{res['conf']:.2f}</b>, "
+            f"edge=<b>{res['edge']:.3f}</b>, "
+            f"stake=<b>{res['stake']:.2f}</b>\n"
+        )
+        bot.reply_to(message, msg)
+    except Exception as e:
+        bot.reply_to(message, f"❌ FAZ-8.4 test hatası: {e}")
+
+
+# ================================================================
 # 🏀 FAZ-6 – KUPON & SİMÜLASYON (FAZ-8.4 Kupon Motoru)
 # ================================================================
 def _faz84_from_raw(profile: str,
@@ -853,6 +913,16 @@ def build_faz6_coupons_text():
 
 @bot.message_handler(commands=["faz6_coupon"])
 def faz6_coupon(message):
+    bot.reply_to(message, build_faz6_coupons_text())
+
+
+# 🔥 Yeni kısa komut: /kupon → FAZ-6 kuponlarını (FAZ-8.4 motorlu) döner
+@bot.message_handler(commands=["kupon"])
+def cmd_kupon(message):
+    """
+    Kullanıcı dostu kısa kupon komutu.
+    FAZ-6 kupon çıktısını FAZ-8.4 kupon motoru ile üretir.
+    """
     bot.reply_to(message, build_faz6_coupons_text())
 
 
@@ -963,7 +1033,9 @@ def cmd_help(message):
         "/start - Botu başlatır\n"
         "/help - Komut listesi\n"
         "/status - Sistem durumu\n\n"
-        "/simulate_nba - NBA canlı simülasyon (FAZ-8.4)\n\n"
+        "/simulate_nba - NBA canlı simülasyon (FAZ-8.4)\n"
+        "/kupon - FAZ-6 kuponları (FAZ-8.4 kupon motoru)\n"
+        "/faz84_coupon - FAZ-8.4 kupon motoru developer testi\n\n"
         "— <b>FAZ-6</b> —\n"
         "/faz6_test - FAZ-6 Test\n"
         "/faz6_auto - FAZ-6 Auto\n"
