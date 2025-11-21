@@ -70,11 +70,28 @@ def telegram_webhook():
 
 
 # ================================================================
-# 📌 FAZ-7.9 v2.0 MEMORY ENGINE
+# 📌 FAZ-7.9 v2.0 MEMORY ENGINE (KALICI HAFIZA / VOLUME DESTEKLİ)
 #   - 7 günlük pencere
 #   - v2.0: mod seçim eşikleri ve trend/vol mantığı güncellendi
+#   - HAFIZA YOLU: Varsayılan = /data/faz7/faz7_memory.json
+#     (Fly.io volume mount için önerilen path)
 # ================================================================
-MEMORY_FILE = "faz7_memory.json"
+MEMORY_DIR = os.getenv("FAZ7_MEMORY_DIR", "/data/faz7")
+
+try:
+    os.makedirs(MEMORY_DIR, exist_ok=True)
+    log.info(f"[FAZ-7.9] Memory directory hazır: {MEMORY_DIR}")
+except Exception as e:
+    log.warning(
+        f"[FAZ-7.9] Memory directory oluşturulamadı ({e}), mevcut dizine düşülüyor."
+    )
+    MEMORY_DIR = "."
+    try:
+        os.makedirs(MEMORY_DIR, exist_ok=True)
+    except Exception:
+        pass
+
+MEMORY_FILE = os.path.join(MEMORY_DIR, "faz7_memory.json")
 
 
 def init_memory():
@@ -87,18 +104,33 @@ def init_memory():
         }
         with open(MEMORY_FILE, "w") as f:
             json.dump(data, f, indent=4)
-        log.info("[FAZ-7.9] Yeni memory dosyası oluşturuldu.")
+        log.info(f"[FAZ-7.9] Yeni memory dosyası oluşturuldu: {MEMORY_FILE}")
 
 
 def load_memory():
     init_memory()
-    with open(MEMORY_FILE, "r") as f:
-        return json.load(f)
+    try:
+        with open(MEMORY_FILE, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        log.error(f"[FAZ-7.9] Memory yüklenirken hata: {e}", exc_info=True)
+        # Hata durumunda sıfırdan başla ama dosyayı bozma
+        return {
+            "days": [],
+            "safe": 0,
+            "bal": 0,
+            "agg": 0,
+        }
 
 
 def save_memory(data):
-    with open(MEMORY_FILE, "w") as f:
-        json.dump(data, f, indent=4)
+    try:
+        with open(MEMORY_FILE, "w") as f:
+            json.dump(data, f, indent=4)
+        return True
+    except Exception as e:
+        log.error(f"[FAZ-7.9] Memory kaydedilirken hata: {e}", exc_info=True)
+        return False
 
 
 def register_daily_stats(conf: float, edge: float):
@@ -118,8 +150,11 @@ def register_daily_stats(conf: float, edge: float):
     if len(mem["days"]) > 7:
         mem["days"] = mem["days"][-7:]
 
-    save_memory(mem)
-    log.info(f"[FAZ-7.9] Günlük kayıt eklendi: conf={conf:.3f}, edge={edge:.3f}")
+    ok = save_memory(mem)
+    if ok:
+        log.info(f"[FAZ-7.9] Günlük kayıt eklendi: conf={conf:.3f}, edge={edge:.3f}")
+    else:
+        log.warning("[FAZ-7.9] Günlük kayıt kaydedilemedi (dosya yazma hatası).")
 
 
 def _ema(series: pd.Series, alpha: float = 0.6) -> float:
@@ -382,7 +417,6 @@ def _faz82_lmf_shield(calib: dict) -> dict:
     calib["edge"] = round(edge, 3)
     calib["stake"] = round(stake, 2)
     return calib
-
 
 # ================================================================
 # 🧠 FAZ-8.3 — DYNAMIC CALIBRATION ENGINE (FULL)
@@ -657,8 +691,7 @@ def faz8_calibrate_signal(raw_conf: float,
         "stake": c83["cal_stake"],
     }
 
-
-# ================================================================
+  # ================================================================
 # 🧠 FAZ-7.9 & FAZ-8 KOMUTLARI
 # ================================================================
 @bot.message_handler(commands=["faz7_status"])
@@ -1048,8 +1081,7 @@ def faz6_real(message):
 
 @bot.message_handler(commands=["faz6_balance"])
 def faz6_balance(message):
-    bot.reply_to(message, "⚖️ FAZ-6 Balance modu placeholder.")
-
+    bot.reply_to(message, "⚖️ FAZ-6 Balance modu placeholder.")    
 
 # ================================================================
 # 🧰 GENEL KOMUTLAR (/start, /help, /status)
@@ -1106,6 +1138,7 @@ def cmd_status(message):
         "FAZ-8.5 META profile: <b>AKTİF</b>\n"
         f"Strateji Modu: <b>{info['mode']}</b> | "
         f"Trend: {info['trend']} | Vol: {info['vol']}\n"
+        f"Hafıza dosyası: <code>{MEMORY_FILE}</code>\n"
     )
     bot.reply_to(message, text)
 
@@ -1121,7 +1154,7 @@ def setup_webhook():
         log.warning(f"Eski webhook silinirken hata (önemli değil): {e}")
 
     if WEBHOOK_URL:
-        for attempt in range(1, 3):
+        for attempt in range(1, 4):
             try:
                 log.info(f"[FAZ-8.x] Webhook deneme {attempt}: {WEBHOOK_URL}")
                 bot.set_webhook(url=WEBHOOK_URL)
@@ -1137,6 +1170,7 @@ def setup_webhook():
 if __name__ == "__main__":
     log.info("🔥 FAZ-7.9 + FAZ-8.x + FAZ-6 core sistemi boot ediliyor...")
     init_memory()
+    _ = faz79_brain()  # hafızayı 1 kez okuyup stabilize et
     setup_webhook()
     port = int(os.getenv("PORT", 8080))
     log.info(f"Flask HTTP server 0.0.0.0:{port} üzerinde çalışıyor.")
