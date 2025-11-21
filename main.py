@@ -70,31 +70,22 @@ def telegram_webhook():
 
 
 # ================================================================
-# 📌 FAZ-7.9 v2.0 MEMORY ENGINE (KALICI HAFIZA / VOLUME DESTEKLİ)
+# 📌 FAZ-7.9 v2.0 MEMORY ENGINE  (Kalıcı volume destekli)
 #   - 7 günlük pencere
 #   - v2.0: mod seçim eşikleri ve trend/vol mantığı güncellendi
-#   - HAFIZA YOLU: Varsayılan = /data/faz7/faz7_memory.json
-#     (Fly.io volume mount için önerilen path)
+#   - Fly.io volume: /data/faz7/faz7_memory.json
 # ================================================================
-MEMORY_DIR = os.getenv("FAZ7_MEMORY_DIR", "/data/faz7")
-
-try:
-    os.makedirs(MEMORY_DIR, exist_ok=True)
-    log.info(f"[FAZ-7.9] Memory directory hazır: {MEMORY_DIR}")
-except Exception as e:
-    log.warning(
-        f"[FAZ-7.9] Memory directory oluşturulamadı ({e}), mevcut dizine düşülüyor."
-    )
-    MEMORY_DIR = "."
-    try:
-        os.makedirs(MEMORY_DIR, exist_ok=True)
-    except Exception:
-        pass
-
-MEMORY_FILE = os.path.join(MEMORY_DIR, "faz7_memory.json")
+FAZ7_DIR = os.getenv("FAZ7_DIR", "/data/faz7")
+MEMORY_FILE = os.path.join(FAZ7_DIR, "faz7_memory.json")
 
 
 def init_memory():
+    # Volume klasörü varsa / yoksa oluştur.
+    try:
+        os.makedirs(FAZ7_DIR, exist_ok=True)
+    except Exception as e:
+        log.error(f"[FAZ-7.9] Hafıza klasörü oluşturulamadı: {e}")
+
     if not os.path.exists(MEMORY_FILE):
         data = {
             "days": [],  # günlük kayıtlar: {ts, conf, edge}
@@ -102,9 +93,12 @@ def init_memory():
             "bal": 0,
             "agg": 0,
         }
-        with open(MEMORY_FILE, "w") as f:
-            json.dump(data, f, indent=4)
-        log.info(f"[FAZ-7.9] Yeni memory dosyası oluşturuldu: {MEMORY_FILE}")
+        try:
+            with open(MEMORY_FILE, "w") as f:
+                json.dump(data, f, indent=4)
+            log.info(f"[FAZ-7.9] Yeni memory dosyası oluşturuldu: {MEMORY_FILE}")
+        except Exception as e:
+            log.error(f"[FAZ-7.9] Memory dosyası oluşturulamadı: {e}")
 
 
 def load_memory():
@@ -113,24 +107,25 @@ def load_memory():
         with open(MEMORY_FILE, "r") as f:
             return json.load(f)
     except Exception as e:
-        log.error(f"[FAZ-7.9] Memory yüklenirken hata: {e}", exc_info=True)
-        # Hata durumunda sıfırdan başla ama dosyayı bozma
-        return {
+        log.error(f"[FAZ-7.9] Memory yüklenemedi, resetleniyor: {e}")
+        # reset
+        data = {
             "days": [],
             "safe": 0,
             "bal": 0,
             "agg": 0,
         }
+        with open(MEMORY_FILE, "w") as f:
+            json.dump(data, f, indent=4)
+        return data
 
 
 def save_memory(data):
     try:
         with open(MEMORY_FILE, "w") as f:
             json.dump(data, f, indent=4)
-        return True
     except Exception as e:
-        log.error(f"[FAZ-7.9] Memory kaydedilirken hata: {e}", exc_info=True)
-        return False
+        log.error(f"[FAZ-7.9] Memory kaydedilemedi: {e}")
 
 
 def register_daily_stats(conf: float, edge: float):
@@ -150,11 +145,8 @@ def register_daily_stats(conf: float, edge: float):
     if len(mem["days"]) > 7:
         mem["days"] = mem["days"][-7:]
 
-    ok = save_memory(mem)
-    if ok:
-        log.info(f"[FAZ-7.9] Günlük kayıt eklendi: conf={conf:.3f}, edge={edge:.3f}")
-    else:
-        log.warning("[FAZ-7.9] Günlük kayıt kaydedilemedi (dosya yazma hatası).")
+    save_memory(mem)
+    log.info(f"[FAZ-7.9] Günlük kayıt eklendi: conf={conf:.3f}, edge={edge:.3f}")
 
 
 def _ema(series: pd.Series, alpha: float = 0.6) -> float:
@@ -365,7 +357,7 @@ def _faz82_lmf_shield(calib: dict) -> dict:
             "edge_floor": 0.028,
             "edge_hard_floor": 0.018,
             "vol_soft": 0.10,
-            "vol_hard": 0.22,  # düzeltilmiş satır
+            "vol_hard": 0.22,
             "trend_up_factor": 1.04,
             "trend_down_factor": 0.90,
         },
@@ -417,6 +409,7 @@ def _faz82_lmf_shield(calib: dict) -> dict:
     calib["edge"] = round(edge, 3)
     calib["stake"] = round(stake, 2)
     return calib
+
 
 # ================================================================
 # 🧠 FAZ-8.3 — DYNAMIC CALIBRATION ENGINE (FULL)
@@ -691,7 +684,8 @@ def faz8_calibrate_signal(raw_conf: float,
         "stake": c83["cal_stake"],
     }
 
-  # ================================================================
+
+# ================================================================
 # 🧠 FAZ-7.9 & FAZ-8 KOMUTLARI
 # ================================================================
 @bot.message_handler(commands=["faz7_status"])
@@ -869,7 +863,8 @@ def faz83_test(message):
 
 
 # ================================================================
-# 🏀 FAZ-6 – KUPON & SİMÜLASYON (FAZ-8.4 Kupon Motoru)
+# 🏀 FAZ-6 v2 – GENİŞLETİLMİŞ KUPON & SİMÜLASYON
+#        (FAZ-8.4 Kupon Motoru + FAZ-8.5 META altyapı)
 # ================================================================
 def _faz84_from_raw(profile: str,
                     raw_conf: float,
@@ -882,27 +877,62 @@ def _faz84_from_raw(profile: str,
     return faz84_coupon_engine(profile, raw_conf, raw_edge, base_stake)
 
 
-def build_faz6_coupons_text():
+def build_faz6_coupons_text() -> str:
     """
-    FAZ-6 kuponları:
-      Her maç FAZ-8.4 kupon motoru ile kalibre ediliyor.
-      Burada dört farklı profil gösteriyoruz (SAFE/BAL/AGG/ULTRA).
+    FAZ-6 v2 kuponları:
+      - 4 ana kupon
+      - Toplam 20 maç / market
+      - Q1/Q2/Q3/Q4, HT, FT, spread & total karışık
+      - Her maç FAZ-8.4 kupon motoru ile kalibre edilir.
     """
-    # Kupon 1 — SAFE
-    k1_g1 = _faz84_from_raw("SAFE", 0.66, 0.045, 0.88)
-    k1_g2 = _faz84_from_raw("SAFE", 0.64, 0.041, 0.84)
+    coupons = [
+        {
+            "title": "🔥Kupon 1 — SAFE [SAFE]",
+            "profile": "SAFE",
+            "legs": [
+                ("EL:EFES@REAL | REAL MADRID -5.5 (FT spread)", 0.66, 0.045, 0.88),
+                ("EL:FENER@OLY | OLYMPIACOS -3.5 (FT spread)", 0.64, 0.041, 0.84),
+                ("NBA:BOS@MIA | UNDER 112.5 (1. Yarı total)", 0.65, 0.040, 0.80),
+                ("NBA:LAL@DEN | DEN +1.5 (Q1 spread)", 0.64, 0.039, 0.78),
+                ("NBA:GSW@PHX | UNDER 58.5 (Q2 total)", 0.63, 0.038, 0.76),
+            ],
+        },
+        {
+            "title": "🔥Kupon 2 — BALANCED [BAL]",
+            "profile": "BAL",
+            "legs": [
+                ("NBA:BOS@MIA | UNDER 224.5 (FT total)", 0.63, 0.036, 0.80),
+                ("NBA:LAL@DEN | DEN -4.5 (FT spread)", 0.61, 0.032, 0.76),
+                ("EL:PARTIZAN@EFES | OVER 79.5 (1. Yarı total)", 0.62, 0.034, 0.78),
+                ("NBA:NYK@CHI | NYK -1.5 (Q3 spread)", 0.60, 0.031, 0.74),
+                ("NBA:DAL@SAC | OVER 56.5 (Q4 total)", 0.60, 0.030, 0.74),
+            ],
+        },
+        {
+            "title": "🔥Kupon 3 — AGGRESSIVE [AGG]",
+            "profile": "AGG",
+            "legs": [
+                ("NBA:CHI@NYK | NYK ML (FT moneyline)", 0.60, 0.031, 0.75),
+                ("NBA:MIA@MIL | MIA +2.5 (Q1 spread)", 0.59, 0.030, 0.74),
+                ("NBA:PHI@BOS | OVER 113.5 (2. Yarı total)", 0.59, 0.029, 0.72),
+                ("EL:FENER@REAL | FENERBAHÇE +4.5 (FT spread)", 0.58, 0.029, 0.72),
+                ("NBA:LAC@GSW | LAC ML (Q4 moneyline)", 0.58, 0.028, 0.70),
+            ],
+        },
+        {
+            "title": "🔥Kupon 4 — ULTRA [ULTRA]",
+            "profile": "ULTRA",
+            "legs": [
+                ("NBA:GSW@PHX | OVER 230.5 (FT total)", 0.59, 0.028, 0.73),
+                ("NBA:DAL@LAL | DAL -3.5 (FT spread)", 0.58, 0.027, 0.72),
+                ("NBA:NYK@BKN | NYK -1.5 (HT spread)", 0.58, 0.027, 0.70),
+                ("EL:EFES@BAYERN | OVER 41.5 (Q1 total)", 0.57, 0.026, 0.68),
+                ("EL:FENER@OLY | OVER 79.5 (2. Yarı total)", 0.57, 0.026, 0.68),
+            ],
+        },
+    ]
 
-    # Kupon 2 — BALANCED
-    k2_g1 = _faz84_from_raw("BAL", 0.63, 0.036, 0.80)
-    k2_g2 = _faz84_from_raw("BAL", 0.61, 0.032, 0.76)
-
-    # Kupon 3 — AGGRESSIVE
-    k3_g1 = _faz84_from_raw("AGG", 0.60, 0.031, 0.75)
-
-    # Kupon 4 — ULTRA
-    k4_g1 = _faz84_from_raw("ULTRA", 0.59, 0.028, 0.73)
-
-    def fmt(game, calib):
+    def fmt(game: str, calib: dict) -> str:
         return (
             f"{game}\n"
             f"  Güven: {calib['conf']:.2f} | "
@@ -911,46 +941,47 @@ def build_faz6_coupons_text():
             f"Risk: {calib['risk']} | Mode: {calib['mode']}\n"
         )
 
-    text = (
-        "🔥 <b>FAZ-6 KUPONLARI (FAZ-8.4 Kupon Motoru)</b>\n\n"
-
-        "🔥 <b>Kupon 1 — SAFE [SAFE]</b>\n" +
-        fmt("- EL:EFES@REAL | REAL MADRID -5.5 (spread)", k1_g1) +
-        fmt("- EL:FENER@OLY | OLYMPIACOS -3.5 (spread)", k1_g2) +
-        f"💰 Toplam Stake: {k1_g1['stake'] + k1_g2['stake']:.2f}\n"
-        "— — —\n\n"
-
-        "🔥 <b>Kupon 2 — BALANCED [BAL]</b>\n" +
-        fmt("- NBA:BOS@MIA | UNDER 224.5 (total)", k2_g1) +
-        fmt("- NBA:LAL@DEN | DEN -4.5 (spread)", k2_g2) +
-        f"💰 Toplam Stake: {k2_g1['stake'] + k2_g2['stake']:.2f}\n"
-        "— — —\n\n"
-
-        "🔥 <b>Kupon 3 — AGGRESSIVE [AGG]</b>\n" +
-        fmt("- NBA:CHI@NYK | NYK ML (moneyline)", k3_g1) +
-        f"💰 Toplam Stake: {k3_g1['stake']:.2f}\n"
-        "— — —\n\n"
-
-        "🔥 <b>Kupon 4 — ULTRA [ULTRA]</b>\n" +
-        fmt("- NBA:GSW@PHX | OVER 230.5 (total)", k4_g1) +
-        f"💰 Toplam Stake: {k4_g1['stake']:.2f}\n"
+    parts = []
+    parts.append(
+        "🔥 <b>FAZ-6 v2 KUPONLARI</b> "
+        "(20 maç / FAZ-8.4 Kupon Motoru + FAZ-8.5 META hafıza uyumlu)\n\n"
     )
 
-    return text
+    for coupon in coupons:
+        profile = coupon["profile"]
+        legs = coupon["legs"]
+        c_legs = []
+        total_stake = 0.0
+
+        for game, conf, edge, stake in legs:
+            calib = _faz84_from_raw(profile, conf, edge, stake)
+            c_legs.append(fmt(game, calib))
+            total_stake += calib["stake"]
+
+        parts.append(coupon["title"] + "\n")
+        parts.extend(c_legs)
+        parts.append(f"💰 Toplam Stake: {total_stake:.2f}\n")
+        parts.append("— — —\n\n")
+
+    return "".join(parts)
 
 
-def build_faz6_meta_coupon_text():
+def build_faz6_meta_coupon_text() -> str:
     """
-    FAZ-6 META kuponu:
-      FAZ-8.5 META profile seçici ile tek bir profil seçilir
-      ve örnek iki maç o profile göre kalibre edilir.
+    FAZ-6 META kuponu (v2):
+      - FAZ-8.5 META profile seçici ile tek bir profil seçilir
+      - Aynı profille 4 farklı maç / market kalibre edilir.
     """
     profile = faz85_meta_profile_selector()
 
-    g1 = _faz84_from_raw(profile, 0.64, 0.039, 0.85)
-    g2 = _faz84_from_raw(profile, 0.62, 0.034, 0.80)
+    legs_def = [
+        ("NBA:MIA@NYK | MIA -2.5 (FT spread)", 0.64, 0.039, 0.85),
+        ("EL:FENER@EFES | OVER 164.5 (FT total)", 0.62, 0.034, 0.80),
+        ("NBA:MIA@NYK | OVER 52.5 (Q1 total)", 0.63, 0.036, 0.78),
+        ("NBA:MIA@NYK | NYK +1.5 (Q3 spread)", 0.61, 0.032, 0.76),
+    ]
 
-    def fmt(game, calib):
+    def fmt(game: str, calib: dict) -> str:
         return (
             f"{game}\n"
             f"  Güven: {calib['conf']:.2f} | "
@@ -959,18 +990,27 @@ def build_faz6_meta_coupon_text():
             f"Risk: {calib['risk']} | Mode: {calib['mode']}\n"
         )
 
+    legs_text = []
+    total_stake = 0.0
+    for game, conf, edge, stake in legs_def:
+        calib = _faz84_from_raw(profile, conf, edge, stake)
+        legs_text.append(fmt(game, calib))
+        total_stake += calib["stake"]
+
     text = (
-        "🤖 <b>FAZ-6 META KUPON (FAZ-8.5 Profile Selector)</b>\n\n"
+        "🤖 <b>FAZ-6 META KUPON (FAZ-8.5 Profile Selector v2)</b>\n\n"
         f"Seçilen Profil: <b>{profile}</b>\n\n" +
-        fmt("- NBA:MIA@NYK | MIA -2.5 (spread)", g1) +
-        fmt("- EL:FENER@EFES | OVER 164.5 (total)", g2) +
-        f"💰 Toplam Stake: {g1['stake'] + g2['stake']:.2f}\n"
+        "".join(legs_text) +
+        f"💰 Toplam Stake: {total_stake:.2f}\n"
     )
     return text
 
 
 @bot.message_handler(commands=["faz6_coupon", "kupon"])
 def faz6_coupon(message):
+    """
+    FAZ-6 v2 çoklu kupon çıktısı (20 maç).
+    """
     try:
         text = build_faz6_coupons_text()
         bot.reply_to(message, text)
@@ -992,6 +1032,9 @@ def faz6_meta(message):
         bot.reply_to(message, "❌ META kupon üretiminde hata oluştu.")
 
 
+# ================================================================
+# 🏀 NBA SİMÜLASYON (FAZ-8.4 + FAZ-8.5 META)
+# ================================================================
 def build_nba_simulation_text():
     """
     NBA simülasyon çıktı örneği:
@@ -1053,7 +1096,7 @@ def cmd_simulate_nba(message):
         bot.reply_to(message, f"❌ Simülasyon hatası: {e}")
 
 
-# Basit FAZ-6 placeholder komutları (şimdilik)
+# Basit FAZ-6 placeholder komutları (isim tutarlılığı için)
 @bot.message_handler(commands=["faz6_test"])
 def faz6_test(message):
     bot.reply_to(message, "🧪 FAZ-6 Test modu placeholder.")
@@ -1081,7 +1124,8 @@ def faz6_real(message):
 
 @bot.message_handler(commands=["faz6_balance"])
 def faz6_balance(message):
-    bot.reply_to(message, "⚖️ FAZ-6 Balance modu placeholder.")    
+    bot.reply_to(message, "⚖️ FAZ-6 Balance modu placeholder.")
+
 
 # ================================================================
 # 🧰 GENEL KOMUTLAR (/start, /help, /status)
@@ -1090,7 +1134,8 @@ def faz6_balance(message):
 def cmd_start(message):
     text = (
         "🔥 <b>Bot aktif!</b>\n"
-        "FAZ-4 + FAZ-5 + FAZ-6 + FAZ-7.9 v2.0 + FAZ-8.2 + FAZ-8.3 + FAZ-8.4 + FAZ-8.5 META bağlı.\n"
+        "FAZ-4 + FAZ-5 + FAZ-6 v2 + FAZ-7.9 v2.0 + "
+        "FAZ-8.2 + FAZ-8.3 + FAZ-8.4 + FAZ-8.5 META bağlı.\n"
         "Komut listesi için <code>/help</code> yaz."
     )
     bot.reply_to(message, text)
@@ -1104,14 +1149,14 @@ def cmd_help(message):
         "/help - Komut listesi\n"
         "/status - Sistem durumu\n\n"
         "/simulate_nba - NBA canlı simülasyon (FAZ-8.4 + FAZ-8.5)\n\n"
-        "— <b>FAZ-6</b> —\n"
+        "— <b>FAZ-6 v2</b> —\n"
         "/faz6_test - FAZ-6 Test\n"
         "/faz6_auto - FAZ-6 Auto\n"
         "/faz6_risk - FAZ-6 Risk\n"
         "/faz6_edge - FAZ-6 Edge\n"
         "/faz6_real - FAZ-6 Real\n"
         "/faz6_balance - FAZ-6 Balance\n"
-        "/faz6_coupon - FAZ-6 Kupon (FAZ-8.4 kupon motoru)\n"
+        "/faz6_coupon - FAZ-6 v2 Kupon (20 maç / FAZ-8.4 kupon motoru)\n"
         "/faz6_meta - FAZ-6 META kupon (FAZ-8.5 profile selector)\n\n"
         "— <b>FAZ-7.9</b> —\n"
         "/faz7_status - FAZ-7.9 hafıza özeti\n"
@@ -1154,7 +1199,7 @@ def setup_webhook():
         log.warning(f"Eski webhook silinirken hata (önemli değil): {e}")
 
     if WEBHOOK_URL:
-        for attempt in range(1, 4):
+        for attempt in range(1, 3):
             try:
                 log.info(f"[FAZ-8.x] Webhook deneme {attempt}: {WEBHOOK_URL}")
                 bot.set_webhook(url=WEBHOOK_URL)
@@ -1168,9 +1213,8 @@ def setup_webhook():
 
 
 if __name__ == "__main__":
-    log.info("🔥 FAZ-7.9 + FAZ-8.x + FAZ-6 core sistemi boot ediliyor...")
+    log.info("🔥 FAZ-7.9 + FAZ-8.x + FAZ-6 v2 core sistemi boot ediliyor...")
     init_memory()
-    _ = faz79_brain()  # hafızayı 1 kez okuyup stabilize et
     setup_webhook()
     port = int(os.getenv("PORT", 8080))
     log.info(f"Flask HTTP server 0.0.0.0:{port} üzerinde çalışıyor.")
