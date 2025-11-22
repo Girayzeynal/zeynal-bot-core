@@ -1,156 +1,161 @@
 import os
 import json
 import time
+import math
 import logging
+import traceback
 
-import telebot
 import numpy as np
 import pandas as pd
+import requests
 from flask import Flask, request
 
-# ================================================================
-# 🔧 LOGGING
-# ================================================================
+# =======================
+# LOGGING
+# =======================
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
+    format="%(asctime)s [%(levelname)s] %(message)s"
 )
-log = logging.getLogger(__name__)
+log = logging.getLogger("ZeynalCoreAI")
 
-# ================================================================
-# 🔧 CONFIG
-# ================================================================
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Örn: https://zeynal-bot-core.fly.dev/webhook
+# =======================
+# BASE CONFIG
+# =======================
+TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # örn: https://zeynal-bot-core.fly.dev
 
-if not BOT_TOKEN:
+FAZ7_DIR = "/data/faz7"
+FAZ6_DIR = "/data/faz6"
+
+FAZ7_MEMORY_FILE = os.path.join(FAZ7_DIR, "faz7_memory.json")
+FAZ6_MEMORY_FILE = os.path.join(FAZ6_DIR, "faz6_memory.json")
+
+if not TOKEN:
     raise RuntimeError("BOT_TOKEN env değişkeni tanımlı değil!")
 
-if not WEBHOOK_URL:
-    log.warning("WEBHOOK_URL tanımlı değil! Webhook set edilemeyecek.")
+# =======================
+# TELEGRAM HELPERS
+# =======================
+TG_API = f"https://api.telegram.org/bot{TOKEN}"
 
-# Telegram bot
-bot = telebot.TeleBot(
-    BOT_TOKEN,
-    parse_mode="HTML",
-    disable_web_page_preview=True,
-)
 
-# ================================================================
-# 🌐 FLASK APP (Health check + Webhook)
-# ================================================================
+def tg_send(chat_id: int, text: str):
+    try:
+        url = f"{TG_API}/sendMessage"
+        resp = requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
+        if resp.status_code != 200:
+            log.warning(f"Telegram sendMessage status={resp.status_code}, resp={resp.text}")
+    except Exception:
+        log.error("Telegram gönderim hatası:\n" + traceback.format_exc())
+
+
+def tg_send_long(chat_id: int, text: str, chunk_size: int = 3500):
+    lines = text.split("\n")
+    buf = ""
+    for line in lines:
+        if len(buf) + len(line) + 1 > chunk_size:
+            if buf.strip():
+                tg_send(chat_id, buf)
+            buf = line + "\n"
+        else:
+            buf += line + "\n"
+    if buf.strip():
+        tg_send(chat_id, buf)
+
+
+# =======================
+# FLASK SERVER
+# =======================
 app = Flask(__name__)
 
 
 @app.route("/", methods=["GET"])
 def home():
-    # Fly.io health check
-    return "OK", 200
+    return "Zeynal Core AI — RUNNING", 200
 
 
-@app.route("/webhook", methods=["POST"])
-def telegram_webhook():
-    """
-    Telegram'ın gönderdiği update'leri alıp TeleBot'a paslıyoruz.
-    Hata olursa loglayıp 200 dönüyoruz ki Telegram webhook'u düşürmesin.
-    """
+@app.route(f"/{TOKEN}", methods=["POST"])
+def webhook():
     try:
-        json_update = request.get_json(force=False, silent=True)
-        if json_update is None:
-            raw_body = request.data.decode("utf-8", errors="ignore")
-            log.warning(f"Webhook JSON parse edilemedi, raw body: {raw_body[:500]}")
+        data = request.get_json(force=True, silent=True)
+        if data is None:
+            log.warning("Boş / geçersiz JSON update alındı.")
             return "OK", 200
-
-        update = telebot.types.Update.de_json(json_update)
-        bot.process_new_updates([update])
-    except Exception as e:
-        log.error(f"Webhook update işlenirken hata: {e}", exc_info=True)
+        handle_update(data)
+    except Exception:
+        log.error("Webhook parse hatası:\n" + traceback.format_exc())
     return "OK", 200
 
 
 # ================================================================
-# 📌 FAZ-7.9 v2.0 MEMORY ENGINE  (Kalıcı volume destekli)
-#   - 7 günlük pencere
-#   - v2.0: mod seçim eşikleri ve trend/vol mantığı güncellendi
-#   - Fly.io volume: /data/faz7/faz7_memory.json
+#  FAZ-7.9 v2.0 MEMORY ENGINE
 # ================================================================
-FAZ7_DIR = os.getenv("FAZ7_DIR", "/data/faz7")
-MEMORY_FILE = os.path.join(FAZ7_DIR, "faz7_memory.json")
-
-
-def init_memory():
-    # Volume klasörü varsa / yoksa oluştur.
+def ensure_dir(path: str):
     try:
-        os.makedirs(FAZ7_DIR, exist_ok=True)
-    except Exception as e:
-        log.error(f"[FAZ-7.9] Hafıza klasörü oluşturulamadı: {e}")
+        os.makedirs(path, exist_ok=True)
+    except Exception:
+        log.error("Klasör oluşturma hatası:\n" + traceback.format_exc())
 
-    if not os.path.exists(MEMORY_FILE):
+
+def init_faz7_memory():
+    ensure_dir(FAZ7_DIR)
+    if not os.path.exists(FAZ7_MEMORY_FILE):
         data = {
-            "days": [],  # günlük kayıtlar: {ts, conf, edge}
+            "days": [],  # {ts, conf, edge}
             "safe": 0,
             "bal": 0,
             "agg": 0,
         }
         try:
-            with open(MEMORY_FILE, "w") as f:
+            with open(FAZ7_MEMORY_FILE, "w") as f:
                 json.dump(data, f, indent=4)
-            log.info(f"[FAZ-7.9] Yeni memory dosyası oluşturuldu: {MEMORY_FILE}")
-        except Exception as e:
-            log.error(f"[FAZ-7.9] Memory dosyası oluşturulamadı: {e}")
+            log.info(f"[FAZ-7.9] Yeni hafıza dosyası oluşturuldu: {FAZ7_MEMORY_FILE}")
+        except Exception:
+            log.error("FAZ-7.9 memory init hatası:\n" + traceback.format_exc())
 
 
-def load_memory():
-    init_memory()
+def load_faz7_memory():
+    init_faz7_memory()
     try:
-        with open(MEMORY_FILE, "r") as f:
+        with open(FAZ7_MEMORY_FILE, "r") as f:
             return json.load(f)
-    except Exception as e:
-        log.error(f"[FAZ-7.9] Memory yüklenemedi, resetleniyor: {e}")
+    except Exception:
+        log.error("FAZ-7.9 memory yükleme hatası, resetleniyor:\n" + traceback.format_exc())
         data = {
             "days": [],
             "safe": 0,
             "bal": 0,
             "agg": 0,
         }
-        with open(MEMORY_FILE, "w") as f:
+        with open(FAZ7_MEMORY_FILE, "w") as f:
             json.dump(data, f, indent=4)
         return data
 
 
-def save_memory(data):
+def save_faz7_memory(data: dict):
     try:
-        with open(MEMORY_FILE, "w") as f:
+        with open(FAZ7_MEMORY_FILE, "w") as f:
             json.dump(data, f, indent=4)
-    except Exception as e:
-        log.error(f"[FAZ-7.9] Memory kaydedilemedi: {e}")
+    except Exception:
+        log.error("FAZ-7.9 memory kaydetme hatası:\n" + traceback.format_exc())
 
 
 def register_daily_stats(conf: float, edge: float):
-    """
-    FAZ-7.9 v2.0 REGISTER → günlük confidence & edge kaydı.
-    """
-    mem = load_memory()
+    mem = load_faz7_memory()
     today = {
         "ts": int(time.time()),
         "conf": float(conf),
         "edge": float(edge),
     }
-
     mem["days"].append(today)
-
-    # sadece son 7 günü tut
     if len(mem["days"]) > 7:
         mem["days"] = mem["days"][-7:]
-
-    save_memory(mem)
+    save_faz7_memory(mem)
     log.info(f"[FAZ-7.9] Günlük kayıt eklendi: conf={conf:.3f}, edge={edge:.3f}")
 
 
 def _ema(series: pd.Series, alpha: float = 0.6) -> float:
-    """
-    Basit EMA – v2.0 trend hesabında destek amaçlı.
-    """
     if len(series) == 0:
         return 0.0
     ema_val = series.iloc[0]
@@ -160,15 +165,8 @@ def _ema(series: pd.Series, alpha: float = 0.6) -> float:
 
 
 def faz79_brain():
-    """
-    FAZ-7.9 v2.0 STRATEJİ BEYNİ
-      - 7 günlük conf/edge ortalamaları
-      - lineer trend (slope)
-      - EMA destekli volatilite yorumlaması
-      - SAFE/BAL/AGG mod seçimi revize eşikler
-    """
-    mem = load_memory()
-    days = mem["days"]
+    mem = load_faz7_memory()
+    days = mem.get("days", [])
 
     if len(days) == 0:
         return {
@@ -190,14 +188,12 @@ def faz79_brain():
     avg_conf = float(df["conf"].mean())
     avg_edge = float(df["edge"].mean())
 
-    # linear regression slope (SVD hatasına karşı korumalı)
     try:
         slope = float(np.polyfit(df["t"], df["conf"], 1)[0])
     except Exception as e:
         log.warning(f"FAZ-7.9 v2.0 slope hesaplanırken hata (SVD fallback): {e}")
         slope = 0.0
 
-    # Trend yönü (EMA destekli)
     ema_conf = _ema(df["conf"])
     if slope > 0.01 and ema_conf >= avg_conf:
         trend = "UP"
@@ -206,12 +202,10 @@ def faz79_brain():
     else:
         trend = "FLAT"
 
-    # Volatilite: std + küçük EMA farkı katkısı
     base_vol = float(df["conf"].std() if len(df) > 1 else 0.0)
     ema_diff = abs(ema_conf - avg_conf)
     vol = float(base_vol * 0.8 + ema_diff * 0.2)
 
-    # v2.0 mod eşikleri:
     if avg_conf >= 0.72 and avg_edge >= 0.045:
         mode = "SAFE"
     elif avg_conf >= 0.58 and avg_edge >= 0.030:
@@ -222,7 +216,7 @@ def faz79_brain():
     mem["safe"] = int(mode == "SAFE")
     mem["bal"] = int(mode == "BAL")
     mem["agg"] = int(mode == "AGG")
-    save_memory(mem)
+    save_faz7_memory(mem)
 
     return {
         "mode": mode,
@@ -239,16 +233,11 @@ def faz79_brain():
 
 
 # ================================================================
-# 🧠 FAZ-8.1 – CORE CALIBRATION ENGINE
+#  FAZ-8.1 / 8.2 / 8.3 / 8.4 / 8.5
 # ================================================================
 def _faz81_core_calibration(raw_conf: float,
                             raw_edge: float,
                             base_stake: float = 1.0) -> dict:
-    """
-    FAZ-8.1 core:
-      - FAZ-7.9 beyninden mode/trend/vol alır
-      - conf / edge / stake değerini temel kurallarla ayarlar
-    """
     brain = faz79_brain()
 
     mode = brain["mode"]
@@ -259,7 +248,6 @@ def _faz81_core_calibration(raw_conf: float,
     edge = float(raw_edge)
     stake = float(base_stake)
 
-    # INIT veya bilinmeyen mod → sadece passthrough
     if mode not in ("SAFE", "BAL", "AGG"):
         return {
             "engine": "FAZ-8.1",
@@ -271,18 +259,16 @@ def _faz81_core_calibration(raw_conf: float,
             "stake": round(stake, 2),
         }
 
-    # Mode bazlı çarpanlar
     if mode == "SAFE":
         stake_factor = 0.88
         conf_boost = 0.035
     elif mode == "BAL":
         stake_factor = 1.00
         conf_boost = 0.00
-    else:  # AGG
+    else:
         stake_factor = 1.18
         conf_boost = -0.025
 
-    # Trend etkisi
     if trend == "UP":
         conf += 0.02
         edge *= 1.06
@@ -290,7 +276,6 @@ def _faz81_core_calibration(raw_conf: float,
         conf -= 0.02
         edge *= 0.94
 
-    # Volatilite etkisi
     if vol > 0.18:
         conf -= 0.02
         stake_factor *= 0.90
@@ -298,10 +283,8 @@ def _faz81_core_calibration(raw_conf: float,
         conf += 0.01
         edge *= 1.03
 
-    # Mode bazlı conf boost
     conf += conf_boost
 
-    # Güvenlik: clamp
     conf = max(0.0, min(conf, 0.99))
     edge = max(0.0, edge)
     stake = max(0.1, stake * stake_factor)
@@ -317,16 +300,7 @@ def _faz81_core_calibration(raw_conf: float,
     }
 
 
-# ================================================================
-# 🧠 FAZ-8.2 – LMF SHIELD (Loss Minimization Filters)
-# ================================================================
 def _faz82_lmf_shield(calib: dict) -> dict:
-    """
-    FAZ-8.2:
-      - Edge floor / vol kapıları
-      - Trend DOWN / UP için farklı baskılama / boost
-      - Mode'a göre farklı LMF profilleri
-    """
     mode = calib.get("mode", "INIT")
     trend = calib.get("trend", "INIT")
     vol = float(calib.get("vol", 0.0))
@@ -363,7 +337,6 @@ def _faz82_lmf_shield(calib: dict) -> dict:
 
     prof = profiles.get(mode, profiles["BAL"])
 
-    # 1) Edge tabanı
     if edge < prof["edge_hard_floor"]:
         stake *= 0.45
         conf *= 0.80
@@ -371,7 +344,6 @@ def _faz82_lmf_shield(calib: dict) -> dict:
         stake *= 0.70
         conf *= 0.90
 
-    # 2) Volatilite kapıları
     if vol > prof["vol_hard"]:
         stake *= 0.65
         conf *= 0.90
@@ -379,7 +351,6 @@ def _faz82_lmf_shield(calib: dict) -> dict:
         stake *= 0.80
         conf *= 0.95
 
-    # 3) Trend smoothing
     if trend == "DOWN":
         stake *= prof["trend_down_factor"]
         conf *= prof["trend_down_factor"]
@@ -398,21 +369,10 @@ def _faz82_lmf_shield(calib: dict) -> dict:
     return calib
 
 
-# ================================================================
-# 🧠 FAZ-8.3 — DYNAMIC CALIBRATION ENGINE (FULL)
-# ================================================================
 def faz83_compute_risk_bucket(conf: float,
                               edge: float,
                               conf_avg: float,
                               edge_avg: float):
-    """
-    FAZ-8.3 risk puanı:
-      score = 0.6 * (conf/conf_avg) + 0.4 * (edge/edge_avg)
-    Bucket:
-      LOW  < 0.95
-      MID  < 1.10
-      HIGH ≥ 1.10
-    """
     conf_avg = max(conf_avg, 1e-6)
     edge_avg = max(edge_avg, 1e-6)
 
@@ -439,12 +399,6 @@ def faz83_dynamic_calibration(conf: float,
                               vol: float,
                               conf_avg: float,
                               edge_avg: float) -> dict:
-    """
-    FAZ-8.3 ana motor:
-      - FAZ-7.9 ortalamalarına göre risk bucket belirler
-      - Trend & volatilite ile stake ayarı yapar
-      - Mode SAFE/BAL/AGG'e göre hafif modifikasyon uygular
-    """
     bucket, score = faz83_compute_risk_bucket(conf, edge, conf_avg, edge_avg)
 
     base_mult_map = {
@@ -479,7 +433,7 @@ def faz83_dynamic_calibration(conf: float,
     elif bucket == "MID":
         conf_mult = 0.97
         edge_mult = 0.97
-    else:  # HIGH
+    else:
         conf_mult = 1.02
         edge_mult = 1.00
 
@@ -499,17 +453,10 @@ def faz83_dynamic_calibration(conf: float,
     }
 
 
-# ================================================================
-# 🧠 FAZ-8.4 — COUPON POWER ENGINE
-# ================================================================
 def faz84_coupon_engine(profile: str,
                         raw_conf: float,
                         raw_edge: float,
                         base_stake: float = 1.0) -> dict:
-    """
-    Kupon bazlı full pipeline:
-      RAW → 8.1 → 8.2 → 8.3 → 8.4 profil ayarı
-    """
     core = _faz81_core_calibration(raw_conf, raw_edge, base_stake)
     core82 = _faz82_lmf_shield(core)
 
@@ -568,17 +515,7 @@ def faz84_coupon_engine(profile: str,
     }
 
 
-# ================================================================
-# 🧠 FAZ-8.5 — META PROFILE SELECTOR
-# ================================================================
 def faz85_meta_profile_selector() -> str:
-    """
-    META STRATEJİ:
-      SAFE = beyin SAFE ve bucket HIGH iken
-      BAL  = normal mod
-      AGG  = beyin AGG + bucket HIGH iken
-      ULTRA = meta tarafından otomatik asla seçilmez
-    """
     brain = faz79_brain()
     mode = brain["mode"]
 
@@ -611,16 +548,9 @@ def faz85_meta_profile_selector() -> str:
     return profile
 
 
-# ================================================================
-# 🧠 GENEL FAZ-8 PUBLIC API
-# ================================================================
 def faz8_calibrate_signal(raw_conf: float,
                           raw_edge: float,
                           base_stake: float = 1.0) -> dict:
-    """
-    PUBLIC FAZ-8.x API:
-      RAW → 8.1 → 8.2 → 8.3
-    """
     core = _faz81_core_calibration(raw_conf, raw_edge, base_stake)
     brain = faz79_brain()
 
@@ -653,199 +583,16 @@ def faz8_calibrate_signal(raw_conf: float,
 
 
 # ================================================================
-# 🧠 FAZ-7.9 & FAZ-8 KOMUTLARI
-# ================================================================
-@bot.message_handler(commands=["faz7_status"])
-def faz7_status(message):
-    mem = load_memory()
-
-    if len(mem["days"]) == 0:
-        msg = "📊 <b>FAZ-7.9 Hafıza:</b> Henüz veri yok."
-    else:
-        df = pd.DataFrame(mem["days"])
-        msg = (
-            "📊 <b>FAZ-7.9 v2.0 HAFIZA ÖZETİ</b>\n\n"
-            f"SAFE: {mem['safe']}\n"
-            f"BAL : {mem['bal']}\n"
-            f"AGG : {mem['agg']}\n\n"
-            f"7 Günlük Ortalama Confidence: <b>{df['conf'].mean():.3f}</b>\n"
-            f"7 Günlük Ortalama Edge: <b>{df['edge'].mean():.3f}</b>"
-        )
-
-    bot.reply_to(message, msg)
-
-
-@bot.message_handler(commands=["faz7_plan"])
-def faz7_plan(message):
-    info = faz79_brain()
-
-    msg = (
-        "🧠 <b>FAZ-7.9 v2.0 STRATEJİ BEYNİ</b>\n\n"
-        f"Mod: <b>{info['mode']}</b>\n"
-        f"Günlük: conf={info['conf']} edge={info['edge']}\n"
-        f"Trend: {info['trend']} (slope {info['slope']})\n"
-        f"Volatilite: {info['vol']}\n"
-        f"Stake Normalize: {info['stake_norm']}\n\n"
-        f"SAFE: {'✅' if info['safe'] else '❌'}\n"
-        f"BAL: {'✅' if info['bal'] else '❌'}\n"
-        f"AGG: {'✅' if info['agg'] else '❌'}\n"
-    )
-
-    bot.reply_to(message, msg)
-
-
-@bot.message_handler(commands=["faz7_register"])
-def faz7_register_cmd(message):
-    """
-    Kullanım: /faz7_register 0.65 0.04
-    """
-    try:
-        parts = message.text.split()
-        if len(parts) != 3:
-            bot.reply_to(
-                message,
-                "✅ Kullanım: <code>/faz7_register conf edge</code>\n"
-                "Örn: <code>/faz7_register 0.62 0.035</code>",
-            )
-            return
-
-        conf = float(parts[1])
-        edge = float(parts[2])
-
-        register_daily_stats(conf, edge)
-        info = faz79_brain()
-
-        bot.reply_to(
-            message,
-            (
-                "✅ Günlük FAZ-7.9 v2.0 kaydı alındı.\n\n"
-                f"conf={conf:.3f}, edge={edge:.3f}\n"
-                f"Yeni Mod: <b>{info['mode']}</b>\n"
-                f"Trend: {info['trend']} (slope {info['slope']})"
-            ),
-        )
-    except Exception as e:
-        bot.reply_to(message, f"❌ Kayıt hatası: {e}")
-
-
-@bot.message_handler(commands=["faz8_status"])
-def faz8_status(message):
-    """
-    FAZ-8.3 kalibrasyon motorunun örnek davranışı
-    """
-    raw_conf = 0.64
-    raw_edge = 0.038
-    base_stake = 1.0
-
-    calib = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
-
-    msg = (
-        "🧪 <b>FAZ-8.x STATUS</b>\n\n"
-        f"Mode: <b>{calib['mode']}</b>\n"
-        f"Trend: {calib['trend']} | Vol: {calib['vol']}\n"
-        f"Engine: <b>{calib.get('engine','FAZ-8.3')}</b>\n"
-        f"Bucket: <b>{calib['bucket']}</b> | Score: {calib['score']}\n\n"
-        f"Cal → conf=<b>{calib['conf']:.3f}</b>, "
-        f"edge=<b>{calib['edge']:.3f}</b>, "
-        f"stake=<b>{calib['stake']:.2f}</b>\n"
-    )
-    bot.reply_to(message, msg)
-
-
-@bot.message_handler(commands=["faz8_test"])
-def faz8_test(message):
-    """
-    Kullanım: /faz8_test 0.60 0.03 1.0
-      → conf, edge, (opsiyonel) base_stake
-    """
-    try:
-        parts = message.text.split()
-        if len(parts) not in (3, 4):
-            bot.reply_to(
-                message,
-                "✅ Kullanım: <code>/faz8_test conf edge [stake]</code>\n"
-                "Örn: <code>/faz8_test 0.63 0.035 0.80</code>",
-            )
-            return
-
-        raw_conf = float(parts[1])
-        raw_edge = float(parts[2])
-        base_stake = float(parts[3]) if len(parts) == 4 else 1.0
-
-        calib = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
-
-        msg = (
-            "🧪 <b>FAZ-8.3 FULL TEST</b>\n\n"
-            f"Input: conf={raw_conf:.3f}, edge={raw_edge:.3f}, stake={base_stake:.2f}\n\n"
-            f"Mode: <b>{calib['mode']}</b> | Trend: {calib['trend']} | Vol: {calib['vol']}\n"
-            f"Bucket: <b>{calib['bucket']}</b> | Score: {calib['score']}\n\n"
-            f"Output → conf=<b>{calib['conf']:.3f}</b>, "
-            f"edge=<b>{calib['edge']:.3f}</b>, "
-            f"stake=<b>{calib['stake']:.2f}</b>\n"
-        )
-        bot.reply_to(message, msg)
-    except Exception as e:
-        bot.reply_to(message, f"❌ FAZ-8 test hatası: {e}")
-
-
-@bot.message_handler(commands=["faz83_test"])
-def faz83_test(message):
-    """
-    Kullanım: /faz83_test 0.60 0.03 1.0
-      → raw_conf, raw_edge, (opsiyonel) base_stake
-    """
-    try:
-        parts = message.text.split()
-        if len(parts) not in (3, 4):
-            bot.reply_to(
-                message,
-                "✅ Kullanım: <code>/faz83_test conf edge [stake]</code>\n"
-                "Örn: <code>/faz83_test 0.63 0.035 0.80</code>",
-            )
-            return
-
-        raw_conf = float(parts[1])
-        raw_edge = float(parts[2])
-        base_stake = float(parts[3]) if len(parts) == 4 else 1.0
-
-        c = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
-        brain = faz79_brain()
-
-        msg = (
-            "🧪 <b>FAZ-8.3 FULL PIPELINE</b>\n\n"
-            f"Input RAW → conf={raw_conf:.3f}, edge={raw_edge:.3f}, stake={base_stake:.2f}\n\n"
-            f"FAZ-7.9 v2.0 Brain → mode=<b>{brain['mode']}</b>, "
-            f"trend={brain['trend']} (slope {brain['slope']}), vol={brain['vol']}\n"
-            f"7g avg → conf={brain['conf']}, edge={brain['edge']}\n\n"
-            f"FAZ-8.3 → bucket=<b>{c['bucket']}</b>, score={c['score']}\n"
-            f"Calibrated → conf=<b>{c['conf']:.3f}</b>, "
-            f"edge=<b>{c['edge']:.3f}</b>, "
-            f"stake=<b>{c['stake']:.2f}</b>\n"
-        )
-        bot.reply_to(message, msg)
-    except Exception as e:
-        bot.reply_to(message, f"❌ FAZ-8.3 test hatası: {e}")
-
-
-# ================================================================
-# 🏀 FAZ-6 v3 – GENİŞLETİLMİŞ KUPON & SİMÜLASYON
+#  FAZ-6 v3 — KUPON MOTORU
 # ================================================================
 def _faz84_from_raw(profile: str,
                     raw_conf: float,
                     raw_edge: float,
                     base_stake: float) -> dict:
-    """
-    Helper:
-      RAW → FAZ-8.4 Kupon Engine
-    """
     return faz84_coupon_engine(profile, raw_conf, raw_edge, base_stake)
 
 
 def _build_fixture_legs():
-    """
-    40 maçlık internal fixture tablosu.
-    Her eleman: (kupon_id, game_desc, conf, edge, stake)
-    """
     legs = []
 
     # Kupon 1 — SAFE (10 maç)
@@ -916,11 +663,6 @@ def _build_fixture_legs():
 
 
 def build_faz6_coupons_text() -> str:
-    """
-    FAZ-6 v3 kuponları:
-      - 4 ana kupon
-      - Toplam 40 maç / market
-    """
     legs = _build_fixture_legs()
 
     def fmt(game: str, calib: dict) -> str:
@@ -935,21 +677,21 @@ def build_faz6_coupons_text() -> str:
     parts = []
     parts.append(
         "🔥 <b>FAZ-6 v3 KUPONLARI</b> "
-        "(40 maç / FAZ-8.4 Kupon Motoru + FAZ-8.5 META hafıza uyumlu)\n\n"
+        "(40 maç / FAZ-8.4 Kupon Motoru + FAZ-8.5 META uyumlu)\n\n"
     )
 
     for coupon_id in (1, 2, 3, 4):
         if coupon_id == 1:
-            title = "🔥Kupon 1 — SAFE [SAFE]"
+            title = "🔥 Kupon 1 — SAFE [SAFE]"
             profile = "SAFE"
         elif coupon_id == 2:
-            title = "🔥Kupon 2 — BALANCED [BAL]"
+            title = "🔥 Kupon 2 — BALANCED [BAL]"
             profile = "BAL"
         elif coupon_id == 3:
-            title = "🔥Kupon 3 — AGGRESSIVE [AGG]"
+            title = "🔥 Kupon 3 — AGGRESSIVE [AGG]"
             profile = "AGG"
         else:
-            title = "🔥Kupon 4 — ULTRA [ULTRA]"
+            title = "🔥 Kupon 4 — ULTRA [ULTRA]"
             profile = "ULTRA"
 
         parts.append(title + "\n")
@@ -968,11 +710,6 @@ def build_faz6_coupons_text() -> str:
 
 
 def build_faz6_meta_coupon_text() -> str:
-    """
-    FAZ-6 META kuponu (v3):
-      - FAZ-8.5 META profile seçici ile tek bir profil seçilir
-      - Aynı profille 4 farklı maç / market kalibre edilir.
-    """
     profile = faz85_meta_profile_selector()
 
     legs_def = [
@@ -1007,66 +744,10 @@ def build_faz6_meta_coupon_text() -> str:
     return text
 
 
-# Telegram 4096 karakter limitine takılmamak için helper
-def _send_long_text(message, text: str, max_len: int = 3800):
-    """
-    Telegram text limitini aşmamak için uzun mesajları parçalara bölerek gönderir.
-    HTML parse bozulmasın diye sadece düz string kesiyoruz, limit altı güvenli.
-    """
-    chat_id = message.chat.id
-    if len(text) <= max_len:
-        bot.reply_to(message, text)
-        return
-
-    start = 0
-    first = True
-    while start < len(text):
-        chunk = text[start:start + max_len]
-        if first:
-            # ilk chunk reply_to olsun
-            bot.reply_to(message, chunk)
-            first = False
-        else:
-            bot.send_message(chat_id, chunk)
-        start += max_len
-
-
-@bot.message_handler(commands=["faz6_coupon", "kupon"])
-def faz6_coupon(message):
-    """
-    FAZ-6 v3 çoklu kupon çıktısı (40 maç).
-    Telegram mesaj limitine takılmamak için otomatik parçalara bölünür.
-    """
-    try:
-        text = build_faz6_coupons_text()
-        _send_long_text(message, text)
-    except Exception as e:
-        log.error(f"FAZ-6 kupon oluşturma hatası: {e}", exc_info=True)
-        bot.reply_to(message, "❌ Kupon üretiminde hata oluştu.")
-
-
-@bot.message_handler(commands=["faz6_meta", "kupon_meta"])
-def faz6_meta(message):
-    """
-    FAZ-8.5 META profile selector ile otomatik profil seçen kupon.
-    """
-    try:
-        text = build_faz6_meta_coupon_text()
-        bot.reply_to(message, text)
-    except Exception as e:
-        log.error(f"FAZ-6 META kupon hatası: {e}", exc_info=True)
-        bot.reply_to(message, "❌ META kupon üretiminde hata oluştu.")
-
-
 # ================================================================
-# 🏀 NBA SİMÜLASYON (FAZ-8.4 + FAZ-8.5 META)
+#  NBA SİMÜLASYON (FAZ-8.4 + FAZ-8.5 META)
 # ================================================================
-def build_nba_simulation_text():
-    """
-    NBA simülasyon çıktı örneği:
-      RAW → FAZ-8.4 (kupon motoru referanslı)
-      Profil FAZ-8.5 META selector ile seçilir.
-    """
+def build_nba_simulation_text() -> str:
     home = "MIA"
     away = "NYK"
     skor = 104
@@ -1106,67 +787,20 @@ def build_nba_simulation_text():
     )
 
 
-@bot.message_handler(commands=["simulate_nba"])
-def cmd_simulate_nba(message):
-    try:
-        bot.reply_to(
-            message,
-            "🏀 Simülasyon başlatılıyor (FAZ-8.4 + FAZ-8.5 META)...",
-        )
-        text = build_nba_simulation_text()
-        bot.reply_to(message, text)
-    except Exception as e:
-        log.error(f"Simülasyon hatası: {e}", exc_info=True)
-        bot.reply_to(message, f"❌ Simülasyon hatası: {e}")
-
-
-# Basit FAZ-6 placeholder komutları
-@bot.message_handler(commands=["faz6_test"])
-def faz6_test(message):
-    bot.reply_to(message, "🧪 FAZ-6 Test modu placeholder.")
-
-
-@bot.message_handler(commands=["faz6_auto"])
-def faz6_auto(message):
-    bot.reply_to(message, "🤖 FAZ-6 Auto modu placeholder.")
-
-
-@bot.message_handler(commands=["faz6_risk"])
-def faz6_risk(message):
-    bot.reply_to(message, "⚠️ FAZ-6 Risk modu placeholder.")
-
-
-@bot.message_handler(commands=["faz6_edge"])
-def faz6_edge(message):
-    bot.reply_to(message, "📐 FAZ-6 Edge modu placeholder.")
-
-
-@bot.message_handler(commands=["faz6_real"])
-def faz6_real(message):
-    bot.reply_to(message, "📊 FAZ-6 Real modu placeholder.")
-
-
-@bot.message_handler(commands=["faz6_balance"])
-def faz6_balance(message):
-    bot.reply_to(message, "⚖ FAZ-6 Balance modu placeholder.")
-
-
 # ================================================================
-# 🧰 GENEL KOMUTLAR (/start, /help, /status)
+#  KOMUT HANDLER’LARI
 # ================================================================
-@bot.message_handler(commands=["start"])
-def cmd_start(message):
+def handle_cmd_start(chat_id: int):
     text = (
         "🔥 <b>Bot aktif!</b>\n"
         "FAZ-4 + FAZ-5 + FAZ-6 v3 + FAZ-7.9 v2.0 + "
         "FAZ-8.2 + FAZ-8.3 + FAZ-8.4 + FAZ-8.5 META bağlı.\n"
         "Komut listesi için <code>/help</code> yaz."
     )
-    bot.reply_to(message, text)
+    tg_send(chat_id, text)
 
 
-@bot.message_handler(commands=["help"])
-def cmd_help(message):
+def handle_cmd_help(chat_id: int):
     text = (
         "📌 <b>Komutlar</b>:\n\n"
         "/start - Botu başlatır\n"
@@ -1191,11 +825,10 @@ def cmd_help(message):
         "/faz8_test - Manuel FAZ-8.x sinyal testi\n"
         "/faz83_test - FAZ-8.3 full pipeline testi\n"
     )
-    bot.reply_to(message, text)
+    tg_send_long(chat_id, text)
 
 
-@bot.message_handler(commands=["status"])
-def cmd_status(message):
+def handle_cmd_status(chat_id: int):
     info = faz79_brain()
     text = (
         "✅ Bot çalışıyor.\n"
@@ -1207,39 +840,277 @@ def cmd_status(message):
         "FAZ-8.5 META profile: <b>AKTİF</b>\n"
         f"Strateji Modu: <b>{info['mode']}</b> | "
         f"Trend: {info['trend']} | Vol: {info['vol']}\n"
-        f"Hafıza dosyası: <code>{MEMORY_FILE}</code>\n"
+        f"Hafıza dosyası: <code>{FAZ7_MEMORY_FILE}</code>\n"
     )
-    bot.reply_to(message, text)
+    tg_send(chat_id, text)
+
+
+def handle_cmd_faz7_status(chat_id: int):
+    mem = load_faz7_memory()
+
+    if len(mem.get("days", [])) == 0:
+        msg = "📊 <b>FAZ-7.9 Hafıza:</b> Henüz veri yok."
+    else:
+        df = pd.DataFrame(mem["days"])
+        msg = (
+            "📊 <b>FAZ-7.9 v2.0 HAFIZA ÖZETİ</b>\n\n"
+            f"SAFE: {mem['safe']}\n"
+            f"BAL : {mem['bal']}\n"
+            f"AGG : {mem['agg']}\n\n"
+            f"7 Günlük Ortalama Confidence: <b>{df['conf'].mean():.3f}</b>\n"
+            f"7 Günlük Ortalama Edge: <b>{df['edge'].mean():.3f}</b>"
+        )
+    tg_send(chat_id, msg)
+
+
+def handle_cmd_faz7_plan(chat_id: int):
+    info = faz79_brain()
+    msg = (
+        "🧠 <b>FAZ-7.9 v2.0 STRATEJİ BEYNİ</b>\n\n"
+        f"Mod: <b>{info['mode']}</b>\n"
+        f"Günlük: conf={info['conf']} edge={info['edge']}\n"
+        f"Trend: {info['trend']} (slope {info['slope']})\n"
+        f"Volatilite: {info['vol']}\n"
+        f"Stake Normalize: {info['stake_norm']}\n\n"
+        f"SAFE: {'✅' if info['safe'] else '❌'}\n"
+        f"BAL: {'✅' if info['bal'] else '❌'}\n"
+        f"AGG: {'✅' if info['agg'] else '❌'}\n"
+    )
+    tg_send(chat_id, msg)
+
+
+def handle_cmd_faz7_register(chat_id: int, parts):
+    try:
+        if len(parts) != 3:
+            tg_send(
+                chat_id,
+                "✅ Kullanım: <code>/faz7_register conf edge</code>\n"
+                "Örn: <code>/faz7_register 0.62 0.035</code>",
+            )
+            return
+        conf = float(parts[1])
+        edge = float(parts[2])
+        register_daily_stats(conf, edge)
+        info = faz79_brain()
+        tg_send(
+            chat_id,
+            (
+                "✅ Günlük FAZ-7.9 v2.0 kaydı alındı.\n\n"
+                f"conf={conf:.3f}, edge={edge:.3f}\n"
+                f"Yeni Mod: <b>{info['mode']}</b>\n"
+                f"Trend: {info['trend']} (slope {info['slope']})"
+            ),
+        )
+    except Exception as e:
+        tg_send(chat_id, f"❌ Kayıt hatası: {e}")
+
+
+def handle_cmd_faz8_status(chat_id: int):
+    raw_conf = 0.64
+    raw_edge = 0.038
+    base_stake = 1.0
+
+    calib = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
+
+    msg = (
+        "🧪 <b>FAZ-8.x STATUS</b>\n\n"
+        f"Mode: <b>{calib['mode']}</b>\n"
+        f"Trend: {calib['trend']} | Vol: {calib['vol']}\n"
+        f"Engine: <b>{calib.get('engine','FAZ-8.3')}</b>\n"
+        f"Bucket: <b>{calib['bucket']}</b> | Score: {calib['score']}\n\n"
+        f"Cal → conf=<b>{calib['conf']:.3f}</b>, "
+        f"edge=<b>{calib['edge']:.3f}</b>, "
+        f"stake=<b>{calib['stake']:.2f}</b>\n"
+    )
+    tg_send(chat_id, msg)
+
+
+def handle_cmd_faz8_test(chat_id: int, parts):
+    try:
+        if len(parts) not in (3, 4):
+            tg_send(
+                chat_id,
+                "✅ Kullanım: <code>/faz8_test conf edge [stake]</code>\n"
+                "Örn: <code>/faz8_test 0.63 0.035 0.80</code>",
+            )
+            return
+
+        raw_conf = float(parts[1])
+        raw_edge = float(parts[2])
+        base_stake = float(parts[3]) if len(parts) == 4 else 1.0
+
+        calib = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
+
+        msg = (
+            "🧪 <b>FAZ-8.3 FULL TEST</b>\n\n"
+            f"Input: conf={raw_conf:.3f}, edge={raw_edge:.3f}, stake={base_stake:.2f}\n\n"
+            f"Mode: <b>{calib['mode']}</b> | Trend: {calib['trend']} | Vol: {calib['vol']}\n"
+            f"Bucket: <b>{calib['bucket']}</b> | Score: {calib['score']}\n\n"
+            f"Output → conf=<b>{calib['conf']:.3f}</b>, "
+            f"edge=<b>{calib['edge']:.3f}</b>, "
+            f"stake=<b>{calib['stake']:.2f}</b>\n"
+        )
+        tg_send(chat_id, msg)
+    except Exception as e:
+        tg_send(chat_id, f"❌ FAZ-8 test hatası: {e}")
+
+
+def handle_cmd_faz83_test(chat_id: int, parts):
+    try:
+        if len(parts) not in (3, 4):
+            tg_send(
+                chat_id,
+                "✅ Kullanım: <code>/faz83_test conf edge [stake]</code>\n"
+                "Örn: <code>/faz83_test 0.63 0.035 0.80</code>",
+            )
+            return
+
+        raw_conf = float(parts[1])
+        raw_edge = float(parts[2])
+        base_stake = float(parts[3]) if len(parts) == 4 else 1.0
+
+        c = faz8_calibrate_signal(raw_conf, raw_edge, base_stake)
+        brain = faz79_brain()
+
+        msg = (
+            "🧪 <b>FAZ-8.3 FULL PIPELINE</b>\n\n"
+            f"Input RAW → conf={raw_conf:.3f}, edge={raw_edge:.3f}, stake={base_stake:.2f}\n\n"
+            f"FAZ-7.9 v2.0 Brain → mode=<b>{brain['mode']}</b>, "
+            f"trend={brain['trend']} (slope {brain['slope']}), vol={brain['vol']}\n"
+            f"7g avg → conf={brain['conf']}, edge={brain['edge']}\n\n"
+            f"FAZ-8.3 → bucket=<b>{c['bucket']}</b>, score={c['score']}\n"
+            f"Calibrated → conf=<b>{c['conf']:.3f}</b>, "
+            f"edge=<b>{c['edge']:.3f}</b>, "
+            f"stake=<b>{c['stake']:.2f}</b>\n"
+        )
+        tg_send(chat_id, msg)
+    except Exception as e:
+        tg_send(chat_id, f"❌ FAZ-8.3 test hatası: {e}")
+
+
+def handle_cmd_faz6_coupon(chat_id: int):
+    try:
+        text = build_faz6_coupons_text()
+        tg_send_long(chat_id, text)
+    except Exception:
+        log.error("FAZ-6 kupon oluşturma hatası:\n" + traceback.format_exc())
+        tg_send(chat_id, "❌ Kupon üretiminde hata oluştu.")
+
+
+def handle_cmd_faz6_meta(chat_id: int):
+    try:
+        text = build_faz6_meta_coupon_text()
+        tg_send_long(chat_id, text)
+    except Exception:
+        log.error("FAZ-6 META kupon hatası:\n" + traceback.format_exc())
+        tg_send(chat_id, "❌ META kupon üretiminde hata oluştu.")
+
+
+def handle_cmd_simulate_nba(chat_id: int):
+    try:
+        tg_send(chat_id, "🏀 Simülasyon başlatılıyor (FAZ-8.4 + FAZ-8.5 META)...")
+        text = build_nba_simulation_text()
+        tg_send(chat_id, text)
+    except Exception:
+        log.error("Simülasyon hatası:\n" + traceback.format_exc())
+        tg_send(chat_id, "❌ Simülasyon hatası oluştu.")
+
+
+def handle_cmd_faz6_placeholders(chat_id: int, cmd: str):
+    mapping = {
+        "/faz6_test": "🧪 FAZ-6 Test modu placeholder.",
+        "/faz6_auto": "🤖 FAZ-6 Auto modu placeholder.",
+        "/faz6_risk": "⚠️ FAZ-6 Risk modu placeholder.",
+        "/faz6_edge": "📐 FAZ-6 Edge modu placeholder.",
+        "/faz6_real": "📊 FAZ-6 Real modu placeholder.",
+        "/faz6_balance": "⚖ FAZ-6 Balance modu placeholder.",
+    }
+    tg_send(chat_id, mapping.get(cmd, "FAZ-6 placeholder."))
 
 
 # ================================================================
-# 🚀 STARTUP: WEBHOOK AYARLA & FLASK ÇALIŞTIR
+#  UPDATE ROUTER
+# ================================================================
+def handle_update(update: dict):
+    try:
+        if "message" not in update:
+            return
+        msg = update["message"]
+        chat = msg.get("chat", {})
+        chat_id = chat.get("id")
+        if chat_id is None:
+            return
+
+        text = msg.get("text") or ""
+        if not text.startswith("/"):
+            return
+
+        parts = text.split()
+        cmd = parts[0]
+        if "@" in cmd:
+            cmd = cmd.split("@")[0]
+
+        if cmd == "/start":
+            handle_cmd_start(chat_id)
+        elif cmd == "/help":
+            handle_cmd_help(chat_id)
+        elif cmd == "/status":
+            handle_cmd_status(chat_id)
+        elif cmd == "/faz7_status":
+            handle_cmd_faz7_status(chat_id)
+        elif cmd == "/faz7_plan":
+            handle_cmd_faz7_plan(chat_id)
+        elif cmd == "/faz7_register":
+            handle_cmd_faz7_register(chat_id, parts)
+        elif cmd == "/faz8_status":
+            handle_cmd_faz8_status(chat_id)
+        elif cmd == "/faz8_test":
+            handle_cmd_faz8_test(chat_id, parts)
+        elif cmd == "/faz83_test":
+            handle_cmd_faz83_test(chat_id, parts)
+        elif cmd == "/faz6_coupon":
+            handle_cmd_faz6_coupon(chat_id)
+        elif cmd == "/faz6_meta":
+            handle_cmd_faz6_meta(chat_id)
+        elif cmd == "/simulate_nba":
+            handle_cmd_simulate_nba(chat_id)
+        elif cmd in (
+            "/faz6_test",
+            "/faz6_auto",
+            "/faz6_risk",
+            "/faz6_edge",
+            "/faz6_real",
+            "/faz6_balance",
+        ):
+            handle_cmd_faz6_placeholders(chat_id, cmd)
+        else:
+            tg_send(chat_id, "Komut tanınmadı. Liste için /help")
+    except Exception:
+        log.error("handle_update içinde hata:\n" + traceback.format_exc())
+
+
+# ================================================================
+#  WEBHOOK SETUP & MAIN
 # ================================================================
 def setup_webhook():
+    if not WEBHOOK_URL:
+        log.warning("WEBHOOK_URL tanımlı değil, setWebhook atlanıyor.")
+        return
     try:
-        log.info("Önce eski webhook kaldırılıyor...")
-        bot.delete_webhook()
-    except Exception as e:
-        log.warning(f"Eski webhook silinirken hata (önemli değil): {e}")
-
-    if WEBHOOK_URL:
-        for attempt in range(1, 3):
-            try:
-                log.info(f"[FAZ-8.x] Webhook deneme {attempt}: {WEBHOOK_URL}")
-                bot.set_webhook(url=WEBHOOK_URL)
-                log.info("[FAZ-8.x] Webhook başarıyla set edildi.")
-                break
-            except Exception as e:
-                log.error(f"[FAZ-8.x] Webhook set hatası (deneme {attempt}): {e}")
-                time.sleep(1.5)
-    else:
-        log.warning("WEBHOOK_URL tanımlı değil, webhook set edilmedi!")
+        url = f"{TG_API}/setWebhook"
+        full_url = f"{WEBHOOK_URL}/{TOKEN}"
+        resp = requests.get(url, params={"url": full_url}, timeout=10)
+        log.info(f"setWebhook → status={resp.status_code}, resp={resp.text}")
+    except Exception:
+        log.error("setWebhook hatası:\n" + traceback.format_exc())
 
 
 if __name__ == "__main__":
     log.info("🔥 FAZ-7.9 + FAZ-8.x + FAZ-6 v3 core sistemi boot ediliyor...")
-    init_memory()
+    ensure_dir(FAZ7_DIR)
+    ensure_dir(FAZ6_DIR)
+    init_faz7_memory()
     setup_webhook()
-    port = int(os.getenv("PORT", 8080))
+    port = int(os.getenv("PORT", "8080"))
     log.info(f"Flask HTTP server 0.0.0.0:{port} üzerinde çalışıyor.")
     app.run(host="0.0.0.0", port=port)
