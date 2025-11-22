@@ -348,4 +348,3 @@ if __name__ == "__main__":
 
     demo = faz9_boost_signal(0.63, 0.038, 1.0)
     log.info(f"[FAZ-9] Demo boost: {json.dumps(demo, indent=2)}")
-```0
