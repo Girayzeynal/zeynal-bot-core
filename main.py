@@ -1007,14 +1007,39 @@ def build_faz6_meta_coupon_text() -> str:
     return text
 
 
+# Telegram 4096 karakter limitine takılmamak için helper
+def _send_long_text(message, text: str, max_len: int = 3800):
+    """
+    Telegram text limitini aşmamak için uzun mesajları parçalara bölerek gönderir.
+    HTML parse bozulmasın diye sadece düz string kesiyoruz, limit altı güvenli.
+    """
+    chat_id = message.chat.id
+    if len(text) <= max_len:
+        bot.reply_to(message, text)
+        return
+
+    start = 0
+    first = True
+    while start < len(text):
+        chunk = text[start:start + max_len]
+        if first:
+            # ilk chunk reply_to olsun
+            bot.reply_to(message, chunk)
+            first = False
+        else:
+            bot.send_message(chat_id, chunk)
+        start += max_len
+
+
 @bot.message_handler(commands=["faz6_coupon", "kupon"])
 def faz6_coupon(message):
     """
     FAZ-6 v3 çoklu kupon çıktısı (40 maç).
+    Telegram mesaj limitine takılmamak için otomatik parçalara bölünür.
     """
     try:
         text = build_faz6_coupons_text()
-        bot.reply_to(message, text)
+        _send_long_text(message, text)
     except Exception as e:
         log.error(f"FAZ-6 kupon oluşturma hatası: {e}", exc_info=True)
         bot.reply_to(message, "❌ Kupon üretiminde hata oluştu.")
@@ -1218,3 +1243,4 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
     log.info(f"Flask HTTP server 0.0.0.0:{port} üzerinde çalışıyor.")
     app.run(host="0.0.0.0", port=port)
+```0
