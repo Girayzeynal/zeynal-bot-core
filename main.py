@@ -72,6 +72,8 @@ def telegram_webhook():
 # 📌 FAZ-7.9 v2.0 MEMORY ENGINE  (Kalıcı volume destekli)
 #   - 7 günlük pencere
 #   - v2.0: mod seçim eşikleri ve trend/vol mantığı güncellendi
+#   - FAZ-9.1: Trend Noise Filter + TCI
+#   - FAZ-9.2: Behavior Curve Engine (stability / momentum / behavior_index)
 #   - Fly.io volume: /data/faz7/faz7_memory.json
 # ================================================================
 FAZ7_DIR = os.getenv("FAZ7_DIR", "/data/faz7")
@@ -159,219 +161,79 @@ def _ema(series: pd.Series, alpha: float = 0.6) -> float:
     return float(ema_val)
 
 
-# ================================================================
-# 🧠 FAZ-9.1 – TREND NOISE FILTER + SMART SLOPE STABILIZER
-#   - FAZ-7.9 beyninin trend/slope/vol hesaplamasını stabilize eder
-#   - Gürültüyü (noise) ölçer ve filtreler
-# ================================================================
-def _faz91_compute_noise_metrics(series: pd.Series) -> dict:
+def _faz92_behavior_curves(df: pd.DataFrame, slope: float, vol: float) -> dict:
     """
-    Noise Metric:
-      - mean, median, std, IQR
-      - noise_ratio ~ 0.0 (düşük) → 1.5+ (yüksek)
+    FAZ-9.2 Behavior Curve Engine
+      - stability: conf oynaklığına göre 0–1 arası stabilite
+      - momentum: ilk conf → son conf değişimi
+      - tci: trend certainty index (slope / noise)
+      - noise_ratio: vol / net hareket oranı
+      - behavior_index: 0.8–1.2 arası stake çarpanı
     """
-    n = len(series)
-    if n == 0:
+    if df is None or len(df) == 0:
         return {
-            "mean": 0.0,
-            "median": 0.0,
-            "std": 0.0,
-            "iqr": 0.0,
+            "tci": 0.0,
             "noise_ratio": 0.0,
+            "stability": 1.0,
+            "momentum": 0.0,
+            "behavior_index": 1.0,
         }
-
-    mean = float(series.mean())
-    median = float(series.median())
-    std = float(series.std() if n > 1 else 0.0)
-    q1 = float(series.quantile(0.25))
-    q3 = float(series.quantile(0.75))
-    iqr = q3 - q1
-
-    eps = 1e-6
-    std_norm = std / (abs(mean) + eps)
-    iqr_norm = iqr / (abs(median) + eps)
-    mean_median_diff = abs(mean - median) / (abs(median) + eps)
-
-    noise_raw = 0.5 * std_norm + 0.3 * iqr_norm + 0.2 * mean_median_diff
-    noise_ratio = float(max(0.0, min(noise_raw, 3.0)))  # clamp
-
-    return {
-        "mean": mean,
-        "median": median,
-        "std": std,
-        "iqr": iqr,
-        "noise_ratio": noise_ratio,
-    }
-
-
-def _faz91_smooth_series(series: pd.Series) -> pd.Series:
-    """
-    Rolling median + EMA karışımı ile yumuşatılmış seri üretir.
-    Kısa seriler için direkt orijinal seriyi döner.
-    """
-    n = len(series)
-    if n <= 2:
-        return series.astype(float)
-
-    # Merkezli rolling median
-    med = series.rolling(window=3, min_periods=1, center=True).median()
-    # EMA
-    ema = series.ewm(alpha=0.6, adjust=False).mean()
-
-    smooth = 0.6 * ema + 0.4 * med
-    return smooth.astype(float)
-
-
-def _faz91_stable_slope(t: pd.Series,
-                        raw: pd.Series,
-                        smooth: pd.Series) -> dict:
-    """
-    Smart Slope Stabilizer:
-      - raw_slope (polyfit)
-      - ema_slope (smooth diff EMA)
-      - median_slope (smooth diff median)
-      - final_slope = 0.5*raw + 0.3*ema + 0.2*median
-    """
-    n = len(raw)
-    if n <= 1:
-        return {
-            "raw_slope": 0.0,
-            "smooth_slope": 0.0,
-            "ema_slope": 0.0,
-            "median_slope": 0.0,
-            "slope_vol": 0.0,
-            "slope_final": 0.0,
-        }
-
-    x = t.astype(float)
-    raw = raw.astype(float)
-    smooth = smooth.astype(float)
-
-    try:
-        raw_slope = float(np.polyfit(x, raw, 1)[0])
-    except Exception as e:
-        log.warning(f"[FAZ-9.1] raw_slope polyfit hatası: {e}")
-        raw_slope = 0.0
-
-    try:
-        smooth_slope = float(np.polyfit(x, smooth, 1)[0])
-    except Exception as e:
-        log.warning(f"[FAZ-9.1] smooth_slope polyfit hatası: {e}")
-        smooth_slope = raw_slope
-
-    if n > 2:
-        diffs = smooth.diff().dropna()
-        if len(diffs) > 0:
-            ema_slope = float(diffs.ewm(alpha=0.6, adjust=False).mean().iloc[-1])
-            median_slope = float(diffs.median())
-            slope_vol = float(diffs.std() if len(diffs) > 1 else 0.0)
-        else:
-            ema_slope = raw_slope
-            median_slope = raw_slope
-            slope_vol = 0.0
-    else:
-        ema_slope = raw_slope
-        median_slope = raw_slope
-        slope_vol = 0.0
-
-    slope_final = 0.5 * raw_slope + 0.3 * ema_slope + 0.2 * median_slope
-    # aşırı uçları kırp
-    slope_final = max(min(slope_final, 0.1), -0.1)
-
-    return {
-        "raw_slope": round(raw_slope, 4),
-        "smooth_slope": round(smooth_slope, 4),
-        "ema_slope": round(ema_slope, 4),
-        "median_slope": round(median_slope, 4),
-        "slope_vol": round(slope_vol, 4),
-        "slope_final": float(round(slope_final, 4)),
-    }
-
-
-def _faz91_trend_certainty(slope_final: float,
-                           slope_vol: float,
-                           ema_conf: float,
-                           avg_conf: float,
-                           noise_ratio: float) -> tuple[str, float]:
-    """
-    Trend Certainty Index (TCI) üretir:
-      0.0 → belirsiz, 1.0 → çok güçlü trend
-    """
-    ema_diff = ema_conf - avg_conf
-
-    base_strength = min(1.0, max(0.0, abs(slope_final) / 0.03))
-    vol_penalty = min(1.0, slope_vol / 0.02)
-    noise_penalty = min(1.0, noise_ratio / 1.0)
-    ema_boost = min(1.0, max(0.0, abs(ema_diff) / 0.015))
-
-    tci = base_strength * (1.0 + 0.4 * ema_boost)
-    tci *= (1.0 - 0.5 * vol_penalty)
-    tci *= (1.0 - 0.4 * noise_penalty)
-    tci = max(0.0, min(tci, 1.0))
-
-    if tci < 0.25 or abs(slope_final) < 0.005:
-        trend = "FLAT"
-    else:
-        trend = "UP" if slope_final > 0 else "DOWN"
-
-    return trend, float(round(tci, 3))
-
-
-def faz91_analyze_trend(df: pd.DataFrame) -> dict:
-    """
-    FAZ-9.1 ana analiz:
-      - conf serisi üzerinden:
-        * noise_ratio
-        * smooth seri
-        * stable slope
-        * TCI (trend certainty)
-        * vol (geliştirilmiş volatilite)
-    """
-    if "conf" not in df.columns:
-        raise ValueError("[FAZ-9.1] DataFrame 'conf' kolonu içermiyor.")
 
     conf_series = df["conf"].astype(float)
-    edge_series = df["edge"].astype(float) if "edge" in df.columns else None
-    t = pd.Series(range(len(conf_series)), dtype=float)
+    edge_series = df["edge"].astype(float)
 
-    avg_conf = float(conf_series.mean()) if len(conf_series) > 0 else 0.0
-    avg_edge = float(edge_series.mean()) if edge_series is not None and len(edge_series) > 0 else 0.0
+    last_conf = float(conf_series.iloc[-1])
+    first_conf = float(conf_series.iloc[0])
+    conf_change = last_conf - first_conf
 
-    noise_metrics = _faz91_compute_noise_metrics(conf_series)
-    smooth_conf = _faz91_smooth_series(conf_series)
-    slope_info = _faz91_stable_slope(t, conf_series, smooth_conf)
-    ema_conf = _ema(smooth_conf)
+    conf_std = float(conf_series.std() if len(conf_series) > 1 else 0.0)
+    edge_std = float(edge_series.std() if len(edge_series) > 1 else 0.0)
 
-    trend, tci = _faz91_trend_certainty(
-        slope_final=slope_info["slope_final"],
-        slope_vol=slope_info["slope_vol"],
-        ema_conf=ema_conf,
-        avg_conf=avg_conf,
-        noise_ratio=noise_metrics["noise_ratio"],
-    )
+    # Stabilite: std azaldıkça 1'e yaklaşsın
+    stability = 1.0 / (1.0 + conf_std * 25.0)
+    stability = max(0.0, min(stability, 1.0))
 
-    base_vol = float(conf_series.std() if len(conf_series) > 1 else 0.0)
-    ema_diff = abs(ema_conf - avg_conf)
-    vol_raw = base_vol * 0.6 + ema_diff * 0.2 + noise_metrics["noise_ratio"] * 0.2
-    vol = float(round(vol_raw, 4))
+    # Momentum: conf değişiminin küçük aralıkta tutulmuş hali
+    momentum = max(-0.1, min(conf_change, 0.1))
+
+    # TCI: trend gücü / noise
+    denom = conf_std + 0.02
+    tci = abs(slope) / denom
+    tci = max(0.0, min(tci, 1.0))
+
+    # Noise Ratio: vol / net hareket
+    noise_ratio = vol / (abs(conf_change) + 0.01)
+    noise_ratio = max(0.0, min(noise_ratio, 1.5))
+
+    # Behavior index: pozitif momentum + düşük noise + düşük vol ödüllenir
+    behavior_index = 1.0
+    # momentum etkisi
+    behavior_index += momentum * 0.8 * 10.0  # -0.8 .. +0.8
+    # noise cezası
+    if noise_ratio > 0.6:
+        behavior_index -= (noise_ratio - 0.6) * 0.2
+    # vol cezası
+    behavior_index -= vol * 0.5
+
+    behavior_index = max(0.8, min(behavior_index, 1.2))
 
     return {
-        "avg_conf": float(round(avg_conf, 3)),
-        "avg_edge": float(round(avg_edge, 3)),
-        "ema_conf": float(round(ema_conf, 3)),
-        "slope": slope_info["slope_final"],
-        "trend": trend,
-        "vol": vol,
-        "tci": tci,
-        "noise_ratio": float(round(noise_metrics["noise_ratio"], 3)),
+        "tci": round(tci, 3),
+        "noise_ratio": round(noise_ratio, 3),
+        "stability": round(stability, 3),
+        "momentum": round(momentum, 3),
+        "behavior_index": round(behavior_index, 3),
     }
 
 
 def faz79_brain():
     """
-    FAZ-7.9 v2.0 STRATEJİ BEYNİ + FAZ-9.1 TREND STABILIZER
+    FAZ-7.9 v2.0 STRATEJİ BEYNİ + FAZ-9.1/9.2
       - 7 günlük conf/edge ortalamaları
-      - FAZ-9.1 ile stabilize edilmiş trend/slope/vol
+      - lineer trend (slope)
+      - EMA destekli volatilite yorumlaması
+      - Trend Certainty (TCI) + Noise Ratio (FAZ-9.1)
+      - Behavior Index / Stability / Momentum (FAZ-9.2)
       - SAFE/BAL/AGG mod seçimi revize eşikler
     """
     mem = load_memory()
@@ -385,28 +247,53 @@ def faz79_brain():
             "trend": "INIT",
             "slope": 0.0,
             "vol": 0.0,
+            "tci": 0.0,
+            "noise_ratio": 0.0,
+            "behavior_index": 1.0,
+            "stability": 1.0,
+            "momentum": 0.0,
             "stake_norm": 1.00,
             "safe": False,
             "bal": True,
             "agg": False,
-            "tci": 0.0,
-            "noise": 0.0,
         }
 
     df = pd.DataFrame(days)
     df["t"] = range(len(df))
 
-    # FAZ-9.1 ile gelişmiş trend analizi
-    tinfo = faz91_analyze_trend(df)
-    avg_conf = tinfo["avg_conf"]
-    avg_edge = tinfo["avg_edge"]
-    slope = tinfo["slope"]
-    trend = tinfo["trend"]
-    vol = tinfo["vol"]
-    tci = tinfo["tci"]
-    noise_ratio = tinfo["noise_ratio"]
+    avg_conf = float(df["conf"].mean())
+    avg_edge = float(df["edge"].mean())
 
-    # v2.0 mod eşikleri (FAZ-9.1 sonrası da korunuyor)
+    # linear regression slope (SVD hatasına karşı korumalı)
+    try:
+        slope = float(np.polyfit(df["t"], df["conf"], 1)[0])
+    except Exception as e:
+        log.warning(f"FAZ-7.9 v2.0 slope hesaplanırken hata (SVD fallback): {e}")
+        slope = 0.0
+
+    # Trend yönü (EMA destekli)
+    ema_conf = _ema(df["conf"])
+    if slope > 0.01 and ema_conf >= avg_conf:
+        trend = "UP"
+    elif slope < -0.01 and ema_conf <= avg_conf:
+        trend = "DOWN"
+    else:
+        trend = "FLAT"
+
+    # Volatilite: std + küçük EMA farkı katkısı
+    base_vol = float(df["conf"].std() if len(df) > 1 else 0.0)
+    ema_diff = abs(ema_conf - avg_conf)
+    vol = float(base_vol * 0.8 + ema_diff * 0.2)
+
+    # FAZ-9.2 behavior curves + FAZ-9.1 noise/TCI
+    bc = _faz92_behavior_curves(df, slope, vol)
+    tci = bc["tci"]
+    noise_ratio = bc["noise_ratio"]
+    behavior_index = bc["behavior_index"]
+    stability = bc["stability"]
+    momentum = bc["momentum"]
+
+    # v2.0 mod eşikleri:
     if avg_conf >= 0.72 and avg_edge >= 0.045:
         mode = "SAFE"
     elif avg_conf >= 0.58 and avg_edge >= 0.030:
@@ -421,17 +308,20 @@ def faz79_brain():
 
     return {
         "mode": mode,
-        "conf": avg_conf,
-        "edge": avg_edge,
+        "conf": round(avg_conf, 3),
+        "edge": round(avg_edge, 3),
         "trend": trend,
         "slope": round(slope, 4),
-        "vol": vol,
+        "vol": round(vol, 4),
+        "tci": tci,
+        "noise_ratio": noise_ratio,
+        "behavior_index": behavior_index,
+        "stability": stability,
+        "momentum": momentum,
         "stake_norm": 1.00,
         "safe": mode == "SAFE",
         "bal": mode == "BAL",
         "agg": mode == "AGG",
-        "tci": tci,
-        "noise": noise_ratio,
     }
 
 
@@ -706,6 +596,7 @@ def faz84_coupon_engine(profile: str,
     """
     Kupon bazlı full pipeline:
       RAW → 8.1 → 8.2 → 8.3 → 8.4 profil ayarı
+      + FAZ-9.2 behavior_index ile ince stake ayarı
     """
     core = _faz81_core_calibration(raw_conf, raw_edge, base_stake)
     core82 = _faz82_lmf_shield(core)
@@ -742,6 +633,10 @@ def faz84_coupon_engine(profile: str,
     elif profile == "ULTRA":
         stake *= 1.20
         conf = max(0.0, conf - 0.02)
+
+    # FAZ-9.2 behavior_index → son stake ayarı
+    behavior_index = brain.get("behavior_index", 1.0)
+    stake *= behavior_index
 
     if bucket == "HIGH" and conf >= 0.67:
         risk_label = "HIGH"
@@ -816,7 +711,7 @@ def faz8_calibrate_signal(raw_conf: float,
                           base_stake: float = 1.0) -> dict:
     """
     PUBLIC FAZ-8.x API:
-      RAW → 8.1 → 8.2 → 8.3
+      RAW → 8.1 → 8.2 → 8.3 (+ FAZ-9.2 behavior_index stake ayarı)
     """
     core = _faz81_core_calibration(raw_conf, raw_edge, base_stake)
     brain = faz79_brain()
@@ -836,6 +731,9 @@ def faz8_calibrate_signal(raw_conf: float,
         edge_avg=edge_avg,
     )
 
+    behavior_index = brain.get("behavior_index", 1.0)
+    stake_adj = max(0.1, round(c83["cal_stake"] * behavior_index, 2))
+
     return {
         "engine": "FAZ-8.3",
         "mode": brain["mode"],
@@ -845,7 +743,8 @@ def faz8_calibrate_signal(raw_conf: float,
         "score": c83["score"],
         "conf": c83["cal_conf"],
         "edge": c83["cal_edge"],
-        "stake": c83["cal_stake"],
+        "stake": stake_adj,
+        "behavior_index": behavior_index,
     }
 
 
@@ -877,13 +776,14 @@ def faz7_plan(message):
     info = faz79_brain()
 
     msg = (
-        "🧠 <b>FAZ-7.9 v2.0 STRATEJİ BEYNİ + FAZ-9.1</b>\n\n"
+        "🧠 <b>FAZ-7.9 v2.0 STRATEJİ BEYNİ + FAZ-9.1 + FAZ-9.2</b>\n\n"
         f"Mod: <b>{info['mode']}</b>\n"
         f"Günlük: conf={info['conf']} edge={info['edge']}\n"
         f"Trend: {info['trend']} (slope {info['slope']})\n"
         f"Volatilite: {info['vol']}\n"
-        f"Trend Certainty (TCI): {info.get('tci', 0.0)}\n"
-        f"Noise Ratio: {info.get('noise', 0.0)}\n"
+        f"Trend Certainty (TCI): {info['tci']}\n"
+        f"Noise Ratio: {info['noise_ratio']}\n"
+        f"Behavior Index: {info['behavior_index']}\n"
         f"Stake Normalize: {info['stake_norm']}\n\n"
         f"SAFE: {'✅' if info['safe'] else '❌'}\n"
         f"BAL: {'✅' if info['bal'] else '❌'}\n"
@@ -943,7 +843,8 @@ def faz8_status(message):
         f"Mode: <b>{calib['mode']}</b>\n"
         f"Trend: {calib['trend']} | Vol: {calib['vol']}\n"
         f"Engine: <b>{calib.get('engine','FAZ-8.3')}</b>\n"
-        f"Bucket: <b>{calib['bucket']}</b> | Score: {calib['score']}\n\n"
+        f"Bucket: <b>{calib['bucket']}</b> | Score: {calib['score']}\n"
+        f"Behavior Index: <b>{calib.get('behavior_index', 1.0):.3f}</b>\n\n"
         f"Cal → conf=<b>{calib['conf']:.3f}</b>, "
         f"edge=<b>{calib['edge']:.3f}</b>, "
         f"stake=<b>{calib['stake']:.2f}</b>\n"
@@ -977,7 +878,8 @@ def faz8_test(message):
             "🧪 <b>FAZ-8.3 FULL TEST</b>\n\n"
             f"Input: conf={raw_conf:.3f}, edge={raw_edge:.3f}, stake={base_stake:.2f}\n\n"
             f"Mode: <b>{calib['mode']}</b> | Trend: {calib['trend']} | Vol: {calib['vol']}\n"
-            f"Bucket: <b>{calib['bucket']}</b> | Score: {calib['score']}\n\n"
+            f"Bucket: <b>{calib['bucket']}</b> | Score: {calib['score']}\n"
+            f"Behavior Index: <b>{calib.get('behavior_index', 1.0):.3f}</b>\n\n"
             f"Output → conf=<b>{calib['conf']:.3f}</b>, "
             f"edge=<b>{calib['edge']:.3f}</b>, "
             f"stake=<b>{calib['stake']:.2f}</b>\n"
@@ -1013,8 +915,10 @@ def faz83_test(message):
         msg = (
             "🧪 <b>FAZ-8.3 FULL PIPELINE</b>\n\n"
             f"Input RAW → conf={raw_conf:.3f}, edge={raw_edge:.3f}, stake={base_stake:.2f}\n\n"
-            f"FAZ-7.9 v2.0 + FAZ-9.1 Brain → mode=<b>{brain['mode']}</b>, "
+            f"FAZ-7.9 v2.0 Brain + FAZ-9.x → mode=<b>{brain['mode']}</b>, "
             f"trend={brain['trend']} (slope {brain['slope']}), vol={brain['vol']}\n"
+            f"TCI={brain['tci']}, Noise={brain['noise_ratio']}, "
+            f"BehaviorIndex={brain['behavior_index']}\n"
             f"7g avg → conf={brain['conf']}, edge={brain['edge']}\n\n"
             f"FAZ-8.3 → bucket=<b>{c['bucket']}</b>, score={c['score']}\n"
             f"Calibrated → conf=<b>{c['conf']:.3f}</b>, "
@@ -1119,7 +1023,6 @@ def build_faz6_coupons_text() -> str:
     FAZ-6 v3 kuponları:
       - 4 ana kupon
       - Toplam 40 maç / market
-      - FAZ-8.4 + FAZ-8.5 + FAZ-9.1 beyin uyumlu
     """
     legs = _build_fixture_legs()
 
@@ -1135,7 +1038,7 @@ def build_faz6_coupons_text() -> str:
     parts = []
     parts.append(
         "🔥 <b>FAZ-6 v3 KUPONLARI</b> "
-        "(40 maç / FAZ-8.4 Kupon Motoru + FAZ-8.5 META + FAZ-9.1 Trend Stabilizer)\n\n"
+        "(40 maç / FAZ-8.4 Kupon Motoru + FAZ-8.5 META hafıza uyumlu)\n\n"
     )
 
     for coupon_id in (1, 2, 3, 4):
@@ -1199,7 +1102,7 @@ def build_faz6_meta_coupon_text() -> str:
         total_stake += calib["stake"]
 
     text = (
-        "🤖 <b>FAZ-6 META KUPON (FAZ-8.5 Profile Selector v3 + FAZ-9.1)</b>\n\n"
+        "🤖 <b>FAZ-6 META KUPON (FAZ-8.5 Profile Selector v3)</b>\n\n"
         f"Seçilen Profil: <b>{profile}</b>\n\n" +
         "".join(legs_text) +
         f"💰 Toplam Stake: {total_stake:.2f}\n"
@@ -1290,7 +1193,7 @@ def build_nba_simulation_text():
     }.get(c["mode"], c["mode"])
 
     return (
-        "🏀 <b>NBA Simülasyon Sonuçları (FAZ-8.4 + FAZ-8.5 META + FAZ-9.1)</b>\n\n"
+        "🏀 <b>NBA Simülasyon Sonuçları (FAZ-8.4 + FAZ-8.5 META)</b>\n\n"
         f"🏠 {home} vs ✈️ {away}\n"
         f"📈 Tahmini Skor: <b>{skor}</b>\n"
         f"⏱ Tempo: <b>{tempo}</b>\n"
@@ -1311,7 +1214,7 @@ def cmd_simulate_nba(message):
     try:
         bot.reply_to(
             message,
-            "🏀 Simülasyon başlatılıyor (FAZ-8.4 + FAZ-8.5 META + FAZ-9.1)...",
+            "🏀 Simülasyon başlatılıyor (FAZ-8.4 + FAZ-8.5 META + FAZ-9.x)...",
         )
         text = build_nba_simulation_text()
         bot.reply_to(message, text)
@@ -1359,7 +1262,7 @@ def cmd_start(message):
     text = (
         "🔥 <b>Bot aktif!</b>\n"
         "FAZ-4 + FAZ-5 + FAZ-6 v3 + FAZ-7.9 v2.0 + "
-        "FAZ-8.2 + FAZ-8.3 + FAZ-8.4 + FAZ-8.5 META + FAZ-9.1 Trend Engine bağlı.\n"
+        "FAZ-8.2 + FAZ-8.3 + FAZ-8.4 + FAZ-8.5 META + FAZ-9.x bağlı.\n"
         "Komut listesi için <code>/help</code> yaz."
     )
     bot.reply_to(message, text)
@@ -1372,7 +1275,7 @@ def cmd_help(message):
         "/start - Botu başlatır\n"
         "/help - Komut listesi\n"
         "/status - Sistem durumu\n\n"
-        "/simulate_nba - NBA canlı simülasyon (FAZ-8.4 + FAZ-8.5 + FAZ-9.1)\n\n"
+        "/simulate_nba - NBA canlı simülasyon (FAZ-8.4 + FAZ-8.5 + FAZ-9.x)\n\n"
         "— <b>FAZ-6 v3</b> —\n"
         "/faz6_test - FAZ-6 Test\n"
         "/faz6_auto - FAZ-6 Auto\n"
@@ -1382,9 +1285,9 @@ def cmd_help(message):
         "/faz6_balance - FAZ-6 Balance\n"
         "/faz6_coupon - FAZ-6 v3 Kupon (40 maç / FAZ-8.4 kupon motoru)\n"
         "/faz6_meta - FAZ-6 META kupon (FAZ-8.5 profile selector)\n\n"
-        "— <b>FAZ-7.9 + FAZ-9.1</b> —\n"
+        "— <b>FAZ-7.9</b> —\n"
         "/faz7_status - FAZ-7.9 hafıza özeti\n"
-        "/faz7_plan - FAZ-7.9 + FAZ-9.1 strateji planı\n"
+        "/faz7_plan - FAZ-7.9 + FAZ-9.x strateji planı\n"
         "/faz7_register - Günlük conf & edge kaydı\n\n"
         "— <b>FAZ-8.x</b> —\n"
         "/faz8_status - FAZ-8.x status\n"
@@ -1401,14 +1304,15 @@ def cmd_status(message):
         "✅ Bot çalışıyor.\n"
         "Mod: <b>Fly.io + Webhook + Flask</b>\n"
         "FAZ-7.9 v2.0 hafıza motoru: <b>AKTİF</b>\n"
-        "FAZ-9.1 trend motoru: <b>AKTİF</b>\n"
+        "FAZ-9.1/9.2 behavior motoru: <b>AKTİF</b>\n"
         "FAZ-8.2 kalibrasyon: <b>AKTİF</b>\n"
         "FAZ-8.3 full pipeline: <b>AKTİF</b>\n"
         "FAZ-8.4 kupon motoru: <b>AKTİF</b>\n"
         "FAZ-8.5 META profile: <b>AKTİF</b>\n"
         f"Strateji Modu: <b>{info['mode']}</b> | "
         f"Trend: {info['trend']} | Vol: {info['vol']}\n"
-        f"TCI: {info.get('tci', 0.0)} | Noise: {info.get('noise', 0.0)}\n"
+        f"TCI: {info['tci']} | Noise: {info['noise_ratio']} | "
+        f"BehaviorIndex: {info['behavior_index']}\n"
         f"Hafıza dosyası: <code>{MEMORY_FILE}</code>\n"
     )
     bot.reply_to(message, text)
@@ -1439,7 +1343,7 @@ def setup_webhook():
 
 
 if __name__ == "__main__":
-    log.info("🔥 FAZ-7.9 + FAZ-8.x + FAZ-6 v3 + FAZ-9.1 core sistemi boot ediliyor...")
+    log.info("🔥 FAZ-7.9 + FAZ-8.x + FAZ-6 v3 + FAZ-9.x core sistemi boot ediliyor...")
     init_memory()
     setup_webhook()
     port = int(os.getenv("PORT", 8080))
