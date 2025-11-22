@@ -863,8 +863,9 @@ def faz83_test(message):
 
 
 # ================================================================
-# 🏀 FAZ-6 v2 – GENİŞLETİLMİŞ KUPON & SİMÜLASYON
+# 🏀 FAZ-6 v3 – GENİŞLETİLMİŞ KUPON & SİMÜLASYON
 #        (FAZ-8.4 Kupon Motoru + FAZ-8.5 META altyapı)
+#        40 maçlık geniş fixture seti
 # ================================================================
 def _faz84_from_raw(profile: str,
                     raw_conf: float,
@@ -877,60 +878,89 @@ def _faz84_from_raw(profile: str,
     return faz84_coupon_engine(profile, raw_conf, raw_edge, base_stake)
 
 
+def _build_fixture_legs():
+    """
+    40 maçlık internal fixture tablosu.
+    Her eleman: (kupon_id, game_desc, conf, edge, stake)
+    """
+    legs = []
+
+    # Kupon 1 — SAFE (10 maç)
+    k1_games = [
+        ("EL:EFES@REAL | REAL MADRID -5.5 (FT spread)", 0.66, 0.045, 0.88),
+        ("EL:FENER@OLY | OLYMPIACOS -3.5 (FT spread)", 0.64, 0.041, 0.84),
+        ("NBA:BOS@MIA | UNDER 112.5 (1. Yarı total)", 0.65, 0.040, 0.80),
+        ("NBA:LAL@DEN | DEN +1.5 (Q1 spread)", 0.64, 0.039, 0.78),
+        ("NBA:GSW@PHX | UNDER 58.5 (Q2 total)", 0.63, 0.038, 0.76),
+        ("NBA:MIA@MIL | MIA +4.5 (FT spread)", 0.66, 0.044, 0.86),
+        ("EL:PARTIZAN@EFES | EFES -2.5 (FT spread)", 0.64, 0.040, 0.82),
+        ("EL:BARCA@FENER | UNDER 82.5 (1. Yarı total)", 0.65, 0.039, 0.80),
+        ("NBA:NYK@CHI | UNDER 55.5 (Q1 total)", 0.64, 0.038, 0.78),
+        ("NBA:DAL@SAC | DAL +2.5 (FT spread)", 0.66, 0.043, 0.88),
+    ]
+    for g in k1_games:
+        legs.append((1, *g))
+
+    # Kupon 2 — BALANCED (10 maç)
+    k2_games = [
+        ("NBA:BOS@MIA | UNDER 224.5 (FT total)", 0.63, 0.036, 0.80),
+        ("NBA:LAL@DEN | DEN -4.5 (FT spread)", 0.61, 0.032, 0.76),
+        ("EL:PARTIZAN@EFES | OVER 79.5 (1. Yarı total)", 0.62, 0.034, 0.78),
+        ("NBA:NYK@CHI | NYK -1.5 (Q3 spread)", 0.60, 0.031, 0.74),
+        ("NBA:DAL@SAC | OVER 56.5 (Q4 total)", 0.60, 0.030, 0.74),
+        ("NBA:PHX@GSW | PHX +3.5 (FT spread)", 0.62, 0.035, 0.78),
+        ("NBA:MEM@LAC | UNDER 111.5 (2. Yarı total)", 0.61, 0.033, 0.76),
+        ("EL:OLY@BARCA | BARCA ML (FT moneyline)", 0.62, 0.034, 0.79),
+        ("EL:VALENCIA@FENER | FENER -2.5 (Q3 spread)", 0.60, 0.031, 0.74),
+        ("NBA:ATL@MIA | UNDER 57.5 (Q2 total)", 0.61, 0.032, 0.75),
+    ]
+    for g in k2_games:
+        legs.append((2, *g))
+
+    # Kupon 3 — AGGRESSIVE (10 maç)
+    k3_games = [
+        ("NBA:CHI@NYK | NYK ML (FT moneyline)", 0.60, 0.031, 0.75),
+        ("NBA:MIA@MIL | MIA +2.5 (Q1 spread)", 0.59, 0.030, 0.74),
+        ("NBA:PHI@BOS | OVER 113.5 (2. Yarı total)", 0.59, 0.029, 0.72),
+        ("EL:FENER@REAL | FENERBAHÇE +4.5 (FT spread)", 0.58, 0.029, 0.72),
+        ("NBA:LAC@GSW | LAC ML (Q4 moneyline)", 0.58, 0.028, 0.70),
+        ("NBA:SAC@DEN | OVER 118.5 (2. Yarı total)", 0.59, 0.029, 0.72),
+        ("NBA:OKC@DAL | OKC +3.5 (FT spread)", 0.58, 0.028, 0.70),
+        ("EL:EFES@OLY | OVER 82.5 (2. Yarı total)", 0.58, 0.028, 0.70),
+        ("EL:PARTIZAN@REAL | PARTIZAN +7.5 (FT spread)", 0.57, 0.027, 0.69),
+        ("NBA:BKN@NYK | OVER 56.5 (Q4 total)", 0.57, 0.027, 0.68),
+    ]
+    for g in k3_games:
+        legs.append((3, *g))
+
+    # Kupon 4 — ULTRA (10 maç)
+    k4_games = [
+        ("NBA:GSW@PHX | OVER 230.5 (FT total)", 0.59, 0.028, 0.73),
+        ("NBA:DAL@LAL | DAL -3.5 (FT spread)", 0.58, 0.027, 0.72),
+        ("NBA:NYK@BKN | NYK -1.5 (HT spread)", 0.58, 0.027, 0.70),
+        ("EL:EFES@BAYERN | OVER 41.5 (Q1 total)", 0.57, 0.026, 0.68),
+        ("EL:FENER@OLY | OVER 79.5 (2. Yarı total)", 0.57, 0.026, 0.68),
+        ("NBA:MIA@BOS | OVER 60.5 (Q3 total)", 0.58, 0.027, 0.71),
+        ("NBA:CHI@ATL | ATL -2.5 (FT spread)", 0.57, 0.026, 0.69),
+        ("EL:REAL@BARCA | OVER 165.5 (FT total)", 0.57, 0.026, 0.69),
+        ("EL:OLY@PARTIZAN | OLY -3.5 (FT spread)", 0.56, 0.025, 0.67),
+        ("NBA:UTA@PHX | PHX -4.5 (FT spread)", 0.56, 0.025, 0.67),
+    ]
+    for g in k4_games:
+        legs.append((4, *g))
+
+    return legs
+
+
 def build_faz6_coupons_text() -> str:
     """
-    FAZ-6 v2 kuponları:
+    FAZ-6 v3 kuponları:
       - 4 ana kupon
-      - Toplam 20 maç / market
-      - Q1/Q2/Q3/Q4, HT, FT, spread & total karışık
+      - Toplam 40 maç / market
+      - Q1/Q2/Q3/Q4, HT, 2H, FT, spread & total & ML karışık
       - Her maç FAZ-8.4 kupon motoru ile kalibre edilir.
     """
-    coupons = [
-        {
-            "title": "🔥Kupon 1 — SAFE [SAFE]",
-            "profile": "SAFE",
-            "legs": [
-                ("EL:EFES@REAL | REAL MADRID -5.5 (FT spread)", 0.66, 0.045, 0.88),
-                ("EL:FENER@OLY | OLYMPIACOS -3.5 (FT spread)", 0.64, 0.041, 0.84),
-                ("NBA:BOS@MIA | UNDER 112.5 (1. Yarı total)", 0.65, 0.040, 0.80),
-                ("NBA:LAL@DEN | DEN +1.5 (Q1 spread)", 0.64, 0.039, 0.78),
-                ("NBA:GSW@PHX | UNDER 58.5 (Q2 total)", 0.63, 0.038, 0.76),
-            ],
-        },
-        {
-            "title": "🔥Kupon 2 — BALANCED [BAL]",
-            "profile": "BAL",
-            "legs": [
-                ("NBA:BOS@MIA | UNDER 224.5 (FT total)", 0.63, 0.036, 0.80),
-                ("NBA:LAL@DEN | DEN -4.5 (FT spread)", 0.61, 0.032, 0.76),
-                ("EL:PARTIZAN@EFES | OVER 79.5 (1. Yarı total)", 0.62, 0.034, 0.78),
-                ("NBA:NYK@CHI | NYK -1.5 (Q3 spread)", 0.60, 0.031, 0.74),
-                ("NBA:DAL@SAC | OVER 56.5 (Q4 total)", 0.60, 0.030, 0.74),
-            ],
-        },
-        {
-            "title": "🔥Kupon 3 — AGGRESSIVE [AGG]",
-            "profile": "AGG",
-            "legs": [
-                ("NBA:CHI@NYK | NYK ML (FT moneyline)", 0.60, 0.031, 0.75),
-                ("NBA:MIA@MIL | MIA +2.5 (Q1 spread)", 0.59, 0.030, 0.74),
-                ("NBA:PHI@BOS | OVER 113.5 (2. Yarı total)", 0.59, 0.029, 0.72),
-                ("EL:FENER@REAL | FENERBAHÇE +4.5 (FT spread)", 0.58, 0.029, 0.72),
-                ("NBA:LAC@GSW | LAC ML (Q4 moneyline)", 0.58, 0.028, 0.70),
-            ],
-        },
-        {
-            "title": "🔥Kupon 4 — ULTRA [ULTRA]",
-            "profile": "ULTRA",
-            "legs": [
-                ("NBA:GSW@PHX | OVER 230.5 (FT total)", 0.59, 0.028, 0.73),
-                ("NBA:DAL@LAL | DAL -3.5 (FT spread)", 0.58, 0.027, 0.72),
-                ("NBA:NYK@BKN | NYK -1.5 (HT spread)", 0.58, 0.027, 0.70),
-                ("EL:EFES@BAYERN | OVER 41.5 (Q1 total)", 0.57, 0.026, 0.68),
-                ("EL:FENER@OLY | OVER 79.5 (2. Yarı total)", 0.57, 0.026, 0.68),
-            ],
-        },
-    ]
+    legs = _build_fixture_legs()
 
     def fmt(game: str, calib: dict) -> str:
         return (
@@ -943,23 +973,33 @@ def build_faz6_coupons_text() -> str:
 
     parts = []
     parts.append(
-        "🔥 <b>FAZ-6 v2 KUPONLARI</b> "
-        "(20 maç / FAZ-8.4 Kupon Motoru + FAZ-8.5 META hafıza uyumlu)\n\n"
+        "🔥 <b>FAZ-6 v3 KUPONLARI</b> "
+        "(40 maç / FAZ-8.4 Kupon Motoru + FAZ-8.5 META hafıza uyumlu)\n\n"
     )
 
-    for coupon in coupons:
-        profile = coupon["profile"]
-        legs = coupon["legs"]
-        c_legs = []
+    for coupon_id in (1, 2, 3, 4):
+        if coupon_id == 1:
+            title = "🔥Kupon 1 — SAFE [SAFE]"
+            profile = "SAFE"
+        elif coupon_id == 2:
+            title = "🔥Kupon 2 — BALANCED [BAL]"
+            profile = "BAL"
+        elif coupon_id == 3:
+            title = "🔥Kupon 3 — AGGRESSIVE [AGG]"
+            profile = "AGG"
+        else:
+            title = "🔥Kupon 4 — ULTRA [ULTRA]"
+            profile = "ULTRA"
+
+        parts.append(title + "\n")
         total_stake = 0.0
 
-        for game, conf, edge, stake in legs:
+        for leg in [l for l in legs if l[0] == coupon_id]:
+            _, game_desc, conf, edge, stake = leg
             calib = _faz84_from_raw(profile, conf, edge, stake)
-            c_legs.append(fmt(game, calib))
+            parts.append(fmt(game_desc, calib))
             total_stake += calib["stake"]
 
-        parts.append(coupon["title"] + "\n")
-        parts.extend(c_legs)
         parts.append(f"💰 Toplam Stake: {total_stake:.2f}\n")
         parts.append("— — —\n\n")
 
@@ -968,7 +1008,7 @@ def build_faz6_coupons_text() -> str:
 
 def build_faz6_meta_coupon_text() -> str:
     """
-    FAZ-6 META kuponu (v2):
+    FAZ-6 META kuponu (v3):
       - FAZ-8.5 META profile seçici ile tek bir profil seçilir
       - Aynı profille 4 farklı maç / market kalibre edilir.
     """
@@ -998,7 +1038,7 @@ def build_faz6_meta_coupon_text() -> str:
         total_stake += calib["stake"]
 
     text = (
-        "🤖 <b>FAZ-6 META KUPON (FAZ-8.5 Profile Selector v2)</b>\n\n"
+        "🤖 <b>FAZ-6 META KUPON (FAZ-8.5 Profile Selector v3)</b>\n\n"
         f"Seçilen Profil: <b>{profile}</b>\n\n" +
         "".join(legs_text) +
         f"💰 Toplam Stake: {total_stake:.2f}\n"
@@ -1009,7 +1049,7 @@ def build_faz6_meta_coupon_text() -> str:
 @bot.message_handler(commands=["faz6_coupon", "kupon"])
 def faz6_coupon(message):
     """
-    FAZ-6 v2 çoklu kupon çıktısı (20 maç).
+    FAZ-6 v3 çoklu kupon çıktısı (40 maç).
     """
     try:
         text = build_faz6_coupons_text()
@@ -1124,7 +1164,7 @@ def faz6_real(message):
 
 @bot.message_handler(commands=["faz6_balance"])
 def faz6_balance(message):
-    bot.reply_to(message, "⚖️ FAZ-6 Balance modu placeholder.")
+    bot.reply_to(message, "⚖ FAZ-6 Balance modu placeholder.")
 
 
 # ================================================================
@@ -1134,7 +1174,7 @@ def faz6_balance(message):
 def cmd_start(message):
     text = (
         "🔥 <b>Bot aktif!</b>\n"
-        "FAZ-4 + FAZ-5 + FAZ-6 v2 + FAZ-7.9 v2.0 + "
+        "FAZ-4 + FAZ-5 + FAZ-6 v3 + FAZ-7.9 v2.0 + "
         "FAZ-8.2 + FAZ-8.3 + FAZ-8.4 + FAZ-8.5 META bağlı.\n"
         "Komut listesi için <code>/help</code> yaz."
     )
@@ -1149,14 +1189,14 @@ def cmd_help(message):
         "/help - Komut listesi\n"
         "/status - Sistem durumu\n\n"
         "/simulate_nba - NBA canlı simülasyon (FAZ-8.4 + FAZ-8.5)\n\n"
-        "— <b>FAZ-6 v2</b> —\n"
+        "— <b>FAZ-6 v3</b> —\n"
         "/faz6_test - FAZ-6 Test\n"
         "/faz6_auto - FAZ-6 Auto\n"
         "/faz6_risk - FAZ-6 Risk\n"
         "/faz6_edge - FAZ-6 Edge\n"
         "/faz6_real - FAZ-6 Real\n"
         "/faz6_balance - FAZ-6 Balance\n"
-        "/faz6_coupon - FAZ-6 v2 Kupon (20 maç / FAZ-8.4 kupon motoru)\n"
+        "/faz6_coupon - FAZ-6 v3 Kupon (40 maç / FAZ-8.4 kupon motoru)\n"
         "/faz6_meta - FAZ-6 META kupon (FAZ-8.5 profile selector)\n\n"
         "— <b>FAZ-7.9</b> —\n"
         "/faz7_status - FAZ-7.9 hafıza özeti\n"
@@ -1213,7 +1253,7 @@ def setup_webhook():
 
 
 if __name__ == "__main__":
-    log.info("🔥 FAZ-7.9 + FAZ-8.x + FAZ-6 v2 core sistemi boot ediliyor...")
+    log.info("🔥 FAZ-7.9 + FAZ-8.x + FAZ-6 v3 core sistemi boot ediliyor...")
     init_memory()
     setup_webhook()
     port = int(os.getenv("PORT", 8080))
