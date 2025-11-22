@@ -1,69 +1,94 @@
+# ============================================================
+#                 Zeynal Bot Core – Fly.io
+#     (FAZ 7.9 v2.0 + FAZ 8.x + FAZ 6 v3 FULL çekirdek)
+# ============================================================
+
 app = "zeynal-bot-core"
 primary_region = "ams"
 
-# ============================================================
-#                  ENVIRONMENT VARIABLES
-# ============================================================
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
 [env]
 PORT = "8080"
+FAZ7_DIR = "/data/faz7"
 
 # ============================================================
-#                  PROCESS (MAIN BOT)
+#                 🚀  PROCESS CONFIG
 # ============================================================
 [processes]
 app = "python main.py"
 
 # ============================================================
-#                  SERVICES (HTTP + TLS + HEALTHCHECK)
+#            🧱  VOLUME: FAZ-7.9 Kalıcı Hafıza
+# ============================================================
+[[mounts]]
+source = "faz7_memory"
+destination = "/data"
+
+# ============================================================
+#            🌐  SERVICES (HTTP + TLS + Health Check)
 # ============================================================
 [[services]]
 processes = ["app"]
 internal_port = 8080
 protocol = "tcp"
 
-  # -------------------------------------
-  # Concurrency (FAZ-8.5 Stabil Mod)
-  # -------------------------------------
   [services.concurrency]
   type = "requests"
-  soft_limit = 40
-  hard_limit = 60
+  soft_limit = 25
+  hard_limit = 40
 
-  # -------------------------------------
-  # HTTP (80)
-  # -------------------------------------
+  # 80 → HTTP
   [[services.ports]]
   port = 80
   handlers = ["http"]
 
-  # -------------------------------------
-  # HTTPS (443)
-  # -------------------------------------
+  # 443 → HTTPS
   [[services.ports]]
   port = 443
   handlers = ["tls", "http"]
 
-  # -------------------------------------
-  # HEALTHCHECK (FAZ-9 Upgrade)
-  # -------------------------------------
+  # ============================================================
+  #         🛡 STABLE HEALTH CHECK (Hardening v4)
+  # ============================================================
   [[services.http_checks]]
-    interval = "20s"          # Daha hızlı → daha duyarlı
-    timeout = "3s"
-    grace_period = "45s"      # Boot esnasında daha güvenli süre
-    method = "get"
-    path = "/"                # Flask home endpoint
+    interval = "30s"        # Yüksek stabilite – CPU'yu yormaz
+    timeout = "4s"          # Flask için ideal limit
+    grace_period = "45s"    # Boot sırasında yumuşak geçiş
     protocol = "http"
-    tls_skip_verify = false
+    method = "get"
+    path = "/"
 
 # ============================================================
-#                 AUTO ROLLBACK (FAZ-9)
+#               🔐  AUTO ROLLBACK (SAFE MODE)
 # ============================================================
 [experimental]
 auto_rollback = true
 
 # ============================================================
-#                 METRICS (OPSIONAL)
+#            🔥  VM / MACHINE HARDENING (v3)
 # ============================================================
-[metrics]
-port = 8080
-path = "/"
+[build]
+# Ekstra bir şey gerekmez (python main.py)
+
+[deploy]
+strategy = "rolling"
+max_parallel = 1     # Free tier için güvenli
+
+[vm]
+cpu_kind = "shared"
+cpus = 1
+memory = "512mb"     # Free tier maksimum güvenli değer
+
+# ============================================================
+#   HARDENING OPTIONS – Crash, freeze, overload korumaları
+# ============================================================
+[checks]
+# TCP Check – container'ın gerçekten ayakta olduğunu doğrular
+  [checks.fallback]
+    type = "tcp"
+    port = 8080
+    interval = "20s"
+    timeout = "3s"
+    grace_period = "25s"
