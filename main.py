@@ -1243,4 +1243,3 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
     log.info(f"Flask HTTP server 0.0.0.0:{port} üzerinde çalışıyor.")
     app.run(host="0.0.0.0", port=port)
-```0
