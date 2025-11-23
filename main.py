@@ -10,6 +10,11 @@ from flask import Flask, request
 from faz10_engine.faz10_stability import faz10_stability_check
 
 # ================================================================
+# 🔧 ENGINEERING MODE (FAZ-10 HardSync için global switch)
+# ================================================================
+ENGINEERING_MODE = os.getenv("ENGINEERING_MODE", "ON").upper() == "ON"
+
+# ================================================================
 # 🔧 LOGGING
 # ================================================================
 logging.basicConfig(
@@ -45,16 +50,11 @@ app = Flask(__name__)
 
 @app.route("/", methods=["GET"])
 def home():
-    # Fly.io health check
     return "OK", 200
 
 
 @app.route("/webhook", methods=["POST"])
 def telegram_webhook():
-    """
-    Telegram'ın gönderdiği update'leri alıp TeleBot'a paslıyoruz.
-    Hata olursa loglayıp 200 dönüyoruz ki Telegram webhook'u düşürmesin.
-    """
     try:
         json_update = request.get_json(force=False, silent=True)
         if json_update is None:
@@ -71,18 +71,12 @@ def telegram_webhook():
 
 # ================================================================
 # 📌 FAZ-7.9 v2.0 MEMORY ENGINE  (Kalıcı volume destekli)
-#   - 7 günlük pencere
-#   - v2.0: mod seçim eşikleri ve trend/vol mantığı güncellendi
-#   - FAZ-9.1: Trend Noise Filter + TCI
-#   - FAZ-9.2: Behavior Curve Engine (stability / momentum / behavior_index)
-#   - Fly.io volume: /data/faz7/faz7_memory.json
 # ================================================================
 FAZ7_DIR = os.getenv("FAZ7_DIR", "/data/faz7")
 MEMORY_FILE = os.path.join(FAZ7_DIR, "faz7_memory.json")
 
 
 def init_memory():
-    # Volume klasörü varsa / yoksa oluştur.
     try:
         os.makedirs(FAZ7_DIR, exist_ok=True)
     except Exception as e:
@@ -90,7 +84,7 @@ def init_memory():
 
     if not os.path.exists(MEMORY_FILE):
         data = {
-            "days": [],  # günlük kayıtlar: {ts, conf, edge}
+            "days": [],
             "safe": 0,
             "bal": 0,
             "agg": 0,
@@ -130,9 +124,6 @@ def save_memory(data):
 
 
 def register_daily_stats(conf: float, edge: float):
-    """
-    FAZ-7.9 v2.0 REGISTER → günlük confidence & edge kaydı.
-    """
     mem = load_memory()
     today = {
         "ts": int(time.time()),
@@ -142,7 +133,6 @@ def register_daily_stats(conf: float, edge: float):
 
     mem["days"].append(today)
 
-    # sadece son 7 günü tut
     if len(mem["days"]) > 7:
         mem["days"] = mem["days"][-7:]
 
@@ -151,9 +141,6 @@ def register_daily_stats(conf: float, edge: float):
 
 
 def _ema(series: pd.Series, alpha: float = 0.6) -> float:
-    """
-    Basit EMA – v2.0 trend hesabında destek amaçlı.
-    """
     if len(series) == 0:
         return 0.0
     ema_val = series.iloc[0]
@@ -163,14 +150,6 @@ def _ema(series: pd.Series, alpha: float = 0.6) -> float:
 
 
 def _faz92_behavior_curves(df: pd.DataFrame, slope: float, vol: float) -> dict:
-    """
-    FAZ-9.2 Behavior Curve Engine
-      - stability: conf oynaklığına göre 0–1 arası stabilite
-      - momentum: ilk conf → son conf değişimi
-      - tci: trend certainty index (slope / noise)
-      - noise_ratio: vol / net hareket oranı
-      - behavior_index: 0.8–1.2 arası stake çarpanı
-    """
     if df is None or len(df) == 0:
         return {
             "tci": 0.0,
@@ -190,32 +169,23 @@ def _faz92_behavior_curves(df: pd.DataFrame, slope: float, vol: float) -> dict:
     conf_std = float(conf_series.std() if len(conf_series) > 1 else 0.0)
     edge_std = float(edge_series.std() if len(edge_series) > 1 else 0.0)
 
-    # Stabilite: std azaldıkça 1'e yaklaşsın
     stability = 1.0 / (1.0 + conf_std * 25.0)
     stability = max(0.0, min(stability, 1.0))
 
-    # Momentum: conf değişiminin küçük aralıkta tutulmuş hali
     momentum = max(-0.1, min(conf_change, 0.1))
 
-    # TCI: trend gücü / noise
     denom = conf_std + 0.02
     tci = abs(slope) / denom
     tci = max(0.0, min(tci, 1.0))
 
-    # Noise Ratio: vol / net hareket
     noise_ratio = vol / (abs(conf_change) + 0.01)
     noise_ratio = max(0.0, min(noise_ratio, 1.5))
 
-    # Behavior index: pozitif momentum + düşük noise + düşük vol ödüllenir
     behavior_index = 1.0
-    # momentum etkisi
-    behavior_index += momentum * 0.8 * 10.0  # -0.8 .. +0.8
-    # noise cezası
+    behavior_index += momentum * 0.8 * 10.0
     if noise_ratio > 0.6:
         behavior_index -= (noise_ratio - 0.6) * 0.2
-    # vol cezası
     behavior_index -= vol * 0.5
-
     behavior_index = max(0.8, min(behavior_index, 1.2))
 
     return {
@@ -225,7 +195,6 @@ def _faz92_behavior_curves(df: pd.DataFrame, slope: float, vol: float) -> dict:
         "momentum": round(momentum, 3),
         "behavior_index": round(behavior_index, 3),
     }
-
 
 def faz79_brain():
     """
@@ -265,14 +234,12 @@ def faz79_brain():
     avg_conf = float(df["conf"].mean())
     avg_edge = float(df["edge"].mean())
 
-    # linear regression slope (SVD hatasına karşı korumalı)
     try:
         slope = float(np.polyfit(df["t"], df["conf"], 1)[0])
     except Exception as e:
         log.warning(f"FAZ-7.9 v2.0 slope hesaplanırken hata (SVD fallback): {e}")
         slope = 0.0
 
-    # Trend yönü (EMA destekli)
     ema_conf = _ema(df["conf"])
     if slope > 0.01 and ema_conf >= avg_conf:
         trend = "UP"
@@ -281,12 +248,10 @@ def faz79_brain():
     else:
         trend = "FLAT"
 
-    # Volatilite: std + küçük EMA farkı katkısı
     base_vol = float(df["conf"].std() if len(df) > 1 else 0.0)
     ema_diff = abs(ema_conf - avg_conf)
     vol = float(base_vol * 0.8 + ema_diff * 0.2)
 
-    # FAZ-9.2 behavior curves + FAZ-9.1 noise/TCI
     bc = _faz92_behavior_curves(df, slope, vol)
     tci = bc["tci"]
     noise_ratio = bc["noise_ratio"]
@@ -294,7 +259,6 @@ def faz79_brain():
     stability = bc["stability"]
     momentum = bc["momentum"]
 
-    # v2.0 mod eşikleri:
     if avg_conf >= 0.72 and avg_edge >= 0.045:
         mode = "SAFE"
     elif avg_conf >= 0.58 and avg_edge >= 0.030:
@@ -327,6 +291,104 @@ def faz79_brain():
 
 
 # ================================================================
+# 🔁 FAZ-10 → HardSync Mode (FAZ-7.9 + FAZ-8 + FAZ-9.x + FAZ-10)
+# ================================================================
+def faz10_hardsync(brain: dict, calib: dict = None) -> dict:
+    """
+    FAZ-10 HardSync:
+
+    - FAZ-7.9 beyninden full snapshot alır (mode / trend / vol / conf / edge).
+    - faz10_stability_check ile FAZ-9.x / FAZ-10 stabilite & rejim analizini kullanır.
+    - ENGINEERING_MODE: ON iken,
+        * Kritik rejimlerde mode'u zorla SAFE'e kilitler.
+        * Orta seviyede AGG'yi BAL'e yumuşatır.
+        * Normal rejimde suggested_mode'a izin verir.
+    - ENGINEERING_MODE: OFF iken hiçbir zorlayıcı değişiklik yapmaz, sadece telemetry üretir.
+    """
+    try:
+        stability = faz10_stability_check(brain) or {}
+    except Exception as e:
+        log.error(f"[FAZ-10] Stability check hata: {e}", exc_info=True)
+        stability = {}
+
+    regime = str(stability.get("regime", "NORMAL") or "NORMAL").upper()
+    suggested_mode = str(
+        stability.get("suggested_mode", brain.get("mode", "INIT"))
+        or brain.get("mode", "INIT")
+    ).upper()
+
+    try:
+        score = float(stability.get("stability_score", 1.0) or 1.0)
+    except Exception:
+        score = 1.0
+
+    try:
+        anomaly = float(stability.get("anomaly_level", 0.0) or 0.0)
+    except Exception:
+        anomaly = 0.0
+
+    base_mode = str(brain.get("mode", "INIT") or "INIT").upper()
+    bucket = (calib or {}).get("bucket", "MID")
+
+    final_mode = base_mode
+    lock_reason = "NO_LOCK"
+
+    if ENGINEERING_MODE:
+        # 1) Kritik durum → full SAFE lock
+        if regime in ("CRITICAL", "UNSTABLE") or anomaly >= 0.7 or score < 0.60:
+            final_mode = "SAFE"
+            lock_reason = "CRITICAL_LOCK"
+
+        # 2) Orta risk → AGG yumuşat, BAL/SAFE koru
+        elif score < 0.75 or anomaly >= 0.4:
+            if base_mode == "AGG":
+                final_mode = "BAL"
+                lock_reason = "AGG_DOWNGRADE"
+            else:
+                final_mode = base_mode
+                lock_reason = "SOFT_GUARD"
+
+        # 3) Rahat bölge → suggested_mode'a izin ver
+        else:
+            if suggested_mode in ("SAFE", "BAL", "AGG"):
+                final_mode = suggested_mode
+                lock_reason = "FOLLOW_SUGGESTED"
+            else:
+                final_mode = base_mode
+                lock_reason = "BASE_MODE"
+
+    else:
+        # ENGINEERING_MODE kapalı → davranışa hiç karışma
+        final_mode = base_mode
+        lock_reason = "ENGINEERING_OFF"
+
+    info = {
+        "brain": brain,
+        "stability": stability,
+        "mode": final_mode,
+        "bucket": bucket,
+        "lock_reason": lock_reason,
+        "stability_score": score,
+        "anomaly_level": anomaly,
+        "regime": regime,
+        "engineering_mode": ENGINEERING_MODE,
+    }
+
+    log.info(
+        "[FAZ-10][HardSync] mode=%s → %s | bucket=%s | score=%.3f | anomaly=%.3f | regime=%s | reason=%s",
+        base_mode,
+        final_mode,
+        bucket,
+        score,
+        anomaly,
+        regime,
+        lock_reason,
+    )
+
+    return info
+
+
+# ================================================================
 # 🧠 FAZ-8.1 – CORE CALIBRATION ENGINE
 # ================================================================
 def _faz81_core_calibration(raw_conf: float,
@@ -347,7 +409,6 @@ def _faz81_core_calibration(raw_conf: float,
     edge = float(raw_edge)
     stake = float(base_stake)
 
-    # INIT veya bilinmeyen mod → sadece passthrough
     if mode not in ("SAFE", "BAL", "AGG"):
         return {
             "engine": "FAZ-8.1",
@@ -359,7 +420,6 @@ def _faz81_core_calibration(raw_conf: float,
             "stake": round(stake, 2),
         }
 
-    # Mode bazlı çarpanlar
     if mode == "SAFE":
         stake_factor = 0.88
         conf_boost = 0.035
@@ -370,7 +430,6 @@ def _faz81_core_calibration(raw_conf: float,
         stake_factor = 1.18
         conf_boost = -0.025
 
-    # Trend etkisi
     if trend == "UP":
         conf += 0.02
         edge *= 1.06
@@ -378,7 +437,6 @@ def _faz81_core_calibration(raw_conf: float,
         conf -= 0.02
         edge *= 0.94
 
-    # Volatilite etkisi
     if vol > 0.18:
         conf -= 0.02
         stake_factor *= 0.90
@@ -386,10 +444,8 @@ def _faz81_core_calibration(raw_conf: float,
         conf += 0.01
         edge *= 1.03
 
-    # Mode bazlı conf boost
     conf += conf_boost
 
-    # Güvenlik: clamp
     conf = max(0.0, min(conf, 0.99))
     edge = max(0.0, edge)
     stake = max(0.1, stake * stake_factor)
@@ -451,7 +507,6 @@ def _faz82_lmf_shield(calib: dict) -> dict:
 
     prof = profiles.get(mode, profiles["BAL"])
 
-    # 1) Edge tabanı
     if edge < prof["edge_hard_floor"]:
         stake *= 0.45
         conf *= 0.80
@@ -459,7 +514,6 @@ def _faz82_lmf_shield(calib: dict) -> dict:
         stake *= 0.70
         conf *= 0.90
 
-    # 2) Volatilite kapıları
     if vol > prof["vol_hard"]:
         stake *= 0.65
         conf *= 0.90
@@ -467,7 +521,6 @@ def _faz82_lmf_shield(calib: dict) -> dict:
         stake *= 0.80
         conf *= 0.95
 
-    # 3) Trend smoothing
     if trend == "DOWN":
         stake *= prof["trend_down_factor"]
         conf *= prof["trend_down_factor"]
@@ -567,7 +620,7 @@ def faz83_dynamic_calibration(conf: float,
     elif bucket == "MID":
         conf_mult = 0.97
         edge_mult = 0.97
-    else:  # HIGH
+    else:
         conf_mult = 1.02
         edge_mult = 1.00
 
@@ -586,167 +639,448 @@ def faz83_dynamic_calibration(conf: float,
         "cal_stake": cal_stake,
     }
 
-
-# ================================================================
-# 🧠 FAZ-8.4 — COUPON POWER ENGINE
-# ================================================================
-def faz84_coupon_engine(profile: str,
-                        raw_conf: float,
-                        raw_edge: float,
-                        base_stake: float = 1.0) -> dict:
+def faz79_brain():
     """
-    Kupon bazlı full pipeline:
-      RAW → 8.1 → 8.2 → 8.3 → 8.4 profil ayarı
-      + FAZ-9.2 behavior_index ile ince stake ayarı
+    FAZ-7.9 v2.0 STRATEJİ BEYNİ + FAZ-9.1/9.2
+      - 7 günlük conf/edge ortalamaları
+      - lineer trend (slope)
+      - EMA destekli volatilite yorumlaması
+      - Trend Certainty (TCI) + Noise Ratio (FAZ-9.1)
+      - Behavior Index / Stability / Momentum (FAZ-9.2)
+      - SAFE/BAL/AGG mod seçimi revize eşikler
     """
-    core = _faz81_core_calibration(raw_conf, raw_edge, base_stake)
-    core82 = _faz82_lmf_shield(core)
+    mem = load_memory()
+    days = mem["days"]
 
-    brain = faz79_brain()
-    conf_avg = brain["conf"] if brain["conf"] > 0 else max(raw_conf, 0.01)
-    edge_avg = brain["edge"] if brain["edge"] > 0 else max(raw_edge, 0.01)
+    if len(days) == 0:
+        return {
+            "mode": "INIT",
+            "conf": 0.0,
+            "edge": 0.0,
+            "trend": "INIT",
+            "slope": 0.0,
+            "vol": 0.0,
+            "tci": 0.0,
+            "noise_ratio": 0.0,
+            "behavior_index": 1.0,
+            "stability": 1.0,
+            "momentum": 0.0,
+            "stake_norm": 1.00,
+            "safe": False,
+            "bal": True,
+            "agg": False,
+        }
 
-    c83 = faz83_dynamic_calibration(
-        conf=core82["conf"],
-        edge=core82["edge"],
-        stake=core82["stake"],
-        mode=brain["mode"],
-        trend_slope=brain["slope"],
-        vol=brain["vol"],
-        conf_avg=conf_avg,
-        edge_avg=edge_avg,
-    )
+    df = pd.DataFrame(days)
+    df["t"] = range(len(df))
 
-    conf = c83["cal_conf"]
-    edge = c83["cal_edge"]
-    stake = c83["cal_stake"]
-    bucket = c83["bucket"]
+    avg_conf = float(df["conf"].mean())
+    avg_edge = float(df["edge"].mean())
 
-    profile = (profile or "BAL").upper()
-    if profile == "SAFE":
-        stake *= 0.85
-        conf = min(0.99, conf + 0.02)
-    elif profile == "BAL":
-        stake *= 1.00
-    elif profile == "AGG":
-        stake *= 1.12
-        conf = max(0.0, conf - 0.01)
-    elif profile == "ULTRA":
-        stake *= 1.20
-        conf = max(0.0, conf - 0.02)
+    try:
+        slope = float(np.polyfit(df["t"], df["conf"], 1)[0])
+    except Exception as e:
+        log.warning(f"FAZ-7.9 v2.0 slope hesaplanırken hata (SVD fallback): {e}")
+        slope = 0.0
 
-    # FAZ-9.2 behavior_index → son stake ayarı
-    behavior_index = brain.get("behavior_index", 1.0)
-    stake *= behavior_index
-
-    if bucket == "HIGH" and conf >= 0.67:
-        risk_label = "HIGH"
-    elif bucket == "LOW" or conf < 0.58:
-        risk_label = "LOW"
+    ema_conf = _ema(df["conf"])
+    if slope > 0.01 and ema_conf >= avg_conf:
+        trend = "UP"
+    elif slope < -0.01 and ema_conf <= avg_conf:
+        trend = "DOWN"
     else:
-        risk_label = "MID"
+        trend = "FLAT"
 
-    stake = round(max(0.1, stake), 2)
-    conf = round(max(0.0, min(conf, 0.99)), 2)
-    edge = round(max(0.0, edge), 3)
+    base_vol = float(df["conf"].std() if len(df) > 1 else 0.0)
+    ema_diff = abs(ema_conf - avg_conf)
+    vol = float(base_vol * 0.8 + ema_diff * 0.2)
+
+    bc = _faz92_behavior_curves(df, slope, vol)
+    tci = bc["tci"]
+    noise_ratio = bc["noise_ratio"]
+    behavior_index = bc["behavior_index"]
+    stability = bc["stability"]
+    momentum = bc["momentum"]
+
+    if avg_conf >= 0.72 and avg_edge >= 0.045:
+        mode = "SAFE"
+    elif avg_conf >= 0.58 and avg_edge >= 0.030:
+        mode = "BAL"
+    else:
+        mode = "AGG"
+
+    mem["safe"] = int(mode == "SAFE")
+    mem["bal"] = int(mode == "BAL")
+    mem["agg"] = int(mode == "AGG")
+    save_memory(mem)
 
     return {
-        "mode": brain["mode"],
-        "trend": brain["trend"],
-        "bucket": bucket,
-        "risk": risk_label,
-        "conf": conf,
-        "edge": edge,
-        "stake": stake,
+        "mode": mode,
+        "conf": round(avg_conf, 3),
+        "edge": round(avg_edge, 3),
+        "trend": trend,
+        "slope": round(slope, 4),
+        "vol": round(vol, 4),
+        "tci": tci,
+        "noise_ratio": noise_ratio,
+        "behavior_index": behavior_index,
+        "stability": stability,
+        "momentum": momentum,
+        "stake_norm": 1.00,
+        "safe": mode == "SAFE",
+        "bal": mode == "BAL",
+        "agg": mode == "AGG",
     }
 
 
 # ================================================================
-# 🧠 FAZ-8.5 — META PROFILE SELECTOR
+# 🔁 FAZ-10 → HardSync Mode (FAZ-7.9 + FAZ-8 + FAZ-9.x + FAZ-10)
 # ================================================================
-def faz85_meta_profile_selector() -> str:
+def faz10_hardsync(brain: dict, calib: dict = None) -> dict:
     """
-    META STRATEJİ:
-      SAFE = beyin SAFE ve bucket HIGH iken
-      BAL  = normal mod
-      AGG  = beyin AGG + bucket HIGH iken
-      ULTRA = meta tarafından otomatik asla seçilmez
+    FAZ-10 HardSync:
+
+    - FAZ-7.9 beyninden full snapshot alır (mode / trend / vol / conf / edge).
+    - faz10_stability_check ile FAZ-9.x / FAZ-10 stabilite & rejim analizini kullanır.
+    - ENGINEERING_MODE: ON iken,
+        * Kritik rejimlerde mode'u zorla SAFE'e kilitler.
+        * Orta seviyede AGG'yi BAL'e yumuşatır.
+        * Normal rejimde suggested_mode'a izin verir.
+    - ENGINEERING_MODE: OFF iken hiçbir zorlayıcı değişiklik yapmaz, sadece telemetry üretir.
     """
-    brain = faz79_brain()
-    mode = brain["mode"]
+    try:
+        stability = faz10_stability_check(brain) or {}
+    except Exception as e:
+        log.error(f"[FAZ-10] Stability check hata: {e}", exc_info=True)
+        stability = {}
+
+    regime = str(stability.get("regime", "NORMAL") or "NORMAL").upper()
+    suggested_mode = str(
+        stability.get("suggested_mode", brain.get("mode", "INIT"))
+        or brain.get("mode", "INIT")
+    ).upper()
 
     try:
-        bucket_info = faz83_dynamic_calibration(
-            conf=brain["conf"] if brain["conf"] > 0 else 0.62,
-            edge=brain["edge"] if brain["edge"] > 0 else 0.035,
-            stake=1.0,
-            mode=mode,
-            trend_slope=brain["slope"],
-            vol=brain["vol"],
-            conf_avg=brain["conf"] if brain["conf"] > 0 else 0.62,
-            edge_avg=brain["edge"] if brain["edge"] > 0 else 0.035,
-        )
-        bucket = bucket_info["bucket"]
-    except Exception as e:
-        log.warning(f"[FAZ-8.5] Bucket hesaplanırken hata: {e}")
-        bucket = "MID"
+        score = float(stability.get("stability_score", 1.0) or 1.0)
+    except Exception:
+        score = 1.0
 
-    if mode == "SAFE" and bucket == "HIGH":
-        profile = "SAFE"
-    elif mode == "BAL":
-        profile = "BAL"
-    elif mode == "AGG" and bucket == "HIGH":
-        profile = "AGG"
+    try:
+        anomaly = float(stability.get("anomaly_level", 0.0) or 0.0)
+    except Exception:
+        anomaly = 0.0
+
+    base_mode = str(brain.get("mode", "INIT") or "INIT").upper()
+    bucket = (calib or {}).get("bucket", "MID")
+
+    final_mode = base_mode
+    lock_reason = "NO_LOCK"
+
+    if ENGINEERING_MODE:
+        # 1) Kritik durum → full SAFE lock
+        if regime in ("CRITICAL", "UNSTABLE") or anomaly >= 0.7 or score < 0.60:
+            final_mode = "SAFE"
+            lock_reason = "CRITICAL_LOCK"
+
+        # 2) Orta risk → AGG yumuşat, BAL/SAFE koru
+        elif score < 0.75 or anomaly >= 0.4:
+            if base_mode == "AGG":
+                final_mode = "BAL"
+                lock_reason = "AGG_DOWNGRADE"
+            else:
+                final_mode = base_mode
+                lock_reason = "SOFT_GUARD"
+
+        # 3) Rahat bölge → suggested_mode'a izin ver
+        else:
+            if suggested_mode in ("SAFE", "BAL", "AGG"):
+                final_mode = suggested_mode
+                lock_reason = "FOLLOW_SUGGESTED"
+            else:
+                final_mode = base_mode
+                lock_reason = "BASE_MODE"
+
     else:
-        profile = "BAL"
+        # ENGINEERING_MODE kapalı → davranışa hiç karışma
+        final_mode = base_mode
+        lock_reason = "ENGINEERING_OFF"
 
-    log.info(f"[FAZ-8.5] META profile seçildi: mode={mode}, bucket={bucket}, profile={profile}")
-    return profile
+    info = {
+        "brain": brain,
+        "stability": stability,
+        "mode": final_mode,
+        "bucket": bucket,
+        "lock_reason": lock_reason,
+        "stability_score": score,
+        "anomaly_level": anomaly,
+        "regime": regime,
+        "engineering_mode": ENGINEERING_MODE,
+    }
 
-
-# ================================================================
-# 🧠 GENEL FAZ-8 PUBLIC API
-# ================================================================
-def faz8_calibrate_signal(raw_conf: float,
-                          raw_edge: float,
-                          base_stake: float = 1.0) -> dict:
-    """
-    PUBLIC FAZ-8.x API:
-      RAW → 8.1 → 8.2 → 8.3 (+ FAZ-9.2 behavior_index stake ayarı)
-    """
-    core = _faz81_core_calibration(raw_conf, raw_edge, base_stake)
-    brain = faz79_brain()
-
-    conf_avg = brain["conf"] if brain["conf"] > 0 else max(raw_conf, 0.01)
-    edge_avg = brain["edge"] if brain["edge"] > 0 else max(raw_edge, 0.01)
-
-    core82 = _faz82_lmf_shield(core)
-    c83 = faz83_dynamic_calibration(
-        conf=core82["conf"],
-        edge=core82["edge"],
-        stake=core82["stake"],
-        mode=brain["mode"],
-        trend_slope=brain["slope"],
-        vol=brain["vol"],
-        conf_avg=conf_avg,
-        edge_avg=edge_avg,
+    log.info(
+        "[FAZ-10][HardSync] mode=%s → %s | bucket=%s | score=%.3f | anomaly=%.3f | regime=%s | reason=%s",
+        base_mode,
+        final_mode,
+        bucket,
+        score,
+        anomaly,
+        regime,
+        lock_reason,
     )
 
-    behavior_index = brain.get("behavior_index", 1.0)
-    stake_adj = max(0.1, round(c83["cal_stake"] * behavior_index, 2))
+    return info
+
+
+# ================================================================
+# 🧠 FAZ-8.1 – CORE CALIBRATION ENGINE
+# ================================================================
+def _faz81_core_calibration(raw_conf: float,
+                            raw_edge: float,
+                            base_stake: float = 1.0) -> dict:
+    """
+    FAZ-8.1 core:
+      - FAZ-7.9 beyninden mode/trend/vol alır
+      - conf / edge / stake değerini temel kurallarla ayarlar
+    """
+    brain = faz79_brain()
+
+    mode = brain["mode"]
+    trend = brain["trend"]
+    vol = brain["vol"]
+
+    conf = float(raw_conf)
+    edge = float(raw_edge)
+    stake = float(base_stake)
+
+    if mode not in ("SAFE", "BAL", "AGG"):
+        return {
+            "engine": "FAZ-8.1",
+            "mode": mode,
+            "trend": trend,
+            "vol": round(vol, 4),
+            "conf": round(conf, 3),
+            "edge": round(edge, 3),
+            "stake": round(stake, 2),
+        }
+
+    if mode == "SAFE":
+        stake_factor = 0.88
+        conf_boost = 0.035
+    elif mode == "BAL":
+        stake_factor = 1.00
+        conf_boost = 0.00
+    else:  # AGG
+        stake_factor = 1.18
+        conf_boost = -0.025
+
+    if trend == "UP":
+        conf += 0.02
+        edge *= 1.06
+    elif trend == "DOWN":
+        conf -= 0.02
+        edge *= 0.94
+
+    if vol > 0.18:
+        conf -= 0.02
+        stake_factor *= 0.90
+    elif vol < 0.05 and mode == "SAFE":
+        conf += 0.01
+        edge *= 1.03
+
+    conf += conf_boost
+
+    conf = max(0.0, min(conf, 0.99))
+    edge = max(0.0, edge)
+    stake = max(0.1, stake * stake_factor)
+
+    return {
+        "engine": "FAZ-8.1",
+        "mode": mode,
+        "trend": trend,
+        "vol": round(vol, 4),
+        "conf": round(conf, 3),
+        "edge": round(edge, 3),
+        "stake": round(stake, 2),
+    }
+
+
+# ================================================================
+# 🧠 FAZ-8.2 – LMF SHIELD (Loss Minimization Filters)
+# ================================================================
+def _faz82_lmf_shield(calib: dict) -> dict:
+    """
+    FAZ-8.2:
+      - Edge floor / vol kapıları
+      - Trend DOWN / UP için farklı baskılama / boost
+      - Mode'a göre farklı LMF profilleri
+    """
+    mode = calib.get("mode", "INIT")
+    trend = calib.get("trend", "INIT")
+    vol = float(calib.get("vol", 0.0))
+    conf = float(calib.get("conf", 0.0))
+    edge = float(calib.get("edge", 0.0))
+    stake = float(calib.get("stake", 1.0))
+
+    profiles = {
+        "SAFE": {
+            "edge_floor": 0.030,
+            "edge_hard_floor": 0.020,
+            "vol_soft": 0.08,
+            "vol_hard": 0.18,
+            "trend_up_factor": 1.05,
+            "trend_down_factor": 0.88,
+        },
+        "BAL": {
+            "edge_floor": 0.028,
+            "edge_hard_floor": 0.018,
+            "vol_soft": 0.10,
+            "vol_hard": 0.22,
+            "trend_up_factor": 1.04,
+            "trend_down_factor": 0.90,
+        },
+        "AGG": {
+            "edge_floor": 0.025,
+            "edge_hard_floor": 0.015,
+            "vol_soft": 0.12,
+            "vol_hard": 0.26,
+            "trend_up_factor": 1.03,
+            "trend_down_factor": 0.92,
+        },
+    }
+
+    prof = profiles.get(mode, profiles["BAL"])
+
+    if edge < prof["edge_hard_floor"]:
+        stake *= 0.45
+        conf *= 0.80
+    elif edge < prof["edge_floor"]:
+        stake *= 0.70
+        conf *= 0.90
+
+    if vol > prof["vol_hard"]:
+        stake *= 0.65
+        conf *= 0.90
+    elif vol > prof["vol_soft"]:
+        stake *= 0.80
+        conf *= 0.95
+
+    if trend == "DOWN":
+        stake *= prof["trend_down_factor"]
+        conf *= prof["trend_down_factor"]
+    elif trend == "UP":
+        stake *= prof["trend_up_factor"]
+        conf *= prof["trend_up_factor"]
+
+    conf = max(0.0, min(conf, 0.99))
+    edge = max(0.0, edge)
+    stake = max(0.1, stake)
+
+    calib["engine"] = "FAZ-8.2"
+    calib["conf"] = round(conf, 3)
+    calib["edge"] = round(edge, 3)
+    calib["stake"] = round(stake, 2)
+    return calib
+
+
+# ================================================================
+# 🧠 FAZ-8.3 — DYNAMIC CALIBRATION ENGINE (FULL)
+# ================================================================
+def faz83_compute_risk_bucket(conf: float,
+                              edge: float,
+                              conf_avg: float,
+                              edge_avg: float):
+    """
+    FAZ-8.3 risk puanı:
+      score = 0.6 * (conf/conf_avg) + 0.4 * (edge/edge_avg)
+    Bucket:
+      LOW  < 0.95
+      MID  < 1.10
+      HIGH ≥ 1.10
+    """
+    conf_avg = max(conf_avg, 1e-6)
+    edge_avg = max(edge_avg, 1e-6)
+
+    rel_conf = conf / conf_avg
+    rel_edge = edge / edge_avg
+
+    score = 0.6 * rel_conf + 0.4 * rel_edge
+
+    if score < 0.95:
+        bucket = "LOW"
+    elif score < 1.10:
+        bucket = "MID"
+    else:
+        bucket = "HIGH"
+
+    return bucket, round(score, 4)
+
+
+def faz83_dynamic_calibration(conf: float,
+                              edge: float,
+                              stake: float,
+                              mode: str,
+                              trend_slope: float,
+                              vol: float,
+                              conf_avg: float,
+                              edge_avg: float) -> dict:
+    """
+    FAZ-8.3 ana motor:
+      - FAZ-7.9 ortalamalarına göre risk bucket belirler
+      - Trend & volatilite ile stake ayarı yapar
+      - Mode SAFE/BAL/AGG'e göre hafif modifikasyon uygular
+    """
+    bucket, score = faz83_compute_risk_bucket(conf, edge, conf_avg, edge_avg)
+
+    base_mult_map = {
+        "LOW": 0.70,
+        "MID": 0.90,
+        "HIGH": 1.10,
+    }
+    base_mult = base_mult_map[bucket]
+
+    slope_clamped = max(min(trend_slope, 0.05), -0.05)
+    trend_mult = 1.0 + (slope_clamped * 1.5)
+
+    vol_clamped = max(min(vol, 0.08), 0.0)
+    vol_mult = 1.0 - (vol_clamped * 1.5)
+
+    mode = (mode or "BAL").upper()
+    if mode == "SAFE":
+        mode_mult = 0.85
+    elif mode == "AGG":
+        mode_mult = 1.10
+    else:
+        mode_mult = 1.0
+
+    total_mult = base_mult * trend_mult * vol_mult * mode_mult
+    total_mult = max(0.40, min(total_mult, 1.40))
+
+    cal_stake = round(stake * total_mult, 2)
+
+    if bucket == "LOW":
+        conf_mult = 0.92
+        edge_mult = 0.92
+    elif bucket == "MID":
+        conf_mult = 0.97
+        edge_mult = 0.97
+    else:
+        conf_mult = 1.02
+        edge_mult = 1.00
+
+    cal_conf = max(0.0, min(0.99, conf * conf_mult))
+    cal_edge = max(0.0, edge * edge_mult)
 
     return {
         "engine": "FAZ-8.3",
-        "mode": brain["mode"],
-        "trend": brain["trend"],
-        "vol": brain["vol"],
-        "bucket": c83["bucket"],
-        "score": c83["score"],
-        "conf": c83["cal_conf"],
-        "edge": c83["cal_edge"],
-        "stake": stake_adj,
-        "behavior_index": behavior_index,
-    }
+        "bucket": bucket,
+        "score": score,
+        "raw_conf": round(conf, 3),
+        "raw_edge": round(edge, 3),
+        "raw_stake": round(stake, 2),
+        "cal_conf": round(cal_conf, 3),
+        "cal_edge": round(cal_edge, 3),
+        "cal_stake": cal_stake,
+    }   
 
 
 # ================================================================
@@ -1127,7 +1461,6 @@ def _send_long_text(message, text: str, max_len: int = 3800):
     while start < len(text):
         chunk = text[start:start + max_len]
         if first:
-            # ilk chunk reply_to olsun
             bot.reply_to(message, chunk)
             first = False
         else:
@@ -1263,7 +1596,7 @@ def cmd_start(message):
     text = (
         "🔥 <b>Bot aktif!</b>\n"
         "FAZ-4 + FAZ-5 + FAZ-6 v3 + FAZ-7.9 v2.0 + "
-        "FAZ-8.2 + FAZ-8.3 + FAZ-8.4 + FAZ-8.5 META + FAZ-9.x bağlı.\n"
+        "FAZ-8.2 + FAZ-8.3 + FAZ-8.4 + FAZ-8.5 META + FAZ-9.x + FAZ-10 HardSync bağlı.\n"
         "Komut listesi için <code>/help</code> yaz."
     )
     bot.reply_to(message, text)
@@ -1295,7 +1628,7 @@ def cmd_help(message):
         "/faz8_test - Manuel FAZ-8.x sinyal testi\n"
         "/faz83_test - FAZ-8.3 full pipeline testi\n"
         "— <b>FAZ-10</b> —\n"
-        "/faz10 - FAZ-10 Stability Report\n"
+        "/faz10 - FAZ-10 Stability + HardSync Report\n"
     )
     bot.reply_to(message, text)
 
@@ -1306,6 +1639,7 @@ def cmd_status(message):
     text = (
         "✅ Bot çalışıyor.\n"
         "Mod: <b>Fly.io + Webhook + Flask</b>\n"
+        f"ENGINEERING_MODE: <b>{'ON' if ENGINEERING_MODE else 'OFF'}</b>\n"
         "FAZ-7.9 v2.0 hafıza motoru: <b>AKTİF</b>\n"
         "FAZ-9.1/9.2 behavior motoru: <b>AKTİF</b>\n"
         "FAZ-8.2 kalibrasyon: <b>AKTİF</b>\n"
@@ -1324,31 +1658,42 @@ def cmd_status(message):
 @bot.message_handler(commands=["faz10"])
 def cmd_faz10(message):
     """
-    FAZ-10 Stability Report
+    FAZ-10 Stability Report + HardSync Snapshot
+
       - FAZ-7.9 beyninden snapshot alır
-      - faz10_stability_check ile rejim / anomaly / önerilen mod analizini verir
+      - faz10_stability_check ile rejim / anomaly / önerilen mod analizi
+      - faz10_hardsync ile ENGINEERING_MODE tabanlı final mod kararı
     """
     try:
         brain = faz79_brain()
-        result = faz10_stability_check(brain)
+        hs = faz10_hardsync(brain)
+        result = hs.get("stability", {}) or {}
 
         reply = (
-            "🔥 <b>FAZ-10 Stability Report</b>\n\n"
+            "🔥 <b>FAZ-10 Stability Report + HardSync</b>\n\n"
             f"Stability Score: <b>{result.get('stability_score', '-')}</b>\n"
             f"Regime: <b>{result.get('regime', '-')}</b>\n"
             f"Suggested Mode: <b>{result.get('suggested_mode', '-')}</b>\n"
             f"Anomaly Level: <b>{result.get('anomaly_level', '-')}</b>\n"
-            f"Trend Slope: <b>{result.get('trend_slope', '-')}</b>\n"
+            f"Trend Slope: <b>{result.get('trend_slope', '-')}</b>\n\n"
+            f"HardSync Mode: <b>{hs.get('mode', brain.get('mode', 'INIT'))}</b>\n"
+            f"HardSync Bucket: <b>{hs.get('bucket', 'MID')}</b>\n"
+            f"HardSync Reason: <b>{hs.get('lock_reason', 'NO_LOCK')}</b>\n"
+            f"Engineering Mode: <b>{'ON' if ENGINEERING_MODE else 'OFF'}</b>\n"
         )
 
-        extra = result.get("notes") or result.get("explanation")
+        extra = (
+            result.get("notes")
+            or result.get("explanation")
+            or hs.get("stability", {}).get("notes")
+        )
         if extra:
             reply += f"\n📝 Notlar: {extra}"
 
         bot.reply_to(message, reply)
     except Exception as e:
-        log.error(f"[FAZ-10] Stability hatası: {e}", exc_info=True)
-        bot.reply_to(message, f"❌ FAZ-10 stability hatası: {e}")
+        log.error(f"[FAZ-10] Stability/HardSync hatası: {e}", exc_info=True)
+        bot.reply_to(message, f"❌ FAZ-10 stability / HardSync hatası: {e}")
 
 
 # ================================================================
@@ -1376,7 +1721,10 @@ def setup_webhook():
 
 
 if __name__ == "__main__":
-    log.info("🔥 FAZ-7.9 + FAZ-8.x + FAZ-6 v3 + FAZ-9.x core sistemi boot ediliyor...")
+    log.info(
+        "🔥 Boot: FAZ-7.9 + FAZ-8.x + FAZ-6 v3 + FAZ-9.x + FAZ-10 HardSync | ENGINEERING_MODE=%s",
+        "ON" if ENGINEERING_MODE else "OFF",
+    )
     init_memory()
     setup_webhook()
     port = int(os.getenv("PORT", 8080))
