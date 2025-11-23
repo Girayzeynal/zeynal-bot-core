@@ -1256,7 +1256,7 @@ def faz6_balance(message):
 
 
 # ================================================================
-# 🧰 GENEL KOMUTLAR (/start, /help, /status)
+# 🧰 GENEL KOMUTLAR (/start, /help, /status, /faz10)
 # ================================================================
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
@@ -1294,6 +1294,8 @@ def cmd_help(message):
         "/faz8_status - FAZ-8.x status\n"
         "/faz8_test - Manuel FAZ-8.x sinyal testi\n"
         "/faz83_test - FAZ-8.3 full pipeline testi\n"
+        "— <b>FAZ-10</b> —\n"
+        "/faz10 - FAZ-10 Stability Report\n"
     )
     bot.reply_to(message, text)
 
@@ -1317,22 +1319,36 @@ def cmd_status(message):
         f"Hafıza dosyası: <code>{MEMORY_FILE}</code>\n"
     )
     bot.reply_to(message, text)
-elif text == "/faz10":
-    # FAZ-7.9 snapshot
-    brain = faz79_brain(update)
 
-    # FAZ-10 stability engine
-    faz10 = faz10_stability_check(brain)
 
-    reply  = f"🔥 <b>FAZ-10 Stability Report</b>\n"
-    reply += f"Stability Score: {faz10['stability_score']}\n"
-    reply += f"Regime: {faz10['regime']}\n"
-    reply += f"Suggested Mode: {faz10['suggested_mode']}\n"
-    reply += f"Anomaly Level: {faz10['anomaly_level']}\n"
-    reply += f"Trend Slope: {faz10['trend_slope']}\n"
+@bot.message_handler(commands=["faz10"])
+def cmd_faz10(message):
+    """
+    FAZ-10 Stability Report
+      - FAZ-7.9 beyninden snapshot alır
+      - faz10_stability_check ile rejim / anomaly / önerilen mod analizini verir
+    """
+    try:
+        brain = faz79_brain()
+        result = faz10_stability_check(brain)
 
-    bot.reply_to(message, reply, parse_mode="HTML")
-    return "OK", 200
+        reply = (
+            "🔥 <b>FAZ-10 Stability Report</b>\n\n"
+            f"Stability Score: <b>{result.get('stability_score', '-')}</b>\n"
+            f"Regime: <b>{result.get('regime', '-')}</b>\n"
+            f"Suggested Mode: <b>{result.get('suggested_mode', '-')}</b>\n"
+            f"Anomaly Level: <b>{result.get('anomaly_level', '-')}</b>\n"
+            f"Trend Slope: <b>{result.get('trend_slope', '-')}</b>\n"
+        )
+
+        extra = result.get("notes") or result.get("explanation")
+        if extra:
+            reply += f"\n📝 Notlar: {extra}"
+
+        bot.reply_to(message, reply)
+    except Exception as e:
+        log.error(f"[FAZ-10] Stability hatası: {e}", exc_info=True)
+        bot.reply_to(message, f"❌ FAZ-10 stability hatası: {e}")
 
 
 # ================================================================
