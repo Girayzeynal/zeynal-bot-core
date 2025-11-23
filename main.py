@@ -10,6 +10,93 @@ from flask import Flask, request
 from faz10_engine.faz10_stability import faz10_stability_check
 
 # ================================================================
+# 🔗 FAZ-11 & FAZ-12 ENTEGRASYON — CORE IMPORTS
+# ================================================================
+from faz11_engine.faz11_feedback import (
+    faz11_feedback,
+    faz11_last_summary
+)
+
+from faz12_engine.faz12_autoadjust import (
+    faz12_run_once,
+    faz12_auto_profile
+)
+
+# FAZ-11 kayıtları için log dosyası yolu
+FAZ11_LOG_FILE = os.path.join(FAZ7_DIR, "faz11_history.json")
+
+
+# ================================================================
+# 🧩 FAZ-11 & FAZ-12 GLOBAL WRAPPERS
+# ================================================================
+def _faz11_register_feedback(real_results, predicted, save=True):
+    """
+    FAZ-11 FEEDBACK WRAPPER
+      - main.py içinden güvenli çağırma
+    """
+    try:
+        return faz11_feedback(real_results, predicted, save=save)
+    except Exception as e:
+        log.error(f"[FAZ-11] Feedback çalıştırılamadı: {e}", exc_info=True)
+        return {"error": str(e)}
+
+
+def _faz12_autoadjust(f10_state, f11_state):
+    """
+    FAZ-12 AUTO PROFILE WRAPPER
+      - FAZ-7.9 modunu doğrudan günceller
+      - f10_state: faz10_stability_check sonucu
+      - f11_state: gunluk FAZ-11 feedback sonucu
+    """
+    try:
+        decision = faz12_run_once(f10_state, f11_state)
+        log.info(f"[FAZ-12] Auto adjust tamamlandı: {decision}")
+        return decision
+    except Exception as e:
+        log.error(f"[FAZ-12] Auto adjust çalıştırılamadı: {e}", exc_info=True)
+        return {"error": str(e)}
+
+def _auto_faz_pipeline(pred_conf: float = 0.60,
+                       pred_edge: float = 0.03,
+                       pred_bucket: str = "MID",
+                       real_result: bool = None):
+    """
+    Otomatik FAZ-10 → FAZ-11 → FAZ-12 pipeline
+    """
+    try:
+        # ------------------------------
+        # 1) FAZ-10 Stability Check
+        # ------------------------------
+        brain = faz79_brain()
+        f10 = faz10_stability_check(brain)
+
+        # ------------------------------
+        # 2) FAZ-11 Feedback (real_result varsa)
+        # ------------------------------
+        if real_result is not None:
+            real = [bool(real_result)]
+            predicted = [{
+                "conf": float(pred_conf),
+                "edge": float(pred_edge),
+                "bucket": str(pred_bucket)
+            }]
+
+            _faz11_register_feedback(real, predicted, save=True)
+
+        # Son FAZ-11 özeti
+        f11_summary = faz11_last_summary()
+        f11_last = f11_summary.get("last", {})
+
+        # ------------------------------
+        # 3) FAZ-12 Auto Profile Adjust
+        # ------------------------------
+        if f11_last:
+            _faz12_autoadjust(f10, f11_last)
+
+    except Exception as e:
+        log.error(f"[AutoPipeline] Hata: {e}", exc_info=True)
+
+# ================================================================
 # 🔧 ENGINEERING MODE (FAZ-10 HardSync için global switch)
 # ================================================================
 ENGINEERING_MODE = os.getenv("ENGINEERING_MODE", "ON").upper() == "ON"
@@ -1542,6 +1629,13 @@ def build_nba_simulation_text():
         f"⏱ Pace Tahmini: <b>{pace}</b>"
     )
 
+# --- AUTO PIPELINE (FAZ10 → FAZ11 → FAZ12) ---
+    _auto_faz_pipeline(
+        pred_conf=c.get("conf", 0.60),
+        pred_edge=c.get("edge", 0.03),
+        pred_bucket=c.get("bucket", "MID"),
+        real_result=None
+    )
 
 @bot.message_handler(commands=["simulate_nba"])
 def cmd_simulate_nba(message):
@@ -1654,10 +1748,74 @@ def cmd_status(message):
     )
     bot.reply_to(message, text)
 
+@bot.message_handler(commands=["faz11"])
+def cmd_faz11(message):
+    try:
+        parts = message.text.split()[1:]
+        if not parts:
+            bot.reply_to(message, "⚠️ Kullanım: /faz11 1 0 1 1")
+            return
+
+        real_results = []
+        for p in parts:
+            if p in ["1", "true", "True"]:
+                real_results.append(True)
+            elif p in ["0", "false", "False"]:
+                real_results.append(False)
+
+        predicted = [{"conf": 0.60, "edge": 0.03, "bucket": "MID"} for _ in real_results]
+
+        result = _faz11_register_feedback(real_results, predicted)
+
+        text = (
+            "🔥 <b>FAZ-11 Günlük Feedback Kaydedildi</b>\n"
+            f"Toplam: <b>{result.get('total')}</b>\n"
+            f"Doğru: <b>{result.get('correct')}</b>\n"
+            f"Accuracy: <b>{result.get('daily_accuracy')}</b>\n"
+            f"Avg Conf: <b>{result.get('avg_conf')}</b>\n"
+            f"Drift: <b>{result.get('model_drift')}</b>\n"
+        )
+
+        bot.reply_to(message, text, parse_mode="HTML")
+
+    except Exception as e:
+        log.error(f"[FAZ-11 CMD Error] {e}", exc_info=True)
+        bot.reply_to(message, f"❌ FAZ-11 hata: {e}")
+
+
+
+@bot.message_handler(commands=["faz12"])
+def cmd_faz12(message):
+    try:
+        brain = faz79_brain()
+        f10 = faz10_stability_check(brain)
+
+        f11 = faz11_last_summary()
+        if not f11["last"]:
+            bot.reply_to(message, "⚠️ FAZ-11 geçmişi bulunamadı.")
+            return
+        f11_last = f11["last"]
+
+        decision = _faz12_autoadjust(f10, f11_last)
+
+        txt = (
+            "🔧 <b>FAZ-12 Auto Profile</b>\n"
+            f"Önceki Mod: <b>{decision.get('prev_mode')}</b>\n"
+            f"Yeni Mod: <b>{decision.get('new_mode')}</b>\n"
+            f"Değişti mi?: <b>{decision.get('changed')}</b>\n"
+            f"Neden: <b>{decision.get('reason')}</b>\n"
+        )
+
+        bot.reply_to(message, txt, parse_mode="HTML")
+
+    except Exception as e:
+        log.error(f"[FAZ-12 CMD Error] {e}", exc_info=True)
+        bot.reply_to(message, f"❌ FAZ-12 hata: {e}")
 
 @bot.message_handler(commands=["faz10"])
 def cmd_faz10(message):
     """
+    
     FAZ-10 Stability Report + HardSync Snapshot
 
       - FAZ-7.9 beyninden snapshot alır
