@@ -6,9 +6,9 @@ from typing import List, Dict, Any
 
 import numpy as np
 
-from main import FAZ7_DIR  # ileride faz79_core'dan çekebilirsin
-
 log = logging.getLogger(__name__)
+
+FAZ7_DIR = os.getenv("FAZ7_DIR", "/data/faz7")
 
 FAZ11_LOG_FILE = os.path.join(FAZ7_DIR, "faz11_history.json")
 
