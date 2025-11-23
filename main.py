@@ -1317,6 +1317,22 @@ def cmd_status(message):
         f"Hafıza dosyası: <code>{MEMORY_FILE}</code>\n"
     )
     bot.reply_to(message, text)
+elif text == "/faz10":
+    # FAZ-7.9 snapshot
+    brain = faz79_brain(update)
+
+    # FAZ-10 stability engine
+    faz10 = faz10_stability_check(brain)
+
+    reply  = f"🔥 <b>FAZ-10 Stability Report</b>\n"
+    reply += f"Stability Score: {faz10['stability_score']}\n"
+    reply += f"Regime: {faz10['regime']}\n"
+    reply += f"Suggested Mode: {faz10['suggested_mode']}\n"
+    reply += f"Anomaly Level: {faz10['anomaly_level']}\n"
+    reply += f"Trend Slope: {faz10['trend_slope']}\n"
+
+    bot.reply_to(message, reply, parse_mode="HTML")
+    return "OK", 200
 
 
 # ================================================================
