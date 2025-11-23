@@ -22,6 +22,8 @@ from faz12_engine.faz12_autoadjust import (
     faz12_auto_profile
 )
 
+FAZ7_DIR = os.getenv("FAZ7_DIR", "/data/faz7")
+
 # FAZ-11 kayıtları için log dosyası yolu
 FAZ11_LOG_FILE = os.path.join(FAZ7_DIR, "faz11_history.json")
 
