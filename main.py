@@ -18,18 +18,6 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # ================================================================
-# 🔬 OPTIONAL FAZ-10 IMPORT (circular import korumalı)
-#   - faz10_engine.faz10_stability kendi içinde main.py import ettiği için
-#     direkt import crash’e sebep oluyordu.
-#   - Burada try/except ile sarıyoruz, başarısız olursa sadece log düşüyor.
-# ================================================================
-try:
-    from faz10_engine.faz10_stability import faz10_stability_check  # type: ignore
-except Exception as e:
-    faz10_stability_check = None
-    log.warning(f"[FAZ-10] faz10_stability_check import edilemedi, devre dışı bırakıldı: {e}")
-
-# ================================================================
 # 🔧 CONFIG
 # ================================================================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -313,9 +301,9 @@ def faz79_brain():
     else:
         mode = "AGG"
 
-    mem["safe"] = int(mode == "SAFE"]
-    mem["bal"] = int(mode == "BAL"]
-    mem["agg"] = int(mode == "AGG"]
+    mem["safe"] = int(mode == "SAFE")
+    mem["bal"] = int(mode == "BAL")
+    mem["agg"] = int(mode == "AGG")
     save_memory(mem)
 
     return {
@@ -634,15 +622,15 @@ def faz84_coupon_engine(profile: str,
     bucket = c83["bucket"]
 
     profile = (profile or "BAL").upper()
-    if profile == "SAFE"]:
+    if profile == "SAFE":
         stake *= 0.85
         conf = min(0.99, conf + 0.02)
-    elif profile == "BAL"]:
+    elif profile == "BAL":
         stake *= 1.00
-    elif profile == "AGG"]:
+    elif profile == "AGG":
         stake *= 1.12
         conf = max(0.0, conf - 0.01)
-    elif profile == "ULTRA"]:
+    elif profile == "ULTRA":
         stake *= 1.20
         conf = max(0.0, conf - 0.02)
 
