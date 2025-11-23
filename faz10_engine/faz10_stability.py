@@ -25,17 +25,21 @@ def _load_faz7_memory() -> Dict[str, Any]:
         log.error(f"[FAZ-10] Hafıza klasörü oluşturulamadı: {e}")
 
     if not os.path.exists(MEMORY_FILE):
+        # hiç veri yoksa boş şema döndür
         return {"days": [], "safe": 0, "bal": 0, "agg": 0}
 
     try:
         with open(MEMORY_FILE, "r") as f:
             data = json.load(f)
+
         if not isinstance(data, dict):
-            return {"days": [], "safe": 0, "bal": 0, "agg": 0}
+            data = {}
+
         data.setdefault("days", [])
         data.setdefault("safe", 0)
         data.setdefault("bal", 0)
         data.setdefault("agg", 0)
+
         return data
     except Exception as e:
         log.error(f"[FAZ-10] Memory okunamadı, boş döndürülüyor: {e}")
@@ -48,6 +52,7 @@ def _compute_trend(series: pd.Series) -> float:
     """
     if series is None or len(series) < 2:
         return 0.0
+
     try:
         x = np.arange(len(series))
         slope = float(np.polyfit(x, series.values.astype(float), 1)[0])
@@ -59,7 +64,7 @@ def _compute_trend(series: pd.Series) -> float:
 
 def _normalize(value: float, low: float, high: float) -> float:
     """
-    value'yi [low, high] aralığında 0–1'e sıkıştır.
+    value'yi [low, high] aralığında 0-1'e sıkıştır.
     Ters scale gerekiyorsa low/high parametresiyle oynanır.
     """
     if high <= low:
@@ -74,20 +79,18 @@ def faz10_stability_check(
     """
     FAZ-10 STABILITY ENGINE (v1.0)
 
-    - FAZ-7.9 hafıza dosyasını okur
+    - FAZ-7.9 hafıza dosyasını okur.
     - conf/edge zaman serilerinden:
         * std, range, slope, son gün farkları
     - Opsiyonel olarak main.py'den gelen brain_snapshot (faz79_brain output)
       ile vol / tci / behavior_index'i hesaba katar.
-    - 0–100 arası stability_score üretir.
+    - 0-100 arası stability_score üretir.
     - 4 rejim tanımlar:
         ULTRA_STABLE / STABLE / UNSTABLE / CHAOTIC
     - Aynı zamanda hafif bir "önerilen strateji modu" verir.
-
-    NOT:
-    - Kesinlikle main.py'den import ETMEZ.
-    - Sadece dosya okur ve dışarı dictionary döner.
     """
+
+    # --- hafızayı sadece FONKSİYON İÇİNDE yüklüyoruz (import sırasında değil) ---
     mem = _load_faz7_memory()
     days = mem.get("days", [])
 
@@ -107,10 +110,15 @@ def faz10_stability_check(
             "last_edge": None,
             "recent_jump": 0.0,
             "anomaly_level": 0.0,
+            "brain_vol": 0.0,
+            "brain_tci": 0.0,
+            "behavior_index": 1.0,
             "suggested_mode": "BAL",
         }
 
+    # pandas DataFrame'e çevir
     df = pd.DataFrame(days)
+
     # Güvenlik: numeric cast
     df["conf"] = df["conf"].astype(float)
     df["edge"] = df["edge"].astype(float)
@@ -118,16 +126,13 @@ def faz10_stability_check(
     conf_series = df["conf"]
     edge_series = df["edge"]
 
-    conf_std = float(conf_series.std() if len(conf_series) > 1 else 0.0)
-    edge_std = float(edge_series.std() if len(edge_series) > 1 else 0.0)
+    conf_std = float(conf_series.std()) if len(conf_series) > 1 else 0.0
+    edge_std = float(edge_series.std()) if len(edge_series) > 1 else 0.0
 
     conf_range = float(conf_series.max() - conf_series.min())
     edge_range = float(edge_series.max() - edge_series.min())
 
     trend_slope = _compute_trend(conf_series)
-
-    last_conf = float(conf_series.iloc[-1])
-    last_edge = float(edge_series.iloc[-1])
 
     if len(conf_series) >= 2:
         recent_jump = float(conf_series.iloc[-1] - conf_series.iloc[-2])
@@ -135,12 +140,16 @@ def faz10_stability_check(
         recent_jump = 0.0
 
     # --- FAZ-10 ana skor: volatility + jump + trend kombinasyonu ---
+
     # Volatility normalizasyonu: conf_std ~ [0.0, 0.10] arası beklenir
     vol_norm = _normalize(conf_std, 0.0, 0.10)
+
     # Range normalizasyonu: conf_range ~ [0.0, 0.30] arası beklenir
     range_norm = _normalize(conf_range, 0.0, 0.30)
+
     # Jump normalizasyonu: |recent_jump| ~ [0.0, 0.20]
     jump_norm = _normalize(abs(recent_jump), 0.0, 0.20)
+
     # Trend büyüklüğü: |slope| ~ [0.0, 0.03]
     trend_norm = _normalize(abs(trend_slope), 0.0, 0.03)
 
@@ -148,15 +157,18 @@ def faz10_stability_check(
     brain_vol = 0.0
     brain_tci = 0.0
     behavior_index = 1.0
+
     if brain_snapshot:
         try:
             brain_vol = float(brain_snapshot.get("vol", 0.0))
         except Exception:
             brain_vol = 0.0
+
         try:
             brain_tci = float(brain_snapshot.get("tci", 0.0))
         except Exception:
             brain_tci = 0.0
+
         try:
             behavior_index = float(brain_snapshot.get("behavior_index", 1.0))
         except Exception:
@@ -176,7 +188,7 @@ def faz10_stability_check(
     )
     anomaly_level = max(0.0, min(anomaly_level, 1.0))
 
-    # Stabilite skoru: düşük anomaly + yüksek tci → yüksek stabilite
+    # Stabilite skoru: düşük anomali + yüksek tci -> yüksek stabilite
     stability_raw = (
         0.55 * (1.0 - anomaly_level)
         + 0.25 * (1.0 - brain_vol_norm)
@@ -196,7 +208,7 @@ def faz10_stability_check(
         regime = "CHAOTIC"
 
     # Önerilen strateji modu:
-    # Not: Bu sadece "öneri", gerçek mod değişimi main.py'de yapılabilir.
+    # Not: Bu sadece “öneri”; gerçek mod değişimi main.py'de yapılabilir.
     if regime == "ULTRA_STABLE":
         suggested_mode = "AGG"
     elif regime == "STABLE":
@@ -205,6 +217,9 @@ def faz10_stability_check(
         suggested_mode = "SAFE"
     else:  # CHAOTIC
         suggested_mode = "SAFE"
+
+    last_conf = float(conf_series.iloc[-1])
+    last_edge = float(edge_series.iloc[-1])
 
     return {
         "engine": "FAZ-10",
