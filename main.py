@@ -248,7 +248,7 @@ def faz79_brain():
 
     bc = _faz92_behavior_curves(df, slope, vol)
 
-tci = bc["tci"]
+    tci = bc["tci"]
     noise_ratio = bc["noise_ratio"]
     behavior_index = bc["behavior_index"]
     stability = bc["stability"]
