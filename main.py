@@ -18,6 +18,18 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # ================================================================
+# 🔬 OPTIONAL FAZ-10 IMPORT (circular import korumalı)
+#   - faz10_engine.faz10_stability kendi içinde main.py import ettiği için
+#     direkt import crash’e sebep oluyordu.
+#   - Burada try/except ile sarıyoruz, başarısız olursa sadece log düşüyor.
+# ================================================================
+try:
+    from faz10_engine.faz10_stability import faz10_stability_check  # type: ignore
+except Exception as e:
+    faz10_stability_check = None
+    log.warning(f"[FAZ-10] faz10_stability_check import edilemedi, devre dışı bırakıldı: {e}")
+
+# ================================================================
 # 🔧 CONFIG
 # ================================================================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -44,11 +56,16 @@ app = Flask(__name__)
 
 @app.route("/", methods=["GET"])
 def home():
+    # Fly.io health check
     return "OK", 200
 
 
 @app.route("/webhook", methods=["POST"])
 def telegram_webhook():
+    """
+    Telegram'ın gönderdiği update'leri alıp TeleBot'a paslıyoruz.
+    Hata olursa loglayıp 200 dönüyoruz ki Telegram webhook'u düşürmesin.
+    """
     try:
         json_update = request.get_json(force=False, silent=True)
         if json_update is None:
@@ -64,28 +81,27 @@ def telegram_webhook():
 
 
 # ================================================================
-# 🧠 YENİ FAZ-10 / FAZ-11 / FAZ-12 IMPORTLARI
-# ================================================================
-from faz10_engine.faz10_stability import faz10_stability_check
-from faz11_engine.faz11_feedback import faz11_feedback, load_f11_state
-from faz12_engine.faz12_autoadjust import faz12_auto_profile
-
-
-# ================================================================
-# 📌 FAZ-7.9 v2.0 MEMORY ENGINE (ESKİ KODUN AYNISI)
+# 📌 FAZ-7.9 v2.0 MEMORY ENGINE  (Kalıcı volume destekli)
+#   - 7 günlük pencere
+#   - v2.0: mod seçim eşikleri ve trend/vol mantığı güncellendi
+#   - FAZ-9.1: Trend Noise Filter + TCI
+#   - FAZ-9.2: Behavior Curve Engine (stability / momentum / behavior_index)
+#   - Fly.io volume: /data/faz7/faz7_memory.json
 # ================================================================
 FAZ7_DIR = os.getenv("FAZ7_DIR", "/data/faz7")
 MEMORY_FILE = os.path.join(FAZ7_DIR, "faz7_memory.json")
 
+
 def init_memory():
+    # Volume klasörü varsa / yoksa oluştur.
     try:
         os.makedirs(FAZ7_DIR, exist_ok=True)
     except Exception as e:
         log.error(f"[FAZ-7.9] Hafıza klasörü oluşturulamadı: {e}")
 
-if not os.path.exists(MEMORY_FILE):
+    if not os.path.exists(MEMORY_FILE):
         data = {
-            "days": [],
+            "days": [],  # günlük kayıtlar: {ts, conf, edge}
             "safe": 0,
             "bal": 0,
             "agg": 0,
@@ -125,6 +141,9 @@ def save_memory(data):
 
 
 def register_daily_stats(conf: float, edge: float):
+    """
+    FAZ-7.9 v2.0 REGISTER → günlük confidence & edge kaydı.
+    """
     mem = load_memory()
     today = {
         "ts": int(time.time()),
@@ -134,6 +153,7 @@ def register_daily_stats(conf: float, edge: float):
 
     mem["days"].append(today)
 
+    # sadece son 7 günü tut
     if len(mem["days"]) > 7:
         mem["days"] = mem["days"][-7:]
 
@@ -142,6 +162,9 @@ def register_daily_stats(conf: float, edge: float):
 
 
 def _ema(series: pd.Series, alpha: float = 0.6) -> float:
+    """
+    Basit EMA – v2.0 trend hesabında destek amaçlı.
+    """
     if len(series) == 0:
         return 0.0
     ema_val = series.iloc[0]
@@ -151,6 +174,14 @@ def _ema(series: pd.Series, alpha: float = 0.6) -> float:
 
 
 def _faz92_behavior_curves(df: pd.DataFrame, slope: float, vol: float) -> dict:
+    """
+    FAZ-9.2 Behavior Curve Engine
+      - stability: conf oynaklığına göre 0–1 arası stabilite
+      - momentum: ilk conf → son conf değişimi
+      - tci: trend certainty index (slope / noise)
+      - noise_ratio: vol / net hareket oranı
+      - behavior_index: 0.8–1.2 arası stake çarpanı
+    """
     if df is None or len(df) == 0:
         return {
             "tci": 0.0,
@@ -170,22 +201,30 @@ def _faz92_behavior_curves(df: pd.DataFrame, slope: float, vol: float) -> dict:
     conf_std = float(conf_series.std() if len(conf_series) > 1 else 0.0)
     edge_std = float(edge_series.std() if len(edge_series) > 1 else 0.0)
 
+    # Stabilite: std azaldıkça 1'e yaklaşsın
     stability = 1.0 / (1.0 + conf_std * 25.0)
     stability = max(0.0, min(stability, 1.0))
 
+    # Momentum: conf değişiminin küçük aralıkta tutulmuş hali
     momentum = max(-0.1, min(conf_change, 0.1))
 
+    # TCI: trend gücü / noise
     denom = conf_std + 0.02
     tci = abs(slope) / denom
     tci = max(0.0, min(tci, 1.0))
 
+    # Noise Ratio: vol / net hareket
     noise_ratio = vol / (abs(conf_change) + 0.01)
     noise_ratio = max(0.0, min(noise_ratio, 1.5))
 
+    # Behavior index: pozitif momentum + düşük noise + düşük vol ödüllenir
     behavior_index = 1.0
-    behavior_index += momentum * 0.8 * 10.0
+    # momentum etkisi
+    behavior_index += momentum * 0.8 * 10.0  # -0.8 .. +0.8
+    # noise cezası
     if noise_ratio > 0.6:
         behavior_index -= (noise_ratio - 0.6) * 0.2
+    # vol cezası
     behavior_index -= vol * 0.5
 
     behavior_index = max(0.8, min(behavior_index, 1.2))
@@ -200,6 +239,15 @@ def _faz92_behavior_curves(df: pd.DataFrame, slope: float, vol: float) -> dict:
 
 
 def faz79_brain():
+    """
+    FAZ-7.9 v2.0 STRATEJİ BEYNİ + FAZ-9.1/9.2
+      - 7 günlük conf/edge ortalamaları
+      - lineer trend (slope)
+      - EMA destekli volatilite yorumlaması
+      - Trend Certainty (TCI) + Noise Ratio (FAZ-9.1)
+      - Behavior Index / Stability / Momentum (FAZ-9.2)
+      - SAFE/BAL/AGG mod seçimi revize eşikler
+    """
     mem = load_memory()
     days = mem["days"]
 
@@ -228,12 +276,14 @@ def faz79_brain():
     avg_conf = float(df["conf"].mean())
     avg_edge = float(df["edge"].mean())
 
+    # linear regression slope (SVD hatasına karşı korumalı)
     try:
         slope = float(np.polyfit(df["t"], df["conf"], 1)[0])
     except Exception as e:
         log.warning(f"FAZ-7.9 v2.0 slope hesaplanırken hata (SVD fallback): {e}")
         slope = 0.0
 
+    # Trend yönü (EMA destekli)
     ema_conf = _ema(df["conf"])
     if slope > 0.01 and ema_conf >= avg_conf:
         trend = "UP"
@@ -242,18 +292,20 @@ def faz79_brain():
     else:
         trend = "FLAT"
 
+    # Volatilite: std + küçük EMA farkı katkısı
     base_vol = float(df["conf"].std() if len(df) > 1 else 0.0)
     ema_diff = abs(ema_conf - avg_conf)
     vol = float(base_vol * 0.8 + ema_diff * 0.2)
 
+    # FAZ-9.2 behavior curves + FAZ-9.1 noise/TCI
     bc = _faz92_behavior_curves(df, slope, vol)
-
     tci = bc["tci"]
     noise_ratio = bc["noise_ratio"]
     behavior_index = bc["behavior_index"]
     stability = bc["stability"]
     momentum = bc["momentum"]
 
+    # v2.0 mod eşikleri:
     if avg_conf >= 0.72 and avg_edge >= 0.045:
         mode = "SAFE"
     elif avg_conf >= 0.58 and avg_edge >= 0.030:
@@ -261,9 +313,9 @@ def faz79_brain():
     else:
         mode = "AGG"
 
-    mem["safe"] = int(mode == "SAFE")
-    mem["bal"] = int(mode == "BAL")
-    mem["agg"] = int(mode == "AGG")
+    mem["safe"] = int(mode == "SAFE"])
+    mem["bal"] = int(mode == "BAL"])
+    mem["agg"] = int(mode == "AGG"])
     save_memory(mem)
 
     return {
@@ -286,11 +338,16 @@ def faz79_brain():
 
 
 # ================================================================
-# 🧠 FAZ-8.1 — CORE CALIBRATION ENGINE
+# 🧠 FAZ-8.1 – CORE CALIBRATION ENGINE
 # ================================================================
 def _faz81_core_calibration(raw_conf: float,
                             raw_edge: float,
                             base_stake: float = 1.0) -> dict:
+    """
+    FAZ-8.1 core:
+      - FAZ-7.9 beyninden mode/trend/vol alır
+      - conf / edge / stake değerini temel kurallarla ayarlar
+    """
     brain = faz79_brain()
 
     mode = brain["mode"]
@@ -301,6 +358,7 @@ def _faz81_core_calibration(raw_conf: float,
     edge = float(raw_edge)
     stake = float(base_stake)
 
+    # INIT veya bilinmeyen mod → sadece passthrough
     if mode not in ("SAFE", "BAL", "AGG"):
         return {
             "engine": "FAZ-8.1",
@@ -312,16 +370,18 @@ def _faz81_core_calibration(raw_conf: float,
             "stake": round(stake, 2),
         }
 
+    # Mode bazlı çarpanlar
     if mode == "SAFE":
         stake_factor = 0.88
         conf_boost = 0.035
     elif mode == "BAL":
         stake_factor = 1.00
         conf_boost = 0.00
-    else:
+    else:  # AGG
         stake_factor = 1.18
         conf_boost = -0.025
 
+    # Trend etkisi
     if trend == "UP":
         conf += 0.02
         edge *= 1.06
@@ -329,6 +389,7 @@ def _faz81_core_calibration(raw_conf: float,
         conf -= 0.02
         edge *= 0.94
 
+    # Volatilite etkisi
     if vol > 0.18:
         conf -= 0.02
         stake_factor *= 0.90
@@ -336,8 +397,10 @@ def _faz81_core_calibration(raw_conf: float,
         conf += 0.01
         edge *= 1.03
 
+    # Mode bazlı conf boost
     conf += conf_boost
 
+    # Güvenlik: clamp
     conf = max(0.0, min(conf, 0.99))
     edge = max(0.0, edge)
     stake = max(0.1, stake * stake_factor)
@@ -354,9 +417,15 @@ def _faz81_core_calibration(raw_conf: float,
 
 
 # ================================================================
-# 🧠 FAZ-8.2 – LMF SHIELD
+# 🧠 FAZ-8.2 – LMF SHIELD (Loss Minimization Filters)
 # ================================================================
 def _faz82_lmf_shield(calib: dict) -> dict:
+    """
+    FAZ-8.2:
+      - Edge floor / vol kapıları
+      - Trend DOWN / UP için farklı baskılama / boost
+      - Mode'a göre farklı LMF profilleri
+    """
     mode = calib.get("mode", "INIT")
     trend = calib.get("trend", "INIT")
     vol = float(calib.get("vol", 0.0))
@@ -393,6 +462,7 @@ def _faz82_lmf_shield(calib: dict) -> dict:
 
     prof = profiles.get(mode, profiles["BAL"])
 
+    # 1) Edge tabanı
     if edge < prof["edge_hard_floor"]:
         stake *= 0.45
         conf *= 0.80
@@ -400,6 +470,7 @@ def _faz82_lmf_shield(calib: dict) -> dict:
         stake *= 0.70
         conf *= 0.90
 
+    # 2) Volatilite kapıları
     if vol > prof["vol_hard"]:
         stake *= 0.65
         conf *= 0.90
@@ -407,6 +478,7 @@ def _faz82_lmf_shield(calib: dict) -> dict:
         stake *= 0.80
         conf *= 0.95
 
+    # 3) Trend smoothing
     if trend == "DOWN":
         stake *= prof["trend_down_factor"]
         conf *= prof["trend_down_factor"]
@@ -423,6 +495,7 @@ def _faz82_lmf_shield(calib: dict) -> dict:
     calib["edge"] = round(edge, 3)
     calib["stake"] = round(stake, 2)
     return calib
+
 
 # ================================================================
 # 🧠 FAZ-8.3 — DYNAMIC CALIBRATION ENGINE (FULL)
@@ -561,18 +634,19 @@ def faz84_coupon_engine(profile: str,
     bucket = c83["bucket"]
 
     profile = (profile or "BAL").upper()
-    if profile == "SAFE":
+    if profile == "SAFE"]:
         stake *= 0.85
         conf = min(0.99, conf + 0.02)
-    elif profile == "BAL":
+    elif profile == "BAL"]:
         stake *= 1.00
-    elif profile == "AGG":
+    elif profile == "AGG"]:
         stake *= 1.12
         conf = max(0.0, conf - 0.01)
-    elif profile == "ULTRA":
+    elif profile == "ULTRA"]:
         stake *= 1.20
         conf = max(0.0, conf - 0.02)
 
+    # FAZ-9.2 behavior_index → son stake ayarı
     behavior_index = brain.get("behavior_index", 1.0)
     stake *= behavior_index
 
@@ -875,12 +949,21 @@ def _faz84_from_raw(profile: str,
                     raw_conf: float,
                     raw_edge: float,
                     base_stake: float) -> dict:
+    """
+    Helper:
+      RAW → FAZ-8.4 Kupon Engine
+    """
     return faz84_coupon_engine(profile, raw_conf, raw_edge, base_stake)
 
 
 def _build_fixture_legs():
+    """
+    40 maçlık internal fixture tablosu.
+    Her eleman: (kupon_id, game_desc, conf, edge, stake)
+    """
     legs = []
 
+    # Kupon 1 — SAFE (10 maç)
     k1_games = [
         ("EL:EFES@REAL | REAL MADRID -5.5 (FT spread)", 0.66, 0.045, 0.88),
         ("EL:FENER@OLY | OLYMPIACOS -3.5 (FT spread)", 0.64, 0.041, 0.84),
@@ -896,6 +979,7 @@ def _build_fixture_legs():
     for g in k1_games:
         legs.append((1, *g))
 
+    # Kupon 2 — BALANCED (10 maç)
     k2_games = [
         ("NBA:BOS@MIA | UNDER 224.5 (FT total)", 0.63, 0.036, 0.80),
         ("NBA:LAL@DEN | DEN -4.5 (FT spread)", 0.61, 0.032, 0.76),
@@ -911,6 +995,7 @@ def _build_fixture_legs():
     for g in k2_games:
         legs.append((2, *g))
 
+    # Kupon 3 — AGGRESSIVE (10 maç)
     k3_games = [
         ("NBA:CHI@NYK | NYK ML (FT moneyline)", 0.60, 0.031, 0.75),
         ("NBA:MIA@MIL | MIA +2.5 (Q1 spread)", 0.59, 0.030, 0.74),
@@ -926,6 +1011,7 @@ def _build_fixture_legs():
     for g in k3_games:
         legs.append((3, *g))
 
+    # Kupon 4 — ULTRA (10 maç)
     k4_games = [
         ("NBA:GSW@PHX | OVER 230.5 (FT total)", 0.59, 0.028, 0.73),
         ("NBA:DAL@LAL | DAL -3.5 (FT spread)", 0.58, 0.027, 0.72),
@@ -945,6 +1031,11 @@ def _build_fixture_legs():
 
 
 def build_faz6_coupons_text() -> str:
+    """
+    FAZ-6 v3 kuponları:
+      - 4 ana kupon
+      - Toplam 40 maç / market
+    """
     legs = _build_fixture_legs()
 
     def fmt(game: str, calib: dict) -> str:
@@ -992,6 +1083,11 @@ def build_faz6_coupons_text() -> str:
 
 
 def build_faz6_meta_coupon_text() -> str:
+    """
+    FAZ-6 META kuponu (v3):
+      - FAZ-8.5 META profile seçici ile tek bir profil seçilir
+      - Aynı profille 4 farklı maç / market kalibre edilir.
+    """
     profile = faz85_meta_profile_selector()
 
     legs_def = [
@@ -1026,7 +1122,12 @@ def build_faz6_meta_coupon_text() -> str:
     return text
 
 
+# Telegram 4096 karakter limitine takılmamak için helper
 def _send_long_text(message, text: str, max_len: int = 3800):
+    """
+    Telegram text limitini aşmamak için uzun mesajları parçalara bölerek gönderir.
+    HTML parse bozulmasın diye sadece düz string kesiyoruz, limit altı güvenli.
+    """
     chat_id = message.chat.id
     if len(text) <= max_len:
         bot.reply_to(message, text)
@@ -1037,6 +1138,7 @@ def _send_long_text(message, text: str, max_len: int = 3800):
     while start < len(text):
         chunk = text[start:start + max_len]
         if first:
+            # ilk chunk reply_to olsun
             bot.reply_to(message, chunk)
             first = False
         else:
@@ -1046,6 +1148,10 @@ def _send_long_text(message, text: str, max_len: int = 3800):
 
 @bot.message_handler(commands=["faz6_coupon", "kupon"])
 def faz6_coupon(message):
+    """
+    FAZ-6 v3 çoklu kupon çıktısı (40 maç).
+    Telegram mesaj limitine takılmamak için otomatik parçalara bölünür.
+    """
     try:
         text = build_faz6_coupons_text()
         _send_long_text(message, text)
@@ -1056,6 +1162,9 @@ def faz6_coupon(message):
 
 @bot.message_handler(commands=["faz6_meta", "kupon_meta"])
 def faz6_meta(message):
+    """
+    FAZ-8.5 META profile selector ile otomatik profil seçen kupon.
+    """
     try:
         text = build_faz6_meta_coupon_text()
         bot.reply_to(message, text)
@@ -1068,6 +1177,11 @@ def faz6_meta(message):
 # 🏀 NBA SİMÜLASYON (FAZ-8.4 + FAZ-8.5 META)
 # ================================================================
 def build_nba_simulation_text():
+    """
+    NBA simülasyon çıktı örneği:
+      RAW → FAZ-8.4 (kupon motoru referanslı)
+      Profil FAZ-8.5 META selector ile seçilir.
+    """
     home = "MIA"
     away = "NYK"
     skor = 104
@@ -1161,7 +1275,6 @@ def cmd_start(message):
         "🔥 <b>Bot aktif!</b>\n"
         "FAZ-4 + FAZ-5 + FAZ-6 v3 + FAZ-7.9 v2.0 + "
         "FAZ-8.2 + FAZ-8.3 + FAZ-8.4 + FAZ-8.5 META + FAZ-9.x bağlı.\n"
-        "FAZ-10 + FAZ-11 + FAZ-12 meta izleme aktif (status üzerinden).\n"
         "Komut listesi için <code>/help</code> yaz."
     )
     bot.reply_to(message, text)
@@ -1199,31 +1312,6 @@ def cmd_help(message):
 @bot.message_handler(commands=["status"])
 def cmd_status(message):
     info = faz79_brain()
-
-    # FAZ-10 stability snapshot
-    try:
-        f10 = faz10_stability_check(save=False)
-    except Exception as e:
-        log.warning(f"FAZ-10 status hatası: {e}")
-        f10 = {"stability": None, "alerts": [f"FAZ-10 hata: {e}"]}
-
-    # FAZ-11 son durum (feedback engine kendi dosyasından okur)
-    try:
-        f11 = load_f11_state()
-    except Exception as e:
-        log.warning(f"FAZ-11 state yüklenemedi: {e}")
-        f11 = {"daily_accuracy": None, "model_drift": None}
-
-    # FAZ-12 önerilen meta profil (şimdilik sadece advisory)
-    try:
-        f12 = faz12_auto_profile(f10, f11, info)
-        suggested_mode = f12.get("new_mode", info["mode"])
-        reason = f12.get("reason", "-")
-    except Exception as e:
-        log.warning(f"FAZ-12 auto_profile hata: {e}")
-        suggested_mode = info["mode"]
-        reason = "FAZ-12 hata veya devre dışı."
-
     text = (
         "✅ Bot çalışıyor.\n"
         "Mod: <b>Fly.io + Webhook + Flask</b>\n"
@@ -1232,21 +1320,12 @@ def cmd_status(message):
         "FAZ-8.2 kalibrasyon: <b>AKTİF</b>\n"
         "FAZ-8.3 full pipeline: <b>AKTİF</b>\n"
         "FAZ-8.4 kupon motoru: <b>AKTİF</b>\n"
-        "FAZ-8.5 META profile: <b>AKTİF</b>\n\n"
-        f"Strateji Modu (FAZ-7.9): <b>{info['mode']}</b> | "
+        "FAZ-8.5 META profile: <b>AKTİF</b>\n"
+        f"Strateji Modu: <b>{info['mode']}</b> | "
         f"Trend: {info['trend']} | Vol: {info['vol']}\n"
         f"TCI: {info['tci']} | Noise: {info['noise_ratio']} | "
         f"BehaviorIndex: {info['behavior_index']}\n"
-        f"Hafıza dosyası: <code>{MEMORY_FILE}</code>\n\n"
-        "— <b>FAZ-10 Stability</b> —\n"
-        f"Stability: <b>{f10.get('stability')}</b>\n"
-        f"Alerts: <code>{', '.join(f10.get('alerts', []))}</code>\n\n"
-        "— <b>FAZ-11 Feedback</b> —\n"
-        f"Günlük Accuracy: <b>{f11.get('daily_accuracy')}</b>\n"
-        f"Model Drift: <b>{f11.get('model_drift')}</b>\n\n"
-        "— <b>FAZ-12 Meta Profile</b> —\n"
-        f"Önerilen Mod: <b>{suggested_mode}</b>\n"
-        f"Neden: {reason}\n"
+        f"Hafıza dosyası: <code>{MEMORY_FILE}</code>\n"
     )
     bot.reply_to(message, text)
 
@@ -1276,9 +1355,7 @@ def setup_webhook():
 
 
 if __name__ == "__main__":
-    log.info(
-        "🔥 FAZ-7.9 + FAZ-8.x + FAZ-6 v3 + FAZ-9.x + FAZ-10/11/12 core sistemi boot ediliyor..."
-    )
+    log.info("🔥 FAZ-7.9 + FAZ-8.x + FAZ-6 v3 + FAZ-9.x core sistemi boot ediliyor...")
     init_memory()
     setup_webhook()
     port = int(os.getenv("PORT", 8080))
