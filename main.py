@@ -313,9 +313,9 @@ def faz79_brain():
     else:
         mode = "AGG"
 
-    mem["safe"] = int(mode == "SAFE"])
-    mem["bal"] = int(mode == "BAL"])
-    mem["agg"] = int(mode == "AGG"])
+    mem["safe"] = int(mode == "SAFE"]
+    mem["bal"] = int(mode == "BAL"]
+    mem["agg"] = int(mode == "AGG"]
     save_memory(mem)
 
     return {
