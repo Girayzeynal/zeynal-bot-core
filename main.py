@@ -7,6 +7,7 @@ import telebot
 import numpy as np
 import pandas as pd
 from flask import Flask, request
+from faz10_engine.faz10_stability import faz10_stability_check
 
 # ================================================================
 # 🔧 LOGGING
