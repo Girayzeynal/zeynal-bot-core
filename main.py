@@ -1320,7 +1320,7 @@ def faz8_status(message):
 def faz8_test(message):
     """
     Kullanım: /faz8_test 0.60 0.03 1.0
-      → conf, edge, (opsiyonel) base_stake
+     # -> conf, edge, (opsiyonel) base_stake
     """
     try:
         parts = message.text.split()
