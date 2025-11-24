@@ -33,8 +33,10 @@ from faz13_engine.faz13_orchestrator import (
     faz13_league_coupon,
     faz13_live_coupon,
     faz13_visual_coupon_from_text,
-    from faz13_engine.standings_ocr import extract_standings
-)
+) 
+
+from faz13_engine.standings_ocr import extract_standings
+
 
 
 # ================================================================
