@@ -320,6 +320,161 @@ def faz79_brain():
         "agg": mode == "AGG",
     }
 
+# ================================================================
+# 🧠 FAZ-8 FULL ENGINE (8.1 + 8.2 + 8.3 + 8.4 + 8.5 unified)
+#   Minimal but 100% functional & stable for Fly.io
+# ================================================================
+
+def faz8_calibrate_signal(raw_conf: float,
+                          raw_edge: float,
+                          base_stake: float = 1.0) -> dict:
+    """
+    FAZ-8.x unified calibration engine.
+    FAZ-7.9 beynine göre güven / edge / stake düzeltmesi uygulanır.
+    8.1 + 8.2 + 8.3 davranışı minimal stabil formda entegre edildi.
+    """
+
+    brain = faz79_brain()   # FAZ-7.9 + FAZ-9.x birleşik beyin
+
+    # ------------------------------------------------------------
+    # 1) RAW INPUT
+    # ------------------------------------------------------------
+    conf = float(raw_conf)
+    edge = float(raw_edge)
+    stake = float(base_stake)
+
+    mode = brain["mode"]
+    trend = brain["trend"]
+    vol = float(brain["vol"])
+    conf_avg = max(brain["conf"], 0.01)
+    edge_avg = max(brain["edge"], 0.005)
+
+    # ------------------------------------------------------------
+    # 2) MODE EFFECTS (FAZ-8.1)
+    # ------------------------------------------------------------
+    if mode == "SAFE":
+        conf += 0.02
+        edge *= 1.05
+        stake *= 0.88
+    elif mode == "BAL":
+        conf += 0.00
+        edge *= 1.00
+        stake *= 1.00
+    elif mode == "AGG":
+        conf -= 0.02
+        edge *= 0.95
+        stake *= 1.18
+
+    # ------------------------------------------------------------
+    # 3) TREND EFFECTS (UP / DOWN)
+    # ------------------------------------------------------------
+    if trend == "UP":
+        conf += 0.01
+        edge *= 1.03
+    elif trend == "DOWN":
+        conf -= 0.01
+        edge *= 0.97
+
+    # ------------------------------------------------------------
+    # 4) VOLATILITY EFFECTS (FAZ-8.2 LMF SHIELD)
+    # ------------------------------------------------------------
+    if vol > 0.18:
+        conf -= 0.02
+        stake *= 0.85
+    elif vol < 0.05:
+        conf += 0.01
+        stake *= 1.05
+
+    # ------------------------------------------------------------
+    # 5) LIMITS
+    # ------------------------------------------------------------
+    conf = max(0.0, min(0.99, conf))
+    edge = max(0.0, edge)
+    stake = max(0.10, stake)
+
+    # ------------------------------------------------------------
+    # 6) BUCKET SCORE (FAZ-8.3 dynamic)
+    # ------------------------------------------------------------
+    score = 0.6 * (conf / conf_avg) + 0.4 * (edge / edge_avg)
+
+    if score < 0.95:
+        bucket = "LOW"
+    elif score < 1.10:
+        bucket = "MID"
+    else:
+        bucket = "HIGH"
+
+    # ------------------------------------------------------------
+    # 7) RETURN STRUCTURE
+    # ------------------------------------------------------------
+    return {
+        "engine": "FAZ-8",
+        "mode": mode,
+        "trend": trend,
+        "vol": round(vol, 4),
+        "conf": round(conf, 3),
+        "edge": round(edge, 3),
+        "stake": round(stake, 2),
+        "bucket": bucket,
+        "score": round(score, 3),
+        "behavior_index": brain["behavior_index"],
+    }
+
+
+# ================================================================
+# 🧠 FAZ-8.4 COUPON ENGINE (SAFE / BAL / AGG / ULTRA)
+# ================================================================
+def faz84_coupon_engine(profile: str,
+                        conf: float,
+                        edge: float,
+                        base_stake: float = 1.0):
+    """
+    FAZ-8.4: Kupon bacağı kalibrasyonu (minimal working version).
+    """
+    mode = profile.upper()
+    stake = float(base_stake)
+
+    if mode == "SAFE":
+        stake *= 0.90
+    elif mode == "BAL":
+        stake *= 1.00
+    elif mode == "AGG":
+        stake *= 1.15
+    elif mode == "ULTRA":
+        stake *= 1.30
+
+    stake = max(0.10, stake)
+
+    return {
+        "mode": mode,
+        "conf": conf,
+        "edge": edge,
+        "stake": round(stake, 2),
+        "risk": mode,
+        "bucket": "MID",
+    }
+
+
+# ================================================================
+# 🧠 FAZ-8.5 META PROFILE SELECTOR (FAZ-7.9 beynine göre)
+# ================================================================
+def faz85_meta_profile_selector() -> str:
+    """
+    FAZ-85 META PROFIL SEÇİCİ
+    FAZ-7.9 beyin moduna göre SAFE/BAL/AGG seçer.
+    """
+    brain = faz79_brain()
+    mode = brain["mode"]
+
+    if mode == "SAFE":
+        return "SAFE"
+    elif mode == "BAL":
+        return "BAL"
+    elif mode == "AGG":
+        return "AGG"
+
+    return "BAL"   # fallback
+
 
 # ================================================================
 # 🔁 FAZ-10 → HardSync Mode (FAZ-7.9 + FAZ-8 + FAZ-9.x + FAZ-10)
