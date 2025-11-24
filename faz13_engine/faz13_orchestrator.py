@@ -124,6 +124,17 @@ def normalize_api_data(match: Dict[str, Any]) -> FusionInput:
 def normalize_visual_meta(text: str, default_league: str = "NBA") -> FusionInput:
     raw = text
 
+    # ===============================
+    # 🟦  STANDINGS MODE ALGILAMA
+    # ===============================
+    text_upper = (text or "").upper()
+
+    if ("LAST 10" in text_upper) or ("SON 10" in text_upper) or ("W-" in text_upper) or ("PF" in text_upper):
+        return {
+            "type": "standings",
+            "data": extract_standings(img_bytes)
+        }
+
     # Olası takım kodları (3–4 harf, büyük harf)
     tokens = re.findall(r"[A-Z]{2,4}", text)
 
