@@ -711,9 +711,9 @@ def faz83_dynamic_calibration(conf: float,
                               edge_avg: float) -> dict:
     """
     FAZ-8.3 ana motor:
-      - FAZ-7.9 ortalamalarına göre risk bucket belirler
-      - Trend & volatilite ile stake ayarı yapar
-      - Mode SAFE/BAL/AGG'e göre hafif modifikasyon uygular
+      # FAZ-7.9 ortalamalarına göre risk bucket belirler
+      # Trend & volatilite ile stake ayarı yapar
+      # Mode SAFE/BAL/AGG'e göre hafif modifikasyon uygular
     """
     bucket, score = faz83_compute_risk_bucket(conf, edge, conf_avg, edge_avg)
 
