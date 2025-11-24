@@ -596,9 +596,9 @@ def _faz81_core_calibration(raw_conf: float,
 def _faz82_lmf_shield(calib: dict) -> dict:
     """
     FAZ-8.2:
-      - Edge floor / vol kapıları
-      - Trend DOWN / UP için farklı baskılama / boost
-      - Mode'a göre farklı LMF profilleri
+      # Edge floor / vol kapıları
+      # Trend DOWN / UP için farklı baskılama / boost
+      # Mode'a göre farklı LMF profilleri
     """
     mode = calib.get("mode", "INIT")
     trend = calib.get("trend", "INIT")
