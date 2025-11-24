@@ -18,10 +18,7 @@ from faz13_engine.faz13_orchestrator import (
     faz13_upcoming_coupon,
     faz13_league_coupon,
     faz13_live_coupon,
-    faz13_visual_coupon_from_text,
-    faz13_multi_visual,
-    faz13_multi_matches,
-    triple_fusion,
+    faz13_visual_coupon_from_text
 )
 
 # ================================================================
