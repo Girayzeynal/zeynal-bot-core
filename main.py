@@ -1922,6 +1922,18 @@ def cmd_api_match(message):
         log.error(f"[FAZ-13 API] Hata: {e}", exc_info=True)
         bot.reply_to(message, "❌ FAZ-13 API input işlenemedi.")
 
+@bot.message_handler(content_types=['photo'])
+def cmd_visual_upload_raw(message):
+    try:
+        file_id = message.photo[-1].file_id
+        file_info = bot.get_file(file_id)
+        file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+
+        bot.reply_to(message, f"📸 Görsel alındı!\nURL: {file_url}")
+    except Exception as e:
+        log.error(f"[FAZ-13 VISUAL-UPLOAD] Hata: {e}", exc_info=True)
+        bot.reply_to(message, "❌ Görsel alınamadı.")
+
 @bot.message_handler(commands=["mac_img"])
 def cmd_visual_match(message):
     """
