@@ -1122,9 +1122,9 @@ def faz83_compute_risk_bucket(conf: float,
     FAZ-8.3 risk puanı:
       score = 0.6 * (conf/conf_avg) + 0.4 * (edge/edge_avg)
     Bucket:
-      LOW  < 0.95
-      MID  < 1.10
-      HIGH ≥ 1.10
+     # LOW  < 0.95
+     # MID  < 1.10
+     # HIGH ≥ 1.10
     """
     conf_avg = max(conf_avg, 1e-6)
     edge_avg = max(edge_avg, 1e-6)
