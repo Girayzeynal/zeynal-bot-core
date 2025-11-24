@@ -1401,7 +1401,7 @@ def _faz84_from_raw(profile: str,
                     base_stake: float) -> dict:
     """
     Helper:
-      RAW → FAZ-8.4 Kupon Engine
+      RAW -> FAZ-8.4 Kupon Engine 
     """
     return faz84_coupon_engine(profile, raw_conf, raw_edge, base_stake)
 
