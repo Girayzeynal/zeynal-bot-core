@@ -872,9 +872,9 @@ def faz10_hardsync(brain: dict, calib: dict = None) -> dict:
     # FAZ-7.9 beyninden full snapshot alır (mode / trend / vol / conf / edge).
     # faz10_stability_check ile FAZ-9.x / FAZ-10 stabilite & rejim analizini kullanır.
     # ENGINEERING_MODE: ON iken,
-        * Kritik rejimlerde mode'u zorla SAFE'e kilitler.
-        * Orta seviyede AGG'yi BAL'e yumuşatır.
-        * Normal rejimde suggested_mode'a izin verir.
+        # Kritik rejimlerde mode'u zorla SAFE'e kilitler.
+        # Orta seviyede AGG'yi BAL'e yumuşatır.
+        # Normal rejimde suggested_mode'a izin verir.
     # ENGINEERING_MODE: OFF iken hiçbir zorlayıcı değişiklik yapmaz, sadece telemetry üretir.
     """
     try:
