@@ -14,6 +14,7 @@ from faz13_engine import (
     normalize_manual_text,
     normalize_api_data,
     normalize_visual_meta,
+    run_faz13_auto_pipeline,
 )
 
 # ================================================================
