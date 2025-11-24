@@ -35,11 +35,6 @@ from faz13_engine.faz13_orchestrator import (
     faz13_visual_coupon_from_text,
 )
 
-# 🔧 NOT: Bu üç importun modül yollarını projendeki gerçek dosyaya göre güncelle
-from faz8_engine.faz8_calibration import faz8_calibrate_signal
-from faz84_engine.faz84_coupon_engine import faz84_coupon_engine
-from faz85_engine.faz85_meta_profile import faz85_meta_profile_selector
-
 
 # ================================================================
 # 🔧 GLOBAL PATHLER
