@@ -525,8 +525,8 @@ def _faz81_core_calibration(raw_conf: float,
                             base_stake: float = 1.0) -> dict:
     """
     FAZ-8.1 core:
-      - FAZ-7.9 beyninden mode/trend/vol alır
-      - conf / edge / stake değerini temel kurallarla ayarlar
+      # FAZ-7.9 beyninden mode/trend/vol alır
+      # conf / edge / stake değerini temel kurallarla ayarlar
     """
     brain = faz79_brain()
 
@@ -1628,7 +1628,7 @@ def faz6_meta(message):
 def build_nba_simulation_text():
     """
     NBA simülasyon çıktı örneği:
-      RAW → FAZ-8.4 (kupon motoru referanslı)
+      RAW ->FAZ-8.4 (kupon motoru referanslı)
       Profil FAZ-8.5 META selector ile seçilir.
     """
     home = "MIA"
