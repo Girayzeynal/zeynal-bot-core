@@ -137,37 +137,6 @@ def _auto_faz_pipeline(
 
 def run_faz13_auto_pipeline(fusion_input: FusionInput) -> str:
     """
-    FAZ-13'ten gelen input'u FAZ-10 → FAZ-11 → FAZ-12 pipeline'ına bağlayan helper.
-
-    Şimdilik pred_conf / pred_edge / pred_bucket sabit;
-    ileride bunları fusion_input + bookmaker baremlerinden türetebiliriz.
-    """
-    # TODO: burada fusion_input'ı kullanarak farklı modlara göre
-    # pred_conf / pred_edge / bucket ayarlayabilirsin.
-    pred_conf = 0.60
-    pred_edge = 0.03
-    pred_bucket = "MID"
-
-    auto_state = _auto_faz_pipeline(
-        pred_conf=pred_conf,
-        pred_edge=pred_edge,
-        pred_bucket=pred_bucket,
-        real_result=None,
-    )
-
-    # Şimdilik sade bir özet text dönelim:
-    text_lines = [
-        "🧠 FAZ-13 Fusion + AutoPipeline",
-        f"Kaynak       : {fusion_input.source}",
-        f"Lig          : {fusion_input.league}",
-        f"Maç          : {fusion_input.home} - {fusion_input.away}",
-        f"Pazar        : {fusion_input.market}",
-        f"Line / Yön   : {fusion_input.line} | {fusion_input.side}",
-        f"Bookmaker oranı : {fusion_input.odds}",
-        "",
-        f"FAZ-10/11/12 output (özet): {auto_state}",
-    ]
-    return "\n".join(text_lines)
 
 # ================================================================
 # 🔧 ENGINEERING MODE (FAZ-10 HardSync için global switch)
