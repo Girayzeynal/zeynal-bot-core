@@ -9,12 +9,19 @@ import pandas as pd
 from flask import Flask, request
 from faz10_engine.faz10_stability import faz10_stability_check
 
-from faz13_engine import (
-    FusionInput,
+from faz13_engine.faz13_orchestrator import (
     normalize_manual_text,
     normalize_api_data,
     normalize_visual_meta,
     run_faz13_auto_pipeline,
+    faz13_daily_coupon,
+    faz13_upcoming_coupon,
+    faz13_league_coupon,
+    faz13_live_coupon,
+    faz13_visual_coupon_from_text,
+    faz13_multi_visual,
+    faz13_multi_matches,
+    triple_fusion,
 )
 
 # ================================================================
