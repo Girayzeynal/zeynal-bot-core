@@ -869,13 +869,13 @@ def faz10_hardsync(brain: dict, calib: dict = None) -> dict:
     """
     FAZ-10 HardSync:
 
-    - FAZ-7.9 beyninden full snapshot alır (mode / trend / vol / conf / edge).
-    - faz10_stability_check ile FAZ-9.x / FAZ-10 stabilite & rejim analizini kullanır.
-    - ENGINEERING_MODE: ON iken,
+    # FAZ-7.9 beyninden full snapshot alır (mode / trend / vol / conf / edge).
+    # faz10_stability_check ile FAZ-9.x / FAZ-10 stabilite & rejim analizini kullanır.
+    # ENGINEERING_MODE: ON iken,
         * Kritik rejimlerde mode'u zorla SAFE'e kilitler.
         * Orta seviyede AGG'yi BAL'e yumuşatır.
         * Normal rejimde suggested_mode'a izin verir.
-    - ENGINEERING_MODE: OFF iken hiçbir zorlayıcı değişiklik yapmaz, sadece telemetry üretir.
+    # ENGINEERING_MODE: OFF iken hiçbir zorlayıcı değişiklik yapmaz, sadece telemetry üretir.
     """
     try:
         stability = faz10_stability_check(brain) or {}
@@ -968,8 +968,8 @@ def _faz81_core_calibration(raw_conf: float,
                             base_stake: float = 1.0) -> dict:
     """
     FAZ-8.1 core:
-      - FAZ-7.9 beyninden mode/trend/vol alır
-      - conf / edge / stake değerini temel kurallarla ayarlar
+      # FAZ-7.9 beyninden mode/trend/vol alır
+      # conf / edge / stake değerini temel kurallarla ayarlar
     """
     brain = faz79_brain()
 
@@ -1039,9 +1039,9 @@ def _faz81_core_calibration(raw_conf: float,
 def _faz82_lmf_shield(calib: dict) -> dict:
     """
     FAZ-8.2:
-      - Edge floor / vol kapıları
-      - Trend DOWN / UP için farklı baskılama / boost
-      - Mode'a göre farklı LMF profilleri
+      # Edge floor / vol kapıları
+      # Trend DOWN / UP için farklı baskılama / boost
+      # Mode'a göre farklı LMF profilleri
     """
     mode = calib.get("mode", "INIT")
     trend = calib.get("trend", "INIT")
@@ -1154,9 +1154,9 @@ def faz83_dynamic_calibration(conf: float,
                               edge_avg: float) -> dict:
     """
     FAZ-8.3 ana motor:
-      - FAZ-7.9 ortalamalarına göre risk bucket belirler
-      - Trend & volatilite ile stake ayarı yapar
-      - Mode SAFE/BAL/AGG'e göre hafif modifikasyon uygular
+      # FAZ-7.9 ortalamalarına göre risk bucket belirler
+      # Trend & volatilite ile stake ayarı yapar
+      # Mode SAFE/BAL/AGG'e göre hafif modifikasyon uygular
     """
     bucket, score = faz83_compute_risk_bucket(conf, edge, conf_avg, edge_avg)
 
@@ -1485,8 +1485,8 @@ def _build_fixture_legs():
 def build_faz6_coupons_text() -> str:
     """
     FAZ-6 v3 kuponları:
-      - 4 ana kupon
-      - Toplam 40 maç / market
+      # 4 ana kupon
+      # Toplam 40 maç / market
     """
     legs = _build_fixture_legs()
 
@@ -1537,8 +1537,8 @@ def build_faz6_coupons_text() -> str:
 def build_faz6_meta_coupon_text() -> str:
     """
     FAZ-6 META kuponu (v3):
-      - FAZ-8.5 META profile seçici ile tek bir profil seçilir
-      - Aynı profille 4 farklı maç / market kalibre edilir.
+      # FAZ-8.5 META profile seçici ile tek bir profil seçilir
+      # Aynı profille 4 farklı maç / market kalibre edilir.
     """
     profile = faz85_meta_profile_selector()
 
@@ -1934,9 +1934,9 @@ def cmd_faz10(message):
     
     FAZ-10 Stability Report + HardSync Snapshot
 
-      - FAZ-7.9 beyninden snapshot alır
-      - faz10_stability_check ile rejim / anomaly / önerilen mod analizi
-      - faz10_hardsync ile ENGINEERING_MODE tabanlı final mod kararı
+      # FAZ-7.9 beyninden snapshot alır
+      # faz10_stability_check ile rejim / anomaly / önerilen mod analizi
+      # faz10_hardsync ile ENGINEERING_MODE tabanlı final mod kararı
     """
     try:
         brain = faz79_brain()
