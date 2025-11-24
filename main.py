@@ -1353,21 +1353,19 @@ def faz8_test(message):
         bot.reply_to(message, f"❌ FAZ-8 test hatası: {e}")
 
 
-@bot.message_handler(commands=["faz83_test"])
-def faz83_test(message):
-    """
-    Kullanım: /faz83_test 0.60 0.03 1.0
-      → raw_conf, raw_edge, (opsiyonel) base_stake
-    """
-    try:
-        parts = message.text.split()
-        if len(parts) not in (3, 4):
-            bot.reply_to(
-                message,
-                "✅ Kullanım: <code>/faz83_test conf edge [stake]</code>\n"
-                "Örn: <code>/faz83_test 0.63 0.035 0.80</code>",
-            )
-            return
+msg = (
+    "<b>🔋FAZ-8.3 FULL PIPELINE</b>\n\n"
+    f"Input RAW -> conf={raw_conf:.3f}, edge={raw_edge:.3f}\n"
+    f"FAZ-7.9 v2.0 Brain + FAZ-9.x -> mode=<b>{brain['mode']}</b>\n"
+    f"trend={brain['trend']} (slope {brain['slope']})\n"
+    f"TCI={brain['tci']}, Noise={brain['noise_ratio']}\n"
+    f"BehaviorIndex={brain['behavior_index']}\n"
+    f"7g avg -> conf={brain['conf']}, edge={brain['edge']}\n"
+    f"FAZ-8.3 -> bucket=<b>{c['bucket']}</b>, score={c['score']}\n"
+    f"Calibrated -> conf={c['conf']:.3f}, edge={c['edge']:.3f}\n"
+    f"stake={c['stake']:.2f}\n"
+)
+
 
         raw_conf = float(parts[1])
         raw_edge = float(parts[2])
