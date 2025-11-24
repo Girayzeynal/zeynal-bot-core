@@ -1,12 +1,8 @@
-# faz13_engine/faz13_orchestrator.py
-
-from __future__ import annotations
-
 from dataclasses import dataclass, asdict
 from typing import Optional, Dict, Any, List
+import re
 from datetime import datetime
 import logging
-import re
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +36,7 @@ class FusionInput:
 
 
 # ================================================================
-# 🔧 KÜÇÜK YARDIMCILAR
+# 🔧 KÜÇÜK YARDIMCI
 # ================================================================
 def _safe_float(x, default=None):
     try:
@@ -49,12 +45,6 @@ def _safe_float(x, default=None):
         return float(str(x).replace(",", "."))
     except Exception:
         return default
-
-
-def _upper_or(x: Any, default: str) -> str:
-    if x is None:
-        return default
-    return str(x).upper() or default
 
 
 # ================================================================
@@ -104,12 +94,12 @@ def normalize_manual_text(text: str, default_league: str = "NBA") -> FusionInput
 # ================================================================
 def normalize_api_data(match: Dict[str, Any]) -> FusionInput:
     league = str(match.get("league", "UNKNOWN"))
-    home = _upper_or(match.get("home", "HOME"), "HOME")
-    away = _upper_or(match.get("away", "AWAY"), "AWAY")
+    home = str(match.get("home", "HOME")).upper()
+    away = str(match.get("away", "AWAY")).upper()
     market = str(match.get("market", "FT TOTAL"))
 
     line = _safe_float(match.get("line"))
-    side = _upper_or(match.get("side", "U"), "U")
+    side = str(match.get("side", "U")).upper()
     odds = _safe_float(match.get("odds"))
     start_time = match.get("start_time")  # ISO bekliyoruz
 
@@ -133,23 +123,21 @@ def normalize_api_data(match: Dict[str, Any]) -> FusionInput:
 # ================================================================
 def normalize_visual_meta(text: str, default_league: str = "NBA") -> FusionInput:
     raw = text
-    upper = text.upper()
 
-    # Olası takım kodları (2–4 harf)
-    tokens = re.findall(r"[A-Z]{2,4}", upper)
+    # Olası takım kodları (3–4 harf, büyük harf)
+    tokens = re.findall(r"[A-Z]{2,4}", text)
 
     # Sayısal değerler
-    nums = re.findall(r"\d+[\.,]?\d*", upper)
+    nums = re.findall(r"\d+[\.,]?\d*", text)
 
-    # 1.15+ oran; 50–300 arası line gibi davranıyoruz (çok kaba ama iş görür)
     odds_candidates = [n for n in nums if _safe_float(n, 0) >= 1.10]
-    line_candidates = [n for n in nums if 50 <= _safe_float(n, 0) <= 300]
+    line_candidates = [n for n in nums if _safe_float(n, 0) < 1000]
 
     # Yön tespiti
     side = "U"
-    if re.search(r"\b(U|ALT|UNDER)\b", upper):
+    if re.search(r"\b(U|ALT|UNDER)\b", text, re.IGNORECASE):
         side = "U"
-    if re.search(r"\b(O|ÜST|OVER)\b", upper):
+    if re.search(r"\b(O|ÜST|OVER)\b", text, re.IGNORECASE):
         side = "O"
 
     home = tokens[0] if len(tokens) >= 1 else "HOME"
@@ -328,35 +316,34 @@ def format_faz13_signal_html(signal: Dict[str, Any]) -> str:
 
     text: List[str] = []
 
-    text.append("🧠 FAZ-13 Fusion + AutoPipeline")
+    text.append("🔥 <b>FAZ-13.1 Kupon Sinyali</b>")
     text.append("")
-    text.append(f"Kaynak       : {f.get('source', '-')}")
-    text.append(f"Lig          : {league}")
-    text.append(f"Maç          : {home} - {away}")
-    text.append(f"Pazar        : {market}")
-    text.append(f"Line / Yön   : {line} | {side}")
-    text.append(f"Bookmaker oranı : {odds}")
+    text.append(f"🏷 <b>Lig:</b> {league}")
+    text.append(f"🏀 <b>Maç:</b> {home} - {away}")
+    text.append(f"🎯 <b>Pazar:</b> {market}")
+    text.append(f"📏 <b>Line/Yön:</b> {line} / {side}")
+    text.append(f"💰 <b>Oran:</b> {odds}")
     text.append("")
-    text.append("📊 Model Çıkışı")
-    text.append(f"• Conf       : {e['pred_conf']:.3f}")
-    text.append(f"• Edge       : {e['pred_edge']:.3f}")
-    text.append(f"• Bucket     : {e['pred_bucket']} | Risk: {e['risk']}")
-    text.append(f"• Implied P  : {e['implied_p']:.3f}")
-    text.append(f"• Score      : {e['score']:.1f}")
+    text.append("📊 <b>Model Çıkışı</b>")
+    text.append(f"• Conf: <b>{e['pred_conf']:.3f}</b>")
+    text.append(f"• Edge: <b>{e['pred_edge']:.3f}</b>")
+    text.append(f"• Bucket: <b>{e['pred_bucket']}</b> | Risk: <b>{e['risk']}</b>")
+    text.append(f"• Implied P: {e['implied_p']:.3f}")
+    text.append(f"• Score: {e['score']:.1f}")
     text.append("")
-    text.append("🧠 FAZ-11/12 Durumu")
+    text.append("🧠 <b>FAZ-11/12 Durumu</b>")
     if p["f11_last"]:
         text.append(f"• Son Gün Doğruluk: {p['f11_last'].get('daily_accuracy', '-')}")
-        text.append(f"• Model Drift     : {p['f11_last'].get('model_drift', '-')}")
+        text.append(f"• Model Drift: {p['f11_last'].get('model_drift', '-')}")
     else:
         text.append("• FAZ-11 verisi yok.")
     if p["f12_decision"]:
-        text.append(f"• Mode   : {mode}")
-        text.append(f"• Reason : {p['f12_decision'].get('reason', '-')}")
+        text.append(f"• Mode: <b>{mode}</b>")
+        text.append(f"• Reason: {p['f12_decision'].get('reason', '-')}")
     else:
         text.append("• FAZ-12 kararı yok.")
     text.append("")
-    text.append("✅ Öneri (ham sinyal):")
+    text.append("✅ <b>Öneri:</b>")
     text.append(f"{home} - {away} | {market} {line} {side} @ {odds}")
 
     return "\n".join(text)
@@ -515,3 +502,17 @@ def faz13_live_coupon(live_matches: List[Dict[str, Any]]) -> str:
         out.append(
             f"#{idx}) {f['home']} - {f['away']} | {f['market']} {f['line']} {f['side']} @ {f['odds']}"
         )
+        out.append(
+            f"   Conf={e['pred_conf']:.3f} Edge={e['pred_edge']:.3f} Bucket={e['pred_bucket']}"
+        )
+
+    return "\n".join(out)
+
+
+# ================================================================
+# 🖼 5) GÖRSEL / OCR TABANLI KUPON
+#    Not: Burada OCR'ı dışarıda çalıştırıp text vereceğiz.
+# ================================================================
+def faz13_visual_coupon_from_text(ocr_text: str, default_league: str = "NBA") -> str:
+    fi = normalize_visual_meta(ocr_text, default_league=default_league)
+    return run_faz13_auto_pipeline(fi)
