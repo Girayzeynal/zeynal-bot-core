@@ -9,6 +9,13 @@ import pandas as pd
 from flask import Flask, request
 from faz10_engine.faz10_stability import faz10_stability_check
 
+from faz13_engine import (
+    FusionInput,
+    normalize_manual_text,
+    normalize_api_data,
+    normalize_visual_meta,
+)
+
 # ================================================================
 # 🔗 FAZ-11 & FAZ-12 ENTEGRASYON — CORE IMPORTS
 # ================================================================
@@ -97,6 +104,40 @@ def _auto_faz_pipeline(pred_conf: float = 0.60,
 
     except Exception as e:
         log.error(f"[AutoPipeline] Hata: {e}", exc_info=True)
+
+def run_faz13_auto_pipeline(fusion_input: FusionInput) -> str:
+    """
+    FAZ-13'ten gelen input'u FAZ-10 → FAZ-11 → FAZ-12 pipeline'ına bağlayan helper.
+
+    Şimdilik pred_conf / pred_edge / pred_bucket sabit;
+    ileride bunları fusion_input + bookmaker baremlerinden türetebiliriz.
+    """
+    # TODO: burada fusion_input'ı kullanarak farklı modlara göre
+    # pred_conf / pred_edge / bucket ayarlayabilirsin.
+    pred_conf = 0.60
+    pred_edge = 0.03
+    pred_bucket = "MID"
+
+    auto_state = _auto_faz_pipeline(
+        pred_conf=pred_conf,
+        pred_edge=pred_edge,
+        pred_bucket=pred_bucket,
+        real_result=None,
+    )
+
+    # Şimdilik sade bir özet text dönelim:
+    text_lines = [
+        "🧠 FAZ-13 Fusion + AutoPipeline",
+        f"Kaynak       : {fusion_input.source}",
+        f"Lig          : {fusion_input.league}",
+        f"Maç          : {fusion_input.home} - {fusion_input.away}",
+        f"Pazar        : {fusion_input.market}",
+        f"Line / Yön   : {fusion_input.line} | {fusion_input.side}",
+        f"Bookmaker oranı : {fusion_input.odds}",
+        "",
+        f"FAZ-10/11/12 output (özet): {auto_state}",
+    ]
+    return "\n".join(text_lines)
 
 # ================================================================
 # 🔧 ENGINEERING MODE (FAZ-10 HardSync için global switch)
@@ -1813,6 +1854,68 @@ def cmd_faz12(message):
     except Exception as e:
         log.error(f"[FAZ-12 CMD Error] {e}", exc_info=True)
         bot.reply_to(message, f"❌ FAZ-12 hata: {e}")
+
+@bot.message_handler(commands=["mac"])
+def cmd_manual_match(message):
+    """
+    Örnek kullanım:
+        /mac BOS ORL 220.5 U 1.46
+    """
+    try:
+        fusion_input = normalize_manual_text(message.text, default_league="NBA")
+        text = run_faz13_auto_pipeline(fusion_input)
+        bot.reply_to(message, text)
+    except Exception as e:
+        log.error(f"[FAZ-13 MANUAL] Hata: {e}", exc_info=True)
+        bot.reply_to(
+            message,
+            "❌ FAZ-13 manual input işlenemedi.\n"
+            "Format örneği: /mac BOS ORL 220.5 U 1.46",
+        )
+
+@bot.message_handler(commands=["mac_api"])
+def cmd_api_match(message):
+    """
+    Demo: API'den gelmiş gibi davranan örnek.
+    Sonra gerçek data_fetcher sonucunu buraya koyarsın.
+    """
+    try:
+        dummy_api_data = {
+            "league": "NBA",
+            "home": "BOS",
+            "away": "ORL",
+            "market": "total_points",
+            "line": 220.5,
+            "side": "OVER",
+            "odds": 1.46,
+        }
+        fusion_input = normalize_api_data(dummy_api_data)
+        text = run_faz13_auto_pipeline(fusion_input)
+        bot.reply_to(message, text)
+    except Exception as e:
+        log.error(f"[FAZ-13 API] Hata: {e}", exc_info=True)
+        bot.reply_to(message, "❌ FAZ-13 API input işlenemedi.")
+
+@bot.message_handler(commands=["mac_img"])
+def cmd_visual_match(message):
+    """
+    Ekran görüntüsü + text meta için.
+    Şimdilik sadece text'i parse ediyoruz; ileride OCR eklenir.
+    """
+    try:
+        # Şimdilik manual ile aynı formatı kullanıyoruz.
+        fusion_input = normalize_manual_text(message.text, default_league="NBA")
+        # Kaynak flag'ini "visual" yapalım:
+        fusion_input.source = "visual"
+        text = run_faz13_auto_pipeline(fusion_input)
+        bot.reply_to(message, text)
+    except Exception as e:
+        log.error(f"[FAZ-13 VISUAL] Hata: {e}", exc_info=True)
+        bot.reply_to(
+            message,
+            "❌ FAZ-13 visual input işlenemedi.\n"
+            "Format: /mac_img BOS ORL 220.5 U 1.46 + ekran görüntüsü",
+        )
 
 @bot.message_handler(commands=["faz10"])
 def cmd_faz10(message):
