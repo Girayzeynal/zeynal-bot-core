@@ -66,13 +66,18 @@ def _faz12_autoadjust(f10_state, f11_state):
         log.error(f"[FAZ-12] Auto adjust çalıştırılamadı: {e}", exc_info=True)
         return {"error": str(e)}
 
-def _auto_faz_pipeline(pred_conf: float = 0.60,
-                       pred_edge: float = 0.03,
-                       pred_bucket: str = "MID",
-                       real_result: bool = None):
+def _auto_faz_pipeline(
+    pred_conf: float = 0.60,
+    pred_edge: float = 0.03,
+    pred_bucket: str = "MID",
+    real_result: bool | None = None,
+) -> dict:
     """
-    Otomatik FAZ-10 → FAZ-11 → FAZ-12 pipeline
+    Otomatik FAZ-10 → FAZ-11 → FAZ-12 pipeline.
+
+    FAZ-13 orkestratörü buradan tek bir özet dict alır.
     """
+
     try:
         # ------------------------------
         # 1) FAZ-10 Stability Check
@@ -80,20 +85,25 @@ def _auto_faz_pipeline(pred_conf: float = 0.60,
         brain = faz79_brain()
         f10 = faz10_stability_check(brain)
 
+        f11_result = None
+        f11_last = None
+        f12_decision = None
+
         # ------------------------------
-        # 2) FAZ-11 Feedback (real_result varsa)
+        # 2) FAZ-11 Feedback (label varsa)
         # ------------------------------
         if real_result is not None:
             real = [bool(real_result)]
-            predicted = [{
-                "conf": float(pred_conf),
-                "edge": float(pred_edge),
-                "bucket": str(pred_bucket)
-            }]
+            predicted = [
+                {
+                    "conf": float(pred_conf),
+                    "edge": float(pred_edge),
+                    "bucket": str(pred_bucket),
+                }
+            ]
+            f11_result = _faz11_register_feedback(real, predicted, save=True)
 
-            _faz11_register_feedback(real, predicted, save=True)
-
-        # Son FAZ-11 özeti
+        # Her durumda son FAZ-11 özetini çekelim
         f11_summary = faz11_last_summary()
         f11_last = f11_summary.get("last", {})
 
@@ -101,10 +111,25 @@ def _auto_faz_pipeline(pred_conf: float = 0.60,
         # 3) FAZ-12 Auto Profile Adjust
         # ------------------------------
         if f11_last:
-            _faz12_autoadjust(f10, f11_last)
+            f12_decision = _faz12_autoadjust(f10_state=f10, f11_state=f11_last)
+
+        # FAZ-13 için sıkıştırılmış özet
+        return {
+            "f10": {
+                "stability": f10.get("stability"),
+                "regime": f10.get("regime"),
+                "suggested_mode": f10.get("suggested_mode"),
+            },
+            "f11": {
+                "result": f11_result,
+                "last": f11_last,
+            },
+            "f12": f12_decision,
+        }
 
     except Exception as e:
         log.error(f"[AutoPipeline] Hata: {e}", exc_info=True)
+        return {"error": str(e)}
 
 def run_faz13_auto_pipeline(fusion_input: FusionInput) -> str:
     """
