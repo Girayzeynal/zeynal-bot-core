@@ -8,21 +8,24 @@ import numpy as np
 import pandas as pd
 from flask import Flask, request
 
+# =========================================
+# 🔍 FAZ-13 OCR DEBUG STATE
+# =========================================
+LAST_OCR_TEXT = None
+LAST_OCR_META = {}
+
 # ================================================================
-# 🔗 FAZ-10 / FAZ-11 / FAZ-12 / FAZ-13 IMPORTLARI
+#  FAZ-10 / FAZ-11 / FAZ-12 / FAZ-13 IMPORTLARI
 # ================================================================
 from faz10_engine.faz10_stability import faz10_stability_check
-
 from faz11_engine.faz11_feedback import (
     faz11_feedback,
     faz11_last_summary
 )
-
 from faz12_engine.faz12_autoadjust import (
     faz12_run_once,
     faz12_auto_profile
 )
-
 from faz13_engine.faz13_orchestrator import (
     normalize_manual_text,
     normalize_api_data,
@@ -31,10 +34,8 @@ from faz13_engine.faz13_orchestrator import (
     faz13_daily_coupon,
     faz13_upcoming_coupon,
     faz13_league_coupon,
-    faz13_live_coupon,
-    faz13_visual_coupon_from_text,
-) 
-
+    faz13_live_coupon
+)
 
 # ================================================================
 # 🔧 GLOBAL PATHLER
@@ -42,7 +43,6 @@ from faz13_engine.faz13_orchestrator import (
 FAZ7_DIR = os.getenv("FAZ7_DIR", "/data/faz7")
 MEMORY_FILE = os.path.join(FAZ7_DIR, "faz7_memory.json")
 FAZ11_LOG_FILE = os.path.join(FAZ7_DIR, "faz11_history.json")
-
 
 # ================================================================
 # 🔧 ENGINEERING MODE (FAZ-10 HardSync için global switch)
