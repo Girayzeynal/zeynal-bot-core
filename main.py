@@ -1,4 +1,4 @@
-import os
+Dur işlem import os
 import json
 import time
 import logging
@@ -1292,7 +1292,7 @@ def _easyocr_worker(img_bytes: bytes) -> dict:
         raise RuntimeError("EasyOCR yüklü değil")
 
     reader = easyocr.Reader(["en"], gpu=(GPU_MODE != "OFF"))
-    import numpy as np as _np
+    import numpy as _np
     img = Image.open(__import__("io").BytesIO(img_bytes))
     img_np = _np.array(img)
     result = reader.readtext(img_np, detail=1)
