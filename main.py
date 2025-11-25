@@ -1485,37 +1485,95 @@ def cmd_manual_match(message):
             "Format örneği: /mac BOS ORL 220.5 U 1.46",
         )
 
-@bot.message_handler(commands=["ocr_test"])
-def cmd_ocr_test(message):
+@bot.message_handler(content_types=["photo", "document"])
+def cmd_visual_upload_raw(message):
     """
-    Son kaydedilen OCR metnini debug amaçlı gösterir.
+    FAZ-13 VISUAL HYBRID MODE (C):
+      1) Fotoğraf URL'sini kullanıcıya gönder.
+      2) URL'yi logla (hata avcı).
+      3) Mümkünse:
+         - requests + PIL + pytesseract ile OCR yap
+         - OCR sonucunu normalize_visual_meta ile FAZ-13 pipeline'a ver
+      4) Çıkan maçı uzun metin olarak geri gönder.
     """
     global LAST_OCR_TEXT, LAST_OCR_META
 
-    if not LAST_OCR_TEXT:
-        bot.reply_to(
-            message,
-            "⚠️ Henüz kaydedilmiş bir OCR metni yok.\n"
-            "Önce bir maç ekranı resmi gönder. 📸"
-        )
+    # 1) Telegram'dan fotoğraf / doküman dosyasını al
+    try:
+        if message.content_type == "photo":
+            file_id = message.photo[-1].file_id
+        elif message.content_type == "document":
+            # Bazı ekran görüntülerini "dosya" olarak gönderiyor
+            file_id = message.document.file_id
+        else:
+            bot.reply_to(
+                message,
+                "⚠️ Bu mesaj tipi desteklenmiyor. Lütfen resmi *fotoğraf* veya *dosya* olarak gönder.",
+            )
+            return
+
+        file_info = bot.get_file(file_id)
+        file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+
+        # 2) Eski davranış: URL'yi hemen kullanıcıya gönder
+        bot.reply_to(message, f"📸 Görsel alındı!\nURL: {file_url}")
+
+        # 3) Hata avcı log
+        log.info(f"[FAZ-13 VISUAL] file_url: {file_url}")
+        print("📌 DEBUG | file_url:", file_url)
+
+    except Exception as e:
+        log.error(f"[FAZ-13 VISUAL] URL alma hatası: {e}", exc_info=True)
+        bot.reply_to(message, "❌ Görsel URL'si alınamadı.")
+        return  # Burada dur, OCR deneme
+
+    # 4) Hybrid OCR modunun import + istek kısmı
+    try:
+        import requests
+        from PIL import Image
+        from io import BytesIO
+        import pytesseract
+    except Exception as e:
+        log.error(f"[FAZ-13 VISUAL] OCR import error: {e}", exc_info=True)
+        # URL zaten kullanıcıya gitti, sessizce çık
         return
 
-    text_preview = LAST_OCR_TEXT.strip()
-    if len(text_preview) > 1000:
-        text_preview = text_preview[:1000] + "\n...\n(Devamı kesildi)"
+    # 5) URL'den resmi indir + OCR al
+    try:
+        resp = requests.get(file_url, timeout=10)
+        resp.raise_for_status()
+        img_bytes = resp.content
 
-    file_url = LAST_OCR_META.get("file_url", "bilinmiyor")
-    length = LAST_OCR_META.get("length", len(text_preview))
+        img = Image.open(BytesIO(img_bytes))
+        ocr_text = pytesseract.image_to_string(img)
 
-    reply = (
-        "🧪 <b>Son OCR sonucu</b>:\n\n"
-        f"<code>{text_preview}</code>\n\n"
-        "———\n"
-        f"Kaynak URL: {file_url}\n"
-        f"Karakter sayısı: {length}"
-    )
+        # Hata avcı: ilk 400 karakteri log'a yaz
+        log.info(f"[FAZ-13 VISUAL] OCR length={len(ocr_text)}")
+        print("📌 OCR RAW (ilk 400):", ocr_text[:400])
 
-    bot.reply_to(message, reply, parse_mode="HTML")
+        # Global debug state’e kaydet
+        LAST_OCR_TEXT = ocr_text
+        LAST_OCR_META = {
+            "url": file_url,
+            "length": len(ocr_text),
+            "preview": ocr_text[:400],
+        }
+
+    except Exception as e:
+        log.error(f"[FAZ-13 VISUAL] OCR error: {e}", exc_info=True)
+        # OCR çalışmazsa, yine de URL mesajı gitmiş durumda; burada durabiliriz
+        return
+
+    # 6) FAZ-13 custom parser (visual meta) — şimdilik opsiyonel
+    try:
+        # Eğer sadece OCR debug yapıyorsak, FAZ-13'e zorunlu değil
+        # İleride: ocr_text -> normalize_visual_meta(...) -> run_faz13_auto_pipeline(...)
+        pass
+    except Exception as e:
+        log.error(f"[FAZ-13 VISUAL] pipeline error: {e}", exc_info=True)
+        # Ekstra mesaj zorunlu değil, sessiz bırakabiliriz
+        return
+
 @bot.message_handler(commands=["mac_img"])
 def cmd_visual_match(message):
     """
