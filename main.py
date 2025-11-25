@@ -1,4 +1,5 @@
 import os
+import io
 import json
 import time
 import logging
@@ -12,7 +13,7 @@ import pandas as pd
 from flask import Flask, request
 
 # ================================================================
-# 🔍 FAZ-13 OCR DEBUG STATE + GLOBAL OCR CACHE
+# 🔍 FAZ-13 OCR DEBUG STATE + GLOBAL OCR CACHE (v3.5 FLY-OPTIMIZED)
 # ================================================================
 LAST_OCR_TEXT = None
 LAST_OCR_META = {}
@@ -21,17 +22,50 @@ LAST_OCR_META = {}
 OCR_CACHE = {}
 OCR_CACHE_LOCK = threading.Lock()
 
-# Thread pool: OCR Hybrid (Tesseract + EasyOCR + Vision API)
-OCR_EXECUTOR = ThreadPoolExecutor(max_workers=int(os.getenv("OCR_MAX_WORKERS", "4")))
-
-# OCR timeoutlar (Fast-Fail / Fly.io Safe Mode)
-TESSERACT_TIMEOUT = float(os.getenv("OCR_TESSERACT_TIMEOUT", "1.5"))
-EASYOCR_TIMEOUT = float(os.getenv("OCR_EASYOCR_TIMEOUT", "2.5"))
-VISION_TIMEOUT = float(os.getenv("OCR_VISION_TIMEOUT", "5.0"))
+# Cache TTL (saniye) – Fly.io bellek koruma (default: 15 dk)
+OCR_CACHE_TTL = int(os.getenv("OCR_CACHE_TTL", "900"))
 
 # GPU / Vision modları
 GPU_MODE = os.getenv("GPU_MODE", "AUTO").upper()  # AUTO / FORCE / OFF
 VISION_MODE = os.getenv("VISION_MODE", "ON").upper() == "ON"
+
+# Fly / Render OCR davranış modu
+#  SAFE  : en hafif, sadece Tesseract (+ çok sınırlı EasyOCR)
+#  AUTO  : Balanced (MODE B) – Tesseract + EasyOCR, Vision sınırlı
+#  TURBO : Full hybrid (yüksek RAM/CPU gerektirir)
+FLY_SAFE_MODE = os.getenv("FLY_SAFE_MODE", "AUTO").upper()
+
+# OCR timeoutlar (v3.5 – Fly-friendly defaults)
+TESSERACT_TIMEOUT = float(os.getenv("OCR_TESSERACT_TIMEOUT", "1.2"))
+EASYOCR_TIMEOUT = float(os.getenv("OCR_EASYOCR_TIMEOUT", "2.3"))
+VISION_TIMEOUT = float(os.getenv("OCR_VISION_TIMEOUT", "4.5"))
+
+
+def _compute_ocr_workers() -> int:
+    """
+    Fly.io / Render için CPU-aware worker sayısı.
+    MODE B (AUTO) → 2–3 worker arası, agresif değil.
+    """
+    try:
+        env_workers = int(os.getenv("OCR_MAX_WORKERS", "0"))
+    except Exception:
+        env_workers = 0
+
+    if env_workers > 0:
+        # Kullanıcı override ederse 1–4 arasında sınırla
+        return max(1, min(env_workers, 4))
+
+    cpu_count = os.cpu_count() or 2
+    if cpu_count <= 2:
+        return 2
+    elif cpu_count == 3:
+        return 2
+    else:
+        return 3
+
+
+# Thread pool: OCR Hybrid (Tesseract + EasyOCR + Vision API)
+OCR_EXECUTOR = ThreadPoolExecutor(max_workers=_compute_ocr_workers())
 
 # ================================================================
 #  FAZ-10 / FAZ-11 / FAZ-12 / FAZ-13 IMPORTLARI
@@ -609,7 +643,6 @@ def _auto_faz_pipeline(pred_conf: float = 0.60,
 
 # ================================================================
 # 🏀 FAZ-6 v3 – KUPON & NBA SİMÜLASYON
-# (buradaki kupon motoru aynen korunuyor)
 # ================================================================
 def _faz84_from_raw(profile: str,
                     raw_conf: float,
@@ -1046,7 +1079,7 @@ def cmd_start(message):
         "🔥 <b>Bot aktif!</b>\n"
         "FAZ-4 + FAZ-5 + FAZ-6 v3 + FAZ-7.9 v2.0 + "
         "FAZ-8.2 + FAZ-8.3 + FAZ-8.4 + FAZ-8.5 META + FAZ-9.x + FAZ-10 HardSync + "
-        "FAZ-11 + FAZ-12 + Ultra OCR Engine v3 (FAZ-13 C MODE FULL POWER).\n"
+        "FAZ-11 + FAZ-12 + Ultra OCR Engine v3.5 (FAZ-13 C MODE FLY-OPTIMIZED).\n"
         "Komut listesi için <code>/help</code> yaz."
     )
     bot.reply_to(message, text)
@@ -1099,8 +1132,8 @@ def cmd_status(message):
         "FAZ-7.9 v2.0 hafıza motoru: <b>AKTİF</b>\n"
         "FAZ-9.1/9.2 behavior motoru: <b>AKTİF</b>\n"
         "FAZ-8.2/8.3/8.4/8.5: <b>AKTİF</b>\n"
-        "Ultra OCR Engine v3 (A+B+C Hybrid): <b>AKTİF</b>\n"
-        "OCR Cache Layer: <b>AKTİF</b>\n"
+        "Ultra OCR Engine v3.5 (A+B+C Hybrid, FLY-OPTIMIZED): <b>AKTİF</b>\n"
+        "OCR Cache Layer v2.1 (TTL + LRU): <b>AKTİF</b>\n"
         "Fast-Fail Timeout Protection: <b>AKTİF</b>\n"
         f"Strateji Modu: <b>{info['mode']}</b> | "
         f"Trend: {info['trend']} | Vol: {info['vol']}\n"
@@ -1232,7 +1265,7 @@ def cmd_manual_match(message):
 
 
 # ================================================================
-# 🔬 ULTRA OCR ENGINE v3 (A+B+C HYBRID, MULTI-THREAD, CACHE)
+# 🔬 ULTRA OCR ENGINE v3.5 (A+B+C HYBRID, MULTI-THREAD, CACHE v2.1)
 # ================================================================
 def _hash_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -1240,13 +1273,8 @@ def _hash_bytes(data: bytes) -> str:
 
 def _ocr_classifier_v3(img_bytes: bytes, ocr_text_preview: str) -> str:
     """
-    Basit ama iş görür classifier:
-    - Standings
-    - Stats
-    - Odds
-    - BetSlip
-    - LiveScore
-    - Generic
+    Basit classifier:
+    - Standings / Stats / Odds / BetSlip / LiveScore / Generic
     """
     t = (ocr_text_preview or "").upper()
 
@@ -1265,11 +1293,10 @@ def _ocr_classifier_v3(img_bytes: bytes, ocr_text_preview: str) -> str:
 
 def _ocr_noise_reducer(img_bytes: bytes) -> bytes:
     """
-    Noise reducer placeholder – CPU dostu hafif filtre.
-    Gerçek hayatta burada PIL + OpenCV vs. kullanılabilir.
-    Şimdilik sadece direkt passthrough ama hook hazır.
+    Noise reducer – Fly dostu (OpenCV yok, hafif).
+    Gelecekte: adaptive threshold, blur fix vb. eklenebilir.
+    Şimdilik passthrough ama hook hazır.
     """
-    # Gelecekte: adaptive threshold, blur fix vs.
     return img_bytes
 
 
@@ -1277,23 +1304,20 @@ def _tesseract_worker(img_bytes: bytes) -> dict:
     if not (Image and pytesseract):
         raise RuntimeError("Tesseract/Pillow yüklü değil")
 
-    img = Image.open(os.BytesIO(img_bytes)) if hasattr(os, "BytesIO") else Image.open(
-        __import__("io").BytesIO(img_bytes)
-    )
+    img = Image.open(io.BytesIO(img_bytes))
     raw_text = pytesseract.image_to_string(img)
 
-    # Confidence yoksa heuristik skor:
     score = min(0.99, max(0.1, len(raw_text.strip()) / 300.0))
     return {"engine": "TESSERACT", "text": raw_text, "confidence": score}
 
 
 def _easyocr_worker(img_bytes: bytes) -> dict:
-    if easyocr is None:
-        raise RuntimeError("EasyOCR yüklü değil")
+    if easyocr is None or Image is None:
+        raise RuntimeError("EasyOCR veya Pillow yüklü değil")
 
     reader = easyocr.Reader(["en"], gpu=(GPU_MODE != "OFF"))
     import numpy as _np
-    img = Image.open(__import__("io").BytesIO(img_bytes))
+    img = Image.open(io.BytesIO(img_bytes))
     img_np = _np.array(img)
     result = reader.readtext(img_np, detail=1)
     text_parts = [x[1] for x in result]
@@ -1311,15 +1335,14 @@ def _vision_worker(img_bytes: bytes) -> dict:
     if not (VISION_MODE and openai):
         raise RuntimeError("Vision API devre dışı")
 
-    # Buraya gerçek OpenAI Vision API entegrasyonu eklenebilir.
-    # Şimdilik placeholder; üretim ortamında doldurulur.
+    # Gerçek Vision API entegrasyonu burada olacak.
     raise RuntimeError("Vision worker placeholder (API entegrasyonu gerekli)")
 
 
 def _ai_guess_and_clean(text: str) -> str:
     """
     AI-based guessing layer (basitleştirilmiş):
-    - OCR hataları: O/0, 1/I, virgül/nokta düzeltme vb.
+    - OCR hataları: O/0, 1/I, l/1, nokta/virgül düzeltme vb.
     """
     t = text or ""
     t = t.replace("O.", "0.").replace("O,", "0,")
@@ -1330,35 +1353,46 @@ def _ai_guess_and_clean(text: str) -> str:
 
 def _probability_filter(candidate: dict) -> tuple[bool, float]:
     """
-    AI Probability Filter (basit metrikler):
-    - Uzunluk
-    - Sayı oranı
-    - Satır sayısı
+    Probability Filter v2.1:
+    - Uzunluk, sayı yoğunluğu, satır sayısı, engine tipi
     """
     text = candidate.get("text") or ""
     if not text.strip():
         return False, 0.0
 
+    engine = candidate.get("engine", "UNKNOWN")
     length = len(text)
     digits = sum(c.isdigit() for c in text)
     lines = text.count("\n") + 1
 
-    length_score = min(1.0, length / 300.0)
+    length_score = min(1.0, length / 320.0)
     digit_score = min(1.0, digits / (length + 1))
-    line_score = min(1.0, lines / 20.0)
+    line_score = min(1.0, lines / 22.0)
 
-    score = 0.45 * length_score + 0.35 * digit_score + 0.20 * line_score
+    engine_bonus = 0.0
+    if engine == "EASYOCR":
+        engine_bonus = 0.06
+    elif engine == "TESSERACT":
+        engine_bonus = 0.03
+
+    score = (
+        0.42 * length_score +
+        0.33 * digit_score +
+        0.20 * line_score +
+        engine_bonus
+    )
     pass_flag = score >= 0.30
-    return pass_flag, score
+    return pass_flag, float(min(score, 1.2))
 
 
 def ultra_ocr_engine_v3(img_bytes: bytes) -> dict:
     """
-    EXTREME MODE:
-      - A: Tesseract
-      - B: EasyOCR (GPU mümkünse)
-      - C: Vision API (fallback)
-      - Multi-thread + Fast-Fail + Cache
+    Ultra OCR Engine v3.5 – FLY-OPTIMIZED (MODE=B Balanced by default)
+
+    - A: Tesseract
+    - B: EasyOCR (GPU mümkünse, CPU'da sınırlı)
+    - C: Vision API (isteğe bağlı, nadir)
+    - Multi-thread + Fast-Fail + Cache v2.1 (TTL + LRU)
     """
     global LAST_OCR_TEXT, LAST_OCR_META
 
@@ -1366,34 +1400,40 @@ def ultra_ocr_engine_v3(img_bytes: bytes) -> dict:
     img_hash = _hash_bytes(img_bytes)
     now = int(time.time())
 
-    # -------- Cache kontrol --------
+    # -------- Cache kontrol (TTL + LRU) --------
     with OCR_CACHE_LOCK:
         cache_item = OCR_CACHE.get(img_hash)
         if cache_item:
             meta = cache_item["meta"]
-            meta["from_cache"] = True
-            LAST_OCR_TEXT = cache_item["text"]
-            LAST_OCR_META = meta
-            return {"text": cache_item["text"], "meta": meta}
+            ts = meta.get("ts", 0)
+            if now - ts <= OCR_CACHE_TTL:
+                meta["from_cache"] = True
+                meta["version"] = "3.5"
+                LAST_OCR_TEXT = cache_item["text"]
+                LAST_OCR_META = meta
+                return {"text": cache_item["text"], "meta": meta}
+            else:
+                # Süresi dolmuş cache temizlenir
+                OCR_CACHE.pop(img_hash, None)
 
-    tasks = []
     futures = {}
 
-    # Tesseract
+    # Tesseract – her zaman (varsa)
     if Image and pytesseract:
         futures[OCR_EXECUTOR.submit(_tesseract_worker, img_bytes)] = ("TESSERACT", TESSERACT_TIMEOUT)
 
-    # EasyOCR
-    if easyocr is not None:
+    # EasyOCR – SAFE modda kapalı, AUTO/TURBO'da açık
+    if easyocr is not None and Image is not None and FLY_SAFE_MODE != "SAFE":
         futures[OCR_EXECUTOR.submit(_easyocr_worker, img_bytes)] = ("EASYOCR", EASYOCR_TIMEOUT)
 
-    # Vision API (fallback)
-    if VISION_MODE and openai:
+    # Vision API – sadece AUTO/TURBO + VISION_MODE ON iken
+    if VISION_MODE and openai and FLY_SAFE_MODE in ("AUTO", "TURBO"):
         futures[OCR_EXECUTOR.submit(_vision_worker, img_bytes)] = ("VISION", VISION_TIMEOUT)
 
     best_candidate = None
     best_score = -1.0
 
+    # Fast-Fail: her future için kendi timeout'u
     for future, (name, timeout_sec) in list(futures.items()):
         try:
             result = future.result(timeout=timeout_sec)
@@ -1402,17 +1442,17 @@ def ultra_ocr_engine_v3(img_bytes: bytes) -> dict:
                 best_score = prob_score
                 best_candidate = result
         except Exception as e:
-            log.warning(f"[UltraOCR] {name} worker hata/time-out: {e}")
+            log.warning(f"[UltraOCR v3.5] {name} worker hata/time-out: {e}")
 
     if best_candidate is None:
-        # Fail-safe: hiçbiri çalışmazsa
-        log.error("[UltraOCR] Hiçbir OCR sonucu alınamadı, boş dönülüyor.")
+        log.error("[UltraOCR v3.5] Hiçbir OCR sonucu alınamadı, boş dönülüyor.")
         text = ""
         meta = {
             "engine": "NONE",
             "score": 0.0,
             "failed": True,
             "ts": now,
+            "version": "3.5",
         }
     else:
         cleaned_text = _ai_guess_and_clean(best_candidate["text"])
@@ -1425,15 +1465,14 @@ def ultra_ocr_engine_v3(img_bytes: bytes) -> dict:
             "classifier": cls,
             "failed": False,
             "ts": now,
+            "version": "3.5",
         }
         text = cleaned_text
 
-    # Cache yaz
+    # Cache yaz (LRU + TTL trimming)
     with OCR_CACHE_LOCK:
         OCR_CACHE[img_hash] = {"text": text, "meta": meta}
-        # Basit cache trim (Fly.io memory koruma)
         if len(OCR_CACHE) > 256:
-            # En eski ilk 64 kaydı sil
             sorted_items = sorted(
                 OCR_CACHE.items(),
                 key=lambda kv: kv[1]["meta"].get("ts", 0)
@@ -1461,6 +1500,7 @@ def cmd_ocr_debug(message):
 
     msg = (
         "🔍 <b>FAZ-13 OCR DEBUG</b>\n\n"
+        f"Version: <b>{meta.get('version', '3.x')}</b>\n"
         f"Engine: <b>{meta.get('engine', '-')}</b>\n"
         f"Classifier: <b>{meta.get('classifier', '-')}</b>\n"
         f"Score: <b>{meta.get('prob_score', 0.0)}</b>\n"
@@ -1478,33 +1518,31 @@ def cmd_ocr_debug(message):
 # ================================================================
 def _run_faz13_visual_pipeline(ocr_text: str, meta: dict):
     """
-    Ultra OCR Engine v3 çıktısını FAZ-13 fusion pipeline'a bağlar.
+    Ultra OCR Engine v3.5 çıktısını FAZ-13 fusion pipeline'a bağlar.
     Standings / Stats / Odds / Generic ayrımı meta['classifier'] üzerinden.
     """
     try:
         fusion_input = normalize_visual_meta(ocr_text)
     except Exception as e:
         log.error(f"[FAZ-13 VISUAL] normalize_visual_meta hata: {e}", exc_info=True)
-        # normalize_visual_meta yoksa, direkt manuel text gibi davran
         fusion_input = normalize_manual_text(ocr_text, default_league="NBA")
 
     try:
         result_text = run_faz13_auto_pipeline(fusion_input)
     except Exception as e:
         log.error(f"[FAZ-13 VISUAL] run_faz13_auto_pipeline hata: {e}", exc_info=True)
-        # Fail-safe: sadece OCR metnini döner
         result_text = (
             "⚠️ FAZ-13 pipeline hata verdi, sadece OCR metni dönüyorum.\n\n"
             "<b>OCR TEXT:</b>\n"
             f"<code>{ocr_text[:2000]}</code>"
         )
 
-    # Ek bilgi: classifier/engine
     extra = (
         f"\n\n🧪 <b>FAZ-13 C MODE OCR META</b>\n"
         f"Engine: <b>{meta.get('engine', '-')}</b> | "
         f"Classifier: <b>{meta.get('classifier', '-')}</b> | "
-        f"Score: <b>{meta.get('prob_score', 0.0):.3f}</b>"
+        f"Score: <b>{meta.get('prob_score', 0.0):.3f}</b> | "
+        f"Version: <b>{meta.get('version', '3.5')}</b>"
     )
 
     return result_text + extra
@@ -1521,17 +1559,17 @@ def cmd_visual_match(message):
         message,
         "📸 Extreme Mode aktif!\n"
         "Şimdi maç ekran görüntüsünü gönder (oranlar / istatistikler / puan durumu olabilir).\n"
-        "Ultra OCR Engine v3 (A+B+C) tarayıp FAZ-13 pipeline'a sokacağım.",
+        "Ultra OCR Engine v3.5 (A+B+C, FLY-OPTIMIZED) tarayıp FAZ-13 pipeline'a sokacağım.",
     )
 
 
 @bot.message_handler(content_types=["photo", "document"])
 def cmd_visual_upload_extreme(message):
     """
-    Ultra OCR Engine v3:
+    Ultra OCR Engine v3.5:
       - Multi-engine (Tesseract + EasyOCR + Vision fallback)
       - Multi-thread + Fast-Fail
-      - OCR Cache
+      - OCR Cache v2.1
       - Standings / Stats / Odds sınıflandırma
       - FAZ-13 C MODE FULL POWER
     """
@@ -1551,11 +1589,10 @@ def cmd_visual_upload_extreme(message):
         file_path = file_info.file_path
         file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
 
-        # Bilgilendirme mesajı (kısa, CPU dostu)
         bot.reply_to(
             message,
-            "📥 Görsel alındı, Ultra OCR Engine v3 devrede...\n"
-            "Multi-engine (A+B+C) + Cache + AI Filter çalışıyor.",
+            "📥 Görsel alındı, Ultra OCR Engine v3.5 devrede...\n"
+            "Multi-engine (A+B+C) + Cache v2.1 + AI Filter çalışıyor.",
         )
 
         import requests
@@ -1582,7 +1619,7 @@ def cmd_visual_upload_extreme(message):
         log.error(f"[FAZ-13 EXTREME VISUAL] Genel hata: {e}", exc_info=True)
         bot.reply_to(
             message,
-            "❌ Ultra OCR Engine v3 işleminde hata oluştu.\n"
+            "❌ Ultra OCR Engine v3.5 işleminde hata oluştu.\n"
             "Log'lara bakıp düzeltmen için işaretledim.",
         )
 
@@ -1614,9 +1651,10 @@ def setup_webhook():
 if __name__ == "__main__":
     log.info(
         "🔥 Boot: FAZ-7.9 + FAZ-8.x + FAZ-6 v3 + FAZ-9.x + FAZ-10 HardSync + "
-        "FAZ-11 + FAZ-12 + Ultra OCR Engine v3 (FAZ-13 C MODE FULL POWER) | "
-        "ENGINEERING_MODE=%s",
+        "FAZ-11 + FAZ-12 + Ultra OCR Engine v3.5 (FAZ-13 C MODE FLY-OPTIMIZED) | "
+        "ENGINEERING_MODE=%s | FLY_SAFE_MODE=%s",
         "ON" if ENGINEERING_MODE else "OFF",
+        FLY_SAFE_MODE,
     )
     init_memory()
     setup_webhook()
