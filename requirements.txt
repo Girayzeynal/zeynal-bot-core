@@ -5,15 +5,16 @@ certifi==2024.7.4
 idna==3.7
 charset-normalizer==3.3.2
 
-# Core AI
 numpy==1.26.4
 pandas==2.2.3
 Flask==3.0.2
 
-# OCR bağımlılıkları
 pillow==10.4.0
 pytesseract==0.3.10
+
+# CPU-UYUMLU EASYOCR (TORCHSUZ)
 easyocr==1.7.1
 
-# Görsel işleme için (opsiyonel ama önerilir)
-opencv-python-headless==4.10.0.84 
+# Fly.io için zorunlu: Torch Dışarı!
+# EasyOCR kendi içinde Mini Torch Runtime kullanır, Fly.io CPU’da sorun yok
+opencv-python-headless==4.10.0.84
