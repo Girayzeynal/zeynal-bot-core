@@ -1517,19 +1517,23 @@ def cmd_visual_upload_raw(message):
         file_info = bot.get_file(file_id)
         file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
 
-        # 1) Dosyayı indir
-        img_bytes = bot.download_file(file_info.file_path)
+        bot.reply_to(message, f"📸 Görsel alındı!\nURL: {file_url}")
 
-        # 2) OCR motorunu çalıştır
-        ocr_text = extract_standings(img_bytes)
+        # OCR Hata Avcı
+        import requests
+        from PIL import Image
+        from io import BytesIO
+        import pytesseract
 
-        # 3) HATA AVCI DEBUG SATIRI  🔍
+        img_bytes = requests.get(file_url).content
+        img = Image.open(BytesIO(img_bytes))
+        ocr_text = pytesseract.image_to_string(img)
+
         print("📌 OCR METNI:", ocr_text)
 
-        bot.reply_to(message, f"📸 Görsel alındı!\nURL: {file_url}")
     except Exception as e:
         log.error(f"[FAZ-13 VISUAL-UPLOAD] Hata: {e}", exc_info=True)
-        bot.reply_to(message, "❌ Görsel alınmadı.")
+        bot.reply_to(message, "❌ Görsel alınamadı.")
 
 
 @bot.message_handler(commands=["mac_img"])
