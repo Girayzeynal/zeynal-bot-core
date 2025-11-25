@@ -1519,24 +1519,14 @@ def cmd_visual_upload_raw(message):
 
         bot.reply_to(message, f"📸 Görsel alındı!\nURL: {file_url}")
 
-        # OCR Hata Avcı
-        import requests
-        from PIL import Image
-        from io import BytesIO
-        import pytesseract
-
-        img_bytes = requests.get(file_url).content
-        img = Image.open(BytesIO(img_bytes))
-        ocr_text = pytesseract.image_to_string(img)
-
-        print("📌 OCR METNI:", ocr_text)
+        # DEBUG (Tesseract yok → sadece URL yazdır)
+        print("📌 DEBUG | file_url:", file_url)
 
     except Exception as e:
         log.error(f"[FAZ-13 VISUAL-UPLOAD] Hata: {e}", exc_info=True)
         bot.reply_to(message, "❌ Görsel alınamadı.")
 
-
-@bot.message_handler(commands=["mac_img"])
+@bot.mesage_handler(commands=["mac_img"])
 def cmd_visual_match(message):
     """
     Ekran görüntüsü + text meta için.
