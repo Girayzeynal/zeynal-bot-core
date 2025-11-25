@@ -3,6 +3,7 @@ FROM python:3.12-slim
 ENV TORCH_CUDA_VERSION=skip
 ENV CUDA_VISIBLE_DEVICES=-1
 
+# Sistem OCR bağımlılıkları
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     tesseract-ocr-eng \
