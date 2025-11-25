@@ -1526,7 +1526,7 @@ def cmd_visual_upload_raw(message):
         log.error(f"[FAZ-13 VISUAL-UPLOAD] Hata: {e}", exc_info=True)
         bot.reply_to(message, "❌ Görsel alınamadı.")
 
-@bot.mesage_handler(commands=["mac_img"])
+@bot.message_handler(commands=["mac_img"])
 def cmd_visual_match(message):
     """
     Ekran görüntüsü + text meta için.
