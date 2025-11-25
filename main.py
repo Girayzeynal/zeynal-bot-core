@@ -1512,19 +1512,75 @@ def cmd_api_match(message):
 
 @bot.message_handler(content_types=["photo"])
 def cmd_visual_upload_raw(message):
+    """
+    FAZ-13 VISUAL HYBRID MODE (C):
+    1) Fotoğraf URL'sini kullanıcıya gönder.
+    2) URL'yi logla (hata avcı).
+    3) Mümkünse:
+       - requests + PIL + pytesseract ile OCR yap
+       - OCR sonucunu normalize_visual_meta ile FAZ-13 pipeline'a ver.
+    4) Çıkan maçı uzun metin olarak geri gönder.
+    """
     try:
+        # 1) Telegram'dan fotoğraf dosyasını al
         file_id = message.photo[-1].file_id
         file_info = bot.get_file(file_id)
         file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
 
+        # 2) Eski davranış: URL'yi hemen kullanıcıya gönder
         bot.reply_to(message, f"📸 Görsel alındı!\nURL: {file_url}")
 
-        # DEBUG (Tesseract yok → sadece URL yazdır)
+        # 3) Hata avcı log
+        log.info(f"[FAZ-13 VISUAL] file_url: {file_url}")
         print("📌 DEBUG | file_url:", file_url)
+
+        # 4) Hybrid OCR modunun import kısmı
+        try:
+            import requests
+            from PIL import Image
+            from io import BytesIO
+            import pytesseract
+        except Exception as e:
+            # Sunucuda Tesseract veya Pillow yoksa buraya düşer
+            log.error(f"[FAZ-13 VISUAL] OCR import error: {e}", exc_info=True)
+            return  # URL zaten kullanıcıya gitti, bot çökmesin
+
+        # 5) URL'den resmi indir + OCR al
+        try:
+            resp = requests.get(file_url, timeout=10)
+            resp.raise_for_status()
+            img_bytes = resp.content
+
+            img = Image.open(BytesIO(img_bytes))
+            ocr_text = pytesseract.image_to_string(img)
+
+            # Hata avcı: ilk 400 karakteri logla
+            print("📌 OCR RAW:", ocr_text[:400])
+            log.info(f"[FAZ-13 VISUAL] OCR length={len(ocr_text)}")
+
+        except Exception as e:
+            log.error(f"[FAZ-13 VISUAL] OCR/pil error: {e}", exc_info=True)
+            return  # OCR çalışmazsa sessizce bırak, bot yine de ayakta kalsın
+
+        # 6) FAZ-13 custom parser (visual meta)
+        try:
+            # Manual text'te ne yapıyorsak, görsel text'te de aynısı:
+            # normalize_visual_meta(ocr_text, default_league="NBA")
+            fusion_input = normalize_visual_meta(ocr_text, default_league="NBA")
+
+            text = run_faz13_auto_pipeline(fusion_input)
+
+            # Çıkan uzun metni FAZ-6 kuponlarındaki helper ile gönder
+            _send_long_text(message, text)
+
+        except Exception as e:
+            log.error(f"[FAZ-13 VISUAL] pipeline error: {e}", exc_info=True)
+            # Burada ekstra mesaj göndermek zorunda değiliz; sessiz fail olsun
 
     except Exception as e:
         log.error(f"[FAZ-13 VISUAL-UPLOAD] Hata: {e}", exc_info=True)
-        bot.reply_to(message, "❌ Görsel alınamadı.")
+        bot.reply_to(message, "❌ Görsel alınmadı.")
+
 
 @bot.message_handler(commands=["mac_img"])
 def cmd_visual_match(message):
