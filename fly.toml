@@ -9,12 +9,15 @@ primary_region = "ams"
 kill_signal = "SIGINT"
 kill_timeout = "5s"
 
+# ============================================================
+#                 🌍 ENVIRONMENT
+# ============================================================
 [env]
 PORT = "8080"
 FAZ7_DIR = "/data/faz7"
 
 # ============================================================
-#                 🚀  PROCESS CONFIG
+#                 🚀 PROCESS CONFIG
 # ============================================================
 [processes]
 app = "python main.py"
@@ -39,12 +42,16 @@ protocol = "tcp"
   soft_limit = 25
   hard_limit = 40
 
+  # -----------------------------
   # 80 → HTTP
+  # -----------------------------
   [[services.ports]]
   port = 80
   handlers = ["http"]
 
+  # -----------------------------
   # 443 → HTTPS
+  # -----------------------------
   [[services.ports]]
   port = 443
   handlers = ["tls", "http"]
@@ -53,15 +60,15 @@ protocol = "tcp"
   #         🛡 STABLE HEALTH CHECK (Hardening v4)
   # ============================================================
   [[services.http_checks]]
-    interval = "30s"        # Yüksek stabilite – CPU'yu yormaz
-    timeout = "4s"          # Flask için ideal limit
+    interval = "30s"        # CPU için ideal
+    timeout = "4s"          # Flask için doğru limit
     grace_period = "45s"    # Boot sırasında yumuşak geçiş
     protocol = "http"
     method = "get"
     path = "/"
 
 # ============================================================
-#               🔐  AUTO ROLLBACK (SAFE MODE)
+#               🔐 AUTO ROLLBACK (SAFE MODE)
 # ============================================================
 [experimental]
 auto_rollback = true
@@ -70,22 +77,21 @@ auto_rollback = true
 #            🔥  VM / MACHINE HARDENING (v3)
 # ============================================================
 [build]
-# Ekstra bir şey gerekmez (python main.py)
+# Ekstra ihtiyaç yok (python main.py)
 
 [deploy]
 strategy = "rolling"
-max_parallel = 1     # Free tier için güvenli
+max_parallel = 1   # Free-tier için en güvenli seçenek
 
 [vm]
 cpu_kind = "shared"
 cpus = 1
-memory = "512mb"     # Free tier maksimum güvenli değer
+memory = "512mb"   # Free-tier maksimum güvenli değer
 
 # ============================================================
 #   HARDENING OPTIONS – Crash, freeze, overload korumaları
 # ============================================================
 [checks]
-# TCP Check – container'ın gerçekten ayakta olduğunu doğrular
   [checks.fallback]
     type = "tcp"
     port = 8080
