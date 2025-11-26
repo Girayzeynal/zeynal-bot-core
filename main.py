@@ -56,10 +56,8 @@ from faz13_engine.faz13_orchestrator import (
     faz13_live_coupon
 )
 
-# ================================================================
-# 🌍 HOOPBRAIN GLOBAL LIVE FETCHER IMPORT
-# ================================================================
-from hoopbrain_fetcher import get_live_match_global, HoopbrainLiveError
+# 🔥 HOOPBRAIN GLOBAL LIVE IMPORT
+from hoopbrain_live import get_live_match_global, HoopbrainLiveError
 
 # ================================================================
 # 🔧 GPU / OCR BAĞIMLILIKLARI – SOFT IMPORT
@@ -615,7 +613,6 @@ def _auto_faz_pipeline(pred_conf: float = 0.60,
 
 # ================================================================
 # 🏀 FAZ-6 v3 – KUPON & NBA SİMÜLASYON
-# (buradaki kupon motoru aynen korunuyor)
 # ================================================================
 def _faz84_from_raw(profile: str,
                     raw_conf: float,
@@ -692,6 +689,7 @@ def _build_fixture_legs():
         legs.append((4, *g))
 
     return legs
+
 
 def build_faz6_coupons_text() -> str:
     legs = _build_fixture_legs()
@@ -864,6 +862,7 @@ def faz7_status(message):
         )
 
     bot.reply_to(message, msg)
+
 
 @bot.message_handler(commands=["faz7_plan"])
 def faz7_plan(message):
@@ -1089,8 +1088,10 @@ def cmd_help(message):
         "/mac - Manual maç input\n"
         "/mac_img - Görsel + OCR Extreme Mode\n"
         "/ocr_debug - Son OCR debug bilgisi\n"
+        "/live - HoopBrain Global Canlı Maç (NBA / EL / TR / EU)\n"
     )
     bot.reply_to(message, text)
+
 
 @bot.message_handler(commands=["status"])
 def cmd_status(message):
@@ -1149,62 +1150,6 @@ def cmd_faz11(message):
         bot.reply_to(message, f"❌ FAZ-11 hata: {e}")
 
 
-@bot.message_handler(commands=["live"])
-def cmd_live_global(message):
-    """
-    Kullanım:
-    /live NBA LAL BOS
-    /live EL FENER EFES
-    /live TR FENER EFES
-    """
-    try:
-        parts = message.text.split()
-        if len(parts) < 4:
-            bot.reply_to(
-                message,
-                "⚠️ Kullanım: /live LIG HOME AWAY\n"
-                "Örn: /live NBA LAL BOS\n"
-                "     /live EL FENER EFES\n"
-                "     /live TR FENER EFES",
-            )
-            return
-
-        league = parts[1].upper()
-        home = parts[2].upper()
-        away = parts[3].upper()
-
-        live = get_live_match_global(league, home, away)
-
-        text = (
-            "🏀 <b>HOOPBRAIN GLOBAL LIVE (ULTRA)</b>\n\n"
-            f"Lig : <b>{live.get('league', league)}</b>\n"
-            f"Maç : <b>{live.get('home_name', home)} vs {live.get('away_name', away)}</b>\n"
-            f"Skor: <b>{live.get('home_score', 0)} - {live.get('away_score', 0)}</b>\n"
-            f"Periyot / Çeyrek : <b>{live.get('period_label', '-')}</b>\n"
-            f"Kalan Süre        : <b>{live.get('clock', '-')}</b>\n"
-            f"Durum             : <b>{live.get('status', '-')}</b>\n\n"
-            f"Pace Tahmini      : <b>{live.get('pace', 0.0):.1f}</b>\n"
-            f"WinProb ({live.get('win_side_label', 'HOME')}): "
-            f"<b>{int(live.get('win_prob', 0.5) * 100)}%</b>\n"
-            f"Veri Kaynağı      : <b>{live.get('provider', 'UNKNOWN')}</b>\n"
-        )
-
-        bot.reply_to(message, text)
-
-    except HoopbrainLiveError as e:
-        bot.reply_to(
-            message,
-            f"❌ HoopBrain Live hata: {e}",
-        )
-
-    except Exception as e:
-        log.error(f"[LIVE CMD] Genel hata: {e}", exc_info=True)
-        bot.reply_to(
-            message,
-            "❌ Sistem içi bir hata oluştu. Loglara işaretlendi.\n"
-            f"Detay: {e}",
-        )
-
 @bot.message_handler(commands=["faz12"])
 def cmd_faz12(message):
     try:
@@ -1259,72 +1204,16 @@ def cmd_faz10(message):
             or result.get("explanation")
             or hs.get("stability", {}).get("notes")
         )
-if extra:
-        reply = f"📝 Notlar: {extra}"
+        if extra:
+            reply += f"\n📝 Notlar: {extra}"
 
-    bot.reply_to(message, reply)
-
-except Exception as e:
-    log.error(f"[FAZ-10 Stability/HardSync hatası] {e}", exc_info=True)
-    bot.reply_to(message, f"❌ FAZ-10 stability / HardSync hatası: {e}")
-
-# =====================================================
-# 🔥 GLOBAL LIVE (NBA / EL / TR / EU)
-# =====================================================
-@bot.message_handler(commands=["live"])
-def cmd_live_global(message):
-    """
-    Kullanım:
-    /live NBA LAL BOS
-    /live EL FENER EFES
-    /live TR FENER EFES
-    """
-    try:
-        parts = message.text.split()
-        if len(parts) < 4:
-            bot.reply_to(
-                message,
-                "🔥 Kullanım: /live LIG HOME AWAY\n"
-                "Örn: /live NBA LAL BOS\n"
-                "     /live EL FENER EFES\n"
-                "     /live TR FENER EFES",
-            )
-            return
-
-        league = parts[1].upper()
-        home = parts[2].upper()
-        away = parts[3].upper()
-
-        live = get_live_match_global(league, home, away)
-
-        text = (
-            "🏀 <b>HOOPBRAIN GLOBAL LIVE (ULTRA)</b>\n\n"
-            f"Lig : <b>{live.get('league', league)}</b>\n"
-            f"Maç : <b>{live.get('home_name', home)} vs {live.get('away_name', away)}</b>\n"
-            f"Skor: <b>{live.get('home_score', 0)} - {live.get('away_score', 0)}</b>\n"
-            f"Periyot : <b>{live.get('period_label', '-')}</b>\n"
-            f"Kalan Süre: <b>{live.get('clock', '-')}</b>\n"
-            f"Durum: <b>{live.get('status', '-')}</b>\n\n"
-            f"Pace Tahmini: <b>{live.get('pace', 0.0):.1f}</b>\n"
-            f"WinProb ({live.get('win_side_label', 'HOME')}): "
-            f"<b>{int(live.get('win_prob', 0.5) * 100)}%</b>\n"
-            f"Veri Kaynağı: <b>{live.get('provider', 'UNKNOWN')}</b>\n"
-        )
-
-        bot.reply_to(message, text)
-
-    except HoopbrainLiveError as e:
-        bot.reply_to(message, f"❌ HoopBrain Live hata: {e}")
-
+        bot.reply_to(message, reply)
     except Exception as e:
-        log.error(f"[LIVE CMD] Genel hata: {e}", exc_info=True)
-        bot.reply_to(
-            message,
-            "❌ Sistem içi bir hata oluştu. Loglara işaretlendi.\n"
-            f"Detay: {e}",
-        )
+        log.error(f"[FAZ-10] Stability/HardSync hatası: {e}", exc_info=True)
+        bot.reply_to(message, f"❌ FAZ-10 stability / HardSync hatası: {e}")
 
-#========================================================
+
+# ================================================================
 # 🧠 FAZ-13 MANUAL KOMUT
 # ================================================================
 @bot.message_handler(commands=["mac"])
@@ -1344,6 +1233,66 @@ def cmd_manual_match(message):
             "❌ FAZ-13 manual input işlenemedi.\n"
             "Format örneği: /mac BOS ORL 220.5 U 1.46",
         )
+
+
+# ================================================================
+# 🏀 HOOPBRAIN GLOBAL LIVE KOMUTU (ULTRA)
+# ================================================================
+@bot.message_handler(commands=["live"])
+def cmd_live_global(message):
+    """
+    Kullanım:
+    /live NBA LAL BOS
+    /live EL FENER EFES
+    /live TR FENER EFES
+    """
+    try:
+        parts = message.text.split()
+        if len(parts) < 4:
+            bot.reply_to(
+                message,
+                "⚠️ Kullanım: /live LIG HOME AWAY\n"
+                "Örn: /live NBA LAL BOS\n"
+                "     /live EL FENER EFES\n"
+                "     /live TR FENER EFES",
+            )
+            return
+
+        league = parts[1].upper()
+        home = parts[2].upper()
+        away = parts[3].upper()
+
+        live = get_live_match_global(league, home, away)
+
+        text = (
+            "🏀 <b>HOOPBRAIN GLOBAL LIVE (ULTRA)</b>\n\n"
+            f"Lig : <b>{live.get('league', league)}</b>\n"
+            f"Maç : <b>{live.get('home_name', home)} vs {live.get('away_name', away)}</b>\n"
+            f"Skor: <b>{live.get('home_score', 0)} - {live.get('away_score', 0)}</b>\n"
+            f"Periyot / Çeyrek : <b>{live.get('period_label', '-')}</b>\n"
+            f"Kalan Süre        : <b>{live.get('clock', '-')}</b>\n"
+            f"Durum             : <b>{live.get('status', '-')}</b>\n\n"
+            f"Pace Tahmini      : <b>{live.get('pace', 0.0):.1f}</b>\n"
+            f"WinProb ({live.get('win_side_label', 'HOME')}): "
+            f"<b>{int(live.get('win_prob', 0.5) * 100)}%</b>\n"
+            f"Veri Kaynağı      : <b>{live.get('provider', 'UNKNOWN')}</b>\n"
+        )
+
+        bot.reply_to(message, text)
+
+    except HoopbrainLiveError as e:
+        bot.reply_to(
+            message,
+            f"❌ HoopBrain Live hata: {e}",
+        )
+    except Exception as e:
+        log.error(f"[LIVE CMD] Genel hata: {e}", exc_info=True)
+        bot.reply_to(
+            message,
+            "❌ Sistem içi bir hata oluştu. Loglara işaretlendi.\n"
+            f"Detay: {e}",
+        )
+
 
 # ================================================================
 # 🔬 ULTRA OCR ENGINE v3 (A+B+C HYBRID, MULTI-THREAD, CACHE)
