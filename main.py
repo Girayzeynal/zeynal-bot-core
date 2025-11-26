@@ -1213,6 +1213,111 @@ def cmd_faz10(message):
 
 
 # ================================================================
+# 🔥 GLOBAL LIVE (NBA / EL / TR / EU / ID MODE)
+# ================================================================
+@bot.message_handler(commands=["live"])
+def cmd_live_global(message):
+    """
+    Hibrit kullanım:
+
+    1) Takım bazlı:
+        /live NBA LAL BOS
+        /live EL FENER EFES
+        /live TR FENER EFES
+
+    2) ID bazlı:
+        /live ID 4406870
+        /live 4406870
+    """
+    try:
+        parts = message.text.split()
+
+        # /live tek başına
+        if len(parts) == 1:
+            bot.reply_to(
+                message,
+                "🔥 Kullanım:\n"
+                "<code>/live LIG HOME AWAY</code>  →  /live NBA LAL BOS\n"
+                "<code>/live ID 4406870</code>    →  Maç ID ile\n"
+                "<code>/live 4406870</code>       →  Kısa ID modu\n",
+            )
+            return
+
+        league = None
+        home = None
+        away = None
+        match_id = None
+
+        # /live 123456  → direkt ID
+        if len(parts) == 2 and parts[1].isdigit():
+            match_id = parts[1]
+
+        # /live ID 123456
+        elif len(parts) == 3 and parts[1].upper() == "ID":
+            match_id = parts[2]
+
+        # /live NBA LAL BOS
+        elif len(parts) >= 4:
+            league = parts[1].upper()
+            home = parts[2].upper()
+            away = parts[3].upper()
+
+        else:
+            bot.reply_to(
+                message,
+                "⚠️ Geçersiz /live formatı.\n"
+                "Örnekler:\n"
+                "<code>/live NBA LAL BOS</code>\n"
+                "<code>/live EL FENER EFES</code>\n"
+                "<code>/live ID 4406870</code>\n"
+                "<code>/live 4406870</code>",
+            )
+            return
+
+        live = get_live_match_global(
+            league=league,
+            home=home,
+            away=away,
+            match_id=match_id,
+        )
+
+        text = (
+            "🏀 <b>HOOPBRAIN GLOBAL LIVE (ULTRA)</b>\n\n"
+            f"Lig : <b>{live.get('league', league or '-')}</b>\n"
+            f"Maç : <b>{live.get('home_name', home or '?')}</b> "
+            f"vs <b>{live.get('away_name', away or '?')}</b>\n"
+            f"Skor : <b>{live.get('home_score', 0)} - {live.get('away_score', 0)}</b>\n"
+            f"Periyot : <b>{live.get('period_label', '-')}</b>\n"
+            f"Kalan Süre : <b>{live.get('clock', '-')}</b>\n"
+            f"Durum : <b>{live.get('status', '-')}</b>\n"
+            f"Pace Tahmini : <b>{live.get('pace', 0.0):.1f}</b>\n"
+            f"WinProb ({live.get('win_side_label', 'HOME')}): "
+            f"<b>{int(float(live.get('win_prob', 0.5)) * 100)}%</b>\n"
+            f"Veri Kaynağı : <b>{live.get('provider', 'UNKNOWN')}</b>\n"
+        )
+
+        bot.reply_to(message, text)
+
+    except HoopbrainLiveError as e:
+        # Core "hiç provider veri döndüremedi" durumunda buraya düşer
+        bot.reply_to(
+            message,
+            f"❌ HoopBrain Live hata (core): {e}",
+        )
+
+    except Exception as e:
+        # Beklenmeyen her türlü hata burada yakalanır; bot düşmez
+        logging.getLogger(__name__).error(
+            "[LIVE CMD] Genel hata: %s", e, exc_info=True
+        )
+        bot.reply_to(
+            message,
+            "❌ Sistem içi bir hata oluştu. Loglara işaretlendi.\n"
+            f"Detay: {e}",
+        )
+
+
+# ================================================================
 # 🧠 FAZ-13 MANUAL KOMUT
 # ================================================================
 @bot.message_handler(commands=["mac"])
