@@ -27,7 +27,7 @@ OCR_EXECUTOR = ThreadPoolExecutor(max_workers=int(os.getenv("OCR_MAX_WORKERS", "
 # OCR timeoutlar (Fast-Fail / Fly.io Safe Mode)
 TESSERACT_TIMEOUT = float(os.getenv("OCR_TESSERACT_TIMEOUT", "1.5"))
 EASYOCR_TIMEOUT = float(os.getenv("OCR_EASYOCR_TIMEOUT", "2.5"))
-VISION_TIMEOUT = float(os.getenv("OCR_VISION_TIMEOUT", "5.0"))
+VISION_TIMEOUT = float(os.getenv("VISION_TIMEOUT", "5.0"))
 
 # GPU / Vision modları
 GPU_MODE = os.getenv("GPU_MODE", "AUTO").upper()  # AUTO / FORCE / OFF
@@ -55,9 +55,6 @@ from faz13_engine.faz13_orchestrator import (
     faz13_league_coupon,
     faz13_live_coupon
 )
-
-# 🔥 HOOPBRAIN GLOBAL LIVE IMPORT
-from hoopbrain_live import get_live_match_global, HoopbrainLiveError
 
 # ================================================================
 # 🔧 GPU / OCR BAĞIMLILIKLARI – SOFT IMPORT
@@ -613,6 +610,7 @@ def _auto_faz_pipeline(pred_conf: float = 0.60,
 
 # ================================================================
 # 🏀 FAZ-6 v3 – KUPON & NBA SİMÜLASYON
+# (buradaki kupon motoru aynen korunuyor)
 # ================================================================
 def _faz84_from_raw(profile: str,
                     raw_conf: float,
@@ -1088,7 +1086,7 @@ def cmd_help(message):
         "/mac - Manual maç input\n"
         "/mac_img - Görsel + OCR Extreme Mode\n"
         "/ocr_debug - Son OCR debug bilgisi\n"
-        "/live - HoopBrain Global Canlı Maç (NBA / EL / TR / EU)\n"
+        "/live - Hibrit canlı maç modu (ID veya takım adı)\n"
     )
     bot.reply_to(message, text)
 
@@ -1236,62 +1234,119 @@ def cmd_manual_match(message):
 
 
 # ================================================================
-# 🏀 HOOPBRAIN GLOBAL LIVE KOMUTU (ULTRA)
+# 🌍 FAZ-13 LIVE HYBRID KOMUT (/live – ID + takım adı hibrit)
 # ================================================================
-@bot.message_handler(commands=["live"])
-def cmd_live_global(message):
+def _parse_live_command_args(text: str) -> dict:
     """
-    Kullanım:
-    /live NBA LAL BOS
-    /live EL FENER EFES
-    /live TR FENER EFES
+    /live komutu için hibrit parser:
+      - /live           → boş
+      - /live 4412200   → match_id
+      - /live NBA LAL BOS → league + home + away
+      - /live LAL BOS   → home + away
+    Dönen dict:
+      {
+        "league": str | None,
+        "home": str | None,
+        "away": str | None,
+        "match_id": str | None,
+        "raw_args": [..]
+      }
+    """
+    parts = text.split()
+    args = parts[1:] if len(parts) > 1 else []
+
+    info = {
+        "league": None,
+        "home": None,
+        "away": None,
+        "match_id": None,
+        "raw_args": args,
+    }
+
+    if not args:
+        return info
+
+    # Sadece ID → /live 4406870
+    if len(args) == 1 and args[0].isdigit():
+        info["match_id"] = args[0]
+        return info
+
+    # 3 parça → /live NBA LAL BOS (lig + takımlar)
+    if len(args) == 3:
+        info["league"] = args[0].upper()
+        info["home"] = args[1].upper()
+        info["away"] = args[2].upper()
+        return info
+
+    # 2 parça → /live LAL BOS
+    if len(args) == 2:
+        info["home"] = args[0].upper()
+        info["away"] = args[1].upper()
+        return info
+
+    # Diğer durumlar → raw aktar, normalize_manual_text içinde toparlanır
+    return info
+
+
+@bot.message_handler(commands=["live"])
+def cmd_live_hybrid(message):
+    """
+    FAZ-13 LIVE HYBRID:
+      - ID veya takım adı veya lig + takım formatını kabul eder.
+      - Şu an gerçek external API yok; FAZ-13'e manual text gibi aktarılır.
+      - Mimarisi hazır; ileride hoopbrain_live entegrasyonu eklenebilir.
     """
     try:
-        parts = message.text.split()
-        if len(parts) < 4:
+        info = _parse_live_command_args(message.text)
+
+        if not info["raw_args"]:
             bot.reply_to(
                 message,
-                "⚠️ Kullanım: /live LIG HOME AWAY\n"
-                "Örn: /live NBA LAL BOS\n"
-                "     /live EL FENER EFES\n"
-                "     /live TR FENER EFES",
+                "📡 Kullanım:\n"
+                "<code>/live 4412200</code>  (Maç ID)\n"
+                "<code>/live NBA LAL BOS</code> (Lig + Takımlar)\n"
+                "<code>/live LAL BOS</code>  (Takımlar)\n"
             )
             return
 
-        league = parts[1].upper()
-        home = parts[2].upper()
-        away = parts[3].upper()
+        league = info["league"] or "NBA"
+        home = info["home"]
+        away = info["away"]
+        match_id = info["match_id"]
 
-        live = get_live_match_global(league, home, away)
+        # Manual text benzeri bir string üretip normalize_manual_text'e veriyoruz.
+        # Bu aşamada gerçek live API yok; sadece FAZ-13 pipeline'ına düzgün formatlı
+        # bir fusion_input sağlıyoruz.
+        pieces = []
 
-        text = (
-            "🏀 <b>HOOPBRAIN GLOBAL LIVE (ULTRA)</b>\n\n"
-            f"Lig : <b>{live.get('league', league)}</b>\n"
-            f"Maç : <b>{live.get('home_name', home)} vs {live.get('away_name', away)}</b>\n"
-            f"Skor: <b>{live.get('home_score', 0)} - {live.get('away_score', 0)}</b>\n"
-            f"Periyot / Çeyrek : <b>{live.get('period_label', '-')}</b>\n"
-            f"Kalan Süre        : <b>{live.get('clock', '-')}</b>\n"
-            f"Durum             : <b>{live.get('status', '-')}</b>\n\n"
-            f"Pace Tahmini      : <b>{live.get('pace', 0.0):.1f}</b>\n"
-            f"WinProb ({live.get('win_side_label', 'HOME')}): "
-            f"<b>{int(live.get('win_prob', 0.5) * 100)}%</b>\n"
-            f"Veri Kaynağı      : <b>{live.get('provider', 'UNKNOWN')}</b>\n"
-        )
+        if home and away:
+            pieces.append(f"{home} {away}")
+        elif home:
+            pieces.append(home)
 
-        bot.reply_to(message, text)
+        if match_id:
+            pieces.append(f"ID:{match_id}")
 
-    except HoopbrainLiveError as e:
-        bot.reply_to(
-            message,
-            f"❌ HoopBrain Live hata: {e}",
-        )
+        if info["league"]:
+            pieces.append(f"LIG:{info['league']}")
+
+        # Eğer hiçbir şey anlamlı çıkmadıysa raw args kullan
+        if not pieces:
+            manual_core = " ".join(info["raw_args"])
+        else:
+            manual_core = " ".join(pieces)
+
+        manual_text = f"/mac {manual_core}"
+
+        fusion_input = normalize_manual_text(manual_text, default_league=league)
+        result_text = run_faz13_auto_pipeline(fusion_input)
+
+        prefix = "📡 <b>FAZ-13 LIVE HYBRID</b>\n\n"
+        bot.reply_to(message, prefix + result_text)
+
     except Exception as e:
-        log.error(f"[LIVE CMD] Genel hata: {e}", exc_info=True)
-        bot.reply_to(
-            message,
-            "❌ Sistem içi bir hata oluştu. Loglara işaretlendi.\n"
-            f"Detay: {e}",
-        )
+        log.error(f"[/live HYBRID] Hata: {e}", exc_info=True)
+        bot.reply_to(message, f"❌ /live komutunda hata: {e}")
 
 
 # ================================================================
