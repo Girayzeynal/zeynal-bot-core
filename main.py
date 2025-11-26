@@ -1259,7 +1259,6 @@ def cmd_faz10(message):
             or result.get("explanation")
             or hs.get("stability", {}).get("notes")
         )
-      
 
 # =====================================================
 # 🔥 GLOBAL LIVE (NBA / EL / TR / EU)
