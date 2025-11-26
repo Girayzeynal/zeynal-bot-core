@@ -1090,13 +1090,6 @@ def cmd_help(message):
         "/mac_img - Görsel + OCR Extreme Mode\n"
         "/ocr_debug - Son OCR debug bilgisi\n"
     )
-    
-    "— <b>FAZ-13 (C MODE)</b> —\n"
-        "/mac - Manual maç input\n"
-        "/mac_img - Görsel + OCR Extreme Mode\n"
-        "/ocr_debug - Son OCR debug bilgisi\n"
-        "/live - HoopBrain Global Canlı Maç (NBA / EL / TR / EU)\n"
-     ) 
      bot.reply_to(message, text)
 
 @bot.message_handler(commands=["status"])
