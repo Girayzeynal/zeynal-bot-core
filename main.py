@@ -1259,7 +1259,14 @@ def cmd_faz10(message):
             or result.get("explanation")
             or hs.get("stability", {}).get("notes")
         )
+if extra:
+        reply = f"📝 Notlar: {extra}"
 
+    bot.reply_to(message, reply)
+
+except Exception as e:
+    log.error(f"[FAZ-10 Stability/HardSync hatası] {e}", exc_info=True)
+    bot.reply_to(message, f"❌ FAZ-10 stability / HardSync hatası: {e}")
 
 # =====================================================
 # 🔥 GLOBAL LIVE (NBA / EL / TR / EU)
