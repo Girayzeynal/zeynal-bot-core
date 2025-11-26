@@ -1,0 +1,7 @@
+tunnel: TUNNEL_ID_GELECEK
+credentials-file: /etc/cloudflared/TUNNEL.json
+
+ingress:
+  - hostname: hoopbrain.xyz
+    service: http://localhost:8080
+  - service: http_status:404
