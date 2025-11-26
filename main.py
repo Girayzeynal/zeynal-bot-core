@@ -1090,7 +1090,7 @@ def cmd_help(message):
         "/mac_img - Görsel + OCR Extreme Mode\n"
         "/ocr_debug - Son OCR debug bilgisi\n"
     )
-     bot.reply_to(message, text)
+    bot.reply_to(message, text)
 
 @bot.message_handler(commands=["status"])
 def cmd_status(message):
