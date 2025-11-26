@@ -57,6 +57,11 @@ from faz13_engine.faz13_orchestrator import (
 )
 
 # ================================================================
+# 🌍 HOOPBRAIN GLOBAL LIVE FETCHER IMPORT
+# ================================================================
+from hoopbrain_fetcher import get_live_match_global, HoopbrainLiveError
+
+# ================================================================
 # 🔧 GPU / OCR BAĞIMLILIKLARI – SOFT IMPORT
 # ================================================================
 try:
