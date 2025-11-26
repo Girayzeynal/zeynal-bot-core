@@ -1260,7 +1260,8 @@ def cmd_faz10(message):
             or hs.get("stability", {}).get("notes")
         )
       
- @bot.message_handler(commands=["live"])
+
+@bot.message_handler(commands=["live"])
   def cmd_live_global(message):
       """
       Kullanım:
