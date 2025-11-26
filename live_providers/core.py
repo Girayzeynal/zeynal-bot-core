@@ -139,6 +139,12 @@ def _fill_defaults(q: Dict[str, Any], data: Dict[str, Any], provider_name: str) 
         "provider": data.get("provider") or provider_name,
     }
 
+    # 🔥 Yeni eklenen blok — Gerçek provider LIVE işaretlesin
+    if provider_name in ("MACKOLIK", "RAPIDAPI"):
+        normalized["status"] = "LIVE"
+    else:
+        normalized["status"] = "SIMULATED"
+
     return normalized
 
 
@@ -164,7 +170,6 @@ def get_live_match_global(
         try:
             result = p.fetch_func(q)
         except Exception as e:
-            # Provider kendi içinde patlarsa logla ve sıradakine geç
             log.error(
                 "[LiveCore] Provider %s hata verdi: %s",
                 p.name,
@@ -178,8 +183,8 @@ def get_live_match_global(
             log.info("[LiveCore] Provider %s boş/None sonuç döndürdü.", p.name)
             continue
 
-        # Normalizasyon + default doldurma
         normalized = _fill_defaults(q, result, provider_name=p.name)
+
         log.info(
             "[LiveCore] Provider %s başarıyla sonuç üretti: %s - %s vs %s",
             p.name,
@@ -187,10 +192,11 @@ def get_live_match_global(
             normalized["home_name"],
             normalized["away_name"],
         )
+
         return normalized
 
-    # Buraya geldiysek hiçbir provider iş göremedi
     msg = "Hiçbir canlı veri sağlayıcısı sonuç üretemedi."
     if last_error:
         msg += f" Son hata: {last_error}"
-    raise HoopbrainLiveError(msg) 
+
+    raise HoopbrainLiveError(msg)
