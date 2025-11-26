@@ -10,6 +10,7 @@ import telebot
 import numpy as np
 import pandas as pd
 from flask import Flask, request
+from live_providers.core import get_live_match_global, HoopbrainLiveError
 
 # ================================================================
 # 🔍 FAZ-13 OCR DEBUG STATE + GLOBAL OCR CACHE
