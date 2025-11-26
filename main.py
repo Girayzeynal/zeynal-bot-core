@@ -1260,18 +1260,18 @@ def cmd_faz10(message):
             or hs.get("stability", {}).get("notes")
         )
       
-        @bot.message_handler(commands=["live"])
-def cmd_live_global(message):
-    """
-    Kullanım:
-    /live NBA LAL BOS
-    /live EL FENER EFES
-    /live TR FENER EFES
-    """
-    try:
-        parts = message.text.split()
-        if len(parts) < 4:
-            bot.reply_to(
+  @bot.message_handler(commands=["live"])
+  def cmd_live_global(message):
+      """
+      Kullanım:
+      /live NBA LAL BOS
+      /live EL FENER EFES
+      /live TR FENER EFES
+      """
+      try:
+          parts = message.text.split()
+          if len(parts) < 4:
+              bot.reply_to(
                 message,
                 "⚠️ Kullanım: /live LIG HOME AWAY\n"
                 "Örn: /live NBA LAL BOS\n"
