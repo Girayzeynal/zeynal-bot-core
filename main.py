@@ -1149,6 +1149,62 @@ def cmd_faz11(message):
         bot.reply_to(message, f"❌ FAZ-11 hata: {e}")
 
 
+@bot.message_handler(commands=["live"])
+def cmd_live_global(message):
+    """
+    Kullanım:
+    /live NBA LAL BOS
+    /live EL FENER EFES
+    /live TR FENER EFES
+    """
+    try:
+        parts = message.text.split()
+        if len(parts) < 4:
+            bot.reply_to(
+                message,
+                "⚠️ Kullanım: /live LIG HOME AWAY\n"
+                "Örn: /live NBA LAL BOS\n"
+                "     /live EL FENER EFES\n"
+                "     /live TR FENER EFES",
+            )
+            return
+
+        league = parts[1].upper()
+        home = parts[2].upper()
+        away = parts[3].upper()
+
+        live = get_live_match_global(league, home, away)
+
+        text = (
+            "🏀 <b>HOOPBRAIN GLOBAL LIVE (ULTRA)</b>\n\n"
+            f"Lig : <b>{live.get('league', league)}</b>\n"
+            f"Maç : <b>{live.get('home_name', home)} vs {live.get('away_name', away)}</b>\n"
+            f"Skor: <b>{live.get('home_score', 0)} - {live.get('away_score', 0)}</b>\n"
+            f"Periyot / Çeyrek : <b>{live.get('period_label', '-')}</b>\n"
+            f"Kalan Süre        : <b>{live.get('clock', '-')}</b>\n"
+            f"Durum             : <b>{live.get('status', '-')}</b>\n\n"
+            f"Pace Tahmini      : <b>{live.get('pace', 0.0):.1f}</b>\n"
+            f"WinProb ({live.get('win_side_label', 'HOME')}): "
+            f"<b>{int(live.get('win_prob', 0.5) * 100)}%</b>\n"
+            f"Veri Kaynağı      : <b>{live.get('provider', 'UNKNOWN')}</b>\n"
+        )
+
+        bot.reply_to(message, text)
+
+    except HoopbrainLiveError as e:
+        bot.reply_to(
+            message,
+            f"❌ HoopBrain Live hata: {e}",
+        )
+
+    except Exception as e:
+        log.error(f"[LIVE CMD] Genel hata: {e}", exc_info=True)
+        bot.reply_to(
+            message,
+            "❌ Sistem içi bir hata oluştu. Loglara işaretlendi.\n"
+            f"Detay: {e}",
+        )
+
 @bot.message_handler(commands=["faz12"])
 def cmd_faz12(message):
     try:
