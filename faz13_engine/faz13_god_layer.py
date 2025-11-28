@@ -1,415 +1,200 @@
-# ================================================================
-#  🧠 FAZ-13 GOD-LAYER
-#  FAZ-13.4 → FAZ-14 → FAZ-15 → FAZ-16 → FAZ-17
-#  FULL GOD-MODE PIPELINE
-# ================================================================
-import time
-from typing import Any, Dict, List, Optional
+import json
+from typing import Any, Dict
 
-GOD_VERSION = "FAZ-13.4 + FAZ-14 + FAZ-15 + FAZ-16 + FAZ-17"
-
-
-# ================================================================
-#  YARDIMCI FONKSİYONLAR
-# ================================================================
-def _sf(x: Any, default: float = 0.0) -> float:
-    try:
-        if x is None:
-            return default
-        return float(x)
-    except:
-        return default
-
-
-def _clamp(x: float, lo: float, hi: float) -> float:
-    return max(lo, min(hi, x))
-
-
-def _get_from_many(d: Dict[str, Any], keys, default=None):
-    for k in keys:
-        if k in d and d[k] is not None:
-            return d[k]
-    return default
-
+from faz13_engine.faz13_orchestrator import (
+    normalize_manual_text,
+    normalize_visual_meta,
+    normalize_api_data,
+    run_faz13_auto_pipeline,
+)
 
 # ================================================================
-#  🔬 FAZ-13.4 – SIGNAL FUSION CORE
+# 🔢 Basit ama akıllı conf/edge tahmin motoru
 # ================================================================
-def _faz134_signal_fusion(
-    core_output: Dict[str, Any],
-    brain: Dict[str, Any],
-    f10_state: Dict[str, Any],
-    f11_summary: Dict[str, Any],
-    f12_decision: Dict[str, Any],
-    history_samples: List[Dict[str, Any]],
-    market_info: Dict[str, Any],
-    meta_context: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    meta_context = meta_context or {}
+def _estimate_conf_edge(meta: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    FAZ-13 GOD-LAYER:
+    - line + direction varsa → base_conf yukarı
+    - oran düşükse → güven artar, edge azalır
+    - oran yüksekse → güven azalır, edge artar
+    - lig bazlı minik edge tweak
+    - çıktılar: conf, edge, bucket, profile, score
+    """
+    league = (meta.get("league") or "NBA").upper()
+    direction = meta.get("direction")
+    line = meta.get("line")
+    odds = meta.get("odds")
 
-    # core
-    core_conf = _sf(_get_from_many(core_output, ["pred_conf", "conf", "confidence"], 0.60))
-    core_edge = _sf(_get_from_many(core_output, ["pred_edge", "edge"], 0.03))
-    core_bucket = _get_from_many(core_output, ["bucket", "risk_bucket"], "MID") or "MID"
+    # Başlangıç değerleri
+    base_conf = 0.58
+    base_edge = 0.030
 
-    # brain
-    brain_conf = _sf(brain.get("conf"), 0.60)
-    brain_edge = _sf(brain.get("edge"), 0.03)
-    brain_bi = _sf(brain.get("behavior_index"), 1.0)
-    brain_mode = str(brain.get("mode", "INIT")).upper()
-    brain_trend = str(brain.get("trend", "INIT")).upper()
-    brain_stability = _sf(brain.get("stability"), 1.0)
-    brain_noise = _sf(brain.get("noise_ratio"), 0.4)
+    # Seçim netliği (line + U/O tam ise güven artar)
+    if direction and line is not None:
+        base_conf += 0.04
+        base_edge += 0.006
 
-    # f10 stability
-    stab_score = _sf(f10_state.get("stability_score"), 0.9)
-    stab_regime = str(f10_state.get("regime", "NORMAL")).upper()
-    anomaly = _sf(f10_state.get("anomaly_level"), 0.0)
+    # Oran etkisi
+    if isinstance(odds, (int, float, str)):
+        try:
+            o = float(str(odds).replace(",", "."))
+            # 1.35 - 1.55 arası → “favori”: güven ↑ edge ↓
+            if o < 1.40:
+                base_conf += 0.02
+                base_edge -= 0.004
+            elif o < 1.60:
+                base_conf += 0.01
+                base_edge -= 0.002
+            # 1.80+ → underdog / riskli: güven ↓ edge ↑
+            elif o > 1.90:
+                base_conf -= 0.02
+                base_edge += 0.004
+            elif o > 1.75:
+                base_conf -= 0.01
+                base_edge += 0.002
+        except Exception:
+            pass
 
-    # f11 feedback
-    daily_acc = _sf(f11_summary.get("daily_accuracy"), 0.70)
-    rolling_acc = _sf(f11_summary.get("rolling_accuracy"), daily_acc)
-    model_drift = _sf(f11_summary.get("model_drift"), 0.0)
+    # Lig bazlı minik edge tweak
+    if league in ("EUROLEAGUE", "EL"):
+        base_edge += 0.002
+    elif league in ("BSL", "TBL"):
+        base_edge += 0.001
 
-    # f12 mode adjust
-    new_mode = str(f12_decision.get("new_mode", brain_mode)).upper()
-    changed = bool(f12_decision.get("changed", False))
+    # Clamp
+    conf = max(0.50, min(0.80, base_conf))
+    edge = max(0.010, min(0.060, base_edge))
 
-    # market info
-    market_odds = _sf(market_info.get("odds"), 1.90)
-    implied_prob = 1.0 / market_odds if market_odds > 1.01 else 0.5
-    price_misalign = core_conf - implied_prob
+    # Basit score → bucket
+    # referans: conf_ref = 0.63, edge_ref = 0.035
+    conf_ref = 0.63
+    edge_ref = 0.035
+    score = 0.6 * (conf / conf_ref) + 0.4 * (edge / edge_ref)
 
-    # Risk factor by auto-profile
-    if new_mode == "SAFE":
-        risk_factor = 0.85
-    elif new_mode == "AGG":
-        risk_factor = 1.10
+    if score < 0.95:
+        bucket = "LOW"
+    elif score < 1.10:
+        bucket = "MID"
     else:
-        risk_factor = 1.0
+        bucket = "HIGH"
 
-    # GOD TRSUT (0–1)
-    sig_stab = _clamp(stab_score, 0.0, 1.0)
-    sig_anom = 1.0 - _clamp(anomaly, 0.0, 1.0)
-    sig_drift = 1.0 - _clamp(model_drift, 0.0, 1.0)
-    sig_noise = 1.0 - _clamp(brain_noise / 1.5, 0.0, 1.0)
-
-    god_trust = (
-        0.35 * sig_stab +
-        0.20 * sig_anom +
-        0.20 * sig_drift +
-        0.15 * sig_noise +
-        0.10 * _clamp(rolling_acc, 0.50, 0.95)
-    )
-    god_trust = _clamp(god_trust, 0.0, 1.0)
-
-    # fused confidence
-    fused_conf = (
-        0.40 * core_conf +
-        0.25 * brain_conf +
-        0.15 * _clamp(rolling_acc, 0.50, 0.85) +
-        0.20 * _clamp(stab_score, 0.50, 1.0)
-    )
-    fused_conf = _clamp(fused_conf * risk_factor, 0.50, 0.90)
-
-    # fused edge
-    fused_edge = core_edge
-    if god_trust > 0.75 and price_misalign > 0.02:
-        fused_edge *= 1.15
-    if god_trust < 0.55 or price_misalign < -0.02:
-        fused_edge *= 0.90
-    fused_edge = max(0.0, fused_edge)
-
-    # god bucket
-    rel_score = (
-        0.55 * fused_conf / max(brain_conf, 0.50) +
-        0.45 * fused_edge / max(brain_edge, 0.01)
-    )
-    if rel_score < 0.95:
-        god_bucket = "LOW"
-    elif rel_score < 1.10:
-        god_bucket = "MID"
-    else:
-        god_bucket = "HIGH"
-
-    # risk label
-    if fused_conf >= 0.78 and fused_edge >= 0.045 and god_bucket == "HIGH":
-        risk_label = "PRIME"
-    elif fused_conf >= 0.68 and fused_edge >= 0.030:
-        risk_label = "STANDARD"
-    else:
-        risk_label = "SPECULATIVE"
-
-    # kill-switch signals
-    kill_soft = god_trust < 0.50 or stab_regime in ("UNSTABLE", "CRITICAL")
-    kill_hard = (god_trust < 0.40) or (stab_regime == "CRITICAL" and anomaly > 0.70)
-
-    fused = {
-        "core_conf": round(core_conf, 3),
-        "core_edge": round(core_edge, 3),
-        "core_bucket": core_bucket,
-        "brain_conf": round(brain_conf, 3),
-        "brain_edge": round(brain_edge, 3),
-        "brain_mode": brain_mode,
-        "brain_trend": brain_trend,
-        "brain_behavior_index": round(brain_bi, 3),
-        "stab_score": round(stab_score, 3),
-        "stab_regime": stab_regime,
-        "anomaly": round(anomaly, 3),
-        "daily_accuracy": round(daily_acc, 3),
-        "rolling_accuracy": round(rolling_acc, 3),
-        "model_drift": round(model_drift, 3),
-        "market_odds": round(market_odds, 3),
-        "implied_prob": round(implied_prob, 3),
-        "price_misalign": round(price_misalign, 3),
-        "risk_factor": round(risk_factor, 3),
-        "god_trust": round(god_trust, 3),
-        "fused_conf": round(fused_conf, 3),
-        "fused_edge": round(fused_edge, 3),
-        "god_bucket": god_bucket,
-        "risk_label": risk_label,
-        "new_mode": new_mode,
-        "mode_changed": changed,
-        "kill_soft": bool(kill_soft),
-        "kill_hard": bool(kill_hard),
-        "meta_context": meta_context,
-    }
-    return fused
-
-
-# ================================================================
-#  ⚠️ FAZ-14 – GLOBAL RISK ENGINE
-# ================================================================
-def _faz14_global_risk(fused: Dict[str, Any]) -> Dict[str, Any]:
-    fc = _sf(fused.get("fused_conf"), 0.65)
-    fe = _sf(fused.get("fused_edge"), 0.03)
-    gt = _sf(fused.get("god_trust"), 0.7)
-    drift = _sf(fused.get("model_drift"), 0.0)
-    stab_regime = str(fused.get("stab_regime", "NORMAL")).upper()
-    bucket = fused.get("god_bucket", "MID").upper()
-    kill_soft = bool(fused.get("kill_soft", False))
-    kill_hard = bool(fused.get("kill_hard", False))
-
-    base_risk = 0.0
-    base_risk += (1.0 - _clamp(fc, 0.50, 0.90)) * 0.30
-    base_risk += (1.0 - _clamp(gt, 0.40, 0.95)) * 0.30
-    base_risk += _clamp(drift, 0.0, 1.0) * 0.20
-
+    # Bucket’tan risk profili
     if bucket == "LOW":
-        base_risk += 0.12
-    elif bucket == "HIGH":
-        base_risk -= 0.05
-
-    if stab_regime == "CRITICAL":
-        base_risk += 0.25
-    elif stab_regime == "UNSTABLE":
-        base_risk += 0.15
-
-    base_risk = _clamp(base_risk, 0.0, 1.0)
-
-    if kill_hard or base_risk >= 0.80:
-        risk_tier = "NO_BET"
-    elif base_risk >= 0.60:
-        risk_tier = "HIGH"
-    elif base_risk >= 0.35:
-        risk_tier = "MEDIUM"
+        profile = "SAFE"
+    elif bucket == "MID":
+        profile = "BAL"
     else:
-        risk_tier = "LOW"
+        profile = "AGG"
 
-    if risk_tier == "LOW":
-        stake_mult = 1.05
-    elif risk_tier == "MEDIUM":
-        stake_mult = 0.98
-    elif risk_tier == "HIGH":
-        stake_mult = 0.85
-    else:
-        stake_mult = 0.0
-
-    risk = {
-        "risk_tier": risk_tier,
-        "base_risk": round(base_risk, 3),
-        "stake_mult": round(stake_mult, 3),
-        "hard_block": risk_tier == "NO_BET",
-        "soft_block": kill_soft or risk_tier == "HIGH",
-    }
-    return risk
-
-
-# ================================================================
-#  🎲 FAZ-15 – SCENARIOS
-# ================================================================
-def _faz15_scenarios(fused: Dict[str, Any]) -> Dict[str, Any]:
-    fc = _sf(fused.get("fused_conf"), 0.65)
-    fe = _sf(fused.get("fused_edge"), 0.03)
-    bucket = fused.get("god_bucket", "MID")
-    risk_label = fused.get("risk_label", "STANDARD")
-
-    baseline = fc
-    optimistic = _clamp(fc + fe * 0.8, 0.50, 0.95)
-    pessimistic = _clamp(fc - max(0.01, fe * 0.7), 0.40, 0.90)
-
-    value_score = (optimistic - pessimistic) * 0.5 + fe
-
-    scenario = {
-        "baseline": {"win_prob": round(baseline, 3), "label": "Normal Senaryo"},
-        "optimistic": {"win_prob": round(optimistic, 3), "label": "Pozitif Senaryo"},
-        "pessimistic": {"win_prob": round(pessimistic, 3), "label": "Negatif Senaryo"},
-        "value_score": round(value_score, 3),
+    return {
+        "conf": round(conf, 3),
+        "edge": round(edge, 3),
         "bucket": bucket,
-        "risk_label": risk_label,
+        "profile": profile,
+        "score": round(score, 3),
     }
-    return scenario
 
 
 # ================================================================
-#  📝 FAZ-16 – EXPLANATION ENGINE
+# 🧱 Metin inşa helper'ları
 # ================================================================
-def _faz16_explain(
-    core_output: Dict[str, Any],
-    fused: Dict[str, Any],
-    risk: Dict[str, Any],
-    scenario: Dict[str, Any],
-) -> Dict[str, Any]:
+def _direction_label(direction: str | None) -> str:
+    if not direction:
+        return "—"
+    d = direction.upper()
+    if d == "U":
+        return "ALT"
+    if d == "O":
+        return "ÜST"
+    return d
 
-    league = str(_get_from_many(core_output, ["league", "lig"], "NBA")).upper()
-    home = _get_from_many(core_output, ["home", "home_team"], "HOME")
-    away = _get_from_many(core_output, ["away", "away_team"], "AWAY")
-    market = _get_from_many(core_output, ["market_str", "selection_name"], "Seçim")
 
-    fused_conf = _sf(fused.get("fused_conf"))
-    fused_edge = _sf(fused.get("fused_edge"))
-    god_bucket = fused.get("god_bucket")
-    risk_tier = risk.get("risk_tier")
-    base_risk = _sf(risk.get("base_risk"))
-    risk_label = fused.get("risk_label")
-    god_trust = _sf(fused.get("god_trust"))
+def _build_core_text(source_type: str, meta: Dict[str, Any], pred: Dict[str, Any]) -> str:
+    league = meta.get("league", "NBA")
+    home = meta.get("home", "HOME")
+    away = meta.get("away", "AWAY")
+    market = meta.get("market", "FT TOTAL")
+    line = meta.get("line")
+    direction = meta.get("direction")
+    odds = meta.get("odds")
 
-    b = scenario["baseline"]["win_prob"]
-    o = scenario["optimistic"]["win_prob"]
-    p = scenario["pessimistic"]["win_prob"]
+    dir_label = _direction_label(direction)
 
-    header = f"{league} | {home} vs {away}\nSeçim: {market}\n"
-
-    core_line = (
-        f"🎯 GOD-MODE Konf: {fused_conf:.2f} | "
-        f"Edge: {fused_edge:.3f} | Bucket: {god_bucket} | Risk: {risk_tier}"
-    )
-
-    trust_line = (
-        f"🧠 Güven Skoru: {god_trust:.2f} | "
-        f"Risk Etiketi: {risk_label} | Temel Risk: {base_risk:.2f}"
-    )
-
-    scenario_lines = (
-        "📊 Senaryolar:\n"
-        f"  • Normal:  WinProb ≈ {b:.2f}\n"
-        f"  • Pozitif: WinProb ≈ {o:.2f}\n"
-        f"  • Negatif: WinProb ≈ {p:.2f}"
-    )
-
-    # Tavsiye
-    if risk_tier == "NO_BET":
-        advice = (
-            "🚫 <b>NO-BET</b>\n"
-            "Stability / drift / risk gerekçesiyle GOD-LAYER bu maçı blokluyor."
-        )
-    elif risk_tier == "HIGH":
-        advice = (
-            "⚠️ <b>YÜKSEK RİSK</b>\n"
-            "Stake düşür, kuponda küçük ağırlıkla değerlendir."
-        )
-    elif risk_tier == "MEDIUM":
-        advice = (
-            "⚖️ <b>ORTA RİSK</b>\n"
-            "Makul sinyal, kupon içinde kullanılabilir."
-        )
+    if isinstance(line, (int, float)):
+        line_part = f"{float(line):.1f}"
     else:
-        advice = (
-            "🛡️ <b>DÜŞÜK RİSK (PRIME)</b>\n"
-            "Çok temiz sinyal, kupon çekirdeği olabilir."
-        )
+        line_part = "—"
 
-    return {
-        "header": header,
-        "core_line": core_line,
-        "trust_line": trust_line,
-        "scenario_lines": scenario_lines,
-        "advice": advice,
-    }
+    if isinstance(odds, (int, float)):
+        odds_part = f"{float(odds):.2f}"
+    else:
+        odds_part = "—"
 
+    if source_type == "manual":
+        header = "📝 <b>FAZ-13 MANUAL GOD-LAYER</b>\n\n"
+    elif source_type == "visual":
+        header = "📸 <b>FAZ-13 VISUAL GOD-LAYER</b>\n\n"
+    elif source_type == "live":
+        header = "📡 <b>FAZ-13 LIVE GOD-LAYER</b>\n\n"
+    else:
+        header = "🤖 <b>FAZ-13 GOD-LAYER</b>\n\n"
 
-# ================================================================
-#  📦 FAZ-17 – GOD-STATE PACKAGING
-# ================================================================
-def _faz17_build_god_state(
-    core_output: Dict[str, Any],
-    fused: Dict[str, Any],
-    risk: Dict[str, Any],
-    scenario: Dict[str, Any],
-    explain: Dict[str, Any],
-) -> Dict[str, Any]:
-    return {
-        "version": GOD_VERSION,
-        "ts": int(time.time()),
-        "core_output": core_output,
-        "fused": fused,
-        "risk": risk,
-        "scenario": scenario,
-        "explain": explain,
-    }
-
-
-# ================================================================
-#  🚀 PUBLIC API
-# ================================================================
-def faz13_god_pipeline(
-    core_output: Dict[str, Any],
-    brain: Dict[str, Any],
-    f10_state: Dict[str, Any],
-    f11_summary: Dict[str, Any],
-    f12_decision: Dict[str, Any],
-    history_samples: List[Dict[str, Any]],
-    market_info: Dict[str, Any],
-    meta_context: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-
-    fused = _faz134_signal_fusion(
-        core_output,
-        brain,
-        f10_state,
-        f11_summary,
-        f12_decision,
-        history_samples,
-        market_info,
-        meta_context,
+    body = (
+        f"Lig   : <b>{league}</b>\n"
+        f"Maç   : <b>{home} vs {away}</b>\n"
+        f"Pazar : <b>{market}</b>\n"
+        f"Seçim : <b>{dir_label} {line_part}</b> @ <b>{odds_part}</b>\n\n"
+        f"Güven : <b>{pred['conf']:.3f}</b>\n"
+        f"Edge  : <b>{pred['edge']:.3f}</b>\n"
+        f"Risk  : <b>{pred['profile']}</b> | Bucket: <b>{pred['bucket']}</b>\n"
     )
 
-    risk = _faz14_global_risk(fused)
-    scenario = _faz15_scenarios(fused)
-    explain = _faz16_explain(core_output, fused, risk, scenario)
-    god_state = _faz17_build_god_state(core_output, fused, risk, scenario, explain)
+    # Küçük meta debug (JSON)
+    debug_meta = {
+        "league": league,
+        "home": home,
+        "away": away,
+        "market": market,
+        "line": line,
+        "direction": direction,
+        "odds": odds,
+        "score": pred["score"],
+        "bucket": pred["bucket"],
+        "profile": pred["profile"],
+    }
 
-    return god_state
+    try:
+        dbg = json.dumps(debug_meta, ensure_ascii=False, indent=2)
+        body += "\n<code>" + dbg + "</code>"
+    except Exception:
+        pass
+
+    return header + body
 
 
-def faz13_god_text(core_output: Dict[str, Any], god_state: Dict[str, Any]) -> str:
-    fused = god_state["fused"]
-    explain = god_state["explain"]
+# ================================================================
+# 🔥 GOD-LAYER ANA FONKSİYON
+# ================================================================
+def run_faz13_with_god_layer(source_type: str, fusion_input: Dict[str, Any]) -> str:
+    """
+    Tüm /mac, /mac_img, /live13 çağrıları buraya bağlanır.
+    - source_type: "manual" | "visual" | "live" | ...
+    - fusion_input: normalize_* fonksiyonlarından gelen meta dict
 
-    header = explain["header"]
-    core_line = explain["core_line"]
-    trust_line = explain["trust_line"]
-    scenario_lines = explain["scenario_lines"]
-    advice = explain["advice"]
+    1) FAZ-13 klasik pipeline'ı çalıştırır (ilerde genişler)
+    2) GOD-LAYER tahmini üretir (conf/edge/bucket/profile)
+    3) Tek parça insan okunur text döner
+    """
+    meta = dict(fusion_input or {})
+    meta.setdefault("league", "NBA")
+    meta.setdefault("market", "FT TOTAL")
 
-    version_line = f"\n\n🔁 GOD-LAYER Version: <b>{GOD_VERSION}</b>"
+    # FAZ-13 klasik pipeline (şimdilik sadece passthrough, ileride genişleyebilir)
+    _ = run_faz13_auto_pipeline(source_type, meta)
 
-    return (
-        "🧠 <b>FAZ-13 GOD-MODE ÖZETİ</b>\n\n"
-        f"{header}\n"
-        f"{core_line}\n"
-        f"{trust_line}\n\n"
-        f"{scenario_lines}\n\n"
-        f"{advice}"
-        f"{version_line}"
-    )
+    # GOD-LAYER tahmin
+    pred = _estimate_conf_edge(meta)
+
+    # Text inşası
+    text = _build_core_text(source_type, meta, pred)
+    return text
