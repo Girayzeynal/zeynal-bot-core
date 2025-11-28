@@ -335,7 +335,10 @@ from faz13_engine.faz13_orchestrator import (
     faz13_league_coupon,
     faz13_live_coupon,
 )
-
+from faz13_engine.faz13_god_layer import (
+    faz13_god_pipeline,
+    faz13_god_text,
+)
 
 # ================================================================
 # 🔁 FAZ-10 → HardSync Mode
@@ -830,6 +833,105 @@ def build_nba_simulation_text():
 
 
 # ================================================================
+# 🧠 GOD-LAYER HELPER FONKSİYONLARI (FAZ-13.4 → 17)
+# ================================================================
+def _build_core_output_for_god(fusion_input, base_conf=0.64, base_edge=0.035):
+    """
+    FAZ-13 normalize_* output'undan GOD-LAYER için çekirdek core_output üretir.
+    fusion_input dict değilse bile kırılmasın diye esnek.
+    """
+    core = {}
+    if isinstance(fusion_input, dict):
+        core.update(fusion_input)
+        core.setdefault("pred_conf", base_conf)
+        core.setdefault("pred_edge", base_edge)
+    else:
+        core = {
+            "raw": str(fusion_input),
+            "pred_conf": base_conf,
+            "pred_edge": base_edge,
+        }
+    return core
+
+
+def _load_faz11_history_samples(max_items: int = 32):
+    """
+    FAZ-11 history'den son N kaydı hafifçe alır (varsa).
+    GOD-LAYER'e 'history_samples' olarak verilir.
+    """
+    items = []
+    try:
+        if not os.path.exists(FAZ11_LOG_FILE):
+            return items
+        with open(FAZ11_LOG_FILE, "r") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            items = data[-max_items:]
+        elif isinstance(data, dict):
+            hist = data.get("history") or data.get("days") or []
+            if isinstance(hist, list):
+                items = hist[-max_items:]
+    except Exception as e:
+        log.warning(f"[GOD-LAYER] FAZ-11 history okunamadı: {e}")
+    return items
+
+
+def _build_god_state_for_faz13(
+    fusion_input,
+    base_conf: float = 0.64,
+    base_edge: float = 0.035,
+    market_odds: float | None = None,
+    meta_context: dict | None = None,
+):
+    """
+    Tüm FAZ-7.9 / 10 / 11 / 12 / memory / market bilgilerini çekip
+    faz13_god_pipeline'e yollar.
+    """
+    meta_context = meta_context or {}
+    brain = faz79_brain()
+    f10_state = faz10_stability_check(brain) or {}
+    f11_summary = faz11_last_summary()
+
+    f11_last = f11_summary.get("last", {})
+    if f11_last:
+        f12_decision = faz12_run_once(f10_state, f11_last)
+    else:
+        f12_decision = {
+            "new_mode": brain.get("mode", "INIT"),
+            "changed": False,
+            "reason": "NO_F11_DATA",
+        }
+
+    try:
+        mem = load_memory()
+        history_samples = mem.get("days", [])
+    except Exception:
+        history_samples = []
+
+    # FAZ-11 history'den ekstra ekle
+    history_samples_ext = _load_faz11_history_samples()
+    if history_samples_ext:
+        history_samples = (history_samples or []) + history_samples_ext
+
+    market_info = {"odds": market_odds or 1.90}
+
+    core_output = _build_core_output_for_god(fusion_input, base_conf, base_edge)
+
+    god_state = faz13_god_pipeline(
+        core_output=core_output,
+        brain=brain,
+        f10_state=f10_state,
+        f11_summary=f11_summary,
+        f12_decision=f12_decision,
+        history_samples=history_samples,
+        market_info=market_info,
+        meta_context=meta_context,
+    )
+
+    return core_output, god_state
+
+
+# ================================================================
 # 🧠 FAZ-7.9 & FAZ-8 KOMUTLARI
 # ================================================================
 @bot.message_handler(commands=["faz7_status"])
@@ -1037,7 +1139,7 @@ def cmd_start(message):
         "🔥 <b>Bot aktif!</b>\n"
         "FAZ-4 + FAZ-5 + FAZ-6 v3 + FAZ-7.9 v2.0 + "
         "FAZ-8.2 + FAZ-8.3 + FAZ-8.4 + FAZ-8.5 META + FAZ-9.x + FAZ-10 HardSync + "
-        "FAZ-11 + FAZ-12 + Ultra OCR Engine v3 (FAZ-13 C MODE FULL POWER).\n"
+        "FAZ-11 + FAZ-12 + Ultra OCR Engine v3 (FAZ-13 C MODE FULL POWER + GOD-LAYER).\n"
         "Komut listesi için <code>/help</code> yaz."
     )
     bot.reply_to(message, text)
@@ -1072,12 +1174,12 @@ def cmd_help(message):
         "— <b>FAZ-11 / FAZ-12</b> —\n"
         "/faz11 - Günlük feedback kayıt\n"
         "/faz12 - Auto profile ayarı\n\n"
-        "— <b>FAZ-13 (C MODE)</b> —\n"
-        "/mac - Manual maç input\n"
-        "/mac_img - Görsel + OCR Extreme Mode\n"
+        "— <b>FAZ-13 (C MODE + GOD-LAYER)</b> —\n"
+        "/mac - Manual maç input + GOD-MODE\n"
+        "/mac_img - Görsel + OCR Extreme Mode + GOD-MODE\n"
         "/ocr_debug - Son OCR debug bilgisi\n"
         "/live - Global canlı maç (API)\n"
-        "/live13 - FAZ-13 LIVE HYBRID (ID/takım hibrit)\n"
+        "/live13 - FAZ-13 LIVE HYBRID (ID/takım hibrit) + GOD-MODE\n"
     )
     bot.reply_to(message, text)
 
@@ -1095,6 +1197,7 @@ def cmd_status(message):
         "Ultra OCR Engine v3 (A+B+C Hybrid): <b>AKTİF</b>\n"
         "OCR Cache Layer: <b>AKTİF</b>\n"
         "Fast-Fail Timeout Protection: <b>AKTİF</b>\n"
+        "FAZ-13 GOD-LAYER: <b>AKTİF</b>\n"
         f"Strateji Modu: <b>{info['mode']}</b> | "
         f"Trend: {info['trend']} | Vol: {info['vol']}\n"
         f"TCI: {info['tci']} | Noise: {info['noise_ratio']} | "
@@ -1365,6 +1468,7 @@ def cmd_live_hybrid(message):
     FAZ-13 LIVE HYBRID:
       - ID veya takım adı veya lig + takım formatını kabul eder.
       - Hoopbrain Live'dan bağımsız, FAZ-13 pipeline'a manual text gibi aktarır.
+      - Ek olarak GOD-LAYER ile global risk + açıklama üretir.
     """
     try:
         info = _parse_live_command_args(message.text)
@@ -1407,16 +1511,34 @@ def cmd_live_hybrid(message):
         fusion_input = normalize_manual_text(manual_text, default_league=league)
         result_text = run_faz13_auto_pipeline(fusion_input)
 
+        # GOD-LAYER entegrasyonu
+        try:
+            core_output, god_state = _build_god_state_for_faz13(
+                fusion_input,
+                base_conf=0.66,
+                base_edge=0.036,
+                market_odds=None,
+                meta_context={
+                    "source": "LIVE13",
+                    "raw_command": message.text,
+                },
+            )
+            god_text = faz13_god_text(core_output, god_state)
+            final_text = result_text + "\n\n" + god_text
+        except Exception as e:
+            log.error(f"[/live13 GOD-LAYER] Hata: {e}", exc_info=True)
+            final_text = result_text
+
         prefix = "📡 <b>FAZ-13 LIVE HYBRID</b>\n\n"
-        bot.reply_to(message, prefix + result_text)
+        bot.reply_to(message, prefix + final_text)
 
     except Exception as e:
-        log.error(f"[/live13 HYBRID] Hata: {e}", exc_info=True)
+        log.error(f"[/live13 HYBRID] Genel hata: {e}", exc_info=True)
         bot.reply_to(message, f"❌ /live13 komutunda hata: {e}")
 
 
 # ================================================================
-# 🧠 FAZ-13 MANUAL KOMUT
+# 🧠 FAZ-13 MANUAL KOMUT + GOD-LAYER
 # ================================================================
 @bot.message_handler(commands=["mac"])
 def cmd_manual_match(message):
@@ -1427,7 +1549,26 @@ def cmd_manual_match(message):
     try:
         fusion_input = normalize_manual_text(message.text, default_league="NBA")
         text = run_faz13_auto_pipeline(fusion_input)
-        bot.reply_to(message, text)
+
+        # GOD-LAYER entegrasyonu
+        try:
+            core_output, god_state = _build_god_state_for_faz13(
+                fusion_input,
+                base_conf=0.64,
+                base_edge=0.035,
+                market_odds=None,
+                meta_context={
+                    "source": "MANUAL",
+                    "raw_command": message.text,
+                },
+            )
+            god_layer_text = faz13_god_text(core_output, god_state)
+            final_text = text + "\n\n" + god_layer_text
+        except Exception as e:
+            log.error(f"[FAZ-13 MANUAL GOD-LAYER] Hata: {e}", exc_info=True)
+            final_text = text
+
+        bot.reply_to(message, final_text)
     except Exception as e:
         log.error(f"[FAZ-13 MANUAL] Hata: {e}", exc_info=True)
         bot.reply_to(
@@ -1682,12 +1823,13 @@ def cmd_ocr_debug(message):
 
 
 # ================================================================
-# 🧠 FAZ-13 VISUAL EXTREME MODE
+# 🧠 FAZ-13 VISUAL EXTREME MODE + GOD-LAYER
 # ================================================================
 def _run_faz13_visual_pipeline(ocr_text: str, meta: dict):
     """
     Ultra OCR Engine v3 çıktısını FAZ-13 fusion pipeline'a bağlar.
     Standings / Stats / Odds / Generic ayrımı meta['classifier'] üzerinden.
+    + GOD-LAYER entegre.
     """
     try:
         fusion_input = normalize_visual_meta(ocr_text)
@@ -1704,6 +1846,27 @@ def _run_faz13_visual_pipeline(ocr_text: str, meta: dict):
             "<b>OCR TEXT:</b>\n"
             f"<code>{ocr_text[:2000]}</code>"
         )
+        # GOD-LAYER de devre dışı kalır
+        return result_text
+
+    # GOD-LAYER entegrasyonu
+    try:
+        core_output, god_state = _build_god_state_for_faz13(
+            fusion_input,
+            base_conf=0.65,
+            base_edge=0.034,
+            market_odds=None,
+            meta_context={
+                "source": "VISUAL",
+                "classifier": meta.get("classifier"),
+                "engine": meta.get("engine"),
+            },
+        )
+        god_text = faz13_god_text(core_output, god_state)
+        final_text = result_text + "\n\n" + god_text
+    except Exception as e:
+        log.error(f"[FAZ-13 VISUAL GOD-LAYER] Hata: {e}", exc_info=True)
+        final_text = result_text
 
     extra = (
         f"\n\n🧪 <b>FAZ-13 C MODE OCR META</b>\n"
@@ -1712,7 +1875,7 @@ def _run_faz13_visual_pipeline(ocr_text: str, meta: dict):
         f"Score: <b>{meta.get('prob_score', 0.0):.3f}</b>"
     )
 
-    return result_text + extra
+    return final_text + extra
 
 
 @bot.message_handler(commands=["mac_img"])
@@ -1726,7 +1889,7 @@ def cmd_visual_match(message):
         message,
         "📸 Extreme Mode aktif!\n"
         "Şimdi maç ekran görüntüsünü gönder (oranlar / istatistikler / puan durumu olabilir).\n"
-        "Ultra OCR Engine v3 (A+B+C) tarayıp FAZ-13 pipeline'a sokacağım.",
+        "Ultra OCR Engine v3 (A+B+C) tarayıp FAZ-13 + GOD-LAYER pipeline'a sokacağım.",
     )
 
 
@@ -1738,7 +1901,7 @@ def cmd_visual_upload_extreme(message):
       - Multi-thread + Fast-Fail
       - OCR Cache
       - Standings / Stats / Odds sınıflandırma
-      - FAZ-13 C MODE FULL POWER
+      - FAZ-13 C MODE FULL POWER + GOD-LAYER
     """
     try:
         if message.content_type == "photo":
@@ -1759,7 +1922,7 @@ def cmd_visual_upload_extreme(message):
         bot.reply_to(
             message,
             "📥 Görsel alındı, Ultra OCR Engine v3 devrede...\n"
-            "Multi-engine (A+B+C) + Cache + AI Filter çalışıyor.",
+            "Multi-engine (A+B+C) + Cache + AI Filter + GOD-LAYER çalışıyor.",
         )
 
         resp = requests.get(file_url, timeout=10)
@@ -1817,7 +1980,8 @@ def setup_webhook():
 if __name__ == "__main__":
     log.info(
         "🔥 Boot: FAZ-7.9 + FAZ-8.x + FAZ-6 v3 + FAZ-9.x + FAZ-10 HardSync + "
-        "FAZ-11 + FAZ-12 + Ultra OCR Engine v3 (FAZ-13 C MODE FULL POWER) | "
+        "FAZ-11 + FAZ-12 + Ultra OCR Engine v3 (FAZ-13 C MODE FULL POWER) + "
+        "FAZ-13.4→FAZ-17 GOD-LAYER | "
         "ENGINEERING_MODE=%s",
         "ON" if ENGINEERING_MODE else "OFF",
     )
