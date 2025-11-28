@@ -582,8 +582,9 @@ from faz13_engine.faz13_orchestrator import (
     faz13_league_coupon,
     faz13_live_coupon,
 )
+
 from faz13_engine.faz13_god_layer import (
-    faz13_god_pipeline,
+    run_faz13_with_god_layer,
     faz13_god_text,
 )
 
