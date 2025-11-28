@@ -314,6 +314,253 @@ def faz79_brain():
 
 
 # ================================================================
+# 🔥🔥🔥  FAZ-13 FULL OPTİMİZE KOMUT BLOĞU (GOD-LAYER PIPELINE) 🔥🔥🔥
+# MANUAL • VISUAL • HYBRID • OCR DEBUG
+# ================================================================
+
+# ------------------------------------------------
+# 🧱 Yardımcılar
+# ------------------------------------------------
+def _send_long_text(message, text: str, chunk_size: int = 3500):
+    """
+    Telegram'ın mesaj sınırına takılmamak için uzun metni parça parça yollar.
+    """
+    if not text:
+        return
+
+    text = str(text)
+    for i in range(0, len(text), chunk_size):
+        try:
+            bot.reply_to(message, text[i:i + chunk_size])
+        except Exception as e:
+            log.error(f"[FAZ-13 SEND_LONG_TEXT] Hata: {e}", exc_info=True)
+
+
+def _parse_live_command_args(text: str) -> dict:
+    """
+    /live13 komutunun ham argümanlarını kaba şekilde parse eder.
+    Örnekler:
+      /live13 LAL BOS
+      /live13 NBA LAL BOS
+      /live13 4412200
+    """
+    parts = text.strip().split()
+    # parts[0] = /live13
+    raw = parts[1:] if len(parts) > 1 else []
+    info = {
+        "raw_args": raw,
+        "league": None,
+    }
+
+    if not raw:
+        return info
+
+    # Eğer ilk argüman NBA / EUROLEAGUE gibi bir şeyse league olarak işaretle
+    if raw[0].isalpha() and len(raw[0]) >= 3:
+        info["league"] = raw[0].upper()
+        info["raw_args"] = raw[1:]
+
+    return info
+
+
+def run_faz13_with_god_layer(mode: str, fusion_input: dict) -> str:
+    """
+    Tek giriş: mode + fusion_input
+    Çıkış: faz13_god_text ile formatlanmış nihai metin.
+    """
+    try:
+        pipeline_out = faz13_god_pipeline(mode, fusion_input)
+        text = faz13_god_text(pipeline_out)
+        return text or "⚠️ FAZ-13 GOD-LAYER boş çıktı üretti."
+    except Exception as e:
+        log.error(f"[FAZ-13 GOD-LAYER] mode={mode} hata: {e}", exc_info=True)
+        return (
+            "❌ FAZ-13 GOD-LAYER sırasında hata oluştu.\n"
+            "Log kayıtları incelenmeli."
+        )
+
+
+# ================================================================
+# 🧾 FAZ-13 → MANUAL INPUT  (/mac)
+# ================================================================
+@bot.message_handler(commands=["mac"])
+def cmd_manual_match(message):
+    """
+    Örnekler:
+      /mac BOS ORL 220.5 U 1.46
+      /mac LAL DEN 228.5 O
+      /mac FENER EFES 167.5 U
+    Format: HOME AWAY TOTAL U/O [ORAN]
+    """
+    try:
+        parts = message.text.strip().split()
+
+        # Kullanıcı sadece /mac yazmışsa → kullanım örneği göster
+        if len(parts) == 1:
+            bot.reply_to(
+                message,
+                "📘 Kullanım örnekleri:\n"
+                "<code>/mac BOS ORL 220.5 U 1.46</code>\n"
+                "<code>/mac LAL DEN 228.5 O</code>\n"
+                "<code>/mac FENER EFES 167.5 U</code>\n"
+                "\nFormat: <b>HOME AWAY TOTAL U/O [ORAN]</b>",
+            )
+            return
+
+        # 🔥 Manual → normalize → GOD-LAYER pipeline
+        fusion = normalize_manual_text(message.text, default_league="NBA")
+        result_text = run_faz13_with_god_layer("manual", fusion)
+
+        _send_long_text(message, result_text)
+
+    except Exception as e:
+        log.error(f"[FAZ-13 MANUAL ERROR] {e}", exc_info=True)
+        bot.reply_to(
+            message,
+            "❌ FAZ-13 manual input işlenemedi.\n"
+            "Örnek: <code>/mac BOS ORL 220.5 U 1.46</code>",
+        )
+
+
+# ================================================================
+# 🧪 FAZ-13 OCR DEBUG  (/ocr_debug)
+# ================================================================
+@bot.message_handler(commands=["ocr_debug"])
+def cmd_ocr_debug(message):
+    global LAST_OCR_TEXT, LAST_OCR_META
+
+    if LAST_OCR_TEXT is None:
+        bot.reply_to(message, "📭 Henüz OCR verisi yok.")
+        return
+
+    meta = LAST_OCR_META or {}
+    preview = (LAST_OCR_TEXT or "")[:700]
+
+    bot.reply_to(
+        message,
+        "🧪 <b>FAZ-13 OCR DEBUG</b>\n\n"
+        f"Engine: <b>{meta.get('engine','-')}</b>\n"
+        f"Classifier: <b>{meta.get('classifier','-')}</b>\n"
+        f"Score: <b>{meta.get('prob_score',0):.3f}</b>\n"
+        f"RawConf: <b>{meta.get('raw_confidence',0):.3f}</b>\n"
+        f"From Cache: <b>{meta.get('from_cache',False)}</b>\n"
+        f"Failed: <b>{meta.get('failed',False)}</b>\n\n"
+        "<b>Preview:</b>\n"
+        f"<code>{preview}</code>",
+    )
+
+
+# ================================================================
+# 📸 FAZ-13 VISUAL EXTREME MODE  (/mac_img)
+# ================================================================
+@bot.message_handler(commands=["mac_img"])
+def cmd_visual_request(message):
+    bot.reply_to(
+        message,
+        "📸 <b>FAZ-13 EXTREME MODE</b> aktif!\n"
+        "Maç görselini gönder → OCR + GOD-LAYER pipeline çalışacak.",
+    )
+
+
+@bot.message_handler(content_types=["photo", "document"])
+def cmd_visual_upload(message):
+    """
+    Ultra OCR Engine v3 → classify → normalize_visual_meta → GOD-LAYER
+    """
+    global LAST_OCR_TEXT, LAST_OCR_META
+
+    try:
+        # 1) Telegram dosyasını al
+        if message.content_type == "photo":
+            file_id = message.photo[-1].file_id
+        else:
+            file_id = message.document.file_id
+
+        info = bot.get_file(file_id)
+        url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{info.file_path}"
+
+        bot.reply_to(message, "📥 Görsel alındı → OCR işleniyor...")
+
+        # 2) Görseli indir
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        img_bytes = r.content
+
+        # 3) Ultra OCR çalıştır
+        ocr = ultra_ocr_engine_v3(img_bytes)
+        text = ocr["text"]
+        meta = ocr["meta"]
+
+        LAST_OCR_TEXT = text
+        LAST_OCR_META = meta
+
+        if not text.strip():
+            bot.reply_to(
+                message,
+                "❌ OCR başarısız → Daha net bir görsel gönder.",
+            )
+            return
+
+        # 4) FAZ-13 visual → normalize → GOD-LAYER
+        fusion = normalize_visual_meta(text)
+        result = run_faz13_with_god_layer("visual", fusion)
+
+        result += (
+            "\n\n🧪 <b>FAZ-13 OCR META</b>\n"
+            f"Engine: <b>{meta.get('engine','-')}</b> | "
+            f"Cls: <b>{meta.get('classifier','-')}</b> | "
+            f"Score: <b>{meta.get('prob_score',0):.3f}</b>"
+        )
+
+        _send_long_text(message, result)
+
+    except Exception as e:
+        log.error(f"[FAZ-13 VISUAL ERROR] {e}", exc_info=True)
+        bot.reply_to(
+            message,
+            "❌ Görsel işleme sırasında hata oluştu.",
+        )
+
+
+# ================================================================
+# 🌍 FAZ-13 LIVE HYBRID INPUT  (/live13)
+# ================================================================
+@bot.message_handler(commands=["live13"])
+def cmd_live13(message):
+    """
+    Hibrit input:
+      /live13 LAL BOS
+      /live13 NBA LAL BOS
+      /live13 4412200
+    """
+    try:
+        info = _parse_live_command_args(message.text)
+
+        if not info["raw_args"]:
+            bot.reply_to(
+                message,
+                "📡 Kullanım:\n"
+                "<code>/live13 4412200</code>\n"
+                "<code>/live13 NBA LAL BOS</code>\n"
+                "<code>/live13 LAL BOS</code>",
+            )
+            return
+
+        # Şimdilik ID + takım karışık formatı → normalize_manual_text ile normalize et
+        fusion = normalize_manual_text(
+            " ".join(info["raw_args"]),
+            default_league=info.get("league") or "NBA",
+        )
+
+        result = run_faz13_with_god_layer("live_hybrid", fusion)
+        _send_long_text(message, "🌐 <b>FAZ-13 LIVE HYBRID</b>\n\n" + result)
+
+    except Exception as e:
+        log.error(f"[FAZ-13 LIVE13 ERROR] {e}", exc_info=True)
+        bot.reply_to(message, "❌ /live13 komutunda hata.")
+
+
+# ================================================================
 #  FAZ-10 / FAZ-11 / FAZ-12 / FAZ-13 IMPORTLARI
 # ================================================================
 from faz10_engine.faz10_stability import faz10_stability_check
