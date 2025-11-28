@@ -5,7 +5,7 @@ import json
 # 🔧 SAFE FLOAT
 # =====================================================================
 def _safe_float(val):
-    """Harhangi bir string'i güvenli şekilde floata çevirir."""
+    """Herhangi bir string'i güvenli şekilde floata çevirir."""
     if val is None:
         return None
     try:
@@ -122,7 +122,7 @@ def normalize_manual_text(text: str, default_league: str = "NBA") -> dict:
         home = "UNKNOWN"
         away = "UNKNOWN"
 
-    # Market sabit (şu an FAZ-13 total market üzerinden çalışıyor)
+    # Market sabit
     market = "FT TOTAL"
 
     return {
@@ -161,7 +161,6 @@ def normalize_visual_meta(ocr_text: str) -> dict:
 
     text = ocr_text.upper().replace("\n", " ")
 
-    # HOME / AWAY tahmini (çok basit heuristik)
     words = text.split()
     if len(words) >= 2:
         home = words[0]
@@ -170,14 +169,12 @@ def normalize_visual_meta(ocr_text: str) -> dict:
         home = "TEAM1"
         away = "TEAM2"
 
-    # Line yakalama (örn: 220.5 / 167.5)
     regex = r"(\d{2,3}[.,]?\d*)"
     found_nums = re.findall(regex, text)
     line = None
     if found_nums:
         line = _safe_float(found_nums[-1])
 
-    # U/O detect
     if "UNDER" in text or "ALT" in text or " U " in text:
         direction = "U"
     elif "OVER" in text or "UST" in text or " O " in text:
@@ -195,6 +192,49 @@ def normalize_visual_meta(ocr_text: str) -> dict:
         "line": line,
         "direction": direction,
         "odds": None,
+    }
+
+
+# =====================================================================
+# 🌐 API DATA NORMALIZER  (YENİ — ENTEGRE EDİLDİ)
+# =====================================================================
+def normalize_api_data(api_payload: dict | None) -> dict:
+    """
+    API'den gelen live/prematch verisini FAZ-13 meta formatına çevirir.
+    """
+    data = api_payload or {}
+
+    league = (data.get("league") or "NBA").upper()
+    home = data.get("home_name") or data.get("home") or "UNKNOWN"
+    away = data.get("away_name") or data.get("away") or "UNKNOWN"
+    market = data.get("market") or "FT TOTAL"
+    line = data.get("line")
+    direction = data.get("direction")
+    odds = data.get("odds")
+
+    line_val = _safe_float(line)
+
+    if isinstance(direction, str):
+        d = direction.upper()
+        if d in ("U", "UNDER", "ALT"):
+            direction_norm = "U"
+        elif d in ("O", "OVER", "ÜST", "UST"):
+            direction_norm = "O"
+        else:
+            direction_norm = None
+    else:
+        direction_norm = None
+
+    return {
+        "source": "api",
+        "raw": str(api_payload),
+        "league": league,
+        "home": home,
+        "away": away,
+        "market": market,
+        "line": line_val,
+        "direction": direction_norm,
+        "odds": odds,
     }
 
 
