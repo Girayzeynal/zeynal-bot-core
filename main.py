@@ -187,3 +187,334 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ================================================================
+# 🧠 FAZ-13.2 KOMUTLAR (Manual / Visual / Live / Kupon)
+# ================================================================
+
+from faz13_engine.faz13_god_layer import run_faz13_with_god_layer
+from faz13_engine.faz13_orchestrator import (
+    normalize_manual_text,
+    normalize_visual_meta,
+    normalize_api_data,
+)
+
+import requests
+
+LAST_OCR_TEXT = None
+LAST_OCR_META = None
+
+
+# ================================================================
+#  🔹 /mac → Manuel girilen metin
+# ================================================================
+@bot.message_handler(commands=["mac"])
+def cmd_manual_match(message):
+    try:
+        raw = message.text or ""
+        fusion = normalize_manual_text(raw)
+
+        result_text = run_faz13_with_god_layer("manual", fusion)
+
+        bot.reply_to(message, result_text, parse_mode="HTML")
+
+    except Exception as e:
+        log.error(f"[FAZ-13 MANUAL ERROR] {e}", exc_info=True)
+        bot.reply_to(message, "❌ MANUAL işleminde hata oluştu.")
+
+
+# ================================================================
+#  🔹 /mac_img → Görsel OCR + GOD-LAYER
+# ================================================================
+@bot.message_handler(commands=["mac_img"])
+def cmd_visual_request(message):
+    bot.reply_to(
+        message,
+        "📸 <b>FAZ-13 VISUAL MODE aktif.</b>\n"
+        "Maç görselini gönder → OCR + GOD-LAYER çalışacak.",
+        parse_mode="HTML",
+    )
+
+
+@bot.message_handler(content_types=["photo", "document"])
+def cmd_visual_upload(message):
+    """
+    Her foto veya belge → Ultra OCR Engine → normalize → GOD-LAYER
+    """
+
+    global LAST_OCR_TEXT, LAST_OCR_META
+
+    try:
+        # 1) Telegram dosyasını al
+        if message.content_type == "photo":
+            file_id = message.photo[-1].file_id
+        else:
+            file_id = message.document.file_id
+
+        file_info = bot.get_file(file_id)
+        url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+
+        bot.reply_to(message, "📥 Görsel alındı → OCR işleniyor...")
+
+        # 2) Görsel indir
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+
+        img_bytes = r.content
+
+        # 3) ULTRA OCR ENGINE v3
+        ocr = ultra_ocr_engine_v3(img_bytes)
+        text = ocr.get("text", "") or ""
+        meta = ocr.get("meta", {}) or {}
+
+        LAST_OCR_TEXT = text
+        LAST_OCR_META = meta
+
+        if not text.strip():
+            bot.reply_to(message, "❌ OCR başarısız → Daha net bir görsel gönder.")
+            return
+
+
+        # 4) Normalize et → GOD-LAYER
+        fusion = normalize_visual_meta(text)
+        result = run_faz13_with_god_layer("visual", fusion)
+
+        bot.reply_to(message, result, parse_mode="HTML")
+
+    except Exception as e:
+        log.error(f"[FAZ-13 VISUAL ERROR] {e}", exc_info=True)
+        bot.reply_to(message, "❌ Görsel işlenirken hata oluştu.")
+
+
+# ================================================================
+# 🔹 /live13 → Hybrid live manual input
+# ================================================================
+@bot.message_handler(commands=["live13"])
+def cmd_live13(message):
+    """
+    Hibrit: ID + takımlar
+        /live13 NBA LAL BOS 223.5 O 1.65
+        /live13 4412200
+    """
+
+    try:
+        raw = message.text or ""
+        fusion = normalize_manual_text(raw)  # live manual parse
+
+        result_text = run_faz13_with_god_layer("live", fusion)
+
+        bot.reply_to(message, result_text, parse_mode="HTML")
+
+    except Exception as e:
+        log.error(f"[FAZ-13 LIVE13 ERROR] {e}", exc_info=True)
+        bot.reply_to(message, "❌ LIVE13 işleminde hata oluştu.")
+
+
+# ================================================================
+# 🔹 /kupon → Günlük + lig bazlı + canlı kupon jeneratörü
+# ================================================================
+@bot.message_handler(commands=["kupon"])
+def cmd_coupon(message):
+    """
+    /kupon → tüm maçlardan en güvenilirleri seç
+    /kupon NBA → sadece NBA
+    /kupon live → canlı maçlardan
+    """
+
+    try:
+        args = message.text.split()
+        mode = args[1].lower() if len(args) > 1 else "daily"
+
+        if mode == "daily":
+            result = faz13_daily_coupon({})
+        elif mode == "live":
+            result = faz13_live_coupon({})
+        else:
+            result = faz13_league_coupon({"league": mode.upper()})
+
+        bot.reply_to(message, result, parse_mode="HTML")
+
+    except Exception as e:
+        log.error(f"[FAZ-13 COUPON ERROR] {e}", exc_info=True)
+        bot.reply_to(message, "❌ Kupon işleminde hata oluştu.")
+
+
+# ================================================================
+# 🔹 /hb_debug → OCR + fusion debug
+# ================================================================
+@bot.message_handler(commands=["hb_debug"])
+def cmd_debug(message):
+    msg = (
+        "<b>FAZ-13 Debug</b>\n\n"
+        f"<b>OCR:</b>\n{LAST_OCR_TEXT}\n\n"
+        f"<b>META:</b>\n{json.dumps(LAST_OCR_META, indent=2)}"
+    )
+    bot.reply_to(message, msg, parse_mode="HTML")
+
+
+# ================================================================
+# 🧠 FAZ-13 ULTRA OCR ENGINE v3
+#    - Tesseract / EasyOCR / Vision API (opsiyonel)
+#    - GPU_MODE, VISION_MODE ile kontrol
+#    - OCR CACHE (aynı görseli tekrar okuma)
+# ================================================================
+
+import os
+import io
+import hashlib
+import time
+
+# OCR CONFIG
+GPU_MODE = os.getenv("GPU_MODE", "AUTO").upper()      # AUTO / FORCE / OFF
+VISION_MODE = os.getenv("VISION_MODE", "OFF").upper() # OFF / ON (ileride)
+TESSERACT_TIMEOUT = int(os.getenv("TESSERACT_TIMEOUT", "8"))
+EASYOCR_TIMEOUT = int(os.getenv("EASYOCR_TIMEOUT", "8"))
+VISION_TIMEOUT = int(os.getenv("VISION_TIMEOUT", "12"))
+
+OCR_CACHE: dict[str, dict] = {}
+
+
+def _ocr_hash(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+# ---------------------------------------------------------------
+# 🔹 Tesseract backend (varsa)
+# ---------------------------------------------------------------
+def _run_tesseract_ocr(img_bytes: bytes) -> dict | None:
+    try:
+        from PIL import Image
+        import pytesseract
+    except ImportError:
+        return None
+
+    try:
+        img = Image.open(io.BytesIO(img_bytes))
+
+        start = time.time()
+        text = pytesseract.image_to_string(img)
+        dt = time.time() - start
+
+        return {
+            "engine": "tesseract",
+            "text": text,
+            "meta": {
+                "engine": "tesseract",
+                "classifier": "raw",
+                "prob_score": 0.72,
+                "latency": dt,
+            },
+        }
+    except Exception as e:
+        log.error(f"[OCR TESSERACT ERROR] {e}", exc_info=True)
+        return None
+
+
+# ---------------------------------------------------------------
+# 🔹 EasyOCR backend (varsa)
+# ---------------------------------------------------------------
+def _run_easyocr_ocr(img_bytes: bytes) -> dict | None:
+    try:
+        import easyocr
+    except ImportError:
+        return None
+
+    try:
+        reader = easyocr.Reader(
+            ["en"],
+            gpu=(GPU_MODE != "OFF"),
+            verbose=False,
+        )
+        start = time.time()
+        res = reader.readtext(img_bytes, detail=0)
+        dt = time.time() - start
+        text = "\n".join(res or [])
+
+        return {
+            "engine": "easyocr",
+            "text": text,
+            "meta": {
+                "engine": "easyocr",
+                "classifier": "raw",
+                "prob_score": 0.75,
+                "latency": dt,
+            },
+        }
+    except Exception as e:
+        log.error(f"[OCR EASYOCR ERROR] {e}", exc_info=True)
+        return None
+
+
+# ---------------------------------------------------------------
+# 🔹 Vision API backend (şimdilik placeholder)
+# ---------------------------------------------------------------
+def _run_vision_ocr(img_bytes: bytes) -> dict | None:
+    # Burayı ileride gerçek Cloud Vision / başka API ile dolduracağız.
+    # Şu an için kapalı.
+    if VISION_MODE == "OFF":
+        return None
+
+    try:
+        # TODO: gerçek vision entegrasyonu
+        text = ""
+        return {
+            "engine": "vision_placeholder",
+            "text": text,
+            "meta": {
+                "engine": "vision_placeholder",
+                "classifier": "raw",
+                "prob_score": 0.70,
+                "latency": 0.0,
+            },
+        }
+    except Exception as e:
+        log.error(f"[OCR VISION ERROR] {e}", exc_info=True)
+        return None
+
+
+# ---------------------------------------------------------------
+# 🔥 ULTRA OCR ENGINE v3 – Ana giriş
+# ---------------------------------------------------------------
+def ultra_ocr_engine_v3(img_bytes: bytes) -> dict:
+    """
+    Girdi: raw image bytes
+    Çıktı:
+        {
+          "text": "...",
+          "meta": {engine, classifier, prob_score, latency}
+        }
+    """
+
+    key = _ocr_hash(img_bytes)
+    if key in OCR_CACHE:
+        cached = OCR_CACHE[key]
+        cached_meta = dict(cached.get("meta") or {})
+        cached_meta["cache"] = True
+        return {"text": cached["text"], "meta": cached_meta}
+
+    # Deneme sırası: Tesseract → EasyOCR → Vision → fallback
+    backends = [
+        _run_tesseract_ocr,
+        _run_easyocr_ocr,
+        _run_vision_ocr,
+    ]
+
+    for backend in backends:
+        res = backend(img_bytes)
+        if res and res.get("text"):
+            OCR_CACHE[key] = {"text": res["text"], "meta": res["meta"]}
+            return {"text": res["text"], "meta": res["meta"]}
+
+    # Hiçbiri çalışmazsa fallback:
+    fallback = {
+        "text": "",
+        "meta": {
+            "engine": "fallback",
+            "classifier": "none",
+            "prob_score": 0.5,
+            "latency": 0.0,
+        },
+    }
+    OCR_CACHE[key] = fallback
+    return fallback
