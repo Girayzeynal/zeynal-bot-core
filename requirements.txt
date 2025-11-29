@@ -8,5 +8,9 @@ pytesseract
 easyocr
 python-dotenv
 gunicorn
-opencv-python-headless 
-https://download.pytorch.org/whl/cpu
+opencv-python-headless
+
+# CPU optimized PyTorch
+torch==2.2.1+cpu
+torchvision==0.17.1+cpu
+--extra-index-url https://download.pytorch.org/whl/cpu 
