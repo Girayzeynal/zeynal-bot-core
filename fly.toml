@@ -1,24 +1,20 @@
-app = "hoopbrain-proxy"
+app = "zeynal-bot-core"
+primary_region = "ams"
 
 kill_signal = "SIGINT"
 kill_timeout = 5
 
 [env]
-PORT = "8080"
+  PORT = "8080"
 
-[[services]]
+[build]
+  buildpacks = ["paketo-buildpacks/python"]
+
+[http_service]
   internal_port = 8080
-  protocol = "tcp"
-
-  [[services.ports]]
-    port = 443
-    handlers = ["tls", "http"]
-
-  [[services.ports]]
-    port = 80
-    handlers = ["http"]
-
-  [[services.tcp_checks]]
-    interval = "10s"
-    timeout = "5s"
-    grace_period = "10s"
+  processes = ["app"]
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  concurrency = { type = "requests", soft_limit = 100, hard_limit = 200 }
