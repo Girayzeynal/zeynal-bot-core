@@ -1,11 +1,6 @@
 """
 faz17_engine – Market / Odds Engine
-===================================
-
-Görev:
-- Oranlardan implied probability hesaplarsın.
-- Model olasılığı ile karşılaştırıp edge çıkarırsın.
-- FAZ-13 kupon yapısına beslenecek minimal market motoru.
+FAZ-13 kupon yapısına market verisi sağlar.
 """
 
 from .faz17_market import (
@@ -14,8 +9,13 @@ from .faz17_market import (
     faz17_pick_edge_lines,
 )
 
+from .faz17_market_adjust import (
+    faz17_market_adjust,
+)
+
 __all__ = [
     "implied_prob",
     "faz17_enrich_with_market",
     "faz17_pick_edge_lines",
+    "faz17_market_adjust",
 ]
