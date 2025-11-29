@@ -9,3 +9,4 @@ easyocr
 python-dotenv
 gunicorn
 opencv-python-headless 
+https://download.pytorch.org/whl/cpu
