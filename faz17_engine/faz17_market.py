@@ -79,3 +79,34 @@ def faz17_pick_edge_lines(
     # Edge'e göre sırala (büyükten küçüğe)
     selected.sort(key=lambda x: x.get("best_edge", 0.0), reverse=True)
     return selected
+
+def faz17_market_adjust(model_prob_over: float,
+                        model_prob_under: float,
+                        odds_over: float,
+                        odds_under: float) -> dict:
+    """
+    FAZ-17 basit market uyumlayıcı:
+    Model olasılıklarını ve piyasa oranlarını harmanlayıp
+    edge ve bias çıkarır.
+    """
+    try:
+        imp_over = 1.0 / float(odds_over)
+    except:
+        imp_over = 0.0
+
+    try:
+        imp_under = 1.0 / float(odds_under)
+    except:
+        imp_under = 0.0
+
+    edge_over = model_prob_over - imp_over
+    edge_under = model_prob_under - imp_under
+
+    return {
+        "model_prob_over": model_prob_over,
+        "model_prob_under": model_prob_under,
+        "implied_over": imp_over,
+        "implied_under": imp_under,
+        "edge_over": edge_over,
+        "edge_under": edge_under,
+    }
