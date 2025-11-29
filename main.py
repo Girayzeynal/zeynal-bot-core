@@ -111,8 +111,11 @@ _faz13_god = _safe_import(
 )
 run_faz13_with_god_layer = (_faz13_god or {}).get("run_faz13_with_god_layer")
 
-# FAZ-17 (opsiyonel; market / odds motoru)
-_faz17 = _safe_import("faz17_engine.faz17_market", ["faz17_market_adjust"])
+# FAZ-17 (market / odds motoru)
+_faz17 = _safe_import(
+    "faz17_engine.faz17_market_adjust",
+    ["faz17_market_adjust"]
+)
 faz17_market_adjust = (_faz17 or {}).get("faz17_market_adjust")
 
 # ================================================================
