@@ -2,19 +2,69 @@ app = "zeynal-bot-core"
 primary_region = "ams"
 
 kill_signal = "SIGINT"
-kill_timeout = 5
+kill_timeout = "5s"
 
-[env]
-  PORT = "8080"
-
+# =====================================================
+# 🔥 BUILD SYSTEM – Dockerfile yok → Buildpack kullan
+# =====================================================
 [build]
   buildpacks = ["paketo-buildpacks/python"]
 
-[http_service]
+# =====================================================
+# ENV
+# =====================================================
+[env]
+  PORT = "8080"
+  FAZ7_DIR = "/data/faz7"
+
+# =====================================================
+# STORAGE (faz7 memory engine için)
+# =====================================================
+[[mounts]]
+  source = "faz7_memory"
+  destination = "/data"
+
+# =====================================================
+# PROCESS – main.py başlat
+# =====================================================
+[processes]
+  app = "python main.py"
+
+# =====================================================
+# HTTP SERVICE
+# =====================================================
+[[services]]
   internal_port = 8080
   processes = ["app"]
-  force_https = true
-  auto_stop_machines = "off"
-  auto_start_machines = true
-  min_machines_running = 1
-  concurrency = { type = "requests", soft_limit = 100, hard_limit = 200 }
+  protocol = "tcp"
+
+  [services.concurrency]
+    type = "requests"
+    soft_limit = 40
+    hard_limit = 80
+
+  # Health Check
+  [[services.http_checks]]
+    interval = "20s"
+    timeout = "4s"
+    method = "get"
+    path = "/"
+    protocol = "http"
+
+  # Port 80 (HTTP)
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  # Port 443 (HTTPS)
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+# =====================================================
+# VM
+# =====================================================
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb" 
