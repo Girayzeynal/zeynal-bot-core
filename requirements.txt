@@ -10,7 +10,7 @@ python-dotenv
 gunicorn
 opencv-python-headless
 
-# CPU optimized PyTorch
-torch==2.2.1+cpu
-torchvision==0.17.1+cpu
---extra-index-url https://download.pytorch.org/whl/cpu 
+# Torch CPU build (Fly.io ile uyumlu)
+torch==2.1.0
+torchvision==0.16.0
+torchaudio==2.1.0
