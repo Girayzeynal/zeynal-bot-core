@@ -1,0 +1,10 @@
+telebot
+Flask
+requests
+numpy
+pandas
+Pillow
+pytesseract
+easyocr
+python-dotenv
+gunicorn
