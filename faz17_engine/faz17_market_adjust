@@ -1,0 +1,29 @@
+def faz17_market_adjust(model_prob_over: float,
+                        model_prob_under: float,
+                        odds_over: float,
+                        odds_under: float) -> dict:
+    """
+    FAZ-17 basit market uyumlayıcı:
+    Model olasılıklarını ve piyasa oranlarını harmanlayıp
+    edge ve bias çıkarır.
+    """
+    def imp(x):
+        try:
+            return 1.0 / float(x)
+        except:
+            return 0.0
+
+    imp_over = imp(odds_over)
+    imp_under = imp(odds_under)
+
+    edge_over = model_prob_over - imp_over
+    edge_under = model_prob_under - imp_under
+
+    return {
+        "model_prob_over": model_prob_over,
+        "model_prob_under": model_prob_under,
+        "implied_over": imp_over,
+        "implied_under": imp_under,
+        "edge_over": edge_over,
+        "edge_under": edge_under,
+    }
