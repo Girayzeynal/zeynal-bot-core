@@ -59,6 +59,7 @@ def _safe_import(module_path: str, attrs: Optional[list[str]] = None):
             out[name] = None
     return out
 
+
 # ================================================================
 # 🔧 IMPORT FAZ MODULES
 # ================================================================
@@ -101,8 +102,13 @@ run_faz13_with_god_layer = (_faz13_god or {}).get("run_faz13_with_god_layer")
 _faz17 = _safe_import("faz17_engine.faz17_market_adjust", ["faz17_market_adjust"])
 faz17_market_adjust = (_faz17 or {}).get("faz17_market_adjust")
 
+# Ultra OCR Engine v3 opsiyonel import
+_faz13_ocr = _safe_import("faz13_engine.ultra_ocr_v3", ["ultra_ocr_engine_v3"])
+_ext_ultra_ocr_engine_v3 = (_faz13_ocr or {}).get("ultra_ocr_engine_v3")
+
+
 # ================================================================
-# 🔧 FALLBACKS
+# 🔧 FALLBACKS & MEMORY HELPERS
 # ================================================================
 def _safe_float(val: Any) -> Optional[float]:
     if val is None:
@@ -129,16 +135,42 @@ def _save_json(path: str, data: Any) -> None:
         log.error("JSON kaydedilemedi: %s (%s)", path, e)
 
 
-# Memory fallback
+# FAZ-7.9 Memory
 def faz7_load_memory() -> Dict[str, Any]:
     mem = _load_json(FAZ7_MEMORY_FILE, {})
     if not isinstance(mem, dict):
         mem = {}
+    if "stats" not in mem or not isinstance(mem.get("stats"), dict):
+        mem["stats"] = {}
     return mem
 
 
 def faz7_save_memory(mem: Dict[str, Any]) -> None:
+    if not isinstance(mem, dict):
+        return
+    if "stats" not in mem or not isinstance(mem.get("stats"), dict):
+        mem["stats"] = {}
     _save_json(FAZ7_MEMORY_FILE, mem)
+
+
+def faz7_touch_stat(key: str, delta: int = 1) -> None:
+    """
+    FAZ-7.9 hafızada basit metrik sayacı.
+    Örn: total_matches, total_coupons vs.
+    """
+    try:
+        mem = faz7_load_memory()
+        stats = mem.get("stats", {})
+        cur = stats.get(key, 0)
+        try:
+            cur_int = int(cur)
+        except Exception:
+            cur_int = 0
+        stats[key] = cur_int + delta
+        mem["stats"] = stats
+        faz7_save_memory(mem)
+    except Exception as e:
+        log.error("faz7_touch_stat hata: %s", e, exc_info=True)
 
 
 # FAZ-10 HardSync wrapper
@@ -149,7 +181,7 @@ def faz10_hardsync(brain: Dict[str, Any], calib: Optional[Dict[str, Any]] = None
             "stability_score": 1.0,
             "anomaly_level": 0.0,
             "suggested_mode": brain.get("mode", "INIT"),
-            "bucket": calib.get("bucket", "MID") if calib else "MID",
+            "bucket": (calib or {}).get("bucket", "MID") if calib else "MID",
             "lock": False,
             "lock_reason": "NO_FAZ10_MODULE",
         }
@@ -185,10 +217,29 @@ def faz10_hardsync(brain: Dict[str, Any], calib: Optional[Dict[str, Any]] = None
 
 
 # ================================================================
-# 🔍 ULTRA OCR ENGINE v3 (FALLBACK)
+# 🔍 ULTRA OCR ENGINE v3 (IMPORT + FALLBACK)
 # ================================================================
 def ultra_ocr_engine_v3(img_bytes: bytes) -> Dict[str, Any]:
-    return {"text": "", "meta": {"engine": "NONE", "classifier": "NONE", "prob_score": 0.0}}
+    """
+    Ultra OCR Engine v3:
+      - Eğer faz13_engine.ultra_ocr_v3.ultra_ocr_engine_v3 tanımlıysa onu kullan.
+      - Yoksa hafif fallback döndür (Fly.io 512 MB uyumlu).
+    """
+    if _ext_ultra_ocr_engine_v3:
+        try:
+            return _ext_ultra_ocr_engine_v3(img_bytes)
+        except Exception as e:
+            log.error("External Ultra OCR Engine v3 hata: %s", e, exc_info=True)
+
+    # Fallback: OCR modülü yoksa sessizce boş dön.
+    return {
+        "text": "",
+        "meta": {
+            "engine": "NONE",
+            "classifier": "NONE",
+            "prob_score": 0.0,
+        },
+    }
 
 
 # ================================================================
@@ -196,6 +247,7 @@ def ultra_ocr_engine_v3(img_bytes: bytes) -> Dict[str, Any]:
 # ================================================================
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 app = Flask(__name__)
+
 
 def _send_long_text(message: types.Message, text: str):
     if not text:
@@ -216,7 +268,10 @@ def cmd_status(message: types.Message):
     total_matches = stats.get("total_matches", 0)
     total_coupons = stats.get("total_coupons", 0)
 
-    lines = []
+    # FAZ-10 HardSync, sadece durum raporu (lock uygulatmıyoruz)
+    faz10_state = faz10_hardsync(mem, {"bucket": "MID"})
+
+    lines: list[str] = []
     lines.append("✅ Bot çalışıyor.")
     lines.append(f"Mod: Fly.io + Webhook + Flask")
     lines.append(f"ENGINEERING_MODE: {'ON' if ENGINEERING_MODE else 'OFF'}")
@@ -224,14 +279,28 @@ def cmd_status(message: types.Message):
     lines.append(f"FAZ-7.9 hafıza dosyası: {FAZ7_MEMORY_FILE}")
     lines.append(f"Toplam maç: {total_matches} | Toplam kupon: {total_coupons}")
     lines.append("")
-    lines.append(f"FAZ-10 stability: {'AKTİF' if faz10_stability_check else 'YOK (FALLBACK)'}")
+    lines.append(f"FAZ-10 modul: {'AKTİF' if faz10_stability_check else 'YOK (FALLBACK)'}")
+    lines.append(
+        "FAZ-10 regime: {reg} | score={score:.3f} | anomaly={anom:.3f} | "
+        "lock={lock} ({reason})".format(
+            reg=faz10_state.get("regime", "NORMAL"),
+            score=float(faz10_state.get("stability_score", 1.0) or 1.0),
+            anom=float(faz10_state.get("anomaly_level", 0.0) or 0.0),
+            lock=bool(faz10_state.get("lock", False)),
+            reason=faz10_state.get("lock_reason", "NO_LOCK"),
+        )
+    )
     lines.append(f"FAZ-11 feedback: {'AKTİF' if faz11_feedback else 'YOK'}")
     lines.append(f"FAZ-12 autoadjust: {'AKTİF' if faz12_run_once else 'YOK'}")
     lines.append(f"FAZ-13 orchestrator: {'AKTİF' if _faz13_orch else 'YOK (FALLBACK)'}")
     lines.append(f"FAZ-13 GOD-LAYER: {'AKTİF' if _faz13_god else 'YOK (FALLBACK)'}")
     lines.append(f"FAZ-17 market: {'AKTİF' if faz17_market_adjust else 'YOK'}")
     lines.append("")
-    lines.append("Ultra OCR Engine v3: FALLBACK (GPU/OCR modülleri henüz bağlı değil)")
+    lines.append(
+        "Ultra OCR Engine v3: {state}".format(
+            state="AKTİF (external)" if _ext_ultra_ocr_engine_v3 else "FALLBACK (GPU/OCR modülleri henüz bağlı değil)"
+        )
+    )
 
     text = "\n".join(lines)
     bot.reply_to(message, text)
@@ -256,13 +325,22 @@ def proxytest(message: types.Message):
 @bot.message_handler(commands=["mac"])
 def cmd_manual_match(message: types.Message):
     try:
+        if not normalize_manual_text or not run_faz13_with_god_layer:
+            raise RuntimeError("FAZ-13 GOD-LAYER modülleri bağlı değil")
+
         fusion = normalize_manual_text(message.text)
         if not fusion or not isinstance(fusion, dict):
-            raise ValueError("normalize_manual_text boş döndü")
+            raise ValueError("normalize_manual_text boş veya dict değil")
 
+        # FAZ-13 + GOD-LAYER
         result_text = run_faz13_with_god_layer("manual", fusion)
+
+        # FAZ-7.9 istatistik
+        faz7_touch_stat("total_matches", 1)
+
         _send_long_text(message, result_text)
 
+        # FAZ-11 feedback + tarihçe
         if faz11_feedback:
             try:
                 hist = _load_json(FAZ11_HISTORY_FILE, [])
@@ -296,6 +374,9 @@ def cmd_visual_request(message: types.Message):
 @bot.message_handler(content_types=["photo", "document"])
 def cmd_visual_upload(message: types.Message):
     try:
+        if not normalize_visual_meta or not run_faz13_with_god_layer:
+            raise RuntimeError("FAZ-13 GOD-LAYER modülleri bağlı değil")
+
         if message.content_type == "photo":
             file_id = message.photo[-1].file_id
         else:
@@ -324,6 +405,9 @@ def cmd_visual_upload(message: types.Message):
         fusion = normalize_visual_meta(text)
         result = run_faz13_with_god_layer("visual", fusion)
 
+        # FAZ-7.9 istatistik
+        faz7_touch_stat("total_matches", 1)
+
         result += (
             "\n\n📊 <b>FAZ-13 OCR META</b>\n"
             f"Engine: <b>{meta.get('engine','-')}</b> | "
@@ -347,12 +431,19 @@ def cmd_visual_upload(message: types.Message):
 @bot.message_handler(commands=["live13"])
 def cmd_live13(message: types.Message):
     try:
+        if not normalize_manual_text or not run_faz13_with_god_layer:
+            raise RuntimeError("FAZ-13 GOD-LAYER modülleri bağlı değil")
+
         raw = message.text or ""
         parts = raw.split(maxsplit=1)
         args = parts[1] if len(parts) > 1 else ""
         fusion = normalize_manual_text(args)
 
         result = run_faz13_with_god_layer("live", fusion)
+
+        # FAZ-7.9 istatistik
+        faz7_touch_stat("total_matches", 1)
+
         _send_long_text(message, result)
     except Exception as e:
         log.error("[FAZ-13 LIVE13 ERROR] %s", e, exc_info=True)
@@ -371,6 +462,8 @@ def cmd_daily13(message: types.Message):
     try:
         if faz13_daily_coupon:
             text = str(faz13_daily_coupon({}))
+            # FAZ-7.9 istatistik
+            faz7_touch_stat("total_coupons", 1)
         else:
             text = "FAZ-13 DAILY coupon motoru henüz bağlı değil."
         _send_long_text(message, text)
@@ -384,6 +477,7 @@ def cmd_upcoming13(message: types.Message):
     try:
         if faz13_upcoming_coupon:
             text = str(faz13_upcoming_coupon({}))
+            faz7_touch_stat("total_coupons", 1)
         else:
             text = "FAZ-13 UPCOMING coupon motoru henüz bağlı değil."
         _send_long_text(message, text)
@@ -397,6 +491,7 @@ def cmd_league13(message: types.Message):
     try:
         if faz13_league_coupon:
             text = str(faz13_league_coupon({}))
+            faz7_touch_stat("total_coupons", 1)
         else:
             text = "FAZ-13 LEAGUE coupon motoru henüz bağlı değil."
         _send_long_text(message, text)
@@ -410,6 +505,7 @@ def cmd_livecoupon13(message: types.Message):
     try:
         if faz13_live_coupon:
             text = str(faz13_live_coupon({}))
+            faz7_touch_stat("total_coupons", 1)
         else:
             text = "FAZ-13 LIVE coupon motoru henüz bağlı değil."
         _send_long_text(message, text)
