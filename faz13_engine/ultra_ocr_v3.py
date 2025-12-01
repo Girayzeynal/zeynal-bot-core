@@ -409,3 +409,4 @@ def ultra_ocr_engine_v3(img_bytes: bytes) -> Dict[str, Any]:
 
     _cache_set(cache_key, best)
     return best
+    # force-include
