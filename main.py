@@ -102,108 +102,85 @@ run_faz13_with_god_layer = (_faz13_god or {}).get("run_faz13_with_god_layer")
 _faz17 = _safe_import("faz17_engine.faz17_market_adjust", ["faz17_market_adjust"])
 faz17_market_adjust = (_faz17 or {}).get("faz17_market_adjust")
 
-# Ultra OCR Engine v3 opsiyonel import
+# Ultra OCR Engine v3 opsiyonel
 _faz13_ocr = _safe_import("faz13_engine.ultra_ocr_v3", ["ultra_ocr_engine_v3"])
 _ext_ultra_ocr_engine_v3 = (_faz13_ocr or {}).get("ultra_ocr_engine_v3")
 
-
 # ================================================================
-# 🔧 FALLBACKS & MEMORY HELPERS
+# 🔧 FALLBACKS / MEMORY
 # ================================================================
-def _safe_float(val: Any) -> Optional[float]:
-    if val is None:
-        return None
-    try:
-        return float(str(val).replace(",", "."))
-    except Exception:
-        return None
-
-
-def _load_json(path: str, default: Any) -> Any:
+def _load_json(path: str, default):
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except:
         return default
 
-
-def _save_json(path: str, data: Any) -> None:
+def _save_json(path: str, data):
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e:
         log.error("JSON kaydedilemedi: %s (%s)", path, e)
 
-
-# FAZ-7.9 Memory
-def faz7_load_memory() -> Dict[str, Any]:
+def faz7_load_memory():
     mem = _load_json(FAZ7_MEMORY_FILE, {})
     if not isinstance(mem, dict):
         mem = {}
-    if "stats" not in mem or not isinstance(mem.get("stats"), dict):
+    if "stats" not in mem:
         mem["stats"] = {}
     return mem
 
-
-def faz7_save_memory(mem: Dict[str, Any]) -> None:
-    if not isinstance(mem, dict):
-        return
-    if "stats" not in mem or not isinstance(mem.get("stats"), dict):
+def faz7_save_memory(mem):
+    if "stats" not in mem:
         mem["stats"] = {}
     _save_json(FAZ7_MEMORY_FILE, mem)
 
-
-def faz7_touch_stat(key: str, delta: int = 1) -> None:
-    """
-    FAZ-7.9 hafızada basit metrik sayacı.
-    Örn: total_matches, total_coupons vs.
-    """
+def faz7_touch_stat(key: str, delta: int = 1):
     try:
         mem = faz7_load_memory()
         stats = mem.get("stats", {})
-        cur = stats.get(key, 0)
-        try:
-            cur_int = int(cur)
-        except Exception:
-            cur_int = 0
-        stats[key] = cur_int + delta
+        cur = int(stats.get(key, 0))
+        stats[key] = cur + delta
         mem["stats"] = stats
         faz7_save_memory(mem)
     except Exception as e:
-        log.error("faz7_touch_stat hata: %s", e, exc_info=True)
+        log.error("faz7_touch_stat hata: %s", e)
 
 
-# FAZ-10 HardSync wrapper
-def faz10_hardsync(brain: Dict[str, Any], calib: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+# ================================================================
+# 🔧 FAZ-10 HardSync Wrapper
+# ================================================================
+def faz10_hardsync(brain: Dict[str, Any], calib: Optional[Dict[str, Any]] = None):
     if faz10_stability_check is None:
         return {
             "regime": "NORMAL",
             "stability_score": 1.0,
             "anomaly_level": 0.0,
-            "suggested_mode": brain.get("mode", "INIT"),
-            "bucket": (calib or {}).get("bucket", "MID") if calib else "MID",
+            "suggested_mode": "INIT",
+            "bucket": (calib or {}).get("bucket", "MID"),
             "lock": False,
             "lock_reason": "NO_FAZ10_MODULE",
         }
-    try:
-        stability = faz10_stability_check(brain) or {}
-    except Exception as e:
-        log.error("[FAZ-10] Stability check hata: %s", e, exc_info=True)
-        stability = {}
 
-    regime = str(stability.get("regime", "NORMAL")).upper()
-    score = float(stability.get("stability_score", 1.0) or 1.0)
-    anomaly = float(stability.get("anomaly_level", 0.0) or 0.0)
-    suggested_mode = str(stability.get("suggested_mode", brain.get("mode", "INIT"))).upper()
+    try:
+        st = faz10_stability_check(brain) or {}
+    except Exception as e:
+        log.error("FAZ-10 hata: %s", e)
+        st = {}
+
+    regime = str(st.get("regime", "NORMAL")).upper()
+    score = float(st.get("stability_score", 1.0) or 1.0)
+    anomaly = float(st.get("anomaly_level", 0.0) or 0.0)
+    suggested_mode = str(st.get("suggested_mode", "INIT")).upper()
     bucket = (calib or {}).get("bucket", "MID")
 
     lock = False
     lock_reason = "NO_LOCK"
 
-    if ENGINEERING_MODE:
-        if regime in ("CRITICAL", "UNSTABLE") or anomaly >= 0.7 or score < 0.6:
-            lock = True
-            lock_reason = "CRITICAL_LOCK"
+    if ENGINEERING_MODE and (regime in ("CRITICAL", "UNSTABLE") or score < 0.6 or anomaly >= 0.7):
+        lock = True
+        lock_reason = "CRITICAL_LOCK"
 
     return {
         "regime": regime,
@@ -217,29 +194,16 @@ def faz10_hardsync(brain: Dict[str, Any], calib: Optional[Dict[str, Any]] = None
 
 
 # ================================================================
-# 🔍 ULTRA OCR ENGINE v3 (IMPORT + FALLBACK)
+# 🔧 ULTRA OCR v3 WRAPPER
 # ================================================================
-def ultra_ocr_engine_v3(img_bytes: bytes) -> Dict[str, Any]:
-    """
-    Ultra OCR Engine v3:
-      - Eğer faz13_engine.ultra_ocr_v3.ultra_ocr_engine_v3 tanımlıysa onu kullan.
-      - Yoksa hafif fallback döndür (Fly.io 512 MB uyumlu).
-    """
+def ultra_ocr_engine_v3(img_bytes: bytes):
     if _ext_ultra_ocr_engine_v3:
         try:
             return _ext_ultra_ocr_engine_v3(img_bytes)
         except Exception as e:
-            log.error("External Ultra OCR Engine v3 hata: %s", e, exc_info=True)
+            log.error("Ultra OCR external hata: %s", e)
 
-    # Fallback: OCR modülü yoksa sessizce boş dön.
-    return {
-        "text": "",
-        "meta": {
-            "engine": "NONE",
-            "classifier": "NONE",
-            "prob_score": 0.0,
-        },
-    }
+    return {"text": "", "meta": {"engine": "NONE", "classifier": "NONE", "prob_score": 0.0}}
 
 
 # ================================================================
@@ -248,12 +212,10 @@ def ultra_ocr_engine_v3(img_bytes: bytes) -> Dict[str, Any]:
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 app = Flask(__name__)
 
-
-def _send_long_text(message: types.Message, text: str):
-    if not text:
+def _send_long(message, txt):
+    if not txt:
         return
-    max_len = 3500
-    chunks = [text[i:i + max_len] for i in range(0, len(text), max_len)]
+    chunks = [txt[i:i+3500] for i in range(0, len(txt), 3500)]
     for ch in chunks:
         bot.reply_to(message, ch)
 
@@ -262,297 +224,212 @@ def _send_long_text(message: types.Message, text: str):
 # 📊 /status
 # ================================================================
 @bot.message_handler(commands=["status"])
-def cmd_status(message: types.Message):
+def cmd_status(message):
     mem = faz7_load_memory()
     stats = mem.get("stats", {})
-    total_matches = stats.get("total_matches", 0)
-    total_coupons = stats.get("total_coupons", 0)
-
-    # FAZ-10 HardSync, sadece durum raporu (lock uygulatmıyoruz)
     faz10_state = faz10_hardsync(mem, {"bucket": "MID"})
 
-    lines: list[str] = []
+    lines = []
     lines.append("✅ Bot çalışıyor.")
-    lines.append(f"Mod: Fly.io + Webhook + Flask")
+    lines.append("Mod: Fly.io + Webhook + Flask")
     lines.append(f"ENGINEERING_MODE: {'ON' if ENGINEERING_MODE else 'OFF'}")
     lines.append("")
-    lines.append(f"FAZ-7.9 hafıza dosyası: {FAZ7_MEMORY_FILE}")
-    lines.append(f"Toplam maç: {total_matches} | Toplam kupon: {total_coupons}")
+    lines.append(f"FAZ-7.9 hafıza: {FAZ7_MEMORY_FILE}")
+    lines.append(f"Toplam maç: {stats.get('total_matches',0)}")
+    lines.append(f"Toplam kupon: {stats.get('total_coupons',0)}")
     lines.append("")
-    lines.append(f"FAZ-10 modul: {'AKTİF' if faz10_stability_check else 'YOK (FALLBACK)'}")
+    lines.append(f"FAZ-10: {'AKTİF' if faz10_stability_check else 'YOK'}")
     lines.append(
-        "FAZ-10 regime: {reg} | score={score:.3f} | anomaly={anom:.3f} | "
-        "lock={lock} ({reason})".format(
-            reg=faz10_state.get("regime", "NORMAL"),
-            score=float(faz10_state.get("stability_score", 1.0) or 1.0),
-            anom=float(faz10_state.get("anomaly_level", 0.0) or 0.0),
-            lock=bool(faz10_state.get("lock", False)),
-            reason=faz10_state.get("lock_reason", "NO_LOCK"),
-        )
+        f"Regime={faz10_state['regime']} | Score={faz10_state['stability_score']:.3f} "
+        f"| Anomaly={faz10_state['anomaly_level']:.3f} | Lock={faz10_state['lock']} ({faz10_state['lock_reason']})"
     )
+    lines.append("")
     lines.append(f"FAZ-11 feedback: {'AKTİF' if faz11_feedback else 'YOK'}")
     lines.append(f"FAZ-12 autoadjust: {'AKTİF' if faz12_run_once else 'YOK'}")
-    lines.append(f"FAZ-13 orchestrator: {'AKTİF' if _faz13_orch else 'YOK (FALLBACK)'}")
-    lines.append(f"FAZ-13 GOD-LAYER: {'AKTİF' if _faz13_god else 'YOK (FALLBACK)'}")
+    lines.append(f"FAZ-13 orchestrator: {'AKTİF' if _faz13_orch else 'YOK'}")
+    lines.append(f"FAZ-13 GOD-LAYER: {'AKTİF' if _faz13_god else 'YOK'}")
     lines.append(f"FAZ-17 market: {'AKTİF' if faz17_market_adjust else 'YOK'}")
     lines.append("")
     lines.append(
-        "Ultra OCR Engine v3: {state}".format(
-            state="AKTİF (external)" if _ext_ultra_ocr_engine_v3 else "FALLBACK (GPU/OCR modülleri henüz bağlı değil)"
-        )
+        f"Ultra OCR Engine v3: {'AKTİF (external)' if _ext_ultra_ocr_engine_v3 else 'FALLBACK'}"
     )
 
-    text = "\n".join(lines)
-    bot.reply_to(message, text)
+    bot.reply_to(message, "\n".join(lines))
 
 
 # ================================================================
-# 🔌 /proxytest — Proxy Test
+# 🔌 /proxytest
 # ================================================================
 @bot.message_handler(commands=["proxytest"])
-def proxytest(message: types.Message):
+def cmd_proxy(message):
     import requests
     try:
         r = requests.get("https://hoopbrain-proxy.fly.dev/ping", timeout=5)
         bot.send_message(message.chat.id, f"Proxy Çalışıyor: {r.text}")
     except Exception as e:
-        bot.send_message(message.chat.id, f"Proxy Hatası: {str(e)}")
+        bot.send_message(message.chat.id, f"Proxy Hata: {e}")
 
 
 # ================================================================
-# 📝 /mac — MANUAL INPUT
+# 📝 /mac
 # ================================================================
 @bot.message_handler(commands=["mac"])
-def cmd_manual_match(message: types.Message):
+def cmd_mac(message):
     try:
         if not normalize_manual_text or not run_faz13_with_god_layer:
-            raise RuntimeError("FAZ-13 GOD-LAYER modülleri bağlı değil")
+            raise RuntimeError("FAZ-13 modülleri yok")
 
         fusion = normalize_manual_text(message.text)
-        if not fusion or not isinstance(fusion, dict):
-            raise ValueError("normalize_manual_text boş veya dict değil")
+        result = run_faz13_with_god_layer("manual", fusion)
 
-        # FAZ-13 + GOD-LAYER
-        result_text = run_faz13_with_god_layer("manual", fusion)
+        faz7_touch_stat("total_matches")
+        _send_long(message, result)
 
-        # FAZ-7.9 istatistik
-        faz7_touch_stat("total_matches", 1)
-
-        _send_long_text(message, result_text)
-
-        # FAZ-11 feedback + tarihçe
         if faz11_feedback:
-            try:
-                hist = _load_json(FAZ11_HISTORY_FILE, [])
-                fb = faz11_feedback("manual", fusion, result_text)
-                hist.append(fb)
-                _save_json(FAZ11_HISTORY_FILE, hist)
-            except Exception as e:
-                log.error("[FAZ-11] feedback hata: %s", e, exc_info=True)
+            hist = _load_json(FAZ11_HISTORY_FILE, [])
+            hist.append(faz11_feedback("manual", fusion, result))
+            _save_json(FAZ11_HISTORY_FILE, hist)
 
     except Exception as e:
-        log.error("[FAZ-13 MANUAL ERROR] %s", e, exc_info=True)
-        bot.reply_to(
-            message,
-            "❌ FAZ-13 manual input işlenemedi.\n"
-            "Örnek: <code>/mac BOS ORL 220.5 U 1.46</code>",
-        )
+        log.error("manual hata: %s", e)
+        bot.reply_to(message, "❌ manual işlenemedi.")
 
 
 # ================================================================
-# 📸 /mac_img — VISUAL EXTREME MODE
+# 📸 /mac_img
 # ================================================================
 @bot.message_handler(commands=["mac_img"])
-def cmd_visual_request(message: types.Message):
-    bot.reply_to(
-        message,
-        "📸 <b>FAZ-13 EXTREME MODE</b> aktif!\n"
-        "Maç görselini gönder → OCR + GOD-LAYER pipeline çalışacak.",
-    )
+def cmd_mac_img(message):
+    bot.reply_to(message, "📸 FAZ-13 EXTREME MODE: Görsel gönder.")
 
-
-@bot.message_handler(content_types=["photo", "document"])
-def cmd_visual_upload(message: types.Message):
+@bot.message_handler(content_types=["photo","document"])
+def cmd_upload(message):
     try:
         if not normalize_visual_meta or not run_faz13_with_god_layer:
-            raise RuntimeError("FAZ-13 GOD-LAYER modülleri bağlı değil")
+            raise RuntimeError("FAZ-13 modülleri yok")
 
-        if message.content_type == "photo":
-            file_id = message.photo[-1].file_id
-        else:
-            file_id = message.document.file_id
-
+        file_id = message.photo[-1].file_id if message.content_type=="photo" else message.document.file_id
         file_info = bot.get_file(file_id)
-        url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+
         import requests
+        url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+        data = requests.get(url,timeout=10).content
 
-        bot.reply_to(message, "📩 Görsel alındı → OCR işleniyor...")
-        r = requests.get(url, timeout=10)
-        r.raise_for_status()
-        img_bytes = r.content
+        bot.reply_to(message,"OCR işleniyor...")
 
-        ocr = ultra_ocr_engine_v3(img_bytes)
-        text = (ocr or {}).get("text") or ""
-        meta = (ocr or {}).get("meta") or {}
+        ocr = ultra_ocr_engine_v3(data)
+        text = ocr.get("text","")
+        meta = ocr.get("meta",{})
 
         if not text.strip():
-            bot.reply_to(
-                message,
-                "❌ OCR başarısız → Daha net bir görsel gönder.",
-            )
+            bot.reply_to(message,"❌ OCR başarısız.")
             return
 
         fusion = normalize_visual_meta(text)
         result = run_faz13_with_god_layer("visual", fusion)
 
-        # FAZ-7.9 istatistik
-        faz7_touch_stat("total_matches", 1)
+        faz7_touch_stat("total_matches")
 
         result += (
-            "\n\n📊 <b>FAZ-13 OCR META</b>\n"
-            f"Engine: <b>{meta.get('engine','-')}</b> | "
-            f"Cls: <b>{meta.get('classifier','-')}</b> | "
-            f"Score: <b>{meta.get('prob_score',0):.3f}</b>"
+            "\n\n📊 OCR META\n"
+            f"Engine: {meta.get('engine','-')} | "
+            f"Cls: {meta.get('classifier','-')} | "
+            f"Score: {meta.get('prob_score',0):.3f}"
         )
 
-        _send_long_text(message, result)
+        _send_long(message, result)
 
     except Exception as e:
-        log.error("[FAZ-13 VISUAL ERROR] %s", e, exc_info=True)
-        bot.reply_to(
-            message,
-            "❌ Görsel işleme sırasında hata oluştu.",
-        )
+        log.error("visual hata: %s", e)
+        bot.reply_to(message,"❌ Görsel işlenemedi.")
 
 
 # ================================================================
-# 📡 /live13 — HYBRID INPUT
+# 📡 /live13
 # ================================================================
 @bot.message_handler(commands=["live13"])
-def cmd_live13(message: types.Message):
+def cmd_live13(message):
     try:
-        if not normalize_manual_text or not run_faz13_with_god_layer:
-            raise RuntimeError("FAZ-13 GOD-LAYER modülleri bağlı değil")
-
-        raw = message.text or ""
-        parts = raw.split(maxsplit=1)
-        args = parts[1] if len(parts) > 1 else ""
-        fusion = normalize_manual_text(args)
-
+        fusion = normalize_manual_text(message.text.split(" ",1)[1])
         result = run_faz13_with_god_layer("live", fusion)
-
-        # FAZ-7.9 istatistik
-        faz7_touch_stat("total_matches", 1)
-
-        _send_long_text(message, result)
-    except Exception as e:
-        log.error("[FAZ-13 LIVE13 ERROR] %s", e, exc_info=True)
-        bot.reply_to(
-            message,
-            "❌ /live13 komutunda hata.\n"
-            "Örnek: <code>/live13 LAL BOS 220.5 U 1.90</code>",
-        )
+        faz7_touch_stat("total_matches")
+        _send_long(message,result)
+    except:
+        bot.reply_to(message,"❌ canlı işlenemedi.")
 
 
 # ================================================================
-# 🧾 FAZ-13 Kupon Komutları
+# 🧾 KUPOΝ
 # ================================================================
 @bot.message_handler(commands=["daily13"])
-def cmd_daily13(message: types.Message):
+def cmd_daily(message):
     try:
-        if faz13_daily_coupon:
-            text = str(faz13_daily_coupon({}))
-            # FAZ-7.9 istatistik
-            faz7_touch_stat("total_coupons", 1)
-        else:
-            text = "FAZ-13 DAILY coupon motoru henüz bağlı değil."
-        _send_long_text(message, text)
-    except Exception as e:
-        log.error("[FAZ-13 DAILY ERROR] %s", e, exc_info=True)
-        bot.reply_to(message, "❌ /daily13 çalışırken hata oluştu.")
-
+        txt = str(faz13_daily_coupon({})) if faz13_daily_coupon else "motor yok"
+        faz7_touch_stat("total_coupons")
+        _send_long(message,txt)
+    except:
+        bot.reply_to(message,"❌ daily13 hata.")
 
 @bot.message_handler(commands=["upcoming13"])
-def cmd_upcoming13(message: types.Message):
+def cmd_upcoming(message):
     try:
-        if faz13_upcoming_coupon:
-            text = str(faz13_upcoming_coupon({}))
-            faz7_touch_stat("total_coupons", 1)
-        else:
-            text = "FAZ-13 UPCOMING coupon motoru henüz bağlı değil."
-        _send_long_text(message, text)
-    except Exception as e:
-        log.error("[FAZ-13 UPCOMING ERROR] %s", e, exc_info=True)
-        bot.reply_to(message, "❌ /upcoming13 çalışırken hata oluştu.")
-
+        txt = str(faz13_upcoming_coupon({})) if faz13_upcoming_coupon else "motor yok"
+        faz7_touch_stat("total_coupons")
+        _send_long(message,txt)
+    except:
+        bot.reply_to(message,"❌ upcoming13 hata.")
 
 @bot.message_handler(commands=["league13"])
-def cmd_league13(message: types.Message):
+def cmd_league(message):
     try:
-        if faz13_league_coupon:
-            text = str(faz13_league_coupon({}))
-            faz7_touch_stat("total_coupons", 1)
-        else:
-            text = "FAZ-13 LEAGUE coupon motoru henüz bağlı değil."
-        _send_long_text(message, text)
-    except Exception as e:
-        log.error("[FAZ-13 LEAGUE ERROR] %s", e, exc_info=True)
-        bot.reply_to(message, "❌ /league13 çalışırken hata oluştu.")
-
+        txt = str(faz13_league_coupon({})) if faz13_league_coupon else "motor yok"
+        faz7_touch_stat("total_coupons")
+        _send_long(message,txt)
+    except:
+        bot.reply_to(message,"❌ league13 hata.")
 
 @bot.message_handler(commands=["livecoupon13"])
-def cmd_livecoupon13(message: types.Message):
+def cmd_livecoupon(message):
     try:
-        if faz13_live_coupon:
-            text = str(faz13_live_coupon({}))
-            faz7_touch_stat("total_coupons", 1)
-        else:
-            text = "FAZ-13 LIVE coupon motoru henüz bağlı değil."
-        _send_long_text(message, text)
-    except Exception as e:
-        log.error("[FAZ-13 LIVE COUPON ERROR] %s", e, exc_info=True)
-        bot.reply_to(message, "❌ /livecoupon13 çalışırken hata oluştu.")
+        txt = str(faz13_live_coupon({})) if faz13_live_coupon else "motor yok"
+        faz7_touch_stat("total_coupons")
+        _send_long(message,txt)
+    except:
+        bot.reply_to(message,"❌ livecoupon hata.")
 
 
 # ================================================================
-# 🌐 FLASK ROUTES
+# 🌐 FLASK
 # ================================================================
-@app.route("/", methods=["GET"])
+@app.route("/",methods=["GET"])
 def home():
-    return "OK", 200
+    return "OK",200
 
-
-@app.route("/webhook", methods=["POST"])
+@app.route("/webhook",methods=["POST"])
 def telegram_webhook():
     try:
-        json_str = request.get_data().decode("utf-8")
-        update = telebot.types.Update.de_json(json_str)
+        update = telebot.types.Update.de_json(request.get_data().decode("utf-8"))
         bot.process_new_updates([update])
     except Exception as e:
-        log.error("Webhook hatası: %s", e, exc_info=True)
-        return "ERROR", 500
-    return "OK", 200
-
-
-# ================================================================
-# 🔗 WEBHOOK SETUP
-# ================================================================
-def setup_webhook():
-    if not WEBHOOK_URL:
-        log.warning("WEBHOOK_URL tanımlı değil → webhook kurulmadı.")
-        return
-    try:
-        bot.remove_webhook()
-        bot.set_webhook(url=WEBHOOK_URL)
-        log.info("Webhook set edildi: %s", WEBHOOK_URL)
-    except Exception as e:
-        log.error("Webhook set edilemedi: %s", e, exc_info=True)
+        log.error("Webhook hata: %s", e)
+        return "ERROR",500
+    return "OK",200
 
 
 # ================================================================
 # 🚀 ENTRYPOINT
 # ================================================================
-if __name__ == "__main__":
-    log.info("HoopBrain Ultra Main başlıyor. Port=%d", PORT)
+def setup_webhook():
+    if not WEBHOOK_URL:
+        log.warning("Webhook yok.")
+        return
+    try:
+        bot.remove_webhook()
+        bot.set_webhook(url=WEBHOOK_URL)
+    except Exception as e:
+        log.error("Webhook kurulamadı: %s", e)
+
+if __name__=="__main__":
+    log.info("HoopBrain Ultra Main başlıyor. Port=%d",PORT)
     setup_webhook()
-    app.run(host="0.0.0.0", port=PORT, debug=False)
+    app.run(host="0.0.0.0",port=PORT,debug=False) 
