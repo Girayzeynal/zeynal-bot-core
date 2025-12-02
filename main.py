@@ -1,9 +1,7 @@
 import os
 import json
 import logging
-import time
-import re
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional
 
 import telebot
 from telebot import types
@@ -104,84 +102,32 @@ run_faz13_with_god_layer = (_faz13_god or {}).get("run_faz13_with_god_layer")
 _faz17 = _safe_import("faz17_engine.faz17_market_adjust", ["faz17_market_adjust"])
 faz17_market_adjust = (_faz17 or {}).get("faz17_market_adjust")
 
-# Ultra OCR Engine v3 opsiyonel import
+# Ultra OCR Engine v3 opsiyonel import (FAZ-13 visual için)
 _faz13_ocr = _safe_import("faz13_engine.ultra_ocr_v3", ["ultra_ocr_engine_v3"])
 _ext_ultra_ocr_engine_v3 = (_faz13_ocr or {}).get("ultra_ocr_engine_v3")
 
 # ================================================================
-# 🔧 GLOBAL VISUAL / META STATE (FAZ-22 + STACK)
+# 🔧 FAZ-23 NEWS + MULTI-DATA ENGINE IMPORT
 # ================================================================
-# Son OCR sonucu (tek shot)
-LAST_OCR_TEXT: str | None = None
-LAST_OCR_META: Dict[str, Any] = {}
+_faz23 = _safe_import(
+    "faz23_engine.faz23_meta_engine",
+    [
+        "faz23_prematch_predict",
+        "faz23_live_predict",
+        "faz23_news_enrich",
+    ],
+)
+faz23_prematch_predict = (_faz23 or {}).get("faz23_prematch_predict")
+faz23_live_predict = (_faz23 or {}).get("faz23_live_predict")
+faz23_news_enrich = (_faz23 or {}).get("faz23_news_enrich")
 
-# Visual Stack: birden fazla maç görseli → FAZ-22 META ENGINE için
-VISUAL_STACK: List[Dict[str, Any]] = []
-
-
-def add_visual_item(text: str, meta: Dict[str, Any]) -> None:
-    """
-    Her OCR sonrası çalışır: text + meta'yı stack'e yazar.
-    Fly.io 512 MB için hafif tutulur (sadece son ~128 kayıt).
-    """
-    global LAST_OCR_TEXT, LAST_OCR_META, VISUAL_STACK
-    text = (text or "").strip()
-    if not text:
-        return
-
-    item = {
-        "text": text,
-        "meta": meta or {},
-        "ts": int(time.time()),
-    }
-    VISUAL_STACK.append(item)
-    # Stack'i sınırlı tut (hafif bellek)
-    if len(VISUAL_STACK) > 128:
-        VISUAL_STACK = VISUAL_STACK[-128:]
-
-    LAST_OCR_TEXT = text
-    LAST_OCR_META = meta or {}
-
-
-def reset_visual_stack() -> None:
-    global VISUAL_STACK, LAST_OCR_TEXT, LAST_OCR_META
-    VISUAL_STACK = []
-    LAST_OCR_TEXT = None
-    LAST_OCR_META = {}
-
-
-def visual_stack_status_text() -> str:
-    n = len(VISUAL_STACK)
-    if n == 0:
-        return "📂 Visual stack boş. Henüz işlenmiş görsel yok."
-
-    last = VISUAL_STACK[-1]
-    meta = last.get("meta", {}) or {}
-    ts = last.get("ts")
-    engine = meta.get("engine", "-")
-    prob = meta.get("prob_score", 0.0)
-
-    lines: List[str] = []
-    lines.append("📂 <b>FAZ-13 Visual Stack Durumu</b>")
-    lines.append(f"Toplam item: <b>{n}</b>")
-    if ts:
-        dt_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(ts))
-        lines.append(f"Son güncelleme (UTC): <b>{dt_str}</b>")
-    lines.append(
-        "Son OCR: engine=<b>{engine}</b> | score=<b>{prob:.3f}</b>".format(
-            engine=engine,
-            prob=float(prob or 0.0),
-        )
-    )
-    if LAST_OCR_TEXT:
-        sample = LAST_OCR_TEXT.replace("\n", " ")
-        if len(sample) > 120:
-            sample = sample[:117] + "..."
-        lines.append("")
-        lines.append("<b>Son OCR metin örneği:</b>")
-        lines.append(sample)
-
-    return "\n".join(lines)
+# Multi-data sağlayıcı çekirdeği (örn. maçkolik/flashscore/NBA/Euroleague füzyonu)
+_faz_live_core = _safe_import(
+    "live_providers.core",
+    ["get_live_match_global", "HoopbrainLiveError"],
+)
+get_live_match_global = (_faz_live_core or {}).get("get_live_match_global")
+HoopbrainLiveError = (_faz_live_core or {}).get("HoopbrainLiveError")
 
 
 # ================================================================
@@ -320,304 +266,6 @@ def ultra_ocr_engine_v3(img_bytes: bytes) -> Dict[str, Any]:
 
 
 # ================================================================
-# 🎛️ FAZ-22 META ENGINE FULL STACK
-#   - /meta        → maç önü (pre-match) meta tahmin
-#   - /meta_live   → canlı, visual stack + skor analizli meta tahmin
-# ================================================================
-def _faz22_base_from_faz10(mem: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    FAZ-10 stabilite + FAZ-7 istatistikten baz meta core üretir.
-    """
-    stats = mem.get("stats", {})
-    total_matches = int(stats.get("total_matches", 0) or 0)
-    total_coupons = int(stats.get("total_coupons", 0) or 0)
-
-    faz10_state = faz10_hardsync(mem, {"bucket": "MID"})
-    regime = faz10_state.get("regime", "NORMAL")
-    score = float(faz10_state.get("stability_score", 1.0) or 1.0)
-    anomaly = float(faz10_state.get("anomaly_level", 0.0) or 0.0)
-
-    # Baz total barem: çok kaba bir lig ortalaması gibi davranıyor
-    base_total = 160.5
-
-    # Rejim ve skor ile ince ayar
-    if regime == "CRITICAL":
-        base_total -= 6.0
-    elif regime == "UNSTABLE":
-        base_total -= 3.0
-    elif regime == "BULL":
-        base_total += 4.0
-    elif regime == "HOT":
-        base_total += 2.0
-
-    # Stabilite skoruna göre mikro ayar
-    base_total += (score - 1.0) * 8.0  # 0.9 → -0.8, 1.1 → +0.8 gibi
-
-    # FAZ-17 market adjust bağlanmışsa kullan
-    market_edge = 0.0
-    if faz17_market_adjust:
-        try:
-            adj = faz17_market_adjust(
-                {
-                    "base_total": base_total,
-                    "total_matches": total_matches,
-                    "total_coupons": total_coupons,
-                    "regime": regime,
-                    "stability_score": score,
-                    "anomaly_level": anomaly,
-                }
-            ) or {}
-            base_total = float(adj.get("adj_total", base_total) or base_total)
-            market_edge = float(adj.get("edge", 0.0) or 0.0)
-        except Exception as e:
-            log.error("[FAZ-17] market_adjust hata: %s", e, exc_info=True)
-
-    return {
-        "base_total": base_total,
-        "regime": regime,
-        "stability_score": score,
-        "anomaly_level": anomaly,
-        "total_matches": total_matches,
-        "total_coupons": total_coupons,
-        "market_edge": market_edge,
-    }
-
-
-def faz22_meta_prematch_snapshot() -> Dict[str, Any]:
-    """
-    FAZ-22 PRE-MATCH snapshot.
-    /meta komutu bunu kullanır.
-    """
-    mem = faz7_load_memory()
-    core = _faz22_base_from_faz10(mem)
-
-    base_total = float(core["base_total"])
-    # Risk bandı: maç sayısı arttıkça daralıyor gibi düşün
-    total_matches = core["total_matches"]
-    if total_matches < 50:
-        spread = 16.0
-    elif total_matches < 200:
-        spread = 12.0
-    else:
-        spread = 10.0
-
-    center = base_total
-    low = center - spread / 2.0
-    high = center + spread / 2.0
-
-    return {
-        "mode": "PREMATCH",
-        "center": center,
-        "low": low,
-        "high": high,
-        "spread": spread,
-        "core": core,
-    }
-
-
-def _parse_live_score_from_text(text: str) -> Optional[Dict[str, Any]]:
-    """
-    Görsel OCR metninden 85-79 gibi skor yakalamaya çalışır.
-    Çok agresif değil, hafif heuristik.
-    """
-    if not text:
-        return None
-
-    # Örn: 85-79, 102 : 98, 57–54 vs.
-    m = re.search(r"(\d{2,3})\s*[-:–]\s*(\d{2,3})", text)
-    if not m:
-        return None
-
-    try:
-        home = int(m.group(1))
-        away = int(m.group(2))
-    except Exception:
-        return None
-
-    total = home + away
-    if total < 40:  # saçma skorları ele
-        return None
-
-    return {
-        "home": home,
-        "away": away,
-        "total": total,
-    }
-
-
-def faz22_meta_live_snapshot() -> Dict[str, Any]:
-    """
-    FAZ-22 LIVE snapshot.
-    /meta_live komutu bunu kullanır.
-
-    - VISUAL_STACK içindeki son OCR metninden skor yakalamaya çalışır.
-    - Skor + FAZ-10 core birleşip canlı tahmin aralığı üretir.
-    """
-    mem = faz7_load_memory()
-    core = _faz22_base_from_faz10(mem)
-
-    last_text = LAST_OCR_TEXT or ""
-    last_meta = LAST_OCR_META or {}
-    score_info = _parse_live_score_from_text(last_text)
-
-    center: float
-    spread: float
-    live_notes: List[str] = []
-
-    if score_info:
-        live_total = float(score_info["total"])
-        # Kabaca kalan skor tahmini: maç temposuna göre 30–55 arası ekle
-        # Fazla felsefeye girmeden hafif bir model:
-        if live_total < 80:
-            extra = 60.0
-        elif live_total < 120:
-            extra = 50.0
-        elif live_total < 150:
-            extra = 40.0
-        else:
-            extra = 30.0
-
-        center = live_total + extra
-
-        # Canlıda belirsizlik biraz daha dar ama hâlâ geniş
-        spread = 14.0
-        live_notes.append(
-            "Canlı skor tespit edildi: <b>{h}-{a}</b> (toplam={tot})".format(
-                h=score_info["home"],
-                a=score_info["away"],
-                tot=score_info["total"],
-            )
-        )
-    else:
-        # Skor yakalayamazsak prematch'e yakın davran
-        prematch = faz22_meta_prematch_snapshot()
-        center = float(prematch["center"])
-        spread = float(prematch["spread"])
-        live_notes.append("Canlı skor net yakalanamadı → PRE-MATCH çekirdeğine yakın davranıldı.")
-
-    # Rejim/anomali ile çok hafif canlı düzeltme
-    regime = core["regime"]
-    anomaly = float(core["anomaly_level"] or 0.0)
-
-    if regime in ("CRITICAL", "UNSTABLE"):
-        center -= 3.0
-        spread += 2.0
-        live_notes.append("Rejim: <b>{}</b> → risk yüksek, band genişletildi.".format(regime))
-    elif regime in ("BULL", "HOT"):
-        center += 2.0
-        spread -= 1.0
-        live_notes.append("Rejim: <b>{}</b> → tempo yukarı, band hafif daraltıldı.".format(regime))
-
-    if anomaly > 0.5:
-        spread += 1.0
-        live_notes.append("Anomali seviyesi yüksek (>{}) → belirsizlik arttırıldı.".format(0.5))
-
-    low = center - spread / 2.0
-    high = center + spread / 2.0
-
-    return {
-        "mode": "LIVE",
-        "center": center,
-        "low": low,
-        "high": high,
-        "spread": spread,
-        "core": core,
-        "score_info": score_info,
-        "last_ocr_meta": last_meta,
-        "notes": live_notes,
-    }
-
-
-def _format_faz22_core_block(core: Dict[str, Any]) -> str:
-    lines: List[str] = []
-    lines.append(
-        "Regime: <b>{}</b> | stability=<b>{:.3f}</b> | anomaly=<b>{:.3f}</b>".format(
-            core.get("regime", "NORMAL"),
-            float(core.get("stability_score", 1.0) or 1.0),
-            float(core.get("anomaly_level", 0.0) or 0.0),
-        )
-    )
-    lines.append(
-        "Toplam maç: <b>{}</b> | toplam kupon: <b>{}</b>".format(
-            int(core.get("total_matches", 0) or 0),
-            int(core.get("total_coupons", 0) or 0),
-        )
-    )
-    lines.append(
-        "Market edge (FAZ-17): <b>{:.3f}</b>".format(float(core.get("market_edge", 0.0) or 0.0))
-    )
-    return "\n".join(lines)
-
-
-def format_meta_prematch_text(snap: Dict[str, Any]) -> str:
-    low = float(snap["low"])
-    high = float(snap["high"])
-    center = float(snap["center"])
-    spread = float(snap["spread"])
-    core = snap["core"]
-
-    lines: List[str] = []
-    lines.append("🧠 <b>FAZ-22 META ENGINE FULL STACK</b>  — <i>PRE-MATCH</i>")
-    lines.append("")
-    lines.append(
-        "Önerilen toplam barem aralığı:\n"
-        "<b>{:.1f}  ↔  {:.1f}</b>  (merkez ≈ <b>{:.1f}</b>, spread ≈ <b>{:.1f}</b>)".format(
-            low, high, center, spread
-        )
-    )
-    lines.append("")
-    lines.append(_format_faz22_core_block(core))
-    lines.append("")
-    lines.append("Not: Bu çıkış FAZ-7.9 + FAZ-10 + FAZ-17 çekirdeği ile üretilen saf META tahmindir.")
-    return "\n".join(lines)
-
-
-def format_meta_live_text(snap: Dict[str, Any]) -> str:
-    low = float(snap["low"])
-    high = float(snap["high"])
-    center = float(snap["center"])
-    spread = float(snap["spread"])
-    core = snap["core"]
-    notes = snap.get("notes", []) or []
-    score_info = snap.get("score_info")
-
-    lines: List[str] = []
-    lines.append("🔥 <b>FAZ-22 META ENGINE FULL STACK</b>  — <i>LIVE</i>")
-    lines.append("")
-    lines.append(
-        "Canlı önerilen toplam barem aralığı:\n"
-        "<b>{:.1f}  ↔  {:.1f}</b>  (merkez ≈ <b>{:.1f}</b>, spread ≈ <b>{:.1f}</b>)".format(
-            low, high, center, spread
-        )
-    )
-    lines.append("")
-
-    if score_info:
-        lines.append(
-            "Skor: <b>{h}-{a}</b> (toplam=<b>{tot}</b>)".format(
-                h=score_info["home"],
-                a=score_info["away"],
-                tot=score_info["total"],
-            )
-        )
-        lines.append("")
-
-    if notes:
-        lines.append("<b>Canlı meta notları:</b>")
-        for n in notes:
-            lines.append("• " + n)
-        lines.append("")
-
-    lines.append(_format_faz22_core_block(core))
-    lines.append("")
-    lines.append(
-        "Not: Bu çıkış, FAZ-7.9 + FAZ-10 + FAZ-17 çekirdeğine ek olarak "
-        "visual stack / OCR içeriği ile canlıda şekillenmiş META tahmindir."
-    )
-    return "\n".join(lines)
-
-
-# ================================================================
 # 🤖 TELEGRAM BOT
 # ================================================================
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
@@ -648,7 +296,7 @@ def cmd_status(message: types.Message):
 
     lines: list[str] = []
     lines.append("✅ Bot çalışıyor.")
-    lines.append(f"Mod: Fly.io + Webhook + Flask")
+    lines.append("Mod: Fly.io + Webhook + Flask")
     lines.append(f"ENGINEERING_MODE: {'ON' if ENGINEERING_MODE else 'OFF'}")
     lines.append("")
     lines.append(f"FAZ-7.9 hafıza dosyası: {FAZ7_MEMORY_FILE}")
@@ -670,15 +318,17 @@ def cmd_status(message: types.Message):
     lines.append(f"FAZ-13 orchestrator: {'AKTİF' if _faz13_orch else 'YOK (FALLBACK)'}")
     lines.append(f"FAZ-13 GOD-LAYER: {'AKTİF' if _faz13_god else 'YOK (FALLBACK)'}")
     lines.append(f"FAZ-17 market: {'AKTİF' if faz17_market_adjust else 'YOK'}")
-    lines.append("FAZ-22 META: AKTİF (INLINE ENGINE)")
     lines.append("")
     lines.append(
         "Ultra OCR Engine v3: {state}".format(
             state="AKTİF (external)" if _ext_ultra_ocr_engine_v3 else "FALLBACK (GPU/OCR modülleri henüz bağlı değil)"
         )
     )
-    lines.append("")
-    lines.append("Visual stack size: {}".format(len(VISUAL_STACK)))
+    lines.append(
+        "FAZ-23 META ENGINE: {state}".format(
+            state="AKTİF (NEWS+MULTI-DATA)" if faz23_prematch_predict and get_live_match_global else "YOK / EKSİK MODÜL"
+        )
+    )
 
     text = "\n".join(lines)
     bot.reply_to(message, text)
@@ -738,19 +388,23 @@ def cmd_manual_match(message: types.Message):
 
 
 # ================================================================
-# 📸 /mac_img — VISUAL EXTREME MODE (FAZ-13 + OCR + FAZ-22 STACK FEED)
+# 📸 /mac_img — VISUAL EXTREME MODE (FAZ-13 + OCR)
 # ================================================================
 @bot.message_handler(commands=["mac_img"])
 def cmd_visual_request(message: types.Message):
     bot.reply_to(
         message,
         "📸 <b>FAZ-13 EXTREME MODE</b> aktif!\n"
-        "Maç görselini gönder → OCR + GOD-LAYER + FAZ-22 META stack pipeline çalışacak.",
+        "Maç görselini gönder → OCR + GOD-LAYER pipeline çalışacak.",
     )
 
 
 @bot.message_handler(content_types=["photo", "document"])
 def cmd_visual_upload(message: types.Message):
+    """
+    Not: Bu handler hem /mac_img sonrası, hem de direkt foto belgesinde devreye girer.
+    FAZ-13 GOD-LAYER + Ultra OCR v3 pipeline kullanır.
+    """
     try:
         if not normalize_visual_meta or not run_faz13_with_god_layer:
             raise RuntimeError("FAZ-13 GOD-LAYER modülleri bağlı değil")
@@ -780,9 +434,6 @@ def cmd_visual_upload(message: types.Message):
             )
             return
 
-        # FAZ-22 visual stack feed
-        add_visual_item(text, meta)
-
         fusion = normalize_visual_meta(text)
         result = run_faz13_with_god_layer("visual", fusion)
 
@@ -807,7 +458,7 @@ def cmd_visual_upload(message: types.Message):
 
 
 # ================================================================
-# 📡 /live13 — HYBRID INPUT (FAZ-13 GOD-LAYER)
+# 📡 /live13 — HYBRID INPUT (FAZ-13)
 # ================================================================
 @bot.message_handler(commands=["live13"])
 def cmd_live13(message: types.Message):
@@ -832,6 +483,173 @@ def cmd_live13(message: types.Message):
             message,
             "❌ /live13 komutunda hata.\n"
             "Örnek: <code>/live13 LAL BOS 220.5 U 1.90</code>",
+        )
+
+
+# ================================================================
+# 🧠 FAZ-23 NEWS + MULTI-DATA ENGINE HELPERS
+# ================================================================
+def faz23_build_context(match_code: str, mode: str = "prematch") -> Dict[str, Any]:
+    """
+    Multi-data + news füzyonunu tek yerde toplar.
+    - match_code: live_providers.core tarafında anlamlı olan ID / key
+    - mode: "prematch" veya "live"
+
+    1) get_live_match_global ile tüm sağlayıcıları fuse eder.
+    2) faz23_news_enrich varsa haber / sakatlık / yorum sinyallerini ekler.
+    """
+    if not get_live_match_global:
+        raise RuntimeError("live_providers.core.get_live_match_global modülü yok")
+
+    raw_ctx: Dict[str, Any] = {}
+    try:
+        # live_providers.core içinde maçkolik / flashscore / nba / euroleague vs füzyonu
+        raw_ctx = get_live_match_global(match_code, mode=mode) or {}
+    except Exception as e:
+        # Eğer modülde özel exception varsa, yakala ve yukarı taşı.
+        if HoopbrainLiveError and isinstance(e, HoopbrainLiveError):
+            raise
+        log.error("[FAZ-23] get_live_match_global hata: %s", e, exc_info=True)
+        raise
+
+    if not isinstance(raw_ctx, dict):
+        raw_ctx = {}
+
+    # Haber / sakatlık / yorum sinyalleri ile zenginleştir
+    if faz23_news_enrich:
+        try:
+            enriched = faz23_news_enrich(raw_ctx, mode=mode) or raw_ctx
+            if isinstance(enriched, dict):
+                raw_ctx = enriched
+        except Exception as e:
+            log.error("[FAZ-23] news_enrich hata: %s", e, exc_info=True)
+
+    # Minimal meta alanı ekle (FAZ-10/11/12 vs için)
+    raw_ctx.setdefault("mode", mode.upper())
+    raw_ctx.setdefault("engine", "FAZ-23")
+    return raw_ctx
+
+
+# ================================================================
+# 🧠 FAZ-23 KOMUTLARI
+# ================================================================
+@bot.message_handler(commands=["meta23"])
+def cmd_meta23(message: types.Message):
+    """
+    FAZ-23 PREMATCH tahmin motoru.
+    Kullanım:
+      /meta23 <match_code>
+
+    match_code: live_providers.core için anlamlı ID / lig+takım kodu
+    """
+    try:
+        if not faz23_prematch_predict or not get_live_match_global:
+            bot.reply_to(
+                message,
+                "❌ FAZ-23 META ENGINE henüz tam bağlı değil.\n"
+                "Eksik modül: faz23_engine.faz23_meta_engine veya live_providers.core",
+            )
+            return
+
+        raw = message.text or ""
+        parts = raw.split(maxsplit=1)
+        if len(parts) < 2 or not parts[1].strip():
+            bot.reply_to(
+                message,
+                "⚙ Kullanım:\n"
+                "<code>/meta23 LAL@BOS</code>\n"
+                "veya live_providers.core içinde tanımlı maç ID'si.",
+            )
+            return
+
+        match_code = parts[1].strip()
+
+        try:
+            ctx = faz23_build_context(match_code, mode="prematch")
+        except Exception as e:
+            if HoopbrainLiveError and isinstance(e, HoopbrainLiveError):
+                bot.reply_to(message, f"❌ FAZ-23 veri hatası: {str(e)}")
+                return
+            raise
+
+        # FAZ-10 HardSync'i bilgi amaçlı çalıştırabiliriz (lock uygulatmıyoruz)
+        faz10_state = faz10_hardsync(ctx, {"bucket": ctx.get("bucket", "MID")})
+        ctx["faz10_state"] = faz10_state
+
+        text = faz23_prematch_predict(ctx)
+        if not isinstance(text, str):
+            text = str(text)
+
+        # FAZ-7.9 istatistik
+        faz7_touch_stat("total_matches", 1)
+
+        _send_long_text(message, text)
+
+    except Exception as e:
+        log.error("[FAZ-23 META23 ERROR] %s", e, exc_info=True)
+        bot.reply_to(
+            message,
+            "❌ /meta23 çalışırken hata oluştu.\n"
+            "Kullanım: <code>/meta23 MATCH_CODE</code>",
+        )
+
+
+@bot.message_handler(commands=["meta23_live"])
+def cmd_meta23_live(message: types.Message):
+    """
+    FAZ-23 LIVE tahmin motoru.
+    Kullanım:
+      /meta23_live <match_code>
+    """
+    try:
+        if not faz23_live_predict or not get_live_match_global:
+            bot.reply_to(
+                message,
+                "❌ FAZ-23 LIVE ENGINE henüz tam bağlı değil.\n"
+                "Eksik modül: faz23_engine.faz23_meta_engine veya live_providers.core",
+            )
+            return
+
+        raw = message.text or ""
+        parts = raw.split(maxsplit=1)
+        if len(parts) < 2 or not parts[1].strip():
+            bot.reply_to(
+                message,
+                "⚙ Kullanım:\n"
+                "<code>/meta23_live LAL@BOS</code>\n"
+                "veya live_providers.core içinde tanımlı canlı maç ID'si.",
+            )
+            return
+
+        match_code = parts[1].strip()
+
+        try:
+            ctx = faz23_build_context(match_code, mode="live")
+        except Exception as e:
+            if HoopbrainLiveError and isinstance(e, HoopbrainLiveError):
+                bot.reply_to(message, f"❌ FAZ-23 LIVE veri hatası: {str(e)}")
+                return
+            raise
+
+        # FAZ-10 HardSync duruma bakış
+        faz10_state = faz10_hardsync(ctx, {"bucket": ctx.get("bucket", "MID")})
+        ctx["faz10_state"] = faz10_state
+
+        text = faz23_live_predict(ctx)
+        if not isinstance(text, str):
+            text = str(text)
+
+        # FAZ-7.9 istatistik
+        faz7_touch_stat("total_matches", 1)
+
+        _send_long_text(message, text)
+
+    except Exception as e:
+        log.error("[FAZ-23 META23_LIVE ERROR] %s", e, exc_info=True)
+        bot.reply_to(
+            message,
+            "❌ /meta23_live çalışırken hata oluştu.\n"
+            "Kullanım: <code>/meta23_live MATCH_CODE</code>",
         )
 
 
@@ -896,93 +714,6 @@ def cmd_livecoupon13(message: types.Message):
 
 
 # ================================================================
-# 🔍 FAZ-22 META KOMUTLARI
-#   /meta       → maç önü meta
-#   /meta_live  → canlı meta (visual stack + skor)
-# ================================================================
-@bot.message_handler(commands=["meta"])
-def cmd_meta(message: types.Message):
-    try:
-        snap = faz22_meta_prematch_snapshot()
-        text = format_meta_prematch_text(snap)
-        _send_long_text(message, text)
-    except Exception as e:
-        log.error("[FAZ-22 META ERROR] %s", e, exc_info=True)
-        bot.reply_to(message, "❌ /meta sırasında FAZ-22 hata verdi.")
-
-
-@bot.message_handler(commands=["meta_live"])
-def cmd_meta_live(message: types.Message):
-    try:
-        snap = faz22_meta_live_snapshot()
-        text = format_meta_live_text(snap)
-        _send_long_text(message, text)
-    except Exception as e:
-        log.error("[FAZ-22 META_LIVE ERROR] %s", e, exc_info=True)
-        bot.reply_to(message, "❌ /meta_live sırasında FAZ-22 hata verdi.")
-
-
-# ================================================================
-# 📂 VISUAL STACK KOMUTLARI
-#   /visual_stack_status
-#   /visual_stack
-#   /reset_visual
-# ================================================================
-@bot.message_handler(commands=["visual_stack_status"])
-def cmd_visual_stack_status(message: types.Message):
-    try:
-        text = visual_stack_status_text()
-        _send_long_text(message, text)
-    except Exception as e:
-        log.error("[VISUAL_STACK_STATUS ERROR] %s", e, exc_info=True)
-        bot.reply_to(message, "❌ /visual_stack_status sırasında hata.")
-
-
-@bot.message_handler(commands=["visual_stack"])
-def cmd_visual_stack(message: types.Message):
-    try:
-        if not VISUAL_STACK:
-            bot.reply_to(message, "📂 Visual stack boş.")
-            return
-
-        lines: List[str] = []
-        lines.append("📂 <b>FAZ-13 Visual Stack Son 10 Item</b>")
-        lines.append("Toplam: <b>{}</b>".format(len(VISUAL_STACK)))
-        lines.append("")
-
-        # sadece son 10 item
-        for idx, item in enumerate(VISUAL_STACK[-10:], start=max(len(VISUAL_STACK) - 10, 0) + 1):
-            meta = item.get("meta", {}) or {}
-            ts = item.get("ts")
-            engine = meta.get("engine", "-")
-            prob = float(meta.get("prob_score", 0.0) or 0.0)
-            line = "#{idx}: engine={eng}, score={prob:.3f}".format(
-                idx=idx,
-                eng=engine,
-                prob=prob,
-            )
-            if ts:
-                dt_str = time.strftime("%m-%d %H:%M", time.gmtime(ts))
-                line += f" | ts={dt_str} UTC"
-            lines.append(line)
-
-        _send_long_text(message, "\n".join(lines))
-    except Exception as e:
-        log.error("[VISUAL_STACK ERROR] %s", e, exc_info=True)
-        bot.reply_to(message, "❌ /visual_stack sırasında hata.")
-
-
-@bot.message_handler(commands=["reset_visual"])
-def cmd_reset_visual(message: types.Message):
-    try:
-        reset_visual_stack()
-        bot.reply_to(message, "🧹 Visual stack + son OCR hafızası sıfırlandı.")
-    except Exception as e:
-        log.error("[RESET_VISUAL ERROR] %s", e, exc_info=True)
-        bot.reply_to(message, "❌ /reset_visual sırasında hata.")
-
-
-# ================================================================
 # 🌐 FLASK ROUTES
 # ================================================================
 @app.route("/", methods=["GET"])
@@ -1021,6 +752,6 @@ def setup_webhook():
 # 🚀 ENTRYPOINT
 # ================================================================
 if __name__ == "__main__":
-    log.info("HoopBrain Ultra Main başlıyor. Port=%d", PORT)
+    log.info("HoopBrain Ultra Main (FAZ-7.9/10/11/12/13/17 + FAZ-23) başlıyor. Port=%d", PORT)
     setup_webhook()
-    app.run(host="0.0.0.0", port=PORT, debug=False)
+    app.run(host="0.0.0.0", port=PORT, debug=False) 
