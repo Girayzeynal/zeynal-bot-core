@@ -1,12 +1,11 @@
 import os
 import json
 import logging
-import threading
 from typing import Any, Dict, Optional
 
 import telebot
 from telebot import types
-from flask import Flask, request, jsonify
+from flask import Flask, request
 
 # ================================================================
 # 🔧 LOGGING
@@ -24,9 +23,6 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 ENGINEERING_MODE = os.getenv("ENGINEERING_MODE", "ON").upper() == "ON"
 
-# FAZ-22 konsept flag (FAZ-23 çekirdeği üzerinden çalışıyor)
-FAZ22_META_ENGINE_ON = True
-
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN environment variable is required")
 
@@ -38,10 +34,6 @@ os.makedirs(FAZ7_DIR, exist_ok=True)
 
 FAZ7_MEMORY_FILE = os.path.join(FAZ7_DIR, "faz7_memory.json")
 FAZ11_HISTORY_FILE = os.path.join(FAZ7_DIR, "faz11_history.json")
-
-# FAZ-13 visual stack kalıcı dosyası
-VISUAL_STACK_FILE = os.path.join(FAZ7_DIR, "faz13_visual_stack.json")
-VISUAL_STACK_LOCK = threading.Lock()
 
 # ================================================================
 # 🔧 SAFE IMPORT HELPERS
@@ -274,26 +266,6 @@ def ultra_ocr_engine_v3(img_bytes: bytes) -> Dict[str, Any]:
 
 
 # ================================================================
-# 🎞 VISUAL STACK HELPERLARI (FAZ-13 MULTI-SCREEN)
-# ================================================================
-def load_visual_stack() -> Dict[str, Any]:
-    data = _load_json(VISUAL_STACK_FILE, {})
-    if not isinstance(data, dict):
-        data = {}
-    if "items" not in data or not isinstance(data.get("items"), list):
-        data["items"] = []
-    return data
-
-
-def save_visual_stack(stack: Dict[str, Any]) -> None:
-    if not isinstance(stack, dict):
-        return
-    if "items" not in stack or not isinstance(stack.get("items"), list):
-        stack["items"] = []
-    _save_json(VISUAL_STACK_FILE, stack)
-
-
-# ================================================================
 # 🤖 TELEGRAM BOT
 # ================================================================
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
@@ -321,10 +293,6 @@ def cmd_status(message: types.Message):
 
     # FAZ-10 HardSync, sadece durum raporu (lock uygulatmıyoruz)
     faz10_state = faz10_hardsync(mem, {"bucket": "MID"})
-
-    # Visual stack durumu
-    stack = load_visual_stack()
-    stack_count = len(stack.get("items", []))
 
     lines: list[str] = []
     lines.append("✅ Bot çalışıyor.")
@@ -360,14 +328,6 @@ def cmd_status(message: types.Message):
         "FAZ-23 META ENGINE: {state}".format(
             state="AKTİF (NEWS+MULTI-DATA)" if faz23_prematch_predict and get_live_match_global else "YOK / EKSİK MODÜL"
         )
-    )
-    lines.append(
-        "FAZ-22 META ENGINE: {state}".format(
-            state="KONSEPT: FAZ-23 çekirdeği üstünde PREMATCH+LIVE meta-layer" if FAZ22_META_ENGINE_ON else "PASİF"
-        )
-    )
-    lines.append(
-        f"VISUAL STACK: {stack_count} item | endpointler: /add_visual_item /visual_stack_status /reset_visual"
     )
 
     text = "\n".join(lines)
@@ -571,7 +531,7 @@ def faz23_build_context(match_code: str, mode: str = "prematch") -> Dict[str, An
 
 
 # ================================================================
-# 🧠 FAZ-23 KOMUTLARI (FAZ-22 META LAYER İLE UYUMLU)
+# 🧠 FAZ-23 KOMUTLARI
 # ================================================================
 @bot.message_handler(commands=["meta23"])
 def cmd_meta23(message: types.Message):
@@ -754,7 +714,7 @@ def cmd_livecoupon13(message: types.Message):
 
 
 # ================================================================
-# 🌐 FLASK ROUTES — BASE
+# 🌐 FLASK ROUTES
 # ================================================================
 @app.route("/", methods=["GET"])
 def home():
@@ -771,74 +731,6 @@ def telegram_webhook():
         log.error("Webhook hatası: %s", e, exc_info=True)
         return "ERROR", 500
     return "OK", 200
-
-
-# ================================================================
-# 🌐 FLASK ROUTES — VISUAL STACK API
-#   /add_visual_item
-#   /visual_stack_status
-#   /reset_visual
-# ================================================================
-@app.route("/add_visual_item", methods=["POST"])
-def add_visual_item():
-    """
-    FAZ-13 multi-screen için basit visual stack API.
-    - Body: JSON (istediğin yapıda; tamamı payload olarak saklanır)
-    """
-    try:
-        payload = request.get_json(silent=True, force=True) or {}
-        item = {
-            "payload": payload,
-            "ip": request.remote_addr,
-            "ua": request.headers.get("User-Agent", ""),
-        }
-
-        with VISUAL_STACK_LOCK:
-            stack = load_visual_stack()
-            items = stack.get("items", [])
-            items.append(item)
-            # Stack'i çok şişirmemek için son 64 item'i tut
-            stack["items"] = items[-64:]
-            save_visual_stack(stack)
-            count = len(stack["items"])
-
-        return jsonify({"ok": True, "count": count}), 200
-    except Exception as e:
-        log.error("[VISUAL_STACK add_visual_item ERROR] %s", e, exc_info=True)
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/visual_stack_status", methods=["GET"])
-def visual_stack_status():
-    """
-    Visual stack içeriği hakkında hafif bir özet döner.
-    """
-    try:
-        stack = load_visual_stack()
-        items = stack.get("items", [])
-        summary = {
-            "count": len(items),
-        }
-        # İstersen ileride burada son item meta vs. de gösterebiliriz.
-        return jsonify({"ok": True, "summary": summary}), 200
-    except Exception as e:
-        log.error("[VISUAL_STACK status ERROR] %s", e, exc_info=True)
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/reset_visual", methods=["POST"])
-def reset_visual():
-    """
-    Visual stack'i tamamen sıfırlar.
-    """
-    try:
-        with VISUAL_STACK_LOCK:
-            stack = {"items": [], "meta": {"reset_by": "api"}}
-            save_visual_stack(stack)
-        return jsonify({"ok": True, "reset": True}), 200
-    except Exception as e:
-        log.error("[VISUAL_STACK reset ERROR] %s", e, exc_info=True)
-        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 # ================================================================
@@ -860,9 +752,6 @@ def setup_webhook():
 # 🚀 ENTRYPOINT
 # ================================================================
 if __name__ == "__main__":
-    log.info(
-        "HoopBrain Ultra Main (FAZ-7.9/10/11/12/13/17 + FAZ-22 META + FAZ-23 + VISUAL STACK) başlıyor. Port=%d",
-        PORT,
-    )
+    log.info("HoopBrain Ultra Main (FAZ-7.9/10/11/12/13/17 + FAZ-23) başlıyor. Port=%d", PORT)
     setup_webhook()
     app.run(host="0.0.0.0", port=PORT, debug=False)
