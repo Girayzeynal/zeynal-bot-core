@@ -10,7 +10,6 @@ from flask import Flask, request
 # ================================================================
 # 🔧 LOGGING
 # ================================================================
-from faz13_engine.faz13_orchestrator import run_faz13_auto_pipeline as faz13_runner 
 
 logging.basicConfig(
     level=logging.INFO,
