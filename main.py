@@ -654,6 +654,16 @@ def cmd_meta23_live(message: types.Message):
             "Kullanım: <code>/meta23_live MATCH_CODE</code>",
         )
 
+@bot.message_handler(commands=['mac'])
+def match_handler(msg):
+    result = run_faz13_auto_pipeline(
+        league="Euroleague",
+        date="2025-12-04",
+        home_team="Anadolu Efes",
+        away_team="Real Madrid"
+    )
+    bot.reply_to(msg, json.dumps(result, ensure_ascii=False, indent=2))
+
 
 # ================================================================
 # 🧾 FAZ-13 Kupon Komutları
