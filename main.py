@@ -10,6 +10,7 @@ from flask import Flask, request
 # ================================================================
 # 🔧 LOGGING
 # ================================================================
+from .faz13_orchestrator import run_faz13_auto_pipeline
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,7 +18,6 @@ logging.basicConfig(
 )
 log = logging.getLogger("hoopbrain-main")
 
-from .faz13_orchestrator import run_faz13_auto_pipeline
 
 # ================================================================
 # 🔧 CONFIG & GLOBALS
