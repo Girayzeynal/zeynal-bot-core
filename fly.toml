@@ -1,22 +1,32 @@
 app = "zeynal-bot-core"
 primary_region = "ams"
 
-[build]
-  dockerfile = "Dockerfile"
-
-[env]
-  PORT = "8080"
-
 [http_service]
-  internal_port = 8080
-  force_https = true
   auto_start_machines = true
-  auto_stop_machines = true
-  min_machines_running = 0
+  auto_stop_machines = false    # ❗ Makine kendi kendine kapanmasın
+  force_https = true
+  internal_port = 8080
+  min_machines_running = 1      # ❗ Free-tier için 1 yapıyoruz
   processes = ["app"]
 
+# --------------------------------
+# Machine Resources (512MB uyumlu)
+# --------------------------------
 [[vm]]
   cpu_kind = "shared"
   cpus = 1
   memory = "512mb"
-  memory_mb = 512
+
+# --------------------------------
+# Gunicorn'un idle sanılmasını ENGELLEMEK için
+# --------------------------------
+[processes]
+  app = "gunicorn -w 1 -b 0.0.0.0:8080 main:app --keep-alive 90 --timeout 120"
+
+# --------------------------------
+# Deneysel ayarlar (idle kapatma kilidi)
+# --------------------------------
+[experimental]
+  auto_rollback = true
+  auto_stop_machines = false     # ❗ Yine kapalı
+  auto_start_machines = true 
