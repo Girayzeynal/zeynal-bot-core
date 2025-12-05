@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("hoopbrain-main")
 
-from .faz13_orchestrator import run_faz13_auto_pipeline
+from faz13_engine.faz13_orchestrator import run_faz13_auto_pipeline 
 # ================================================================
 # 🔧 CONFIG & GLOBALS
 # ================================================================
