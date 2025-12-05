@@ -311,6 +311,45 @@ def _send_long_text(message: types.Message, text: str):
 
 
 # ================================================================
+# /test_faz13 — FAZ-13 Pipeline Test Komutu
+# ================================================================
+@bot.message_handler(commands=["test_faz13"])
+def cmd_test_faz13(message):
+    try:
+        # Örnek test maçı (dummy meta)
+        league = "NBA"
+        date = "2025-01-01"
+        home = "TEST_HOME"
+        away = "TEST_AWAY"
+
+        from faz13_engine.faz13_orchestrator import run_faz13_auto_pipeline
+
+        result = run_faz13_auto_pipeline(
+            league=league,
+            date=date,
+            home_team=home,
+            away_team=away,
+            full_output=False,    # hafif test modu
+            match_key=None        # FAZ-23 devrede değil
+        )
+
+        text = (
+            "🧪 *FAZ-13 Test Çalıştı*\n"
+            f"🏀 Maç: {result['match']}\n"
+            f"📌 Fusion Call: *{result['fusion_total_call']}*\n"
+            f"🧠 Score Vector: `{result['internal_score_vector']}`\n"
+            f"ℹ️ News Range: {result['news_summary']}\n"
+            f"🔍 Sebepler:\n" +
+            "\n".join(f"- {r}" for r in result["debug_reasons"])
+        )
+
+        bot.reply_to(message, text, parse_mode="Markdown")
+
+    except Exception as e:
+        bot.reply_to(message, f"❌ test_faz13 hata: {e}")
+
+
+# ================================================================
 # 📊 /status
 # ================================================================
 @bot.message_handler(commands=["status"])
