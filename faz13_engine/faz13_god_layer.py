@@ -1,177 +1,226 @@
-# faz13_engine/faz13_god_layer.py
-
-from __future__ import annotations
-
-from typing import Any, Dict, Optional
-
-
 # ================================================================
-# 🧮 YARDIMCI
+# FAZ-13 GOD-LAYER
+# Manual / Visual / Live fusion formatter
 # ================================================================
-def _safe_float(val: Any) -> Optional[float]:
-    if val is None:
-        return None
-    try:
-        return float(str(val).replace(",", "."))
-    except Exception:
-        return None
+
+import json
+import logging
+from typing import Any, Dict
+
+log = logging.getLogger(__name__)
 
 
-# İleride faz17 ile daha derin entegrasyon istersek burada deneyebiliriz.
-try:  # faz17_market_adjust'i bulabilirsek kullanırız, bulamazsak sorun olmaz.
-    from faz17_engine.faz17_market_adjust import faz17_market_adjust as _faz17_market_adjust
-except Exception:  # pragma: no cover - opsiyonel
-    try:
-        from faz17_engine.faz17_market import faz17_market_adjust as _faz17_market_adjust  # type: ignore
-    except Exception:
-        _faz17_market_adjust = None  # type: ignore
-
-
-# ================================================================
-# 👁‍🗨 GOD-LAYER CORE
-# ================================================================
-def run_faz13_with_god_layer(source_type: str, fusion_input: Dict[str, Any]) -> str:
+def _as_dict(obj: Any) -> Dict[str, Any]:
     """
-    GOD-LAYER:
-    - normalize_* çıktısını alır (fusion_input)
-    - conf / edge / bucket hesaplar
-    - market adjust varsa onu da katar
-    - Telegram'a gidecek metni üretir
+    Gelen fusion objesini güvenli şekilde dict'e çevir.
+    - dict ise direkt döner
+    - string ise json.parse dene
+    - olmazsa boş dict
     """
-    meta = dict(fusion_input or {})
-    meta.setdefault("league", "NBA")
-    meta.setdefault("market", "FT TOTAL")
-
-    league = str(meta.get("league", "NBA")).upper()
-    direction = meta.get("direction")
-    line = meta.get("line")
-    odds = meta.get("odds")
-
-    # ============================================================
-    # 1) Baz conf / edge
-    # ============================================================
-    conf = 0.60
-    edge = 0.03
-
-    if direction and line is not None:
-        conf += 0.03
-        edge += 0.005
-
-    if isinstance(odds, (int, float, str)):
-        o = _safe_float(odds) or 1.80
-        if o < 1.40:
-            conf += 0.02
-            edge -= 0.004
-        elif o < 1.60:
-            conf += 0.01
-            edge -= 0.002
-        elif o > 1.90:
-            conf -= 0.02
-            edge += 0.004
-
-    if league in ("EUROLEAGUE", "EL"):
-        edge += 0.002
-    elif league in ("BSL", "TBL"):
-        edge += 0.001
-
-    # ============================================================
-    # 2) Opsiyonel FAZ-17 MARKET ADJUST
-    #    Eğer fusion_input içinde model_prob_over/under varsa ve
-    #    faz17_market_adjust fonksiyonunu bulduysak kullanırız.
-    # ============================================================
-    model_prob_over = meta.get("model_prob_over")
-    model_prob_under = meta.get("model_prob_under")
-
-    if (
-        _faz17_market_adjust is not None
-        and isinstance(model_prob_over, (int, float))
-        and isinstance(model_prob_under, (int, float))
-        and isinstance(odds, (int, float))
-        and isinstance(line, (int, float))
-    ):
+    if isinstance(obj, dict):
+        return obj
+    if isinstance(obj, str):
         try:
-            # Over/Under olasılıklarını market ile harmanla
-            market_info = _faz17_market_adjust(
-                float(model_prob_over),
-                float(model_prob_under),
-                float(odds),   # over odds varsayımı
-                float(odds),   # under odds varsayımı (yoksa aynı)
-            )
-            edge_over = market_info.get("edge_over")
-            edge_under = market_info.get("edge_under")
-
-            # Seçim yönüne göre edge'i al
-            if isinstance(direction, str) and direction.upper().startswith("O"):
-                if isinstance(edge_over, (int, float)):
-                    edge = float(edge_over)
-            elif isinstance(direction, str) and direction.upper().startswith("U"):
-                if isinstance(edge_under, (int, float)):
-                    edge = float(edge_under)
-
-            # conf'u da hafifçe market edge'e göre ayarla
-            if isinstance(edge, (int, float)):
-                if edge > 0.05:
-                    conf += 0.03
-                elif edge < 0.02:
-                    conf -= 0.02
+            return json.loads(obj)
         except Exception:
-            # Market adjust opsiyonel; patlarsa görmezden gel.
-            pass
+            return {}
+    return {}
 
-    # ============================================================
-    # 3) Conf / Edge clamp + bucket
-    # ============================================================
-    conf = max(0.50, min(0.80, conf))
-    edge = max(0.01, min(0.06, edge))
 
-    score = 0.6 * (conf / 0.63) + 0.4 * (edge / 0.035)
-    if score < 0.95:
-        bucket = "LOW"
-    elif score < 1.10:
-        bucket = "MID"
-    else:
-        bucket = "HIGH"
+def _fmt_float(x: Any, ndigits: int = 2) -> str:
+    try:
+        return f"{float(x):.{ndigits}f}"
+    except Exception:
+        return "-"
 
-    profile = "SAFE" if bucket == "LOW" else ("BAL" if bucket == "MID" else "AGG")
 
-    # ============================================================
-    # 4) Label / format
-    # ============================================================
-    dir_label = "—"
-    if isinstance(direction, str):
-        d = direction.upper()
-        if d == "U":
-            dir_label = "ALT"
-        elif d == "O":
-            dir_label = "ÜST"
+def _safe_get_any(d: Dict[str, Any], keys: list[str], default: Any = None) -> Any:
+    """
+    Birden fazla key adayından ilk bulunanı döndür.
+    Örn: ["total", "barem", "total_line"]
+    """
+    for k in keys:
+        if k in d and d[k] not in (None, ""):
+            return d[k]
+    return default
 
-    if isinstance(line, (int, float)):
-        line_part = f"{float(line):.1f}"
-    else:
-        line_part = "—"
 
-    if isinstance(odds, (int, float)):
-        odds_part = f"{float(odds):.2f}"
-    else:
-        odds_part = "—"
+# ================================================================
+# ANA GATEWAY
+# ================================================================
+def run_faz13_with_god_layer(input_kind: str, fusion: Any) -> str:
+    """
+    FAZ-13 GOD-LAYER
+    =================
+    Bu fonksiyon main.py tarafından çağrılır.
 
-    header_map = {
-        "manual": "📝 <b>FAZ-13 MANUAL</b>",
-        "visual": "📸 <b>FAZ-13 VISUAL</b>",
-        "live": "📡 <b>FAZ-13 LIVE</b>",
-        "api": "🌐 <b>FAZ-13 API</b>",
-    }
-    header = header_map.get(source_type, "🤖 <b>FAZ-13</b>")
+    input_kind:
+      - "manual"
+      - "visual"
+      - "live"
+      - vs.
 
-    body = (
-        f"{header}\n\n"
-        f"Lig   : <b>{league}</b>\n"
-        f"Maç   : <b>{meta.get('home','HOME')} vs {meta.get('away','AWAY')}</b>\n"
-        f"Pazar : <b>{meta.get('market','FT TOTAL')}</b>\n"
-        f"Seçim : <b>{dir_label} {line_part}</b> @ <b>{odds_part}</b>\n\n"
-        f"Güven : <b>{conf:.3f}</b>\n"
-        f"Edge  : <b>{edge:.3f}</b>\n"
-        f"Risk  : <b>{profile}</b> | Bucket: <b>{bucket}</b>\n"
+    fusion:
+      - normalize_manual_text / normalize_visual_meta / vs.'nin ürettiği
+        dict benzeri yapı (veya string-json).
+
+    Bu GOD-LAYER:
+      - Çökmeyecek.
+      - Elindeki fusion alanlarını okuyup insan-dostu formatta çıktı üretir.
+      - Alanlar yoksa şikayet etmeyip sade bir özet yazar.
+    """
+
+    kind = (input_kind or "").upper()
+    data = _as_dict(fusion)
+
+    # ---------------------------------------------
+    # Temel alanları tahmin etmeye çalış
+    # ---------------------------------------------
+    match_str = _safe_get_any(
+        data,
+        ["match", "match_name", "teams", "pair", "fixture"],
+        default="Bilinmeyen Maç",
     )
 
-    return body
+    league = _safe_get_any(
+        data,
+        ["league", "lig", "competition"],
+        default="-",
+    )
+
+    date = _safe_get_any(
+        data,
+        ["date", "tarih", "match_date"],
+        default="-",
+    )
+
+    total_line = _safe_get_any(
+        data,
+        ["total", "barem", "total_line", "o_u_line"],
+        default=None,
+    )
+
+    pick_side = _safe_get_any(
+        data,
+        ["pick", "side", "direction", "secim", "oy"],
+        default=None,
+    )
+
+    odds = _safe_get_any(
+        data,
+        ["odds", "oran", "price"],
+        default=None,
+    )
+
+    # Skor aralığı / hedef aralık
+    low_bound = _safe_get_any(
+        data,
+        ["score_low", "range_low", "min_total", "target_min"],
+        default=None,
+    )
+    high_bound = _safe_get_any(
+        data,
+        ["score_high", "range_high", "max_total", "target_max"],
+        default=None,
+    )
+
+    # Confidence / risk / meta
+    confidence = _safe_get_any(
+        data,
+        ["confidence", "conf", "risk_score"],
+        default=None,
+    )
+
+    engine = _safe_get_any(
+        data,
+        ["engine", "model", "faz_engine"],
+        default="FAZ-13",
+    )
+
+    # Debug reasons / açıklamalar
+    reasons = _safe_get_any(
+        data,
+        ["reasons", "debug_reasons", "notes"],
+        default=[],
+    )
+    if isinstance(reasons, str):
+        reasons = [reasons]
+    if not isinstance(reasons, list):
+        reasons = []
+
+    # Eğer FAZ-23 / news / provider füzyonu buraya da taşınmışsa,
+    # bazı ekstra alanları da çekelim (sessizce, opsiyonel)
+    news_consensus = _safe_get_any(
+        data,
+        ["news_total_consensus", "news_consensus"],
+        default=None,
+    )
+    internal_score_vector = _safe_get_any(
+        data,
+        ["internal_score_vector", "score_vector"],
+        default=None,
+    )
+
+    # ---------------------------------------------
+    # ÇIKTIYI FORMATLA
+    # ---------------------------------------------
+    lines: list[str] = []
+
+    lines.append(f"🧠 FAZ-13 GOD-LAYER [{kind}]")
+    lines.append(f"⚙ Engine: {engine}")
+    lines.append("")
+
+    lines.append(f"🏀 Maç     : {match_str}")
+    lines.append(f"🏆 Lig     : {league}")
+    lines.append(f"📅 Tarih   : {date}")
+
+    if total_line is not None or pick_side is not None or odds is not None:
+        lines.append("")
+        lines.append("🎯 Market / Seçim")
+        if total_line is not None:
+            lines.append(f"   • Toplam barem : {total_line}")
+        if pick_side is not None:
+            lines.append(f"   • Seçim        : {pick_side}")
+        if odds is not None:
+            lines.append(f"   • Oran         : {_fmt_float(odds)}")
+
+    if low_bound is not None or high_bound is not None:
+        lines.append("")
+        lines.append("📊 Skor Aralığı Tahmini")
+        lb = _fmt_float(low_bound) if low_bound is not None else "?"
+        hb = _fmt_float(high_bound) if high_bound is not None else "?"
+        lines.append(f"   • Hedef bant   : {lb}  —  {hb}")
+
+    if confidence is not None:
+        lines.append("")
+        lines.append("🧪 Güven / Risk")
+        lines.append(f"   • Confidence   : {_fmt_float(confidence, 3)}")
+
+    if news_consensus is not None or internal_score_vector is not None:
+        lines.append("")
+        lines.append("🛰 İçsel Sinyaller")
+        if news_consensus is not None:
+            lines.append(f"   • News consensus : {news_consensus}")
+        if internal_score_vector is not None:
+            lines.append(f"   • Score vector   : {_fmt_float(internal_score_vector, 3)}")
+
+    if reasons:
+        lines.append("")
+        lines.append("🔍 Gerekçeler / Notlar")
+        for r in reasons:
+            lines.append(f"   • {str(r)}")
+
+    # Son olarak ham fusion'u debug bloğu olarak isteğe bağlı ekleyelim
+    # (Telegram'da çok uzamasın diye condensed json)
+    try:
+        compact = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    except Exception:
+        compact = str(data)
+
+    lines.append("")
+    lines.append("🧾 RAW FUSION SNAPSHOT")
+    if len(compact) > 1500:
+        compact = compact[:1500] + "... (kısaltıldı)"
+    lines.append(compact)
+
+    return "\n".join(lines) 
