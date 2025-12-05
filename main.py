@@ -43,19 +43,21 @@ VISUAL_STACK_MAX = 32
 # ================================================================
 # 🧩 SAFE IMPORT HELPERS
 # ================================================================
-def _safe_import(module_path: str, attrs: Optional[List[str]] = None):
+def _safe_import(module_path: str, attrs: Optional[list[str]] = None):
     """
-    Modülü güvenli import eder.
-    attrs verilirse {attr_name: obj or None} dict döner,
-    verilmezse direkt module veya None döner.
+    SAFE IMPORT (STABLE MODE)
+    - Modül yoksa veya attr yoksa sistem ASLA çökmez.
+    - Sadece DEBUG log yazar (Fly.io varsayılanında görünmez).
     """
     try:
         module = __import__(module_path, fromlist=attrs or [])
     except Exception as e:
-        log.warning("Modül import edilemedi: %s (%s)", module_path, e)
-        if attrs:
-            return {name: None for name in attrs}
-        return None
+        # Önceden WARNING atıyorduk → logları kirletiyordu.
+        # Artık sadece debug seviyesinde, sessiz çalışıyor.
+        log.debug("Modül import edilemedi (SAFE): %s (%s)", module_path, e)
+        if not attrs:
+            return None
+        return {name: None for name in attrs}
 
     if not attrs:
         return module
@@ -65,10 +67,11 @@ def _safe_import(module_path: str, attrs: Optional[List[str]] = None):
         try:
             out[name] = getattr(module, name)
         except AttributeError:
-            log.warning("Attr yok: %s.%s", module_path, name)
+            # Yine WARNING yerine DEBUG → log tertemiz kalsın.
+            log.debug("Attr yok (SAFE): %s.%s", module_path, name)
             out[name] = None
     return out
-
+    
 
 # ================================================================
 # 📦 IMPORT FAZ MODULES
