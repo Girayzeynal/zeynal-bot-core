@@ -1,6 +1,5 @@
 # ============================================================
-# 🧠 Zeynal-Bot-Core — Fly.io Free Plan SAFE MODE fly.toml
-# 512 MB RAM, auto-start, controlled auto-stop
+# Zeynal-Bot-Core — Fly.io Free Plan SAFE MODE
 # ============================================================
 
 app = "zeynal-bot-core"
@@ -17,12 +16,12 @@ PYTHONUNBUFFERED = "1"
 WEB_CONCURRENCY = "1"
 
 # ============================================================
-# 🛰️ HTTP Services
+# HTTP Services (Free Plan Auto-start / Auto-stop)
 # ============================================================
+
 [[services]]
 internal_port = 8080
 protocol = "tcp"
-
 auto_start = true
 auto_stop = true
 auto_stop_machines = true
@@ -48,11 +47,13 @@ timeout = "2s"
 restart_limit = 0
 
 # ============================================================
-# 🧪 Checks (FREE SAFE MODE için minimal)
+# Health Check (DÜZELTİLDİ → PORT EKLENDİ)
 # ============================================================
+
 [checks.health]
 type = "http"
+port = 8080
 interval = "15s"
 timeout = "2s"
 path = "/"
-grace_period = "10s"
+grace_period = "10s" 
