@@ -132,7 +132,7 @@ faz22_meta_engine = (_faz22 or {}).get("faz22_meta_engine")
 
 # Ultra OCR Engine v3 opsiyonel import (FAZ-13 visual için)
 _faz13_ocr = _safe_import("faz13_engine.ultra_ocr_v3", ["ultra_ocr_engine_v3"])
-_ext_ultra_ocr_engine_v3 = (_faz13_ocr or {}).get("ultra_ocr_engine_v3")
+_ext_ultra_ocr_engine_v3 = (_faz13_ocr or {"ultra_ocr_engine_v3": None}).get("ultra_ocr_engine_v3")
 
 # ================================================================
 # 🌐 FAZ-23 NEWS + MULTI-DATA ENGINE IMPORT
