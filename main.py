@@ -242,7 +242,7 @@ def faz10_hardsync(brain: Dict[str, Any], calib: Optional[Dict[str, Any]] = None
         }
 
     try:
-        stability = faz10_stability_check(brain) or {}
+        stability = faz10_stability_check("FAZ-13", {}) or {} 
     except Exception as e:
         log.error("[FAZ-10] Stability check hata: %s", e, exc_info=True)
         stability = {}
