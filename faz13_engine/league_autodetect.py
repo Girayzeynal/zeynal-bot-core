@@ -4,7 +4,7 @@
 # Takım adından lig tahmini yapan basit katman.
 # Haritayı zamanla genişleteceğiz.
 
-from typing import Optional, List
+from typing import Optional, List, Tuple
 import unicodedata
 
 
@@ -43,7 +43,7 @@ def guess_league(
     home_team: str,
     away_team: str,
     hint_league: Optional[str] = None,
-) -> (str, List[str]):
+) -> Tuple[str, List[str]]:
     """
     Lig tahmini yapar.
 
@@ -52,11 +52,14 @@ def guess_league(
     - Sadece bir taraf bulunursa → onu seçer.
     - Hiç bulunamazsa → "GLOBAL" döner.
     """
-
     notes: List[str] = []
 
     # Kullanıcı lig yazmışsa ve bu 'AUTO' / '?' değilse: dokunma.
-    if hint_league and hint_league.strip() and hint_league.strip().upper() not in {"AUTO", "?", "GLOBAL"}:
+    if (
+        hint_league
+        and hint_league.strip()
+        and hint_league.strip().upper() not in {"AUTO", "?", "GLOBAL"}
+    ):
         notes.append(f"Lig kullanıcı tarafından verildi: {hint_league}")
         return hint_league.strip(), notes
 
@@ -66,17 +69,21 @@ def guess_league(
     lg_home = TEAM_LEAGUE_MAP.get(h)
     lg_away = TEAM_LEAGUE_MAP.get(a)
 
+    # Her iki takım da aynı ligde bulunuyorsa
     if lg_home and lg_away and lg_home == lg_away:
         notes.append(f"Her iki takım da {lg_home} haritasında bulundu.")
         return lg_home, notes
 
+    # Sadece ev sahibi bulunduysa
     if lg_home:
         notes.append(f"Ev sahibi takım {lg_home} haritasında bulundu.")
         return lg_home, notes
 
+    # Sadece deplasman bulunduysa
     if lg_away:
         notes.append(f"Deplasman takım {lg_away} haritasında bulundu.")
         return lg_away, notes
 
+    # Hiç eşleşme yoksa
     notes.append("Lig haritada bulunamadı → GLOBAL etiketi ile devam.")
     return "GLOBAL", notes
