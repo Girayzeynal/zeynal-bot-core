@@ -43,7 +43,7 @@ VISUAL_STACK_MAX = 32
 # ================================================================
 # 🧩 SAFE IMPORT HELPERS
 # ================================================================
-def _safe_import(module_path: str, attrs: Optional[list[str]] = None):
+def _safe_import(module_path: str, attrs: Optional[List[str]] = None):
     """
     SAFE IMPORT (STABLE MODE)
     - Modül yoksa veya attr yoksa sistem ASLA çökmez.
@@ -52,8 +52,6 @@ def _safe_import(module_path: str, attrs: Optional[list[str]] = None):
     try:
         module = __import__(module_path, fromlist=attrs or [])
     except Exception as e:
-        # Önceden WARNING atıyorduk → logları kirletiyordu.
-        # Artık sadece debug seviyesinde, sessiz çalışıyor.
         log.debug("Modül import edilemedi (SAFE): %s (%s)", module_path, e)
         if not attrs:
             return None
@@ -67,11 +65,10 @@ def _safe_import(module_path: str, attrs: Optional[list[str]] = None):
         try:
             out[name] = getattr(module, name)
         except AttributeError:
-            # Yine WARNING yerine DEBUG → log tertemiz kalsın.
             log.debug("Attr yok (SAFE): %s.%s", module_path, name)
             out[name] = None
     return out
-    
+
 
 # ================================================================
 # 📦 IMPORT FAZ MODULES
@@ -119,8 +116,8 @@ faz13_upcoming_coupon = (_faz13_orch or {}).get("faz13_upcoming_coupon")
 faz13_league_coupon = (_faz13_orch or {}).get("faz13_league_coupon")
 faz13_live_coupon = (_faz13_orch or {}).get("faz13_live_coupon")
 
-# FAZ-GLOBAL LEAGUE AUTO-DETECT
-from faz13_engine.league_autodetect import guess_league
+# FAZ-GLOBAL LEAGUE AUTO-DETECT (şimdilik sadece import, kullanım opsiyonel)
+from faz13_engine.league_autodetect import guess_league  # noqa: F401
 
 _faz13_god = _safe_import("faz13_engine.faz13_god_layer", ["run_faz13_with_god_layer"])
 run_faz13_with_god_layer = (_faz13_god or {}).get("run_faz13_with_god_layer")
@@ -229,7 +226,15 @@ def faz7_touch_stat(key: str, delta: int = 1) -> None:
 # ================================================================
 # 🧱 FAZ-10 HardSync WRAPPER
 # ================================================================
-def faz10_hardsync(brain: Dict[str, Any], calib: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def faz10_hardsync(
+    brain: Dict[str, Any],
+    calib: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    FAZ-10 stabilite katmanı:
+    - faz10_stability_check yoksa fallback döner.
+    - Varsa "FAZ-13" kaynağı için meta ile birlikte çalışır.
+    """
     if faz10_stability_check is None:
         return {
             "regime": "NORMAL",
@@ -242,7 +247,8 @@ def faz10_hardsync(brain: Dict[str, Any], calib: Optional[Dict[str, Any]] = None
         }
 
     try:
-         stability = faz10_stability_check("FAZ-13", {}) or {}
+        # ⚠️ ÖNEMLİ: faz10_stability_check(source_type, meta) imzasına uyumlu
+        stability = faz10_stability_check("FAZ-13", {}) or {}
     except Exception as e:
         log.error("[FAZ-10] Stability check hata: %s", e, exc_info=True)
         stability = {}
@@ -250,7 +256,9 @@ def faz10_hardsync(brain: Dict[str, Any], calib: Optional[Dict[str, Any]] = None
     regime = str(stability.get("regime", "NORMAL")).upper()
     score = float(stability.get("stability_score", 1.0) or 1.0)
     anomaly = float(stability.get("anomaly_level", 0.0) or 0.0)
-    suggested_mode = str(stability.get("suggested_mode", brain.get("mode", "INIT"))).upper()
+    suggested_mode = str(
+        stability.get("suggested_mode", brain.get("mode", "INIT"))
+    ).upper()
     bucket = (calib or {}).get("bucket", "MID")
     lock = False
     lock_reason = "NO_LOCK"
@@ -353,26 +361,26 @@ def cmd_test_faz13(message):
 
 
 # ================================================================
-# 🏀 /mac — Maç Tahmini (FAZ-13 gerçek pipeline)
+# 🏀 /mac — Maç Tahmini (FAZ-13 NEWS PIPELINE)
 # ================================================================
 @bot.message_handler(commands=["mac"])
 def cmd_mac(message: types.Message):
     try:
         txt = message.text.replace("/mac", "").strip()
         if "|" not in txt:
-            bot.reply_to(message,
+            bot.reply_to(
+                message,
                 "❌ Format hatalı.\n\n"
                 "Doğru format:\n"
                 "/mac Euroleague | 2025-12-05 | Crvena Zvezda - Barcelona"
             )
             return
 
-        # ----------------------------
-        #  Kullanıcı formatını çöz
-        # ----------------------------
+        # Kullanıcı formatını çöz
         parts = [p.strip() for p in txt.split("|")]
         if len(parts) != 3:
-            bot.reply_to(message,
+            bot.reply_to(
+                message,
                 "❌ Format hatalı. 3 bölüm olmalı:\n"
                 "Lig | Tarih | Ev - Deplasman"
             )
@@ -465,12 +473,15 @@ def cmd_status(message: types.Message):
     lines.append("")
     lines.append(
         "Ultra OCR Engine v3: {state}".format(
-            state="AKTİF (external)" if _ext_ultra_ocr_engine_v3 else "FALLBACK (GPU/OCR modülleri henüz bağlı değil)"
+            state="AKTİF (external)" if _ext_ultra_ocr_engine_v3
+            else "FALLBACK (GPU/OCR modülleri henüz bağlı değil)"
         )
     )
     lines.append(
         "FAZ-23 META ENGINE: {state}".format(
-            state="AKTİF (NEWS+MULTI-DATA)" if faz23_prematch_predict and get_live_match_global else "YOK / EKSİK MODÜL"
+            state="AKTİF (NEWS+MULTI-DATA)"
+            if faz23_prematch_predict and get_live_match_global
+            else "YOK / EKSİK MODÜL"
         )
     )
     text = "\n".join(lines)
@@ -492,9 +503,9 @@ def proxytest(message: types.Message):
 
 
 # ================================================================
-# 🏀 /mac — MANUAL INPUT (FAZ-13 + GOD-LAYER)
+# 🏀 /mac13 — MANUAL INPUT (FAZ-13 + GOD-LAYER)
 # ================================================================
-@bot.message_handler(commands=["mac"])
+@bot.message_handler(commands=["mac13"])
 def cmd_manual_match(message: types.Message):
     try:
         if not normalize_manual_text or not run_faz13_with_god_layer:
@@ -526,7 +537,7 @@ def cmd_manual_match(message: types.Message):
         bot.reply_to(
             message,
             "❌ FAZ-13 manual input işlenemedi.\n"
-            "Örnek: `/mac BOS ORL 220.5 U 1.46`",
+            "Örnek: `/mac13 BOS ORL 220.5 U 1.46`",
         )
 
 
@@ -875,7 +886,8 @@ def cmd_meta22(message: types.Message):
     if not faz22_meta_engine:
         bot.reply_to(
             message,
-            "❌ FAZ-22 META ENGINE bağlı değil (faz22_engine.faz22_meta.faz22_meta_engine bulunamadı).",
+            "❌ FAZ-22 META ENGINE bağlı değil "
+            "(faz22_engine.faz22_meta.faz22_meta_engine bulunamadı).",
         )
         return
 
@@ -935,7 +947,10 @@ def telegram_webhook():
         except Exception as e:
             log.error("Webhook update parse hatası: %s", e, exc_info=True)
     else:
-        log.warning("Bilinmeyen content-type: %s", request.headers.get("content-type"))
+        log.warning(
+            "Bilinmeyen content-type: %s",
+            request.headers.get("content-type"),
+        )
 
     return "OK", 200
 
@@ -967,9 +982,12 @@ def _maybe_set_webhook():
 if __name__ == "__main__":
     # Local test için: Webhook yoksa polling aç
     if not WEBHOOK_URL:
-        log.info("Local / polling modu. WEBHOOK_URL yok, bot.infinity_polling başlıyor...")
+        log.info(
+            "Local / polling modu. WEBHOOK_URL yok, "
+            "bot.infinity_polling başlıyor..."
+        )
         bot.infinity_polling(skip_pending=True, timeout=30, long_polling_timeout=30)
     else:
         _maybe_set_webhook()
         log.info("Flask dev server başlıyor (webhook modu).")
-        app.run(host="0.0.0.0", port=PORT) 
+        app.run(host="0.0.0.0", port=PORT)
