@@ -1,383 +1,453 @@
+# faz23_engine/faz23_meta_engine.py
+# ================================================================
+# 🧠 FAZ-23 META ENGINE v1.0 (Fly.io 512MB friendly)
+# ------------------------------------------------
+# - Multi-data + news füzyon motoru
+# - Prematch ve Live tahmin çıktıları
+# - Hafif cache sistemi (/data/faz23/)
+# - Hata durumunda ASLA çökmez, daima string döner
+# ================================================================
+
+from __future__ import annotations
+
 import os
 import json
+import time
 import logging
 from typing import Any, Dict, List
 
-log = logging.getLogger("faz23_meta")
+log = logging.getLogger("faz23-meta")
 
 # ================================================================
-#  FAZ-23 META ENGINE
-#  - Prematch & live tahmin motoru
-#  - Girdi: faz23_build_context() tarafından hazırlanmış ctx dict'i
-#  - Çıktı: Telegram'a direkt basılabilecek açıklama string'i
+# 📁 DİZİN ve CACHE AYARLARI
 # ================================================================
-
-FAZ23_DIR = os.getenv("FAZ23_DIR", "/data/faz23")
+DATA_DIR = os.getenv("DATA_DIR", "/data")
+FAZ23_DIR = os.path.join(DATA_DIR, "faz23")
 os.makedirs(FAZ23_DIR, exist_ok=True)
 
-FAZ23_HISTORY_FILE = os.path.join(FAZ23_DIR, "faz23_history.jsonl")
+NEWS_CACHE_PATH = os.path.join(FAZ23_DIR, "faz23_news_cache.jsonl")
 
 
-def _safe_float(v: Any, default: float = 0.0) -> float:
+def _safe_load_jsonl(path: str, limit: int = 256) -> List[Dict[str, Any]]:
     try:
-        if v is None:
+        items: List[Dict[str, Any]] = []
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                    if isinstance(obj, dict):
+                        items.append(obj)
+                except Exception:
+                    continue
+                if len(items) >= limit:
+                    break
+        return items
+    except FileNotFoundError:
+        return []
+    except Exception as e:
+        log.warning("[FAZ-23] JSONL okunamadı: %s", e, exc_info=False)
+        return []
+
+
+def _safe_append_jsonl(path: str, obj: Dict[str, Any]) -> None:
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+    except FileNotFoundError:
+        # klasör yoksa oluşturup tekrar dene
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+        except Exception as e:
+            log.warning("[FAZ-23] News cache yazılamadı: %s", e, exc_info=False)
+    except Exception as e:
+        log.warning("[FAZ-23] News cache yazılamadı: %s", e, exc_info=False)
+
+
+# ================================================================
+# 🔬 KÜÇÜK YARDIMCI FONKSİYONLAR
+# ================================================================
+def _get_team_names(ctx: Dict[str, Any]) -> Dict[str, str]:
+    """Context içinden ev / deplasman takımlarını güvenli çek."""
+    home = (
+        ctx.get("home_name")
+        or ctx.get("home", {}).get("name")
+        or ctx.get("home_team")
+        or "-"
+    )
+    away = (
+        ctx.get("away_name")
+        or ctx.get("away", {}).get("name")
+        or ctx.get("away_team")
+        or "-"
+    )
+    league = (
+        ctx.get("league_name")
+        or ctx.get("league")
+        or ctx.get("competition")
+        or "-"
+    )
+    return {
+        "home": str(home),
+        "away": str(away),
+        "league": str(league),
+    }
+
+
+def _safe_float(val: Any, default: float = 0.0) -> float:
+    try:
+        if val is None:
             return default
-        return float(str(v).replace(",", "."))
+        return float(str(val).replace(",", "."))
     except Exception:
         return default
 
 
-def _append_history(record: Dict[str, Any]) -> None:
-    """Basit JSONL log. Hata verirse sessizce devam et."""
+def _extract_prematch_totals(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Çeşitli provider formatlarından O/U baremini tahmin etmeye çalışır.
+    Bulamazsa boş döner, ama çöktürmez.
+    """
+    odds = ctx.get("odds") or {}
+    markets = odds.get("markets") or odds.get("prematch") or {}
+
+    total = None
+    over_price = None
+    under_price = None
+
+    # En yaygın pattern: markets["TOTAL_POINTS"]["line"], ["over"], ["under"]
     try:
-        with open(FAZ23_HISTORY_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        m_total = markets.get("TOTAL_POINTS") or markets.get("TOTAL") or {}
+        total = m_total.get("line") or m_total.get("total")
+        o = m_total.get("over") or {}
+        u = m_total.get("under") or {}
+        over_price = o.get("price") or o.get("odd")
+        under_price = u.get("price") or u.get("odd")
+    except Exception:
+        pass
+
+    # Alternatif basit formatlar
+    if total is None:
+        for key in ("total", "totals", "ou_line", "main_total"):
+            if key in odds:
+                total = odds[key]
+                break
+
+    return {
+        "total_line": _safe_float(total, 0.0) if total is not None else 0.0,
+        "over_price": _safe_float(over_price, 0.0) if over_price is not None else 0.0,
+        "under_price": _safe_float(under_price, 0.0)
+        if under_price is not None
+        else 0.0,
+    }
+
+
+def _extract_live_state(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Canlı maç context'inden periyot, süre, skor gibi temel sinyalleri çeker.
+    Anahtar isimleri bilinmiyorsa, mümkün olduğunca tahmin etmeye çalışır.
+    """
+    score = ctx.get("score") or {}
+    home_score = _safe_float(score.get("home") or score.get("home_score"), 0.0)
+    away_score = _safe_float(score.get("away") or score.get("away_score"), 0.0)
+    total = home_score + away_score
+
+    period = (
+        ctx.get("period")
+        or ctx.get("quarter")
+        or score.get("period")
+        or score.get("quarter")
+        or "?"
+    )
+    clock = (
+        ctx.get("clock")
+        or ctx.get("time_remaining")
+        or score.get("clock")
+        or score.get("time")
+        or "?"
+    )
+    status = ctx.get("status") or ctx.get("match_status") or "UNKNOWN"
+
+    return {
+        "home_score": home_score,
+        "away_score": away_score,
+        "total": total,
+        "period": str(period),
+        "clock": str(clock),
+        "status": str(status),
+    }
+
+
+def _compute_simple_score_vector(
+    mode: str, ctx: Dict[str, Any], live: Dict[str, Any], totals: Dict[str, Any]
+) -> float:
+    """
+    Çok ağır modele gerek yok; 0.0 - 1.0 arası basit bir skor vektörü üretelim.
+    - prematch: form, barem, haber sinyali (var/yok)
+    - live: tempo (skor/süre), fark, favori taraf ne yapıyor vs.
+    """
+    mode = (mode or "").lower()
+    base = 0.5  # nötr
+
+    # Haber sinyali (haber varsa hafif oynama)
+    has_news = bool(ctx.get("news") or ctx.get("news_items") or ctx.get("injuries"))
+    if has_news:
+        base += 0.05
+
+    # Prematch tarafı
+    if mode == "prematch":
+        t_line = totals.get("total_line", 0.0)
+        if t_line > 0:
+            if t_line >= 165 and t_line <= 185:
+                base += 0.05
+            elif t_line > 200:
+                base += 0.02
+            else:
+                base -= 0.02
+
+    # Live tarafı
+    if mode == "live":
+        total = live.get("total", 0.0)
+        period_str = str(live.get("period", "1"))
+        try:
+            period = int("".join(ch for ch in period_str if ch.isdigit()) or "1")
+        except Exception:
+            period = 1
+
+        # Basit tempo: periyot başına skor
+        tempo = total / max(period, 1)
+        if tempo >= 50:
+            base += 0.10
+        elif tempo >= 40:
+            base += 0.05
+        elif tempo <= 30:
+            base -= 0.05
+
+    # Güvenli clamp
+    if base < 0.0:
+        base = 0.0
+    if base > 1.0:
+        base = 1.0
+    return round(base, 3)
+
+
+def _build_news_summary(ctx: Dict[str, Any], mode: str) -> str:
+    """
+    Context içinde gelen 'news' / 'injuries' / 'notes' alanlarını tek satıra indirger.
+    Çok uzun ise keser. Hiçbir şey yoksa {} yerine kısa not döner.
+    """
+    items: List[str] = []
+
+    raw_news = ctx.get("news") or ctx.get("news_items") or []
+    if isinstance(raw_news, list):
+        for n in raw_news:
+            if isinstance(n, str):
+                items.append(n.strip())
+            elif isinstance(n, dict):
+                t = n.get("title") or n.get("headline") or ""
+                if t:
+                    items.append(str(t).strip())
+    elif isinstance(raw_news, str):
+        items.append(raw_news.strip())
+
+    injuries = ctx.get("injuries") or []
+    if isinstance(injuries, list):
+        for inj in injuries:
+            if isinstance(inj, str):
+                items.append("Injury: " + inj.strip())
+            elif isinstance(inj, dict):
+                p = inj.get("player") or inj.get("name") or "?"
+                s = inj.get("status") or inj.get("type") or "?"
+                items.append(f"Injury: {p} ({s})")
+
+    notes = ctx.get("notes") or ctx.get("comment") or ctx.get("comments")
+    if isinstance(notes, str):
+        items.append(notes.strip())
+
+    if not items:
+        return "{}"  # main.py ile uyumlu görünüm
+
+    flat = " | ".join(items)
+    if len(flat) > 260:
+        flat = flat[:257] + "..."
+    prefix = "PREMATCH" if mode.lower() == "prematch" else "LIVE"
+    return f"[{prefix}] {flat}"
+
+
+# ================================================================
+# 📰 NEWS ENRICH HELPER (main.py faz23_build_context bunu çağırıyor)
+# ================================================================
+def faz23_news_enrich(raw_ctx: Dict[str, Any], mode: str = "prematch") -> Dict[str, Any]:
+    """
+    - INPUT: live_providers.core.get_live_match_global çıktısı (dict)
+    - Çıkış: aynı dict + 'news_summary' gibi ek alanlar.
+    - Ağır scraping yapmaz, sadece gelen veriyi toparlar + hafif cache tutar.
+    """
+    if raw_ctx is None or not isinstance(raw_ctx, dict):
+        return {}
+
+    ctx = dict(raw_ctx)  # kopya üzerinde çalışalım
+
+    # Basit news summary üret
+    news_summary = _build_news_summary(ctx, mode)
+    ctx["news_summary"] = news_summary
+
+    # Hafif cache kaydı (yalnızca başlık + temel meta)
+    try:
+        cache_item = {
+            "ts": int(time.time()),
+            "mode": mode,
+            "league": _get_team_names(ctx)["league"],
+            "home": _get_team_names(ctx)["home"],
+            "away": _get_team_names(ctx)["away"],
+            "news_summary": news_summary,
+        }
+        _safe_append_jsonl(NEWS_CACHE_PATH, cache_item)
     except Exception as e:
-        log.warning("[FAZ-23] history yazılamadı: %s", e)
+        log.debug("[FAZ-23] Cache append hata (ignore): %s", e, exc_info=False)
 
-
-# ================================================================
-#  NEWS ENRICH
-# ================================================================
-def faz23_news_enrich(ctx: Dict[str, Any], mode: str = "prematch") -> Dict[str, Any]:
-    """
-    Haber / sakatlık / yorum sinyallerini tek özet alanında toplar.
-    live_providers.core içeriğine göre esnek çalışır.
-    Beklenen olası alanlar:
-      - ctx["news_items"]: List[{"title","impact","source"}]
-      - ctx["injuries"]:  List[{"player","team","impact"}]
-    """
-    news_items: List[str] = []
-
-    for item in ctx.get("news_items", []) or []:
-        title = str(item.get("title", "")).strip()
-        impact = str(item.get("impact", "")).strip()
-        src = str(item.get("source", "")).strip()
-        if not title:
-            continue
-        line = f"{title}"
-        if impact:
-            line += f" (impact: {impact})"
-        if src:
-            line += f" [{src}]"
-        news_items.append(line)
-
-    for inj in ctx.get("injuries", []) or []:
-        player = inj.get("player") or inj.get("name")
-        team = inj.get("team") or inj.get("club")
-        impact = inj.get("impact") or inj.get("status")
-        if not player:
-            continue
-        line = f"Sakatlık: {player}"
-        if team:
-            line += f" ({team})"
-        if impact:
-            line += f" → {impact}"
-        news_items.append(line)
-
-    if news_items:
-        ctx["news_summary"] = news_items[:10]
-    else:
-        ctx.setdefault("news_summary", [])
-
-    ctx.setdefault("news_mode", mode.upper())
     return ctx
 
 
 # ================================================================
-#  CORE SCORING HELPERS
-# ================================================================
-def _build_match_header(ctx: Dict[str, Any]) -> Dict[str, str]:
-    league = str(
-        ctx.get("league")
-        or ctx.get("competition_name")
-        or ctx.get("tournament")
-        or "Bilinmeyen Lig"
-    )
-
-    date = str(
-        ctx.get("date")
-        or ctx.get("start_time")
-        or ctx.get("tipoff")
-        or ctx.get("match_date")
-        or "Tarih bilinmiyor"
-    )
-
-    home = (
-        ctx.get("home_name")
-        or ctx.get("home_team")
-        or (ctx.get("teams") or {}).get("home")
-        or "Ev Sahibi"
-    )
-    away = (
-        ctx.get("away_name")
-        or ctx.get("away_team")
-        or (ctx.get("teams") or {}).get("away")
-        or "Deplasman"
-    )
-
-    return {
-        "league": str(league),
-        "date": str(date),
-        "home": str(home),
-        "away": str(away),
-    }
-
-
-def _decide_total_side(ctx: Dict[str, Any], mode: str) -> Dict[str, Any]:
-    """
-    Basit pace + verimlilik tahmini.
-    live_providers.core ne getirirse onun üzerinden esnek çalışır.
-
-    Beklenen olası alanlar:
-      - ctx["lines"]["total"]  veya ctx["markets"]["total"]["line"]
-      - ctx["stats"]["pace"], ctx["stats"]["off_rating"], ctx["stats"]["def_rating"]
-      - LIVE modda: ctx["score_home"], ctx["score_away"], ctx["quarter"], ctx["time_left"]
-    """
-    lines = ctx.get("lines") or ctx.get("markets") or {}
-    total_line = None
-
-    if isinstance(lines, dict):
-        if "total" in lines and isinstance(lines["total"], dict):
-            total_line = lines["total"].get("line") or lines["total"].get("handicap")
-        elif "total" in lines:
-            total_line = lines.get("total")
-
-    if total_line is None and isinstance(lines, dict):
-        # başka anahtar isimleri dene
-        for key in ["game_total", "ou_main", "totals"]:
-            if key in lines:
-                val = lines[key]
-                if isinstance(val, dict):
-                    total_line = val.get("line") or val.get("handicap")
-                else:
-                    total_line = val
-                break
-
-    total_line_f = _safe_float(total_line, 0.0)
-
-    stats = ctx.get("stats") or {}
-    pace = _safe_float(stats.get("pace") or stats.get("pace_estimate"), 95.0)
-    off = _safe_float(stats.get("off_rating"), 110.0)
-    deff = _safe_float(stats.get("def_rating"), 110.0)
-
-    expected_total = (pace / 100.0) * (off + deff) / 2.0 * 2.0
-    # Soft clamp
-    expected_total = max(140.0, min(250.0, expected_total))
-
-    live_score = _safe_float(ctx.get("score_home")) + _safe_float(ctx.get("score_away"))
-    quarter = int(_safe_float(ctx.get("quarter"), 1))
-    time_left = ctx.get("time_left") or ctx.get("clock")
-
-    # LIVE modda ilerleme oranına göre projeksiyon
-    if mode == "LIVE" and live_score > 0:
-        progress = min(1.0, max(0.1, (quarter - 1) / 3.0))
-        projected = live_score + (expected_total - live_score) * (1.0 - progress)
-        model_total = projected
-    else:
-        model_total = expected_total
-
-    diff = model_total - total_line_f
-    if total_line_f <= 0:
-        call = "NO_BAREM"
-        confidence = 0.0
-    else:
-        if abs(diff) < 5:
-            call = "NO_BET"
-            confidence = 0.2
-        elif diff > 0:
-            call = "OVER"
-            confidence = min(0.95, 0.4 + abs(diff) / 20.0)
-        else:
-            call = "UNDER"
-            confidence = min(0.95, 0.4 + abs(diff) / 20.0)
-
-    return {
-        "total_line": total_line_f,
-        "model_total": round(model_total, 1),
-        "call": call,
-        "confidence": round(confidence, 3),
-        "live_score": live_score,
-        "quarter": quarter,
-        "time_left": str(time_left) if time_left is not None else "",
-    }
-
-
-def _decide_side(ctx: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Maç kazanan / handikap tarafı için çok basit skor.
-
-    Beklenen olası alanlar:
-      - ctx["lines"]["spread"]["line"]
-      - ctx["power_ratings"]["home"], ["away"]
-      - ctx["elo"]["home"], ["away"]
-    """
-    lines = ctx.get("lines") or ctx.get("markets") or {}
-    spread_line = None
-    if isinstance(lines, dict) and "spread" in lines:
-        sp = lines["spread"]
-        if isinstance(sp, dict):
-            spread_line = sp.get("line") or sp.get("handicap")
-        else:
-            spread_line = sp
-
-    pr = ctx.get("power_ratings") or ctx.get("elo") or {}
-    home_pow = _safe_float(pr.get("home"), 0.0)
-    away_pow = _safe_float(pr.get("away"), 0.0)
-    diff_pow = home_pow - away_pow
-
-    if spread_line is None:
-        adj_spread = diff_pow / 2.0
-    else:
-        adj_spread = diff_pow - _safe_float(spread_line, 0.0)
-
-    if abs(adj_spread) < 1.0:
-        call = "NO_BET"
-        confidence = 0.2
-    elif adj_spread > 0:
-        call = "HOME"
-        confidence = min(0.95, 0.4 + abs(adj_spread) / 10.0)
-    else:
-        call = "AWAY"
-        confidence = min(0.95, 0.4 + abs(adj_spread) / 10.0)
-
-    return {
-        "spread_line": _safe_float(spread_line, 0.0),
-        "power_diff": round(diff_pow, 2),
-        "adj_spread": round(adj_spread, 2),
-        "call": call,
-        "confidence": round(confidence, 3),
-    }
-
-
-# ================================================================
-#  PREMATCH PREDICT
+# 🎯 PREMATCH TAHMİN MOTORU
 # ================================================================
 def faz23_prematch_predict(ctx: Dict[str, Any]) -> str:
-    header = _build_match_header(ctx)
-    news_summary = ctx.get("news_summary") or []
-    if isinstance(news_summary, str):
-        news_summary = [news_summary]
+    """
+    ctx → faz23_build_context(match_code, mode="prematch") çıktısı.
+    Her zaman string döndürür, asla exception bırakmaz.
+    """
+    try:
+        if ctx is None or not isinstance(ctx, dict):
+            raise ValueError("Boş veya geçersiz context")
 
-    total_info = _decide_total_side(ctx, mode="PREMATCH")
-    side_info = _decide_side(ctx)
+        names = _get_team_names(ctx)
+        totals = _extract_prematch_totals(ctx)
+        live_dummy = {"total": 0.0, "period": "0"}  # skor yok, ama API ortak olsun
 
-    fusion_vector = {
-        "total_call": total_info["call"],
-        "total_conf": total_info["confidence"],
-        "side_call": side_info["call"],
-        "side_conf": side_info["confidence"],
-    }
+        score_vec = _compute_simple_score_vector("prematch", ctx, live_dummy, totals)
+        news_summary = ctx.get("news_summary") or _build_news_summary(ctx, "prematch")
 
-    record = {
-        "mode": "PREMATCH",
-        "header": header,
-        "total": total_info,
-        "side": side_info,
-        "fusion": fusion_vector,
-    }
-    _append_history(record)
+        regime = "NEUTRAL"
+        if score_vec >= 0.75:
+            regime = "AGGRESSIVE_OVER"
+        elif score_vec >= 0.6:
+            regime = "LEAN_OVER"
+        elif score_vec <= 0.25:
+            regime = "AGGRESSIVE_UNDER"
+        elif score_vec <= 0.4:
+            regime = "LEAN_UNDER"
 
-    lines: List[str] = []
-    lines.append("🧠 FAZ-23 META ENGINE (PREMATCH)")
-    lines.append(
-        f"🏀 Maç: {header['home']} vs {header['away']} | 🏆 Lig: {header['league']}"
-    )
-    lines.append(f"📅 Tarih: {header['date']}")
-    lines.append("")
-    lines.append(
-        f"📌 Toplam Barem: {total_info['total_line']:.1f} | Model Total: {total_info['model_total']:.1f}"
-    )
-    lines.append(
-        f"🎯 FAZ-23 Total Karar: {total_info['call']} (güven: {total_info['confidence']:.3f})"
-    )
-    lines.append(
-        f"📌 Handikap: {side_info['spread_line']:.1f} | PowerDiff: {side_info['power_diff']:.2f}"
-    )
-    lines.append(
-        f"🎯 FAZ-23 Taraf Kararı: {side_info['call']} (güven: {side_info['confidence']:.3f})"
-    )
-    lines.append("")
-    lines.append("🧬 Fusion Vektörü:")
-    lines.append(
-        f"- total_call={fusion_vector['total_call']} (conf={fusion_vector['total_conf']:.3f})"
-    )
-    lines.append(
-        f"- side_call={fusion_vector['side_call']} (conf={fusion_vector['side_conf']:.3f})"
-    )
+        line_text = ""
+        if totals.get("total_line", 0.0) > 0:
+            line_text = f"{totals['total_line']:.1f}"
 
-    if news_summary:
+        # Ana çıktı metni (Telegram için optimize)
+        lines: List[str] = []
+        lines.append("🎛 FAZ-23 META ENGINE (PREMATCH)")
+        lines.append(
+            f"🏀 Maç: {names['home']} vs {names['away']} ({names['league']})"
+        )
+        if line_text:
+            lines.append(f"📏 Ana Toplam Barem: {line_text}")
         lines.append("")
-        lines.append("📰 Haber / Notlar:")
-        for row in news_summary[:8]:
-            lines.append(f"- {row}")
+        lines.append(f"🧠 Internal Score Vector: {score_vec:.3f}")
+        lines.append(f"🧷 Regime: {regime}")
+        lines.append("")
+        lines.append(f"📰 News Range: {news_summary}")
+        lines.append("")
+        lines.append("🔍 Açıklama notları:")
+        lines.append("- Bu çıktı FAZ-23 multi-data füzyonundan gelir.")
+        lines.append(
+            "- Skor vektörü 0.0-1.0 arasıdır; 0.5 nötr, 0.7 üzeri güçlü eğilim anlamına gelir."
+        )
+        lines.append(
+            "- Şu an model güvenli moddadır; agresif öneriler için zamanla sahadan öğrenme gereklidir."
+        )
 
-    return "\n".join(lines)
+        return "\n".join(lines)
+
+    except Exception as e:
+        log.error("[FAZ-23 PREMATCH ERROR] %s", e, exc_info=True)
+        return (
+            "❌ FAZ-23 prematch motoru çalışırken hata oluştu.\n"
+            f"Detay: {e}"
+        )
 
 
 # ================================================================
-#  LIVE PREDICT
+# ⚡ LIVE TAHMİN MOTORU
 # ================================================================
 def faz23_live_predict(ctx: Dict[str, Any]) -> str:
-    header = _build_match_header(ctx)
-    news_summary = ctx.get("news_summary") or []
-    if isinstance(news_summary, str):
-        news_summary = [news_summary]
+    """
+    ctx → faz23_build_context(match_code, mode=\"live\") çıktısı.
+    Canlı skor + tempo + barem kombinasyonu üzerinden yorum üretir.
+    """
+    try:
+        if ctx is None or not isinstance(ctx, dict):
+            raise ValueError("Boş veya geçersiz context")
 
-    total_info = _decide_total_side(ctx, mode="LIVE")
-    side_info = _decide_side(ctx)
+        names = _get_team_names(ctx)
+        totals = _extract_prematch_totals(ctx)  # çoğu durumda canlıda da geçerli
+        live = _extract_live_state(ctx)
 
-    fusion_vector = {
-        "total_call": total_info["call"],
-        "total_conf": total_info["confidence"],
-        "side_call": side_info["call"],
-        "side_conf": side_info["confidence"],
-    }
+        score_vec = _compute_simple_score_vector("live", ctx, live, totals)
+        news_summary = ctx.get("news_summary") or _build_news_summary(ctx, "live")
 
-    record = {
-        "mode": "LIVE",
-        "header": header,
-        "total": total_info,
-        "side": side_info,
-        "fusion": fusion_vector,
-    }
-    _append_history(record)
+        regime = "NEUTRAL"
+        if score_vec >= 0.8:
+            regime = "HIGH_TEMPO_OVER"
+        elif score_vec >= 0.6:
+            regime = "TEMPO_OVER"
+        elif score_vec <= 0.2:
+            regime = "KILL_UNDER"
+        elif score_vec <= 0.4:
+            regime = "LEAN_UNDER"
 
-    lines: List[str] = []
-    lines.append("🧠 FAZ-23 META ENGINE (LIVE)")
-    lines.append(
-        f"🏀 Maç: {header['home']} vs {header['away']} | 🏆 Lig: {header['league']}"
-    )
-    lines.append(f"📅 Tarih: {header['date']}")
-    lines.append(
-        f"⏱ Skor: {total_info['live_score']:.1f} | Quarter: Q{int(total_info['quarter'])} | Kalan: {total_info['time_left']}"
-    )
-    lines.append("")
-    lines.append(
-        f"📌 Barem: {total_info['total_line']:.1f} | Projeksiyon: {total_info['model_total']:.1f}"
-    )
-    lines.append(
-        f"🎯 FAZ-23 LIVE Total Karar: {total_info['call']} (güven: {total_info['confidence']:.3f})"
-    )
-    lines.append(
-        f"📌 Handikap: {side_info['spread_line']:.1f} | PowerDiff: {side_info['power_diff']:.2f}"
-    )
-    lines.append(
-        f"🎯 FAZ-23 LIVE Taraf Kararı: {side_info['call']} (güven: {side_info['confidence']:.3f})"
-    )
-    lines.append("")
-    lines.append("🧬 Fusion Vektörü:")
-    lines.append(
-        f"- total_call={fusion_vector['total_call']} (conf={fusion_vector['total_conf']:.3f})"
-    )
-    lines.append(
-        f"- side_call={fusion_vector['side_call']} (conf={fusion_vector['side_conf']:.3f})"
-    )
+        line_text = ""
+        if totals.get("total_line", 0.0) > 0:
+            line_text = f"{totals['total_line']:.1f}"
 
-    if news_summary:
+        lines: List[str] = []
+        lines.append("⚡ FAZ-23 META ENGINE (LIVE)")
+        lines.append(
+            f"🏀 Maç: {names['home']} vs {names['away']} ({names['league']})"
+        )
+        if line_text:
+            lines.append(f"📏 Ana Toplam Barem (referans): {line_text}")
+        lines.append(
+            f"⏱ Durum: {live['status']} | Periyot: {live['period']} | Saat: {live['clock']}"
+        )
+        lines.append(
+            f"📊 Skor: {int(live['home_score'])} - {int(live['away_score'])} "
+            f"(Toplam: {int(live['total'])})"
+        )
         lines.append("")
-        lines.append("📰 Haber / Notlar:")
-        for row in news_summary[:8]:
-            lines.append(f"- {row}")
+        lines.append(f"🧠 Internal Score Vector: {score_vec:.3f}")
+        lines.append(f"🧷 Regime: {regime}")
+        lines.append("")
+        lines.append(f"📰 News Range: {news_summary}")
+        lines.append("")
+        lines.append("🔍 Açıklama notları:")
+        lines.append(
+            "- Score vector, tempo + skor + haber sinyallerini tek skorda toplar."
+        )
+        lines.append(
+            "- HIGH_TEMPO_OVER: maç ritmi baremin üzerinde akıyor; kill under tersi."
+        )
+        lines.append(
+            "- Bu sürüm güvenli moddadır; sahadan toplanan geçmişle zamanla keskinleşecektir."
+        )
 
-    return "\n".join(lines)
+        return "\n".join(lines)
+
+    except Exception as e:
+        log.error("[FAZ-23 LIVE ERROR] %s", e, exc_info=True)
+        return (
+            "❌ FAZ-23 live motoru çalışırken hata oluştu.\n"
+            f"Detay: {e}"
+        )
