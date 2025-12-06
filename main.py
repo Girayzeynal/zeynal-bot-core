@@ -763,8 +763,8 @@ def faz23_build_context(match_code: str, mode: str = "prematch") -> Dict[str, An
 # ================================================================
 # 🔭 FAZ-23 KOMUTLARI
 # ================================================================
-@bot.message_handler(commands=["meta23"])
-def cmd_meta23(message: types.Message):
+@bot.message_handler(commands=["mac13"])
+def cmd_manual_match(message: types.Message):
     """
     FAZ-23 PREMATCH tahmin motoru.
     Kullanım: /meta23 MATCH_CODE
