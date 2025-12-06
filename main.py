@@ -119,6 +119,8 @@ faz13_upcoming_coupon = (_faz13_orch or {}).get("faz13_upcoming_coupon")
 faz13_league_coupon = (_faz13_orch or {}).get("faz13_league_coupon")
 faz13_live_coupon = (_faz13_orch or {}).get("faz13_live_coupon")
 
+from faz13_engine.league_autodetect import guess_league  # FAZ-GLOBAL LEAGUE AUTO-DETECT
+
 _faz13_god = _safe_import("faz13_engine.faz13_god_layer", ["run_faz13_with_god_layer"])
 run_faz13_with_god_layer = (_faz13_god or {}).get("run_faz13_with_god_layer")
 
