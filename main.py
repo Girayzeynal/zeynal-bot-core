@@ -350,6 +350,78 @@ def cmd_test_faz13(message):
 
 
 # ================================================================
+# 🏀 /mac — Maç Tahmini (FAZ-13 gerçek pipeline)
+# ================================================================
+@bot.message_handler(commands=["mac"])
+def cmd_mac(message: types.Message):
+    try:
+        txt = message.text.replace("/mac", "").strip()
+        if "|" not in txt:
+            bot.reply_to(message,
+                "❌ Format hatalı.\n\n"
+                "Doğru format:\n"
+                "/mac Euroleague | 2025-12-05 | Crvena Zvezda - Barcelona"
+            )
+            return
+
+        # ----------------------------
+        #  Kullanıcı formatını çöz
+        # ----------------------------
+        parts = [p.strip() for p in txt.split("|")]
+        if len(parts) != 3:
+            bot.reply_to(message,
+                "❌ Format hatalı. 3 bölüm olmalı:\n"
+                "Lig | Tarih | Ev - Deplasman"
+            )
+            return
+
+        league = parts[0]
+        date = parts[1]
+
+        # Ev - Deplasman çöz
+        if "-" not in parts[2]:
+            bot.reply_to(message, "❌ Takım formatı hatalı. (Ev - Deplasman)")
+            return
+
+        home_team = parts[2].split("-")[0].strip()
+        away_team = parts[2].split("-")[1].strip()
+
+        # --------------------------------------------------------
+        #  FAZ-13 PIPELINE ÇALIŞTIR
+        # --------------------------------------------------------
+        from faz13_engine.faz13_orchestrator import run_faz13_auto_pipeline
+
+        result = run_faz13_auto_pipeline(
+            league=league,
+            date=date,
+            home_team=home_team,
+            away_team=away_team,
+            full_output=True,
+            match_key=None   # FAZ-23 kapalı (şimdilik)
+        )
+
+        # --------------------------------------------------------
+        #  TELEGRAM ÇIKTISI
+        # --------------------------------------------------------
+        text = (
+            f"🎯 *FAZ-13 Maç Tahmini*\n"
+            f"🏀 *Maç:* {result['match']}\n"
+            f"📅 *Tarih:* {result['date']}\n"
+            f"🏆 *Lig:* {result['league']}\n\n"
+            f"📌 *Fusion Karar:* {result['fusion_total_call']}\n"
+            f"🧠 *Score Vector:* {result['internal_score_vector']}\n"
+            f"ℹ️ *News Range:* {result['news_summary']}\n"
+            f"🔍 *Sebep / Açıklamalar:*\n"
+            + "\n".join(f"- {r}" for r in result["debug_reasons"])
+        )
+
+        bot.reply_to(message, text, parse_mode="Markdown")
+
+    except Exception as e:
+        bot.reply_to(message, f"❌ /mac hata: {e}")
+
+
+# ================================================================
 # 📊 /status
 # ================================================================
 @bot.message_handler(commands=["status"])
