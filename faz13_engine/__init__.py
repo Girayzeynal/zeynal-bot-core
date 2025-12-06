@@ -1,15 +1,18 @@
+# faz13_engine/__init__.py
 """
-FAZ-13 core package (light mode).
+FAZ-13 engine package
 
-Bu profilde:
-- Ultra OCR v3 gibi ağır şeyler __init__ içinden import edilmiyor.
-- Sadece gerçekten var olan hafif fonksiyonlar expose ediliyor.
+Bu paket import edilirken ASLA crash olmamalı.
+- main.py içinde _safe_import zaten modülleri tek tek güvenli şekilde çekiyor.
+- Burada sadece gerçekten var olan fonksiyonları dışarı açıyoruz.
 """
 
-from .league_autodetect import guess_league
 from .faz13_orchestrator import run_faz13_auto_pipeline
+from .faz13_god_layer import run_faz13_with_god_layer
+from .league_autodetect import guess_league
 
 __all__ = [
-    "guess_league",
     "run_faz13_auto_pipeline",
+    "run_faz13_with_god_layer",
+    "guess_league",
 ] 
