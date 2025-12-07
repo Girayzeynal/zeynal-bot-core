@@ -1,91 +1,59 @@
 import os
 import json
-import logging
 import time
-from typing import Any, Dict, Optional, List
+import logging
+import hashlib
 
 import telebot
-from telebot import types  # noqa: F401
+import numpy as np
+import pandas as pd
 from flask import Flask, request
 
-# ================================================================
-# LOGGING
-# ================================================================
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
-log = logging.getLogger("hoopbrain-main")
 
 # ================================================================
-# ⚙️ CONFIG & GLOBALS
+# 🔧 LOGGING
+# ================================================================
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+log = logging.getLogger(__name__)
+
+
+# ================================================================
+# 🔧 CONFIG
 # ================================================================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-ENGINEERING_MODE = os.getenv("ENGINEERING_MODE", "ON").upper() == "ON"
+PORT = int(os.getenv("PORT", 8080))
 
 if not BOT_TOKEN:
-    raise RuntimeError("BOT_TOKEN environment variable is required")
+    raise Exception("BOT_TOKEN bulunamadı.")
 
-PORT = int(os.getenv("PORT", "8080"))
-
-DATA_DIR = os.getenv("DATA_DIR", "/data")
-FAZ7_DIR = os.path.join(DATA_DIR, "faz7")
-os.makedirs(FAZ7_DIR, exist_ok=True)
-
-FAZ7_MEMORY_FILE = os.path.join(FAZ7_DIR, "faz7_memory.json")
-FAZ11_HISTORY_FILE = os.path.join(FAZ7_DIR, "faz11_history.json")
-
-VISUAL_STACK: List[Dict[str, Any]] = []
-VISUAL_STACK_MAX = 32
-
-# FAZ-23 MAX Global holder
-LAST_FAZ13_META: Dict[str, Any] = {}
-FAZ23_MODE = os.getenv("FAZ23_MODE", "MAX").upper()
-FAZ23_DEFAULT_BAREMS = [229.5, 231.5, 233.5, 235.5]
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
+app = Flask(__name__)
 
 
 # ================================================================
-# SAFE IMPORT HELPERS
+# 🔧 SAFE IMPORT HELPER
 # ================================================================
-def _safe_import(module_path: str, attrs: Optional[List[str]] = None):
+def _safe_import(path: str, names: list):
     try:
-        module = __import__(module_path, fromlist=attrs or [])
+        module = __import__(path, fromlist=names)
+        return {name: getattr(module, name, None) for name in names}
     except Exception as e:
-        log.debug("SAFE IMPORT FAILED: %s (%s)", module_path, e)
-        if not attrs:
-            return None
-        return {name: None for name in attrs}
-
-    if not attrs:
-        return module
-
-    out = {}
-    for name in attrs:
-        try:
-            out[name] = getattr(module, name)
-        except Exception:
-            out[name] = None
-    return out
+        log.error("Import error [%s]: %s", path, e)
+        return {name: None for name in names}
 
 
 # ================================================================
-# IMPORT FAZ MODULES
+# 🔧 IMPORT FAZ MODULES
 # ================================================================
 _faz10 = _safe_import("faz10_engine.faz10_stability", ["faz10_stability_check"])
 faz10_stability_check = (_faz10 or {}).get("faz10_stability_check")
 
-_faz11 = _safe_import(
-    "faz11_engine.faz11_feedback",
-    ["faz11_feedback", "faz11_last_summary"],
-)
+_faz11 = _safe_import("faz11_engine.faz11_feedback", ["faz11_feedback", "faz11_last_summary"])
 faz11_feedback = (_faz11 or {}).get("faz11_feedback")
 faz11_last_summary = (_faz11 or {}).get("faz11_last_summary")
 
-_faz12 = _safe_import(
-    "faz12_engine.faz12_autoadjust",
-    ["faz12_run_once", "faz12_auto_profile"],
-)
+_faz12 = _safe_import("faz12_engine.faz12_autoadjust", ["faz12_run_once", "faz12_auto_profile"])
 faz12_run_once = (_faz12 or {}).get("faz12_run_once")
 faz12_auto_profile = (_faz12 or {}).get("faz12_auto_profile")
 
@@ -106,203 +74,98 @@ normalize_manual_text = (_faz13 or {}).get("normalize_manual_text")
 normalize_visual_meta = (_faz13 or {}).get("normalize_visual_meta")
 normalize_api_data = (_faz13 or {}).get("normalize_api_data")
 run_faz13_auto_pipeline = (_faz13 or {}).get("run_faz13_auto_pipeline")
-faz13_daily_coupon = (_faz13 or {}).get("faz13_daily_coupon")
-faz13_upcoming_coupon = (_faz13 or {}).get("faz13_upcoming_coupon")
-faz13_league_coupon = (_faz13 or {}).get("faz13_league_coupon")
-faz13_live_coupon = (_faz13 or {}).get("faz13_live_coupon")
 
-from faz13_engine.league_autodetect import guess_league  # noqa: E402,F401
-
-_faz13_god = _safe_import(
-    "faz13_engine.faz13_god_layer",
-    ["run_faz13_with_god_layer"],
-)
+_faz13_god = _safe_import("faz13_engine.faz13_god_layer", ["run_faz13_with_god_layer"])
 run_faz13_with_god_layer = (_faz13_god or {}).get("run_faz13_with_god_layer")
 
-_faz17 = _safe_import(
-    "faz17_engine.faz17_market_adjust",
-    ["faz17_market_adjust"],
-)
+_faz17 = _safe_import("faz17_engine.faz17_market_adjust", ["faz17_market_adjust"])
 faz17_market_adjust = (_faz17 or {}).get("faz17_market_adjust")
 
 _faz22 = _safe_import("faz22_engine.faz22_meta", ["faz22_meta_engine"])
 faz22_meta_engine = (_faz22 or {}).get("faz22_meta_engine")
 
-_faz13_ocr = _safe_import("faz13_engine.ultra_ocr_v3", ["ultra_ocr_engine_v3"])
-_ext_ultra_ocr_engine_v3 = (_faz13_ocr or {"ultra_ocr_engine_v3": None}).get(
-    "ultra_ocr_engine_v3"
-)
+_faz13ocr = _safe_import("faz13_engine.ultra_ocr_v3", ["ultra_ocr_engine_v3"])
+_ext_ultra_ocr_engine_v3 = (_faz13ocr or {}).get("ultra_ocr_engine_v3")
 
-_faz23meta = _safe_import(
-    "faz23_engine.faz23_meta_engine",
-    ["faz23_prematch_predict", "faz23_live_predict", "faz23_news_enrich"],
-)
-faz23_prematch_predict = (_faz23meta or {}).get("faz23_prematch_predict")
-faz23_live_predict = (_faz23meta or {}).get("faz23_live_predict")
-faz23_news_enrich = (_faz23meta or {}).get("faz23_news_enrich")
-
-_fazlive = _safe_import(
-    "live_providers.core",
-    ["get_live_match_global", "HoopbrainLiveError"],
-)
-get_live_match_global = (_fazlive or {}).get("get_live_match_global")
-HoopbrainLiveError = (_fazlive or {}).get("HoopbrainLiveError")
-
-# ================================================================
-# FAZ-23 MAX ENGINE IMPORT
-# ================================================================
-from faz23_engine.faz23_max import (  # noqa: E402
-    Faz23MaxConfig,
-    faz23_max_predict,
-    faz23_max_comment,
-    build_fusion_vector,
-)
+_faz23 = _safe_import("faz23_engine.faz23_core", ["faz23_max_predict", "Faz23MaxConfig"])
+faz23_max_predict = (_faz23 or {}).get("faz23_max_predict")
+Faz23MaxConfig = (_faz23 or {}).get("Faz23MaxConfig")
 
 
 # ================================================================
-# FALLBACKS & MEMORY HELPERS
+# 🔧 GLOBAL STATE
 # ================================================================
-def _safe_float(val: Any):
-    try:
-        return float(str(val).replace(",", "."))
-    except Exception:
-        return None
-
-
-def _load_json(path: str, default: Any):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return default
-
-
-def _save_json(path: str, data: Any):
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        log.error("JSON kaydedilemedi: %s (%s)", path, e)
-
-
-def faz7_load_memory():
-    mem = _load_json(FAZ7_MEMORY_FILE, {})
-    mem.setdefault("stats", {})
-    return mem
-
-
-def faz7_save_memory(mem):
-    _save_json(FAZ7_MEMORY_FILE, mem)
-
-
-def faz7_touch_stat(key: str, delta: int = 1):
-    mem = faz7_load_memory()
-    stats = mem.get("stats", {})
-    stats[key] = stats.get(key, 0) + delta
-    mem["stats"] = stats
-    faz7_save_memory(mem)
+LAST_FAZ13_META = None
 
 
 # ================================================================
-# FAZ-10 HardSync
+# 🔥 UNIVERSAL RESULT NORMALIZER (TÜM FAZ'LARI STABİL HALE GETİREN ÇEKİRDEK)
 # ================================================================
-def faz10_hardsync(brain: dict, calib: Optional[dict] = None):
-    if faz10_stability_check is None:
+def normalize_result(result):
+    """
+    FAZ-13 / FAZ-23 / FAZ-17 / GOD-LAYER fark etmeksizin,
+    gelen tüm sonuçları stabil tek bir dict'e çevirir.
+    """
+
+    # None → boş dict
+    if result is None:
         return {
-            "regime": "NORMAL",
-            "stability_score": 1.0,
-            "anomaly_level": 0.0,
-            "suggested_mode": brain.get("mode", "INIT"),
-            "bucket": (calib or {}).get("bucket", "MID"),
-            "lock": False,
-            "lock_reason": "NO_FAZ10_MODULE",
+            "match": "N/A",
+            "fusion_total_call": None,
+            "internal_score_vector": None,
+            "comment": "No result",
+            "internal_meta": {},
         }
 
-    try:
-        stability = faz10_stability_check("FAZ-13", {}) or {}
-    except Exception:
-        stability = {}
+    # Tuple → FAZ-13 eski format
+    if isinstance(result, tuple) and len(result) == 4:
+        try:
+            meta, fusion_call, vector, comment = result
+            return {
+                "match": f"{meta.get('home_team')} - {meta.get('away_team')}",
+                "fusion_total_call": fusion_call,
+                "internal_score_vector": vector,
+                "comment": comment,
+                "internal_meta": meta,
+            }
+        except:
+            pass
 
-    regime = stability.get("regime", "NORMAL").upper()
-    score = float(stability.get("stability_score", 1.0))
-    anomaly = float(stability.get("anomaly_level", 0.0))
-    suggested_mode = stability.get("suggested_mode", "INIT").upper()
+    # String → hata mesajı olabilir → stabil format
+    if isinstance(result, str):
+        return {
+            "match": "Unknown",
+            "fusion_total_call": None,
+            "internal_score_vector": None,
+            "comment": result,
+            "internal_meta": {},
+        }
 
-    lock = False
-    lock_reason = "NO_LOCK"
+    # Dict zaten düzgünse
+    if isinstance(result, dict):
+        return result
 
-    if ENGINEERING_MODE and (
-        regime in ("CRITICAL", "UNSTABLE") or anomaly >= 0.7
-    ):
-        lock = True
-        lock_reason = "CRITICAL_LOCK"
-
+    # Bilinmeyen format → fallback
     return {
-        "regime": regime,
-        "stability_score": score,
-        "anomaly_level": anomaly,
-        "suggested_mode": suggested_mode,
-        "bucket": (calib or {}).get("bucket", "MID"),
-        "lock": lock,
-        "lock_reason": lock_reason,
+        "match": "Unknown",
+        "fusion_total_call": None,
+        "internal_score_vector": None,
+        "comment": "Invalid result format",
+        "internal_meta": {},
     }
 
 
 # ================================================================
-# ULTRA OCR ENGINE v3
+# TELEGRAM BOT HELPERS
 # ================================================================
-def ultra_ocr_engine_v3(img_bytes: bytes) -> Dict[str, Any]:
-    if _ext_ultra_ocr_engine_v3:
-        try:
-            return _ext_ultra_ocr_engine_v3(img_bytes)
-        except Exception as e:
-            log.error("Ultra OCR v3 hata: %s", e)
-
-    return {"text": "", "meta": {"engine": "NONE"}}
-
-
-# ================================================================
-# TELEGRAM BOT
-# ================================================================
-bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
-app = Flask(__name__)
-
-
 def _send_long_text(message, text: str):
     max_len = 3500
     for i in range(0, len(text), max_len):
-        bot.reply_to(message, text[i : i + max_len])
+        bot.reply_to(message, text[i:i + max_len])
 
 
 # ================================================================
-# /test_faz13
-# ================================================================
-@bot.message_handler(commands=["test_faz13"])
-def cmd_test_faz13(message):
-    try:
-        from faz13_engine.faz13_orchestrator import run_faz13_auto_pipeline
-
-        result = run_faz13_auto_pipeline(
-            league="NBA",
-            date="2025-01-01",
-            home_team="TEST_HOME",
-            away_team="TEST_AWAY",
-            full_output=False,
-        )
-
-        text = (
-            " *FAZ-13 Test*\n"
-            f"Match: {result['match']}\n"
-            f"Fusion: {result['fusion_total_call']}\n"
-            f"Vector: {result['internal_score_vector']}"
-        )
-        bot.reply_to(message, text, parse_mode="Markdown")
-    except Exception as e:
-        bot.reply_to(message, f"❌ test_faz13 hata: {e}")
-
-
-# ================================================================
-# /mac — FAZ-13 tahmin
+# /mac — FAZ-13 tahmin komutu
 # ================================================================
 @bot.message_handler(commands=["mac"])
 def cmd_mac(message):
@@ -311,10 +174,7 @@ def cmd_mac(message):
     try:
         txt = message.text.replace("/mac", "").strip()
         if "|" not in txt:
-            bot.reply_to(
-                message,
-                "Format: /mac Euroleague | 2025-12-05 | A - B",
-            )
+            bot.reply_to(message, "Format: /mac Euroleague | 2025-12-05 | A - B")
             return
 
         league, date, teams = [p.strip() for p in txt.split("|")]
@@ -324,7 +184,8 @@ def cmd_mac(message):
 
         home, away = [p.strip() for p in teams.split("-")]
 
-        result = run_faz13_auto_pipeline(
+        # FAZ-13 PIPELINE
+        raw = run_faz13_auto_pipeline(
             league=league,
             date=date,
             home_team=home,
@@ -332,25 +193,10 @@ def cmd_mac(message):
             full_output=True,
         )
 
-# --- NEW: Normalize FAZ-13 tuple output ---
-if isinstance(result, tuple):
-    try:
-        # Beklenen format: (meta, fusion_call, vector, comment)
-        meta, fusion_call, vector, comment = result
-        result = {
-            "match": f"{meta.get('home_team')} - {meta.get('away_team')}",
-            "fusion_total_call": fusion_call,
-            "internal_score_vector": vector,
-            "comment": comment,
-            "internal_meta": meta,
-        }
-    except Exception as e:
-        bot.reply_to(message, f"❌ Normalization error: {e}")
-        return
-# --- END NORMALIZATION ---
+        result = normalize_result(raw)
 
-        # ⭐ FAZ-23 MAX meta yakalama
-        if isinstance(result, dict) and "internal_meta" in result:
+        # FAZ-23 MAX meta yakalama
+        if "internal_meta" in result:
             LAST_FAZ13_META = result["internal_meta"]
 
         text = (
@@ -359,7 +205,9 @@ if isinstance(result, tuple):
             f"Fusion: {result['fusion_total_call']}\n"
             f"Vector: {result['internal_score_vector']}"
         )
+
         bot.reply_to(message, text, parse_mode="Markdown")
+
     except Exception as e:
         bot.reply_to(message, f"❌ /mac hata: {e}")
 
@@ -367,122 +215,66 @@ if isinstance(result, tuple):
 # ================================================================
 # /faz23 — FAZ-23 MAX ANA TAHMİN
 # ================================================================
-def faz23_build_fusion_from_faz13(meta: dict) -> dict:
-    return {
-        "base_total": meta.get("base_total", 165.0),
-        "tempo_factor": meta.get("tempo_factor", 1.0),
-        "defense_factor": meta.get("defense_factor", 1.0),
-        "pace_volatility": meta.get("pace_volatility", 1.0),
-        "defense_volatility": meta.get("defense_volatility", 1.0),
-        "home_adv": meta.get("home_adv", 1.0),
-        "h2h_factor": meta.get("h2h_factor", 1.0),
-        "hot_shooting_risk": meta.get("hot_shooting_risk", 1.0),
-        "clutch_factor": meta.get("clutch_factor", 1.0),
-        "national_bonus": meta.get("national_bonus", 1.0),
-        "schedule_fatigue": meta.get("schedule_fatigue", 1.0),
-        "style_pace": meta.get("style_pace", 1.0),
-    }
-
-
 @bot.message_handler(commands=["faz23"])
 def cmd_faz23(message):
     try:
-        if FAZ23_MODE != "MAX":
-            bot.reply_to(message, "FAZ-23 MAX modu kapalı.")
+        if LAST_FAZ13_META is None:
+            bot.reply_to(message, "❌ Önce /mac çalıştır → FAZ-13 meta gelsin.")
             return
 
-        global LAST_FAZ13_META
-
-        if not LAST_FAZ13_META:
-            bot.reply_to(
-                message,
-                "❌ Önce /mac çalıştır → FAZ-13 meta gelsin.",
-            )
-            return
-
-        raw = message.text.replace("/faz23", "").strip()
-        if raw:
-            try:
-                barems = [float(x) for x in raw.split(",")]
-            except Exception:
-                bot.reply_to(message, "Barem formatı yanlış.")
-                return
-        else:
-            barems = FAZ23_DEFAULT_BAREMS
-
-        match_meta = {
-            "league": LAST_FAZ13_META.get("league", "Unknown"),
-            "season": LAST_FAZ13_META.get("season", "2025-26"),
-            "home": LAST_FAZ13_META.get("home_team", "HOME"),
-            "away": LAST_FAZ13_META.get("away_team", "AWAY"),
-            "type": LAST_FAZ13_META.get("match_type", "club"),
-            "stage": LAST_FAZ13_META.get("stage", "league"),
-            "start_ts": LAST_FAZ13_META.get("start_ts", int(time.time())),
-        }
-
-        fusion = faz23_build_fusion_from_faz13(LAST_FAZ13_META)
-        cfg = Faz23MaxConfig()
-        result = faz23_max_predict(
-            match_meta=match_meta,
-            fusion_input=fusion,
-            barem_grid=barems,
-            cfg=cfg,
+        raw = faz23_max_predict(
+            match_meta=LAST_FAZ13_META,
+            fusion_input=LAST_FAZ13_META,
+            barem_grid=[165, 170, 175],
+            cfg=Faz23MaxConfig(),
         )
-        comment = faz23_max_comment(result)
-        _send_long_text(message, comment)
+
+        result = normalize_result(raw)
+
+        text = (
+            " *FAZ-23 MAX*\n"
+            f"Maç: {result['match']}\n"
+            f"Fusion: {result['fusion_total_call']}\n"
+            f"Vector: {result['internal_score_vector']}"
+        )
+
+        bot.reply_to(message, text, parse_mode="Markdown")
+
     except Exception as e:
         bot.reply_to(message, f"❌ /faz23 hata: {e}")
 
 
 # ================================================================
-# /status — basit durum raporu
+# /status — Sistem Durumu
 # ================================================================
 @bot.message_handler(commands=["status"])
 def cmd_status(message):
-    try:
-        lines = [
-            "⚙️ FAZ-CORE STATUS",
-            "",
-            f"ENGINEERING_MODE: {'ON' if ENGINEERING_MODE else 'OFF'}",
-            f"FAZ23_MODE: {FAZ23_MODE}",
-            f"WEBHOOK_URL: {'SET' if WEBHOOK_URL else 'NOT SET'}",
-            "",
-            "Modüller:",
-            f"- FAZ-10: {'OK' if faz10_stability_check else 'YOK'}",
-            f"- FAZ-11: {'OK' if faz11_feedback else 'YOK'}",
-            f"- FAZ-12: {'OK' if faz12_run_once else 'YOK'}",
-            f"- FAZ-13: {'OK' if run_faz13_auto_pipeline else 'YOK'}",
-            f"- FAZ-17: {'OK' if faz17_market_adjust else 'YOK'}",
-            f"- FAZ-22: {'OK' if faz22_meta_engine else 'YOK'}",
-            f"- FAZ-23 MAX: {'OK' if Faz23MaxConfig else 'YOK'}",
-        ]
-        text = "\n".join(lines)
-        bot.reply_to(message, text)
-    except Exception as e:
-        bot.reply_to(message, f"❌ /status hata: {e}")
+    text = (
+        "🧠 FAZ-CORE STATUS\n\n"
+        f"ENGINEERING_MODE: ON\n"
+        f"LAST_FAZ13_META: {'VAR' if LAST_FAZ13_META else 'YOK'}\n"
+        f"WEBHOOK_URL: {WEBHOOK_URL if WEBHOOK_URL else 'NOT SET'}\n"
+    )
+    bot.reply_to(message, text)
 
 
 # ================================================================
-# FLASK ROUTES
+# FLASK ROUTES — TELEGRAM WEBHOOK
 # ================================================================
 @app.route("/", methods=["GET"])
 def index():
-    return "HoopBrain FAZ-CORE: OK", 200
+    return "HoopBrain FAZ-CORE OK", 200
 
 
 @app.route("/webhook", methods=["POST"])
-def telegram_webhook():
+def webhook():
     try:
-        if request.headers.get("content-type") == "application/json":
-            json_str = request.get_data().decode("utf-8")
-            update = telebot.types.Update.de_json(json_str)
-            bot.process_new_updates([update])
-            return "OK", 200
-
-        # Telegram'a asla 415 dönme, her durumda 200 ver
+        json_str = request.get_data().decode("utf-8")
+        update = telebot.types.Update.de_json(json_str)
+        bot.process_new_updates([update])
         return "OK", 200
     except Exception as e:
-        print("Webhook error:", e)
+        log.error("Webhook error: %s", e)
         return "OK", 200
 
 
@@ -498,7 +290,6 @@ if __name__ == "__main__":
             if info.url != WEBHOOK_URL:
                 bot.delete_webhook()
                 bot.set_webhook(url=WEBHOOK_URL)
-        except Exception:
+        except:
             pass
-
         app.run(host="0.0.0.0", port=PORT)
