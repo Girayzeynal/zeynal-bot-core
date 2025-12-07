@@ -330,7 +330,25 @@ def cmd_mac(message):
             away_team=away,
             full_output=True,
         )
+        
+# --- NEW: Normalize FAZ-13 tuple output ---
+if isinstance(result, tuple):
+    try:
+        meta, fusion_call, vector, comment = result
 
+        result = {
+            "match": f"{meta.get('home_team')} - {meta.get('away_team')}",
+            "fusion_total_call": fusion_call,
+            "internal_score_vector": vector,
+            "comment": comment,
+            "internal_meta": meta,
+        }
+
+    except Exception as e:
+        bot.reply_to(message, f"❌ Normalization error: {e}")
+        return
+# --- END NORMALIZATION ---
+        
         # ⭐ FAZ-23 MAX meta yakalama
         if isinstance(result, dict) and "internal_meta" in result:
             LAST_FAZ13_META = result["internal_meta"]
