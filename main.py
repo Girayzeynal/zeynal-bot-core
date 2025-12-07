@@ -274,10 +274,18 @@ def cmd_status(message):
         "🧠 FAZ-CORE STATUS\n\n"
         f"ENGINEERING_MODE: ON\n"
         f"LAST_FAZ13_META: {'VAR' if LAST_FAZ13_META else 'YOK'}\n"
-        f"WEBHOOK_URL: {WEBHOOK_URL if WEBHOOK_URL else 'NOT SET'}\n"
+        f"WEBHOOK_URL: {WEBHOOK_URL if WEBHOOK_URL else 'NOT SET'}\n\n"
+        "Modüller:\n"
+        f"- FAZ-10: {'OK' if faz10_stability_check else 'YOK'}\n"
+        f"- FAZ-11: {'OK' if faz11_feedback else 'YOK'}\n"
+        f"- FAZ-12: {'OK' if faz12_run_once else 'YOK'}\n"
+        f"- FAZ-13: {'OK' if run_faz13_auto_pipeline else 'YOK'}\n"
+        f"- FAZ-17: {'OK' if faz17_market_adjust else 'YOK'}\n"
+        f"- FAZ-22: {'OK' if faz22_meta_engine else 'YOK'}\n"
+        f"- FAZ-23 MAX: {'OK' if faz23_max_predict else 'YOK'}\n"
     )
-    bot.reply_to(message, text)
 
+    bot.reply_to(message, text)
 
 # ================================================================
 # FLASK ROUTES — TELEGRAM WEBHOOK
