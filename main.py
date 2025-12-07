@@ -603,7 +603,7 @@ def cmd_visual_upload(message: types.Message):
         # FAZ-7.9 istatistik
         faz7_touch_stat("total_matches", 1)
 
-        result += (
+        result = str(result) + ( 
             "\n\n🧪 FAZ-13 OCR META\n"
             f"Engine: {meta.get('engine','-')} | "
             f"Cls: {meta.get('classifier','-')} | "
