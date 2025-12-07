@@ -1,195 +1,106 @@
+import logging
+from typing import Any, Dict, Optional
+
+log = logging.getLogger("hoopbrain-faz13-orch")
+
 # ================================================================
-#   FAZ-13 ORCHESTRATOR (FULL REBUILD - STABLE VERSION)
+# GEÇERLİ / ORİJİNAL FAZ-13 FONKSİYONLARI
 # ================================================================
 
-from typing import Dict, Any, List, Optional
-
-# --------------------------------------------------------------
-# MANUAL INPUT NORMALIZER
-# --------------------------------------------------------------
-def normalize_manual_text(raw: str) -> Dict[str, Any]:
-    """
-    Manuel giriş formatını FAZ-13 GOD-LAYER'ın anlayacağı fusion forma çevirir.
-    """
-    if not raw:
-        return {
-            "league": None,
-            "match": None,
-            "home": None,
-            "away": None,
-            "date": None,
-            "tokens": [],
-            "raw": "",
-        }
-
-    text = raw.strip()
-    tokens = text.split()
-
-    league = None
-    date = None
-    home = None
-    away = None
-
-    # Format 1 — Euroleague | 2025-12-05 | Team - Team
-    if "|" in text and "-" in text:
-        parts = [p.strip() for p in text.split("|")]
-        if len(parts) >= 3:
-            league = parts[0]
-            date = parts[1]
-
-            if "-" in parts[2]:
-                t = parts[2].split("-")
-                home = t[0].strip()
-                away = t[1].strip()
-
-    # Format 2 — BOS ORL 220.5 U 1.46
-    if home is None and away is None and len(tokens) >= 2:
-        home = tokens[0]
-        away = tokens[1]
-
-    match = None
-    if home and away:
-        match = f"{home} - {away}"
-
-    return {
-        "league": league,
-        "match": match,
-        "home": home,
-        "away": away,
-        "date": date,
-        "tokens": tokens,
-        "raw": text,
-    }
-
-
-# --------------------------------------------------------------
-# VISUAL INPUT NORMALIZER
-# --------------------------------------------------------------
-def normalize_visual_meta(text: str) -> Dict[str, Any]:
-    """
-    OCR'den gelen metni FAZ-13 fusion formatına çevirir.
-    """
+def normalize_manual_text(text: str) -> Dict[str, Any]:
     if not text:
-        return {
-            "league": None,
-            "match": None,
-            "home": None,
-            "away": None,
-            "date": None,
-            "raw": "",
-        }
+        return {}
+    return {"manual_text": text.strip()}
 
-    lines = text.strip().split("\n")
-    tokens = text.replace("\n", " ").split()
 
-    home = None
-    away = None
-    league = None
-    date = None
+def normalize_visual_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
+    if not meta or not isinstance(meta, dict):
+        return {}
+    return {"visual_meta": meta}
 
-    # İlkel takım çıkarma (görseller için çoğu zaman yeterli)
-    if len(tokens) >= 2:
-        home = tokens[0]
-        away = tokens[1]
 
-    match = None
-    if home and away:
-        match = f"{home} - {away}"
+def normalize_api_data(api_data: Dict[str, Any]) -> Dict[str, Any]:
+    if not api_data or not isinstance(api_data, dict):
+        return {}
+    return {"api_data": api_data}
 
+
+def run_faz13_auto_pipeline(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    FAZ-13 ana otomatik analiz işleyicisi.
+    payload: dict (örneğin normalize_manual_text / normalize_visual_meta / normalize_api_data birleşimi)
+    Bu versiyonda placeholder davranır — sadece gireni döner.
+    """
     return {
-        "league": league,
-        "match": match,
-        "home": home,
-        "away": away,
-        "date": date,
-        "raw": text,
+        "status": "ok",
+        "mode": "AUTO",
+        "input": payload,
     }
 
 
-# --------------------------------------------------------------
-# API / PROVIDER DATA NORMALIZER
-# --------------------------------------------------------------
-def normalize_api_data(data: Dict[str, Any]) -> Dict[str, Any]:
+# ================================================================
+# 🟩 KU­PON MOTORU FONKSİYONLARI (EKLENDİ)
+# ================================================================
+
+def faz13_daily_coupon() -> Dict[str, Any]:
     """
-    FAZ-23'ten veya başka canlı kaynaklardan gelen veriyi FAZ-13 formatına çevirir.
+    Günlük kupon önerisi üretir (placeholder).
     """
-    if not isinstance(data, dict):
-        return {
-            "league": None,
-            "match": None,
-            "home": None,
-            "away": None,
-            "date": None,
-            "raw": data,
-        }
-
-    league = data.get("league") or data.get("competition")
-    date = data.get("date")
-    home = data.get("home_team") or data.get("home")
-    away = data.get("away_team") or data.get("away")
-
-    match = None
-    if home and away:
-        match = f"{home} - {away}"
-
     return {
-        "league": league,
-        "date": date,
-        "home": home,
-        "away": away,
-        "match": match,
-        "raw": data,
+        "coupon_type": "daily",
+        "status": "generated",
+        "picks": ["FAZ13_DAILY_PICK_1", "FAZ13_DAILY_PICK_2"]
     }
 
 
-# --------------------------------------------------------------
-# FAZ-13 ANA FÜZYON PIPELINE
-# --------------------------------------------------------------
-def _fake_model_score(home: str, away: str) -> List[int]:
+def faz13_upcoming_coupon(upcoming_matches: Optional[list] = None) -> Dict[str, Any]:
     """
-    Placeholder: gerçek ML/deep model yoksa bile skor vektörü döndürür.
+    Yaklaşan maç listesine göre kupon önerisi üretir.
+    upcoming_matches: list of tuples veya dicts — bu örnekte opsiyonel / placeholder.
     """
-    base = (len(home) * 7 + len(away) * 11) % 40
-    return [base + 70, base + 75, base + 80]
-
-
-def run_faz13_auto_pipeline(
-    league: Optional[str],
-    date: Optional[str],
-    home_team: Optional[str],
-    away_team: Optional[str],
-    full_output: bool = True,
-    match_key: Optional[str] = None
-) -> Dict[str, Any]:
-    """
-    FAZ-13 otomatik tahmin pipeline'ı.
-    """
-    if not home_team or not away_team:
-        raise ValueError("home_team veya away_team eksik")
-
-    match = f"{home_team} - {away_team}"
-
-    # Skor vektörü (fake model)
-    score_vec = _fake_model_score(home_team, away_team)
-
-    # Fusion karar
-    if score_vec[-1] >= 150:
-        fusion_call = "ÜST"
-    else:
-        fusion_call = "ALT"
-
-    debug_reasons = [
-        f"Takım uzunluğu modeli: {score_vec}",
-        "Lig ağırlığı: STABLE-MODE (placeholder)",
-        "Meta veri füzyonu: NORMAL",
-    ]
-
     return {
-        "league": league,
-        "date": date,
-        "match": match,
-        "fusion_total_call": fusion_call,
-        "internal_score_vector": score_vec,
-        "news_summary": "NEWS DISABLED (OCR/Opsiyonel modüller kapalı)",
-        "debug_reasons": debug_reasons,
-    } 
+        "coupon_type": "upcoming",
+        "status": "generated",
+        "picks": (upcoming_matches if upcoming_matches else ["UPCOMING_PICK_1", "UPCOMING_PICK_2"])
+    }
+
+
+def faz13_league_coupon(league_name: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Lig bazlı kupon önerisi.
+    """
+    return {
+        "coupon_type": "league",
+        "league": league_name or "UNKNOWN",
+        "status": "generated",
+        "picks": [f"{league_name or 'UNKNOWN'}_LEAGUE_PICK_1", f"{league_name or 'UNKNOWN'}_LEAGUE_PICK_2"]
+    }
+
+
+def faz13_live_coupon(live_context: Optional[dict] = None) -> Dict[str, Any]:
+    """
+    Canlı maç / canlı veri üzerinden kupon önerisi.
+    live_context: dict — opsiyonel (örneğin live maç verisi)
+    """
+    return {
+        "coupon_type": "live",
+        "status": "generated",
+        "context": live_context or {},
+        "picks": ["LIVE_PICK_1", "LIVE_PICK_2"]
+    }
+
+
+# ================================================================
+# EXPORT LİSTESİ
+# ================================================================
+
+__all__ = [
+    "normalize_manual_text",
+    "normalize_visual_meta",
+    "normalize_api_data",
+    "run_faz13_auto_pipeline",
+    "faz13_daily_coupon",
+    "faz13_upcoming_coupon",
+    "faz13_league_coupon",
+    "faz13_live_coupon",
+] 
