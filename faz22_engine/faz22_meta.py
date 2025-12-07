@@ -1,7 +1,7 @@
 import numpy as np
 import time
 
-def faz22_meta_predict(match_data: dict) -> dict:
+def faz22_meta_engine(match_data: dict) -> dict: 
     """
     FAZ-22 META ENGINE FULL STACK
     Ultra birleşik tahmin motoru.
