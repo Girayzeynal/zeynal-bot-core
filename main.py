@@ -102,12 +102,7 @@ LAST_FAZ13_META = None
 # 🔥 UNIVERSAL RESULT NORMALIZER (TÜM FAZ'LARI STABİL HALE GETİREN ÇEKİRDEK)
 # ================================================================
 def normalize_result(result):
-    """
-    FAZ-13 / FAZ-23 / FAZ-17 / GOD-LAYER fark etmeksizin,
-    gelen tüm sonuçları stabil tek bir dict'e çevirir.
-    """
-
-    # None → boş dict
+    # None → boş
     if result is None:
         return {
             "match": "N/A",
@@ -117,21 +112,35 @@ def normalize_result(result):
             "internal_meta": {},
         }
 
-    # Tuple → FAZ-13 eski format
-    if isinstance(result, tuple) and len(result) == 4:
+    # Eğer zaten dict ise direkt return
+    if isinstance(result, dict):
+        return result
+
+    # Eğer tuple ise → FAZ-13 veya FAZ-23 eski format olabilir
+    if isinstance(result, tuple):
         try:
-            meta, fusion_call, vector, comment = result
-            return {
-                "match": f"{meta.get('home_team')} - {meta.get('away_team')}",
-                "fusion_total_call": fusion_call,
-                "internal_score_vector": vector,
-                "comment": comment,
-                "internal_meta": meta,
-            }
+            if len(result) >= 4:
+                meta, fusion_call, vector, comment = result[:4]
+                return {
+                    "match": f"{meta.get('home_team')} - {meta.get('away_team')}" if isinstance(meta, dict) else "Unknown",
+                    "fusion_total_call": fusion_call,
+                    "internal_score_vector": vector,
+                    "comment": comment,
+                    "internal_meta": meta if isinstance(meta, dict) else {},
+                }
         except:
             pass
 
-    # String → hata mesajı olabilir → stabil format
+        # Tuple hâlâ çözülemezse → string'e çevir
+        return {
+            "match": "Unknown",
+            "fusion_total_call": None,
+            "internal_score_vector": None,
+            "comment": str(result),
+            "internal_meta": {},
+        }
+
+    # String hata mesajı olabilir → sarmala
     if isinstance(result, str):
         return {
             "match": "Unknown",
@@ -141,16 +150,12 @@ def normalize_result(result):
             "internal_meta": {},
         }
 
-    # Dict zaten düzgünse
-    if isinstance(result, dict):
-        return result
-
-    # Bilinmeyen format → fallback
+    # Hiçbir şeye uymadı → fallback
     return {
         "match": "Unknown",
         "fusion_total_call": None,
         "internal_score_vector": None,
-        "comment": "Invalid result format",
+        "comment": "Invalid format",
         "internal_meta": {},
     }
 
