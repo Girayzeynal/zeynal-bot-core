@@ -5,7 +5,7 @@ import time
 from typing import Any, Dict, Optional, List
 
 import telebot
-from telebot import types
+from telebot import types  # noqa: F401
 from flask import Flask, request
 
 # ================================================================
@@ -111,7 +111,7 @@ faz13_upcoming_coupon = (_faz13 or {}).get("faz13_upcoming_coupon")
 faz13_league_coupon = (_faz13 or {}).get("faz13_league_coupon")
 faz13_live_coupon = (_faz13 or {}).get("faz13_live_coupon")
 
-from faz13_engine.league_autodetect import guess_league  # noqa: E402
+from faz13_engine.league_autodetect import guess_league  # noqa: E402,F401
 
 _faz13_god = _safe_import(
     "faz13_engine.faz13_god_layer",
@@ -157,6 +157,7 @@ from faz23_engine.faz23_max import (  # noqa: E402
     faz23_max_comment,
     build_fusion_vector,
 )
+
 
 # ================================================================
 # FALLBACKS & MEMORY HELPERS
@@ -330,25 +331,24 @@ def cmd_mac(message):
             away_team=away,
             full_output=True,
         )
-        
-# --- NEW: Normalize FAZ-13 tuple output ---
-if isinstance(result, tuple):
-    try:
-        meta, fusion_call, vector, comment = result
 
-        result = {
-            "match": f"{meta.get('home_team')} - {meta.get('away_team')}",
-            "fusion_total_call": fusion_call,
-            "internal_score_vector": vector,
-            "comment": comment,
-            "internal_meta": meta,
-        }
+        # --- NEW: Normalize FAZ-13 tuple output ---
+        if isinstance(result, tuple):
+            try:
+                # Beklenen format: (meta, fusion_call, vector, comment)
+                meta, fusion_call, vector, comment = result
+                result = {
+                    "match": f"{meta.get('home_team')} - {meta.get('away_team')}",
+                    "fusion_total_call": fusion_call,
+                    "internal_score_vector": vector,
+                    "comment": comment,
+                    "internal_meta": meta,
+                }
+            except Exception as e:
+                bot.reply_to(message, f"❌ Normalization error: {e}")
+                return
+        # --- END NORMALIZATION ---
 
-    except Exception as e:
-        bot.reply_to(message, f"❌ Normalization error: {e}")
-        return
-# --- END NORMALIZATION ---
-        
         # ⭐ FAZ-23 MAX meta yakalama
         if isinstance(result, dict) and "internal_meta" in result:
             LAST_FAZ13_META = result["internal_meta"]
@@ -392,6 +392,7 @@ def cmd_faz23(message):
             return
 
         global LAST_FAZ13_META
+
         if not LAST_FAZ13_META:
             bot.reply_to(
                 message,
@@ -427,7 +428,6 @@ def cmd_faz23(message):
             barem_grid=barems,
             cfg=cfg,
         )
-
         comment = faz23_max_comment(result)
         _send_long_text(message, comment)
     except Exception as e:
