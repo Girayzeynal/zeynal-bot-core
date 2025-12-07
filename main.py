@@ -87,9 +87,6 @@ faz22_meta_engine = (_faz22 or {}).get("faz22_meta_engine")
 _faz13ocr = _safe_import("faz13_engine.ultra_ocr_v3", ["ultra_ocr_engine_v3"])
 _ext_ultra_ocr_engine_v3 = (_faz13ocr or {}).get("ultra_ocr_engine_v3")
 
-_faz23 = _safe_import("faz23_engine.faz23_core", ["faz23_max_predict", "Faz23MaxConfig"])
-faz23_max_predict = (_faz23 or {}).get("faz23_max_predict")
-Faz23MaxConfig = (_faz23 or {}).get("Faz23MaxConfig")
 
 # ================================================================
 #  FAZ-23 MAX IMPORT
