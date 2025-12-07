@@ -380,9 +380,11 @@ def index():
 @app.route("/webhook", methods=["POST"])
 def telegram_webhook():
     if request.headers.get("content-type") == "application/json":
-        update = telebot.types.Update.de_json(request.get_data().decode("utf-8"))
+        json_str = request.get_data().decode("utf-8")
+        update = telebot.types.Update.de_json(json_str)
         bot.process_new_updates([update])
-    return "OK", 200
+        return "OK", 200
+    return "Unsupported", 415
 
 # ================================================================
 # 🚀 MAIN
