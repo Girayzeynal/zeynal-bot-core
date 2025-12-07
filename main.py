@@ -91,8 +91,8 @@ _ext_ultra_ocr_engine_v3 = (_faz13ocr or {}).get("ultra_ocr_engine_v3")
 #  FAZ-23 MAX IMPORT
 # ================================================================
 try:
-    from faz23_engine.faz23_max import faz23_max_predict
-    from faz23_engine.faz23_meta_engine import Faz23MaxConfig
+    # Hem tahmin motoru hem de config TEK dosyadan geliyor
+    from faz23_engine.faz23_max import Faz23MaxConfig, faz23_max_predict
 except Exception as e:
     log.error(f"[FAZ-23] Import error: {e}")
     faz23_max_predict = None
