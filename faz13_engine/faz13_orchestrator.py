@@ -9,11 +9,13 @@ from .faz13_news_scraper import MatchMeta, get_match_news, encode_news_features
 
 log = logging.getLogger(__name__)
 
-
 # ================================================================
 # Yardımcı fonksiyonlar
 # ================================================================
+
+
 def _safe_float(x: Any) -> Optional[float]:
+    """String/number karışık değerleri güvenli şekilde floata çevirmeye çalış."""
     try:
         if isinstance(x, str):
             x = x.replace(",", ".")
@@ -31,6 +33,7 @@ def _detect_match_from_text(text: str) -> str:
         return ""
 
     t = text.replace("VS", "vs").replace("Vs", "vs")
+
     for sep in [" - ", "-", " vs ", " vs. "]:
         if sep in t:
             parts = t.split(sep)
@@ -46,7 +49,7 @@ def _detect_match_from_text(text: str) -> str:
 def _baseline_total_for_league(league: str) -> float:
     """
     Lig tipine göre kaba total baseline.
-    Ağır istatistik yok; sadece hafif lig heuristiği.
+    AĞIR istatistik yok; sadece lig tipi heuristiği.
     """
     if not league:
         return 200.0
@@ -67,21 +70,33 @@ def _baseline_total_for_league(league: str) -> float:
 
 
 def _national_match_flag(home: str, away: str, league: str) -> bool:
-    """
-    Milli takım maçı mı? Çok kaba bayrak.
-    """
+    """Milli takım maçı mı? Çok kaba bayrak."""
     league_l = (league or "").lower()
     if any(k in league_l for k in ["fiba", "eurobasket", "world cup", "olympic"]):
         return True
 
     # Ülkeler arası maç gibi görünen çok basit durumlar
-    # (Burayı ileride fixture motoru ile değiştirirsin.)
     def is_country(name: str) -> bool:
         n = name.strip().lower()
         return n in {
-            "turkey", "türkiye", "france", "spain", "serbia", "germany",
-            "greece", "slovenia", "lithuania", "latvia", "usa", "canada",
-            "italy", "croatia", "bosnia", "belgium", "poland", "russia",
+            "turkey",
+            "türkiye",
+            "france",
+            "spain",
+            "serbia",
+            "germany",
+            "greece",
+            "slovenia",
+            "lithuania",
+            "latvia",
+            "usa",
+            "canada",
+            "italy",
+            "croatia",
+            "bosnia",
+            "belgium",
+            "poland",
+            "russia",
         }
 
     return is_country(home) and is_country(away)
@@ -90,15 +105,18 @@ def _national_match_flag(home: str, away: str, league: str) -> bool:
 # ================================================================
 # normalize_manual_text
 # ================================================================
+
+
 def normalize_manual_text(raw: str) -> Dict[str, Any]:
     """
     /mac13 ve /live13 için manuel girilen metni tek şemaya çevirir.
 
     Örnek argümanlar:
-        "BOS ORL 220.5 U 1.46"
-        "Fenerbahçe Efes 162.5 ÜST 1.70"
+      "BOS ORL 220.5 U 1.46"
+      "Fenerbahçe Efes 162.5 ÜST 1.70"
     """
     text = (raw or "").strip()
+
     fusion: Dict[str, Any] = {
         "engine": "FAZ-13",
         "raw": text,
@@ -116,6 +134,7 @@ def normalize_manual_text(raw: str) -> Dict[str, Any]:
         return fusion
 
     parts = text.split()
+
     if len(parts) >= 2:
         home = parts[0].upper()
         away = parts[1].upper()
@@ -150,6 +169,7 @@ def normalize_manual_text(raw: str) -> Dict[str, Any]:
 
     if pick is not None:
         fusion["pick"] = pick
+
     if odds is not None:
         fusion["odds"] = odds
 
@@ -159,6 +179,8 @@ def normalize_manual_text(raw: str) -> Dict[str, Any]:
 # ================================================================
 # normalize_visual_meta
 # ================================================================
+
+
 def normalize_visual_meta(ocr_text: str) -> Dict[str, Any]:
     """
     Ultra OCR v3'ten gelen raw metni basit bir fusion şemasına çevirir.
@@ -195,14 +217,15 @@ def normalize_visual_meta(ocr_text: str) -> Dict[str, Any]:
 # ================================================================
 # normalize_api_data
 # ================================================================
-def normalize_api_data(data: Dict[str, Any]) -> Dict[str, Any]:
+
+
+def normalize_api_data(data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    İleride canlı API (Flashscore, kendi live provider'ların vb.) ile
-    birleşmek için hook. Şimdilik pass-through + ufak düzenleme.
+    İleride canlı API (Flashscore, kendi live provider'ların vb.)
+    ile birleşmek için hook. Şimdilik pass-through.
     """
     if data is None:
         return {}
-
     out = dict(data)
     out.setdefault("engine", "FAZ-13-API")
     return out
@@ -211,6 +234,8 @@ def normalize_api_data(data: Dict[str, Any]) -> Dict[str, Any]:
 # ================================================================
 # run_faz13_auto_pipeline
 # ================================================================
+
+
 def run_faz13_auto_pipeline(
     league: str,
     date: str,
@@ -218,6 +243,10 @@ def run_faz13_auto_pipeline(
     away_team: str,
     full_output: bool = True,
     match_key: Optional[str] = None,
+    meta_hint: Optional[Dict[str, Any]] = None,
+    api_data: Optional[Dict[str, Any]] = None,
+    visual_meta: Optional[Dict[str, Any]] = None,
+    **kwargs: Any,
 ) -> Dict[str, Any]:
     """
     FAZ-13 ana tahmin pipeline iskeleti.
@@ -225,11 +254,20 @@ def run_faz13_auto_pipeline(
     HEDEF:
     - Lig / tarih / takım bilgisine göre hafif bir tahmin üretmek
     - FAZ-23 için gerekli internal_meta alanlarını doldurmak
-    - Haber motorundan gelen sinyalleri (toplam eğilimi, tempo vs.)
-      base total üzerine bindirmek
+    - Haber motorundan gelen sinyalleri base total üzerine bindirmek
 
     AĞIR MODEL YOK → Fly.io 512 MB free ile uyumlu.
+    Esneklik için fazladan gelen tüm keyword argümanlar **kwargs ile
+    sessizce yutulur (eski komutlar bozulmasın).
     """
+    # kwargs içinden gelebilecek override'lar
+    if meta_hint is None:
+        meta_hint = kwargs.get("meta_hint")
+    if api_data is None:
+        api_data = kwargs.get("api_data")
+    if visual_meta is None:
+        visual_meta = kwargs.get("visual_meta")
+
     home_team = (home_team or "").strip()
     away_team = (away_team or "").strip()
     date = (date or "").strip()
@@ -251,6 +289,7 @@ def run_faz13_auto_pipeline(
         news_summary, news_features = get_match_news(match_meta, use_cache=True)
     except Exception as e:
         log.warning("get_match_news hata verdi: %s", e)
+
         # Haber gelmezse boş summary/features üret
         class Dummy:
             def __init__(self) -> None:
@@ -273,8 +312,8 @@ def run_faz13_auto_pipeline(
 
     # 3) Lig baseline + haber bias → base_total
     base = _baseline_total_for_league(final_league)
-
     nf = news_features or {}
+
     total_bias = 0.0
     if nf.get("news_total_over_flag"):
         total_bias += 1.0
@@ -315,10 +354,16 @@ def run_faz13_auto_pipeline(
     else:
         direction = "NEUTRAL"
 
-    fusion_total_call = f"{final_league} | {home_team} - {away_team} | TOTAL {line:.1f} band ({low:.1f}-{high:.1f}) [{direction}]"
+    fusion_total_call = (
+        f"{final_league} | {home_team} - {away_team} | "
+        f"TOTAL {line:.1f} band ({low:.1f}-{high:.1f}) [{direction}]"
+    )
 
     # 5) News summary + debug
-    ns_dict = asdict(news_summary) if hasattr(news_summary, "__dict__") or hasattr(news_summary, "__dataclass_fields__") else {}
+    if hasattr(news_summary, "__dataclass_fields__"):
+        ns_dict = asdict(news_summary)  # type: ignore[arg-type]
+    else:
+        ns_dict = getattr(news_summary, "__dict__", {}) or {}
 
     total_view = ns_dict.get("total_view") or {}
     tempo_view = ns_dict.get("tempo") or {}
@@ -326,11 +371,19 @@ def run_faz13_auto_pipeline(
     spread_view = ns_dict.get("spread_view") or {}
     soft_range = ns_dict.get("soft_score_range") or {}
 
-    news_summary_text = f"TOTAL: {total_view.get('consensus', 'NEUTRAL')}, tempo: {tempo_view.get('pace_hint', 'MID')}, flags: {','.join(ns_dict.get('flags') or [])}"
+    flags = ns_dict.get("flags") or []
+    if not isinstance(flags, list):
+        flags = [str(flags)]
+
+    news_summary_text = (
+        f"TOTAL: {total_view.get('consensus', 'NEUTRAL')}, "
+        f"tempo: {tempo_view.get('pace_hint', 'MID')}, "
+        f"flags: {','.join(flags)}"
+    )
 
     debug_reasons: List[str] = []
-
     debug_reasons.append(f"League baseline ~ {base:.1f}")
+
     if avg_line:
         debug_reasons.append(f"News avg_line ~ {avg_line:.1f}")
     if nf.get("news_total_over_flag"):
@@ -343,15 +396,18 @@ def run_faz13_auto_pipeline(
         debug_reasons.append("Tempo: LOW pace hint")
     if injuries_view.get("impact_home") or injuries_view.get("impact_away"):
         debug_reasons.append(
-            f"Injury impact H:{injuries_view.get('impact_home', 0)} A:{injuries_view.get('impact_away', 0)}"
+            f"Injury impact H:{injuries_view.get('impact_home', 0)} "
+            f"A:{injuries_view.get('impact_away', 0)}"
         )
     if soft_range:
         debug_reasons.append(
-            f"Soft range from news: {soft_range.get('low')} - {soft_range.get('high')}"
+            f"Soft range from news: {soft_range.get('low')} - "
+            f"{soft_range.get('high')}"
         )
-
     if not debug_reasons:
-        debug_reasons.append("No strong news signal; using league baseline only.")
+        debug_reasons.append(
+            "No strong news signal; using league baseline only."
+        )
 
     # 6) FAZ-23 için internal_meta
     national_flag = _national_match_flag(home_team, away_team, final_league)
@@ -365,7 +421,7 @@ def run_faz13_auto_pipeline(
         "match_type": "NATIONAL" if national_flag else "CLUB",
         "stage": "",
         "start_ts": None,
-        # FAZ-23'ün beklediği çekirdek parametreler:
+        # FAZ-23 çekirdek parametreler:
         "base_total": float(round(base_total, 1)),
         "tempo_factor": 1.0 + (pace_bias * 0.05),  # hafif çarpan
         "defense_factor": 1.0 - (pace_bias * 0.03),
@@ -380,7 +436,7 @@ def run_faz13_auto_pipeline(
         "style_pace": tempo_view.get("pace_hint", "MID"),
         # Haber & features debug
         "news_features": news_features,
-        "news_flags": ns_dict.get("flags") or [],
+        "news_flags": flags,
     }
 
     result: Dict[str, Any] = {
@@ -405,10 +461,13 @@ def run_faz13_auto_pipeline(
 # ================================================================
 # Basit kupon fonksiyonları (şimdilik iskelet)
 # ================================================================
+
+
 def faz13_daily_coupon(*args, **kwargs) -> Dict[str, Any]:
     """
     Şimdilik placeholder.
-    İleride günün maçlarını alıp run_faz13_auto_pipeline ile batch kupon üretebilirsin.
+    İleride günün maçlarını alıp run_faz13_auto_pipeline ile
+    batch kupon üretebilirsin.
     """
     return {
         "engine": "FAZ-13",
