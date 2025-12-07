@@ -91,6 +91,17 @@ _faz23 = _safe_import("faz23_engine.faz23_core", ["faz23_max_predict", "Faz23Max
 faz23_max_predict = (_faz23 or {}).get("faz23_max_predict")
 Faz23MaxConfig = (_faz23 or {}).get("Faz23MaxConfig")
 
+# ================================================================
+#  FAZ-23 MAX IMPORT
+# ================================================================
+try:
+    from faz23_engine.faz23_max import faz23_max_predict
+    from faz23_engine.faz23_meta_engine import Faz23MaxConfig
+except Exception as e:
+    log.error(f"[FAZ-23] Import error: {e}")
+    faz23_max_predict = None
+    Faz23MaxConfig = None
+
 
 # ================================================================
 # 🔧 GLOBAL STATE
