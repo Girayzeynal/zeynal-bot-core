@@ -116,22 +116,31 @@ def normalize_result(result):
     if isinstance(result, dict):
         return result
 
-    # Eğer tuple ise → FAZ-13 veya FAZ-23 eski format olabilir
+    # Eğer tuple ise → FAZ-13 veya FAZ-23 format
     if isinstance(result, tuple):
         try:
+            # En az 4 eleman varsa meta, fusion, vector, comment
             if len(result) >= 4:
-                meta, fusion_call, vector, comment = result[:4]
+                meta = result[0]
+                fusion_call = result[1]
+                vector = result[2]
+                comment = result[3]
+
+                # meta dict değilse fallback dict
+                if not isinstance(meta, dict):
+                    meta = {}
+
                 return {
-                    "match": f"{meta.get('home_team')} - {meta.get('away_team')}" if isinstance(meta, dict) else "Unknown",
+                    "match": f"{meta.get('home_team', 'Unknown')} - {meta.get('away_team', 'Unknown')}",
                     "fusion_total_call": fusion_call,
                     "internal_score_vector": vector,
                     "comment": comment,
-                    "internal_meta": meta if isinstance(meta, dict) else {},
+                    "internal_meta": meta,
                 }
         except:
             pass
 
-        # Tuple hâlâ çözülemezse → string'e çevir
+        # Tuple çözülemezse → string'e sarmala
         return {
             "match": "Unknown",
             "fusion_total_call": None,
@@ -140,7 +149,7 @@ def normalize_result(result):
             "internal_meta": {},
         }
 
-    # String hata mesajı olabilir → sarmala
+    # String → hata mesajı olabilir → sarmala
     if isinstance(result, str):
         return {
             "match": "Unknown",
