@@ -2,4 +2,5 @@ telebot
 Flask
 numpy==1.26.4
 pandas
-requests 
+requests
+gunicorn
