@@ -349,7 +349,7 @@ def cmd_test_faz13(message: types.Message):
             f"🧠 Score Vector: {result.get('internal_score_vector')}\n"
             f"ℹ️ News Range: {result.get('news_summary')}\n"
             f"🔍 Sebepler:\n" +
-            "\n".join(f"- {r}" for r in result.get("debug_reasons", []))
+            "\n".join(f"- {str(r)}" for r in result.get("debug_reasons", []))
         )
 
         bot.reply_to(message, text, parse_mode="Markdown")
@@ -421,7 +421,7 @@ def cmd_mac(message: types.Message):
             f"🧠 Score Vector: {result.get('internal_score_vector')}\n"
             f"ℹ️ News Range: {result.get('news_summary')}\n"
             f"🔍 Sebep / Açıklamalar:\n"
-            + "\n".join(f"- {r}" for r in result.get('debug_reasons', []))
+            + "\n".join(f"- {str(r)}" for r in result.get('debug_reasons', []))
         )
 
         bot.reply_to(message, text, parse_mode="Markdown")
@@ -536,7 +536,7 @@ def cmd_manual_match(message: types.Message):
         )
 
 # ================================================================
-# 🖼 /mac_img — VISUAL EXTREME MODE (FAZ-13 + OCR)
+# 🖼 /mac_img — VISUAL EXTREME MODE (FAZ-13 + OCR + GOD-LAYER)
 # ================================================================
 @bot.message_handler(commands=["mac_img"])
 def cmd_visual_request(message: types.Message):
@@ -554,11 +554,20 @@ def cmd_visual_upload(message: types.Message):
     FAZ-13 GOD-LAYER + Ultra OCR v3 pipeline kullanır.
     Ayrıca görseli VISUAL_STACK içine push eder (multi-screen analiz için).
     """
+
     try:
+        # 1) İçerik tipi doğrulama
+        if message.content_type not in ["photo", "document"]:
+            bot.reply_to(
+                message,
+                "❌ Yalnızca fotoğraf veya belge kabul edilir.",
+            )
+            return
+
         if not normalize_visual_meta or not run_faz13_with_god_layer:
             raise RuntimeError("FAZ-13 GOD-LAYER modülleri bağlı değil")
 
-        # Telegram file URL
+        # 2) Telegram file ID çıkar
         if message.content_type == "photo":
             file_id = message.photo[-1].file_id
         else:
@@ -567,16 +576,21 @@ def cmd_visual_upload(message: types.Message):
         file_info = bot.get_file(file_id)
         url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
 
+        # 3) Görsel indir
         import requests
 
-        bot.reply_to(message, "🛰 Görsel alındı → OCR işleniyor...")
-        r = requests.get(url, timeout=10)
+        bot.reply_to(message, "🛰 Görsel alındı → OCR çalışıyor...")
+        r = requests.get(url, timeout=20)
         r.raise_for_status()
         img_bytes = r.content
 
-        ocr = ultra_ocr_engine_v3(img_bytes)
-        text = (ocr or {}).get("text") or ""
-        meta = (ocr or {}).get("meta") or {}
+        # 4) OCR ÇALIŞTIR
+        ocr = ultra_ocr_engine_v3(img_bytes) or {}
+        text = ocr.get("text", "") or ""
+        meta = ocr.get("meta", {}) or {}
+
+        if not isinstance(meta, dict):
+            meta = {}
 
         if not text.strip():
             bot.reply_to(
@@ -585,7 +599,7 @@ def cmd_visual_upload(message: types.Message):
             )
             return
 
-        # VISUAL_STACK'e ekle
+        # 5) VISUAL STACK — SAFE PUSH
         VISUAL_STACK.append(
             {
                 "chat_id": message.chat.id,
@@ -597,22 +611,31 @@ def cmd_visual_upload(message: types.Message):
         if len(VISUAL_STACK) > VISUAL_STACK_MAX:
             VISUAL_STACK.pop(0)
 
+        # 6) normalize_visual_meta güvenli hale getir
         fusion = normalize_visual_meta(text)
-        result = run_faz13_with_god_layer("visual", fusion)
+        if not isinstance(fusion, dict):
+            fusion = {"raw": text}
 
-        # FAZ-7.9 istatistik
+        # 7) GOD-LAYER ÇALIŞTIR
+        result = run_faz13_with_god_layer("visual", fusion)
+        result = str(result)
+
+        # 8) FAZ-7.9 istatistik
         faz7_touch_stat("total_matches", 1)
 
-        result = str(result) + ( 
+        # 9) OCR meta ekle
+        result = (
+            result +
             "\n\n🧪 FAZ-13 OCR META\n"
-            f"Engine: {meta.get('engine','-')} | "
-            f"Cls: {meta.get('classifier','-')} | "
-            f"Score: {meta.get('prob_score',0):.3f}"
+            f"Engine: {meta.get('engine', '-')} | "
+            f"Cls: {meta.get('classifier', '-')} | "
+            f"Score: {meta.get('prob_score', 0):.3f}"
         )
+
         _send_long_text(message, result)
 
     except Exception as e:
-        log.error("[FAZ-13 VISUAL ERROR] %s", e, exc_info=True)
+        log.error("[FAZ-13 VISUAL ERROR] %s", e)
         bot.reply_to(
             message,
             "❌ Görsel işleme sırasında hata oluştu.",
