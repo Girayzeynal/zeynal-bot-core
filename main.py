@@ -1,4 +1,4 @@
-import os
+Oimport os
 import json
 import logging
 import traceback
@@ -358,17 +358,23 @@ def cmd_test_faz13(message: types.Message):
     except Exception as e:
         bot.reply_to(message, f"❌ /test_faz13 hata: {e}")
 
+
 # ================================================================
-# 🏀 /mac — Maç Tahmini (FAZ-13 NEWS PIPELINE)
+# 🏀 /mac – Maç Tahmini (FAZ-13 NEWS PIPELINE)
 # ================================================================
 @bot.message_handler(commands=["mac"])
 def cmd_mac(message: types.Message):
     try:
+
+        # FAZ-13 kontrolü
         if not run_faz13_auto_pipeline:
             raise RuntimeError("FAZ-13 orchestrator bağlı değil")
 
-        txt = message.text.replace("/mac", "", 1).strip()
-        if "|" not in txt:
+        # Komut metnini al
+        text = message.text.replace("/mac", "", 1).strip()
+
+        # Format kontrolü
+        if "|" not in text:
             bot.reply_to(
                 message,
                 "❌ Format hatalı.\n\n"
@@ -377,8 +383,8 @@ def cmd_mac(message: types.Message):
             )
             return
 
-        # Kullanıcı formatını çöz
-        parts = [p.strip() for p in txt.split("|")]
+        # Bölümleri ayır
+        parts = [p.strip() for p in text.split("|")]
         if len(parts) != 3:
             bot.reply_to(
                 message,
@@ -390,7 +396,7 @@ def cmd_mac(message: types.Message):
         league = parts[0]
         date = parts[1]
 
-        # Ev - Deplasman çöz
+        # Ev – Deplasman
         if "-" not in parts[2]:
             bot.reply_to(message, "❌ Takım formatı hatalı. (Ev - Deplasman)")
             return
@@ -398,39 +404,40 @@ def cmd_mac(message: types.Message):
         home_team = parts[2].split("-")[0].strip()
         away_team = parts[2].split("-")[1].strip()
 
-        # --------------------------------------------------------
-        #  FAZ-13 PIPELINE ÇALIŞTIR
-        # --------------------------------------------------------
+        # ----------------------------------------------------------
+        # 🔥 FAZ-13 PIPELINE ÇALIŞTIR
+        # ----------------------------------------------------------
         result = run_faz13_auto_pipeline(
             league=league,
             date=date,
             home_team=home_team,
             away_team=away_team,
             full_output=True,
-            match_key=None   # FAZ-23 kapalı (şimdilik)
+            match_key=None
         )
 
-        # --------------------------------------------------------
-        #  TELEGRAM ÇIKTISI
-        # --------------------------------------------------------
+        # ----------------------------------------------------------
+        # 📤 TELEGRAM ÇIKTISI
+        # ----------------------------------------------------------
         text = (
-        f"🏀 FAZ-13 Maç Tahmini\n"
-        f"📌 Maç: {result.get('match')}\n"
-        f"📅 Tarih: {result.get('date')}\n"
-        f"🏆 Lig: {result.get('league')}\n\n"
-        f"🔮 Fusion Karar: {result.get('fusion_total_call')}\n"
-        f"📊 Score Vector: {result.get('internal_score_vector')}\n"
-        f"📰 News Range: {result.get('news_summary')}\n"
-        f"🧩 Sebep / Açıklamalar:\n"
-        + "\n".join(f"- {str(r)}" for r in result.get("debug_reasons", []))
-    )
+            f"🏀 FAZ-13 Maç Tahmini\n"
+            f"📌 Maç: {result.get('match')}\n"
+            f"📅 Tarih: {result.get('date')}\n"
+            f"🏆 Lig: {result.get('league')}\n\n"
+            f"🔮 Fusion Karar: {result.get('fusion_total_call')}\n"
+            f"📊 Score Vector: {result.get('internal_score_vector')}\n"
+            f"📰 News Range: {result.get('news_summary')}\n"
+            f"🧩 Sebep / Açıklamalar:\n"
+            + "\n".join(f"- {str(r)}" for r in result.get("debug_reasons", []))
+        )
 
-    bot.reply_to(message, text, parse_mode="Markdown")
+        bot.reply_to(message, text, parse_mode="Markdown")
 
-except Exception as e:
-    tb = traceback.format_exc()
-    log.error("cmd_mac hata: %s\n%s", e, tb)
-    bot.reply_to(message, f"❌ /mac hata: {e}")
+    except Exception as e:
+        tb = traceback.format_exc()
+        log.error("cmd_mac hata: %s\n%s", e, tb)
+        bot.reply_to(message, f"❌ /mac hata: {e}")
+
 
 # ================================================================
 # 📊 /status
