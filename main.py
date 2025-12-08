@@ -359,112 +359,134 @@ def cmd_test_faz13(message: types.Message):
         bot.reply_to(message, f"❌ /test_faz13 hata: {e}")
 
 # ================================================================
-# /mac — Maç Tahmini (FAZ-13 NEWS PIPELINE)
+# SAFE OUTPUT ENGINE — Telegram için %100 güvenli metin hazırlama
+# ================================================================
+import re
+
+def safe_clean(text: str) -> str:
+    if not text:
+        return ""
+    # Telegram Markdown / HTML çakışan karakterler temizlenir
+    text = text.replace("*", "") \
+               .replace("_", "") \
+               .replace("`", "") \
+               .replace("[", "(") \
+               .replace("]", ")") \
+               .replace("|", " | ") \
+               .replace("<", "(") \
+               .replace(">", ")")
+
+    # Çift boşluk / bozuk newline düzeltmesi
+    text = re.sub(r"\s+", " ", text)
+    text = text.replace(" .", ".")
+    return text.strip()
+
+
+def safe_send(bot, chat_id, text: str, chunk=3500):
+    """
+    Telegram'ın maksimum 4096 limiti var.
+    Güvenli olması için 3500 karaktere böldük.
+    """
+    text = safe_clean(text)
+
+    if len(text) <= chunk:
+        bot.send_message(chat_id, text)
+        return
+
+    # Mesaj bölme
+    parts = [text[i:i+chunk] for i in range(0, len(text), chunk)]
+    for p in parts:
+        bot.send_message(chat_id, p)
+
+
+# ================================================================
+# /mac — FAZ-13 TAHMİN MOTORU (SAFE OUTPUT ENGINE ile)
 # ================================================================
 @bot.message_handler(commands=["mac"])
 def cmd_mac(message: types.Message):
     try:
-        if not run_faz13_auto_pipeline:
-            raise RuntimeError("FAZ-13 orchestrator bağlı değil")
-
-        # --------------------------
-        # INPUT PARSE
-        # --------------------------
         raw = message.text or ""
         txt = raw.replace("/mac", "", 1).strip()
 
+        # Format kontrol
         if "|" not in txt:
-            bot.reply_to(message,
-                "❌ Format hatalı.<br><br>"
-                "Doğru format:<br>"
-                "<code>/mac Euroleague | 2025-12-05 | Crvena Zvezda - Barcelona</code>",
-                parse_mode="HTML")
+            safe_send(bot, message.chat.id,
+                "❌ Format hatalı.\nDoğru format:\n/mac Euroleague | 2025-12-05 | Fenerbahçe - Monaco"
+            )
             return
 
         parts = [p.strip() for p in txt.split("|")]
         if len(parts) != 3:
-            bot.reply_to(message,
-                "❌ Format hatalı. 3 bölüm olmalı:<br>"
-                "<b>Lig | Tarih | Ev - Deplasman</b>",
-                parse_mode="HTML")
+            safe_send(bot, message.chat.id,
+                "❌ Format hatalı.\nKullanım:\nLig | Tarih | Ev - Deplasman"
+            )
             return
 
-        league, date, teams_part = parts
+        league = parts[0]
+        date = parts[1]
+        teams = parts[2]
 
-        if "-" not in teams_part:
-            bot.reply_to(message, "❌ Takım formatı hatalı. (Ev - Deplasman)", parse_mode="HTML")
+        if "-" not in teams:
+            safe_send(bot, message.chat.id, "❌ Takım formatı hatalı (Ev - Deplasman)")
             return
 
-        home_team, away_team = [t.strip() for t in teams_part.split("-", 1)]
-        if not home_team or not away_team:
-            bot.reply_to(message, "❌ Takım bilgisi okunamadı.", parse_mode="HTML")
-            return
+        home_team, away_team = [t.strip() for t in teams.split("-", 1)]
 
-        # --------------------------
-        # FAZ-13 PIPELINE
-        # --------------------------
+        # ----------------------------
+        # FAZ-13 Orchestrator Çağrısı
+        # ----------------------------
         result = run_faz13_auto_pipeline(
             league=league,
             date=date,
             home_team=home_team,
             away_team=away_team,
             full_output=True,
-            match_key=None,
+            match_key=None  # Faz-23 tam aktif olduğunda değişecek
         )
 
-        league_family = result.get("league_family", "-")
+        # ----------------------------
+        # TELEGRAM ÇIKTISI — %100 SAFE
+        # ----------------------------
+        lines = []
+        lines.append("🏀 FAZ-13 Maç Tahmini")
+        lines.append(f"Maç: {safe_clean(result.get('match'))}")
+        lines.append(f"Tarih: {safe_clean(result.get('date'))}")
+        lines.append(f"Lig: {safe_clean(result.get('league'))}")
+        lines.append(f"Lig family: {safe_clean(result.get('league_family'))}")
+        lines.append("")
+
+        lines.append(f"KARAR: {safe_clean(result.get('fusion_total_call'))}")
+        lines.append(f"Score Vector: {safe_clean(str(result.get('internal_score_vector')))}")
+        lines.append("")
+
         per = result.get("per_period_projection") or {}
 
-        # --------------------------
-        # MESSAGE BUILD (HTML SAFE)
-        # --------------------------
-        lines = []
-
-        # HEADER
-        lines.append("<b>🏀 FAZ-13 Maç Tahmini</b>")
-        lines.append(f"📌 <b>Maç:</b> {tg_escape(result.get('match'))}")
-        lines.append(f"📅 <b>Tarih:</b> {tg_escape(result.get('date'))}")
-        lines.append(f"🏆 <b>Lig:</b> {tg_escape(result.get('league'))}")
-        lines.append(f"🌍 <b>Lig family:</b> {tg_escape(league_family)}")
-        lines.append("<br>")
-
-        # FUSION
-        lines.append(f"🧪 <b>Fusion Karar:</b><br><code>{tg_escape(result.get('fusion_total_call'))}</code>")
-        lines.append(f"📊 <b>Score Vector:</b><br><code>{tg_escape(result.get('internal_score_vector'))}</code>")
-        lines.append("<br>")
-
-        # PERIYOT PROJEKSİYON
         if per:
-            lines.append("<b>⏱ Periyot / Yarı Projeksiyonları:</b>")
+            lines.append("⏱ Periyot Tahminleri:")
             lines.append(
-                f"1Ç: {tg_escape(per.get('q1_total','-'))} | "
-                f"2Ç: {tg_escape(per.get('q2_total','-'))} | "
-                f"3Ç: {tg_escape(per.get('q3_total','-'))} | "
-                f"4Ç: {tg_escape(per.get('q4_total','-'))}"
+                f"1Ç: {per.get('q1_total')} | 2Ç: {per.get('q2_total')} | "
+                f"3Ç: {per.get('q3_total')} | 4Ç: {per.get('q4_total')}"
             )
             lines.append(
-                f"İY: {tg_escape(per.get('h1_total','-'))} | "
-                f"IIY: {tg_escape(per.get('h2_total','-'))} | "
-                f"Maç: {tg_escape(per.get('game_total','-'))}"
+                f"İY: {per.get('h1_total')} | IIY: {per.get('h2_total')} | Maç: {per.get('game_total')}"
             )
-            lines.append("<br>")
+            lines.append("")
 
-        # NEWS
-        lines.append(f"ℹ️ <b>News Range:</b><br>{tg_escape(result.get('news_summary'))}<br>")
+        lines.append(f"News Range: {safe_clean(result.get('news_summary'))}")
 
-        # DEBUG
         debug = result.get("debug_reasons", [])
         if debug:
-            lines.append("<b>🧩 Sebep / Açıklamalar:</b>")
+            lines.append("Açıklamalar:")
             for r in debug:
-                lines.append(f"- {tg_escape(str(r))}")
+                lines.append(f"- {safe_clean(str(r))}")
 
-        msg = "<br>".join(lines)
+        final_text = "\n".join(lines)
 
-        bot.reply_to(message, msg, parse_mode="HTML")
+        # Güvenli gönderim
+        safe_send(bot, message.chat.id, final_text)
 
     except Exception as e:
-        bot.reply_to(message, f"❌ /mac hata: {tg_escape(str(e))}", parse_mode="HTML") 
+        safe_send(bot, message.chat.id, f"❌ /mac hata: {str(e)}") 
 
 # ================================================================
 # 📊 /status
