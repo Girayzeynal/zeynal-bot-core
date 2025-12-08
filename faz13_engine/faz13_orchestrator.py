@@ -368,70 +368,84 @@ def _compute_team_total_shares(
     """
     debug: List[str] = []
 
+    # Başlangıç: iki takım da 1.0 güçte
     home_strength = 1.0
     away_strength = 1.0
 
-    from .faz13_config import FAMILY_CONFIG  # eğer global değilse
-
+    # Lig family'den home advantage
     fam_cfg = FAMILY_CONFIG.get(league_family, FAMILY_CONFIG["GENERIC_MID"])
     home_adv_pts = float(fam_cfg.get("home_adv", 3.0))
 
-    ha_boost = home_adv_pts * 0.03
+    # Home advantage'ı küçük bir boost olarak ekleyelim
+    ha_boost = home_adv_pts * 0.03  # 3 pt ≈ +0.09 güç
     home_strength += ha_boost
-    debug.append(f"Home advantage boost ~ +{ha_boost:.2f}")
+    debug.append(f"Home advantage boost ~ +{ha_boost:.2f} (family={league_family})")
 
-    if nf.get("news_spread_home_flag", 0) > 0:
+    # -------------------------------------------------
+    # 1) Haberlerden spread favorisi
+    # -------------------------------------------------
+    if nf.get("news_spread_home_flag", 0.0) > 0:
         home_strength += 0.30
-        debug.append("Spread: HOME slight favorite (+0.30)")
+        debug.append("Spread signal: HOME slight favorite (+0.30)")
 
-    if nf.get("news_spread_away_flag", 0) > 0:
+    if nf.get("news_spread_away_flag", 0.0) > 0:
         away_strength += 0.30
-        debug.append("Spread: AWAY slight favorite (+0.30)")
+        debug.append("Spread signal: AWAY slight favorite (+0.30)")
 
-    inj_h = float(nf.get("news_inj_impact_home", 0.0))
-    inj_a = float(nf.get("news_inj_impact_away", 0.0))
+    # -------------------------------------------------
+    # 2) Sakatlık etkisi
+    # -------------------------------------------------
+    inj_h = float(nf.get("news_inj_impact_home", 0.0) or 0.0)
+    inj_a = float(nf.get("news_inj_impact_away", 0.0) or 0.0)
 
     if inj_h > 0:
-        d = inj_h * 0.8
-        home_strength -= d
-        debug.append(f"Injuries hurt HOME: -{d:.2f}")
+        delta = inj_h * 0.8  # sakatlık büyüdükçe güç düşsün
+        home_strength -= delta
+        debug.append(f"Injuries hurt HOME: -{delta:.2f} (impact={inj_h:.2f})")
 
     if inj_a > 0:
-        d = inj_a * 0.8
-        away_strength -= d
-        debug.append(f"Injuries hurt AWAY: -{d:.2f}")
+        delta = inj_a * 0.8
+        away_strength -= delta
+        debug.append(f"Injuries hurt AWAY: -{delta:.2f} (impact={inj_a:.2f})")
 
-    fatigue_diff = float(nf.get("news_fatigue_diff", 0.0))
-
+    # -------------------------------------------------
+    # 3) Yorgunluk farkı (fatigue_diff)
+    # Pozitif → ev daha yorgun, negatif → deplasman daha yorgun varsayımı
+    # -------------------------------------------------
+    fatigue_diff = float(nf.get("news_fatigue_diff", 0.0) or 0.0)
     if fatigue_diff > 0.0:
+        # Ev daha yorgun → gücü düşür, deplasmanı hafif güçlendir
         d = fatigue_diff * 0.3
         home_strength -= d
         away_strength += d * 0.5
         debug.append(f"Fatigue: HOME more tired (diff={fatigue_diff:.2f})")
-
     elif fatigue_diff < 0.0:
         d = (-fatigue_diff) * 0.3
         away_strength -= d
         home_strength += d * 0.5
         debug.append(f"Fatigue: AWAY more tired (diff={fatigue_diff:.2f})")
 
+    # -------------------------------------------------
+    # 4) Güvenli sınırlar
+    # -------------------------------------------------
     home_strength = max(0.2, home_strength)
     away_strength = max(0.2, away_strength)
 
     total = home_strength + away_strength
     if total <= 0:
-        return 0.5, 0.5, debug + ["Strength total <= 0 fallback"]
+        # çok ekstrem bir durumda fallback
+        return 0.5, 0.5, debug + ["Strength total <= 0 fallback to 50-50"]
 
-    H = home_strength / total
-    A = away_strength / total
+    home_share = home_strength / total
+    away_share = away_strength / total
 
     debug.append(
         f"Final strength H:{home_strength:.2f} A:{away_strength:.2f} "
-        f"→ shares H:{H:.3f} A:{A:.3f}"
+        f"→ shares H:{home_share:.3f} A:{away_share:.3f}"
     )
 
-    return H, A, debug
-    
+    return home_share, away_share, debug
+
 # ================================================================
 # normalize_manual_text
 # ================================================================
