@@ -1,691 +1,297 @@
-"""
-FAZ-13 NEWS SCRAPER ENGINE
-==========================
-
-Bu dosya, FAZ-13 / FAZ-17 / FAZ-22 / FAZ-23 çekirdeklerine
-"HABER + EDITÖR YORUMU + SAKATLIK + BAREM TRENDİ" bilgisini veren
-merkezi motorun TEK BLOK iskeletini içerir.
-
-HEDEF:
-    - Link bazlı haber / preview / injury / odds sayfalarını çekmek
-    - Hepsini ortak bir şemaya normalize etmek
-    - FAZ-13 tahmin motoruna:
-        * MatchNewsSummary (insan gibi özet)
-        * news_features (sayısallaştırılmış sinyaller)
-      olarak sunmak.
-
-MİMARİ ÖZETİ:
-    1) MatchMeta -> hangi maç için veri çekiyoruz?
-    2) Source registry -> hangi siteler devrede? (ESPN, Euroleague, Basketnews, OddsPortal, vb.)
-    3) fetch_raw_packets() -> her kaynaktan RawNewsPacket listesi
-    4) normalize_packets() -> RawNewsPacket -> MatchNewsSummary
-    5) encode_news_features() -> MatchNewsSummary -> news_features dict
-    6) get_match_news() -> dış dünyaya dönen tek fonksiyon
-
-HTTP / HTML kısımları şimdilik iskelet; gerçek projede requests + BeautifulSoup
-veya httpx + selektörlerle doldurulacak.
-"""
-
 from __future__ import annotations
 
 import json
-import time
 import logging
 import os
-import re
-from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Optional, Tuple, Any
+from dataclasses import dataclass, asdict
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 log = logging.getLogger(__name__)
 
-# =====================================================================
-# 0) CONFIG & PATH
-# =====================================================================
+# ================================================================
+# Haber / barem cache konumu
+# ================================================================
 
-# Fly.io volume’a göre path:
-NEWS_CACHE_PATH = "/data/faz13/faz13_news_cache.jsonl"
-
-
-# =====================================================================
-# 0.5) EVRENSEL SLUG (TUPLE/LIST/NONE SAFE)
-# =====================================================================
-
-def slug(x: Any) -> str:
-    """
-    Evrensel güvenli slug dönüştürücü.
-    Her türlü input'u (tuple, list, None, int, float) güvenli stringe çevirir.
-    Orijinal sistem mimarisini bozmadan crash'i kalıcı olarak çözer.
-    """
-    if x is None:
-        return "NONE"
-
-    if isinstance(x, (tuple, list)):
-        x = " ".join(str(i) for i in x if i is not None)
-
-    x = str(x)
-
-    return re.sub(r"[^A-Za-z0-9]+", "_", x).strip("_").upper()
+# İstersen fly.io volume içine maplersin:
+#   fly volume: /data/faz13/news_cache.json
+NEWS_CACHE_PATH = os.getenv(
+    "FAZ13_NEWS_CACHE",
+    "/data/faz13/news_cache.json"
+)
 
 
-# Kaynak kategorileri (şimdilik referans amaçlı)
-SOURCE_REGISTRY = {
-    "injuries": [
-        "espn_nba_injuries",
-        "cbs_nba_injuries",
-        "fox_nba_injuries",
-        "rotowire_lineups",
-    ],
-    "tempo": [
-        "basketball_reference",
-        "nba_advanced_stats",
-        "teamrankings_pace",
-        "euroleague_stats",
-    ],
-    "news": [
-        "yahoo_nba_news",
-        "bleacher_report",
-        "the_athletic",
-        "hoopshype",
-        "eurohoops",
-        "basketnews",
-        "aa_sports_tr",
-        "club_official_news",
-    ],
-    "odds": [
-        "oddsportal",
-        "flashscore",
-    ],
-    "local_tr": [
-        "basketfaul",
-        "tbf_news",
-    ],
-}
-
-# =====================================================================
-# 1) DATA MODELS
-# =====================================================================
+# ================================================================
+# Temel veri sınıfları
+# ================================================================
 
 @dataclass
 class MatchMeta:
     """
-    Bu maç için kimlik bilgisi.
-    Örnek:
-        league: "Euroleague"
-        date: "2025-12-04"
-        home_team: "Anadolu Efes"
-        away_team: "Real Madrid"
+    FAZ-13 / FAZ-23 için maç tanımı.
+
+    book_main_total  : Kitapçının ana toplam baremi (ör: 165.5)
+    book_alt_totals  : 164.5, 165.5, 166.5 ... gibi alt/üst serisi
+                       (Nesine ekranındaki listeyi temsil eder)
     """
-    league: Any
+    league: str
+    date: str
+    home_team: str
+    away_team: str
+    book_main_total: Optional[float] = None
+    book_alt_totals: Optional[List[float]] = None
+
+    @property
+    def match_key(self) -> str:
+        return f"{self.league}|{self.date}|{self.home_team}-{self.away_team}"
+
+
+@dataclass
+class NewsSummary:
+    """
+    FAZ-13 / FAZ-23 God Layer'ın okuyacağı özet yapı.
+    Gerçek haber entegrasyonu geldiğinde de bu şema bozulmayacak.
+    """
+    match_key: str
+    league: str
     date: str
     home_team: str
     away_team: str
 
-    @property
-    def match_key(self) -> str:
-        """
-        Global key üretimi — tamamen crash-safe (slug Any tipini kaldırır).
-        """
-        return f"{slug(self.league)}|{self.date}|{slug(self.home_team)}|{slug(self.away_team)}"
+    injuries: Dict[str, Any]
+    fatigue: Dict[str, Any]
+    tempo: Dict[str, Any]
+    total_view: Dict[str, Any]
+    spread_view: Dict[str, Any]
+    soft_score_range: Dict[str, Any]
+
+    flags: List[str]
+    confidence: float
+
+    key_quotes: List[str]
+    sources_used: List[str]
 
 
-@dataclass
-class RawNewsPacket:
-    """
-    Her bir kaynaktan gelen ham metin ve meta bilgisi.
-    Örnek: tek bir AA haberi, tek bir Basketnews preview yazısı, vb.
-    """
-    source: str           # "eurohoops", "basketnews", "oddsportal", vs.
-    lang: str             # "tr", "en"
-    url: str
-    fetched_at: float
-    raw_text: str         # HTML'den arındırılmış plain text
-    meta: Dict            # Kaynağa özel ek bilgiler (önerilen bahis, barem vs.)
-    trust_score: float    # 0.0 - 1.0 arası; kaynağın güvenilirliği
+# ================================================================
+# Cache yardımcıları
+# ================================================================
 
-
-@dataclass
-class MatchNewsSummary:
-    """
-    Bütün RawNewsPacket'lerin tek potada eritilip özetlendiği yapı.
-    FAZ-13 / 17 / 22 / 23 buna bakarak 'insani' sinyal alır.
-    """
-    match_key: str
-    home_team: str
-    away_team: str
-
-    # 1) SAKATLIK / KADRO
-    injuries: Dict = field(default_factory=dict)  # {"home_out": [...], "away_out": [...], "impact_home": 0.2, ...}
-
-    # 2) YORGUNLUK / TEMPO
-    fatigue: Dict = field(default_factory=dict)   # {"home_b2b": False, "away_b2b": True, "fatigue_diff": +0.3}
-    tempo: Dict = field(default_factory=dict)     # {"pace_hint": "HIGH"|"LOW"|"MID", "evidence": [...], "votes": {...}}
-
-    # 3) UZMAN GÖRÜŞLERİ (SPREAD / TOTAL)
-    spread_view: Dict = field(default_factory=dict)  # {"consensus": "HOME"|"AWAY"|"NEUTRAL", "avg_line": -6.5, ...}
-    total_view: Dict = field(default_factory=dict)   # {"consensus": "OVER"|"UNDER"|"NEUTRAL", "key_range": [226.5, 233.5]}
-
-    # 4) SKOR ARALIĞI
-    soft_score_range: Dict = field(default_factory=dict)  # {"low": 218, "center": 225, "high": 232}
-
-    # 5) BAYRAKLAR & GÜVEN
-    flags: List[str] = field(default_factory=list)  # ["HOME_FAV_STRONG", "AWAY_TIRED", "PACE_HIGH", ...]
-    confidence: float = 0.0                         # 0.0 - 1.0 arası genel güven
-
-    # 6) ÖNEMLİ CÜMLELER
-    key_quotes: List[str] = field(default_factory=list)
-
-    # 7) KULLANILAN KAYNAKLAR
-    sources_used: List[str] = field(default_factory=list)
-
-
-# =====================================================================
-# 2) CACHE YAPISI
-# =====================================================================
-
-def _ensure_cache_file():
-    """
-    Cache dosyası için klasörü garantile.
-    /data/faz13 yoksa oluşturmaya çalışır.
-    """
+def _load_cache() -> Dict[str, Any]:
     try:
-        directory = os.path.dirname(NEWS_CACHE_PATH)
-        if directory and not os.path.exists(directory):
-            os.makedirs(directory, exist_ok=True)
-        open(NEWS_CACHE_PATH, "a", encoding="utf-8").close()
+        p = Path(NEWS_CACHE_PATH)
+        if not p.exists():
+            return {}
+        with p.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                return data
     except Exception as e:
-        log.warning("NEWS_CACHE_PATH yaratılırken hata: %s", e)
+        log.warning("FAZ-13 news cache okunamadı: %s", e)
+    return {}
 
 
-def load_from_cache(match_key: str) -> Optional[MatchNewsSummary]:
-    """
-    JSONL cache içinden match_key'e uyan ilk kaydı bulmaya çalışır.
-    Çok eski değilse (ör: 6 saat) direkt bunu dönebilirsin.
-    """
-    _ensure_cache_file()
-    now = time.time()
-    max_age = 6 * 3600  # 6 saat
-
+def _save_cache(cache: Dict[str, Any]) -> None:
+    """Şu an kullanılmıyor ama ileride manuel / admin komutu için hazır."""
     try:
-        with open(NEWS_CACHE_PATH, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    obj = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if obj.get("match_key") != match_key:
-                    continue
-                if now - obj.get("fetched_at", 0) > max_age:
-                    # Çok eski, kullanma
-                    return None
-                summary_dict = obj.get("summary")
-                if not summary_dict:
-                    return None
-                return MatchNewsSummary(**summary_dict)
-    except FileNotFoundError:
-        return None
+        p = Path(NEWS_CACHE_PATH)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open("w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        log.warning("News cache okunamadı: %s", e)
-        return None
-
-    return None
+        log.warning("FAZ-13 news cache yazılamadı: %s", e)
 
 
-def save_to_cache(summary: MatchNewsSummary):
-    _ensure_cache_file()
-    try:
-        with open(NEWS_CACHE_PATH, "a", encoding="utf-8") as f:
-            record = {
-                "match_key": summary.match_key,
-                "fetched_at": time.time(),
-                "summary": asdict(summary),
-            }
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
-    except Exception as e:
-        log.warning("News cache yazılamadı: %s", e)
+# ================================================================
+# Barem → yumuşak skor bandı
+# ================================================================
 
-
-# =====================================================================
-# 3) SOURCE ADAPTER İSKELETLERİ
-# =====================================================================
-
-# NOT: Bu fonksiyonlar şu an iskelet.
-# Gerçek projende, her birini requests/httpx + BeautifulSoup ile dolduracaksın.
-# Ama interface sabit kalacak: (match_meta: MatchMeta) -> List[RawNewsPacket]
-
-
-def fetch_from_euroleague_game_center(match_meta: MatchMeta) -> List[RawNewsPacket]:
+def _barem_soft_range(
+    book_main_total: Optional[float],
+    book_alt_totals: Optional[List[float]],
+) -> Tuple[Optional[float], Optional[float], Optional[float]]:
     """
-    Örnek: EuroLeague resmi maç sayfası (game-center).
-    - Kadro
-    - Maç önü açıklamalar
-    - H2H kısmi bilgi
+    Nesine ekranındaki alt/üst serisinden yumuşak skor bandı çıkarır.
+
+    DÖNEN:
+      (soft_low, soft_high, avg_line)
+
+    Hiç barem yoksa hepsi None döner.
     """
-    return []
+    if not book_main_total and not book_alt_totals:
+        return None, None, None
 
+    vals: List[float] = []
+    if isinstance(book_main_total, (int, float)):
+        vals.append(float(book_main_total))
 
-def fetch_from_eurohoops(match_meta: MatchMeta) -> List[RawNewsPacket]:
-    """
-    Eurohoops'tan gelen haber / analizleri RawNewsPacket'e çevir.
-    """
-    return []
-
-
-def fetch_from_basketnews(match_meta: MatchMeta) -> List[RawNewsPacket]:
-    return []
-
-
-def fetch_from_aa_sports(match_meta: MatchMeta) -> List[RawNewsPacket]:
-    """
-    Örnek: Anadolu Ajansı spor haberi.
-    """
-    return []
-
-
-def fetch_from_oddsportal(match_meta: MatchMeta) -> List[RawNewsPacket]:
-    """
-    OddsPortal'dan:
-      - açılış total baremi
-      - güncel total baremi
-      - açılış handikap
-      - güncel handikap
-    gibi veriler çekilip meta'da tutulur.
-    """
-    return []
-
-
-def fetch_from_flashscore(match_meta: MatchMeta) -> List[RawNewsPacket]:
-    """
-    FlashScore maç sayfasından:
-      - form
-      - H2H
-      - son maçlar
-      vb. metin / yorum çekilebilir.
-    """
-    return []
-
-
-def fetch_from_club_official(match_meta: MatchMeta) -> List[RawNewsPacket]:
-    """
-    Anadolu Efes SK, Real Madrid Basket gibi kulüp resmi sayfalarından:
-      - maç önü haber
-      - sakatlık açıklaması
-      - koç yorumu
-    """
-    return []
-
-
-def fetch_raw_packets(match_meta: MatchMeta) -> List[RawNewsPacket]:
-    """
-    Tüm kaynak adapter'lerini çağır, çıkan raw paketleri birleştir.
-    Şimdilik hepsi boş dönecek → NO_NEWS_DATA senaryosu.
-    """
-    packets: List[RawNewsPacket] = []
-
-    adapters = [
-        fetch_from_euroleague_game_center,
-        fetch_from_eurohoops,
-        fetch_from_basketnews,
-        fetch_from_aa_sports,
-        fetch_from_oddsportal,
-        fetch_from_flashscore,
-        fetch_from_club_official,
-        # ileride: ESPN, BasketballReference, Yahoo, vb. için benzer fonksiyonlar
-    ]
-
-    for adapter in adapters:
-        try:
-            sub = adapter(match_meta)
-            if sub:
-                packets.extend(sub)
-        except Exception as e:
-            log.warning("News adapter %s hata verdi: %s", adapter.__name__, e)
-
-    return packets
-
-
-# =====================================================================
-# 4) NORMALIZER: RAW -> SUMMARY
-# =====================================================================
-
-def _extract_injury_info(packets: List[RawNewsPacket], match_meta: MatchMeta) -> Dict:
-    """
-    Metin içinden 'oynamayacak / sakat / questionable' gibi sinyalleri yakala.
-    Bu basit bir örnek; ileride oyuncu bazlı rating ile güçlendirilebilir.
-    """
-    home_out = set()
-    away_out = set()
-
-    patterns_tr = [
-        r"(.+?)\s+oynamayacak",
-        r"(.+?)\s+forma giymeyecek",
-        r"(.+?)\s+yer almayacak",
-    ]
-    patterns_en = [
-        r"(.+?)\s+out\b",
-        r"(.+?)\s+won't play",
-        r"(.+?)\s+ruled out",
-    ]
-
-    for pkt in packets:
-        text = pkt.raw_text.lower()
-        for pat in (patterns_tr + patterns_en):
-            for m in re.finditer(pat, text, flags=re.IGNORECASE):
-                name = m.group(1).strip()
-                if not name:
-                    continue
-                # Çok basit ayrım: home/away içinde isim geçiyorsa ona yaz
-                if match_meta.home_team.lower().split()[0] in text:
-                    home_out.add(name)
-                elif match_meta.away_team.lower().split()[0] in text:
-                    away_out.add(name)
-
-    # Şimdilik impact hesaplaması basit: oyuncu sayısına göre kabaca skor
-    impact_home = min(1.0, 0.1 * len(home_out))
-    impact_away = min(1.0, 0.1 * len(away_out))
-
-    return {
-        "home_out": sorted(home_out),
-        "away_out": sorted(away_out),
-        "impact_home": impact_home,
-        "impact_away": impact_away,
-    }
-
-
-def _extract_total_spread_view(packets: List[RawNewsPacket]) -> Tuple[Dict, Dict]:
-    """
-    Haber / preview / odds kaynaklarından:
-      - total_view (OVER / UNDER / NEUTRAL)
-      - spread_view (HOME / AWAY / NEUTRAL)
-    çıkar.
-    Basit keyword mantığıyla başlıyoruz, ileride BERT/LLM ile güçlendirilebilir.
-    """
-    total_votes = {"OVER": 0.0, "UNDER": 0.0}
-    spread_votes = {"HOME": 0.0, "AWAY": 0.0}
-    total_ranges: List[float] = []
-
-    for pkt in packets:
-        txt = pkt.raw_text.lower()
-        w = pkt.trust_score or 0.5
-
-        # Total:
-        if "üst" in txt or "over" in txt:
-            total_votes["OVER"] += w
-        if "alt" in txt or "under" in txt:
-            total_votes["UNDER"] += w
-
-        # Basit barem yakalama: "226.5" gibi
-        for m in re.finditer(r"(\d{3}\.\d)", txt):
+    if book_alt_totals:
+        for v in book_alt_totals:
             try:
-                v = float(m.group(1))
-                total_ranges.append(v)
-            except ValueError:
-                pass
+                vals.append(float(v))
+            except Exception:
+                continue
 
-        # Spread:
-        if "ev sahibi" in txt or "home team" in txt:
-            spread_votes["HOME"] += w
-        if "deplasman" in txt or "away team" in txt:
-            spread_votes["AWAY"] += w
+    if not vals:
+        return None, None, None
 
-    # consensus:
-    def choose_consensus(votes: Dict[str, float]) -> str:
-        if not votes:
-            return "NEUTRAL"
-        # OVER/UNDER seti için:
-        if "OVER" in votes and "UNDER" in votes:
-            if votes["OVER"] == votes["UNDER"]:
-                return "NEUTRAL"
-            return max(votes, key=votes.get)
-        # HOME/AWAY seti için:
-        if "HOME" in votes and "AWAY" in votes:
-            if votes["HOME"] == votes["AWAY"]:
-                return "NEUTRAL"
-            return max(votes, key=votes.get)
-        return max(votes, key=votes.get)
+    low = min(vals)
+    high = max(vals)
+    avg = sum(vals) / len(vals)
 
-    total_cons = choose_consensus(total_votes) if total_votes else "NEUTRAL"
-    spread_cons = choose_consensus(spread_votes) if spread_votes else "NEUTRAL"
-
-    if total_ranges:
-        avg_barem = sum(total_ranges) / len(total_ranges)
-        key_range = [avg_barem - 4.0, avg_barem + 4.0]
-    else:
-        avg_barem = None
-        key_range = []
-
-    total_view = {
-        "consensus": total_cons,
-        "avg_line": avg_barem,
-        "key_range": key_range,
-        "votes": total_votes,
-    }
-
-    spread_view = {
-        "consensus": spread_cons,
-        "votes": spread_votes,
-    }
-
-    return total_view, spread_view
+    return low, high, avg
 
 
-def _estimate_soft_score_range(
-    total_view: Dict,
-    match_meta: MatchMeta,
-) -> Dict:
+# ================================================================
+# Özellik kodlayıcı
+# ================================================================
+
+def encode_news_features(summary: NewsSummary) -> Dict[str, Any]:
     """
-    total_view ve lig yapısına göre yumuşak skor aralığı tahmini.
-    Şimdilik çıplak bir tahmin; ileride FAZ-13 istatistik motoru ile
-    ortak çalışarak daha rafine hale gelecek.
+    NewsSummary → FAZ-13/FAZ-23 feature sözlüğü.
+
+    Orchestrator şunları bekliyor:
+      - news_total_avg_line
+      - news_total_over_flag / news_total_under_flag
+      - news_pace_high_flag / news_pace_low_flag
+      - news_fatigue_diff
     """
-    # Eğer avg_line yoksa lig default'u kullan:
-    if total_view.get("avg_line"):
-        center = total_view["avg_line"]
-    else:
-        # EuroLeague için kabaca 160-170 arası; NBA için 220-230 arası kullanılabilir.
-        l = str(match_meta.league).lower()
-        if "euroleague" in l:
-            center = 165.0
-        elif "nba" in l:
-            center = 230.0
-        else:
-            center = 170.0
+    data = asdict(summary)
 
-    return {
-        "low": center - 8.0,
-        "center": center,
-        "high": center + 8.0,
-    }
+    total_view = data.get("total_view") or {}
+    tempo = data.get("tempo") or {}
+    fatigue = data.get("fatigue") or {}
+    soft_range = data.get("soft_score_range") or {}
 
+    consensus = str(total_view.get("consensus", "NEUTRAL")).upper()
+    book_main = total_view.get("book_main_total")
+    soft_low = soft_range.get("low")
+    soft_high = soft_range.get("high")
 
-def normalize_packets(packets: List[RawNewsPacket], match_meta: MatchMeta) -> MatchNewsSummary:
-    """
-    Tüm RawNewsPacket listesi -> MatchNewsSummary
-    """
-    summary = MatchNewsSummary(
-        match_key=match_meta.match_key,
-        home_team=match_meta.home_team,
-        away_team=match_meta.away_team,
-    )
+    avg_line: float = 0.0
+    if isinstance(book_main, (int, float)):
+        avg_line = float(book_main)
+    elif isinstance(soft_low, (int, float)) and isinstance(soft_high, (int, float)):
+        avg_line = float((soft_low + soft_high) / 2.0)
 
-    if not packets:
-        summary.confidence = 0.0
-        summary.flags.append("NO_NEWS_DATA")
-        summary.tempo = {"pace_hint": "MID", "evidence": [], "votes": {"HIGH": 0.0, "LOW": 0.0, "MID": 1.0}}
-        summary.total_view = {"consensus": "NEUTRAL", "avg_line": None, "key_range": [], "votes": {"OVER": 0.0, "UNDER": 0.0}}
-        summary.spread_view = {"consensus": "NEUTRAL", "votes": {"HOME": 0.0, "AWAY": 0.0}}
-        summary.soft_score_range = _estimate_soft_score_range(summary.total_view, match_meta)
-        return summary
-
-    # Sakatlık:
-    injuries = _extract_injury_info(packets, match_meta)
-    summary.injuries = injuries
-
-    # Total & Spread:
-    total_view, spread_view = _extract_total_spread_view(packets)
-    summary.total_view = total_view
-    summary.spread_view = spread_view
-
-    # Soft skor aralığı:
-    summary.soft_score_range = _estimate_soft_score_range(total_view, match_meta)
-
-    # Basit tempo çıkarımı (keyword bazlı):
-    tempo_flags = {"HIGH": 0.0, "LOW": 0.0, "MID": 0.0}
-    evidence: List[str] = []
-
-    for pkt in packets:
-        txt = pkt.raw_text.lower()
-        w = pkt.trust_score or 0.5
-        if any(k in txt for k in ["yüksek tempo", "high-paced", "fastbreak", "run and gun"]):
-            tempo_flags["HIGH"] += w
-            evidence.append(f"[{pkt.source}] yüksek tempo sinyali")
-        if any(k in txt for k in ["savunma maçı", "defensive battle", "low scoring"]):
-            tempo_flags["LOW"] += w
-            evidence.append(f"[{pkt.source}] düşük tempo sinyali")
-
-    if any(tempo_flags.values()):
-        tempo_hint = max(tempo_flags, key=tempo_flags.get)
-    else:
-        tempo_hint = "MID"
-        tempo_flags["MID"] = 1.0
-
-    summary.tempo = {
-        "pace_hint": tempo_hint,
-        "evidence": evidence,
-        "votes": tempo_flags,
-    }
-
-    # Flags & confidence:
-    flags: List[str] = []
-    base_conf = 0.5  # haber varlığı
-
-    if injuries.get("impact_home", 0) > 0.2 or injuries.get("impact_away", 0) > 0.2:
-        flags.append("INJURY_RELEVANT")
-        base_conf += 0.1
-
-    if total_view.get("consensus") in ("OVER", "UNDER"):
-        flags.append(f"TOTAL_{total_view['consensus']}")
-        base_conf += 0.1
-
-    if spread_view.get("consensus") in ("HOME", "AWAY"):
-        flags.append(f"SPREAD_{spread_view['consensus']}")
-        base_conf += 0.1
-
-    if tempo_hint != "MID":
-        flags.append(f"TEMPO_{tempo_hint}")
-        base_conf += 0.05
-
-    summary.flags = flags
-    summary.confidence = min(1.0, base_conf)
-    summary.sources_used = sorted({pkt.source for pkt in packets})
-    summary.key_quotes = []
-
-    return summary
-
-
-# =====================================================================
-# 5) FEATURE ENCODER: SUMMARY -> SAYISAL ÖZELLİKLER
-# =====================================================================
-
-def encode_news_features(summary: MatchNewsSummary) -> Dict:
-    """
-    MatchNewsSummary'den FAZ-13 için sayısal özellik çıkar.
-    Bunları istatistik motorunla birleştirip final skoru / baremi
-    daha iyi kalibre edebilirsin.
-    """
-    injuries = summary.injuries or {}
-    fatigue = summary.fatigue or {}
-    tempo = summary.tempo or {}
-    total_view = summary.total_view or {}
-    spread_view = summary.spread_view or {}
-
-    features = {
-        # Sakatlık:
-        "news_inj_impact_home": float(injuries.get("impact_home", 0.0)),
-        "news_inj_impact_away": float(injuries.get("impact_away", 0.0)),
-
-        # Yorgunluk (ileride NewsScraper + fixture verisi birleşince doldurulacak):
-        "news_fatigue_diff": float(fatigue.get("fatigue_diff", 0.0)),
-
-        # Tempo:
-        "news_pace_high_flag": 1.0 if tempo.get("pace_hint") == "HIGH" else 0.0,
-        "news_pace_low_flag": 1.0 if tempo.get("pace_hint") == "LOW" else 0.0,
-
-        # Toplam sayı eğilimi:
-        "news_total_over_flag": 1.0 if total_view.get("consensus") == "OVER" else 0.0,
-        "news_total_under_flag": 1.0 if total_view.get("consensus") == "UNDER" else 0.0,
-        "news_total_avg_line": float(total_view.get("avg_line") or 0.0),
-
-        # Spread eğilimi:
-        "news_spread_home_flag": 1.0 if spread_view.get("consensus") == "HOME" else 0.0,
-        "news_spread_away_flag": 1.0 if spread_view.get("consensus") == "AWAY" else 0.0,
-
-        # Genel:
-        "news_confidence": float(summary.confidence or 0.0),
-        "news_flag_injury_relevant": 1.0 if "INJURY_RELEVANT" in summary.flags else 0.0,
+    features: Dict[str, Any] = {
+        "news_total_avg_line": float(avg_line) if avg_line else 0.0,
+        "news_total_over_flag": consensus.startswith("OVER"),
+        "news_total_under_flag": consensus.startswith("UNDER"),
+        "news_pace_high_flag": str(tempo.get("pace_hint", "")).upper() == "HIGH",
+        "news_pace_low_flag": str(tempo.get("pace_hint", "")).upper() == "LOW",
+        "news_fatigue_diff": float(fatigue.get("diff", 0.0) or 0.0),
+        # İleride FAZ-23 için ekstra sinyaller:
+        "soft_low": soft_low,
+        "soft_high": soft_high,
     }
 
     return features
 
 
-# =====================================================================
-# 6) ANA GİRİŞ: get_match_news
-# =====================================================================
+# ================================================================
+# Ana API
+# ================================================================
 
-def get_match_news(match_meta: MatchMeta, use_cache: bool = True) -> Tuple[MatchNewsSummary, Dict]:
+def get_match_news(
+    meta: MatchMeta,
+    use_cache: bool = True,
+) -> Tuple[NewsSummary, Dict[str, Any]]:
     """
-    Dış dünyadan çağrılacak ana fonksiyon.
+    FAZ-13 / FAZ-23 için haber + barem özetini döndürür.
 
-    DÖNEN:
-        summary: MatchNewsSummary
-        features: dict (encode_news_features)
+    ŞU ANDA:
+      - Harici siteye istek ATMİYOR.
+      - Eğer cache dosyasında kayıt yoksa
+        'BASELINE_ONLY' modunda dummy özet üretir.
+      - Yani artık 'NONEWSDATA' KULLANILMIYOR; yerine
+        'SAFE_BASELINE' / 'BOOKTOTAL_ONLY' gibi flag'ler geliyor.
 
-    AKIŞ:
-        1) Cache'te var mı? (ve çok eski değil mi?) -> varsa direkt dön.
-        2) Yoksa:
-            - fetch_raw_packets()
-            - normalize_packets()
-            - save_to_cache()
-            - encode_news_features()
+    İLERİDE:
+      - Mackolik / Nesine / başka kaynaklardan scrape edip
+        bu fonksiyonun içine entegre edebilirsin. Tek şart:
+        NewsSummary şemasını bozmamak.
     """
-    if use_cache:
-        cached = load_from_cache(match_meta.match_key)
-        if cached:
-            log.info("NewsScraper: cache'den okundu: %s", match_meta.match_key)
-            return cached, encode_news_features(cached)
-
-    # Yeni veri çek:
-    packets = fetch_raw_packets(match_meta)
-    summary = normalize_packets(packets, match_meta)
+    cache: Dict[str, Any] = {}
+    record: Optional[Dict[str, Any]] = None
 
     if use_cache:
-        save_to_cache(summary)
+        cache = _load_cache()
+        record = cache.get(meta.match_key)
+
+    if record is not None:
+        # Cache'ten yüklenen özet (manuel veya scraper ile doldurulmuş)
+        try:
+            summary = NewsSummary(
+                match_key=meta.match_key,
+                league=record.get("league", meta.league),
+                date=record.get("date", meta.date),
+                home_team=record.get("home_team", meta.home_team),
+                away_team=record.get("away_team", meta.away_team),
+                injuries=record.get("injuries", {}),
+                fatigue=record.get("fatigue", {}),
+                tempo=record.get("tempo", {"pace_hint": "MID"}),
+                total_view=record.get("total_view", {"consensus": "NEUTRAL"}),
+                spread_view=record.get("spread_view", {}),
+                soft_score_range=record.get("soft_score_range", {}),
+                flags=record.get("flags", ["CACHE_HIT"]),
+                confidence=float(record.get("confidence", 0.6)),
+                key_quotes=record.get("key_quotes", []),
+                sources_used=record.get("sources_used", []),
+            )
+            features = encode_news_features(summary)
+            return summary, features
+        except Exception as e:
+            log.warning(
+                "FAZ-13 news cache kaydı bozuk (%s): %s",
+                meta.match_key,
+                e,
+            )
+
+    # ------------------------------------------------------------
+    # BURASI: Haber yoksa çalışan SAFE BASELINE MODE
+    # ------------------------------------------------------------
+    soft_low, soft_high, avg_line = _barem_soft_range(
+        meta.book_main_total,
+        meta.book_alt_totals,
+    )
+
+    # Eğer sadece kitapçı baremi geldiyse:
+    flags: List[str] = []
+    if meta.book_main_total or meta.book_alt_totals:
+        flags.append("BOOKTOTAL_ONLY")
+    else:
+        flags.append("SAFE_BASELINE")
+
+    total_view: Dict[str, Any] = {
+        "consensus": "NEUTRAL",
+    }
+    if meta.book_main_total is not None:
+        total_view["book_main_total"] = float(meta.book_main_total)
+
+    soft_score_range: Dict[str, Any] = {}
+    if soft_low is not None and soft_high is not None:
+        soft_score_range = {
+            "low": float(soft_low),
+            "high": float(soft_high),
+        }
+
+    summary = NewsSummary(
+        match_key=meta.match_key,
+        league=meta.league,
+        date=meta.date,
+        home_team=meta.home_team,
+        away_team=meta.away_team,
+        injuries={},
+        fatigue={"diff": 0.0},
+        tempo={"pace_hint": "MID"},
+        total_view=total_view,
+        spread_view={},
+        soft_score_range=soft_score_range,
+        flags=flags,
+        confidence=0.3,  # baseline olduğu için düşük güven
+        key_quotes=[],
+        sources_used=[],
+    )
 
     features = encode_news_features(summary)
     return summary, features
-
-
-# =====================================================================
-# 7) ÖRNEK KULLANIM (Test amaçlı)
-# =====================================================================
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Örnek: Anadolu Efes vs Real Madrid maçı için meta:
-    meta = MatchMeta(
-        league="Euroleague",
-        date="2025-12-04",
-        home_team="Anadolu Efes",
-        away_team="Real Madrid",
-    )
-
-    summary, feats = get_match_news(meta, use_cache=False)
-
-    print("=== MatchNewsSummary ===")
-    print(json.dumps(asdict(summary), ensure_ascii=False, indent=2))
-
-    print("\n=== news_features ===")
-    print(json.dumps(feats, ensure_ascii=False, indent=2))
