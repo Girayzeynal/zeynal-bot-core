@@ -10,10 +10,248 @@ from .faz13_news_scraper import MatchMeta, get_match_news, encode_news_features
 log = logging.getLogger(__name__)
 
 # ================================================================
+# 🌍 GLOBAL LİG AİLESİ KONFİGÜRASYONU (FULL VERSION)
+# ================================================================
+FAMILY_CONFIG: Dict[str, Dict[str, Any]] = {
+    # Kuzey Amerika
+    "NBA": {
+        "base_total": 230.0,
+        "q_dist": [0.24, 0.26, 0.25, 0.25],
+        "pace_volatility": 0.12,
+        "defense_volatility": 0.10,
+        "home_adv": 3.0,
+    },
+    "WNBA": {
+        "base_total": 165.0,
+        "q_dist": [0.24, 0.26, 0.25, 0.25],
+        "pace_volatility": 0.11,
+        "defense_volatility": 0.10,
+        "home_adv": 2.5,
+    },
+    "GLEAGUE": {
+        "base_total": 225.0,
+        "q_dist": [0.25, 0.25, 0.25, 0.25],
+        "pace_volatility": 0.13,
+        "defense_volatility": 0.11,
+        "home_adv": 2.5,
+    },
+
+    # Avrupa üst seviye
+    "EUROLEAGUE": {
+        "base_total": 165.0,
+        "q_dist": [0.23, 0.27, 0.25, 0.25],
+        "pace_volatility": 0.10,
+        "defense_volatility": 0.11,
+        "home_adv": 3.5,
+    },
+    "EUROCUP": {
+        "base_total": 162.0,
+        "q_dist": [0.23, 0.27, 0.25, 0.25],
+        "pace_volatility": 0.10,
+        "defense_volatility": 0.11,
+        "home_adv": 3.0,
+    },
+    "BCL": {
+        "base_total": 159.0,
+        "q_dist": [0.23, 0.27, 0.25, 0.25],
+        "pace_volatility": 0.11,
+        "defense_volatility": 0.11,
+        "home_adv": 3.0,
+    },
+
+    # Milli takım / FIBA
+    "FIBA_NATIONAL": {
+        "base_total": 155.0,
+        "q_dist": [0.23, 0.27, 0.25, 0.25],
+        "pace_volatility": 0.09,
+        "defense_volatility": 0.11,
+        "home_adv": 2.5,
+    },
+
+    # Yerel lig aileleri (örnekler)
+    "TURKISH_BSL": {
+        "base_total": 160.0,
+        "q_dist": [0.23, 0.27, 0.25, 0.25],
+        "pace_volatility": 0.11,
+        "defense_volatility": 0.11,
+        "home_adv": 3.5,
+    },
+    "ACB_SPAIN": {
+        "base_total": 162.0,
+        "q_dist": [0.23, 0.27, 0.25, 0.25],
+        "pace_volatility": 0.11,
+        "defense_volatility": 0.11,
+        "home_adv": 3.0,
+    },
+    "GERMANY_BBL": {
+        "base_total": 164.0,
+        "q_dist": [0.23, 0.27, 0.25, 0.25],
+        "pace_volatility": 0.11,
+        "defense_volatility": 0.11,
+        "home_adv": 3.0,
+    },
+    "FRANCE_PROA": {
+        "base_total": 161.0,
+        "q_dist": [0.23, 0.27, 0.25, 0.25],
+        "pace_volatility": 0.11,
+        "defense_volatility": 0.11,
+        "home_adv": 3.0,
+    },
+    "ITALY_SERIEA": {
+        "base_total": 160.0,
+        "q_dist": [0.23, 0.27, 0.25, 0.25],
+        "pace_volatility": 0.11,
+        "defense_volatility": 0.11,
+        "home_adv": 3.0,
+    },
+    "GREECE_ESAKE": {
+        "base_total": 158.0,
+        "q_dist": [0.23, 0.27, 0.25, 0.25],
+        "pace_volatility": 0.10,
+        "defense_volatility": 0.11,
+        "home_adv": 3.5,
+    },
+    "ABA_ADRIATIC": {
+        "base_total": 162.0,
+        "q_dist": [0.23, 0.27, 0.25, 0.25],
+        "pace_volatility": 0.11,
+        "defense_volatility": 0.11,
+        "home_adv": 3.0,
+    },
+
+    # Diğer global lig aileleri
+    "AUSTRALIA_NBL": {
+        "base_total": 171.0,
+        "q_dist": [0.24, 0.26, 0.25, 0.25],
+        "pace_volatility": 0.11,
+        "defense_volatility": 0.10,
+        "home_adv": 3.0,
+    },
+    "JAPAN_BLEAGUE": {
+        "base_total": 178.0,
+        "q_dist": [0.24, 0.26, 0.25, 0.25],
+        "pace_volatility": 0.12,
+        "defense_volatility": 0.10,
+        "home_adv": 2.5,
+    },
+    "KOREA_KBL": {
+        "base_total": 176.0,
+        "q_dist": [0.24, 0.26, 0.25, 0.25],
+        "pace_volatility": 0.12,
+        "defense_volatility": 0.10,
+        "home_adv": 2.5,
+    },
+    "CHINA_CBA": {
+        "base_total": 184.0,
+        "q_dist": [0.24, 0.26, 0.25, 0.25],
+        "pace_volatility": 0.13,
+        "defense_volatility": 0.10,
+        "home_adv": 3.0,
+    },
+    "PHILIPPINES_PBA": {
+        "base_total": 182.0,
+        "q_dist": [0.24, 0.26, 0.25, 0.25],
+        "pace_volatility": 0.12,
+        "defense_volatility": 0.10,
+        "home_adv": 3.0,
+    },
+
+    # Genel default family
+    "GENERIC_HIGH": {
+        "base_total": 175.0,
+        "q_dist": [0.24, 0.26, 0.25, 0.25],
+        "pace_volatility": 0.11,
+        "defense_volatility": 0.10,
+        "home_adv": 3.0,
+    },
+    "GENERIC_MID": {
+        "base_total": 165.0,
+        "q_dist": [0.23, 0.27, 0.25, 0.25],
+        "pace_volatility": 0.10,
+        "defense_volatility": 0.11,
+        "home_adv": 3.0,
+    },
+    "GENERIC_LOW": {
+        "base_total": 155.0,
+        "q_dist": [0.22, 0.28, 0.25, 0.25],
+        "pace_volatility": 0.09,
+        "defense_volatility": 0.12,
+        "home_adv": 3.0,
+    },
+}
+
+
+def _league_family(league: Any) -> str:
+    """
+    Lig stringinden global family ismini çıkar.
+    Tuple / list / None / vs. hepsi güvenli.
+    """
+    if not league:
+        return "GENERIC_MID"
+
+    if isinstance(league, (tuple, list)):
+        league = " ".join(str(x) for x in league if x is not None)
+
+    l = str(league).lower()
+
+    # Kuzey Amerika
+    if "wnba" in l:
+        return "WNBA"
+    if "g-league" in l or "gleague" in l or "g league" in l:
+        return "GLEAGUE"
+    if "nba" in l:
+        return "NBA"
+
+    # Avrupa üst seviye
+    if "euroleague" in l or "euro league" in l:
+        return "EUROLEAGUE"
+    if "eurocup" in l:
+        return "EUROCUP"
+    if "bcl" in l or "basketball champions league" in l:
+        return "BCL"
+
+    # FIBA / milli takımlar
+    if "fiba" in l or "eurobasket" in l or "world cup" in l or "olympic" in l:
+        return "FIBA_NATIONAL"
+
+    # Yerel ligler
+    if "türkiye" in l or "turkey" in l or "bsl" in l or "tbl" in l or "türkiye süper ligi" in l:
+        return "TURKISH_BSL"
+    if "acb" in l or "endesa" in l or "liga acb" in l:
+        return "ACB_SPAIN"
+    if "bbl" in l and "germany" in l:
+        return "GERMANY_BBL"
+    if "pro a" in l or "lnb" in l:
+        return "FRANCE_PROA"
+    if "lega" in l or "serie a" in l:
+        return "ITALY_SERIEA"
+    if "esake" in l or "greek" in l:
+        return "GREECE_ESAKE"
+    if "aba" in l or "adriatic" in l:
+        return "ABA_ADRIATIC"
+
+    # Diğer global lig
+    if "nbl" in l:
+        return "AUSTRALIA_NBL"
+    if "b.league" in l or "bleague" in l:
+        return "JAPAN_BLEAGUE"
+    if "kbl" in l:
+        return "KOREA_KBL"
+    if "cba" in l:
+        return "CHINA_CBA"
+    if "pba" in l:
+        return "PHILIPPINES_PBA"
+
+    # Skor seviyesi heuristiği
+    if any(k in l for k in ["ncaa", "college"]):
+        return "GENERIC_HIGH"
+
+    return "GENERIC_MID"
+
+
+# ================================================================
 # Yardımcı fonksiyonlar
 # ================================================================
-
-
 def _safe_float(x: Any) -> Optional[float]:
     """String/number karışık değerleri güvenli şekilde floata çevirmeye çalış."""
     try:
@@ -57,7 +295,12 @@ def _baseline_total_for_league(league: Any) -> float:
     if not league:
         return 200.0
 
-    # tuple / list / diğer tipler → stringe indir
+    family = _league_family(league)
+    fam_cfg = FAMILY_CONFIG.get(family)
+    if fam_cfg:
+        return float(fam_cfg.get("base_total", 200.0))
+
+    # Eski fallback mantığı (güvenlik için)
     if isinstance(league, (tuple, list)):
         league = " ".join(str(part) for part in league if part is not None)
 
@@ -112,8 +355,6 @@ def _national_match_flag(home: str, away: str, league: str) -> bool:
 # ================================================================
 # normalize_manual_text
 # ================================================================
-
-
 def normalize_manual_text(raw: str) -> Dict[str, Any]:
     """
     /mac13 ve /live13 için manuel girilen metni tek şemaya çevirir.
@@ -186,8 +427,6 @@ def normalize_manual_text(raw: str) -> Dict[str, Any]:
 # ================================================================
 # normalize_visual_meta
 # ================================================================
-
-
 def normalize_visual_meta(ocr_text: str) -> Dict[str, Any]:
     """
     Ultra OCR v3'ten gelen raw metni basit bir fusion şemasına çevirir.
@@ -224,8 +463,6 @@ def normalize_visual_meta(ocr_text: str) -> Dict[str, Any]:
 # ================================================================
 # normalize_api_data
 # ================================================================
-
-
 def normalize_api_data(data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
     İleride canlı API (Flashscore, kendi live provider'ların vb.)
@@ -241,8 +478,6 @@ def normalize_api_data(data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 # ================================================================
 # run_faz13_auto_pipeline
 # ================================================================
-
-
 def run_faz13_auto_pipeline(
     league: Any,
     date: str,
@@ -302,6 +537,8 @@ def run_faz13_auto_pipeline(
         detected_league = detected_league_raw
 
     final_league = (detected_league or league_hint or "Unknown League")
+    league_family = _league_family(final_league)
+    fam_cfg = FAMILY_CONFIG.get(league_family, FAMILY_CONFIG["GENERIC_MID"])
 
     # 2) MatchMeta + haber motoru
     match_meta = MatchMeta(
@@ -369,7 +606,31 @@ def run_faz13_auto_pipeline(
         round(high, 1),
     ]
 
-    # 4) Fusion total call (insani çıktı)
+    # 4) Periyot ve yarı projeksiyonları (family config'ten)
+    q_dist = fam_cfg.get("q_dist", [0.24, 0.26, 0.25, 0.25])
+    if len(q_dist) != 4:
+        q_dist = [0.24, 0.26, 0.25, 0.25]
+
+    q1_total = base_total * q_dist[0]
+    q2_total = base_total * q_dist[1]
+    q3_total = base_total * q_dist[2]
+    q4_total = base_total * q_dist[3]
+
+    h1_total = q1_total + q2_total
+    h2_total = q3_total + q4_total
+
+    per_period_projection = {
+        "family": league_family,
+        "q1_total": round(q1_total, 1),
+        "q2_total": round(q2_total, 1),
+        "q3_total": round(q3_total, 1),
+        "q4_total": round(q4_total, 1),
+        "h1_total": round(h1_total, 1),
+        "h2_total": round(h2_total, 1),
+        "game_total": round(base_total, 1),
+    }
+
+    # 5) Fusion total call (insani çıktı)
     # Tek bir "line" üretelim (0.5'e yuvarlanmış)
     line = round(base_total * 2) / 2.0
 
@@ -385,7 +646,7 @@ def run_faz13_auto_pipeline(
         f"TOTAL {line:.1f} band ({low:.1f}-{high:.1f}) [{direction}]"
     )
 
-    # 5) News summary + debug
+    # 6) News summary + debug
     if hasattr(news_summary, "__dataclass_fields__"):
         ns_dict = asdict(news_summary)  # type: ignore[arg-type]
     else:
@@ -409,6 +670,7 @@ def run_faz13_auto_pipeline(
 
     debug_reasons: List[str] = []
     debug_reasons.append(f"League baseline ~ {base:.1f}")
+    debug_reasons.append(f"League family ~ {league_family}")
 
     if league_detect_reason:
         debug_reasons.append(f"League detect: {league_detect_reason}")
@@ -438,11 +700,12 @@ def run_faz13_auto_pipeline(
             "No strong news signal; using league baseline only."
         )
 
-    # 6) FAZ-23 için internal_meta
+    # 7) FAZ-23 için internal_meta
     national_flag = _national_match_flag(home_team, away_team, final_league)
 
     internal_meta: Dict[str, Any] = {
         "league": final_league,
+        "league_family": league_family,
         "date": date,
         "home_team": home_team,
         "away_team": away_team,
@@ -454,9 +717,9 @@ def run_faz13_auto_pipeline(
         "base_total": float(round(base_total, 1)),
         "tempo_factor": 1.0 + (pace_bias * 0.05),  # hafif çarpan
         "defense_factor": 1.0 - (pace_bias * 0.03),
-        "pace_volatility": 0.10,
-        "defense_volatility": 0.10,
-        "home_adv": 3.0,
+        "pace_volatility": float(fam_cfg.get("pace_volatility", 0.10)),
+        "defense_volatility": float(fam_cfg.get("defense_volatility", 0.10)),
+        "home_adv": float(fam_cfg.get("home_adv", 3.0)),
         "h2h_factor": 0.0,
         "hot_shooting_risk": 0.3 if total_bias > 0.25 else 0.1,
         "clutch_factor": 0.0,
@@ -467,15 +730,19 @@ def run_faz13_auto_pipeline(
         "news_features": news_features,
         "news_flags": flags,
         "league_detect_reason": league_detect_reason,
+        # Periyot projeksiyonu
+        "per_period_projection": per_period_projection,
     }
 
     result: Dict[str, Any] = {
         "engine": "FAZ-13",
         "league": final_league,
+        "league_family": league_family,
         "date": date,
         "match": f"{home_team} - {away_team}",
         "fusion_total_call": fusion_total_call,
         "internal_score_vector": internal_score_vector,
+        "per_period_projection": per_period_projection,
         "news_summary": news_summary_text,
         "debug_reasons": debug_reasons,
         "internal_meta": internal_meta,
@@ -491,8 +758,6 @@ def run_faz13_auto_pipeline(
 # ================================================================
 # Basit kupon fonksiyonları (şimdilik iskelet)
 # ================================================================
-
-
 def faz13_daily_coupon(*args, **kwargs) -> Dict[str, Any]:
     """
     Şimdilik placeholder.
