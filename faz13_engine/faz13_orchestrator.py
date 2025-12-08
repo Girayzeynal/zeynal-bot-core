@@ -254,7 +254,6 @@ def _league_family(league: Any) -> str:
 # Yardımcı fonksiyonlar
 # ================================================================
 
-
 def _safe_float(x: Any) -> Optional[float]:
     """String/number karışık değerleri güvenli şekilde floata çevirmeye çalış."""
     try:
@@ -292,7 +291,7 @@ def _baseline_total_for_league(league: Any) -> float:
     Lig tipine göre kaba total baseline.
     AĞIR istatistik yok; sadece lig tipi heuristiği.
 
-    🔥 TUPLE / HER TÜRLÜ INPUT FIX:
+    TUPLE / HER TÜRLÜ INPUT FIX:
     - guess_league tuple döndürse bile burada güvenle işlenir.
     """
     if not league:
@@ -308,7 +307,6 @@ def _baseline_total_for_league(league: Any) -> float:
         league = " ".join(str(part) for part in league if part is not None)
 
     l = str(league).lower()
-
     if "nba" in l:
         return 230.0
     if "euroleague" in l:
@@ -353,6 +351,7 @@ def _national_match_flag(home: str, away: str, league: str) -> bool:
         }
 
     return is_country(home) and is_country(away)
+
 
 def _compute_team_total_shares(
     home_team: str,
@@ -446,18 +445,18 @@ def _compute_team_total_shares(
 
     return home_share, away_share, debug
 
+
 # ================================================================
 # normalize_manual_text
 # ================================================================
-
 
 def normalize_manual_text(raw: str) -> Dict[str, Any]:
     """
     /mac13 ve /live13 için manuel girilen metni tek şemaya çevirir.
 
     Örnek argümanlar:
-      "BOS ORL 220.5 U 1.46"
-      "Fenerbahçe Efes 162.5 ÜST 1.70"
+        "BOS ORL 220.5 U 1.46"
+        "Fenerbahçe Efes 162.5 ÜST 1.70"
     """
     text = (raw or "").strip()
 
@@ -478,7 +477,6 @@ def normalize_manual_text(raw: str) -> Dict[str, Any]:
         return fusion
 
     parts = text.split()
-
     if len(parts) >= 2:
         home = parts[0].upper()
         away = parts[1].upper()
@@ -524,7 +522,6 @@ def normalize_manual_text(raw: str) -> Dict[str, Any]:
 # normalize_visual_meta
 # ================================================================
 
-
 def normalize_visual_meta(ocr_text: str) -> Dict[str, Any]:
     """
     Ultra OCR v3'ten gelen raw metni basit bir fusion şemasına çevirir.
@@ -562,14 +559,15 @@ def normalize_visual_meta(ocr_text: str) -> Dict[str, Any]:
 # normalize_api_data
 # ================================================================
 
-
 def normalize_api_data(data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
     İleride canlı API (Flashscore, kendi live provider'ların vb.)
-    ile birleşmek için hook. Şimdilik pass-through.
+    ile birleşmek için hook.
+    Şimdilik pass-through.
     """
     if data is None:
         return {}
+
     out = dict(data)
     out.setdefault("engine", "FAZ-13-API")
     return out
@@ -588,12 +586,11 @@ def _faz23_recommendation(
 ) -> Dict[str, Any]:
     """
     FAZ-23 için:
-      - Maç total
-      - İlk yarı total
-      - Çeyrek total
-      - Yön (OVER/UNDER/PASS)
-      - Confidence
-    üretir.
+        - Maç total
+        - İlk yarı total
+        - Çeyrek total
+        - Yön (OVER/UNDER/PASS)
+        - Confidence üretir.
     """
     total_bias = 0.0
     if nf.get("news_total_over_flag"):
@@ -617,12 +614,12 @@ def _faz23_recommendation(
 
     # min / max clamp
     if conf <= 0:
-        conf = 0.55  # çıplak lig + barem zekâsı
+        # çıplak lig + barem zekâsı
+        conf = 0.55
     conf = max(0.5, min(conf, 0.95))
 
     # final line
     main_line = round(base_total * 2) / 2.0
-
     if total_bias > 0.25:
         main_dir = "OVER"
     elif total_bias < -0.25:
@@ -668,14 +665,12 @@ def _faz23_recommendation(
             "pace_bias": pace_bias,
         },
     }
-
     return rec
 
 
 # ================================================================
 # run_faz13_auto_pipeline
 # ================================================================
-
 
 def run_faz13_auto_pipeline(
     league: Any,
@@ -690,19 +685,17 @@ def run_faz13_auto_pipeline(
     **kwargs: Any,
 ) -> Dict[str, Any]:
     """
-    FAZ-13 ana tahmin pipeline iskeleti + FAZ-23 fusion.
+    FAZ-13 ana tahmin pipeline (PRO TEAM-STRENGTH MODE).
 
-    HEDEF:
-    - Lig / tarih / takım bilgisine göre hafif bir tahmin üretmek
-    - FAZ-23 için gerekli internal_meta alanlarını doldurmak
-    - Haber motorundan gelen sinyalleri base total üzerine bindirmek
-    - Periyot / yarı projeksiyon + FAZ-23 tavsiyesi üretmek
-
-    AĞIR MODEL YOK → Fly.io 512 MB free ile uyumlu.
-    Esneklik için fazladan gelen tüm keyword argümanlar **kwargs ile
-    sessizce yutulur (eski komutlar bozulmasın).
+    - Lig / tarih / takım bilgisine göre hafif ama akıllı tahmin
+    - FAZ-23 için internal_meta doldur
+    - Haber motorundan gelen sinyalleri:
+        * Toplam sayıya (base_total)
+        * Takım gücüne (home/away strength)
+        * Periyot / yarı projeksiyonlarına
+      bindir.
     """
-    # kwargs içinden gelebilecek override'lar
+    # kwargs içinden gelebilecek override'lar (eski komutları bozmamak için)
     if meta_hint is None:
         meta_hint = kwargs.get("meta_hint")
     if api_data is None:
@@ -721,12 +714,12 @@ def run_faz13_auto_pipeline(
     else:
         league_hint = (str(raw_league or "")).strip()
 
-    # 1) Lig oto tespit
+    # 1) Lig oto tespit (her zaman (family, reason) döner)
     detected_league_raw = guess_league(home_team, away_team, league_hint)
     league_detect_reason: Optional[str] = None
 
-    # guess_league bazen tuple döndürebilir: (league_str, açıklama)
     if isinstance(detected_league_raw, tuple):
+        # Yeni league_autodetect: (family, reason)
         if len(detected_league_raw) >= 1:
             detected_league = detected_league_raw[0]
         else:
@@ -830,15 +823,33 @@ def run_faz13_auto_pipeline(
         "game_total": round(base_total, 1),
     }
 
-    # 5) Fusion total call (insani çıktı)
-    # Tek bir "line" üretelim (0.5'e yuvarlanmış)
+    # 5) TEAM STRENGTH → home / away team totals
+    home_share, away_share, strength_debug = _compute_team_total_shares(
+        home_team=home_team,
+        away_team=away_team,
+        league_family=league_family,
+        nf=nf,
+    )
+
+    home_team_total = round(base_total * home_share, 1)
+    away_team_total = round(base_total * away_share, 1)
+
+    team_totals = {
+        "home_team": home_team,
+        "away_team": away_team,
+        "home_total": home_team_total,
+        "away_total": away_team_total,
+        "home_share": round(home_share, 3),
+        "away_share": round(away_share, 3),
+    }
+
+    # 6) Fusion total call (insani çıktı)
     line = round(base_total * 2) / 2.0
 
     if total_bias > 0.25:
         direction = "OVER"
     elif total_bias < -0.25:
         direction = "UNDER"
-        # nötr tarafta PASS; FAZ-23 rec içinde tutuluyor
     else:
         direction = "NEUTRAL"
 
@@ -847,7 +858,7 @@ def run_faz13_auto_pipeline(
         f"TOTAL {line:.1f} band ({low:.1f}-{high:.1f}) [{direction}]"
     )
 
-    # 6) News summary + debug
+    # 7) News summary + debug
     if hasattr(news_summary, "__dataclass_fields__"):
         ns_dict = asdict(news_summary)  # type: ignore[arg-type]
     else:
@@ -896,12 +907,16 @@ def run_faz13_auto_pipeline(
             f"Soft range from news: {soft_range.get('low')} - "
             f"{soft_range.get('high')}"
         )
+
+    # team strength debug’lerini de ekle
+    debug_reasons.extend(str(x) for x in strength_debug)
+
     if not debug_reasons:
         debug_reasons.append(
             "No strong news signal; using league baseline only."
         )
 
-    # 7) FAZ-23 için internal_meta
+    # 8) FAZ-23 için internal_meta
     national_flag = _national_match_flag(home_team, away_team, final_league)
 
     internal_meta: Dict[str, Any] = {
@@ -916,7 +931,7 @@ def run_faz13_auto_pipeline(
         "start_ts": None,
         # FAZ-23 çekirdek parametreler:
         "base_total": float(round(base_total, 1)),
-        "tempo_factor": 1.0 + (pace_bias * 0.05),  # hafif çarpan
+        "tempo_factor": 1.0 + (pace_bias * 0.05),
         "defense_factor": 1.0 - (pace_bias * 0.03),
         "pace_volatility": float(fam_cfg.get("pace_volatility", 0.10)),
         "defense_volatility": float(fam_cfg.get("defense_volatility", 0.10)),
@@ -933,16 +948,19 @@ def run_faz13_auto_pipeline(
         "league_detect_reason": league_detect_reason,
         # Periyot projeksiyonu
         "per_period_projection": per_period_projection,
+        # Takım bazlı total projeksiyon:
+        "team_totals": team_totals,
     }
 
-    # 8) FAZ-23 Fusion tavsiyesi
-    faz23_rec = _faz23_recommendation(
+    # FAZ-23 tavsiye paketi
+    faz23_reco = _faz23_recommendation(
         base_total=base_total,
         nf=nf,
         per_period_projection=per_period_projection,
         news_summary=ns_dict,
         league_family=league_family,
     )
+    internal_meta["faz23_recommendation"] = faz23_reco
 
     result: Dict[str, Any] = {
         "engine": "FAZ-13",
@@ -953,56 +971,14 @@ def run_faz13_auto_pipeline(
         "fusion_total_call": fusion_total_call,
         "internal_score_vector": internal_score_vector,
         "per_period_projection": per_period_projection,
+        "team_totals": team_totals,
         "news_summary": news_summary_text,
         "debug_reasons": debug_reasons,
         "internal_meta": internal_meta,
-        "faz23_recommendation": faz23_rec,
+        "faz23_recommendation": faz23_reco,
     }
 
     if full_output:
-        # İleride istersen buraya daha fazla debug / ham veri ekleyebilirsin.
         result["raw_news_summary"] = ns_dict
 
     return result
-
-
-# ================================================================
-# Basit kupon fonksiyonları (şimdilik iskelet)
-# ================================================================
-
-
-def faz13_daily_coupon(*args, **kwargs) -> Dict[str, Any]:
-    """
-    Şimdilik placeholder.
-    İleride günün maçlarını alıp run_faz13_auto_pipeline ile
-    batch kupon üretebilirsin.
-    """
-    return {
-        "engine": "FAZ-13",
-        "status": "NOT_IMPLEMENTED",
-        "message": "faz13_daily_coupon iskelet halinde; sadece interface için mevcut.",
-    }
-
-
-def faz13_upcoming_coupon(*args, **kwargs) -> Dict[str, Any]:
-    return {
-        "engine": "FAZ-13",
-        "status": "NOT_IMPLEMENTED",
-        "message": "faz13_upcoming_coupon iskelet halinde; sadece interface için mevcut.",
-    }
-
-
-def faz13_league_coupon(*args, **kwargs) -> Dict[str, Any]:
-    return {
-        "engine": "FAZ-13",
-        "status": "NOT_IMPLEMENTED",
-        "message": "faz13_league_coupon iskelet halinde; sadece interface için mevcut.",
-    }
-
-
-def faz13_live_coupon(*args, **kwargs) -> Dict[str, Any]:
-    return {
-        "engine": "FAZ-13",
-        "status": "NOT_IMPLEMENTED",
-        "message": "faz13_live_coupon iskelet halinde; sadece interface için mevcut.",
-    }
