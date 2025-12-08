@@ -367,108 +367,104 @@ def cmd_mac(message: types.Message):
         if not run_faz13_auto_pipeline:
             raise RuntimeError("FAZ-13 orchestrator bağlı değil")
 
-        # Ham metni al (/mac'i baştan sök)
+        # --------------------------
+        # INPUT PARSE
+        # --------------------------
         raw = message.text or ""
         txt = raw.replace("/mac", "", 1).strip()
 
-        # Basit format kontrolü
         if "|" not in txt:
-            bot.reply_to(
-                message,
-                "❌ Format hatalı.\n\n"
-                "Doğru format:\n"
-                "/mac Euroleague | 2025-12-05 | Crvena Zvezda - Barcelona",
-            )
+            bot.reply_to(message,
+                "❌ Format hatalı.<br><br>"
+                "Doğru format:<br>"
+                "<code>/mac Euroleague | 2025-12-05 | Crvena Zvezda - Barcelona</code>",
+                parse_mode="HTML")
             return
 
-        # Kullanıcı formatını çöz
         parts = [p.strip() for p in txt.split("|")]
         if len(parts) != 3:
-            bot.reply_to(
-                message,
-                "❌ Format hatalı. 3 bölüm olmalı:\n"
-                "Lig | Tarih | Ev - Deplasman",
-            )
+            bot.reply_to(message,
+                "❌ Format hatalı. 3 bölüm olmalı:<br>"
+                "<b>Lig | Tarih | Ev - Deplasman</b>",
+                parse_mode="HTML")
             return
 
-        league = parts[0]
-        date = parts[1]
-        teams_part = parts[2]
+        league, date, teams_part = parts
 
-        # Ev - Deplasman çöz
         if "-" not in teams_part:
-            bot.reply_to(message, "❌ Takım formatı hatalı. (Ev - Deplasman)")
+            bot.reply_to(message, "❌ Takım formatı hatalı. (Ev - Deplasman)", parse_mode="HTML")
             return
 
         home_team, away_team = [t.strip() for t in teams_part.split("-", 1)]
         if not home_team or not away_team:
-            bot.reply_to(message, "❌ Takım bilgisi okunamadı.")
+            bot.reply_to(message, "❌ Takım bilgisi okunamadı.", parse_mode="HTML")
             return
 
-        # --------------------------------------------------------
-        # 4) FAZ-13 PIPELINE ÇAĞIR
-        # --------------------------------------------------------
+        # --------------------------
+        # FAZ-13 PIPELINE
+        # --------------------------
         result = run_faz13_auto_pipeline(
             league=league,
             date=date,
             home_team=home_team,
             away_team=away_team,
             full_output=True,
-            match_key=None,  # FAZ-23 kapalı (şimdilik)
+            match_key=None,
         )
 
         league_family = result.get("league_family", "-")
         per = result.get("per_period_projection") or {}
 
-        # --------------------------------------------------------
-        # 5) TELEGRAM ÇIKTISI
-        # --------------------------------------------------------
-        lines: List[str] = []
+        # --------------------------
+        # MESSAGE BUILD (HTML SAFE)
+        # --------------------------
+        lines = []
 
-        lines.append("🏀 FAZ-13 Maç Tahmini")
-        lines.append(f"📌 Maç: {result.get('match')}")
-        lines.append(f"📅 Tarih: {result.get('date')}")
-        lines.append(f"🏆 Lig: {result.get('league')}")
-        if league_family:
-            lines.append(f"🌍 Lig family: {league_family}")
-        lines.append("")
+        # HEADER
+        lines.append("<b>🏀 FAZ-13 Maç Tahmini</b>")
+        lines.append(f"📌 <b>Maç:</b> {tg_escape(result.get('match'))}")
+        lines.append(f"📅 <b>Tarih:</b> {tg_escape(result.get('date'))}")
+        lines.append(f"🏆 <b>Lig:</b> {tg_escape(result.get('league'))}")
+        lines.append(f"🌍 <b>Lig family:</b> {tg_escape(league_family)}")
+        lines.append("<br>")
 
-        lines.append(f"🧪 Fusion Karar: {result.get('fusion_total_call')}")
-        lines.append(f"📊 Score Vector: {result.get('internal_score_vector')}")
+        # FUSION
+        lines.append(f"🧪 <b>Fusion Karar:</b><br><code>{tg_escape(result.get('fusion_total_call'))}</code>")
+        lines.append(f"📊 <b>Score Vector:</b><br><code>{tg_escape(result.get('internal_score_vector'))}</code>")
+        lines.append("<br>")
 
-        # Periyot / yarı projeksiyonlarını göster
+        # PERIYOT PROJEKSİYON
         if per:
-            lines.append("")
-            lines.append("⏱ Periyot / Yarı Projeksiyonları:")
+            lines.append("<b>⏱ Periyot / Yarı Projeksiyonları:</b>")
             lines.append(
-                "  1Ç: {q1} | 2Ç: {q2} | 3Ç: {q3} | 4Ç: {q4}".format(
-                    q1=per.get("q1_total", "-"),
-                    q2=per.get("q2_total", "-"),
-                    q3=per.get("q3_total", "-"),
-                    q4=per.get("q4_total", "-"),
-                )
+                f"1Ç: {tg_escape(per.get('q1_total','-'))} | "
+                f"2Ç: {tg_escape(per.get('q2_total','-'))} | "
+                f"3Ç: {tg_escape(per.get('q3_total','-'))} | "
+                f"4Ç: {tg_escape(per.get('q4_total','-'))}"
             )
             lines.append(
-                "  İY: {h1} | IIY: {h2} | Maç: {gt}".format(
-                    h1=per.get("h1_total", "-"),
-                    h2=per.get("h2_total", "-"),
-                    gt=per.get("game_total", "-"),
-                )
+                f"İY: {tg_escape(per.get('h1_total','-'))} | "
+                f"IIY: {tg_escape(per.get('h2_total','-'))} | "
+                f"Maç: {tg_escape(per.get('game_total','-'))}"
             )
+            lines.append("<br>")
 
-        lines.append("")
-        lines.append(f"ℹ️ News Range: {result.get('news_summary')}")
-        debug = result.get("debug_reasons", []) or []
+        # NEWS
+        lines.append(f"ℹ️ <b>News Range:</b><br>{tg_escape(result.get('news_summary'))}<br>")
+
+        # DEBUG
+        debug = result.get("debug_reasons", [])
         if debug:
-            lines.append("🧩 Sebep / Açıklamalar:")
+            lines.append("<b>🧩 Sebep / Açıklamalar:</b>")
             for r in debug:
-                lines.append(f"- {str(r)}")
+                lines.append(f"- {tg_escape(str(r))}")
 
-        text = "\n".join(lines)
-        bot.reply_to(message, text, parse_mode="Markdown")
+        msg = "<br>".join(lines)
+
+        bot.reply_to(message, msg, parse_mode="HTML")
 
     except Exception as e:
-        bot.reply_to(message, f"❌ /mac hata: {e}")
+        bot.reply_to(message, f"❌ /mac hata: {tg_escape(str(e))}", parse_mode="HTML") 
 
 # ================================================================
 # 📊 /status
