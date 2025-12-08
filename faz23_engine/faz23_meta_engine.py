@@ -284,19 +284,51 @@ def _build_news_summary(ctx: Dict[str, Any], mode: str) -> str:
 def faz23_news_enrich(raw_ctx: Dict[str, Any], mode: str = "prematch") -> Dict[str, Any]:
     """
     - INPUT: live_providers.core.get_live_match_global çıktısı (dict)
-    - Çıkış: aynı dict + 'news_summary' gibi ek alanlar.
-    - Ağır scraping yapmaz, sadece gelen veriyi toparlar + hafif cache tutar.
+    - OUTPUT: aynı dict + 'news_summary' gibi ek alanlar.
+    - Hata vermeden çalışır, tuple/list/string/int hepsini normalize eder.
     """
     if raw_ctx is None or not isinstance(raw_ctx, dict):
         return {}
 
-    ctx = dict(raw_ctx)  # kopya üzerinde çalışalım
+    # Kopya
+    ctx = dict(raw_ctx)
 
+    # ================================================================
+    # 🔥 FAZ-23 FIX: Haber alanı (tuple/list/string/int) → string normalize
+    # ================================================================
+    raw_news = (
+        raw_ctx.get("news_raw")
+        or raw_ctx.get("news")
+        or raw_ctx.get("notes")
+        or raw_ctx.get("comment")
+        or raw_ctx.get("comments")
+    )
+
+    if isinstance(raw_news, tuple):
+        ctx["news_raw"] = " ".join(str(x) for x in raw_news)
+
+    elif isinstance(raw_news, list):
+        ctx["news_raw"] = " ".join(str(x) for x in raw_news)
+
+    elif isinstance(raw_news, (int, float)):
+        ctx["news_raw"] = str(raw_news)
+
+    elif isinstance(raw_news, str):
+        ctx["news_raw"] = raw_news.strip()
+
+    else:
+        # Hiçbiri gelmemişse boş döndür
+        ctx["news_raw"] = ""
+
+    # ================================================================
     # Basit news summary üret
+    # ================================================================
     news_summary = _build_news_summary(ctx, mode)
     ctx["news_summary"] = news_summary
 
-    # Hafif cache kaydı (yalnızca başlık + temel meta)
+    # ================================================================
+    # Hafif cache kaydı
+    # ================================================================
     try:
         cache_item = {
             "ts": int(time.time()),
