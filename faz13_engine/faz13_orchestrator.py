@@ -354,7 +354,84 @@ def _national_match_flag(home: str, away: str, league: str) -> bool:
 
     return is_country(home) and is_country(away)
 
+def _compute_team_total_shares(
+    home_team: str,
+    away_team: str,
+    league_family: str,
+    nf: Dict[str, Any],
+) -> (float, float, List[str]):
+    """
+    Profesyonel FAZ-23 TEAM STRENGTH modeli (lite versiyon).
 
+    ÇIKTI:
+        home_share, away_share, debug_list
+    """
+    debug: List[str] = []
+
+    home_strength = 1.0
+    away_strength = 1.0
+
+    from .faz13_config import FAMILY_CONFIG  # eğer global değilse
+
+    fam_cfg = FAMILY_CONFIG.get(league_family, FAMILY_CONFIG["GENERIC_MID"])
+    home_adv_pts = float(fam_cfg.get("home_adv", 3.0))
+
+    ha_boost = home_adv_pts * 0.03
+    home_strength += ha_boost
+    debug.append(f"Home advantage boost ~ +{ha_boost:.2f}")
+
+    if nf.get("news_spread_home_flag", 0) > 0:
+        home_strength += 0.30
+        debug.append("Spread: HOME slight favorite (+0.30)")
+
+    if nf.get("news_spread_away_flag", 0) > 0:
+        away_strength += 0.30
+        debug.append("Spread: AWAY slight favorite (+0.30)")
+
+    inj_h = float(nf.get("news_inj_impact_home", 0.0))
+    inj_a = float(nf.get("news_inj_impact_away", 0.0))
+
+    if inj_h > 0:
+        d = inj_h * 0.8
+        home_strength -= d
+        debug.append(f"Injuries hurt HOME: -{d:.2f}")
+
+    if inj_a > 0:
+        d = inj_a * 0.8
+        away_strength -= d
+        debug.append(f"Injuries hurt AWAY: -{d:.2f}")
+
+    fatigue_diff = float(nf.get("news_fatigue_diff", 0.0))
+
+    if fatigue_diff > 0.0:
+        d = fatigue_diff * 0.3
+        home_strength -= d
+        away_strength += d * 0.5
+        debug.append(f"Fatigue: HOME more tired (diff={fatigue_diff:.2f})")
+
+    elif fatigue_diff < 0.0:
+        d = (-fatigue_diff) * 0.3
+        away_strength -= d
+        home_strength += d * 0.5
+        debug.append(f"Fatigue: AWAY more tired (diff={fatigue_diff:.2f})")
+
+    home_strength = max(0.2, home_strength)
+    away_strength = max(0.2, away_strength)
+
+    total = home_strength + away_strength
+    if total <= 0:
+        return 0.5, 0.5, debug + ["Strength total <= 0 fallback"]
+
+    H = home_strength / total
+    A = away_strength / total
+
+    debug.append(
+        f"Final strength H:{home_strength:.2f} A:{away_strength:.2f} "
+        f"→ shares H:{H:.3f} A:{A:.3f}"
+    )
+
+    return H, A, debug
+    
 # ================================================================
 # normalize_manual_text
 # ================================================================
