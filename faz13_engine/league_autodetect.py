@@ -1,89 +1,153 @@
-# faz13_engine/league_autodetect.py
-# ============================================
-# FAZ-GLOBAL LEAGUE AUTO-DETECT
-# Takım adından lig tahmini yapan basit katman.
-# Haritayı zamanla genişleteceğiz.
-
-from typing import Optional, List, Tuple
-import unicodedata
+import re
+from typing import Any, Optional, Tuple
 
 
-def _norm(text: str) -> str:
-    """
-    Basit normalize:
-    - Küçük harfe çevir
-    - Türkçe karakterleri düzleştir (ş -> s, ç -> c vs.)
-    - Fazla boşlukları temizle
-    """
-    text = unicodedata.normalize("NFKD", text)
-    text = "".join(ch for ch in text if not unicodedata.combining(ch))
-    return " ".join(text.lower().strip().split())
+# ===============================================================
+# GLOBAL FAMILY HARİTASI
+# ===============================================================
 
+FAMILY_KEYWORDS = {
+    "NBA": [
+        "nba",
+    ],
+    "WNBA": [
+        "wnba",
+    ],
+    "GLEAGUE": [
+        "g league", "gleague", "g-league",
+    ],
 
-# İlk global harita (örnekler)
-TEAM_LEAGUE_MAP = {
-    # EuroLeague
-    "crvena zvezda": "Euroleague",
-    "kizilyildiz": "Euroleague",
-    "crvena zvezda mts": "Euroleague",
-    "barcelona": "Euroleague",
-    "fc barcelona": "Euroleague",
+    "EUROLEAGUE": [
+        "euroleague", "euro league",
+    ],
+    "EUROCUP": [
+        "eurocup",
+    ],
+    "BCL": [
+        "bcl", "champions league", "basketball champions league",
+    ],
 
-    # Türkiye BSL / TBSL
-    "tupras buyukcekmece": "TBSL",
-    "buyukcekmece": "TBSL",
-    "mersin spor": "TBSL",
-    "mersin buyuksehir": "TBSL",
+    "TURKISH_BSL": [
+        "bsl", "turkey", "türkiye", "super lig", "süper lig",
+    ],
+    "ACB_SPAIN": [
+        "acb", "endesa", "liga acb",
+    ],
+    "GERMANY_BBL": [
+        "bbl", "germany",
+    ],
+    "FRANCE_PROA": [
+        "pro a", "lnb", "france",
+    ],
+    "ITALY_SERIEA": [
+        "serie a", "lega", "italy", "italia",
+    ],
+    "GREECE_ESAKE": [
+        "esake", "greek", "greece",
+    ],
+    "ABA_ADRIATIC": [
+        "aba", "adriatic",
+    ],
 
-    # Buraya zamanla NBA, diğer ligler vs. eklenecek
+    "AUSTRALIA_NBL": [
+        "nbl", "australia",
+    ],
+    "JAPAN_BLEAGUE": [
+        "b.league", "bleague", "japan",
+    ],
+    "KOREA_KBL": [
+        "kbl", "korea",
+    ],
+    "CHINA_CBA": [
+        "cba", "china",
+    ],
+    "PHILIPPINES_PBA": [
+        "pba", "philippines",
+    ],
+
+    "FIBA_NATIONAL": [
+        "fiba", "eurobasket", "olympic", "world cup",
+    ],
 }
 
 
-def guess_league(
-    home_team: str,
-    away_team: str,
-    hint_league: Optional[str] = None,
-) -> Tuple[str, List[str]]:
+# ===============================================================
+# ÜLKE / TAKIM İSMİ → FAMILY HINT
+# ===============================================================
+
+COUNTRY_FAMILY = {
+    "turkey": "TURKISH_BSL",
+    "türkiye": "TURKISH_BSL",
+    "spain": "ACB_SPAIN",
+    "germany": "GERMANY_BBL",
+    "france": "FRANCE_PROA",
+    "italy": "ITALY_SERIEA",
+    "greece": "GREECE_ESAKE",
+    "serbia": "ABA_ADRIATIC",
+    "croatia": "ABA_ADRIATIC",
+    "slovenia": "ABA_ADRIATIC",
+    "bosnia": "ABA_ADRIATIC",
+    "montenegro": "ABA_ADRIATIC",
+    "usa": "NBA",
+    "canada": "NBA",
+    "australia": "AUSTRALIA_NBL",
+    "japan": "JAPAN_BLEAGUE",
+    "korea": "KOREA_KBL",
+    "china": "CHINA_CBA",
+    "philippines": "PHILIPPINES_PBA",
+}
+
+
+# ===============================================================
+# INPUT NORMALİZASYON
+# ===============================================================
+
+def _norm(x: Any) -> str:
+    """None / tuple / list → güvenli string."""
+    if x is None:
+        return ""
+    if isinstance(x, (tuple, list)):
+        return " ".join(str(i) for i in x if i is not None)
+    return str(x)
+
+
+# ===============================================================
+# MAIN DETECTOR (ANA ALGORİTMA)
+# ===============================================================
+
+def guess_league(home: str, away: str, league_hint: Any) -> Tuple[Optional[str], str]:
     """
-    Lig tahmini yapar.
-
-    - hint_league dolu ve AUTO / ? değilse -> direkt onu kullanır.
-    - Haritada hem ev hem deplasman için aynı lig bulunursa → onu seçer.
-    - Sadece bir taraf bulunursa → onu seçer.
-    - Hiç bulunamazsa → "GLOBAL" döner.
+    Lig tahmini üretir.
+    Her zaman (league_string, reason) tuple döndürür.
     """
-    notes: List[str] = []
 
-    # Kullanıcı lig yazmışsa ve bu 'AUTO' / '?' değilse: dokunma.
-    if (
-        hint_league
-        and hint_league.strip()
-        and hint_league.strip().upper() not in {"AUTO", "?", "GLOBAL"}
-    ):
-        notes.append(f"Lig kullanıcı tarafından verildi: {hint_league}")
-        return hint_league.strip(), notes
+    h = _norm(home).lower()
+    a = _norm(away).lower()
+    l = _norm(league_hint).lower()
 
-    h = _norm(home_team)
-    a = _norm(away_team)
+    # 1) Direkt lig ismi içinde family keyword var mı?
+    for fam, keys in FAMILY_KEYWORDS.items():
+        if any(k in l for k in keys):
+            return fam, f"match by league keyword: {k}"
 
-    lg_home = TEAM_LEAGUE_MAP.get(h)
-    lg_away = TEAM_LEAGUE_MAP.get(a)
+    # 2) Takım isimlerinden ülke çıkarma
+    for name in [h, a]:
+        for c, fam in COUNTRY_FAMILY.items():
+            if c in name:
+                return fam, f"match by team-country: {c}"
 
-    # Her iki takım da aynı ligde bulunuyorsa
-    if lg_home and lg_away and lg_home == lg_away:
-        notes.append(f"Her iki takım da {lg_home} haritasında bulundu.")
-        return lg_home, notes
+    # 3) Lig adında ülke/lig ipucu var mı?
+    for c, fam in COUNTRY_FAMILY.items():
+        if c in l:
+            return fam, f"match by league-country: {c}"
 
-    # Sadece ev sahibi bulunduysa
-    if lg_home:
-        notes.append(f"Ev sahibi takım {lg_home} haritasında bulundu.")
-        return lg_home, notes
+    # 4) FIBA / milli takımlar kontrolü
+    if any(k in l for k in ["fiba", "national", "world cup", "olympic"]):
+        return "FIBA_NATIONAL", "match by fiba keywords"
 
-    # Sadece deplasman bulunduysa
-    if lg_away:
-        notes.append(f"Deplasman takım {lg_away} haritasında bulundu.")
-        return lg_away, notes
+    # 5) NCAA / kolej tahmini
+    if any(k in l for k in ["ncaa", "college"]):
+        return "GENERIC_HIGH", "match by ncaa/college hint"
 
-    # Hiç eşleşme yoksa
-    notes.append("Lig haritada bulunamadı → GLOBAL etiketi ile devam.")
-    return "GLOBAL", notes
+    # 6) Bulunamadı → default family
+    return "GENERIC_MID", "default fallback"
