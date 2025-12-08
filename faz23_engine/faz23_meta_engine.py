@@ -251,6 +251,43 @@ def faz23_news_enrich(raw_ctx: Dict[str, Any], mode: str = "prematch") -> Dict[s
     return ctx
 
 
+#  ----------------------------------------------------------
+#  🔸 FAZ-23 NEWS_FETCH: get_match_news (Tuple-Safe)
+#  ----------------------------------------------------------
+def get_match_news(league: str, date: str, home: str, away: str) -> str:
+    """
+    FAZ-23 uyumlu haber alma fonksiyonu.
+    Tuple dönerse normalize eder.
+    Hata olursa boş string döner (bot kırılmaz).
+    """
+    try:
+        raw = {
+            "league": league,
+            "date": date,
+            "home": home,
+            "away": away
+        }
+
+        news = faz23_news_enrich(raw, mode="prematch")
+
+        # içinden summary çek
+        if isinstance(news, dict):
+            news = news.get("news_summary", "")
+
+        # tuple → string
+        if isinstance(news, tuple):
+            news = " ".join(str(x) for x in news)
+
+        if not isinstance(news, str):
+            news = str(news)
+
+        return news.strip()
+
+    except Exception as e:
+        log.warning(f"[FAZ-23] get_match_news hata: {e}")
+        return ""
+
+
 # ================================================================
 #  🎯 PREMATCH TAHMİN MOTORU
 # ================================================================
