@@ -127,8 +127,9 @@ def guess_league(home: str, away: str, league_hint: Any) -> Tuple[Optional[str],
 
     # 1) Direkt lig ismi içinde family keyword var mı?
     for fam, keys in FAMILY_KEYWORDS.items():
-        if any(k in l for k in keys):
-            return fam, f"match by league keyword: {k}"
+        for kw in keys:
+            if kw in l:
+                return fam, f"match by league keyword: {kw}"
 
     # 2) Takım isimlerinden ülke çıkarma
     for name in [h, a]:
