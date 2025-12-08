@@ -10,8 +10,9 @@ from .faz13_news_scraper import MatchMeta, get_match_news, encode_news_features
 log = logging.getLogger(__name__)
 
 # ================================================================
-# 🌍 GLOBAL LİG AİLESİ KONFİGÜRASYONU (FULL VERSION)
+# GLOBAL LİG AİLESİ KONFİGÜRASYONU
 # ================================================================
+
 FAMILY_CONFIG: Dict[str, Dict[str, Any]] = {
     # Kuzey Amerika
     "NBA": {
@@ -252,6 +253,8 @@ def _league_family(league: Any) -> str:
 # ================================================================
 # Yardımcı fonksiyonlar
 # ================================================================
+
+
 def _safe_float(x: Any) -> Optional[float]:
     """String/number karışık değerleri güvenli şekilde floata çevirmeye çalış."""
     try:
@@ -355,6 +358,8 @@ def _national_match_flag(home: str, away: str, league: str) -> bool:
 # ================================================================
 # normalize_manual_text
 # ================================================================
+
+
 def normalize_manual_text(raw: str) -> Dict[str, Any]:
     """
     /mac13 ve /live13 için manuel girilen metni tek şemaya çevirir.
@@ -427,6 +432,8 @@ def normalize_manual_text(raw: str) -> Dict[str, Any]:
 # ================================================================
 # normalize_visual_meta
 # ================================================================
+
+
 def normalize_visual_meta(ocr_text: str) -> Dict[str, Any]:
     """
     Ultra OCR v3'ten gelen raw metni basit bir fusion şemasına çevirir.
@@ -463,6 +470,8 @@ def normalize_visual_meta(ocr_text: str) -> Dict[str, Any]:
 # ================================================================
 # normalize_api_data
 # ================================================================
+
+
 def normalize_api_data(data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
     İleride canlı API (Flashscore, kendi live provider'ların vb.)
@@ -478,6 +487,8 @@ def normalize_api_data(data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 # ================================================================
 # run_faz13_auto_pipeline
 # ================================================================
+
+
 def run_faz13_auto_pipeline(
     league: Any,
     date: str,
@@ -565,7 +576,7 @@ def run_faz13_auto_pipeline(
                 self.total_view = {}
                 self.spread_view = {}
                 self.soft_score_range = {}
-                self.flags = []
+                self.flags = ["NO_NEWS_DATA"]
                 self.confidence = 0.0
                 self.key_quotes = []
                 self.sources_used = []
@@ -592,10 +603,14 @@ def run_faz13_auto_pipeline(
     # 1 puan bias ≈ 3 sayı etki gibi düşün
     base_total = base + total_bias * 3.0 + pace_bias * 2.0
 
-    # Eğer haber içinde avg_line varsa, hafifçe ona yaklaş
+    # Eğer haber içinde avg_line (açılış / konsensüs barem) varsa,
+    # LİG FAMILY + HABER karışımını daha çok bareme yaklaştır.
     avg_line = nf.get("news_total_avg_line") or 0.0
-    if avg_line > 0:
-        base_total = (base_total * 0.6) + (avg_line * 0.4)
+    opening_line = avg_line if avg_line > 0 else None
+    if opening_line:
+        # Bookmaker baremini daha ağır basacak şekilde karıştır:
+        # 30% lig family modeli + 70% açılış baremi
+        base_total = (base_total * 0.3) + (opening_line * 0.7)
 
     # Skor bandı
     low = base_total - 8.0
@@ -672,10 +687,14 @@ def run_faz13_auto_pipeline(
     debug_reasons.append(f"League baseline ~ {base:.1f}")
     debug_reasons.append(f"League family ~ {league_family}")
 
+    if opening_line:
+        debug_reasons.append(f"Opening / avg line ~ {opening_line:.1f}")
+
     if league_detect_reason:
         debug_reasons.append(f"League detect: {league_detect_reason}")
 
-    if avg_line:
+    if avg_line and not opening_line:
+        # teorik olarak olmayacak ama güvenlik için
         debug_reasons.append(f"News avg_line ~ {avg_line:.1f}")
     if nf.get("news_total_over_flag"):
         debug_reasons.append("News consensus: OVER")
@@ -691,8 +710,9 @@ def run_faz13_auto_pipeline(
             f"A:{injuries_view.get('impact_away', 0)}"
         )
     if soft_range:
+        tag = "fallback (no-news)" if "NO_NEWS_DATA" in flags else "from news"
         debug_reasons.append(
-            f"Soft range from news: {soft_range.get('low')} - "
+            f"Soft range {tag}: {soft_range.get('low')} - "
             f"{soft_range.get('high')}"
         )
     if not debug_reasons:
@@ -732,6 +752,8 @@ def run_faz13_auto_pipeline(
         "league_detect_reason": league_detect_reason,
         # Periyot projeksiyonu
         "per_period_projection": per_period_projection,
+        # Açılış / konsensüs baremi (varsa)
+        "opening_line": float(opening_line) if opening_line else None,
     }
 
     result: Dict[str, Any] = {
@@ -758,6 +780,8 @@ def run_faz13_auto_pipeline(
 # ================================================================
 # Basit kupon fonksiyonları (şimdilik iskelet)
 # ================================================================
+
+
 def faz13_daily_coupon(*args, **kwargs) -> Dict[str, Any]:
     """
     Şimdilik placeholder.
