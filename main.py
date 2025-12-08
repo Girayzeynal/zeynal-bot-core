@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import traceback
 from typing import Any, Dict, Optional, List
 
 import telebot
@@ -427,7 +428,9 @@ def cmd_mac(message: types.Message):
         bot.reply_to(message, text, parse_mode="Markdown")
 
     except Exception as e:
-        bot.reply_to(message, f"❌ /mac hata: {e}")
+    tb = traceback.format_exc()
+    log.error("cmd_mac hata: %s\n%s", e, tb)
+    bot.reply_to(message, f"❌ /mac hata: {e}") 
 
 # ================================================================
 # 📊 /status
