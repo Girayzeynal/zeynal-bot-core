@@ -427,10 +427,10 @@ def cmd_mac(message: types.Message):
 
         bot.reply_to(message, text, parse_mode="Markdown")
 
-    except Exception as e:
-    tb = traceback.format_exc()
-    log.error("cmd_mac hata: %s\n%s", e, tb)
-    bot.reply_to(message, f"❌ /mac hata: {e}") 
+        except Exception as e:
+            tb = traceback.format_exc()
+            log.error("cmd_mac hata: %s\n%s", e, tb)
+            bot.reply_to(message, f"❌ /mac hata: {e}")
 
 # ================================================================
 # 📊 /status
