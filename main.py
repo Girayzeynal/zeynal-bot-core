@@ -359,56 +359,35 @@ def cmd_test_faz13(message: types.Message):
         bot.reply_to(message, f"❌ /test_faz13 hata: {e}")
 
 # ================================================================
-# 🏀 /mac – Maç Tahmini (FAZ-13 NEWS PIPELINE)
+# /mac — Maç Tahmini (FAZ-13 NEWS PIPELINE)
 # ================================================================
 @bot.message_handler(commands=["mac"])
 def cmd_mac(message: types.Message):
     try:
-        # ============================================================
-        # 1) HAM METİNİ AL + TEMİZLE (Unicode Normalize)
-        # ============================================================
+        if not run_faz13_auto_pipeline:
+            raise RuntimeError("FAZ-13 orchestrator bağlı değil")
+
+        # Ham metni al (/mac'i baştan sök)
         raw = message.text or ""
-        text = raw.replace("/mac", "", 1).strip()
+        txt = raw.replace("/mac", "", 1).strip()
 
-        # ZERO-WIDTH karakterleri temizle
-        ZW = ["\u200b", "\u200c", "\u200d", "\ufeff"]
-        for z in ZW:
-            text = text.replace(z, "")
-
-        # Farklı pipe karakterlerini normalize et
-        for p in ["¦", "｜", "│", "‖"]:
-            text = text.replace(p, "|")
-
-        # Farklı tire karakterlerini normalize et
-        for d in ["–", "—", "−", "‒", "―"]:
-            text = text.replace(d, "-")
-
-        # Çoklu boşlukları sadeleştir
-        while "  " in text:
-            text = text.replace("  ", " ")
-
-        if not text:
+        # Basit format kontrolü
+        if "|" not in txt:
             bot.reply_to(
                 message,
-                "❌ Format hatalı.\n\nDoğru format:\n/mac Euroleague | 2025-12-05 | Crvena Zvezda - Barcelona"
+                "❌ Format hatalı.\n\n"
+                "Doğru format:\n"
+                "/mac Euroleague | 2025-12-05 | Crvena Zvezda - Barcelona",
             )
             return
 
-        # ============================================================
-        # 2) PARÇALAMA (ESNEK PIPE DESTEĞİ)
-        # ============================================================
-        if "|" not in text:
-            bot.reply_to(
-                message,
-                "❌ Format hatalı. 3 bölüm gerekli:\nLig | Tarih | Ev - Deplasman"
-            )
-            return
-
-        parts = [p.strip() for p in text.split("|")]
+        # Kullanıcı formatını çöz
+        parts = [p.strip() for p in txt.split("|")]
         if len(parts) != 3:
             bot.reply_to(
                 message,
-                "❌ Format hatalı. 3 bölüm olmalı:\nLig | Tarih | Ev - Deplasman"
+                "❌ Format hatalı. 3 bölüm olmalı:\n"
+                "Lig | Tarih | Ev - Deplasman",
             )
             return
 
@@ -416,53 +395,80 @@ def cmd_mac(message: types.Message):
         date = parts[1]
         teams_part = parts[2]
 
-        # ============================================================
-        # 3) TAKIM AYIRICI (HER TÜRLÜ DASH DESTEKLİ)
-        # ============================================================
+        # Ev - Deplasman çöz
         if "-" not in teams_part:
             bot.reply_to(message, "❌ Takım formatı hatalı. (Ev - Deplasman)")
             return
 
         home_team, away_team = [t.strip() for t in teams_part.split("-", 1)]
-
         if not home_team or not away_team:
             bot.reply_to(message, "❌ Takım bilgisi okunamadı.")
             return
 
-        # ============================================================
+        # --------------------------------------------------------
         # 4) FAZ-13 PIPELINE ÇAĞIR
-        # ============================================================
+        # --------------------------------------------------------
         result = run_faz13_auto_pipeline(
             league=league,
             date=date,
             home_team=home_team,
             away_team=away_team,
             full_output=True,
-            match_key=None,
+            match_key=None,  # FAZ-23 kapalı (şimdilik)
         )
 
-        # ============================================================
+        league_family = result.get("league_family", "-")
+        per = result.get("per_period_projection") or {}
+
+        # --------------------------------------------------------
         # 5) TELEGRAM ÇIKTISI
-        # ============================================================
-        text = (
-            f"🏀 *FAZ-13 Maç Tahmini*\n"
-            f"📌 *Maç:* {result.get('match')}\n"
-            f"📅 *Tarih:* {result.get('date')}\n"
-            f"🏆 *Lig:* {result.get('league')}\n\n"
-            f"🔮 *Fusion Karar:* {result.get('fusion_total_call')}\n"
-            f"📊 *Score Vector:* {result.get('internal_score_vector')}\n"
-            f"📰 *News Range:* {result.get('news_summary')}\n"
-            f"🧩 *Sebep / Açıklamalar:*\n"
-            + "\n".join(f"- {r}" for r in result.get("debug_reasons", []))
-        )
+        # --------------------------------------------------------
+        lines: List[str] = []
 
+        lines.append("🏀 FAZ-13 Maç Tahmini")
+        lines.append(f"📌 Maç: {result.get('match')}")
+        lines.append(f"📅 Tarih: {result.get('date')}")
+        lines.append(f"🏆 Lig: {result.get('league')}")
+        if league_family:
+            lines.append(f"🌍 Lig family: {league_family}")
+        lines.append("")
+
+        lines.append(f"🧪 Fusion Karar: {result.get('fusion_total_call')}")
+        lines.append(f"📊 Score Vector: {result.get('internal_score_vector')}")
+
+        # Periyot / yarı projeksiyonlarını göster
+        if per:
+            lines.append("")
+            lines.append("⏱ Periyot / Yarı Projeksiyonları:")
+            lines.append(
+                "  1Ç: {q1} | 2Ç: {q2} | 3Ç: {q3} | 4Ç: {q4}".format(
+                    q1=per.get("q1_total", "-"),
+                    q2=per.get("q2_total", "-"),
+                    q3=per.get("q3_total", "-"),
+                    q4=per.get("q4_total", "-"),
+                )
+            )
+            lines.append(
+                "  İY: {h1} | IIY: {h2} | Maç: {gt}".format(
+                    h1=per.get("h1_total", "-"),
+                    h2=per.get("h2_total", "-"),
+                    gt=per.get("game_total", "-"),
+                )
+            )
+
+        lines.append("")
+        lines.append(f"ℹ️ News Range: {result.get('news_summary')}")
+        debug = result.get("debug_reasons", []) or []
+        if debug:
+            lines.append("🧩 Sebep / Açıklamalar:")
+            for r in debug:
+                lines.append(f"- {str(r)}")
+
+        text = "\n".join(lines)
         bot.reply_to(message, text, parse_mode="Markdown")
 
     except Exception as e:
-        import traceback
-        tb = traceback.format_exc()
-        log.error("cmd_mac hata: %s\n%s", e, tb)
-        bot.reply_to(message, f"❌ /mac hata: {e}") 
+        bot.reply_to(message, f"❌ /mac hata: {e}")
 
 # ================================================================
 # 📊 /status
