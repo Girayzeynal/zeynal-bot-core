@@ -414,23 +414,23 @@ def cmd_mac(message: types.Message):
         #  TELEGRAM ÇIKTISI
         # --------------------------------------------------------
         text = (
-            f"🎯 FAZ-13 Maç Tahmini\n"
-            f"🏀 Maç: {result.get('match')}\n"
-            f"📅 Tarih: {result.get('date')}\n"
-            f"🏆 Lig: {result.get('league')}\n\n"
-            f"📌 Fusion Karar: {result.get('fusion_total_call')}\n"
-            f"🧠 Score Vector: {result.get('internal_score_vector')}\n"
-            f"ℹ️ News Range: {result.get('news_summary')}\n"
-            f"🔍 Sebep / Açıklamalar:\n"
-            + "\n".join(f"- {str(r)}" for r in result.get('debug_reasons', []))
-        )
+        f"🏀 FAZ-13 Maç Tahmini\n"
+        f"📌 Maç: {result.get('match')}\n"
+        f"📅 Tarih: {result.get('date')}\n"
+        f"🏆 Lig: {result.get('league')}\n\n"
+        f"🔮 Fusion Karar: {result.get('fusion_total_call')}\n"
+        f"📊 Score Vector: {result.get('internal_score_vector')}\n"
+        f"📰 News Range: {result.get('news_summary')}\n"
+        f"🧩 Sebep / Açıklamalar:\n"
+        + "\n".join(f"- {str(r)}" for r in result.get("debug_reasons", []))
+    )
 
-        bot.reply_to(message, text, parse_mode="Markdown")
+    bot.reply_to(message, text, parse_mode="Markdown")
 
-        except Exception as e:
-            tb = traceback.format_exc()
-            log.error("cmd_mac hata: %s\n%s", e, tb)
-            bot.reply_to(message, f"❌ /mac hata: {e}")
+except Exception as e:
+    tb = traceback.format_exc()
+    log.error("cmd_mac hata: %s\n%s", e, tb)
+    bot.reply_to(message, f"❌ /mac hata: {e}")
 
 # ================================================================
 # 📊 /status
