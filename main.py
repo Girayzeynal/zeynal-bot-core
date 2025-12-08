@@ -349,7 +349,7 @@ def cmd_test_faz13(message: types.Message):
             f"🧠 Score Vector: {result.get('internal_score_vector')}\n"
             f"ℹ️ News Range: {result.get('news_summary')}\n"
             f"🔍 Sebepler:\n" +
-            "\n".join(f"- {str(r)}" for r in result.get("debug_reasons", []))
+            "\n".join(f"- {str(r)}" for r in list(result.get("debug_reasons", [])))
         )
 
         bot.reply_to(message, text, parse_mode="Markdown")
