@@ -358,7 +358,6 @@ def cmd_test_faz13(message: types.Message):
     except Exception as e:
         bot.reply_to(message, f"❌ /test_faz13 hata: {e}")
 
-
 # ================================================================
 # 🏀 /mac – Maç Tahmini (FAZ-13 NEWS PIPELINE)
 # ================================================================
@@ -437,7 +436,6 @@ def cmd_mac(message: types.Message):
         tb = traceback.format_exc()
         log.error("cmd_mac hata: %s\n%s", e, tb)
         bot.reply_to(message, f"❌ /mac hata: {e}")
-
 
 # ================================================================
 # 📊 /status
