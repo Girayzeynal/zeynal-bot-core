@@ -1,75 +1,40 @@
 import re
 from typing import Any, Optional, Tuple
 
-
 # ===============================================================
 # GLOBAL FAMILY HARİTASI
 # ===============================================================
 
 FAMILY_KEYWORDS = {
-    "NBA": [
-        "nba",
-    ],
-    "WNBA": [
-        "wnba",
-    ],
-    "GLEAGUE": [
-        "g league", "gleague", "g-league",
-    ],
+    # Kuzey Amerika
+    "NBA": ["nba"],
+    "WNBA": ["wnba"],
+    "GLEAGUE": ["g league", "gleague", "g-league"],
 
-    "EUROLEAGUE": [
-        "euroleague", "euro league",
-    ],
-    "EUROCUP": [
-        "eurocup",
-    ],
-    "BCL": [
-        "bcl", "champions league", "basketball champions league",
-    ],
+    # Avrupa üst seviye
+    "EUROLEAGUE": ["euroleague", "euro league"],
+    "EUROCUP": ["eurocup"],
+    "BCL": ["bcl", "champions league", "basketball champions league"],
 
-    "TURKISH_BSL": [
-        "bsl", "turkey", "türkiye", "super lig", "süper lig",
-    ],
-    "ACB_SPAIN": [
-        "acb", "endesa", "liga acb",
-    ],
-    "GERMANY_BBL": [
-        "bbl", "germany",
-    ],
-    "FRANCE_PROA": [
-        "pro a", "lnb", "france",
-    ],
-    "ITALY_SERIEA": [
-        "serie a", "lega", "italy", "italia",
-    ],
-    "GREECE_ESAKE": [
-        "esake", "greek", "greece",
-    ],
-    "ABA_ADRIATIC": [
-        "aba", "adriatic",
-    ],
+    # Yerel ligler
+    "TURKISH_BSL": ["bsl", "turkey", "türkiye", "super lig", "süper lig"],
+    "ACB_SPAIN": ["acb", "endesa", "liga acb"],
+    "GERMANY_BBL": ["bbl", "germany", "easycredit"],
+    "FRANCE_PROA": ["pro a", "lnb", "france"],
+    "ITALY_SERIEA": ["serie a", "lega", "italy", "italia"],
+    "GREECE_ESAKE": ["esake", "greek", "greece"],
+    "ABA_ADRIATIC": ["aba", "adriatic"],
 
-    "AUSTRALIA_NBL": [
-        "nbl", "australia",
-    ],
-    "JAPAN_BLEAGUE": [
-        "b.league", "bleague", "japan",
-    ],
-    "KOREA_KBL": [
-        "kbl", "korea",
-    ],
-    "CHINA_CBA": [
-        "cba", "china",
-    ],
-    "PHILIPPINES_PBA": [
-        "pba", "philippines",
-    ],
+    # Diğer global ligler
+    "AUSTRALIA_NBL": ["nbl", "australia"],
+    "JAPAN_BLEAGUE": ["b.league", "bleague", "japan"],
+    "KOREA_KBL": ["kbl", "korea"],
+    "CHINA_CBA": ["cba", "china"],
+    "PHILIPPINES_PBA": ["pba", "philippines"],
 
-    "FIBA_NATIONAL": [
-        "fiba", "eurobasket", "olympic", "world cup",
-    ],
+    # Milli takım / FIBA
+    "FIBA_NATIONAL": ["fiba", "eurobasket", "olympic", "world cup"],
 }
-
 
 # ===============================================================
 # ÜLKE / TAKIM İSMİ → FAMILY HINT
@@ -82,6 +47,7 @@ COUNTRY_FAMILY = {
     "germany": "GERMANY_BBL",
     "france": "FRANCE_PROA",
     "italy": "ITALY_SERIEA",
+    "italia": "ITALY_SERIEA",
     "greece": "GREECE_ESAKE",
     "serbia": "ABA_ADRIATIC",
     "croatia": "ABA_ADRIATIC",
@@ -89,6 +55,7 @@ COUNTRY_FAMILY = {
     "bosnia": "ABA_ADRIATIC",
     "montenegro": "ABA_ADRIATIC",
     "usa": "NBA",
+    "united states": "NBA",
     "canada": "NBA",
     "australia": "AUSTRALIA_NBL",
     "japan": "JAPAN_BLEAGUE",
@@ -96,7 +63,6 @@ COUNTRY_FAMILY = {
     "china": "CHINA_CBA",
     "philippines": "PHILIPPINES_PBA",
 }
-
 
 # ===============================================================
 # INPUT NORMALİZASYON
@@ -110,7 +76,6 @@ def _norm(x: Any) -> str:
         return " ".join(str(i) for i in x if i is not None)
     return str(x)
 
-
 # ===============================================================
 # MAIN DETECTOR (ANA ALGORİTMA)
 # ===============================================================
@@ -120,12 +85,11 @@ def guess_league(home: str, away: str, league_hint: Any) -> Tuple[Optional[str],
     Lig tahmini üretir.
     Her zaman (league_string, reason) tuple döndürür.
     """
-
     h = _norm(home).lower()
     a = _norm(away).lower()
     l = _norm(league_hint).lower()
 
-    # 1) Direkt lig ismi içinde family keyword var mı?
+    # 1) Direkt lig isminde family keyword var mı?
     for fam, keys in FAMILY_KEYWORDS.items():
         for kw in keys:
             if kw in l:
