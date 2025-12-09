@@ -398,8 +398,6 @@ def safe_send(bot, chat_id, text: str, chunk=3500):
     for p in parts:
         bot.send_message(chat_id, p)
 
-(
-            
 # ================================================================
 # /mac — Maç Tahmini (FAZ-13 NEWS PIPELINE + TEAM TOTALS) - PLAIN PRO
 # ================================================================
