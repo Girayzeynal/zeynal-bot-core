@@ -398,68 +398,7 @@ def safe_send(bot, chat_id, text: str, chunk=3500):
     for p in parts:
         bot.send_message(chat_id, p)
 
-# ================================================================
-# /mac — Maç Tahmini (FAZ-13 NEWS PIPELINE + TEAM TOTALS)
-# ================================================================
-@bot.message_handler(commands=["mac"])
-def cmd_mac(message: types.Message):
-    try:
-        if not run_faz13_auto_pipeline:
-            raise RuntimeError("FAZ-13 orchestrator bağlı değil")
 
-        # Ham metni al (/mac'i baştan sök)
-        raw = message.text or ""
-        txt = raw.replace("/mac", "", 1).strip()
-
-        # Basit format kontrolü
-        if "|" not in txt:
-            bot.reply_to(
-                message,
-                "❌ Format hatalı.\n\n"
-                "Doğru format:\n"
-                "/mac Euroleague | 2025-12-05 | Crvena Zvezda - Barcelona",
-            )
-            return
-
-        # Kullanıcı formatını çöz
-        parts = [p.strip() for p in txt.split("|")]
-        if len(parts) != 3:
-            bot.reply_to(
-                message,
-                "❌ Format hatalı. 3 bölüm olmalı:\n"
-                "Lig | Tarih | Ev - Deplasman",
-            )
-            return
-
-        league = parts[0]
-        date = parts[1]
-        teams_part = parts[2]
-
-        # Ev - Deplasman çöz
-        if "-" not in teams_part:
-            bot.reply_to(message, "❌ Takım formatı hatalı. (Ev - Deplasman)")
-            return
-
-        home_team, away_team = [t.strip() for t in teams_part.split("-", 1)]
-        if not home_team or not away_team:
-            bot.reply_to(message, "❌ Takım bilgisi okunamadı.")
-            return
-
-        # --------------------------------------------------------
-        # 4) FAZ-13 PIPELINE ÇAĞIR
-        # --------------------------------------------------------
-        result = run_faz13_auto_pipeline(
-            league=league,
-            date=date,
-            home_team=home_team,
-            away_team=away_team,
-            full_output=True,
-            match_key=None,  # FAZ-23 bağımsız, şimdilik kapalı
-        )
-
-        league_family = result.get("league_family", "-")
-        per = result.get("per_period_projection") or {}
-        team_totals = result.get("team_totals") or {}
 
 # ================================================================
 # /mac – Maç Tahmini (FAZ-13 NEWS PIPELINE + TEAM TOTALS) - PLAIN
