@@ -521,7 +521,7 @@ def cmd_mac(message: types.Message):
                 lines.append(f"- {str(r)}")
 
         text = "\n".join(lines)
-        bot.reply_to(message, text, parse_mode="Markdown")
+        bot.reply_to(message, text)
 
     except Exception as e:
         log.error("cmd_mac hata: %s", e, exc_info=True)
