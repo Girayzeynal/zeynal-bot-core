@@ -579,6 +579,7 @@ def cmd_mac(message: types.Message):
     text = "\n".join(lines)
     safe_send(bot, message.chat.id, text)
 
+        
 # ================================================================
 # 📊 /status
 # ================================================================
