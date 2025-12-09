@@ -3,6 +3,7 @@ import json
 import logging
 import traceback
 from typing import Any, Dict, Optional, List
+from faz23_engine.faz23_meta_engine import faz23_prematch_predict
 
 import telebot
 from telebot import types
@@ -399,7 +400,7 @@ def safe_send(bot, chat_id, text: str, chunk=3500):
         bot.send_message(chat_id, p)
 
 # ================================================================
-# /mac — Maç Tahmini (FAZ-13 NEWS PIPELINE + TEAM TOTALS) - PLAIN PRO
+# /mac — Maç Tahmini (FAZ-13 + FAZ-23 META) - PLAIN PRO
 # ================================================================
 @bot.message_handler(commands=["mac"])
 def cmd_mac(message: types.Message):
@@ -462,7 +463,7 @@ def cmd_mac(message: types.Message):
             home_team=home_team,
             away_team=away_team,
             full_output=True,
-            match_key=None,  # FAZ-23 bağımsız (şimdilik kapalı)
+            match_key=None,  # FAZ-23 iç meta ile çalışacak
         )
 
         league_family = result.get("league_family", "-")
@@ -490,12 +491,11 @@ def cmd_mac(message: types.Message):
         match_type = internal_meta.get("match_type")
         national_bonus = internal_meta.get("national_bonus")
         schedule_fatigue = internal_meta.get("schedule_fatigue")
-
         news_summary = result.get("news_summary")  # kısa özet
         debug = result.get("debug_reasons", []) or []
 
         # ---------------------------------------------------------
-        # 3) TELEGRAM ÇIKTISI – PLAIN PRO FORMAT
+        # 3) TELEGRAM ÇIKTISI – FAZ-13 PLAIN PRO FORMAT
         # ---------------------------------------------------------
         lines: List[str] = []
 
@@ -527,7 +527,6 @@ def cmd_mac(message: types.Message):
         h1 = per.get("h1_total", "-")
         h2 = per.get("h2_total", "-")
         gt = per.get("game_total", "-")
-
         lines.append(f"1Ç: {q1}")
         lines.append(f"2Ç: {q2}")
         lines.append(f"3Ç: {q3}")
@@ -560,7 +559,6 @@ def cmd_mac(message: types.Message):
             lines.append(f"• Milli maç bonusu: {national_bonus}")
         if schedule_fatigue:
             lines.append(f"• Fikstür yorgunluğu: {schedule_fatigue}")
-
         if news_summary:
             lines.append(f"• News Range: {news_summary}")
 
@@ -570,6 +568,45 @@ def cmd_mac(message: types.Message):
             for r in debug:
                 lines.append(f"- {str(r)}")
 
+        # ---------------------------------------------------------
+        # 4) FAZ-23 PREMATCH META DEĞERLENDİRME
+        # ---------------------------------------------------------
+        faz23_block = None
+        if faz23_prematch_predict:
+            try:
+                faz23_ctx: Dict[str, Any] = {
+                    "source": "FAZ-13",
+                    "league": result.get("league"),
+                    "competition": result.get("league"),
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "home_name": ht_name,
+                    "away_name": at_name,
+                    # Model iç toplam: FAZ-23'ün referans alacağı total
+                    "total": base_total or gt or mid,
+                    "style_pace": style_pace,
+                    "match_type": match_type,
+                    "national_bonus": national_bonus,
+                    "schedule_fatigue": schedule_fatigue,
+                    "news_summary": news_summary,
+                    "debug_reasons": debug,
+                }
+
+                faz23_block = faz23_prematch_predict(faz23_ctx)
+            except Exception as e:
+                log.error("FAZ-23 prematch hata: %s", e, exc_info=True)
+                faz23_block = None
+
+        if faz23_block:
+            lines.append("")
+            lines.append("────────────────────")
+            lines.append("")
+            lines.append("FAZ-23 META DEĞERLENDİRME")
+            lines.append(str(faz23_block))
+
+        # ---------------------------------------------------------
+        # 5) GÖNDER
+        # ---------------------------------------------------------
         text = "\n".join(lines)
         safe_send(bot, message.chat.id, text)
 
