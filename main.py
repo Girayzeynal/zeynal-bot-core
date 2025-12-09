@@ -525,7 +525,7 @@ def cmd_mac(message: types.Message):
 
     except Exception as e:
         log.error("cmd_mac hata: %s", e, exc_info=True)
-        bot.reply_to(message, f"❌ /mac hata: `{e}`", parse_mode="Markdown")
+        bot.reply_to(message, f"❌ /mac hata: {e}")
 
 # ================================================================
 # 📊 /status
