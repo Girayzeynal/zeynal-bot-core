@@ -461,29 +461,103 @@ def cmd_mac(message: types.Message):
         per = result.get("per_period_projection") or {}
         team_totals = result.get("team_totals") or {}
 
-        # --------------------------------------------------------
-        # 5) TELEGRAM ÇIKTISI
-        # --------------------------------------------------------
+# ================================================================
+# /mac – Maç Tahmini (FAZ-13 NEWS PIPELINE + TEAM TOTALS) - PLAIN
+# ================================================================
+@bot.message_handler(commands=["mac"])
+def cmd_mac(message: types.Message):
+    try:
+        if not run_faz13_auto_pipeline:
+            raise RuntimeError("FAZ-13 orchestrator bağlı değil")
+
+        # Komuttan ham metni al
+        raw = message.text or ""
+        txt = raw.replace("/mac", "", 1).strip()
+
+        # Basit format kontrolü
+        if "|" not in txt:
+            safe_send(
+                bot,
+                message.chat.id,
+                "❌ Format hatalı.\n\n"
+                "Doğru format:\n"
+                "/mac Euroleague | 2025-12-05 | Crvena Zvezda - Barcelona"
+            )
+            return
+
+        # Kullanıcı formatını çöz
+        parts = [p.strip() for p in txt.split("|")]
+        if len(parts) != 3:
+            safe_send(
+                bot,
+                message.chat.id,
+                "❌ Format hatalı. 3 bölüm olmalı:\n"
+                "Lig | Tarih | Ev - Deplasman"
+            )
+            return
+
+        league = parts[0]
+        date = parts[1]
+        teams_part = parts[2]
+
+        # Ev - Deplasman çöz
+        if "-" not in teams_part:
+            safe_send(
+                bot,
+                message.chat.id,
+                "❌ Takım formatı hatalı. (Ev - Deplasman)"
+            )
+            return
+
+        home_team, away_team = [t.strip() for t in teams_part.split("-", 1)]
+        if not home_team or not away_team:
+            safe_send(
+                bot,
+                message.chat.id,
+                "❌ Takım bilgisi okunamadı."
+            )
+            return
+
+        # ---------------------------------------------------------
+        # 4) FAZ-13 PIPELINE ÇAĞIR
+        # ---------------------------------------------------------
+        result = run_faz13_auto_pipeline(
+            league=league,
+            date=date,
+            home_team=home_team,
+            away_team=away_team,
+            full_output=True,
+            match_key=None,  # FAZ-23 bağımsız, şimdilik kapalı
+        )
+
+        league_family = result.get("league_family", "-")
+        per = result.get("per_period_projection") or {}
+        team_totals = result.get("team_totals") or {}
+
+        # ---------------------------------------------------------
+        # 5) TELEGRAM ÇIKTISI – PLAIN SAFE FORMAT
+        # ---------------------------------------------------------
         lines: List[str] = []
 
-        lines.append("🏀 *FAZ-13 Maç Tahmini*")
-        lines.append(f"📌 Maç: {result.get('match')}")
-        lines.append(f"📅 Tarih: {result.get('date')}")
-        lines.append(f"🏆 Lig: {result.get('league')}")
+        # Başlık
+        lines.append("🏀 FAZ-13 Maç Tahmini")
+        lines.append(f"Maç: {result.get('match')}")
+        lines.append(f"Tarih: {result.get('date')}")
+        lines.append(f"Lig: {result.get('league')}")
         if league_family:
-            lines.append(f"🌍 Lig family: {league_family}")
+            lines.append(f"Lig family: {league_family}")
         lines.append("")
 
         # Total + score vector
-        lines.append(f"🧪 Fusion Karar: {result.get('fusion_total_call')}")
-        lines.append(f"📊 Score Vector: {result.get('internal_score_vector')}")
+        lines.append(f"Fusion Karar: {result.get('fusion_total_call')}")
+        lines.append(f"Score Vector: {result.get('internal_score_vector')}")
         lines.append("")
 
         # Periyot / yarı projeksiyonları
         if per:
-            lines.append("⏱ *Periyot / Yarı Projeksiyonları*:")
+            lines.append("Periyot / Yarı Projeksiyonları:")
             lines.append(
-                "  1Ç: {q1} | 2Ç: {q2} | 3Ç: {q3} | 4Ç: {q4}".format(
+                "1Ç: {q1} | 2Ç: {q2} | 3Ç: {q3} | 4Ç: {q4}".format(
                     q1=per.get("q1_total", "-"),
                     q2=per.get("q2_total", "-"),
                     q3=per.get("q3_total", "-"),
@@ -491,7 +565,7 @@ def cmd_mac(message: types.Message):
                 )
             )
             lines.append(
-                "  İY: {h1} | IIY: {h2} | Maç: {gt}".format(
+                "İY: {h1} | IIY: {h2} | Maç: {gt}".format(
                     h1=per.get("h1_total", "-"),
                     h2=per.get("h2_total", "-"),
                     gt=per.get("game_total", "-"),
@@ -499,33 +573,36 @@ def cmd_mac(message: types.Message):
             )
             lines.append("")
 
-        # Takım bazlı skor projeksiyonları (TEAM TOTALS)
+        # Takım bazlı skor projeksiyonları
         if team_totals:
             ht_name = team_totals.get("home_team", home_team)
             at_name = team_totals.get("away_team", away_team)
             ht_total = team_totals.get("home_total", "-")
             at_total = team_totals.get("away_total", "-")
 
-            lines.append("🎯 *Takım Skor Tahminleri*:")
-            lines.append(f"  Ev Sahibi ({ht_name}): {ht_total}")
-            lines.append(f"  Deplasman ({at_name}): {at_total}")
+            lines.append("Takım Skor Tahminleri:")
+            lines.append(f"Ev Sahibi ({ht_name}): {ht_total}")
+            lines.append(f"Deplasman ({at_name}): {at_total}")
             lines.append("")
 
         # News / debug
-        lines.append(f"ℹ️ News Range: {result.get('news_summary')}")
+        news = result.get("news_summary")
+        if news:
+            lines.append(f"News Range: {news}")
+
         debug = result.get("debug_reasons", []) or []
         if debug:
             lines.append("")
-            lines.append("*🧩 Sebep / Açıklamalar:*")
+            lines.append("Sebep / Açıklamalar:")
             for r in debug:
                 lines.append(f"- {str(r)}")
 
         text = "\n".join(lines)
-        bot.reply_to(message, text)
+        safe_send(bot, message.chat.id, text)
 
     except Exception as e:
         log.error("cmd_mac hata: %s", e, exc_info=True)
-        bot.reply_to(message, f"❌ /mac hata: {e}")
+        safe_send(bot, message.chat.id, f"❌ /mac hata: {e}")
 
 # ================================================================
 # 📊 /status
