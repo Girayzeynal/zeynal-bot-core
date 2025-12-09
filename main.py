@@ -398,10 +398,10 @@ def safe_send(bot, chat_id, text: str, chunk=3500):
     for p in parts:
         bot.send_message(chat_id, p)
 
-
-
+(
+            
 # ================================================================
-# /mac – Maç Tahmini (FAZ-13 NEWS PIPELINE + TEAM TOTALS) - PLAIN
+# /mac — Maç Tahmini (FAZ-13 NEWS PIPELINE + TEAM TOTALS) - PLAIN PRO
 # ================================================================
 @bot.message_handler(commands=["mac"])
 def cmd_mac(message: types.Message):
@@ -409,7 +409,9 @@ def cmd_mac(message: types.Message):
         if not run_faz13_auto_pipeline:
             raise RuntimeError("FAZ-13 orchestrator bağlı değil")
 
-        # Komuttan ham metni al
+        # ---------------------------------------------------------
+        # 1) Komuttan ham metni al
+        # ---------------------------------------------------------
         raw = message.text or ""
         txt = raw.replace("/mac", "", 1).strip()
 
@@ -418,20 +420,24 @@ def cmd_mac(message: types.Message):
             safe_send(
                 bot,
                 message.chat.id,
-                "❌ Format hatalı.\n\n"
-                "Doğru format:\n"
-                "/mac Euroleague | 2025-12-05 | Crvena Zvezda - Barcelona"
+                (
+                    "❌ Format hatalı.\n\n"
+                    "Doğru format:\n"
+                    "/mac Euroleague | 2025-12-05 | Crvena Zvezda - Barcelona"
+                ),
             )
             return
 
-        # Kullanıcı formatını çöz
         parts = [p.strip() for p in txt.split("|")]
         if len(parts) != 3:
             safe_send(
                 bot,
                 message.chat.id,
-                "❌ Format hatalı. 3 bölüm olmalı:\n"
-                "Lig | Tarih | Ev - Deplasman"
+                (
+                    "❌ Format hatalı.\n"
+                    "3 bölüm olmalı:\n"
+                    "Lig | Tarih | Ev - Deplasman"
+                ),
             )
             return
 
@@ -441,24 +447,16 @@ def cmd_mac(message: types.Message):
 
         # Ev - Deplasman çöz
         if "-" not in teams_part:
-            safe_send(
-                bot,
-                message.chat.id,
-                "❌ Takım formatı hatalı. (Ev - Deplasman)"
-            )
+            safe_send(bot, message.chat.id, "❌ Takım formatı hatalı. (Ev - Deplasman)")
             return
 
         home_team, away_team = [t.strip() for t in teams_part.split("-", 1)]
         if not home_team or not away_team:
-            safe_send(
-                bot,
-                message.chat.id,
-                "❌ Takım bilgisi okunamadı."
-            )
+            safe_send(bot, message.chat.id, "❌ Takım bilgisi okunamadı.")
             return
 
         # ---------------------------------------------------------
-        # 4) FAZ-13 PIPELINE ÇAĞIR
+        # 2) FAZ-13 PIPELINE ÇAĞIR
         # ---------------------------------------------------------
         result = run_faz13_auto_pipeline(
             league=league,
@@ -466,120 +464,121 @@ def cmd_mac(message: types.Message):
             home_team=home_team,
             away_team=away_team,
             full_output=True,
-            match_key=None,  # FAZ-23 bağımsız, şimdilik kapalı
+            match_key=None,  # FAZ-23 bağımsız (şimdilik kapalı)
         )
 
         league_family = result.get("league_family", "-")
         per = result.get("per_period_projection") or {}
         team_totals = result.get("team_totals") or {}
+        score_vec = result.get("internal_score_vector") or []
+        internal_meta = result.get("internal_meta") or {}
 
-    # ------------------------------------------------------------
-    # 5) TELEGRAM ÇIKTISI - PLAIN SAFE FORMAT (vFinal Pro)
-    # ------------------------------------------------------------
-    lines: List[str] = []
+        # Skor bandı
+        low = mid = high = "-"
+        if isinstance(score_vec, (list, tuple)) and len(score_vec) == 3:
+            low, mid, high = score_vec
 
-    match_name   = result.get("match", "")
-    match_date   = result.get("date", "-")
-    league_name  = result.get("league", "-")
-    league_family = result.get("league_family", "-")
+        # Takım skorları
+        ht_name = team_totals.get("home_team", home_team)
+        at_name = team_totals.get("away_team", away_team)
+        ht_total = team_totals.get("home_total", "-")
+        at_total = team_totals.get("away_total", "-")
 
-    fusion_total = result.get("fusion_total_call", "-")
-    score_vec    = result.get("internal_score_vector") or []
+        # Haber / meta alanları
+        base_total = internal_meta.get("base_total")
+        style_pace = internal_meta.get("style_pace")
+        pace_vol = internal_meta.get("pace_volatility")
+        def_vol = internal_meta.get("defense_volatility")
+        match_type = internal_meta.get("match_type")
+        national_bonus = internal_meta.get("national_bonus")
+        schedule_fatigue = internal_meta.get("schedule_fatigue")
 
-    low = mid = high = fusion_total
-    if isinstance(score_vec, (list, tuple)) and len(score_vec) == 3:
-        low, mid, high = score_vec
+        news_summary = result.get("news_summary")  # kısa özet
+        debug = result.get("debug_reasons", []) or []
 
-    # Periyot toplamları
-    q1 = per.get("q1_total", "-")
-    q2 = per.get("q2_total", "-")
-    q3 = per.get("q3_total", "-")
-    q4 = per.get("q4_total", "-")
-    h1 = per.get("h1_total", "-")
-    h2 = per.get("h2_total", "-")
-    gt = per.get("game_total", "-")
+        # ---------------------------------------------------------
+        # 3) TELEGRAM ÇIKTISI – PLAIN PRO FORMAT
+        # ---------------------------------------------------------
+        lines: List[str] = []
 
-    # Takım skorları
-    ht_name  = team_totals.get("home_team", home_team)
-    at_name  = team_totals.get("away_team", away_team)
-    ht_total = team_totals.get("home_total", "-")
-    at_total = team_totals.get("away_total", "-")
+        # Başlık
+        lines.append("🏀 FAZ-13 Maç Tahmini (Pro)")
+        lines.append("")
+        lines.append(f"Maç: {result.get('match')}")
+        lines.append(f"Tarih: {result.get('date')}")
+        lines.append(f"Lig: {result.get('league')} | Lig Family: {league_family}")
+        lines.append("")
+        lines.append("────────────────────")
+        lines.append("")
 
-    # Analiz / haber tarafı
-    baseline    = result.get("league_baseline")
-    home_boost  = result.get("home_advantage_boost")
-    h_strength  = result.get("final_strength_home")
-    a_strength  = result.get("final_strength_away")
-    h_share     = result.get("share_home")
-    a_share     = result.get("share_away")
+        # Toplam tahmini
+        lines.append("🪐 TOPLAM TAHMİNİ")
+        lines.append(f"Fusion Total: {result.get('fusion_total_call')}")
+        lines.append(f"Bant: {low} – {high}")
+        lines.append(f"Score Vector: [{low}, {mid}, {high}]")
+        lines.append("")
+        lines.append("────────────────────")
+        lines.append("")
 
-    # --------------------------------------------------------
-    # Başlık
-    # --------------------------------------------------------
-    lines.append("🏀 FAZ-13 Tahmin (vFinal Pro)")
-    lines.append("")
-    lines.append(f"Maç: {match_name}")
-    lines.append(f"Tarih: {match_date}")
-    lines.append(f"Lig: {league_name} | Lig Family: {league_family}")
-    lines.append("")
-    lines.append("────────────────────")
-    lines.append("")
+        # Periyot projeksiyonları
+        lines.append("📊 PERİYOT PROJEKSİYONLARI")
+        q1 = per.get("q1_total", "-")
+        q2 = per.get("q2_total", "-")
+        q3 = per.get("q3_total", "-")
+        q4 = per.get("q4_total", "-")
+        h1 = per.get("h1_total", "-")
+        h2 = per.get("h2_total", "-")
+        gt = per.get("game_total", "-")
 
-    # --------------------------------------------------------
-    # Toplam tahmini
-    # --------------------------------------------------------
-    lines.append("🪐 TOPLAM TAHMİNİ")
-    lines.append(f"Fusion Total: {fusion_total}")
-    lines.append(f"Bant: {low} – {high}")
-    lines.append(f"Score Vector: [{low}, {mid}, {high}]")
-    lines.append("")
-    lines.append("────────────────────")
-    lines.append("")
+        lines.append(f"1Ç: {q1}")
+        lines.append(f"2Ç: {q2}")
+        lines.append(f"3Ç: {q3}")
+        lines.append(f"4Ç: {q4}")
+        lines.append(f"İY: {h1} | İİY: {h2} | Maç: {gt}")
+        lines.append("")
+        lines.append("────────────────────")
+        lines.append("")
 
-    # --------------------------------------------------------
-    # Periyot projeksiyonları
-    # --------------------------------------------------------
-    lines.append("📊 PERİYOT PROJEKSİYONLARI")
-    lines.append(f"1Ç: {q1}")
-    lines.append(f"2Ç: {q2}")
-    lines.append(f"3Ç: {q3}")
-    lines.append(f"4Ç: {q4}")
-    lines.append(f"İY: {h1} | İİY: {h2} | Maç: {gt}")
-    lines.append("")
-    lines.append("────────────────────")
-    lines.append("")
+        # Takım skor tahmini
+        lines.append("🎯 TAKIM SKOR TAHMİNİ")
+        lines.append(f"Ev Sahibi ({ht_name}): {ht_total}")
+        lines.append(f"Deplasman ({at_name}): {at_total}")
+        lines.append("")
+        lines.append("────────────────────")
+        lines.append("")
 
-    # --------------------------------------------------------
-    # Takım skor tahmini
-    # --------------------------------------------------------
-    lines.append("🎯 TAKIM SKOR TAHMİNİ")
-    lines.append(f"Ev Sahibi ({ht_name}): {ht_total}")
-    lines.append(f"Deplasman ({at_name}): {at_total}")
-    lines.append("")
-    lines.append("────────────────────")
-    lines.append("")
+        # Haber / Analiz
+        lines.append("🧠 HABER / ANALİZ")
 
-    # --------------------------------------------------------
-    # Haber / Analiz
-    # --------------------------------------------------------
-    lines.append("🧠 HABER / ANALİZ")
+        if base_total is not None:
+            lines.append(f"• Lig baseline (iç çekirdek): {base_total}")
+        if style_pace:
+            lines.append(f"• Tempo stili: {style_pace}")
+        if pace_vol is not None and def_vol is not None:
+            lines.append(f"• Volatilite → Pace:{pace_vol} | Def:{def_vol}")
+        if match_type:
+            lines.append(f"• Maç tipi: {match_type}")
+        if national_bonus:
+            lines.append(f"• Milli maç bonusu: {national_bonus}")
+        if schedule_fatigue:
+            lines.append(f"• Fikstür yorgunluğu: {schedule_fatigue}")
 
-    if baseline is not None:
-        lines.append(f"• Baseline: {baseline}")
-    if home_boost is not None:
-        lines.append(f"• Home Boost: {home_boost}")
-    if h_strength is not None and a_strength is not None:
-        lines.append(f"• Strength → H:{h_strength} A:{a_strength}")
-    if h_share is not None and a_share is not None:
-        lines.append(f"• Win Share → H:{h_share} A:{a_share}")
+        if news_summary:
+            lines.append(f"• News Range: {news_summary}")
 
-    lines.append("")
-    lines.append("────────────────────")
+        if debug:
+            lines.append("")
+            lines.append("Sebep / Açıklamalar:")
+            for r in debug:
+                lines.append(f"- {str(r)}")
 
-    text = "\n".join(lines)
-    safe_send(bot, message.chat.id, text)
+        text = "\n".join(lines)
+        safe_send(bot, message.chat.id, text)
 
-        
+    except Exception as e:
+        log.error("cmd_mac hata: %s", e, exc_info=True)
+        safe_send(bot, message.chat.id, f"❌ /mac hata: {e}")
+    
 # ================================================================
 # 📊 /status
 # ================================================================
