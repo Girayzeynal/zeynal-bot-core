@@ -4,10 +4,9 @@ FAZ-13 + FAZ-23 Orchestrator
 
 Bu dosya:
 - /mac komutundan gelen lig / tarih / takım bilgisini alır
-- Basit ama stabil bir total tahmini üretir
+- Dış API'ler (FAZ-23 DataHub) + iç baseline ile total tahmini üretir
 - FAZ-13 çekirdeği için: total, band, vector, period skorları, takım skorları, analiz yapısı
-- FAZ-23 katmanı için: meta23 blok (model_over / model_under / primary_total / flags)
-döndürür.
+- FAZ-23 katmanı için: meta23 blok (model_over / model_under / primary_total / flags) döndürür.
 
 ÇIKTI FORMATİ, main.py içindeki fmt_faz13_message() ile birebir uyumludur.
 """
@@ -16,6 +15,12 @@ import math
 from dataclasses import dataclass, asdict
 from typing import Optional, Dict, Any, List, Tuple
 
+# FAZ-23 DataHub isteğe bağlı import – yoksa sistem yine çalışır
+try:
+    from faz23_engine.faz23_datahub import fetch_match_totals  # type: ignore
+except Exception:  # pragma: no cover - opsiyonel
+    fetch_match_totals = None  # type: ignore
+
 
 # ================================================================
 # DATA MODELLERİ (FAZ-13 ÇEKİRDEK)
@@ -23,15 +28,13 @@ from typing import Optional, Dict, Any, List, Tuple
 
 @dataclass
 class Faz13Input:
-    source: str                    # "manual" / "api" / "visual" / "hybrid"
+    source: str  # "manual" / "api" / "visual" / "hybrid"
     league: str
     date_str: str
     home: str
     away: str
-
     prematch_total_hint: Optional[float] = None
     recent_points_avg: Optional[float] = None
-
     manual_text: Optional[str] = None
     api_data: Optional[Dict[str, Any]] = None
     visual_meta: Optional[Dict[str, Any]] = None
@@ -59,7 +62,9 @@ def normalize_manual_text(text: Optional[str]) -> Optional[Dict[str, Any]]:
 def normalize_api_data(api_data: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if not api_data:
         return None
+
     out = dict(api_data)
+
     if "pace" in out:
         try:
             out["pace"] = float(out["pace"])
@@ -73,6 +78,7 @@ def normalize_api_data(api_data: Optional[Dict[str, Any]]) -> Optional[Dict[str,
             )
         except Exception:
             pass
+
     return out
 
 
@@ -91,7 +97,7 @@ def normalize_visual_meta(visual_meta: Optional[Dict[str, Any]]) -> Optional[Dic
 def _detect_league_family(league: str) -> Tuple[str, float]:
     """
     Lig ismine göre family + kaba baseline çıkarır.
-    Burayı istersen takım bazlı / API bazlı hale genişletebiliriz.
+    Burayı faz23_datahub çıktılarına göre ince ayar yapıyoruz.
     """
     l = (league or "").lower()
 
@@ -135,17 +141,17 @@ def _split_periods(total: float) -> Tuple[float, float, float, float]:
 # ANA TOTAL TAHMİNİ (BASİS)
 # ================================================================
 
-def _estimate_total_points(data: Faz13Input) -> float:
+def _estimate_total_points(data: Faz13Input, league_baseline: float) -> float:
     """
     FAZ-13 çekirdeği için ana total tahmini.
+
     Sıralama:
     1) prematch_total_hint varsa onu merkez al
     2) recent_points_avg varsa league baseline ile harmanla
-    3) hiçbir şey yoksa sadece league baseline
-    İleride: API-SPORT / balldontlie / ODDS verisi bu fonksiyona eklenecek.
-    """
-    family, league_baseline = _detect_league_family(data.league)
+    3) hiçbiri yoksa sadece league baseline
 
+    İleride: API-SPORT / balldontlie / ODDS verisi bu fonksiyona eklenir.
+    """
     total = league_baseline
 
     # 1) prematch barem ipucu
@@ -165,20 +171,24 @@ def _estimate_total_points(data: Faz13Input) -> float:
         except Exception:
             pass
 
-    # İleride: data.api_data / market_data / profile burada devreye girecek.
     return round(total, 1)
 
 
 # ================================================================
-# FAZ-23 META ÖZETİ (BASİT)
+# FAZ-23 META ÖZETİ (BASİT + DATAHUB ÖZETİ)
 # ================================================================
 
-def _build_faz23_meta(total: float, market_data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def _build_faz23_meta(
+    total: float,
+    market_data: Optional[Dict[str, Any]],
+    external_ctx: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
     """
-    FAZ-23 için basit meta:
+    FAZ-23 için meta blok:
+
     - primary_total: mümkünse market çizgisi, yoksa model total
     - model_over / model_under: markete göre eğilim
-    Şu an placeholder; ODDS API ve datahub bağlanınca sertleştirilecek.
+    - external: FAZ-23 DataHub özet bilgisi
     """
     main_total = None
     if market_data and "main_total" in market_data:
@@ -212,7 +222,6 @@ def _build_faz23_meta(total: float, market_data: Optional[Dict[str, Any]]) -> Di
             model_under = 0.50
 
     flags: List[str] = []
-
     if main_total is None:
         flags.append("NO_MARKET_DATA")
     else:
@@ -221,11 +230,21 @@ def _build_faz23_meta(total: float, market_data: Optional[Dict[str, Any]]) -> Di
         else:
             flags.append("DRIFT")
 
+    external_summary: Dict[str, Any] = {}
+    if external_ctx:
+        external_summary = {
+            "family": external_ctx.get("family"),
+            "league_total_baseline": external_ctx.get("league_total_baseline"),
+            "team_total_baseline": external_ctx.get("team_total_baseline"),
+            "has_odds": external_ctx.get("odds") is not None,
+        }
+
     return {
         "primary_total": float(primary_total),
         "model_over": float(model_over),
         "model_under": float(model_under),
         "flags": flags,
+        "external": external_summary,
     }
 
 
@@ -264,7 +283,7 @@ def run_faz13_auto_pipeline(
 
     Dönen sözlük fmt_faz13_message() fonksiyonu ile birebir uyumlu:
         - total
-        - band  (min,max)
+        - band (min,max)
         - vector (lo, mid, hi)
         - periods (q1,q2,q3,q4)
         - team_scores (home_pts, away_pts)
@@ -290,11 +309,48 @@ def run_faz13_auto_pipeline(
         profile=profile,
     )
 
-    # Lig family + league baseline
+    # Lig family + ilk league baseline
     family, league_baseline = _detect_league_family(league)
 
-    # Ana total tahmini
-    total = _estimate_total_points(data)
+    # -----------------------------------------------------------
+    # FAZ-23 DataHub: dış API'lerden takım bazlı baseline
+    # -----------------------------------------------------------
+    external_ctx: Optional[Dict[str, Any]] = None
+    if fetch_match_totals is not None:
+        try:
+            external_ctx = fetch_match_totals(
+                league=league,
+                date_str=date_str,
+                home=home,
+                away=away,
+            )
+        except Exception as e:  # güvenlik için sert yakalama
+            # Burada log atılsa da main.py tarafında hiçbir şey bozulmaz
+            import logging
+
+            logging.getLogger(__name__).warning("FAZ23 DataHub error: %s", e)
+            external_ctx = None
+
+    # Eğer DataHub lig ortalaması döndürdüyse league_baseline'i oraya doğru kaydır
+    if external_ctx and external_ctx.get("league_total_baseline") is not None:
+        try:
+            ext_league = float(external_ctx["league_total_baseline"])
+            league_baseline = round((league_baseline * 0.4) + (ext_league * 0.6), 1)
+        except Exception:
+            pass
+
+    # Ana total tahmini (iç çekirdek)
+    total = _estimate_total_points(data, league_baseline)
+
+    # Eğer takım bazlı external baseline geldiyse, iç total ile harmanla
+    if external_ctx and external_ctx.get("team_total_baseline") is not None:
+        try:
+            team_base = float(external_ctx["team_total_baseline"])
+            # 60% takım bazlı, 40% iç çekirdek → daha "takım odaklı" baseline
+            blended = round(total * 0.4 + team_base * 0.6, 1)
+            total = blended
+        except Exception:
+            pass
 
     # Dar bant + skor vektörü
     band_delta = 6.0  # ±6 sayı → 12 sayılık bant
@@ -318,18 +374,29 @@ def run_faz13_auto_pipeline(
     # Analiz bloğu
     match_type = "CLUB"
     l_lower = league.lower()
-    if "fiba" in l_lower or "world cup" in l_lower or "eurobasket" in l_lower or "national" in l_lower:
+    if (
+        "fiba" in l_lower
+        or "world cup" in l_lower
+        or "eurobasket" in l_lower
+        or "national" in l_lower
+    ):
         match_type = "NATIONAL"
 
     analysis: Dict[str, Any] = {
         "league_baseline": float(league_baseline),
         "tempo_style": "MID",
-        "volatility": 0.10,   # şimdilik sabit; ileride varyans motoru gelir
+        "volatility": 0.10,  # şimdilik sabit; ileride varyans motoru gelir
         "def": 0.00,
         "match_type": match_type,
         "news_range": "TOTAL: NEUTRAL",
         "home_boost": float(home_boost),
     }
+
+    if external_ctx:
+        analysis["faz23_external"] = {
+            "league_total_baseline": external_ctx.get("league_total_baseline"),
+            "team_total_baseline": external_ctx.get("team_total_baseline"),
+        }
 
     # Normalizasyon çıktıları (debug / ileride kullanılacak)
     norm_manual = normalize_manual_text(manual_text)
@@ -337,7 +404,7 @@ def run_faz13_auto_pipeline(
     norm_visual = normalize_visual_meta(visual_meta)
 
     # FAZ-23 meta bloğu
-    meta23 = _build_faz23_meta(total, market_data or {})
+    meta23 = _build_faz23_meta(total, market_data or {}, external_ctx)
 
     # Canlı veri yok → false sabit
     live_ctx = {
@@ -389,25 +456,31 @@ def build_faz23_safe_coupon(faz23_result: Dict[str, Any]) -> Dict[str, Any]:
     legs: List[Dict[str, Any]] = []
 
     if filter_mode == "AGGRESSIVE_SAFE" and sharpened_conf >= 80:
-        legs.append({
-            "market": "Toplam Sayı (dar bant)",
-            "pick": "MODEL_BAND",
-            "line": "model band ±2",
-            "risk_tag": "FAZ23_A",
-        })
+        legs.append(
+            {
+                "market": "Toplam Sayı (dar bant)",
+                "pick": "MODEL_BAND",
+                "line": "model band ±2",
+                "risk_tag": "FAZ23_A",
+            }
+        )
     elif filter_mode == "ULTRA_CONSERVATIVE":
-        legs.append({
-            "market": "Toplam Sayı (geniş bant)",
-            "pick": "SAFE_ZONE",
-            "line": "model band ±10",
-            "risk_tag": "FAZ23_SAFE",
-        })
+        legs.append(
+            {
+                "market": "Toplam Sayı (geniş bant)",
+                "pick": "SAFE_ZONE",
+                "line": "model band ±10",
+                "risk_tag": "FAZ23_SAFE",
+            }
+        )
     else:
-        legs.append({
-            "market": "Toplam Sayı",
-            "pick": "BASE",
-            "line": "model total",
-            "risk_tag": "FAZ23_BASE",
-        })
+        legs.append(
+            {
+                "market": "Toplam Sayı",
+                "pick": "BASE",
+                "line": "model total",
+                "risk_tag": "FAZ23_BASE",
+            }
+        )
 
     return {"legs": legs}
