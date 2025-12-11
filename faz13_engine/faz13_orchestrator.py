@@ -1,132 +1,150 @@
-from __future__ import annotations
-import logging
-from dataclasses import asdict
-from typing import Any, Dict, List, Optional
-from .league_autodetect import guess_league
-from .faz13_news_scraper import MatchMeta, get_match_news, encode_news_features
+# ============================================================
+#   FAZ-13 ORCHESTRATOR — HYBRID BASELINE ENGINE EDITION
+#   FULL REWRITE — 2025-12
+# ============================================================
 
-import os
-import json
-import time
+import statistics
 
-log = logging.getLogger(__name__)
+# ============================================================
+#   H Y B R I D   B A S E L I N E   E N G I N E
+# ============================================================
 
-# ================================================================
-# GLOBAL LIG AİLESİ KONFİGÜRASYONU
-# ================================================================
-FAMILY_CONFIG: Dict[str, Dict[str, Any]] = {
-    # Kuzey Amerika
-    "NBA": {"base_total": 230.0, "q_dist": [0.24, 0.26, 0.25, 0.25], "pace_volatility": 0.12, "defense_volatility": 0.10, "home_adv": 3.0},
-    "WNBA": {"base_total": 165.0, "q_dist": [0.24, 0.26, 0.25, 0.25], "pace_volatility": 0.11, "defense_volatility": 0.10, "home_adv": 2.5},
-    "GLEAGUE": {"base_total": 225.0, "q_dist": [0.25, 0.25, 0.25, 0.25], "pace_volatility": 0.13, "defense_volatility": 0.11, "home_adv": 2.5},
-    # Avrupa üst seviye
-    "EUROLEAGUE": {"base_total": 165.0, "q_dist": [0.23, 0.27, 0.25, 0.25], "pace_volatility": 0.10, "defense_volatility": 0.11, "home_adv": 3.5},
-    "EUROCUP": {"base_total": 162.0, "q_dist": [0.23, 0.27, 0.25, 0.25], "pace_volatility": 0.10, "defense_volatility": 0.11, "home_adv": 3.0},
-    "BCL": {"base_total": 159.0, "q_dist": [0.23, 0.27, 0.25, 0.25], "pace_volatility": 0.11, "defense_volatility": 0.11, "home_adv": 3.0},
-    # Milli takım / FIBA
-    "FIBA_NATIONAL": {"base_total": 155.0, "q_dist": [0.23, 0.27, 0.25, 0.25], "pace_volatility": 0.09, "defense_volatility": 0.11, "home_adv": 2.5},
-    # Yerel lig aileleri (örnekler)
-    "TURKISH_BSL": {"base_total": 160.0, "q_dist": [0.23, 0.27, 0.25, 0.25], "pace_volatility": 0.11, "defense_volatility": 0.11, "home_adv": 3.5},
-    "ACB_SPAIN": {"base_total": 162.0, "q_dist": [0.23, 0.27, 0.25, 0.25], "pace_volatility": 0.11, "defense_volatility": 0.11, "home_adv": 3.0},
-    "GERMANY_BBL": {"base_total": 164.0, "q_dist": [0.23, 0.27, 0.25, 0.25], "pace_volatility": 0.11, "defense_volatility": 0.11, "home_adv": 3.0},
-    "FRANCE_PROA": {"base_total": 161.0, "q_dist": [0.23, 0.27, 0.25, 0.25], "pace_volatility": 0.11, "defense_volatility": 0.11, "home_adv": 3.0},
-    "ITALY_SERIEA": {"base_total": 160.0, "q_dist": [0.23, 0.27, 0.25, 0.25], "pace_volatility": 0.11, "defense_volatility": 0.11, "home_adv": 3.0},
-    "GREECE_ESAKE": {"base_total": 158.0, "q_dist": [0.23, 0.27, 0.25, 0.25], "pace_volatility": 0.10, "defense_volatility": 0.11, "home_adv": 3.5},
-    "ABA_ADRIATIC": {"base_total": 162.0, "q_dist": [0.23, 0.27, 0.25, 0.25], "pace_volatility": 0.11, "defense_volatility": 0.11, "home_adv": 3.0},
-    # Diğer global lig aileleri
-    "AUSTRALIA_NBL": {"base_total": 171.0, "q_dist": [0.24, 0.26, 0.25, 0.25], "pace_volatility": 0.11, "defense_volatility": 0.10, "home_adv": 3.0},
-    "JAPAN_BLEAGUE": {"base_total": 178.0, "q_dist": [0.24, 0.26, 0.25, 0.25], "pace_volatility": 0.12, "defense_volatility": 0.10, "home_adv": 2.5},
-    "KOREA_KBL": {"base_total": 176.0, "q_dist": [0.24, 0.26, 0.25, 0.25], "pace_volatility": 0.12, "defense_volatility": 0.10, "home_adv": 2.5},
-    "CHINA_CBA": {"base_total": 184.0, "q_dist": [0.24, 0.26, 0.25, 0.25], "pace_volatility": 0.13, "defense_volatility": 0.10, "home_adv": 3.0},
-    "PHILIPPINES_PBA": {"base_total": 182.0, "q_dist": [0.24, 0.26, 0.25, 0.25], "pace_volatility": 0.12, "defense_volatility": 0.10, "home_adv": 3.0},
-    # Genel default family
-    "GENERIC_HIGH": {"base_total": 175.0, "q_dist": [0.24, 0.26, 0.25, 0.25], "pace_volatility": 0.11, "defense_volatility": 0.10, "home_adv": 3.0},
-    "GENERIC_MID": {"base_total": 165.0, "q_dist": [0.23, 0.27, 0.25, 0.25], "pace_volatility": 0.10, "defense_volatility": 0.11, "home_adv": 3.0},
-    "GENERIC_LOW": {"base_total": 155.0, "q_dist": [0.22, 0.28, 0.25, 0.25], "pace_volatility": 0.09, "defense_volatility": 0.12, "home_adv": 3.0},
+LEAGUE_BASELINES = {
+    "NBA": 230.0,
+    "EUROCUP": 162.0,
+    "EUROLEAGUE": 155.0,
+    "FIBA": 150.0,
 }
 
-# ================================================================
-# 🔥 HYBRID BASELINE ENGINE (yeni eklenen bölüm)
-# ================================================================
-FAZ13_DATA_DIR = os.getenv("FAZ13_DATA_DIR", "/data/faz13")
-FAZ13_BASELINE_STATE_PATH = os.path.join(FAZ13_DATA_DIR, "faz13_baseline_state.json")
+FAMILY_MULTIPLIER = {
+    "NBA": 1.0,
+    "EUROCUP": 0.72,
+    "EUROLEAGUE": 0.68,
+    "FIBA": 0.65,
+}
 
-def _faz13_ensure_dir(path: str) -> None:
-    try:
-        os.makedirs(path, exist_ok=True)
-    except Exception:
-        pass
+def detect_league_family(league_text: str):
+    if league_text is None:
+        return "UNKNOWN"
 
-def _load_baseline_state() -> Dict[str, Dict[str, float]]:
-    try:
-        if not os.path.exists(FAZ13_BASELINE_STATE_PATH):
-            return {}
-        with open(FAZ13_BASELINE_STATE_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, dict):
-            return data
-        return {}
-    except Exception:
-        return {}
+    t = league_text.lower()
+    if "nba" in t:
+        return "NBA"
+    if "eurocup" in t:
+        return "EUROCUP"
+    if "euroleague" in t:
+        return "EUROLEAGUE"
+    if "fiba" in t or "world cup" in t:
+        return "FIBA"
 
-def _save_baseline_state(state: Dict[str, Dict[str, float]]) -> None:
-    try:
-        _faz13_ensure_dir(os.path.dirname(FAZ13_BASELINE_STATE_PATH))
-        tmp_path = FAZ13_BASELINE_STATE_PATH + ".tmp"
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(state, f, ensure_ascii=False, indent=2)
-        os.replace(tmp_path, FAZ13_BASELINE_STATE_PATH)
-    except Exception:
-        pass
+    return "UNKNOWN"
 
-def _update_dynamic_baseline_for_family(
-    league_family: str,
-    family_base: float,
-    news_total_hint: float | None = None,
-) -> Tuple[float, str]:
-    try:
-        family_base = float(family_base)
-    except Exception:
-        family_base = float(family_base or 0.0)
+def hybrid_baseline_estimator(league_family: str, last5: list, bookmaker_total: float | None):
 
-    target = family_base
-    if news_total_hint is not None and news_total_hint > 0:
-        target = (family_base * 0.6) + (news_total_hint * 0.4)
+    default_baseline = LEAGUE_BASELINES.get(league_family, 160.0)
 
-    state = _load_baseline_state()
-    fam_state = state.get(league_family) or {}
-    current = fam_state.get("baseline")
-    if current is None:
-        current = family_base
-    try:
-        current = float(current)
-    except Exception:
-        current = family_base
-
-    delta = target - current
-    max_step = 0.5
-    if abs(delta) > max_step:
-        step = max_step if delta > 0 else -max_step
+    if bookmaker_total:
+        weight_bm = 0.55
+        weight_nf = 0.35
+        weight_history = 0.10
     else:
-        step = delta
-    new_baseline = float(current + step)
+        weight_bm = 0.00
+        weight_nf = 0.70
+        weight_history = 0.30
 
-    state[league_family] = {
-        "baseline": new_baseline,
-        "ts": time.time(),
-        "family_base": float(family_base),
-        "target": float(target),
+    nf_baseline = default_baseline
+
+    if last5 and len(last5) >= 3:
+        history_baseline = statistics.mean(last5)
+    else:
+        history_baseline = default_baseline
+
+    if bookmaker_total:
+        merged = (
+            bookmaker_total * weight_bm
+            + nf_baseline * weight_nf
+            + history_baseline * weight_history
+        )
+    else:
+        merged = nf_baseline * weight_nf + history_baseline * weight_history
+
+    # Momentum düzeltmesi
+    if last5 and len(last5) >= 5:
+        dif = last5[-1] - last5[-5]
+        merged += (dif * 0.05)
+
+    return merged
+
+
+# ============================================================
+#   N O R M A L İ Z E   B Ö L Ü M L E R
+# ============================================================
+
+def normalize_api_data(api_raw):
+    if api_raw is None:
+        return {}
+    return {
+        "home": api_raw.get("home"),
+        "away": api_raw.get("away"),
+        "league": api_raw.get("league"),
+        "total": api_raw.get("total"),
     }
-    _save_baseline_state(state)
 
-    debug = (
-        f"HYBRID baseline[{league_family}] "
-        f"family_base={family_base:.1f} target={target:.1f} "
-        f"prev={current:.1f} new={new_baseline:.1f}"
+def normalize_manual_text(text_raw):
+    if not text_raw:
+        return {}
+    return {"manual_text": text_raw}
+
+
+def normalize_visual_meta(meta_raw):
+    return meta_raw or {}
+
+
+# ============================================================
+#   F A Z - 1 3   A U T O   P I P E L I N E
+# ============================================================
+
+def run_faz13_auto_pipeline(api_data, visual_data, manual_data, history_data):
+
+    nd_api = normalize_api_data(api_data)
+    nd_visual = normalize_visual_meta(visual_data)
+    nd_manual = normalize_manual_text(manual_data)
+
+    league_family = detect_league_family(nd_api.get("league"))
+
+    last5 = history_data.get("last5_totals", []) if history_data else []
+
+    bookmaker_total = nd_visual.get("bookmaker_total")
+
+    hybrid_value = hybrid_baseline_estimator(
+        league_family=league_family,
+        last5=last5,
+        bookmaker_total=bookmaker_total
     )
-    return new_baseline, debug
 
-# ================================================================
-# (… geriye kalan eski yardımcı fonksiyonlar: _league_family, _safe_float, _detect_match_from_text, _baseline_total_for_league, _national_match_flag, _compute_team_total_shares, normalize_manual_text, normalize_visual_meta, normalize_api_data, _faz23_recommendation)
-# — Bunlar aynen eski hâllerinde kalacak.
-# ================================================================
+    if bookmaker_total:
+        band_low = hybrid_value - 4.0
+        band_high = hybrid_value + 4.0
+    else:
+        band_low = hybrid_value - 8.0
+        band_high = hybrid_value + 8.0
+
+    result = {
+        "league_family": league_family,
+        "hybrid_baseline": round(hybrid_value, 1),
+        "band": (round(band_low, 1), round(band_high, 1)),
+        "vector": (
+            round(band_low, 1),
+            round(hybrid_value, 1),
+            round(band_high, 1)
+        ),
+        "debug": {
+            "api": nd_api,
+            "visual": nd_visual,
+            "manual": nd_manual,
+            "last5": last5,
+            "bookmaker_total": bookmaker_total,
+        }
+    }
+
+    return result
