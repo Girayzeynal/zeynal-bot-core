@@ -1,402 +1,428 @@
-# faz23_engine/faz23_datahub.py
 # -*- coding: utf-8 -*-
-
 """
-FAZ-23 DATA HUB
-----------------
-Dış basketbol API'lerini tek yerden yöneten katman.
+FAZ-23 DataHub
 
-- API-SPORTS Basketball (istatistik / maç bilgisi / skor / vs.)
-- İleride: odds, balldontlie, başka provider'lar
+Dış API'lerden maç bağlamı ve total bazlı özetleri toplar.
+Şu anda:
+- API-SPORTS Basketball (API_BASK_KEY)
+- Odds API (ODDS_API_KEY)  → sadece ana total çizgisi
 
 Amaç:
-- FAZ-13 / FAZ-23 için "api_data" ve "market_data" paketlerini hazırlamak
-- Günlük request limitlerine saygı duymak
-- Basit disk + RAM cache ile gereksiz istekleri engellemek
+- Tek giriş noktası: fetch_match_totals(league, date_str, home, away)
+- Bu fonksiyon ASLA exception fırlatmaz, her şeyi log'lar.
+- Dönen dict, faz13_orchestrator içinden meta23 / baseline için kullanılır.
 """
 
 import os
-import json
-import time
 import logging
-from typing import Dict, Any, Optional, Tuple
+from dataclasses import dataclass, asdict
+from typing import Any, Dict, Optional, List
 
 import requests
 
 log = logging.getLogger(__name__)
 
-# ================================================================
-# ENV + SABİTLER
-# ================================================================
-API_BASK_KEY = os.getenv("API_BASK_KEY")  # API-SPORTS basketbol key
-API_BASK_BASE = "https://v1.basketball.api-sports.io"
-
-# Yumuşak günlük limit (örn. 40) – Fly secret üzerinden override edilebilir
-API_BASK_MAX_PER_DAY = int(os.getenv("API_BASK_MAX_PER_DAY", "40"))
-
-# Fly.io volume kullanıyorsan /data altında tutmak mantıklı
-CACHE_DIR = os.getenv("FAZ23_CACHE_DIR", "/data/faz23")
-CACHE_FILE = os.path.join(CACHE_DIR, "api_cache.json")
-COUNTER_FILE = os.path.join(CACHE_DIR, "api_counter.json")
+API_BASK_BASE = os.getenv("API_BASK_BASE", "https://v1.basketball.api-sports.io")
+ODDS_API_BASE = os.getenv("ODDS_API_BASE", "https://api.the-odds-api.com/v4/sports")
 
 
-# ================================================================
-# BASİT DOSYA CACHE / COUNTER
-# ================================================================
-def _safe_mkdir(path: str) -> None:
+# ---------------------------------------------------------------
+# Basit modeller
+# ---------------------------------------------------------------
+
+@dataclass
+class TeamSample:
+    provider: str
+    team: str
+    games: int
+    pts_for_avg: Optional[float] = None
+    pts_against_avg: Optional[float] = None
+
+
+@dataclass
+class OddsSample:
+    provider: str
+    market_total: Optional[float] = None
+    bookmaker: Optional[str] = None
+    raw: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class Faz23TotalsContext:
+    league: str
+    date: str
+    home: str
+    away: str
+    family: str
+    league_total_baseline: Optional[float]
+    team_total_baseline: Optional[float]
+    home_sample: Optional[Dict[str, Any]]
+    away_sample: Optional[Dict[str, Any]]
+    odds: Optional[Dict[str, Any]]
+    raw: Dict[str, Any]
+
+
+# ---------------------------------------------------------------
+# Yardımcılar
+# ---------------------------------------------------------------
+
+def _safe_get(
+    url: str,
+    headers: Optional[Dict[str, str]] = None,
+    params: Optional[Dict[str, Any]] = None,
+    timeout: float = 5.0,
+) -> Dict[str, Any]:
+    headers = headers or {}
+    params = params or {}
     try:
-        os.makedirs(path, exist_ok=True)
-    except Exception as e:  # noqa: BLE001
-        log.warning("FAZ23 cache klasörü oluşturulamadı: %s", e)
+        resp = requests.get(url, headers=headers, params=params, timeout=timeout)
+    except Exception as e:
+        log.warning("FAZ23 DataHub HTTP error %s %s: %s", url, params, e)
+        return {"ok": False, "error": str(e)}
 
-
-def _load_json(path: str) -> Any:
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
+        data = resp.json()
+    except Exception:
+        text = getattr(resp, "text", "")[:500]
+        log.warning("FAZ23 DataHub non-JSON response %s (%s): %s", url, resp.status_code, text)
+        return {"ok": False, "status": resp.status_code, "text": text}
+
+    return {"ok": True, "status": resp.status_code, "data": data}
+
+
+def _detect_family(league: str) -> str:
+    l = (league or "").lower()
+    if "nba" in l:
+        return "NBA"
+    if "euroleague" in l or "euro league" in l:
+        return "EUROLEAGUE"
+    if "eurocup" in l:
+        return "EUROCUP"
+    if "bsl" in l or "türkiye" in l or "turkey" in l:
+        return "EURO_MID"
+    if "fiba" in l or "world cup" in l or "eurobasket" in l:
+        return "NATIONAL"
+    return "GENERICMID"
+
+
+def _api_basketball_headers() -> Optional[Dict[str, str]]:
+    key = os.getenv("API_BASK_KEY")
+    if not key:
         return None
-    except Exception as e:  # noqa: BLE001
-        log.warning("FAZ23 JSON okuyamadı (%s): %s", path, e)
-        return None
-
-
-def _save_json(path: str, data: Any) -> None:
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False)
-    except Exception as e:  # noqa: BLE001
-        log.warning("FAZ23 JSON yazılamadı (%s): %s", path, e)
-
-
-def _get_today_str() -> str:
-    return time.strftime("%Y-%m-%d", time.gmtime())
-
-
-def _can_call_api() -> bool:
-    """
-    Günlük API çağrı sayısını COUNTER_FILE üzerinden takip eder.
-    Limit dolduysa False döner, böylece FAZ-13 içeriye sadece
-    "no_external_data" şeklinde bilgi verir.
-    """
-    _safe_mkdir(CACHE_DIR)
-    counter = _load_json(COUNTER_FILE) or {}
-    today = _get_today_str()
-
-    day_info = counter.get(today, {"count": 0})
-    if day_info["count"] >= API_BASK_MAX_PER_DAY:
-        return False
-
-    return True
-
-
-def _inc_api_counter() -> None:
-    _safe_mkdir(CACHE_DIR)
-    counter = _load_json(COUNTER_FILE) or {}
-    today = _get_today_str()
-
-    day_info = counter.get(today, {"count": 0})
-    day_info["count"] += 1
-    counter[today] = day_info
-    _save_json(COUNTER_FILE, counter)
-
-
-def _cache_key(league: str, date_str: str, home: str, away: str) -> str:
-    return f"{league}|{date_str}|{home}|{away}".lower()
-
-
-def _load_cache() -> Dict[str, Any]:
-    _safe_mkdir(CACHE_DIR)
-    data = _load_json(CACHE_FILE)
-    return data or {}
-
-
-def _save_cache(cache: Dict[str, Any]) -> None:
-    _safe_mkdir(CACHE_DIR)
-    _save_json(CACHE_FILE, cache)
-
-
-# ================================================================
-# API-SPORTS BASKETBALL İSTEKLERİ
-# ================================================================
-_session: Optional[requests.Session] = None
-
-
-def _get_session() -> requests.Session:
-    global _session
-    if _session is None:
-        _session = requests.Session()
-        if API_BASK_KEY:
-            _session.headers.update({"x-apisports-key": API_BASK_KEY})
-    return _session
-
-
-def _api_bask_get(path: str, params: Dict[str, Any]) -> Dict[str, Any]:
-    if not API_BASK_KEY:
-        raise RuntimeError("API_BASK_KEY tanımlı değil (Fly secret)")
-
-    if not _can_call_api():
-        raise RuntimeError("FAZ23 API limiti bugün için dolu")
-
-    url = f"{API_BASK_BASE}{path}"
-    sess = _get_session()
-    log.info("FAZ23 API-SPORTS isteği: %s params=%s", url, params)
-
-    resp = sess.get(url, params=params, timeout=8)
-    _inc_api_counter()
-
-    resp.raise_for_status()
-    data = resp.json()
-
-    # API-SPORTS genelde "errors" ve "response" alanı döner
-    errors = data.get("errors") or {}
-    if errors:
-        raise RuntimeError(f"API-SPORTS hata: {errors}")
-
-    return data
-
-
-# ================================================================
-# MAÇ BAZLI KULLANILACAK ÖZETLER
-# ================================================================
-def _map_league_to_id(league: str) -> Optional[int]:
-    """
-    League ismini API-SPORTS league_id'ye çevir.
-
-    NOT:
-    - Buradaki değerleri dashboard'daki "Ids → Leagues" kısmından
-      sen dolduracaksın. Şimdilik placeholder.
-    """
-    normalized = league.strip().lower()
-
-    mapping: Dict[str, int] = {
-        # ÖRNEKLER (sen kendi ID'lerini yazacaksın):
-        # "nba": 12,
-        # "euroleague": 120,
-        # "eurocup": 121,
-        # "türkiye bsl": 122,
+    # API-Sports doğrudan kullanım + RapidAPI senaryosunu aynı anda destekle
+    return {
+        "x-apisports-key": key,
+        "x-rapidapi-key": key,
+        "x-rapidapi-host": "v1.basketball.api-sports.io",
     }
 
-    return mapping.get(normalized)
+
+def _norm_name(name: str) -> str:
+    return (
+        (name or "")
+        .lower()
+        .replace(".", "")
+        .replace("-", " ")
+        .replace("_", " ")
+        .strip()
+    )
 
 
-def _extract_season_from_date(date_str: str) -> Optional[int]:
-    """
-    2025-12-11 → 2025 gibi.
-    Basketbolda sezonlar genelde yıl bazlı olduğu için bu iş görür.
-    İstersen daha akıllı yaparız (yıl sonu / başı).
-    """
-    try:
-        return int(date_str.split("-", 1)[0])
-    except Exception:  # noqa: BLE001
-        return None
+def _avg(values: List[float]) -> Optional[float]:
+    return round(sum(values) / len(values), 2) if values else None
 
 
-def fetch_match_context_from_api_sports(
-    *, league: str, date_str: str, home: str, away: str
-) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
-    """
-    Dış API'den FAZ-13 / FAZ-23 için gerekli özetleri hazırlar.
+# ---------------------------------------------------------------
+# API-SPORTS BASKETBALL → Lig & takım bazlı total tahmini
+# ---------------------------------------------------------------
 
-    Dönen:
-        (api_data, market_data)
-
-    - api_data → tempo, ofans/defans rating, son maç ortalamaları, vs.
-    - market_data → ana total çizgisi, line hareketi vs. (bulabildiğimiz kadar)
-    """
-    if not API_BASK_KEY:
-        log.info("API_BASK_KEY yok, dış veri kapalı.")
-        return None, None
-
-    cache = _load_cache()
-    ck = _cache_key(league, date_str, home, away)
-    cached = cache.get(ck)
-    if cached:
-        return cached.get("api_data"), cached.get("market_data")
-
-    league_id = _map_league_to_id(league)
-    season = _extract_season_from_date(date_str)
-
-    if league_id is None or season is None:
-        log.warning(
-            "FAZ23 league_id/season çözülemedi (league=%s, date=%s) – dış veri yok.",
-            league,
-            date_str,
-        )
-        return None, None
-
-    # ------------------------------------------------------------
-    # 1) Maç bilgisi (games endpoint)
-    # ------------------------------------------------------------
-    try:
-        # Param adları football ürününe benzer; basketbol dokümanına göre
-        # ufak fark olabilir → takıldığında sadece burayı dokümana göre düzeltmen yeterli.
-        games_raw = _api_bask_get(
-            "/games",
-            {
-                "league": league_id,
-                "season": season,
-                "date": date_str,
-            },
-        )
-    except Exception as e:  # noqa: BLE001
-        log.warning("FAZ23 games fetch hatası: %s", e)
-        return None, None
-
-    games = games_raw.get("response") or []
-    match = None
-
-    # Ev/deplasman ismini zayıf da olsa eşleştir
-    h_low = home.lower()
-    a_low = away.lower()
-    for g in games:
-        try:
-            th = (
-                g.get("teams", {})
-                .get("home", {})
-                .get("name", "")
-                .strip()
-                .lower()
-            )
-            ta = (
-                g.get("teams", {})
-                .get("away", {})
-                .get("name", "")
-                .strip()
-                .lower()
-            )
-            if h_low in th and a_low in ta:
-                match = g
-                break
-        except Exception:  # noqa: BLE001
-            continue
-
-    if not match:
-        log.warning("FAZ23: API-SPORTS games içinde eşleşen maç bulunamadı.")
-        return None, None
-
-    # Basit api_data: tempo / ofans / defans / son form vs.
-    # Bu kısım tamamen senin ileride genişleteceğin yer.
-    stats = match.get("statistics") or {}
-    league_info = match.get("league") or {}
-    country_info = league_info.get("country")
-
-    api_data: Dict[str, Any] = {
-        "provider": "API_SPORTS",
-        "league": league_info.get("name"),
-        "league_id": league_info.get("id"),
-        "country": country_info,
-        "season": league_info.get("season"),
-        "stage": league_info.get("stage"),
-        "tipoff": match.get("date"),
-        # İleride: pace, ofans/defans rating, son 5 maç ortalamaları...
-        "raw_stats": stats,
-    }
-
-    # ------------------------------------------------------------
-    # 2) Market / barem bilgisi (varsa)
-    # ------------------------------------------------------------
-    market_data: Optional[Dict[str, Any]] = None
-
-    try:
-        # Eğer API-SPORTS odds / lines endpoint'leri açık ise buradan dolduracağız.
-        # Endpoint tam adı dokümandan kontrol edilmeli; burada mantık gösteriyoruz.
-        odds_raw = _api_bask_get(
-            "/odds",
-            {
-                "league": league_id,
-                "season": season,
-                "date": date_str,
-            },
-        )
-        odds_resp = odds_raw.get("response") or []
-        if odds_resp:
-            # En basit hali: ilk bookie'nin ana total çizgisi
-            first = odds_resp[0]
-            # Bu yapı API-SPORTS dokümanına göre değişebilir, o yüzden korumalı alıyoruz
-            main_total = None
-            line_move = 0.0
-
-            try:
-                totals = (
-                    first.get("bookmakers", [])[0]
-                    .get("bets", [])[0]
-                    .get("values", [])
-                )
-                if totals:
-                    main_total = float(totals[0].get("value"))
-            except Exception:  # noqa: BLE001
-                main_total = None
-
-            market_data = {
-                "provider": "API_SPORTS",
-                "main_total": main_total,
-                "line_move": line_move,
-                "raw_odds": odds_resp,
-            }
-    except Exception as e:  # noqa: BLE001
-        log.warning("FAZ23 odds/market verisi çekilemedi: %s", e)
-        market_data = None
-
-    # Cache’e yaz
-    cache[ck] = {
-        "ts": int(time.time()),
-        "api_data": api_data,
-        "market_data": market_data,
-    }
-    _save_cache(cache)
-
-    return api_data, market_data
-
-
-# ================================================================
-# DIŞA AÇILAN ANA FONKSİYON
-# ================================================================
-def get_match_context(
-    *, league: str, date_str: str, home: str, away: str
+def _fetch_api_basketball_totals(
+    date_str: str,
+    home: str,
+    away: str,
 ) -> Dict[str, Any]:
     """
-    FAZ-13 / main.py yalnızca bu fonksiyonu çağırmalı.
-
-    Dönen sözlük:
-    {
-        "api_data": {...} | None,
-        "market_data": {...} | None,
-        "meta": {
-            "provider": "API_SPORTS",
-            "used_cache": bool,
-            "error": str | None,
-        }
-    }
+    Basit strateji:
+    - /games?date=YYYY-MM-DD ile o gündeki tüm maçları çek
+    - Lig ortalama totalini hesapla
+    - Home & Away takımının oynadığı maçlardan hücum/savunma ortalamaları çıkar
+    - Bunlardan "team_total_baseline" üret
     """
-    ctx: Dict[str, Any] = {
-        "api_data": None,
-        "market_data": None,
-        "meta": {
-            "provider": "API_SPORTS",
-            "used_cache": False,
-            "error": None,
-        },
+    headers = _api_basketball_headers()
+    if not headers:
+        return {"used": False, "reason": "NO_API_BASK_KEY"}
+
+    url = f"{API_BASK_BASE}/games"
+    params = {"date": date_str}
+
+    resp = _safe_get(url, headers=headers, params=params)
+    if not resp.get("ok"):
+        return {"used": False, "reason": "HTTP_ERROR", "raw": resp}
+
+    data = resp.get("data") or {}
+    games = data.get("response") or data.get("games") or []
+    if not isinstance(games, list):
+        return {"used": False, "reason": "INVALID_RESPONSE", "raw": data}
+
+    h_norm = _norm_name(home)
+    a_norm = _norm_name(away)
+
+    league_totals: List[float] = []
+    home_for: List[float] = []
+    home_against: List[float] = []
+    away_for: List[float] = []
+    away_against: List[float] = []
+
+    for g in games:
+        teams = g.get("teams") or {}
+        t_home = teams.get("home") or {}
+        t_away = teams.get("away") or {}
+
+        name_home = _norm_name(str(t_home.get("name", "")))
+        name_away = _norm_name(str(t_away.get("name", "")))
+
+        scores = g.get("scores") or {}
+        s_home = scores.get("home") or {}
+        s_away = scores.get("away") or {}
+
+        # Bazı API-Sports örnekleri 'points', bazıları 'total' alanını kullanıyor
+        ph = s_home.get("points") or s_home.get("total")
+        pa = s_away.get("points") or s_away.get("total")
+
+        try:
+            ph_f = float(ph)
+            pa_f = float(pa)
+        except Exception:
+            continue
+
+        total = ph_f + pa_f
+        league_totals.append(total)
+
+        # Home takım istatistikleri (hem iç saha hem deplasman say)
+        if h_norm and (h_norm in name_home or name_home in h_norm):
+            home_for.append(ph_f)
+            home_against.append(pa_f)
+        if h_norm and (h_norm in name_away or name_away in h_norm):
+            home_for.append(pa_f)
+            home_against.append(ph_f)
+
+        # Away takım istatistikleri
+        if a_norm and (a_norm in name_home or name_home in a_norm):
+            away_for.append(ph_f)
+            away_against.append(pa_f)
+        if a_norm and (a_norm in name_away or name_away in a_norm):
+            away_for.append(pa_f)
+            away_against.append(ph_f)
+
+    league_avg = _avg(league_totals)
+
+    home_sample = TeamSample(
+        provider="API_BASKETBALL",
+        team=home,
+        games=len(home_for) or len(home_against),
+        pts_for_avg=_avg(home_for),
+        pts_against_avg=_avg(home_against),
+    )
+    away_sample = TeamSample(
+        provider="API_BASKETBALL",
+        team=away,
+        games=len(away_for) or len(away_against),
+        pts_for_avg=_avg(away_for),
+        pts_against_avg=_avg(away_against),
+    )
+
+    team_baseline = None
+    if home_sample.pts_for_avg is not None and away_sample.pts_for_avg is not None:
+        # Basit formul:
+        #  - hücum ortalama toplamına %60
+        #  - savunma (rakibe verilen sayı) toplamına %40
+        off_sum = home_sample.pts_for_avg + away_sample.pts_for_avg
+        def_sum = (home_sample.pts_against_avg or home_sample.pts_for_avg) + (
+            away_sample.pts_against_avg or away_sample.pts_for_avg
+        )
+        team_baseline = round(off_sum * 0.6 + def_sum * 0.4, 1)
+
+    return {
+        "used": True,
+        "league_total_baseline": league_avg,
+        "team_total_baseline": team_baseline,
+        "home_sample": asdict(home_sample),
+        "away_sample": asdict(away_sample),
+        "raw": data,
     }
 
+
+# ---------------------------------------------------------------
+# ODDS API → ana total çizgisi (opsiyonel)
+# ---------------------------------------------------------------
+
+def _fetch_odds_totals(
+    family: str,
+    home: str,
+    away: str,
+) -> Optional[Dict[str, Any]]:
+    """
+    Odds-API (v4) yapısına göre ana total çizgisini okumaya çalışır.
+
+    Çalışmaması durumunda hiçbir şeyi bozmaz, sadece "used": False döndürür.
+    """
+    key = os.getenv("ODDS_API_KEY")
+    if not key:
+        return None
+
+    # Sport kodu env'den override edilebilir
+    sport_key = os.getenv("ODDS_SPORT_KEY")
+    if not sport_key:
+        sport_key = "basketball_nba" if family == "NBA" else "basketball"
+
+    url = f"{ODDS_API_BASE}/{sport_key}/odds"
+    params = {
+        "apiKey": key,
+        "regions": os.getenv("ODDS_REGIONS", "eu,uk"),
+        "markets": "totals",
+        "oddsFormat": "decimal",
+    }
+
+    resp = _safe_get(url, headers={}, params=params)
+    if not resp.get("ok"):
+        return {"used": False, "raw": resp}
+
+    data = resp.get("data") or []
+    if not isinstance(data, list):
+        return {"used": False, "raw": data}
+
+    h_norm = _norm_name(home)
+    a_norm = _norm_name(away)
+
+    lines: List[float] = []
+    bookmaker_name = None
+
+    for event in data:
+        teams = [str(t) for t in event.get("teams", [])]
+        teams_joined = _norm_name(" ".join(teams))
+        if h_norm not in teams_joined and a_norm not in teams_joined:
+            continue
+
+        for book in event.get("bookmakers", []):
+            bookmaker_name = bookmaker_name or book.get("title") or book.get("key")
+            for market in book.get("markets", []):
+                if market.get("key") != "totals":
+                    continue
+                for outcome in market.get("outcomes", []):
+                    point = outcome.get("point")
+                    try:
+                        lines.append(float(point))
+                    except Exception:
+                        continue
+
+    if not lines:
+        return {"used": False, "raw": data}
+
+    avg_line = round(sum(lines) / len(lines), 1)
+
+    odds_sample = OddsSample(
+        provider="ODDS_API",
+        market_total=avg_line,
+        bookmaker=bookmaker_name,
+        raw=None,
+    )
+
+    return {
+        "used": True,
+        "market_total": avg_line,
+        "bookmaker": bookmaker_name,
+        "sample": asdict(odds_sample),
+        "raw": data,
+    }
+
+
+# ---------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------
+
+def fetch_match_totals(
+    league: str,
+    date_str: str,
+    home: str,
+    away: str,
+) -> Dict[str, Any]:
+    """
+    FAZ-13 orchestrator tarafından çağrılan ana fonksiyon.
+
+    Çıkış:
+        {
+          'league': ...,
+          'date': ...,
+          'home': ...,
+          'away': ...,
+          'family': 'NBA' | 'EUROLEAGUE' | ...,
+          'league_total_baseline': float | None,
+          'team_total_baseline': float | None,
+          'home_sample': {...} | None,
+          'away_sample': {...} | None,
+          'odds': {...} | None,
+          'raw': {
+              'api_basketball': ...,
+              'odds_api': ...,
+          }
+        }
+    """
+    family = _detect_family(league)
+
+    api_bask_block: Optional[Dict[str, Any]] = None
+    odds_block: Optional[Dict[str, Any]] = None
+
+    # API-Sports Basketball
     try:
-        cache = _load_cache()
-        ck = _cache_key(league, date_str, home, away)
-        cached = cache.get(ck)
-        if cached:
-            ctx["api_data"] = cached.get("api_data")
-            ctx["market_data"] = cached.get("market_data")
-            ctx["meta"]["used_cache"] = True
-            return ctx
-
-        api_data, market_data = fetch_match_context_from_api_sports(
-            league=league, date_str=date_str, home=home, away=away
+        api_bask_block = _fetch_api_basketball_totals(
+            date_str=date_str,
+            home=home,
+            away=away,
         )
-        ctx["api_data"] = api_data
-        ctx["market_data"] = market_data
-        return ctx
+    except Exception as e:
+        log.warning("FAZ23 DataHub API-BASK exception: %s", e)
 
-    except Exception as e:  # noqa: BLE001
-        log.warning("FAZ23 get_match_context hata: %s", e)
-        ctx["meta"]["error"] = str(e)
-        return ctx
+    # Odds API (opsiyonel)
+    try:
+        odds_block = _fetch_odds_totals(
+            family=family,
+            home=home,
+            away=away,
+        )
+    except Exception as e:
+        log.warning("FAZ23 DataHub ODDS exception: %s", e)
+
+    league_total_baseline: Optional[float] = None
+    team_total_baseline: Optional[float] = None
+    home_sample_dict: Optional[Dict[str, Any]] = None
+    away_sample_dict: Optional[Dict[str, Any]] = None
+    odds_sample_dict: Optional[Dict[str, Any]] = None
+
+    raw: Dict[str, Any] = {}
+
+    if api_bask_block:
+        raw["api_basketball"] = api_bask_block.get("raw")
+        league_total_baseline = api_bask_block.get("league_total_baseline")
+        team_total_baseline = api_bask_block.get("team_total_baseline")
+        home_sample_dict = api_bask_block.get("home_sample")
+        away_sample_dict = api_bask_block.get("away_sample")
+
+    if odds_block:
+        raw["odds_api"] = odds_block.get("raw")
+        odds_sample_dict = odds_block.get("sample")
+
+    ctx = Faz23TotalsContext(
+        league=league,
+        date=date_str,
+        home=home,
+        away=away,
+        family=family,
+        league_total_baseline=league_total_baseline,
+        team_total_baseline=team_total_baseline,
+        home_sample=home_sample_dict,
+        away_sample=away_sample_dict,
+        odds=odds_sample_dict,
+        raw=raw,
+    )
+
+    return asdict(ctx)
