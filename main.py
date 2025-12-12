@@ -17,6 +17,10 @@ from typing import Dict, Tuple, Optional
 import telebot
 from flask import Flask, request
 
+import os
+GIT_SHA = os.getenv("FLY_IMAGE_REF") or os.getenv("GIT_SHA") or "unknown"
+print("BOOT_SHA=", GIT_SHA)
+
 # ================================================================
 # LOGGING
 # ================================================================
