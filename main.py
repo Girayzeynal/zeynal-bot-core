@@ -71,6 +71,12 @@ try:
 except Exception:  # noqa: BLE001
     faz12_run_once, faz12_auto_profile = None, None  # type: ignore
 
+    # FAZ-17 MARKET FETCHER (CRITICAL)
+try:
+    from faz17_engine import faz17_fetch_market
+except Exception:
+    faz17_fetch_market = None
+
 from faz13_engine.faz13_orchestrator import (  # type: ignore
     run_faz13_auto_pipeline,
     normalize_manual_text,
