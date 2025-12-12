@@ -1,6 +1,7 @@
 # faz23_engine/faz23_meta_engine.py
 # ================================================================
-#  FAZ-23 META ENGINE v1.1  (Tuple-safe, Fly.io 512MB friendly)
+# FAZ-23 META ENGINE v1.1
+# Tuple-safe, Fly.io 512MB friendly
 # ================================================================
 
 import os
@@ -12,11 +13,17 @@ from typing import Any, Dict, List
 log = logging.getLogger("faz23-meta")
 
 # ================================================================
-#  📁 DİZİN VE CACHE AYARLARI
+# 📁 DİZİN VE CACHE AYARLARI (BOOT-SAFE)
 # ================================================================
+
 DATA_DIR = os.getenv("DATA_DIR", "/data")
 FAZ23_DIR = os.path.join(DATA_DIR, "faz23")
-os.makedirs(FAZ23_DIR, exist_ok=True)
+
+try:
+    os.makedirs(FAZ23_DIR, exist_ok=True)
+except Exception:
+    # Fly / CI ortamında patlamaması için
+    pass
 
 NEWS_CACHE_PATH = os.path.join(FAZ23_DIR, "faz23_news_cache.jsonl")
 
