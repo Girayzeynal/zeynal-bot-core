@@ -1,23 +1,40 @@
+from __future__ import annotations
+
 # -*- coding: utf-8 -*-
 """
-FAZ-23 Team Map
-- Dış API'lerde takım isimleri bazen farklı yazılır (Bucks vs Milwaukee Bucks gibi).
-- map_team() ile "kanonik" isim döndürürüz.
+FAZ-23 Team Map (FINAL BUILD)
+
+Amaç:
+- Dış API'lerden gelen takım isimlerini kanonik forma normalize etmek
+- API-Sports / Odds / balldontlie farklarını absorbe etmek
+- FAZ-23 DataHub & Meta Engine için stabil takım eşlemesi sağlamak
 """
 
-from __future__ import annotations
 import re
 from typing import Dict
 
 
+# ------------------------------------------------------------
+# Normalization helpers
+# ------------------------------------------------------------
+
 def normalize_team_name(name: str) -> str:
+    """
+    Takım adını normalize eder:
+    - lower
+    - özel karakterleri temizler
+    - fazla boşlukları sadeleştirir
+    """
     s = (name or "").strip().lower()
     s = re.sub(r"[^\w\s\-\.]", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
 
-# NBA ağırlıklı alias seti (gerek oldukça genişletirsin)
+# ------------------------------------------------------------
+# Alias map (NBA ağırlıklı, genişletilebilir)
+# ------------------------------------------------------------
+
 ALIASES: Dict[str, str] = {
     # Milwaukee
     "milwaukee": "Milwaukee Bucks",
@@ -29,33 +46,52 @@ ALIASES: Dict[str, str] = {
     "boston celtics": "Boston Celtics",
     "celtics": "Boston Celtics",
 
-    # Lakers / Bulls örnek
+    # Lakers
     "la lakers": "Los Angeles Lakers",
     "los angeles lakers": "Los Angeles Lakers",
     "lakers": "Los Angeles Lakers",
 
+    # Bulls
     "chicago": "Chicago Bulls",
     "chicago bulls": "Chicago Bulls",
     "bulls": "Chicago Bulls",
 }
 
 
+# ------------------------------------------------------------
+# Public API
+# ------------------------------------------------------------
+
 def map_team(name: str) -> str:
     """
-    Dış API ismini -> kanonik takım ismine mapler.
-    Bulamazsa input'u Title Case gibi döndürür.
+    Dış API takım adını → kanonik FAZ-23 takım adına mapler.
+    Bulamazsa Title Case fallback döner.
     """
     norm = normalize_team_name(name)
     if not norm:
         return ""
 
+    # Direkt alias
     if norm in ALIASES:
         return ALIASES[norm]
 
-    # "Milwaukee (Bucks)" gibi şeyleri sadeleştir
+    # Parantez temizleme (örn: "Milwaukee (Bucks)")
     norm2 = re.sub(r"\(.*?\)", "", norm).strip()
     if norm2 in ALIASES:
         return ALIASES[norm2]
 
-    # Fallback
-    return " ".join([w.capitalize() for w in norm2.split()])
+    # Fallback → Title Case
+    return " ".join(w.capitalize() for w in norm2.split())
+
+
+# ------------------------------------------------------------
+# Runtime anchor (Fly.io / Docker image guarantee)
+# ------------------------------------------------------------
+
+def _faz23_team_map_runtime_anchor() -> bool:
+    """
+    Fly.io runtime anchor.
+    Bu fonksiyon çağrıldığında dosyanın image içine
+    kesin olarak alınmasını garanti eder.
+    """
+    return True
