@@ -1,38 +1,61 @@
 # -*- coding: utf-8 -*-
-
 """
-FAZ-23 Team Name Mapper
-Amaç:
-- Kullanıcıdan gelen takım adını
-- API-SPORTS / ODDS API'nin anlayacağı forma dönüştürmek
+FAZ-23 Team Map
+- Dış API'lerde takım isimleri bazen farklı yazılır (Bucks vs Milwaukee Bucks gibi).
+- map_team() ile "kanonik" isim döndürürüz.
 """
 
-NBA_TEAM_MAP = {
-    "milwaukee": {
-        "api_sports": "Milwaukee Bucks",
-        "odds": "Milwaukee Bucks",
-    },
-    "boston": {
-        "api_sports": "Boston Celtics",
-        "odds": "Boston Celtics",
-    },
-    "los angeles lakers": {
-        "api_sports": "Los Angeles Lakers",
-        "odds": "LA Lakers",
-    },
-    "chicago": {
-        "api_sports": "Chicago Bulls",
-        "odds": "Chicago Bulls",
-    },
-    # gerektiğinde genişletilir
-}
+from __future__ import annotations
+import re
+from typing import Dict
+
 
 def normalize_team_name(name: str) -> str:
-    return name.lower().strip()
+    s = (name or "").strip().lower()
+    s = re.sub(r"[^\w\s\-\.]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
 
-def map_team(team_name: str, provider: str) -> str | None:
-    key = normalize_team_name(team_name)
-    data = NBA_TEAM_MAP.get(key)
-    if not data:
-        return None
-    return data.get(provider)
+
+# NBA ağırlıklı alias seti (gerek oldukça genişletirsin)
+ALIASES: Dict[str, str] = {
+    # Milwaukee
+    "milwaukee": "Milwaukee Bucks",
+    "milwaukee bucks": "Milwaukee Bucks",
+    "bucks": "Milwaukee Bucks",
+
+    # Boston
+    "boston": "Boston Celtics",
+    "boston celtics": "Boston Celtics",
+    "celtics": "Boston Celtics",
+
+    # Lakers / Bulls örnek
+    "la lakers": "Los Angeles Lakers",
+    "los angeles lakers": "Los Angeles Lakers",
+    "lakers": "Los Angeles Lakers",
+
+    "chicago": "Chicago Bulls",
+    "chicago bulls": "Chicago Bulls",
+    "bulls": "Chicago Bulls",
+}
+
+
+def map_team(name: str) -> str:
+    """
+    Dış API ismini -> kanonik takım ismine mapler.
+    Bulamazsa input'u Title Case gibi döndürür.
+    """
+    norm = normalize_team_name(name)
+    if not norm:
+        return ""
+
+    if norm in ALIASES:
+        return ALIASES[norm]
+
+    # "Milwaukee (Bucks)" gibi şeyleri sadeleştir
+    norm2 = re.sub(r"\(.*?\)", "", norm).strip()
+    if norm2 in ALIASES:
+        return ALIASES[norm2]
+
+    # Fallback
+    return " ".join([w.capitalize() for w in norm2.split()])
