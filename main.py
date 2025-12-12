@@ -83,31 +83,59 @@ app = Flask(__name__)
 # ================================================================
 # YARDIMCI FONKSİYONLAR
 # ================================================================
-def parse_match_command(text: str) -> Tuple[str, str, str, str]:
+def parse_match_command(text: str):
     """
-    /mac NBA | 2025-12-11 | Lakers - Bulls
-    /mac Türkiye BSL | 2025-12-12 | Efes - Fenerbahçe
-    formatını çözer.
-
-    Dönen tuple: (league, date_str, home, away)
+    Kabul edilen formatlar:
+      1) /mac NBA | 2025-12-12 | Milwaukee - Boston
+      2) /mac NBA 2025-12-12 Milwaukee - Boston
+      3) /mac NBA 2025-12-12 Milwaukee-Boston
     """
-    raw = text.split(" ", 1)[1].strip() if " " in text else ""
-    parts = [p.strip() for p in raw.split("|")]
+    raw = (text or "").strip()
 
-    if len(parts) < 3:
+    # Komut prefix
+    if raw.lower().startswith("/mac"):
+        raw = raw[4:].strip()
+
+    # 1) Pipe'lı format
+    if "|" in raw:
+        parts = [p.strip() for p in raw.split("|")]
+        if len(parts) < 3:
+            raise ValueError(
+                "Komut formatı hatalı.\nÖrnek: /mac NBA | 2025-12-11 | Lakers - Bulls"
+            )
+        league = parts[0]
+        date_str = parts[1]
+        teams = parts[2]
+    else:
+        # 2) Pipe'sız format: "<LEAGUE> <YYYY-MM-DD> <HOME - AWAY>"
+        tokens = raw.split()
+        if len(tokens) < 3:
+            raise ValueError(
+                "Komut formatı hatalı.\nÖrnek: /mac NBA | 2025-12-11 | Lakers - Bulls"
+            )
+        league = tokens[0].strip()
+        date_str = tokens[1].strip()
+        teams = " ".join(tokens[2:]).strip()
+
+    # Tire karakterlerini normalize et
+    teams_norm = (
+        teams.replace("—", "-")
+             .replace("–", "-")
+             .replace("−", "-")
+    )
+
+    # "Home - Away" ayır
+    if "-" not in teams_norm:
         raise ValueError(
-            "Komut formatı hatalı.\n"
-            "Örnek: /mac NBA | 2025-12-11 | Lakers - Bulls"
+            "Komut formatı hatalı.\nÖrnek: /mac NBA | 2025-12-11 | Lakers - Bulls"
+        )
+    home, away = [x.strip() for x in teams_norm.split("-", 1)]
+
+    if not league or not date_str or not home or not away:
+        raise ValueError(
+            "Komut formatı hatalı.\nÖrnek: /mac NBA | 2025-12-11 | Lakers - Bulls"
         )
 
-    league = parts[0]
-    date_str = parts[1]
-    teams_part = parts[2]
-
-    if "-" not in teams_part:
-        raise ValueError("Takımlar 'Ev - Deplasman' formatında olmalı")
-
-    home, away = [t.strip() for t in teams_part.split("-", 1)]
     return league, date_str, home, away
 
 
