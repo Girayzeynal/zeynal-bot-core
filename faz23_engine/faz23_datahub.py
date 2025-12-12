@@ -30,6 +30,9 @@ import requests
 
 from faz23_engine.faz23_team_map import map_team
 
+from faz23_engine import faz23_team_map
+faz23_team_map._faz23_team_map_runtime_anchor()
+
 log = logging.getLogger("faz23-datahub")
 
 
