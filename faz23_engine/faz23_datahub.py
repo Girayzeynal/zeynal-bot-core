@@ -408,8 +408,12 @@ def fetch_match_totals(
         away_sample_dict = api_bask_block.get("away_sample")
 
     if odds_block:
-        raw["odds_api"] = odds_block.get("raw")
-        odds_sample_dict = odds_block.get("sample")
+    raw["odds_api"] = odds_block.get("raw")
+    # sample bazen None oluyor; biz komple bloğu döndürelim ki used/market_total görünsün
+    odds_sample_dict = odds_block
+
+    ...
+    odds=odds_sample_dict,
 
     ctx = Faz23TotalsContext(
         league=league,
