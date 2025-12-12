@@ -1,36 +1,45 @@
 # faz23_engine/faz23_odds_debug.py
-# ============================================================
-# FAZ-23 STEP-2 : ODDS API DEBUG & TRACE
-# Amaç: NO_MARKET_DATA sebebini NET görmek
-# ============================================================
+# ================================================================
+# FAZ-23 ODDS DEBUG MODULE
+# Amaç: Odds API neden veri dönmüyor? -> kanıt üretir
+# ================================================================
 
 import os
+import json
 import logging
 import requests
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Any, List
+from datetime import datetime, timezone, timedelta
+from typing import Any, Dict
 
 log = logging.getLogger("faz23-odds-debug")
 
 ODDS_API_KEY = os.getenv("ODDS_API_KEY")
 ODDS_BASE_URL = os.getenv("ODDS_BASE_URL", "https://api.the-odds-api.com/v4")
 
-DEFAULT_REGIONS = os.getenv("ODDS_REGIONS", "eu,us")
-DEFAULT_MARKETS = os.getenv("ODDS_MARKETS", "totals")
-DEFAULT_ODDS_FORMAT = os.getenv("ODDS_FORMAT", "decimal")
-DEFAULT_DATE_FORMAT = os.getenv("ODDS_DATE_FORMAT", "iso")
-
 HTTP_TIMEOUT = float(os.getenv("HTTP_TIMEOUT_READ", "8.0"))
 
-# ------------------------------------------------------------
-# LEAGUE → ODDS SPORT_KEY MAP (KRİTİK)
-# ------------------------------------------------------------
+# ---------------------------------------------------
+# SPORT KEY MAP (kritik nokta)
+# ---------------------------------------------------
 SPORT_KEY_MAP = {
     "NBA": "basketball_nba",
     "EUROLEAGUE": "basketball_euroleague",
 }
 
-# ------------------------------------------------------------
+# ---------------------------------------------------
+def _utc_range_for_date(date_str: str) -> Dict[str, str]:
+    """
+    Odds API UTC ister. Günü daraltıyoruz.
+    """
+    day = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    start = day - timedelta(hours=6)
+    end = day + timedelta(hours=30)
+    return {
+        "commenceTimeFrom": start.isoformat(),
+        "commenceTimeTo": end.isoformat(),
+    }
+
+# ---------------------------------------------------
 def debug_fetch_odds(
     league: str,
     date_str: str,
@@ -38,123 +47,88 @@ def debug_fetch_odds(
     away: str,
 ) -> Dict[str, Any]:
     """
-    Sadece DEBUG amaçlı.
-    Tahmin yapmaz, veri çeker, LOG basar.
+    Sadece debug eder. Tahmin yapmaz.
     """
-
-    log.warning("========== FAZ23 STEP2 ODDS DEBUG ==========")
-    log.warning("INPUT | league=%s | date=%s | home=%s | away=%s",
-                league, date_str, home, away)
+    print("\n================ FAZ23 ODDS DEBUG =================")
 
     if not ODDS_API_KEY:
-        log.error("ODDS_API_KEY YOK → %100 NO_MARKET_DATA")
-        return {"ok": False, "reason": "NO_API_KEY"}
+        print("❌ ODDS_API_KEY yok")
+        return {}
 
-    sport_key = SPORT_KEY_MAP.get(league.upper())
+    sport_key = SPORT_KEY_MAP.get(league)
     if not sport_key:
-        log.error("SPORT_KEY YOK → league maplenmemiş: %s", league)
-        return {"ok": False, "reason": "NO_SPORT_KEY"}
+        print(f"❌ League map yok: {league}")
+        return {}
 
-    # Tarih aralığı (çok kritik)
-    try:
-        match_date = datetime.strptime(date_str, "%Y-%m-%d")
-    except Exception:
-        log.error("DATE PARSE HATALI: %s (YYYY-MM-DD olmalı)", date_str)
-        return {"ok": False, "reason": "BAD_DATE"}
-
-    commence_from = match_date.replace(tzinfo=timezone.utc)
-    commence_to = commence_from + timedelta(days=1)
+    time_filter = _utc_range_for_date(date_str)
 
     url = f"{ODDS_BASE_URL}/sports/{sport_key}/odds"
 
     params = {
         "apiKey": ODDS_API_KEY,
-        "regions": DEFAULT_REGIONS,
-        "markets": DEFAULT_MARKETS,
-        "oddsFormat": DEFAULT_ODDS_FORMAT,
-        "dateFormat": DEFAULT_DATE_FORMAT,
-        "commenceTimeFrom": commence_from.isoformat(),
-        "commenceTimeTo": commence_to.isoformat(),
+        "regions": "us,eu",
+        "markets": "totals",
+        "oddsFormat": "decimal",
+        **time_filter,
     }
 
-    # 🔍 REQUEST LOG
-    log.warning("REQUEST URL: %s", url)
-    log.warning("PARAMS: %s", params)
+    print("▶ URL:", url)
+    print("▶ PARAMS:", json.dumps(params, indent=2))
+    print("▶ HOME / AWAY:", home, "-", away)
 
     try:
         r = requests.get(url, params=params, timeout=HTTP_TIMEOUT)
     except Exception as e:
-        log.error("HTTP ERROR: %s", e)
-        return {"ok": False, "reason": "HTTP_ERROR"}
+        print("❌ REQUEST ERROR:", e)
+        return {}
 
-    log.warning("HTTP STATUS: %s", r.status_code)
+    print("▶ HTTP STATUS:", r.status_code)
 
     if r.status_code != 200:
-        log.error("ODDS API NON-200 RESPONSE")
-        log.error("BODY: %s", r.text[:500])
-        return {"ok": False, "reason": "BAD_STATUS"}
+        print("❌ RESPONSE TEXT:", r.text[:500])
+        return {}
 
     try:
         data = r.json()
     except Exception:
-        log.error("JSON PARSE FAILED")
-        log.error("RAW: %s", r.text[:500])
-        return {"ok": False, "reason": "BAD_JSON"}
+        print("❌ JSON parse edilemedi")
+        return {}
 
-    log.warning("EVENT COUNT: %d", len(data))
+    print(f"▶ TOPLAM EVENT SAYISI: {len(data)}")
 
-    # --------------------------------------------------------
-    # EVENT DETAY LOG
-    # --------------------------------------------------------
-    matched_events: List[Dict[str, Any]] = []
-
+    matched = []
     for ev in data:
-        ev_home = ev.get("home_team")
-        ev_away = ev.get("away_team")
-        ev_time = ev.get("commence_time")
+        h = ev.get("home_team", "").lower()
+        a = ev.get("away_team", "").lower()
+        if home.lower() in h and away.lower() in a:
+            matched.append(ev)
 
-        log.warning(
-            "EVENT | %s vs %s | time=%s",
-            ev_home, ev_away, ev_time
-        )
+    print(f"▶ MATCHED EVENT SAYISI: {len(matched)}")
 
-        if not ev_home or not ev_away:
-            continue
+    if not matched:
+        print("❌ MAÇ EŞLEŞMEDİ")
+        print("▶ İlk 3 event örneği:")
+        for ev in data[:3]:
+            print("-", ev.get("home_team"), "vs", ev.get("away_team"))
+        return {}
 
-        if home.lower() in ev_home.lower() and away.lower() in ev_away.lower():
-            matched_events.append(ev)
+    ev = matched[0]
+    print("✅ MATCH BULUNDU:", ev.get("home_team"), "-", ev.get("away_team"))
 
-    log.warning("MATCHED EVENTS: %d", len(matched_events))
+    books = ev.get("bookmakers", [])
+    print("▶ BOOKMAKER SAYISI:", len(books))
 
-    if not matched_events:
-        log.error("SONUÇ: NO_MARKET_DATA (EVENT VAR AMA MAÇ EŞLEŞMEDİ)")
-        return {
-            "ok": False,
-            "reason": "NO_MATCHED_EVENT",
-            "event_count": len(data),
-        }
+    totals_found = 0
+    for b in books:
+        for m in b.get("markets", []):
+            if m.get("key") == "totals":
+                totals_found += 1
+                print("✔ TOTALS MARKET:",
+                      "bookmaker=", b.get("key"),
+                      "outcomes=", m.get("outcomes"))
 
-    # Market kontrolü
-    markets_found = 0
-    for ev in matched_events:
-        for bm in ev.get("bookmakers", []):
-            for m in bm.get("markets", []):
-                if m.get("key") == "totals":
-                    markets_found += 1
+    if totals_found == 0:
+        print("❌ TOTALS MARKET YOK")
 
-    log.warning("TOTAL MARKETS FOUND: %d", markets_found)
-
-    if markets_found == 0:
-        log.error("SONUÇ: EVENT VAR AMA TOTALS MARKET YOK")
-        return {
-            "ok": False,
-            "reason": "NO_TOTALS_MARKET",
-            "matched_events": len(matched_events),
-        }
-
-    log.warning("SONUÇ: ODDS DATA OK ✅")
-    return {
-        "ok": True,
-        "events": len(matched_events),
-        "totals_markets": markets_found,
-    }
+    print("================ DEBUG END =================\n")
+    return ev
