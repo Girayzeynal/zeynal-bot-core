@@ -243,16 +243,12 @@ def webhook():
     bot.process_new_updates([update])
     return "OK", 200
 
-# ============================================================
-# MAIN
-# ============================================================
-if __name__ == "__main__":
-    if WEBHOOK_URL:
+# WEBHOOK AUTO-REGISTER (GUNICORN SAFE)
+if WEBHOOK_URL:
+    try:
         bot.remove_webhook()
         time.sleep(0.2)
         bot.set_webhook(url=WEBHOOK_URL)
-        log.info("Webhook set")
-    else:
-        log.info("Webhook disabled")
-
-    app.run(host="0.0.0.0", port=PORT)
+        log.info("Webhook auto-registered (gunicorn)")
+    except Exception as e:
+        log.error("Webhook auto-register failed: %s", e)
