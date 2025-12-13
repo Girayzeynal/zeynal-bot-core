@@ -245,15 +245,15 @@ def _odds_api_total_line(league: str, home: str, away: str) -> Optional[float]:
         return None
 
 
-def _fuse_sources(items: List[Dict[str, Any]]) -> застав: Tuple[Optional[float], float]:
+from typing import List, Dict, Any, Tuple, Optional
+
+def _fuse_sources(items: List[Dict[str, Any]]) -> Tuple[Optional[float], float]:
     valid: List[Tuple[float, float]] = []
     for it in items:
         t = _safe_float(it.get("total"))
-        c = _safe_float(it.get("confidence"))
+        c = _safe_float(it.get("confidence", 0.55))
         if t is None:
             continue
-        if c is None:
-            c = 0.55
         c = max(0.0, min(1.0, float(c)))
         valid.append((float(t), float(c)))
 
@@ -268,7 +268,6 @@ def _fuse_sources(items: List[Dict[str, Any]]) -> застав: Tuple[Optional[f
     total_line = round(wsum / csum, 1)
     confidence = round(csum / len(valid), 2)
     return float(total_line), float(confidence)
-
 
 def faz17_fetch_market(
     *,
