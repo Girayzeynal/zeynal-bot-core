@@ -361,8 +361,7 @@ if faz7_memory is not None:
         except Exception as e:
             _set_faz("FAZ-11", False, f"feedback crash: {e}")
             log.warning(f"FAZ-11 feedback error: {e}")
-
-    return result
+        return result
 
 # ================================================================
 # TELEGRAM COMMANDS
