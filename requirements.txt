@@ -1,7 +1,8 @@
-telebot
-Flask
+pyTelegramBotAPI==4.14.0
+Flask==3.0.0
+gunicorn==21.2.0
+
 numpy==1.26.4
-pandas
-requests
-gunicorn
-beautifulsoup4
+pandas==2.1.4
+requests==2.31.0
+beautifulsoup4==4.12.3
