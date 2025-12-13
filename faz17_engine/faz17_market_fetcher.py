@@ -245,15 +245,20 @@ def _odds_api_total_line(league: str, home: str, away: str) -> Optional[float]:
         return None
 
 
-from typing import List, Dict, Any, Tuple, Optional
-
 def _fuse_sources(items: List[Dict[str, Any]]) -> Tuple[Optional[float], float]:
+    """
+    Kaynaklardan gelen total'ları confidence ile ağırlıklandırıp tek total üretir.
+    Return:
+      (total_line | None, confidence 0..1)
+    """
     valid: List[Tuple[float, float]] = []
     for it in items:
         t = _safe_float(it.get("total"))
         c = _safe_float(it.get("confidence", 0.55))
         if t is None:
             continue
+        if c is None:
+            c = 0.55
         c = max(0.0, min(1.0, float(c)))
         valid.append((float(t), float(c)))
 
