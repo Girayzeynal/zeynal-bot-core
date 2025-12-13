@@ -1,8 +1,14 @@
-# ============================================================
-# Zeynal Core AI - FINAL BUILD (FAZ-7/10/11/12/13/17/22/23)
-# ENGINEERING / HIGH FOCUS / HATA AVCI MODE
-# Fly.io 512MB uyumlu, stabil, gözlemci log + sebep kodlu
-# ============================================================
+# -*- coding: utf-8 -*-
+"""
+Zeynal Core AI - FINAL BUILD (FAZ-7/10/11/12/13/15/17/22/23)
+ENGINEERING / HIGH FOCUS / HATA AVCI MODE
+
+Amaç:
+- FAZ modüllerini "hayalet" olmaktan çıkarıp: ✅ / 🔴 net görünür yapmak
+- Faz10/Faz11 imza uyuşmazlıklarını fixlemek
+- Market (FAZ-17/FAZ-23) hata verse bile pipeline'ı kırmamak
+- Fly.io 512MB free profile ile stabil çalışmak
+"""
 
 import os
 import json
@@ -14,9 +20,9 @@ from concurrent.futures import ThreadPoolExecutor
 import telebot
 from flask import Flask, request
 
-# -----------------------------
+# ================================================================
 # LOGGING
-# -----------------------------
+# ================================================================
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
@@ -24,12 +30,12 @@ logging.basicConfig(
 )
 log = logging.getLogger("zeynal-core")
 
-# -----------------------------
+# ================================================================
 # ENV
-# -----------------------------
+# ================================================================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip()  # opsiyonel
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip()
 PORT = int(os.getenv("PORT", "8080"))
 
 # OCR / concurrency (Fly 512MB)
@@ -39,429 +45,390 @@ OCR_TIMEOUT_S = int(os.getenv("OCR_TIMEOUT_S", "12"))
 # Flags
 FAZ17_MARKET_ENABLED = os.getenv("FAZ17_MARKET_ENABLED", "1").strip() == "1"
 FAZ23_META_ENABLED = os.getenv("FAZ23_META_ENABLED", "1").strip() == "1"
-AUTO_WEBHOOK = os.getenv("AUTO_WEBHOOK", "1").strip() == "1"  # gunicorn-safe deneme
+AUTO_WEBHOOK = os.getenv("AUTO_WEBHOOK", "1").strip() == "1"
 
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN missing")
 
-# -----------------------------
+# ================================================================
 # TELEGRAM + FLASK
-# -----------------------------
+# ================================================================
 bot = telebot.TeleBot(BOT_TOKEN, threaded=True, num_threads=2)
 app = Flask(__name__)
 
 # ================================================================
-# FAZ-13 OCR DEBUG STATE + GLOBAL OCR CACHE (hafif)
+# FAZ-13 OCR DEBUG STATE + GLOBAL OCR CACHE
 # ================================================================
 LAST_OCR_TEXT = None
 LAST_OCR_META = {}
 
-OCR_CACHE = {}
+OCR_CACHE = {}  # {img_hash: {"text": str, "meta": dict, "ts": int}}
 OCR_CACHE_LOCK = threading.Lock()
 
-# ================================================================
-# SAFE IMPORTS (fail-soft) + FAZ STATUS
-# ================================================================
-FAZ_STATUS = {}  # {"FAZ-10": ("ON/OFF", "reason"), ...}
+OCR_POOL = ThreadPoolExecutor(max_workers=OCR_MAX_WORKERS)
 
-def _set_faz(name: str, ok: bool, reason: str):
-    FAZ_STATUS[name] = ("✅" if ok else "🔴", reason)
+# ================================================================
+# FAZ STATUS (✅ / 🔴)
+# ================================================================
+FAZ_STATUS = {}  # name -> {"ok": bool, "msg": str}
 
-def _safe_import(path: str, name: str):
+def _set_faz(name: str, ok: bool, msg: str = ""):
+    FAZ_STATUS[name] = {
+        "ok": bool(ok),
+        "icon": "✅" if ok else "🔴",
+        "msg": msg or ("OK" if ok else "MISSING/FAILED"),
+    }
+
+def _safe_import(module_path: str, symbol: str = None):
     try:
-        module = __import__(path, fromlist=[name])
-        obj = getattr(module, name)
-        _set_faz(name, True, f"import_ok:{path}.{name}")
-        return obj
+        mod = __import__(module_path, fromlist=[symbol] if symbol else [])
+        if symbol:
+            return getattr(mod, symbol)
+        return mod
     except Exception as e:
-        _set_faz(name, False, f"import_fail:{path}.{name}:{e}")
-        log.warning("Import fail: %s.%s -> %s", path, name, e)
+        _set_faz(module_path if not symbol else f"{module_path}.{symbol}", False, str(e))
         return None
 
-# ---- FAZ-10 / 11 / 12 / 13
-faz10_stability_check = _safe_import("faz10_engine.faz10_stability", "faz10_stability_check")
+# ================================================================
+# IMPORTS (opsiyonel ama STATUS'a yazar)
+# ================================================================
 
+# FAZ-7
+faz7_memory = _safe_import("faz7_engine.faz7_memory", "faz7_memory")
+_set_faz("FAZ-7", faz7_memory is not None, "faz7_memory loaded" if faz7_memory else "faz7_memory missing")
+
+# FAZ-10
+faz10_stability_check = _safe_import("faz10_engine.faz10_stability", "faz10_stability_check")
+_set_faz("FAZ-10", faz10_stability_check is not None, "stability loaded" if faz10_stability_check else "missing")
+
+# FAZ-11
 faz11_feedback = _safe_import("faz11_engine.faz11_feedback", "faz11_feedback")
 faz11_last_summary = _safe_import("faz11_engine.faz11_feedback", "faz11_last_summary")
+_set_faz("FAZ-11", faz11_feedback is not None, "feedback loaded" if faz11_feedback else "missing")
 
+# FAZ-12
 faz12_run_once = _safe_import("faz12_engine.faz12_autoadjust", "faz12_run_once")
 faz12_auto_profile = _safe_import("faz12_engine.faz12_autoadjust", "faz12_auto_profile")
+_set_faz("FAZ-12", faz12_run_once is not None, "autoadjust loaded" if faz12_run_once else "missing")
 
+# FAZ-13
 normalize_manual_text = _safe_import("faz13_engine.faz13_orchestrator", "normalize_manual_text")
 normalize_api_data = _safe_import("faz13_engine.faz13_orchestrator", "normalize_api_data")
 normalize_visual_meta = _safe_import("faz13_engine.faz13_orchestrator", "normalize_visual_meta")
 run_faz13_auto_pipeline = _safe_import("faz13_engine.faz13_orchestrator", "run_faz13_auto_pipeline")
-faz13_daily_coupon = _safe_import("faz13_engine.faz13_orchestrator", "faz13_daily_coupon")
+_set_faz("FAZ-13", run_faz13_auto_pipeline is not None, "orchestrator loaded" if run_faz13_auto_pipeline else "missing")
 
-# ---- FAZ-17 market (birden çok olası isim)
-faz17_fetch_market = (
-    _safe_import("faz17_engine.faz17_market", "faz17_fetch_market")
-    or _safe_import("faz17_engine.faz17_market_fetcher", "faz17_fetch_market")
-    or _safe_import("faz17_engine.faz17_market_fetcher", "fetch_market")
-    or _safe_import("faz17_engine.faz17_market_fetcher", "get_market")
-)
+# FAZ-15
+faz15_preprocess = _safe_import("faz15_engine.faz15_preprocess", "faz15_preprocess")
+_set_faz("FAZ-15", faz15_preprocess is not None, "preprocess loaded" if faz15_preprocess else "missing")
 
-# ---- FAZ-23 meta (opsiyonel)
-faz23_meta_evaluate = (
-    _safe_import("faz23_engine.faz23_meta", "faz23_meta_evaluate")
-    or _safe_import("faz22_engine.faz22_meta_engine", "faz22_meta_engine")  # sende fonksiyon adı buydu
-)
+# FAZ-17
+faz17_fetch_market = _safe_import("faz17_engine.faz17_market_fetcher", "faz17_fetch_market")
+faz17_market_adjust = _safe_import("faz17_engine.faz17_market_adjust", "faz17_market_adjust")
+_set_faz("FAZ-17", (faz17_fetch_market is not None or not FAZ17_MARKET_ENABLED), "market enabled" if FAZ17_MARKET_ENABLED else "disabled")
 
-# ================================================================
-# THREAD POOL (Fly.io 512MB friendly)
-# ================================================================
-OCR_POOL = ThreadPoolExecutor(max_workers=max(1, min(4, OCR_MAX_WORKERS)))
+# FAZ-22 (kullanıcının istediği isim: faz22_meta_engine)
+faz22_meta_engine = _safe_import("faz22_engine.faz22_meta", "faz22_meta_engine")
+_set_faz("FAZ-22", faz22_meta_engine is not None, "meta engine loaded" if faz22_meta_engine else "missing")
+
+# FAZ-23 DataHub
+fetch_match_totals = _safe_import("faz23_engine.faz23_datahub", "fetch_match_totals")
+_set_faz("FAZ-23", fetch_match_totals is not None, "datahub loaded" if fetch_match_totals else "missing")
 
 # ================================================================
-# UTILS
+# HELPERS
 # ================================================================
-def _clean_team(s: str) -> str:
-    return (s or "").strip().lower().replace(".", "").replace("-", " ").replace("  ", " ")
+def _now_ts() -> int:
+    return int(time.time())
 
-def _normalize_league_key(league: str) -> str:
-    L = (league or "").strip().upper()
-    if L in ("EUROLEAGUE", "EL", "EURL"):
-        return "EUROLEAGUE"
-    if L in ("NBA",):
-        return "NBA"
-    return L
+def _safe_json(obj) -> str:
+    try:
+        return json.dumps(obj, ensure_ascii=False, indent=2)
+    except Exception:
+        return str(obj)
 
 def _parse_mac_command(text: str):
     """
-    Beklenen format:
-    /mac LEAGUE | YYYY-MM-DD | Home - Away
+    Beklenen:
+    /mac NBA | 2025-12-14 | Orlando - New York
     """
     raw = (text or "").strip()
-    if not raw.startswith("/mac"):
-        return None
-    payload = raw[4:].strip()
-    parts = [p.strip() for p in payload.split("|")]
+    raw = raw.replace("/mac", "", 1).strip()
+
+    # Delimiter toleransı
+    parts = [p.strip() for p in raw.split("|")]
     if len(parts) < 3:
-        return None
+        raise ValueError("Format hatası. Örnek: /mac NBA | 2025-12-14 | Orlando - New York")
+
     league = parts[0]
     date_str = parts[1]
+
     teams = parts[2]
     if "-" not in teams:
-        return None
-    home, away = [t.strip() for t in teams.split("-", 1)]
+        raise ValueError("Takım ayırıcı '-' yok. Örnek: Orlando - New York")
+    home, away = [x.strip() for x in teams.split("-", 1)]
+    if not home or not away:
+        raise ValueError("Home/Away boş görünüyor.")
     return league, date_str, home, away
 
-# ================================================================
-# HATA AVCI: MARKET FETCH SAFE WRAPPER
-# ================================================================
-def _try_fetch_market_safe(league, date_str, home, away):
+def _build_meta(league: str, date_str: str, home: str, away: str, source_type: str):
+    return {
+        "league": league,
+        "date": date_str,
+        "home": home,
+        "away": away,
+        "source_type": source_type,
+        "ts": _now_ts(),
+    }
+
+def get_market_data(league: str, date_str: str, home: str, away: str):
     """
-    Returns: (market_data, market_flag, market_reason)
-      - market_data: dict|None
-      - market_flag: "MARKET_OK" | "NO_MARKET_DATA" | "MARKET_DISABLED"
-      - market_reason: sebep kodu
+    Market data toplayıcı (çökme yok):
+    1) FAZ-23 DataHub (fetch_match_totals) -> içinde odds/line olabilir
+    2) FAZ-17 fetcher (faz17_fetch_market)
     """
-    if not FAZ17_MARKET_ENABLED:
-        return None, "MARKET_DISABLED", "FAZ17_MARKET_ENABLED=0"
+    market_data = None
 
-    if not faz17_fetch_market:
-        return None, "NO_MARKET_DATA", "faz17_fetch_market is None (import/wire missing)"
-
-    league_key = _normalize_league_key(league)
-
-    # 1) direct
-    try:
-        md = faz17_fetch_market(league=league_key, date_str=date_str, home=home, away=away)
-        if md:
-            return md, "MARKET_OK", "direct"
-    except Exception as e:
-        log.warning("FAZ-17 market failed (direct): %s", e)
-
-    # 2) normalized teams
-    try:
-        md = faz17_fetch_market(
-            league=league_key,
-            date_str=date_str,
-            home=_clean_team(home),
-            away=_clean_team(away),
-        )
-        if md:
-            return md, "MARKET_OK", "normalized_teams"
-    except Exception as e:
-        log.warning("FAZ-17 market failed (normalized_teams): %s", e)
-
-    return None, "NO_MARKET_DATA", "all attempts failed/empty"
-
-# ================================================================
-# OUTPUT FORMATTERS
-# ================================================================
-def _fmt_kv(title, v):
-    return f"• {title}: {v}"
-
-def _render_prediction_message(result: dict, league: str, home: str, away: str, market_flag: str, market_reason: str):
-    lines = []
-    lines.append("📌 FAZ-13 Maç Tahmini (Pro)")
-    lines.append(f"Maç: {home} - {away}")
-    lines.append(f"Lig: {league}")
-    lines.append("—" * 30)
-
-    lines.append("🧪 FAZ DURUMU (yeşil/kırmızı)")
-    # kısa göster
-    for k in sorted(FAZ_STATUS.keys()):
-        icon, reason = FAZ_STATUS[k]
-        lines.append(f"{icon} {k} | {reason[:90]}")
-
-    lines.append("—" * 30)
-    lines.append("💹 MARKET DURUMU")
-    lines.append(_fmt_kv("flags", f"{market_flag} ({market_reason})"))
-
-    if not isinstance(result, dict):
-        lines.append("—" * 30)
-        lines.append("⚠️ FAZ-13 pipeline dict dönmedi.")
-        lines.append(str(result))
-        return "\n".join(lines)
-
-    # ortak anahtar toleransı
-    fusion_total = result.get("fusion_total") or result.get("total") or result.get("pred_total")
-    band = result.get("band") or result.get("total_band")
-    score_vector = result.get("score_vector") or result.get("vector")
-
-    lines.append("—" * 30)
-    lines.append("🎯 TOPLAM TAHMİNİ")
-    if fusion_total is not None:
-        lines.append(_fmt_kv("Fusion Total", fusion_total))
-    if band is not None:
-        lines.append(_fmt_kv("Bant", band))
-    if score_vector is not None:
-        lines.append(_fmt_kv("Score Vector", score_vector))
-
-    per = result.get("periods") or result.get("period_projection")
-    if isinstance(per, (dict, list)) and per:
-        lines.append("—" * 30)
-        lines.append("⏱️ PERİYOT PROJEKSİYONLARI")
-        lines.append(_fmt_kv("periods", per))
-
-    team_scores = result.get("team_scores") or result.get("teams")
-    if isinstance(team_scores, (dict, list)) and team_scores:
-        lines.append("—" * 30)
-        lines.append("🏀 TAKIM SKOR TAHMİNİ")
-        lines.append(_fmt_kv("team_scores", team_scores))
-
-    notes = result.get("analysis") or result.get("notes") or result.get("meta")
-    if notes:
-        lines.append("—" * 30)
-        lines.append("🧾 ANALİZ / NOTLAR")
-        if isinstance(notes, dict):
-            for kk, vv in list(notes.items())[:25]:
-                lines.append(_fmt_kv(kk, vv))
-        else:
-            lines.append(str(notes))
-
-    return "\n".join(lines)
-
-# ================================================================
-# CORE: RUN MATCH PIPELINE
-# ================================================================
-def run_match_pipeline(league: str, date_str: str, home: str, away: str):
-    league_key = _normalize_league_key(league)
-
-    # FAZ-10 stability (IMZA UYUMLU FIX)
-    if faz10_stability_check:
+    # 1) FAZ-23 DataHub
+    if fetch_match_totals is not None:
         try:
-            meta = {"league": league_key, "date": date_str, "home": home, "away": away}
-            # yeni imza
-            faz10_stability_check("mac_command", meta)
-        except TypeError:
-            # eski imza varsa çakılma
-            try:
-                faz10_stability_check()
-            except Exception as e:
-                log.warning("FAZ-10 stability fail (legacy): %s", e)
+            ext = fetch_match_totals(league=league, date_str=date_str, home=home, away=away)
+            # DataHub çıktısını FAZ-13'ün market normalizer'ına uygun bırakıyoruz:
+            # orchestrator zaten main_total/total_line/primary_total/line/total gibi anahtarları anlıyor.
+            if isinstance(ext, dict):
+                odds = ext.get("odds")
+                if isinstance(odds, dict):
+                    # odds içinden en olası total'ı yakalamaya çalış
+                    # (faz23_datahub içinde nasıl dönüyor bilmiyorsak bile zarar vermez)
+                    market_data = dict(odds)
+                    market_data.setdefault("src", {"faz23": True})
+                else:
+                    # odds yoksa da external baseline faydalı olabilir ama "market_data" olarak dönmeyelim
+                    market_data = None
         except Exception as e:
-            log.warning("FAZ-10 stability fail: %s", e)
+            log.warning(f"FAZ-23 datahub failed (non-fatal): {e}")
 
-    # FAZ-12 auto adjust
-    if faz12_run_once:
+    # 2) FAZ-17
+    if market_data is None and FAZ17_MARKET_ENABLED and faz17_fetch_market is not None:
+        try:
+            market_data = faz17_fetch_market(
+                league=league,
+                date_str=date_str,
+                home=home,
+                away=away,
+                want_live=False,
+            )
+        except Exception as e:
+            log.warning(f"FAZ-17 market fetch failed (non-fatal): {e}")
+            market_data = None
+
+    # 3) FAZ-17 adjust (opsiyonel)
+    if market_data is not None and faz17_market_adjust is not None:
+        try:
+            market_data = faz17_market_adjust(market_data)
+        except Exception as e:
+            log.warning(f"FAZ-17 market adjust failed (non-fatal): {e}")
+
+    return market_data
+
+def _decide_outcome(result: dict) -> str:
+    """
+    FAZ-11 feedback için outcome.
+    Basit: meta23 model_over vs model_under -> OVER/UNDER/NEUTRAL
+    """
+    try:
+        m = (result or {}).get("meta23") or {}
+        over = float(m.get("model_over", 0.5))
+        under = float(m.get("model_under", 0.5))
+        if over > under + 0.05:
+            return "OVER"
+        if under > over + 0.05:
+            return "UNDER"
+        return "NEUTRAL"
+    except Exception:
+        return "NEUTRAL"
+
+# ================================================================
+# CORE MATCH PIPELINE
+# ================================================================
+def run_match_pipeline(league: str, date_str: str, home: str, away: str, source_type: str = "mac_command"):
+    meta = _build_meta(league, date_str, home, away, source_type=source_type)
+
+    # ---- FAZ-10 (imza fix)
+    if faz10_stability_check is not None:
+        try:
+            s = faz10_stability_check(source_type, meta)
+            meta["faz10"] = s
+            _set_faz("FAZ-10", True, "stability ok")
+        except Exception as e:
+            _set_faz("FAZ-10", False, f"stability crash: {e}")
+            log.warning(f"FAZ-10 error: {e}")
+
+    # ---- FAZ-12
+    if faz12_run_once is not None:
         try:
             faz12_run_once()
+            _set_faz("FAZ-12", True, "autoadjust ok")
         except Exception as e:
-            log.warning("FAZ-12 run once fail: %s", e)
+            _set_faz("FAZ-12", False, f"autoadjust crash: {e}")
+            log.warning(f"FAZ-12 error: {e}")
 
-    # FAZ-17 market
-    market_data, market_flag, market_reason = _try_fetch_market_safe(league_key, date_str, home, away)
-
-    # FAZ-13 pipeline
-    if not run_faz13_auto_pipeline:
-        fallback = {
-            "fusion_total": 230.0 if league_key == "NBA" else None,
-            "band": [223.5, 236.5] if league_key == "NBA" else None,
-            "vector": [226.0, 230.0, 234.0] if league_key == "NBA" else None,
-            "analysis": {
-                "error": "run_faz13_auto_pipeline import missing",
-                "league": league_key,
-                "date": date_str,
-            },
-            "raw": {
-                "input": {
-                    "source": "manual",
-                    "league": league_key,
-                    "date_str": date_str,
-                    "home": home,
-                    "away": away,
-                    "market_data": market_data,
-                }
-            },
-        }
-        return fallback, market_flag, market_reason
-
-    try:
-        # market_data destekliyorsa geçir
+    # ---- FAZ-12 profile (opsiyonel)
+    profile = None
+    if faz12_auto_profile is not None:
         try:
-            result = run_faz13_auto_pipeline(
-                league=league_key,
-                date_str=date_str,
-                home=home,
-                away=away,
-                market_data=market_data,
-                mode="PREMATCH",
-            )
-        except TypeError:
-            # orchestrator imzasında market_data yoksa: crash etme, uyarı bas
-            log.warning("FAZ-13 orchestrator signature missing market_data. Update orchestrator!")
-            result = run_faz13_auto_pipeline(
-                league=league_key,
-                date_str=date_str,
-                home=home,
-                away=away,
-                mode="PREMATCH",
-            )
-            if not market_data:
-                market_flag, market_reason = "NO_MARKET_DATA", "orchestrator_signature_missing_market_data"
-    except Exception as e:
-        log.exception("FAZ-13 pipeline crash: %s", e)
-        result = {"analysis": {"error": f"FAZ-13 crash: {e}"}}
-
-    # FAZ-23 META (opsiyonel)
-    if FAZ23_META_ENABLED and faz23_meta_evaluate:
-        try:
-            meta_out = None
-            # iki olası imza toleransı
+            # bazı sürümlerde args istemez, bazıları meta ister → toleranslı çağır
             try:
-                meta_out = faz23_meta_evaluate(
-                    league=league_key,
-                    date_str=date_str,
-                    home=home,
-                    away=away,
-                    faz13_result=result,
-                    market_data=market_data,
-                )
+                profile = faz12_auto_profile(meta)
             except TypeError:
-                meta_out = faz23_meta_evaluate(league=league_key, date_str=date_str, home=home, away=away)
-
-            if isinstance(result, dict):
-                result.setdefault("meta23", {})
-                result["meta23"]["external"] = meta_out
+                profile = faz12_auto_profile()
         except Exception as e:
-            log.warning("FAZ-23 meta fail: %s", e)
+            log.warning(f"FAZ-12 auto_profile failed (non-fatal): {e}")
+            profile = None
 
-    # raw input debug (sende ekran çıktısı bu formatta hoşuna gidiyor)
-    if isinstance(result, dict):
-        result.setdefault("raw", {})
-        result["raw"].setdefault("input", {})
-        result["raw"]["input"].update(
-            {
-                "source": "manual",
-                "league": league_key,
-                "date_str": date_str,
-                "home": home,
-                "away": away,
-                "market_data": market_data if market_data else {
-                    "ok": False,
-                    "main_total": None,
-                    "total_line": None,
-                    "confidence": 0.0,
-                    "sources": [],
-                    "reason": "no_sources_no_cache" if market_flag != "MARKET_DISABLED" else "disabled",
-                    "cache_hit": False,
-                },
-            }
-        )
+    # ---- MARKET
+    market_data = get_market_data(league, date_str, home, away)
 
-    return result, market_flag, market_reason
+    # ---- FAZ-15 preprocess (opsiyonel, input temizleme)
+    try:
+        if faz15_preprocess is not None:
+            # faz15_preprocess(meta) gibi tasarlanmış olabilir
+            try:
+                faz15_preprocess(meta)
+            except TypeError:
+                faz15_preprocess()
+            _set_faz("FAZ-15", True, "preprocess ok")
+    except Exception as e:
+        _set_faz("FAZ-15", False, f"preprocess crash: {e}")
+        log.warning(f"FAZ-15 error: {e}")
+
+    # ---- FAZ-13
+    if run_faz13_auto_pipeline is None:
+        _set_faz("FAZ-13", False, "run_faz13_auto_pipeline missing")
+        raise RuntimeError("FAZ-13 missing")
+
+    result = run_faz13_auto_pipeline(
+        league=league,
+        date_str=date_str,
+        home=home,
+        away=away,
+        source="manual",
+        manual_text=None,
+        api_data=None,
+        visual_meta=None,
+        market_data=market_data,
+        profile=profile,
+    )
+    _set_faz("FAZ-13", True, "pipeline ok")
+
+    # ---- FAZ-22 meta (opsiyonel)
+    if faz22_meta_engine is not None:
+        try:
+            try:
+                extra = faz22_meta_engine(meta=meta, faz13_result=result)
+            except TypeError:
+                extra = faz22_meta_engine(result)
+            result.setdefault("faz22", {})
+            result["faz22"] = extra
+            _set_faz("FAZ-22", True, "meta ok")
+        except Exception as e:
+            _set_faz("FAZ-22", False, f"meta crash: {e}")
+            log.warning(f"FAZ-22 error: {e}")
+
+    # ---- FAZ-23 meta flag (zaten orchestrator meta23 üretiyor)
+    if FAZ23_META_ENABLED:
+        _set_faz("FAZ-23", fetch_match_totals is not None, "meta enabled")
+
+    # ---- FAZ-11 feedback (imza fix)
+    if faz11_feedback is not None:
+        try:
+            result_text = _safe_json(result)
+            outcome = _decide_outcome(result)
+            faz11_feedback(source_type, meta, result_text, outcome)
+            _set_faz("FAZ-11", True, "feedback ok")
+        except Exception as e:
+            _set_faz("FAZ-11", False, f"feedback crash: {e}")
+            log.warning(f"FAZ-11 feedback error: {e}")
+
+    return result
 
 # ================================================================
 # TELEGRAM COMMANDS
 # ================================================================
 @bot.message_handler(commands=["start"])
-def cmd_start(m):
-    bot.reply_to(m, "Zeynal Core AI aktif.\n/mac LIG | YYYY-MM-DD | Ev - Dep")
+def on_start(msg):
+    bot.reply_to(
+        msg,
+        "Zeynal Core AI aktif.\n"
+        "/mac LIG | YYYY-MM-DD | Ev - Dep\n"
+        "/status  -> FAZ durumları",
+    )
 
-@bot.message_handler(func=lambda m: (m.text or "").strip().startswith("/mac"))
-def cmd_mac(m):
-    parsed = _parse_mac_command(m.text)
-    if not parsed:
-        bot.reply_to(m, "Format: /mac LIG | YYYY-MM-DD | Ev - Dep")
+@bot.message_handler(commands=["status"])
+def on_status(msg):
+    lines = ["🧩 FAZ STATUS:"]
+    # stabil sıralama
+    order = ["FAZ-7", "FAZ-10", "FAZ-11", "FAZ-12", "FAZ-13", "FAZ-15", "FAZ-17", "FAZ-22", "FAZ-23"]
+    for k in order:
+        s = FAZ_STATUS.get(k, {"icon": "🔴", "msg": "unknown"})
+        lines.append(f"{s.get('icon','🔴')} {k} - {s.get('msg','')}")
+    bot.reply_to(msg, "\n".join(lines))
+
+@bot.message_handler(commands=["mac"])
+def on_mac(msg):
+    text = msg.text or ""
+    try:
+        league, date_str, home, away = _parse_mac_command(text)
+    except Exception as e:
+        bot.reply_to(msg, f"❌ {e}")
         return
 
-    league, date_str, home, away = parsed
-    bot.send_message(m.chat.id, f"⏳ Analiz ediliyor:\n{league} | {date_str}\n{home} - {away}")
+    bot.reply_to(msg, f"⏳ Analiz ediliyor:\n{league} | {date_str}\n{home} - {away}")
 
     try:
-        result, market_flag, market_reason = run_match_pipeline(league, date_str, home, away)
-        msg = _render_prediction_message(
-            result=result,
-            league=_normalize_league_key(league),
-            home=home,
-            away=away,
-            market_flag=market_flag,
-            market_reason=market_reason,
-        )
-        # JSON debug isteyen sen olduğun için: hem mesaj hem JSON (kısa)
-        bot.send_message(m.chat.id, msg)
-        bot.send_message(m.chat.id, json.dumps(result, ensure_ascii=False, indent=2))
+        result = run_match_pipeline(league, date_str, home, away, source_type="mac_command")
+        bot.reply_to(msg, _safe_json(result))
     except Exception as e:
-        log.exception("MAC error")
-        bot.reply_to(m, f"❌ Hata: {e}")
+        bot.reply_to(msg, f"❌ Hata: {e}")
 
 # ================================================================
 # WEBHOOK (Fly.io)
 # ================================================================
-@app.route("/", methods=["GET"])
+@app.get("/")
 def health():
     return "OK", 200
 
-@app.route("/webhook", methods=["POST"])
-def webhook():
+@app.post("/webhook")
+def telegram_webhook():
     if WEBHOOK_SECRET:
-        if request.headers.get("X-Webhook-Secret", "") != WEBHOOK_SECRET:
-            return "FORBIDDEN", 403
+        token = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+        if token != WEBHOOK_SECRET:
+            return "forbidden", 403
 
+    update = request.get_data(as_text=True)
     try:
-        update = telebot.types.Update.de_json(request.stream.read().decode("utf-8"))
-        bot.process_new_updates([update])
+        upd = telebot.types.Update.de_json(update)
+        bot.process_new_updates([upd])
     except Exception as e:
-        log.exception("Webhook processing error: %s", e)
-
+        log.exception(f"Webhook update parse error: {e}")
     return "OK", 200
 
-def _set_webhook_safe():
+def _maybe_set_webhook():
+    if not AUTO_WEBHOOK:
+        log.info("AUTO_WEBHOOK=0 -> webhook ayarlanmayacak.")
+        return
     if not WEBHOOK_URL:
-        log.info("WEBHOOK_URL yok. (Local dev için normal)")
+        log.warning("WEBHOOK_URL boş -> webhook ayarlanamadı (polling de yok).")
         return
     try:
         bot.remove_webhook()
         time.sleep(0.2)
-        bot.set_webhook(url=WEBHOOK_URL)
-        log.info("Webhook set: %s", WEBHOOK_URL)
+        bot.set_webhook(url=WEBHOOK_URL, secret_token=WEBHOOK_SECRET if WEBHOOK_SECRET else None)
+        log.info("Webhook set OK.")
     except Exception as e:
-        log.warning("Webhook set failed: %s", e)
+        log.warning(f"Webhook set failed: {e}")
 
-# Gunicorn altında __main__ çalışmaz → import-time güvenli deneme
-if AUTO_WEBHOOK:
-    try:
-        _set_webhook_safe()
-    except Exception as _e:
-        # kesinlikle crash yok
-        log.warning("AUTO_WEBHOOK failed: %s", _e)
-
-# ================================================================
-# MAIN
-# ================================================================
 if __name__ == "__main__":
-    _set_webhook_safe()
-    app.run(host="0.0.0.0", port=PORT, threaded=False)
+    _maybe_set_webhook()
+    # Fly.io: gunicorn yerine direkt çalıştırıyorsan:
+    app.run(host="0.0.0.0", port=PORT)
