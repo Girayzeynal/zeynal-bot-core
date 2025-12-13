@@ -153,7 +153,15 @@ def get_market_data(league, date_str, home, away):
 def run_match_pipeline(league, date_str, home, away):
     # FAZ-10
     if faz10_stability_check:
-        faz10_stability_check()
+    faz10_stability_check(
+        source_type="mac_command",
+        meta={
+            "league": league,
+            "date": date_str,
+            "home": home,
+            "away": away,
+        }
+    )
 
     # FAZ-12
     if faz12_run_once:
