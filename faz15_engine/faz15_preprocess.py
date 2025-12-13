@@ -1,29 +1,30 @@
 # -*- coding: utf-8 -*-
 """
-FAZ-15 Preprocess Engine
-Mimari uyum:
-- main.py FAZ-15'i opsiyonel çağırır
-- ÇALIŞTI / ATLANDI / HATA durumunu net bildirir
-- Hayalet FAZ olmaz
+FAZ-15 Preprocess Engine (Fly.io friendly + mimari uyum)
+
+Mimari sözleşmesi:
+- preprocess_image_bytes(img_bytes) -> bytes  (main / OCR pipeline bunu sever)
+- faz15_preprocess(meta) -> dict              (status / meta işaretleme)
+- Pillow yoksa NO-OP (hayalet FAZ olmaz, sadece "skipped" döner)
 """
 
 from __future__ import annotations
 
 import io
 import os
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 # Pillow opsiyonel
 try:
     from PIL import Image, ImageOps, ImageEnhance
 except Exception:
-    Image = None
-    ImageOps = None
-    ImageEnhance = None
+    Image = None  # type: ignore
+    ImageOps = None  # type: ignore
+    ImageEnhance = None  # type: ignore
 
-FAZ15_ENABLED = os.getenv("FAZ15_ENABLED", "1") == "1"
-MAX_EDGE = int(os.getenv("FAZ15_MAX_EDGE", "1400"))
-CONTRAST = float(os.getenv("FAZ15_CONTRAST", "1.25"))
+FAZ15_ENABLED = os.getenv("FAZ15_ENABLED", "1").strip() == "1"
+FAZ15_MAX_EDGE = int(os.getenv("FAZ15_MAX_EDGE", "1400"))
+FAZ15_CONTRAST = float(os.getenv("FAZ15_CONTRAST", "1.25"))
 
 
 def _resize_keep_aspect(w: int, h: int, max_edge: int) -> Tuple[int, int]:
@@ -34,21 +35,30 @@ def _resize_keep_aspect(w: int, h: int, max_edge: int) -> Tuple[int, int]:
     return max(1, int(w * s)), max(1, int(h * s))
 
 
-def _process_bytes(img_bytes: bytes) -> bytes:
-    if Image is None:
+def preprocess_image_bytes(
+    img_bytes: bytes,
+    max_edge: int = FAZ15_MAX_EDGE,
+    contrast: float = FAZ15_CONTRAST,
+) -> bytes:
+    """
+    Bytes -> bytes (PNG). Pillow yoksa veya disabled ise aynı bytes döner.
+    """
+    if (not FAZ15_ENABLED) or (Image is None):
         return img_bytes
 
     try:
         im = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-        nw, nh = _resize_keep_aspect(im.size[0], im.size[1], MAX_EDGE)
+
+        nw, nh = _resize_keep_aspect(im.size[0], im.size[1], max_edge)
         if (nw, nh) != im.size:
             im = im.resize((nw, nh))
 
-        im = ImageOps.grayscale(im)
-        im = ImageOps.autocontrast(im)
+        # OCR için basit, güvenli iyileştirme
+        im = ImageOps.grayscale(im)  # type: ignore
+        im = ImageOps.autocontrast(im)  # type: ignore
 
-        if ImageEnhance:
-            im = ImageEnhance.Contrast(im).enhance(CONTRAST)
+        if ImageEnhance is not None:
+            im = ImageEnhance.Contrast(im).enhance(contrast)  # type: ignore
 
         out = io.BytesIO()
         im.save(out, format="PNG", optimize=True)
@@ -57,43 +67,31 @@ def _process_bytes(img_bytes: bytes) -> bytes:
         return img_bytes
 
 
-def faz15_preprocess(meta: Optional[Dict] = None) -> Dict:
+def faz15_preprocess(meta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
-    FAZ-15 resmi preprocess eder.
-    main.py bu sonucu alıp _set_faz çağırmalı.
+    Meta üstünden çalışır.
+    Beklenen alan (mimari): meta["image_bytes"] = bytes
+    Çıkış: status dict + meta["faz15"] iz bırakır.
     """
     if not FAZ15_ENABLED:
-        return {
-            "faz": "FAZ-15",
-            "enabled": False,
-            "status": "skipped",
-            "reason": "disabled"
-        }
+        return {"faz": "FAZ-15", "enabled": False, "status": "skipped", "reason": "disabled"}
 
     if not isinstance(meta, dict):
-        return {
-            "faz": "FAZ-15",
-            "enabled": True,
-            "status": "skipped",
-            "reason": "no-meta"
-        }
+        return {"faz": "FAZ-15", "enabled": True, "status": "skipped", "reason": "no-meta"}
 
     img = meta.get("image_bytes")
     if not isinstance(img, (bytes, bytearray)):
-        meta["faz15"] = {"applied": False}
-        return {
-            "faz": "FAZ-15",
-            "enabled": True,
-            "status": "skipped",
-            "reason": "no-image"
-        }
+        meta["faz15"] = {"applied": False, "reason": "no-image"}
+        return {"faz": "FAZ-15", "enabled": True, "status": "skipped", "reason": "no-image"}
 
-    meta["image_bytes"] = _process_bytes(bytes(img))
-    meta["faz15"] = {"applied": True}
-
-    return {
-        "faz": "FAZ-15",
-        "enabled": True,
-        "status": "ok",
-        "applied": True
+    before_len = len(img)
+    processed = preprocess_image_bytes(bytes(img))
+    meta["image_bytes"] = processed
+    meta["faz15"] = {
+        "applied": processed is not None,
+        "bytes_in": before_len,
+        "bytes_out": len(processed) if isinstance(processed, (bytes, bytearray)) else None,
+        "pillow": Image is not None,
     }
+
+    return {"faz": "FAZ-15", "enabled": True, "status": "ok", "applied": True}
