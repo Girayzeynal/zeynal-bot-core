@@ -254,6 +254,18 @@ def _decide_outcome(result: dict) -> str:
 def run_match_pipeline(league: str, date_str: str, home: str, away: str, source_type: str = "mac_command"):
     meta = _build_meta(league, date_str, home, away, source_type=source_type)
 
+    # FAZ-7 memory (SATIR ~235 civarı)
+if faz7_memory is not None:
+    try:
+        # bazı sürümlerde args istemez, bazılarında meta ister
+        try:
+            faz7_memory(meta)
+        except TypeError:
+            faz7_memory()
+        _set_faz("FAZ-7", True, "memory ok")
+    except Exception as e:
+        _set_faz("FAZ-7", False, f"memory crash: {e}")
+    
     # ---- FAZ-10 (imza fix)
     if faz10_stability_check is not None:
         try:
