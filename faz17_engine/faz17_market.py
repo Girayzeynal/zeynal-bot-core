@@ -1,12 +1,19 @@
 # -*- coding: utf-8 -*-
+"""
+FAZ-17 Market Utilities
+- implied probability
+- model + market harmony (edge)
+- coupon candidate filtering (edge picker)
+
+Bu dosya SADECE matematik/filtreleme katmanıdır.
+Provider fetch işi (Odds API vs) başka modülde olmalı.
+"""
+
 from __future__ import annotations
 
 from typing import Any, Dict, List
 
 
-# -------------------------------------------------------
-# IMPLIED PROBABILITY
-# -------------------------------------------------------
 def implied_prob(odds: float) -> float:
     """
     Decimal odd -> implied probability.
@@ -21,41 +28,42 @@ def implied_prob(odds: float) -> float:
         return 0.0
 
 
-# -------------------------------------------------------
-# MODEL + MARKET HARMONY
-# -------------------------------------------------------
+def _clamp01(x: float) -> float:
+    try:
+        v = float(x)
+    except Exception:
+        v = 0.0
+    if v < 0.0:
+        return 0.0
+    if v > 1.0:
+        return 1.0
+    return v
+
+
 def faz17_enrich_with_market(
     model_prob_over: float,
-    model_prob_under: float,
+    model_prob_under: float | None,
     odds_over: float,
     odds_under: float,
 ) -> Dict[str, float]:
     """
-    Model tahmini + piyasa oranlarını alıp:
-      - implied_over / implied_under
-      - model_edge_over / model_edge_under
-    döndürür.
+    Model tahmini + piyasa oranlarını birleştirir:
+
+    Dönen alanlar:
+    - implied_over / implied_under
+    - model_prob_over / model_prob_under
+    - edge_over / edge_under   (model - implied)
     """
+    mpo = _clamp01(model_prob_over)
+
+    # model_prob_under verilmediyse tamamlayıcı kullan
+    if model_prob_under is None:
+        mpu = 1.0 - mpo
+    else:
+        mpu = _clamp01(model_prob_under)
+
     imp_over = implied_prob(odds_over)
     imp_under = implied_prob(odds_under)
-
-    # Under attaching: eğer model_under yoksa tamamlayıcı yap
-    try:
-        mpo = float(model_prob_over)
-    except Exception:
-        mpo = 0.5
-
-    try:
-        mpu = float(model_prob_under)
-    except Exception:
-        mpu = 0.0
-
-    if mpu <= 0.0:
-        mpu = max(0.0, min(1.0, 1.0 - mpo))
-    else:
-        mpu = max(0.0, min(1.0, mpu))
-
-    mpo = max(0.0, min(1.0, mpo))
 
     edge_over = mpo - imp_over
     edge_under = mpu - imp_under
@@ -70,40 +78,58 @@ def faz17_enrich_with_market(
     }
 
 
-# -------------------------------------------------------
-# Kupon için EDGE SEÇİM MOTORU
-# -------------------------------------------------------
 def faz17_pick_edge_lines(
     candidates: List[Dict[str, Any]],
     min_edge: float = 0.03,
 ) -> List[Dict[str, Any]]:
     """
-    Kupon aday listesini alır, minimum edge'e göre filtreler.
-    candidates elemanı örn:
-      {
-        "model_prob_over": 0.56,
-        "odds_over": 1.90,
-        "odds_under": 1.90,
-        ... diğer alanlar ...
-      }
+    Kupon adaylarını edge'e göre filtreler.
+
+    Beklenen candidate alanları:
+    - model_prob_over (zorunlu)
+    - model_prob_under (opsiyonel)
+    - odds_over (zorunlu)
+    - odds_under (zorunlu)
+
+    min_edge: 0.03 -> %3 edge eşiği
     """
-    selected: List[Dict[str, Any]] = []
+    out: List[Dict[str, Any]] = []
+    thr = float(min_edge)
 
     for c in candidates or []:
         try:
+            mpo = float(c.get("model_prob_over", 0.0))
+            mpu_raw = c.get("model_prob_under", None)
+            mpu = None if mpu_raw is None else float(mpu_raw)
+
+            oo = float(c.get("odds_over", 0.0))
+            ou = float(c.get("odds_under", 0.0))
+
             market_info = faz17_enrich_with_market(
-                model_prob_over=float(c.get("model_prob_over", 0.5)),
-                model_prob_under=float(c.get("model_prob_under", 0.0)),
-                odds_over=float(c.get("odds_over", 0.0)),
-                odds_under=float(c.get("odds_under", 0.0)),
+                model_prob_over=mpo,
+                model_prob_under=mpu,
+                odds_over=oo,
+                odds_under=ou,
             )
+
             best_edge = max(market_info["edge_over"], market_info["edge_under"])
-            if best_edge >= float(min_edge):
-                out = dict(c)
-                out.update(market_info)
-                selected.append(out)
+            if best_edge >= thr:
+                merged = dict(c)
+                merged.update(market_info)
+                merged["best_edge"] = float(best_edge)
+                out.append(merged)
+
         except Exception:
-            # tek aday patladı diye tüm listeyi yakma
+            # Tek aday patladı diye tüm liste çökmemeli
             continue
 
-    return selected
+    # Büyük edge en üstte
+    out.sort(key=lambda x: float(x.get("best_edge", 0.0)), reverse=True)
+    return out
+
+
+__all__ = [
+    "implied_prob",
+    "faz17_enrich_with_market",
+    "faz17_pick_edge_lines",
+]
