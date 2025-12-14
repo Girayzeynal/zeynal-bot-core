@@ -1,61 +1,52 @@
 # -*- coding: utf-8 -*-
 """
-FAZ-17 Market Adjust Module
+FAZ-17 Engine – Public Export Surface
 
-Amaç:
-- FAZ-13 simülasyon çıktısını
-- FAZ-17 market edge bilgisi ile
-- kontrollü şekilde ayarlamak
+Bu dosya SADECE gerçekten var olan
+ve aktif kullanılan fonksiyonları dışarı açar.
 """
 
 from __future__ import annotations
 
-from typing import Dict
+# =================================================
+# Market core (faz17_market.py)
+# =================================================
+from .faz17_market import (
+    implied_prob,
+    faz17_enrich_with_market,
+    faz17_pick_edge_lines,
+)
 
+# =================================================
+# Market fetcher (SAFE)
+# =================================================
+from .faz17_market_fetcher import (
+    faz17_fetch_market_safe,
+)
 
-def faz17_market_adjust(
-    simulation_result: Dict[str, float],
-    market_edge: Dict[str, float],
-    weight: float = 0.5,
-) -> Dict[str, float]:
-    """
-    FAZ-13 simülasyon çıktısını market edge ile yumuşak şekilde ayarlar.
+# Geriye uyumluluk (legacy)
+faz17_fetch_market = faz17_fetch_market_safe
 
-    simulation_result örnek:
-    {
-        "predicted_total": 184.5,
-        "confidence": 0.62
-    }
+# =================================================
+# Market adjust (faz17_market_adjust.py)
+# =================================================
+from .faz17_market_adjust import (
+    faz17_market_adjust,
+)
 
-    market_edge örnek:
-    {
-        "pick": "OVER" | "UNDER",
-        "confidence": 0.08
-    }
-    """
+# =================================================
+# Public API
+# =================================================
+__all__ = [
+    # market core
+    "implied_prob",
+    "faz17_enrich_with_market",
+    "faz17_pick_edge_lines",
 
-    adjusted = dict(simulation_result)
+    # market fetch
+    "faz17_fetch_market_safe",
+    "faz17_fetch_market",
 
-    pick = market_edge.get("pick")
-    edge_conf = float(market_edge.get("confidence", 0.0))
-
-    if not pick or edge_conf <= 0:
-        return adjusted
-
-    # confidence boost (sınırlı)
-    base_conf = float(adjusted.get("confidence", 0.5))
-    boost = min(edge_conf * weight, 0.15)
-
-    adjusted["confidence"] = max(
-        0.0,
-        min(1.0, base_conf + boost),
-    )
-
-    # yön bilgisi ekle (FAZ-13 debug için)
-    adjusted["market_adjust"] = {
-        "pick": pick,
-        "edge_confidence": edge_conf,
-        "applied_weight": weight,
-    }
-
-    return adjusted
+    # market adjust
+    "faz17_market_adjust",
+]
