@@ -1,111 +1,95 @@
 # -*- coding: utf-8 -*-
 """
-FAZ-17 Market Core
-- implied probability
-- model + market harmony
-- edge detection
+FAZ-17 Market Adjust Layer (Final)
+
+Bu dosyanın asıl görevi:
+- FAZ-13 simülasyon çıktısını market edge ile yumuşak şekilde ayarlamak.
+
+Geriye uyumluluk (legacy):
+- Bazı eski importlar yanlışlıkla bu dosyadan core fonksiyonları isteyebilir.
+  Bu durumda çökmesin diye faz17_market.py içindeki doğru fonksiyonlara proxy eder.
 """
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Optional
+
+# ✅ Doğru yerden core fonksiyonları al (proxy / backward compat)
+from .faz17_market import (  # noqa: F401
+    implied_prob,
+    faz17_enrich_with_market,
+    faz17_pick_edge_lines,
+)
 
 
-# ================================================================
-# 🔢 IMPLIED PROBABILITY
-# ================================================================
-def implied_prob(odds: float) -> float:
-    """
-    Decimal odds -> implied probability
-    Örn: 1.80 -> 0.555...
-    """
-    try:
-        o = float(odds)
-        if o <= 1.0:
-            return 0.0
-        return 1.0 / o
-    except Exception:
-        return 0.0
-
-
-# ================================================================
-# 🧠 MODEL + MARKET HARMONY
-# ================================================================
-def faz17_enrich_with_market(
-    model_prob_over: float,
-    model_prob_under: float,
-    odds_over: float,
-    odds_under: float,
+def faz17_market_adjust(
+    simulation_result: Dict[str, float],
+    market_pick: Dict[str, float],
+    weight: float = 0.5,
+    max_boost: float = 0.12,
 ) -> Dict[str, float]:
     """
-    Model tahmini + piyasa oranlarını alır:
-    - implied_over / implied_under
-    - model_edge_over / model_edge_under
-    döndürür.
-    """
+    Market edge bilgisini FAZ-13 çıktısına YUMUŞAK şekilde uygular.
 
-    imp_over = implied_prob(odds_over)
-    imp_under = implied_prob(odds_under)
-
-    # model probability normalize
-    try:
-        mpo = float(model_prob_over)
-    except Exception:
-        mpo = 0.5
-
-    try:
-        mpu = float(model_prob_under)
-    except Exception:
-        mpu = 0.0
-
-    if mpu <= 0.0:
-        mpu = max(0.0, min(1.0, 1.0 - mpo))
-    else:
-        mpu = max(0.0, min(1.0, mpu))
-
-    mpo = max(0.0, min(1.0, mpo))
-
-    edge_over = mpo - imp_over
-    edge_under = mpu - imp_under
-
-    return {
-        "implied_over": float(imp_over),
-        "implied_under": float(imp_under),
-        "model_prob_over": float(mpo),
-        "model_prob_under": float(mpu),
-        "edge_over": float(edge_over),
-        "edge_under": float(edge_under),
+    simulation_result örnek:
+    {
+        "predicted_total": 184.5,
+        "confidence": 0.62
     }
 
+    market_pick örnek:
+    {
+        "pick": "OVER" | "UNDER" | None,
+        "confidence": 0.08
+    }
 
-# ================================================================
-# 🎯 EDGE LINE PICKER
-# ================================================================
-def faz17_pick_edge_lines(
-    enriched_market: Dict[str, float],
-    threshold: float = 0.03,
-) -> Dict[str, float]:
-    """
-    Edge threshold üstündeki tarafı seçer.
-    FAZ-13 ve FAZ-17 adjust tarafından okunur.
+    weight: market etkisi (0..1)
+    max_boost: confidence artış limiti (modeli domine etmesin)
     """
 
-    edge_over = enriched_market.get("edge_over", 0.0)
-    edge_under = enriched_market.get("edge_under", 0.0)
+    adjusted = dict(simulation_result)
 
-    pick = None
-    confidence = 0.0
+    pick: Optional[str] = market_pick.get("pick")
+    try:
+        edge_conf = float(market_pick.get("confidence", 0.0))
+    except Exception:
+        edge_conf = 0.0
 
-    if edge_over > threshold and edge_over > edge_under:
-        pick = "OVER"
-        confidence = edge_over
-    elif edge_under > threshold and edge_under > edge_over:
-        pick = "UNDER"
-        confidence = edge_under
+    if not pick or edge_conf <= 0:
+        return adjusted
 
-    return {
+    try:
+        base_conf = float(adjusted.get("confidence", 0.5))
+    except Exception:
+        base_conf = 0.5
+
+    # Market ASLA modeli domine etmez
+    boost = min(edge_conf * float(weight), float(max_boost))
+
+    new_conf = base_conf + boost
+    if new_conf < 0.0:
+        new_conf = 0.0
+    if new_conf > 1.0:
+        new_conf = 1.0
+
+    adjusted["confidence"] = float(new_conf)
+
+    # Debug/meta
+    adjusted["market_adjust"] = {
         "pick": pick,
-        "confidence": float(confidence),
-        "edge_over": float(edge_over),
-        "edge_under": float(edge_under),
+        "edge_confidence": float(edge_conf),
+        "weight": float(weight),
+        "max_boost": float(max_boost),
     }
+
+    return adjusted
+
+
+__all__ = [
+    # core proxies (legacy-safe)
+    "implied_prob",
+    "faz17_enrich_with_market",
+    "faz17_pick_edge_lines",
+    # actual adjust
+    "faz17_market_adjust",
+]
