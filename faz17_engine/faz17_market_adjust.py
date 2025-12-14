@@ -1,74 +1,111 @@
 # -*- coding: utf-8 -*-
+"""
+FAZ-17 Market Core
+- implied probability
+- model + market harmony
+- edge detection
+"""
+
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Dict
 
 
-def _safe_float(x: Any) -> Optional[float]:
+# ================================================================
+# 🔢 IMPLIED PROBABILITY
+# ================================================================
+def implied_prob(odds: float) -> float:
+    """
+    Decimal odds -> implied probability
+    Örn: 1.80 -> 0.555...
+    """
     try:
-        if x is None:
-            return None
-        if isinstance(x, (int, float)):
-            return float(x)
-        s = str(x).strip().replace(",", ".")
-        return float(s)
+        o = float(odds)
+        if o <= 1.0:
+            return 0.0
+        return 1.0 / o
     except Exception:
-        return None
+        return 0.0
 
 
-def faz17_market_adjust(market_data: Dict[str, Any]) -> Dict[str, Any]:
+# ================================================================
+# 🧠 MODEL + MARKET HARMONY
+# ================================================================
+def faz17_enrich_with_market(
+    model_prob_over: float,
+    model_prob_under: float,
+    odds_over: float,
+    odds_under: float,
+) -> Dict[str, float]:
     """
-    FAZ-17 market çıktısını stabilize eder.
-
-    Hedef: main.py / FAZ-13 orchestrator farklı formatları da yese bile
-    burada "tek tip" hale getirelim.
-
-    Beklenen anahtarlar:
-      - used: bool
-      - main_total: float|None
-      - confidence: float (0..1)
-      - sources: list
-      - error/reason: str
+    Model tahmini + piyasa oranlarını alır:
+    - implied_over / implied_under
+    - model_edge_over / model_edge_under
+    döndürür.
     """
-    md = dict(market_data or {})
 
-    # used
-    used = md.get("used")
-    if used is None:
-        used = bool(md.get("ok"))  # fetcher ok ise used say
-    md["used"] = bool(used)
+    imp_over = implied_prob(odds_over)
+    imp_under = implied_prob(odds_under)
 
-    # main_total / total_line
-    mt = _safe_float(md.get("main_total"))
-    if mt is None:
-        mt = _safe_float(md.get("total_line"))
-    if mt is not None:
-        md["main_total"] = float(mt)
-        md["total_line"] = float(mt)
+    # model probability normalize
+    try:
+        mpo = float(model_prob_over)
+    except Exception:
+        mpo = 0.5
+
+    try:
+        mpu = float(model_prob_under)
+    except Exception:
+        mpu = 0.0
+
+    if mpu <= 0.0:
+        mpu = max(0.0, min(1.0, 1.0 - mpo))
     else:
-        md["main_total"] = None
-        md["total_line"] = None
+        mpu = max(0.0, min(1.0, mpu))
 
-    # confidence
-    conf = _safe_float(md.get("confidence"))
-    if conf is None:
-        conf = _safe_float(md.get("market_confidence"))
-    if conf is None:
-        conf = 0.0
-    conf = max(0.0, min(1.0, float(conf)))
-    md["confidence"] = conf
-    md["market_confidence"] = conf
+    mpo = max(0.0, min(1.0, mpo))
 
-    # sources
-    srcs = md.get("sources")
-    if not isinstance(srcs, list):
-        srcs = []
-    md["sources"] = srcs
+    edge_over = mpo - imp_over
+    edge_under = mpu - imp_under
 
-    # reason / error
-    if not md["used"]:
-        if not md.get("reason") and not md.get("error"):
-            md["error"] = "NO_MARKET_DATA"
-            md["reason"] = "NO_MARKET_DATA"
+    return {
+        "implied_over": float(imp_over),
+        "implied_under": float(imp_under),
+        "model_prob_over": float(mpo),
+        "model_prob_under": float(mpu),
+        "edge_over": float(edge_over),
+        "edge_under": float(edge_under),
+    }
 
-    return md
+
+# ================================================================
+# 🎯 EDGE LINE PICKER
+# ================================================================
+def faz17_pick_edge_lines(
+    enriched_market: Dict[str, float],
+    threshold: float = 0.03,
+) -> Dict[str, float]:
+    """
+    Edge threshold üstündeki tarafı seçer.
+    FAZ-13 ve FAZ-17 adjust tarafından okunur.
+    """
+
+    edge_over = enriched_market.get("edge_over", 0.0)
+    edge_under = enriched_market.get("edge_under", 0.0)
+
+    pick = None
+    confidence = 0.0
+
+    if edge_over > threshold and edge_over > edge_under:
+        pick = "OVER"
+        confidence = edge_over
+    elif edge_under > threshold and edge_under > edge_over:
+        pick = "UNDER"
+        confidence = edge_under
+
+    return {
+        "pick": pick,
+        "confidence": float(confidence),
+        "edge_over": float(edge_over),
+        "edge_under": float(edge_under),
+    }
