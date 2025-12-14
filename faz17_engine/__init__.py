@@ -1,10 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-FAZ-17 package surface.
+FAZ-17 Engine – Public Interface
 
-Amaç:
-- Dışarıdan tek, stabil giriş: faz17_fetch_market_safe
-- providers.py var/yok fark etmeden çalışabilsin (fallback içeride)
+Bu dosya SADECE paket yüzeyini tanımlar.
+İmplementasyon import etmez.
+Yan etki yaratmaz.
 """
 
-from .faz17_market_fetcher import faz17_fetch_market_safe  # noqa: F401
+from typing import Callable, Dict, Any, Tuple, Optional
+
+# === PUBLIC CONTRACT ===
+
+MarketResult = Optional[Dict[str, Any]]
+MarketMeta = Dict[str, Any]
+
+FetchMarketFunc = Callable[..., Tuple[MarketResult, MarketMeta]]
+
+# === EXPORT NAME (late binding) ===
+# main.py bu ismi import eder, implementasyonu içeride çözer
+
+faz17_fetch_market_safe: FetchMarketFunc
