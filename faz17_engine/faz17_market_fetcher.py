@@ -1,343 +1,163 @@
-# -*- coding: utf-8 -*-
-"""
-FAZ-17 MARKET FETCHER (Fly.io friendly)
+# ================================================================
+# 🎯 FAZ-17 MARKET FETCHER (ELITE CORE SAFE)
+# ================================================================
 
-Amaç:
-- Dış kaynaklardan (opsiyonel) totals line çekmek
-- Kaynak yoksa crash etmek yerine güvenli NO_MARKET_DATA dönmek
-- JSONL cache ile fallback
-
-ENV:
-- ODDS_API_KEY            (the-odds-api)
-- ODDS_BASE_URL           (default: https://api.the-odds-api.com/v4)
-- DATA_DIR                (default: /data)
-- FAZ17_CACHE_MAX_SCAN    (default: 200)
-"""
-
-from __future__ import annotations
-
-import json
 import logging
-import os
-import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Tuple, Optional, Any
+from datetime import datetime, timezone, timedelta
+import re
 
-log = logging.getLogger("faz17-market")
+log = logging.getLogger(__name__)
 
-# requests opsiyonel (requirements'ta yoksa bile import crash olmasın)
-try:
-    import requests  # type: ignore
-except Exception:  # pragma: no cover
-    requests = None  # type: ignore
+# ================================================================
+# 🧠 ELITE CORE IMPORTS (SINGLE SOURCE OF TRUTH)
+# ================================================================
+from core.elite_league_registry import (
+    normalize_league_input,
+    resolve_league_layer,
+    market_permission,
+    enrichment_sources,
+    ELITE_CORE_ON,
+)
 
-
-ODDS_API_KEY = os.getenv("ODDS_API_KEY", "").strip()
-ODDS_BASE = os.getenv("ODDS_BASE_URL", "https://api.the-odds-api.com/v4").strip()
-TIMEOUT: Tuple[float, float] = (3.0, 8.0)
-
-
-def _pick_data_dir() -> str:
-    primary = os.getenv("DATA_DIR", "/data")
-    try:
-        os.makedirs(primary, exist_ok=True)
-        test = os.path.join(primary, ".w")
-        with open(test, "w", encoding="utf-8") as f:
-            f.write("1")
-        try:
-            os.remove(test)
-        except Exception:
-            pass
-        return primary
-    except Exception:
-        fallback = os.path.join(os.getcwd(), "data")
-        try:
-            os.makedirs(fallback, exist_ok=True)
-        except Exception:
-            pass
-        return fallback
-
-
-DATA_DIR = _pick_data_dir()
-FAZ17_DIR = os.path.join(DATA_DIR, "faz17")
-try:
-    os.makedirs(FAZ17_DIR, exist_ok=True)
-except Exception:
-    pass
-
-MARKET_CACHE_PATH = os.path.join(FAZ17_DIR, "market_cache.jsonl")
-
-
-def _safe_text(x: Any) -> str:
-    try:
-        return str(x).strip()
-    except Exception:
+# ================================================================
+# 🧼 TEAM NORMALIZATION
+# ================================================================
+def _slug_team(name: str) -> str:
+    if not name:
         return ""
-
-
-def _safe_float(x: Any) -> Optional[float]:
-    try:
-        if x is None:
-            return None
-        if isinstance(x, (int, float)):
-            return float(x)
-        s = str(x).strip().replace(",", ".")
-        return float(s)
-    except Exception:
-        return None
-
-
-def _norm_team(s: str) -> str:
-    s = _safe_text(s).lower()
-    repl = {
-        "ç": "c",
-        "ğ": "g",
-        "ı": "i",
-        "ö": "o",
-        "ş": "s",
-        "ü": "u",
-        "á": "a",
-        "à": "a",
-        "ä": "a",
-        "é": "e",
-        "è": "e",
-        "ë": "e",
-        "í": "i",
-        "ì": "i",
-        "ï": "i",
-        "ó": "o",
-        "ò": "o",
-        "ú": "u",
-        "ù": "u",
-        "â": "a",
-        "ê": "e",
-        "î": "i",
-        "ô": "o",
-        "û": "u",
-    }
-    for a, b in repl.items():
-        s = s.replace(a, b)
-    s = s.replace(".", " ").replace("-", " ").replace("_", " ")
-    s = " ".join(s.split())
+    s = name.lower().strip()
+    s = s.replace("ı", "i").replace("İ", "i")
+    s = s.replace("ş", "s").replace("ğ", "g").replace("ç", "c")
+    s = s.replace("ö", "o").replace("ü", "u")
+    for w in ["bc", "b.c.", "basketball", "beko", "sk", "spor kulubu", "club"]:
+        s = s.replace(w, " ")
+    s = re.sub(r"[^a-z0-9]+", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
     return s
 
+def _parse_date_tr(date_str: str) -> datetime:
+    # YYYY-MM-DD → Istanbul time (UTC+3)
+    dt = datetime.strptime(date_str.strip(), "%Y-%m-%d")
+    return dt.replace(tzinfo=timezone(timedelta(hours=3)))
 
-def _append_cache(obj: Dict[str, Any]) -> None:
+# ================================================================
+# 🔒 HARD EVENT MATCH (ANTI-WRONG-MATCH)
+# ================================================================
+def hard_match_event(event: dict, home: str, away: str, date_str: str) -> bool:
     try:
-        o = dict(obj)
-        o["ts"] = int(time.time())
-        with open(MARKET_CACHE_PATH, "a", encoding="utf-8") as f:
-            f.write(json.dumps(o, ensure_ascii=False) + "\n")
+        eh = _slug_team(event.get("home_team", ""))
+        ea = _slug_team(event.get("away_team", ""))
+        th = _slug_team(home)
+        ta = _slug_team(away)
+
+        # strict team match
+        if not (eh == th and ea == ta):
+            return False
+
+        ct_raw = event.get("commence_time") or event.get("commenceTime")
+        if not ct_raw:
+            return False
+
+        ct_raw = ct_raw.replace("Z", "+00:00")
+        ct = datetime.fromisoformat(ct_raw)
+        if ct.tzinfo is None:
+            ct = ct.replace(tzinfo=timezone.utc)
+
+        ct_local = ct.astimezone(timezone(timedelta(hours=3)))
+        target = _parse_date_tr(date_str)
+
+        # same day OR ±12h tolerance
+        if target.date() == ct_local.date():
+            return True
+
+        if abs((ct_local - target).total_seconds()) <= 12 * 3600:
+            return True
+
+        return False
     except Exception:
-        pass
+        return False
 
-
-def _read_cache_last(
+# ================================================================
+# 🚦 SAFE MARKET FETCH WRAPPER
+# ================================================================
+def faz17_fetch_market_safe(
+    provider_fetch_func,
     league: str,
     date_str: str,
     home: str,
     away: str,
-    max_scan: int = 200,
-) -> Optional[Dict[str, Any]]:
-    try:
-        if not os.path.exists(MARKET_CACHE_PATH):
-            return None
-
-        nh, na = _norm_team(home), _norm_team(away)
-        lg = _safe_text(league).lower()
-
-        with open(MARKET_CACHE_PATH, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-
-        for line in reversed(lines[-max_scan:]):
-            try:
-                obj = json.loads(line)
-                if _safe_text(obj.get("date_str")) != _safe_text(date_str):
-                    continue
-                if _safe_text(obj.get("league")).lower() != lg:
-                    continue
-                if _norm_team(obj.get("home", "")) == nh and _norm_team(obj.get("away", "")) == na:
-                    return obj
-            except Exception:
-                continue
-
-        return None
-    except Exception:
-        return None
-
-
-def _odds_sport_key(league: str) -> Optional[str]:
-    lg = _safe_text(league).lower()
-    if "euroleague" in lg:
-        return "basketball_euroleague"
-    if "nba" in lg:
-        return "basketball_nba"
-    return None
-
-
-def _odds_api_total_line(league: str, home: str, away: str) -> Optional[float]:
-    if not requests:
-        return None
-    if not ODDS_API_KEY:
-        return None
-
-    sport_key = _odds_sport_key(league)
-    if not sport_key:
-        return None
-
-    try:
-        r = requests.get(
-            f"{ODDS_BASE}/sports/{sport_key}/events",
-            params={"apiKey": ODDS_API_KEY},
-            timeout=TIMEOUT,
-        )
-        if r.status_code != 200:
-            return None
-
-        events = r.json() if isinstance(r.json(), list) else []
-        nh, na = _norm_team(home), _norm_team(away)
-
-        event_id = None
-        for ev in events:
-            try:
-                hh = _norm_team(ev.get("home_team", ""))
-                aa = _norm_team(ev.get("away_team", ""))
-                if hh and aa and ((hh == nh and aa == na) or (hh == na and aa == nh)):
-                    event_id = ev.get("id")
-                    break
-            except Exception:
-                continue
-
-        if not event_id:
-            return None
-
-        r2 = requests.get(
-            f"{ODDS_BASE}/sports/{sport_key}/events/{event_id}/odds",
-            params={
-                "apiKey": ODDS_API_KEY,
-                "regions": "us,eu",
-                "markets": "totals",
-                "oddsFormat": "decimal",
-            },
-            timeout=TIMEOUT,
-        )
-        if r2.status_code != 200:
-            return None
-
-        data = r2.json() if isinstance(r2.json(), dict) else {}
-        bookmakers = data.get("bookmakers") or []
-
-        lines: List[float] = []
-        for b in bookmakers:
-            for m in (b.get("markets") or []):
-                if (m.get("key") or "") != "totals":
-                    continue
-                for o in (m.get("outcomes") or []):
-                    pt = _safe_float(o.get("point"))
-                    if pt is not None:
-                        lines.append(float(pt))
-
-        if not lines:
-            return None
-
-        lines.sort()
-        return float(lines[len(lines) // 2])
-    except Exception:
-        return None
-
-
-def _fuse_sources(items: List[Dict[str, Any]]) -> Tuple[Optional[float], float]:
+) -> Tuple[Optional[Any], dict]:
     """
-    Kaynaklardan gelen total'ları confidence ile ağırlıklandırıp tek total üretir.
-    Return:
-      (total_line | None, confidence 0..1)
+    Wrapper that enforces Elite Core rules + hard event matching.
+    Returns: (market_data | None, market_meta)
     """
-    valid: List[Tuple[float, float]] = []
-    for it in items:
-        t = _safe_float(it.get("total"))
-        c = _safe_float(it.get("confidence", 0.55))
-        if t is None:
-            continue
-        if c is None:
-            c = 0.55
-        c = max(0.0, min(1.0, float(c)))
-        valid.append((float(t), float(c)))
 
-    if not valid:
-        return None, 0.0
+    league_code = normalize_league_input(league)
+    layer = resolve_league_layer(league_code)
+    perm = market_permission(layer)
 
-    wsum = sum(t * c for t, c in valid)
-    csum = sum(c for _, c in valid)
-    if csum <= 0:
-        return None, 0.0
-
-    total_line = round(wsum / csum, 1)
-    confidence = round(csum / len(valid), 2)
-    return float(total_line), float(confidence)
-
-def faz17_fetch_market(
-    *,
-    league: str,
-    date_str: str,
-    home: str,
-    away: str,
-) -> Dict[str, Any]:
-    """
-    Stable output keys:
-      - ok: bool
-      - main_total: float|None
-      - total_line: float|None
-      - confidence: float (0..1)
-      - sources: list[{src,total,confidence}]
-      - reason: str
-    """
-    out: Dict[str, Any] = {
-        "league": league,
-        "date_str": date_str,
-        "home": home,
-        "away": away,
-        "ok": False,
-        "main_total": None,
-        "total_line": None,
-        "confidence": 0.0,
-        "sources": [],
-        "reason": "init",
+    market_meta = {
+        "primary_league": league_code,
+        "league_layer": layer,
+        "enrichment": enrichment_sources(layer),
+        "market": {
+            "used": False,
+            "confidence": None,
+            "reason": None,
+        },
     }
 
-    max_scan = int(os.getenv("FAZ17_CACHE_MAX_SCAN", "200") or "200")
-    cached = _read_cache_last(league, date_str, home, away, max_scan=max_scan)
-    out["cache_hit"] = bool(cached)
+    if not ELITE_CORE_ON:
+        market_meta["market"]["reason"] = "ELITE_CORE_DISABLED"
+        return None, market_meta
 
-    sources: List[Dict[str, Any]] = []
+    if not perm.get("allowed"):
+        market_meta["market"]["reason"] = perm.get("reason", "NOT_ALLOWED")
+        return None, market_meta
 
-    odds_line = _odds_api_total_line(league, home, away)
-    if odds_line is not None:
-        sources.append({"src": "the_odds_api", "total": float(odds_line), "confidence": 0.82})
+    # ------------------------------------------------------------
+    # Provider fetch
+    # ------------------------------------------------------------
+    try:
+        raw = provider_fetch_func(
+            league=league_code,
+            date_str=date_str,
+            home=home,
+            away=away,
+        )
+    except Exception as e:
+        market_meta["market"]["reason"] = f"FETCH_FAIL: {e}"
+        log.warning(f"FAZ-17 provider fetch failed: {e}")
+        return None, market_meta
 
-    fused, conf = _fuse_sources(sources)
+    # ------------------------------------------------------------
+    # Case 1: single event dict
+    # ------------------------------------------------------------
+    if isinstance(raw, dict):
+        if hard_match_event(raw, home, away, date_str):
+            market_meta["market"]["used"] = True
+            market_meta["market"]["confidence"] = perm.get("confidence")
+            return raw, market_meta
 
-    if fused is not None:
-        out["ok"] = True
-        out["main_total"] = float(fused)
-        out["total_line"] = float(fused)
-        out["confidence"] = float(conf)
-        out["sources"] = sources
-        out["reason"] = "fused_sources_ok"
-        _append_cache(out)
-        return out
+        market_meta["market"]["reason"] = "NO_PRIMARY_EVENT_MATCH"
+        return None, market_meta
 
-    # fallback cache
-    if cached and isinstance(cached, dict):
-        mt = _safe_float(cached.get("main_total")) or _safe_float(cached.get("total_line"))
-        if mt is not None:
-            out["ok"] = True
-            out["main_total"] = float(mt)
-            out["total_line"] = float(mt)
-            out["confidence"] = float(_safe_float(cached.get("confidence")) or 0.45)
-            out["sources"] = cached.get("sources") if isinstance(cached.get("sources"), list) else []
-            out["reason"] = "cache_fallback_ok"
-            _append_cache(out)
-            return out
+    # ------------------------------------------------------------
+    # Case 2: list of events
+    # ------------------------------------------------------------
+    if isinstance(raw, list):
+        for ev in raw:
+            if isinstance(ev, dict) and hard_match_event(ev, home, away, date_str):
+                market_meta["market"]["used"] = True
+                market_meta["market"]["confidence"] = perm.get("confidence")
+                return ev, market_meta
 
-    out["reason"] = "no_sources_no_cache"
-    _append_cache(out)
-    return out
+        market_meta["market"]["reason"] = "NO_PRIMARY_EVENT_MATCH"
+        return None, market_meta
+
+    # ------------------------------------------------------------
+    # Unknown provider shape
+    # ------------------------------------------------------------
+    market_meta["market"]["reason"] = "UNKNOWN_PROVIDER_SHAPE"
+    return None, market_meta
