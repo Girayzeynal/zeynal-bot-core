@@ -1,154 +1,140 @@
 # -*- coding: utf-8 -*-
-"""
-FAZ-17 Market Providers (FINAL – import uyumlu)
-
-Main.py'nin aradığı fonksiyon isimleri:
-- faz17_fetch_market
-- faz17_fetch_market_safe
-"""
-
 from __future__ import annotations
 
 import os
 import time
 import logging
+from typing import Any, Dict, Optional, Tuple
+
 import requests
-from typing import Dict, Any, Optional
 
-log = logging.getLogger("FAZ17")
+log = logging.getLogger("zeynal-core")
 
-ODDS_API_KEY = os.getenv("ODDS_API_KEY", "").strip()
-
-
-def _now() -> int:
-    return int(time.time())
+ODDS_API_KEY = (os.getenv("ODDS_API_KEY", "") or "").strip()
 
 
-def _safe_float(v) -> Optional[float]:
-    try:
-        return float(v)
-    except Exception:
-        return None
+# -------------------------
+# OddsAPI: sport key cache
+# -------------------------
+_ODDS_SPORTS_CACHE: Dict[str, Any] = {"ts": 0, "data": []}
 
 
-def _fetch_odds_api_market(league: str, date_str: str, home: str, away: str) -> Dict[str, Any]:
+def _odds_list_sports(ttl_sec: int = 6 * 3600):
+    now = time.time()
+    if _ODDS_SPORTS_CACHE["data"] and (now - _ODDS_SPORTS_CACHE["ts"] < ttl_sec):
+        return _ODDS_SPORTS_CACHE["data"]
+
     if not ODDS_API_KEY:
-        return {"used": False, "provider": "odds_api", "reason": "missing_odds_api_key"}
+        return []
 
-    # NBA sabit
-    sport_key = "basketball_nba"
-    url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds"
+    url = "https://api.the-odds-api.com/v4/sports"
+    r = requests.get(url, params={"apiKey": ODDS_API_KEY}, timeout=10)
+    r.raise_for_status()
+    data = r.json()
+
+    _ODDS_SPORTS_CACHE["ts"] = now
+    _ODDS_SPORTS_CACHE["data"] = data
+    return data
+
+
+def _pick_sport_key_for_family(family: str) -> Optional[str]:
+    family = (family or "").lower().strip()
+    sports_list = _odds_list_sports()
+
+    candidates = []
+    for s in sports_list:
+        key = (s.get("key") or "").lower()
+        title = (s.get("title") or "").lower()
+        group = (s.get("group") or "").lower()
+
+        score = 0
+        if "basketball" in group or "basketball" in title:
+            score += 2
+        if family and (family in title or family in key):
+            score += 3
+
+        if score > 0 and s.get("key"):
+            candidates.append((score, s["key"]))
+
+    candidates.sort(reverse=True, key=lambda x: x[0])
+    return candidates[0][1] if candidates else None
+
+
+# -------------------------
+# Provider: raw market fetch
+# -------------------------
+def faz17_fetch_market(
+    league: str,
+    date_str: str,
+    home: str,
+    away: str,
+    timeout: int = 10,
+) -> Dict[str, Any]:
+    """
+    Raw market fetch (provider).
+    Şu an ODDS API kullanıyor.
+    """
+    if not ODDS_API_KEY:
+        return {"used": False, "error": "ODDS_API_KEY missing", "src": {}}
+
+    sport_key = _pick_sport_key_for_family(league)
+    if not sport_key:
+        return {"used": False, "error": f"No ODDS sport key for family={league}", "src": {}}
+
+    url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
     params = {
         "apiKey": ODDS_API_KEY,
-        "regions": "us",
+        "regions": "us,eu",
         "markets": "h2h,totals",
-        "oddsFormat": "decimal",
         "dateFormat": "iso",
     }
 
-    log.warning("[FAZ17 PROVIDER] ODDS API REQUEST %s | %s vs %s", league, home, away)
-
-    try:
-        r = requests.get(url, params=params, timeout=12)
-        if r.status_code != 200:
-            return {"used": False, "provider": "odds_api", "reason": f"http_{r.status_code}"}
-        data = r.json()
-        if not isinstance(data, list) or not data:
-            return {"used": False, "provider": "odds_api", "reason": "empty_response"}
-    except Exception as e:
-        return {"used": False, "provider": "odds_api", "reason": f"exception:{e}"}
-
-    # Maçı bul
-    match = None
-    for g in data:
-        teams = g.get("teams") or []
-        if home in teams and away in teams:
-            match = g
-            break
-
-    if not match:
-        return {"used": False, "provider": "odds_api", "reason": "match_not_found"}
-
-    bookmakers = match.get("bookmakers") or []
-    if not bookmakers:
-        return {"used": False, "provider": "odds_api", "reason": "no_bookmakers"}
-
-    totals_block = None
-    h2h_block = None
-
-    for bm in bookmakers:
-        for m in bm.get("markets", []):
-            if m.get("key") == "totals" and not totals_block:
-                outcomes = m.get("outcomes") or []
-                if len(outcomes) >= 2:
-                    over = outcomes[0]
-                    under = outcomes[1]
-                    line = _safe_float(over.get("point"))
-                    if line is not None:
-                        totals_block = {
-                            "line": line,
-                            "over_price": _safe_float(over.get("price")),
-                            "under_price": _safe_float(under.get("price")),
-                        }
-
-            if m.get("key") == "h2h" and not h2h_block:
-                outcomes = m.get("outcomes") or []
-                prices = {o.get("name"): _safe_float(o.get("price")) for o in outcomes}
-                h2h_block = {
-                    "home_price": prices.get(home),
-                    "away_price": prices.get(away),
-                }
-
-        if totals_block or h2h_block:
-            break
-
-    if not totals_block and not h2h_block:
-        return {"used": False, "provider": "odds_api", "reason": "markets_not_found"}
-
-    confidence = None
-    if totals_block and totals_block.get("over_price") and totals_block.get("under_price"):
-        op = totals_block["over_price"]
-        up = totals_block["under_price"]
-        if op and up:
-            confidence = max(0.05, min(0.25, 1 - abs(op - up)))
-
-    log.warning("[FAZ17 PROVIDER] MARKET OK totals=%s h2h=%s", bool(totals_block), bool(h2h_block))
+    r = requests.get(url, params=params, timeout=timeout)
+    r.raise_for_status()
+    data = r.json()
 
     return {
         "used": True,
         "provider": "odds_api",
-        "totals": totals_block,
-        "h2h": h2h_block,
-        "confidence": confidence,
-        "reason": None,
-        "ts": _now(),
+        "sport_key": sport_key,
+        "odds": data,
     }
 
 
-# -------------------------------------------------
-# Main.py uyum katmanı (ASIL ÖNEMLİ KISIM)
-# -------------------------------------------------
-
-def faz17_fetch_market(league: str, date_str: str, home: str, away: str) -> Dict[str, Any]:
-    """Main.py bunu import ediyorsa artık import patlamaz."""
-    return _fetch_odds_api_market(league, date_str, home, away)
-
-
+# -------------------------
+# Safe wrapper: never crash
+# -------------------------
 def faz17_fetch_market_safe(
     league: str,
     date_str: str,
     home: str,
     away: str,
-    provider_fetch_func=None,   # main.py bazen bunu keyword arg olarak yolluyor
-) -> Dict[str, Any]:
+    provider_fetch_func=None,
+    timeout: int = 10,
+) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
     """
-    Güvenli wrapper.
-    Eğer main.py 'provider_fetch_func' gönderirse onu kullanır,
-    yoksa default odds provider'ı kullanır.
+    Returns:
+      market_data (dict or None),
+      market_meta (always dict)
     """
+    meta: Dict[str, Any] = {
+        "used": False,
+        "reason": "not_called",
+        "provider": None,
+        "ts": int(time.time()),
+    }
+
     try:
-        fn = provider_fetch_func or faz17_fetch_market
-        return fn(league=league, date_str=date_str, home=home, away=away)
+        fetcher = provider_fetch_func or faz17_fetch_market
+        out = fetcher(league=league, date_str=date_str, home=home, away=away, timeout=timeout)
+
+        if isinstance(out, dict) and out.get("used"):
+            meta.update({"used": True, "reason": "ok", "provider": out.get("provider") or out.get("sport_key")})
+            return out, meta
+
+        meta.update({"used": False, "reason": out.get("error") if isinstance(out, dict) else "provider_returned_non_dict"})
+        return None, meta
+
     except Exception as e:
-        log.warning("[FAZ17] fetch_market_safe exception: %s", e)
-        return {"used": False, "provider": None, "reason": f"safe_fetch_exception:{e}", "ts": _now()}
+        meta.update({"used": False, "reason": f"exception: {e}"})
+        return None, meta
