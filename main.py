@@ -448,6 +448,38 @@ def _maybe_set_webhook():
         log.warning(f"Webhook set failed: {e}")
 
 
+
+# ================================================================
+# BOOTSTRAP (Gunicorn altında da webhook/polling çalışsın)
+# ================================================================
+_BOOT_LOCK = threading.Lock()
+_BOOT_DONE = False
+
+def _boot_once():
+    global _BOOT_DONE
+    with _BOOT_LOCK:
+        if _BOOT_DONE:
+            return
+        _BOOT_DONE = True
+
+    # Webhook'u gunicorn altında da set et
+    if AUTO_WEBHOOK and WEBHOOK_URL:
+        _maybe_set_webhook()
+
+    # 🔥 SADECE webhook YOKSA ve AUTO_WEBHOOK kapalıysa polling
+    if (not WEBHOOK_URL) and (not AUTO_WEBHOOK):
+        def _poll():
+            try:
+                bot.infinity_polling(timeout=20, long_polling_timeout=20)
+            except Exception as e:
+                log.warning(f"Polling failed: {e}")
+        threading.Thread(target=_poll, daemon=True).start()
+
+@app.before_request
+def _boot_hook():
+    # İlk gelen request ile bir kere boot et
+    _boot_once()
+
 if __name__ == "__main__":
     _maybe_set_webhook()
     # Fly.io gunicorn kullanıyorsa burası çalışmaz zaten.
