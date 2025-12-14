@@ -1,31 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-FAZ-17 package surface.
+FAZ-17 package surface (tek, stabil giriş noktası)
 
-Amaç:
-- Dışarıdan tek ve stabil giriş:
-  - faz17_fetch_market_safe
-  - faz17_fetch_market
+Dışarıya şunları export eder:
+- faz17_fetch_market_safe  : güvenli fetch wrapper (try/except + timeout)
+- faz17_fetch_market       : provider seçip market datayı çeken fonksiyon (providers.py)
 
-Not:
-- providers.py varsa onu kullanır (daha güncel).
-- Yoksa faz17_market_fetcher fallback'ine döner (legacy).
+NOT:
+- Paket dosyası MUTLAKA __init__.py olmalı. "init.py" işe yaramaz.
 """
 
-from __future__ import annotations
+from .faz17_market_fetcher import faz17_fetch_market_safe
 
-# Önce providers (senin istediğin yer)
 try:
-    from .providers import faz17_fetch_market_safe, faz17_fetch_market  # noqa: F401
+    # provider seçen ana fonksiyon
+    from .providers import faz17_fetch_market
 except Exception:
-    # providers yoksa / bozuksa legacy fetcher'dan en azından safe fonksiyonu çıkar
-    from .faz17_market_fetcher import faz17_fetch_market_safe  # type: ignore # noqa: F401
+    # Import patlarsa bile main.py çökmeyecek (safe wrapper yine durur)
+    faz17_fetch_market = None  # type: ignore
 
-    def faz17_fetch_market(*args, **kwargs):  # type: ignore
-        raise RuntimeError("FAZ-17 providers.py bulunamadı veya import edilemedi (faz17_fetch_market yok).")
-
-
-__all__ = [
-    "faz17_fetch_market_safe",
-    "faz17_fetch_market",
-] 
+__all__ = ["faz17_fetch_market_safe", "faz17_fetch_market"] 
