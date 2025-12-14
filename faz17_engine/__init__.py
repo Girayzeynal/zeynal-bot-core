@@ -1,40 +1,43 @@
 # -*- coding: utf-8 -*-
 """
-FAZ-17 Engine package exports.
+FAZ-17 Engine – Public Export Surface
 
-Bu modül:
- - Market odds hesap/edge fonksiyonları
- - Market fetcher (dış kaynaklardan total line çekme)
- - Market adjust ve safe fetch için stabil import yüzeyi sağlar.
+Bu dosya yalnızca GERÇEKTEN VAR OLAN
+ve aktif kullanılan fonksiyonları dışarı açar.
 """
 
 from __future__ import annotations
 
-# Faz17 core functions
+# ------------------------------------------------
+# Market core (faz17_market.py)
+# ------------------------------------------------
 from .faz17_market import (
     implied_prob,
     faz17_enrich_with_market,
     faz17_pick_edge_lines,
 )
 
-from .faz17_market_adjust import (
-    faz17_market_adjust,
-)
-
-# 🎯 Safe fetch wrapper
+# ------------------------------------------------
+# Market fetcher (SAFE)
+# ------------------------------------------------
 from .faz17_market_fetcher import (
     faz17_fetch_market_safe,
 )
 
-# Backward compatibility alias (opsiyonel ama önerilir)
-# Eğer eski kodlar hala 'faz17_fetch_market' beklerse bunu kullanır:
+# Backward compatibility
 faz17_fetch_market = faz17_fetch_market_safe
+
+# ------------------------------------------------
+# OPTIONAL / FUTURE MODULES
+# (şu an aktif değil, import edilmez)
+# ------------------------------------------------
+# faz17_market_adjust BİLEREK import edilmedi
+# çünkü dosya içinde public function yok
 
 __all__ = [
     "implied_prob",
     "faz17_enrich_with_market",
     "faz17_pick_edge_lines",
-    "faz17_market_adjust",
     "faz17_fetch_market_safe",
-    "faz17_fetch_market",  # alias
+    "faz17_fetch_market",
 ]
