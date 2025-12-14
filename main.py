@@ -448,12 +448,17 @@ def _maybe_set_webhook():
         log.warning(f"Webhook set failed: {e}")
 
 
-
 # ================================================================
 # BOOTSTRAP (Gunicorn altında da webhook/polling çalışsın)
 # ================================================================
 _BOOT_LOCK = threading.Lock()
 _BOOT_DONE = False
+
+def _start_polling():
+    try:
+        bot.infinity_polling(timeout=20, long_polling_timeout=20)
+    except Exception as e:
+        log.warning(f"Polling failed: {e}")
 
 def _boot_once():
     global _BOOT_DONE
@@ -468,17 +473,16 @@ def _boot_once():
 
     # 🔥 SADECE webhook YOKSA ve AUTO_WEBHOOK kapalıysa polling
     if (not WEBHOOK_URL) and (not AUTO_WEBHOOK):
-        def _poll():
-            try:
-                bot.infinity_polling(timeout=20, long_polling_timeout=20)
-            except Exception as e:
-                log.warning(f"Polling failed: {e}")
-        threading.Thread(target=_poll, daemon=True).start()
+        threading.Thread(
+            target=_start_polling,
+            daemon=True
+        ).start()
 
 @app.before_request
 def _boot_hook():
     # İlk gelen request ile bir kere boot et
     _boot_once()
+
 
 if __name__ == "__main__":
     _maybe_set_webhook()
