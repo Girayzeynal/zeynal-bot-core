@@ -4,25 +4,11 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 
-def implied_prob(odds: float) -> float:
-    """
-    Decimal odd -> implied probability.
-    Örn: 1.80 -> 0.555...
-    """
-    try:
-        o = float(odds)
-        if o <= 1.0:
-            return 0.0
-        return 1.0 / o
-    except Exception:
-        return 0.0
-
-
-def _clamp01(x: float) -> float:
+def _clamp01(x: Any) -> float:
     try:
         v = float(x)
     except Exception:
-        v = 0.0
+        return 0.0
     if v < 0.0:
         return 0.0
     if v > 1.0:
@@ -30,32 +16,41 @@ def _clamp01(x: float) -> float:
     return v
 
 
+def implied_prob(decimal_odds: Any) -> float:
+    """
+    Decimal odds -> implied probability.
+    1.80 -> 0.555...
+    """
+    try:
+        o = float(decimal_odds)
+        if o <= 1.0:
+            return 0.0
+        return 1.0 / o
+    except Exception:
+        return 0.0
+
+
 def faz17_enrich_with_market(
-    model_prob_over: float,
-    model_prob_under: Optional[float],
-    odds_over: float,
-    odds_under: float,
+    *,
+    model_prob_over: Any,
+    model_prob_under: Optional[Any],
+    over_odds: Any,
+    under_odds: Any,
 ) -> Dict[str, float]:
     """
-    Model tahmini + piyasa oranlarını birleştirir.
-    Dönen alanlar:
-      - implied_over / implied_under
-      - model_prob_over / model_prob_under
-      - edge_over / edge_under   (model - implied)
+    Model + Market edge.
     """
-    imp_over = implied_prob(odds_over)
-    imp_under = implied_prob(odds_under)
-
     mpo = _clamp01(model_prob_over)
-
-    # model_prob_under verilmediyse tamamlayıcı kullan
     if model_prob_under is None:
         mpu = _clamp01(1.0 - mpo)
     else:
         mpu = _clamp01(model_prob_under)
 
-    edge_over = mpo - imp_over
-    edge_under = mpu - imp_under
+    imp_over = implied_prob(over_odds)
+    imp_under = implied_prob(under_odds)
+
+    edge_over = float(mpo - imp_over)
+    edge_under = float(mpu - imp_under)
 
     return {
         "implied_over": float(imp_over),
