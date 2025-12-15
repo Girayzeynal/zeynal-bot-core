@@ -135,49 +135,47 @@ def parse_mac_command(text: str) -> Tuple[str, str, str, str]:
     league = _normalize_league_input(league_raw)
     return league, date_str.strip(), home, away
 
+
 # ================================================================
-# MARKET FETCH (FAZ-17) - signature safe
+# FAZ-17 -> FAZ-13 MARKET NORMALIZE (totals line injection)
 # ================================================================
-def fetch_market_bundle(league: str, date_str: str, home: str, away: str) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
-    _debug_env()
-    log.warning("[FAZ17] fetch_market_safe CALLED")
+def normalize_market_for_faz13(market_data: Optional[Dict[str, Any]], market_meta: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not market_data:
+        return None
 
-    market_meta: Dict[str, Any] = {
-        "used": False,
-        "reason": "not_called",
-        "provider": None,
-        "ts": int(time.time()),
-    }
+    # mümkün olan anahtarları tek standarda çek
+    line = market_data.get("totals_line")
+    if line is None:
+        # bazen farklı isim gelir
+        line = market_data.get("total_line") or market_data.get("totals") or market_data.get("line")
 
-    if not faz17_fetch_market_safe:
-        market_meta["reason"] = "faz17_fetch_market_safe_missing"
-        return None, market_meta
-
-    # Provider yoksa safe yine de çalışsın (safe kendi fallback'ini yapabilir)
     try:
-        sig = inspect.signature(faz17_fetch_market_safe)
-        kwargs = dict(league=league, date_str=date_str, home=home, away=away)
+        line_f = float(line) if line is not None else None
+    except Exception:
+        line_f = None
 
-        # Safe fonksiyon provider_fetch_func kabul ediyorsa gönder
-        if "provider_fetch_func" in sig.parameters and faz17_fetch_market_provider:
-            kwargs["provider_fetch_func"] = faz17_fetch_market_provider
+    norm = dict(market_data)
+    if line_f is not None:
+        # FAZ-13 tarafında aradığın "odds totals line" burada:
+        norm["odds_totals_line"] = line_f
+        norm["totals_line"] = line_f  # geriye dönük uyum
 
-        md, mm = faz17_fetch_market_safe(**kwargs)  # type: ignore
-        if isinstance(mm, dict):
-            market_meta = mm
-        else:
-            market_meta = {"used": False, "reason": "bad_meta_type", "ts": int(time.time())}
+    # odds
+    if "over_odds" in market_data:
+        norm["odds_over"] = market_data.get("over_odds")
+    if "under_odds" in market_data:
+        norm["odds_under"] = market_data.get("under_odds")
 
-        return md, market_meta
+    # meta bağla
+    norm["_market_meta"] = dict(market_meta or {})
+    return norm
 
-    except Exception as e:
-        return None, {"used": False, "reason": f"safe_fetch_exception: {e}", "ts": int(time.time())}
 
 # ================================================================
 # PIPELINE
 # ================================================================
 def run_pipeline(league: str, date_str: str, home: str, away: str) -> Dict[str, Any]:
-    market_data, market_meta = fetch_market_bundle(league, date_str, home, away)
+    market_data_norm = normalize_market_for_faz13(market_data, market_meta)
 
     if run_faz13_auto_pipeline:
         try:
