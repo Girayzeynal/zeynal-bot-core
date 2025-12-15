@@ -2,45 +2,50 @@
 from __future__ import annotations
 
 import time
-import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional, Tuple, Callable
 
-log = logging.getLogger("zeynal-core")
+from .providers import odds_api_fetch_market
 
 
-def faz17_fetch_market_safe(
+MarketProviderFunc = Callable[..., Tuple[Optional[Dict[str, Any]], Dict[str, Any]]]
+
+
+def _ts() -> int:
+    return int(time.time())
+
+
+def faz17_fetch_market(
+    *,
     league: str,
     date_str: str,
     home: str,
     away: str,
-    provider_fetch_func: Optional[Callable[..., Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
+) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
     """
-    Crash etmez. Her zaman dict döner.
-    provider_fetch_func verilmezse providers.faz17_fetch_market kullanır.
+    Provider seçen 'normal' fetch.
+    Şu an: ODDS API totals market.
     """
-    t0 = time.time()
+    return odds_api_fetch_market(league=league, date_str=date_str, home=home, away=away)
 
+
+def faz17_fetch_market_safe(
+    *,
+    league: str,
+    date_str: str,
+    home: str,
+    away: str,
+    provider_fetch_func: Optional[MarketProviderFunc] = None,
+) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
+    """
+    MAIN.PY burayı çağırır. İmza SABİT.
+    provider_fetch_func verilirse onu kullanır; verilmezse faz17_fetch_market kullanır.
+    """
     try:
-        if provider_fetch_func is None:
-            from .providers import faz17_fetch_market as provider_fetch_func  # local import to avoid circular
-
-        data = provider_fetch_func(league=league, date_str=date_str, home=home, away=away)
-
-        return {
-            "used": True,
-            "reason": "ok",
-            "provider": (data.get("provider") if isinstance(data, dict) else None),
-            "latency_ms": int((time.time() - t0) * 1000),
-            "data": data,
-        }
-
+        fn = provider_fetch_func or faz17_fetch_market
+        md, meta = fn(league=league, date_str=date_str, home=home, away=away)
+        if not isinstance(meta, dict):
+            meta = {"used": False, "reason": "meta_not_dict", "provider": None, "ts": _ts()}
+        meta.setdefault("ts", _ts())
+        return md, meta
     except Exception as e:
-        log.warning(f"[FAZ17] fetch_market_safe error: {e}")
-        return {
-            "used": False,
-            "reason": f"safe_fetch_exception: {e}",
-            "provider": None,
-            "latency_ms": int((time.time() - t0) * 1000),
-            "data": None,
-        }
+        return None, {"used": False, "reason": f"safe_fetch_exception:{e}", "provider": None, "ts": _ts()}
