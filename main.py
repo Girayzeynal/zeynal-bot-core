@@ -184,7 +184,7 @@ def run_pipeline(league: str, date_str: str, home: str, away: str) -> Dict[str, 
                 home=home,
                 away=away,
                 date_str=date_str,
-                market_data=market_data,
+                market_data=market_data_norm, 
                 market_meta=market_meta,
             )
             if isinstance(out, dict):
