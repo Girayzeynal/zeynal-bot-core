@@ -1,10 +1,5 @@
-# -*- coding: utf-8 -*-
-"""
-FAZ-17 package surface (TEK DOĞRU GİRİŞ)
+# FAZ-17 package surface (TEK DOĞRU GİRİŞ)
+from .providers import odds_api_fetch_market as faz17_fetch_market  # provider
+from .faz17_market_fetcher import faz17_fetch_market_safe  # safety wrapper
 
-Dışarıya sadece şunlar çıkar:
-- faz17_fetch_market_safe
-- faz17_fetch_market
-"""
-
-from .faz17_market_fetcher import faz17_fetch_market_safe, faz17_fetch_market  # noqa: F401
+__all__ = ["faz17_fetch_market", "faz17_fetch_market_safe"] 
