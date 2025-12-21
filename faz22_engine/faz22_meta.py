@@ -1,31 +1,33 @@
 import time
 from typing import Dict, Any
 
+from .faz22_state import get_weights
+from .faz22_confidence import combine_confidence
+from faz23_engine.faz23_stats import get_summary
+
 def faz22_meta_engine(match_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    FAZ-22 META ENGINE (FINAL REBUILD v1)
-    - Tek meta burası.
-    - Ağırlıklar şimdilik sabit; dinamikleştirme FAZ-23 error-tags ile yapılacak.
-    """
     ts = int(time.time())
+
+    league = str(match_data.get("league", "UNKNOWN"))
+    w = get_weights(league)
+    w13 = float(w["w13"])
+    w17 = float(w["w17"])
 
     base_pred = float(match_data.get("faz13_pred", match_data.get("base_pred", 165.0)))
     market_ref = match_data.get("faz17_market_ref", None)
-
-    # market_ref opsiyonel
     try:
         market_ref = float(market_ref) if market_ref is not None else None
     except Exception:
         market_ref = None
 
-    # Basit ama kontrollü birleşim:
-    w13 = 0.85
-    w17 = 0.15 if market_ref is not None else 0.0
-    denom = (w13 + w17) if (w13 + w17) > 0 else 1.0
+    if market_ref is None:
+        w13_eff, w17_eff = 1.0, 0.0
+    else:
+        w13_eff, w17_eff = w13, w17
 
-    meta_pred = (base_pred * w13 + (market_ref or 0.0) * w17) / denom
+    denom = (w13_eff + w17_eff) if (w13_eff + w17_eff) > 0 else 1.0
+    meta_pred = (base_pred * w13_eff + (market_ref or 0.0) * w17_eff) / denom
 
-    # Varyans: FAZ-13 band genişliği varsa onu temel al
     band = match_data.get("band")
     if isinstance(band, (list, tuple)) and len(band) == 2:
         try:
@@ -38,15 +40,18 @@ def faz22_meta_engine(match_data: Dict[str, Any]) -> Dict[str, Any]:
     low = round(meta_pred - var)
     high = round(meta_pred + var)
 
-    # confidence: şimdilik var’a bağlı; FAZ-23 ile tarihsel doğruluk bağlanacak
-    confidence = round(max(0.01, min(0.99, 1.0 - (var / 100.0))), 3)
+    var_conf = round(max(0.01, min(0.99, 1.0 - (var / 100.0))), 3)
+    hist = get_summary(league)
+    confidence = combine_confidence(var_conf, hist)
 
     return {
         "ts": ts,
         "engine": "FAZ-22",
+        "league": league,
         "meta_pred": round(meta_pred, 1),
         "range_low": int(low),
         "range_high": int(high),
         "confidence": confidence,
-        "weights": {"w13": round(w13, 3), "w17": round(w17, 3)},
+        "weights": {"w13": round(w13_eff, 3), "w17": round(w17_eff, 3)},
+        "history": hist,
     } 
