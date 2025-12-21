@@ -1,348 +1,134 @@
-# -*- coding: utf-8 -*-
-"""Zeynal Core AI - FINAL MAIN (Fly.io + Telegram)
-- Webhook + Polling fallback
-- /mac LIG | YYYY-MM-DD | Home - Away
-- FAZ-17 market fetch (safe) + debug
-- Telegram JSON chunking
-"""
-
-from __future__ import annotations
-
+# ================================================================
+# MAIN ENTRY – ELITE CORE LOCKED PIPELINE (FINAL REBUILD v1)
+# ================================================================
 import os
 import json
-import time
 import logging
-import threading
-import inspect
-from typing import Any, Dict, Optional, Tuple, List
-
-import telebot
 from flask import Flask, request
+import telebot
 
-# ================================================================
-# LOGGING
-# ================================================================
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
-    level=getattr(logging, LOG_LEVEL, logging.INFO),
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 )
-log = logging.getLogger("zeynal-core")
+log = logging.getLogger("MAIN")
 
-# ================================================================
-# ENV
-# ================================================================
-BOT_TOKEN = (os.getenv("BOT_TOKEN", "") or "").strip()
-WEBHOOK_URL = (os.getenv("WEBHOOK_URL", "") or "").strip()
-WEBHOOK_SECRET = (os.getenv("WEBHOOK_SECRET", "") or "").strip()
-PORT = int((os.getenv("PORT", "8080") or "8080").strip())
-AUTO_WEBHOOK = (os.getenv("AUTO_WEBHOOK", "1") or "1").strip() == "1"
-
-ODDS_API_KEY = (os.getenv("ODDS_API_KEY", "") or "").strip()
-API_SPORT_KEY = (os.getenv("API_SPORT_KEY", "") or "").strip()
-
-TG_LIMIT = int((os.getenv("TG_LIMIT", "3900") or "3900").strip())
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 if not BOT_TOKEN:
-    raise RuntimeError("BOT_TOKEN missing (Fly Secrets -> BOT_TOKEN)")
+    raise RuntimeError("BOT_TOKEN is missing")
 
-# ================================================================
-# BOT + FLASK
-# ================================================================
-bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 
-# ================================================================
-# OPTIONAL IMPORTS
-# ================================================================
-def _noop_normalize_league(x: str) -> str:
-    return (x or "").strip()
+from core.elite_league_registry import normalize_league_input
 
-try:
-    from core.elite_league_registry import normalize_league_input as _normalize_league_input  # type: ignore
-except Exception as e:
-    log.warning(f"[IMPORT] elite_league_registry yok: {e}")
-    _normalize_league_input = _noop_normalize_league
+# ✅ FAZ-17 dışarıya sadece surface fonksiyonlarını açar
+from faz17_engine import faz17_fetch_market, faz17_fetch_market_safe
 
-run_faz13_auto_pipeline = None
-try:
-    from faz13_engine.faz13_orchestrator import run_faz13_auto_pipeline as _rf13  # type: ignore
-    run_faz13_auto_pipeline = _rf13
-except Exception as e:
-    log.warning(f"[IMPORT] faz13_orchestrator yok/bozuk: {e}")
+# ✅ FAZ-13 yalnızca core tahmin üretir
+from faz13_engine.faz13_orchestrator import run_faz13_auto_pipeline
 
-# ================================================================
-# FAZ-17 IMPORT (FIXED: package surface)
-# ================================================================
-faz17_fetch_market_safe = None
-faz17_fetch_market_provider = None
 
-try:
-    from faz17_engine import faz17_fetch_market_safe as _f17safe  # type: ignore
-    faz17_fetch_market_safe = _f17safe
-except Exception as e:
-    log.warning(f"[IMPORT] faz17_engine safe yok/bozuk: {e}")
-
-try:
-    from faz17_engine import faz17_fetch_market as _f17prov  # type: ignore
-    faz17_fetch_market_provider = _f17prov
-except Exception as e:
-    log.warning(f"[IMPORT] faz17_engine provider yok/bozuk: {e}")
-
-# ================================================================
-# DEBUG
-# ================================================================
-def _debug_env() -> None:
-    log.warning(
-        "[FAZ17 ENV] API_SPORT_KEY=%s ODDS_API_KEY=%s",
-        bool(API_SPORT_KEY),
-        bool(ODDS_API_KEY),
-    )
-
-# ================================================================
-# JSON UTILS
-# ================================================================
-def _safe_json_chunks(obj: Any) -> List[str]:
+def parse_mac_command(text: str):
+    """Expected: /mac LEAGUE | YYYY-MM-DD | HOME - AWAY"""
     try:
-        s = json.dumps(obj, ensure_ascii=False, indent=2, default=str)
+        raw = text.replace("/mac", "").strip()
+        parts = [p.strip() for p in raw.split("|")]
+        if len(parts) != 3:
+            return None
+        league_raw = parts[0]
+        date_str = parts[1]
+        teams = parts[2].split("-")
+        if len(teams) != 2:
+            return None
+        home = teams[0].strip()
+        away = teams[1].strip()
+        league = normalize_league_input(league_raw)
+        return {"league": league, "date": date_str, "home": home, "away": away}
     except Exception:
-        s = str(obj)
-
-    chunks: List[str] = []
-    while len(s) > TG_LIMIT:
-        chunks.append(s[:TG_LIMIT])
-        s = s[TG_LIMIT:]
-    chunks.append(s)
-    return chunks
-
-# ================================================================
-# PARSER
-# ================================================================
-def parse_mac_command(text: str) -> Tuple[str, str, str, str]:
-    raw = (text or "").replace("/mac", "", 1).strip()
-    parts = [p.strip() for p in raw.split("|")]
-    if len(parts) < 3:
-        raise ValueError("Format hatası.\nÖrnek: /mac NBA | 2025-12-15 | Brooklyn Nets - Milwaukee Bucks")
-
-    league_raw, date_str, teams = parts[0], parts[1], parts[2]
-    if "-" not in teams:
-        raise ValueError("Takım ayırıcı '-' yok.\nÖrnek: Home - Away")
-
-    home, away = [t.strip() for t in teams.split("-", 1)]
-    if not league_raw or not date_str or not home or not away:
-        raise ValueError("Eksik alan var.\n/mac LIG | YYYY-MM-DD | Home - Away")
-
-    league = _normalize_league_input(league_raw)
-    return league, date_str.strip(), home, away
-
-
-# ================================================================
-# FAZ-17 -> FAZ-13 MARKET NORMALIZE (totals line injection)
-# ================================================================
-def normalize_market_for_faz13(market_data: Optional[Dict[str, Any]], market_meta: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    if not market_data:
         return None
 
-    # mümkün olan anahtarları tek standarda çek
-    line = market_data.get("totals_line")
-    if line is None:
-        # bazen farklı isim gelir
-        line = market_data.get("total_line") or market_data.get("totals") or market_data.get("line")
-
-    try:
-        line_f = float(line) if line is not None else None
-    except Exception:
-        line_f = None
-
-    norm = dict(market_data)
-    if line_f is not None:
-        # FAZ-13 tarafında aradığın "odds totals line" burada:
-        norm["odds_totals_line"] = line_f
-        norm["totals_line"] = line_f  # geriye dönük uyum
-
-    # odds
-    if "over_odds" in market_data:
-        norm["odds_over"] = market_data.get("over_odds")
-    if "under_odds" in market_data:
-        norm["odds_under"] = market_data.get("under_odds")
-
-    # meta bağla
-    norm["_market_meta"] = dict(market_meta or {})
-    return norm
-
-
-# ================================================================
-# PIPELINE
-# ================================================================
-def run_pipeline(league: str, date_str: str, home: str, away: str) -> Dict[str, Any]:
-    market_data_norm = normalize_market_for_faz13(market_data, market_meta)
-
-    if run_faz13_auto_pipeline:
-        try:
-            out = run_faz13_auto_pipeline(  # type: ignore
-                league=league,
-                home=home,
-                away=away,
-                date_str=date_str,
-                market_data=market_data_norm, 
-                market_meta=market_meta,
-            )
-            if isinstance(out, dict):
-                out.setdefault("meta", {})
-                out["meta"].update({"league": league, "date": date_str, "home": home, "away": away})
-                return out
-        except Exception as e:
-            log.exception(f"[FAZ13] pipeline crash: {e}")
-
-    # Fallback: asla cevapsız bırakma
-    return {
-        "engine": "FALLBACK_CORE",
-        "match": {"league": league, "date": date_str, "home": home, "away": away},
-        "market": {
-            "used": bool(market_meta.get("used")),
-            "reason": market_meta.get("reason"),
-            "provider": market_meta.get("provider"),
-            "ts": market_meta.get("ts"),
-        },
-        "prediction": {
-            "total": None,
-            "band": None,
-            "confidence": 0.0,
-            "note": "FAZ-13 yok/bozuk veya çalışmadı; fallback çıktı üretildi.",
-        },
-        "debug": {"market_meta": market_meta},
-    }
-
-# ================================================================
-# TELEGRAM HANDLERS
-# ================================================================
-@bot.message_handler(commands=["start"])
-def on_start(msg):
-    bot.reply_to(
-        msg,
-        "Zeynal Core AI aktif.\n\n"
-        "Komut:\n"
-        "/mac LIG | YYYY-MM-DD | Home - Away\n\n"
-        "Test:\n"
-        "/status\n"
-        "/testkeys\n"
-    )
-
-@bot.message_handler(commands=["status"])
-def on_status(msg):
-    _debug_env()
-    bot.reply_to(
-        msg,
-        "STATUS\n"
-        f"- webhook_url: {'set' if bool(WEBHOOK_URL) else 'empty'}\n"
-        f"- webhook_secret: {'set' if bool(WEBHOOK_SECRET) else 'empty'}\n"
-        f"- ODDS_API_KEY: {bool(ODDS_API_KEY)}\n"
-        f"- API_SPORT_KEY: {bool(API_SPORT_KEY)}\n"
-        f"- faz13: {bool(run_faz13_auto_pipeline)}\n"
-        f"- faz17_safe: {bool(faz17_fetch_market_safe)}\n"
-        f"- faz17_provider: {bool(faz17_fetch_market_provider)}\n"
-    )
-
-@bot.message_handler(commands=["testkeys"])
-def on_testkeys(msg):
-    lines = [
-        "KEY TEST",
-        f"- ODDS_API_KEY present: {bool(ODDS_API_KEY)}",
-        f"- API_SPORT_KEY present: {bool(API_SPORT_KEY)}",
-    ]
-    if not ODDS_API_KEY:
-        lines.append("! ODDS_API_KEY yok -> Fly Secrets'e ODDS_API_KEY ekle")
-    bot.reply_to(msg, "\n".join(lines))
 
 @bot.message_handler(commands=["mac"])
-def on_mac(msg):
-    try:
-        league, date_str, home, away = parse_mac_command(msg.text or "")
-    except Exception as e:
-        bot.reply_to(msg, f"❌ {e}")
+def handle_mac(message):
+    parsed = parse_mac_command(message.text or "")
+    if not parsed:
+        bot.reply_to(message, "❌ Format hatalı.\n/mac LIG | YYYY-MM-DD | EV - DEP")
         return
 
-    bot.reply_to(msg, f"⏳ Analiz ediliyor:\n{league} | {date_str}\n{home} - {away}")
+    league = parsed["league"]
+    date_str = parsed["date"]
+    home = parsed["home"]
+    away = parsed["away"]
 
+    log.info(f"MAC REQUEST | {league} | {date_str} | {home} vs {away}")
+
+    # ------------------------------------------------------------
+    # FAZ-17 MARKET (ONLY DATA) — SAFE WRAPPER
+    # ------------------------------------------------------------
+    market_data, market_meta = faz17_fetch_market_safe(
+        provider_fetch_func=faz17_fetch_market,
+        league=league,
+        date_str=date_str,
+        home=home,
+        away=away,
+    )
+
+    # ------------------------------------------------------------
+    # FAZ-13 CORE (ONLY PRED) — consumes market as signal
+    # ------------------------------------------------------------
+    result = run_faz13_auto_pipeline(
+        league=league,
+        home=home,
+        away=away,
+        date_str=date_str,
+        market_data=market_data,
+        market_meta=market_meta,
+    )
+
+    # Minimal, stabil cevap (uzun formatı sonra FAZ-13 GOD layer’a bağlarız)
+    reply = (
+        f"🏀 {home} - {away}\n"
+        f"📅 {date_str}\n"
+        f"🏷️ Lig: {league}\n\n"
+        f"🎯 FAZ-13 Base: {result.get('base_pred')}\n"
+        f"📌 Band: {result.get('band')}\n"
+        f"🧩 Enrichment: {', '.join(result.get('enrichment') or []) or 'Yok'}\n\n"
+        f"📈 Market:\n"
+        f" • Used: {result['market']['used']}\n"
+        f" • Conf: {result['market']['confidence']}\n"
+        f" • Line: {result['market'].get('totals_line')}\n"
+        f" • Reason: {result['market']['reason']}\n"
+    )
+
+    bot.reply_to(message, reply)
+
+
+@app.route(f"/{BOT_TOKEN}", methods=["POST"])
+def webhook():
+    # ✅ Stabil parse: string -> dict -> Update
+    raw = request.get_data(as_text=True) or ""
     try:
-        out = run_pipeline(league, date_str, home, away)
-    except Exception as e:
-        log.exception(f"[PIPELINE] hard crash: {e}")
-        bot.reply_to(msg, f"❌ Pipeline crash: {e}")
-        return
+        payload = json.loads(raw) if raw else {}
+    except Exception:
+        payload = {}
+    update = telebot.types.Update.de_json(payload)
+    bot.process_new_updates([update])
+    return "OK", 200
 
-    for part in _safe_json_chunks(out):
-        bot.reply_to(msg, f"```json\n{part}\n```", parse_mode="Markdown")
 
-# ================================================================
-# FLASK ROUTES
-# ================================================================
-@app.get("/")
+@app.route("/")
 def health():
     return "OK", 200
 
-@app.post("/webhook")
-def telegram_webhook():
-    token = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-    if WEBHOOK_SECRET and token != WEBHOOK_SECRET:
-        return "forbidden", 403
-
-    try:
-        data = request.get_data(as_text=True)
-        upd = telebot.types.Update.de_json(data)
-        bot.process_new_updates([upd])
-    except Exception as e:
-        log.exception(f"[WEBHOOK] parse/process error: {e}")
-    return "OK", 200
-
-@app.post(f"/{BOT_TOKEN}")
-def telegram_webhook_tokenpath():
-    try:
-        data = request.get_data(as_text=True)
-        upd = telebot.types.Update.de_json(data)
-        bot.process_new_updates([upd])
-    except Exception as e:
-        log.exception(f"[WEBHOOK_TOKENPATH] error: {e}")
-    return "OK", 200
-
-# ================================================================
-# BOOTSTRAP
-# ================================================================
-def _normalize_webhook_url(base: str) -> str:
-    base = (base or "").rstrip("/")
-    if not base:
-        return ""
-    if base.endswith("/webhook"):
-        return base
-    return base + "/webhook"
-
-def _start_flask():
-    log.info(f"[FLASK] starting on 0.0.0.0:{PORT}")
-    app.run(host="0.0.0.0", port=PORT)
-
-def _start_polling():
-    log.info("[POLLING] starting infinity_polling")
-    bot.infinity_polling(timeout=30, long_polling_timeout=30)
 
 if __name__ == "__main__":
-    flask_thread = threading.Thread(target=_start_flask, daemon=True)
-    flask_thread.start()
-
-    if AUTO_WEBHOOK and WEBHOOK_URL:
-        try:
-            hook = _normalize_webhook_url(WEBHOOK_URL)
-            bot.remove_webhook()
-            time.sleep(0.25)
-            if WEBHOOK_SECRET:
-                bot.set_webhook(url=hook, secret_token=WEBHOOK_SECRET)
-            else:
-                bot.set_webhook(url=hook)
-            log.warning(f"[WEBHOOK] set -> {hook} (secret={'on' if bool(WEBHOOK_SECRET) else 'off'})")
-        except Exception as e:
-            log.exception(f"[WEBHOOK] set failed -> fallback polling: {e}")
-            _start_polling()
+    if WEBHOOK_URL:
+        bot.remove_webhook()
+        bot.set_webhook(url=f"{WEBHOOK_URL}/{BOT_TOKEN}")
+        log.info("Webhook set")
     else:
-        _start_polling()
-
-    while True:
-        time.sleep(3600)
+        log.info("Running in polling mode")
+    bot.infinity_polling()
