@@ -1,60 +1,52 @@
-import numpy as np
 import time
+from typing import Dict, Any
 
-def faz22_meta_engine(match_data: dict) -> dict: 
+def faz22_meta_engine(match_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    FAZ-22 META ENGINE FULL STACK
-    Ultra birleşik tahmin motoru.
-    Fly.io 512 MB SAFE MODE.
+    FAZ-22 META ENGINE (FINAL REBUILD v1)
+    - Tek meta burası.
+    - Ağırlıklar şimdilik sabit; dinamikleştirme FAZ-23 error-tags ile yapılacak.
     """
     ts = int(time.time())
 
-    # FAZ-10 score
-    st_score = float(match_data.get("faz10_score", 1.0))
+    base_pred = float(match_data.get("faz13_pred", match_data.get("base_pred", 165.0)))
+    market_ref = match_data.get("faz17_market_ref", None)
 
-    # FAZ-11 feedback trend
-    fb = float(match_data.get("faz11_feedback", 1.0))
+    # market_ref opsiyonel
+    try:
+        market_ref = float(market_ref) if market_ref is not None else None
+    except Exception:
+        market_ref = None
 
-    # FAZ-12 auto-adjust factor
-    adj = float(match_data.get("faz12_adjust", 1.0))
+    # Basit ama kontrollü birleşim:
+    w13 = 0.85
+    w17 = 0.15 if market_ref is not None else 0.0
+    denom = (w13 + w17) if (w13 + w17) > 0 else 1.0
 
-    # FAZ-13 pipeline prediction
-    base_pred = float(match_data.get("faz13_pred", 150))
+    meta_pred = (base_pred * w13 + (market_ref or 0.0) * w17) / denom
 
-    # FAZ-17 market
-    market_ref = float(match_data.get("faz17_market_ref", 0))
+    # Varyans: FAZ-13 band genişliği varsa onu temel al
+    band = match_data.get("band")
+    if isinstance(band, (list, tuple)) and len(band) == 2:
+        try:
+            var = max(3.0, (float(band[1]) - float(band[0])) / 2.0)
+        except Exception:
+            var = max(3.0, abs(meta_pred) * 0.06)
+    else:
+        var = max(3.0, abs(meta_pred) * 0.06)
 
-    # =====================
-    # META COMBINE
-    # =====================
-    w10 = 0.25
-    w11 = 0.10
-    w12 = 0.15
-    w13 = 0.40
-    w17 = 0.10
+    low = round(meta_pred - var)
+    high = round(meta_pred + var)
 
-    final_score = (
-        base_pred * w13 +
-        st_score * w10 +
-        fb * w11 +
-        adj * w12 +
-        market_ref * w17
-    )
-
-    # Variation / Play-range
-    var = max(3, abs(final_score * 0.06))
-
-    # =====================
-    # Output SIM
-    # =====================
-    low = round(final_score - var)
-    high = round(final_score + var)
+    # confidence: şimdilik var’a bağlı; FAZ-23 ile tarihsel doğruluk bağlanacak
+    confidence = round(max(0.01, min(0.99, 1.0 - (var / 100.0))), 3)
 
     return {
         "ts": ts,
-        "meta_pred": round(final_score, 1),
-        "range_low": low,
-        "range_high": high,
-        "confidence": round(1.0 - (var / 100), 3),
-        "engine": "FAZ-22 META ENGINE FULL STACK"
-    }
+        "engine": "FAZ-22",
+        "meta_pred": round(meta_pred, 1),
+        "range_low": int(low),
+        "range_high": int(high),
+        "confidence": confidence,
+        "weights": {"w13": round(w13, 3), "w17": round(w17, 3)},
+    } 
