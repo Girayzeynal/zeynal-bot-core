@@ -1,7 +1,3 @@
-# ============================================================
-# Zeynal-Bot-Core — Fly.io Free Plan SAFE MODE
-# ============================================================
-
 app = "zeynal-bot-core"
 primary_region = "ams"
 
@@ -9,51 +5,26 @@ kill_signal = "SIGINT"
 kill_timeout = "5s"
 
 [build]
-dockerfile = "Dockerfile"
+  dockerfile = "Dockerfile"
 
 [env]
-PYTHONUNBUFFERED = "1"
-WEB_CONCURRENCY = "1"
+  PYTHONUNBUFFERED = "1"
 
-# ============================================================
-# HTTP Services (Free Plan Auto-start / Auto-stop)
-# ============================================================
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = true
+  min_machines_running = 0
 
-[[services]]
-internal_port = 8080
-protocol = "tcp"
-auto_start = true
-auto_stop = true
-auto_stop_machines = true
-min_machines_running = 0
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
 
-[services.concurrency]
-type = "connections"
-hard_limit = 25
-soft_limit = 20
-
-[[services.ports]]
-port = 80
-handlers = ["http"]
-
-[[services.ports]]
-port = 443
-handlers = ["tls", "http"]
-
-[[services.tcp_checks]]
-grace_period = "1s"
-interval = "10s"
-timeout = "2s"
-restart_limit = 0
-
-# ============================================================
-# Health Check (DÜZELTİLDİ → PORT EKLENDİ)
-# ============================================================
-
-[checks.health]
-type = "http"
-port = 8080
-interval = "15s"
-timeout = "2s"
-path = "/"
-grace_period = "10s" 
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/" 
