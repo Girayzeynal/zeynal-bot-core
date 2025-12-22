@@ -5,18 +5,23 @@ from flask import Flask, request
 import telebot
 
 from core.elite_league_registry import normalize_league_input
-
 from faz17_engine import faz17_fetch_market, faz17_fetch_market_safe
 from faz13_engine import run_faz13_auto_pipeline
 from faz22_engine import faz22_meta_engine
 from faz23_engine import faz23_memory_write, faz23_apply_result
 
+# -------------------------------------------------
+# LOGGING
+# -------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 )
 log = logging.getLogger("MAIN")
 
+# -------------------------------------------------
+# ENV
+# -------------------------------------------------
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
 PORT = int(os.getenv("PORT", "8080"))
@@ -24,10 +29,15 @@ PORT = int(os.getenv("PORT", "8080"))
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN is missing")
 
+# -------------------------------------------------
+# TELEGRAM + FLASK
+# -------------------------------------------------
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 
-
+# -------------------------------------------------
+# PARSERS
+# -------------------------------------------------
 def parse_mac_command(text: str):
     """
     /mac LEAGUE | YYYY-MM-DD | HOME - AWAY
@@ -76,7 +86,9 @@ def parse_result_command(text: str):
     except Exception:
         return None
 
-
+# -------------------------------------------------
+# /mac HANDLER
+# -------------------------------------------------
 @bot.message_handler(commands=["mac"])
 def handle_mac(message):
     parsed = parse_mac_command(message.text or "")
@@ -91,7 +103,7 @@ def handle_mac(message):
 
     log.info(f"MAC REQUEST | {league} | {date_str} | {home} vs {away}")
 
-    # FAZ-17 (safe)
+    # FAZ-17
     market_data, market_meta = faz17_fetch_market_safe(
         provider_fetch_func=faz17_fetch_market,
         league=league,
@@ -131,9 +143,7 @@ def handle_mac(message):
         actual_total=None,
     )
 
-    # =========================
-    # ✅ DÜZELTİLMİŞ REPLY BLOĞU
-    # =========================
+    # ✅ REPLY (market_data YOK!)
     market = faz13.get("market") or {}
 
     reply = (
@@ -149,7 +159,9 @@ def handle_mac(message):
 
     bot.reply_to(message, reply)
 
-
+# -------------------------------------------------
+# /result HANDLER
+# -------------------------------------------------
 @bot.message_handler(commands=["result"])
 def handle_result(message):
     parsed = parse_result_command(message.text or "")
@@ -170,8 +182,10 @@ def handle_result(message):
         f"✅ Sonuç işlendi.\nTags: {out.get('tags')}\nAbsErr: {out.get('abs_error')}"
     )
 
-
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
+# -------------------------------------------------
+# WEBHOOK ENDPOINT (SABİT PATH)
+# -------------------------------------------------
+@app.route("/webhook", methods=["POST"])
 def webhook():
     raw = request.get_data(as_text=True) or ""
     try:
@@ -182,21 +196,22 @@ def webhook():
     bot.process_new_updates([update])
     return "OK", 200
 
-
+# -------------------------------------------------
+# HEALTH CHECK
+# -------------------------------------------------
 @app.route("/")
 def health():
     return "OK", 200
 
-
-# ==========================================================
-# 🔥 TELEGRAM MODE (WEBHOOK / POLLING) — FINAL
-# ==========================================================
+# -------------------------------------------------
+# ENTRYPOINT (FINAL)
+# -------------------------------------------------
 if __name__ == "__main__":
     if WEBHOOK_URL:
         log.info("Starting in WEBHOOK mode")
         bot.remove_webhook()
-        bot.set_webhook(url=f"{WEBHOOK_URL}/{BOT_TOKEN}")
+        bot.set_webhook(url=f"{WEBHOOK_URL}/webhook")
         app.run(host="0.0.0.0", port=PORT)
     else:
         log.info("Starting in POLLING mode (no webhook)")
-        bot.infinity_polling() 
+        bot.infinity_polling()
