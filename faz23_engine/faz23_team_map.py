@@ -1,97 +1,69 @@
-from __future__ import annotations
-
 # -*- coding: utf-8 -*-
 """
-FAZ-23 Team Map (FINAL BUILD)
+FAZ-23 Team Name Mapper (ELITE LEAGUES)
 
 Amaç:
-- Dış API'lerden gelen takım isimlerini kanonik forma normalize etmek
-- API-Sports / Odds / balldontlie farklarını absorbe etmek
-- FAZ-23 DataHub & Meta Engine için stabil takım eşlemesi sağlamak
+- Kullanıcıdan gelen takım adını normalize etmek
+- Provider'ın (API-SPORTS / ODDS) anlayacağı formata dönüştürmek
+
+Not:
+- Lig zaten /mac komutunda geliyor -> lig tespiti yok.
 """
 
-import re
-from typing import Dict
-
-
-# ------------------------------------------------------------
-# Normalization helpers
-# ------------------------------------------------------------
+from __future__ import annotations
+from typing import Optional, Dict
 
 def normalize_team_name(name: str) -> str:
-    """
-    Takım adını normalize eder:
-    - lower
-    - özel karakterleri temizler
-    - fazla boşlukları sadeleştirir
-    """
-    s = (name or "").strip().lower()
-    s = re.sub(r"[^\w\s\-\.]", " ", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
+    return (name or "").lower().strip()
 
+# Elite leagues priority keys
+# NBA, EUROLEAGUE, ACB, BSL, VTB, BBL, LBA, LNB, ABA, A1, NBL, LKL, CBA
+TEAM_MAP: Dict[str, Dict[str, Dict[str, str]]] = {
+    "NBA": {
+        "boston": {"api_sports": "Boston Celtics", "odds": "Boston Celtics"},
+        "indiana": {"api_sports": "Indiana Pacers", "odds": "Indiana Pacers"},
+        "denver": {"api_sports": "Denver Nuggets", "odds": "Denver Nuggets"},
+        "utah": {"api_sports": "Utah Jazz", "odds": "Utah Jazz"},
+        "milwaukee": {"api_sports": "Milwaukee Bucks", "odds": "Milwaukee Bucks"},
+        "los angeles lakers": {"api_sports": "Los Angeles Lakers", "odds": "LA Lakers"},
+        "lakers": {"api_sports": "Los Angeles Lakers", "odds": "LA Lakers"},
+        "phoenix": {"api_sports": "Phoenix Suns", "odds": "Phoenix Suns"},
+        "suns": {"api_sports": "Phoenix Suns", "odds": "Phoenix Suns"},
+    },
 
-# ------------------------------------------------------------
-# Alias map (NBA ağırlıklı, genişletilebilir)
-# ------------------------------------------------------------
+    "EUROLEAGUE": {
+        "fenerbahce": {"api_sports": "Fenerbahce", "odds": "Fenerbahce"},
+        "anadolu efes": {"api_sports": "Anadolu Efes", "odds": "Anadolu Efes"},
+        "olympiacos": {"api_sports": "Olympiacos", "odds": "Olympiacos"},
+        "panathinaikos": {"api_sports": "Panathinaikos", "odds": "Panathinaikos"},
+        "real madrid": {"api_sports": "Real Madrid", "odds": "Real Madrid"},
+        "barcelona": {"api_sports": "Barcelona", "odds": "Barcelona"},
+    },
 
-ALIASES: Dict[str, str] = {
-    # Milwaukee
-    "milwaukee": "Milwaukee Bucks",
-    "milwaukee bucks": "Milwaukee Bucks",
-    "bucks": "Milwaukee Bucks",
-
-    # Boston
-    "boston": "Boston Celtics",
-    "boston celtics": "Boston Celtics",
-    "celtics": "Boston Celtics",
-
-    # Lakers
-    "la lakers": "Los Angeles Lakers",
-    "los angeles lakers": "Los Angeles Lakers",
-    "lakers": "Los Angeles Lakers",
-
-    # Bulls
-    "chicago": "Chicago Bulls",
-    "chicago bulls": "Chicago Bulls",
-    "bulls": "Chicago Bulls",
+    # Diğer ligler: başlangıç. Genişletilebilir.
+    "ACB": {},
+    "BSL": {},
+    "VTB": {},
+    "BBL": {},
+    "LBA": {},
+    "LNB": {},
+    "ABA": {},
+    "A1": {},
+    "NBL": {},
+    "LKL": {},
+    "CBA": {},
 }
 
+def map_team(league: str, team_name: str, provider: str) -> Optional[str]:
+    lg = (league or "").upper().strip()
+    key = normalize_team_name(team_name)
+    provider = (provider or "").strip()
 
-# ------------------------------------------------------------
-# Public API
-# ------------------------------------------------------------
-
-def map_team(name: str) -> str:
-    """
-    Dış API takım adını → kanonik FAZ-23 takım adına mapler.
-    Bulamazsa Title Case fallback döner.
-    """
-    norm = normalize_team_name(name)
-    if not norm:
-        return ""
-
-    # Direkt alias
-    if norm in ALIASES:
-        return ALIASES[norm]
-
-    # Parantez temizleme (örn: "Milwaukee (Bucks)")
-    norm2 = re.sub(r"\(.*?\)", "", norm).strip()
-    if norm2 in ALIASES:
-        return ALIASES[norm2]
-
-    # Fallback → Title Case
-    return " ".join(w.capitalize() for w in norm2.split())
-
-
-# ------------------------------------------------------------
-# Runtime anchor (Fly.io / Docker image guarantee)
-# ------------------------------------------------------------
-
-def _faz23_team_map_runtime_anchor() -> bool:
-    """
-    Fly.io runtime anchor.
-    Bu fonksiyon çağrıldığında dosyanın image içine
-    kesin olarak alınmasını garanti eder.
-    """
-    return True
+    table = TEAM_MAP.get(lg, {})
+    data = table.get(key)
+    if not data:
+        # fallback: provider aynı ismi kabul edebilir
+        # "None/Unknown" istemiyorsun -> bu yüzden ham ismi döndürürüz.
+        # Provider kabul etmezse providers katmanı zaten hata verir.
+        return team_name.strip()
+    return data.get(provider) or team_name.strip() 
