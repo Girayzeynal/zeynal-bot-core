@@ -187,6 +187,9 @@ if __name__ == "__main__":
         log.info("Starting in WEBHOOK mode")
         bot.remove_webhook()
         bot.set_webhook(url=f"{WEBHOOK_URL}/{BOT_TOKEN}")
+
+        # 🔥 ÇOK KRİTİK: Flask server AYAKTA KALMALI
+        app.run(host="0.0.0.0", port=PORT)
     else:
         log.info("Starting in POLLING mode (no webhook)")
         bot.infinity_polling()
