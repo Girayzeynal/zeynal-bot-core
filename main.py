@@ -1,4 +1,3 @@
-# main.py
 import os
 import json
 import logging
@@ -67,52 +66,15 @@ def parse_result_command(text: str):
         home = teams[0].strip()
         away = teams[1].strip()
         total = float(parts[3])
-        return {"league": league, "date": date_str, "home": home, "away": away, "total": total}
+        return {
+            "league": league,
+            "date": date_str,
+            "home": home,
+            "away": away,
+            "total": total
+        }
     except Exception:
         return None
-
-
-def _format_reply(f13: dict, f22: dict) -> str:
-    home = f13.get("home", "?")
-    away = f13.get("away", "?")
-    league = f13.get("league", "?")
-    date_str = f13.get("date", "?")
-
-    base_pred = f13.get("base_pred")
-    band = f13.get("band", [])
-    periods = f13.get("periods", {})
-    play = f13.get("play", {}) if isinstance(f13.get("play"), dict) else {}
-    play_flag = play.get("play", True)
-    play_risk = play.get("risk", "MID")
-    play_reason = play.get("reason", "ok")
-
-    meta_pred = f22.get("meta_pred")
-    rlow = f22.get("range_low")
-    rhigh = f22.get("range_high")
-    conf = f22.get("confidence")
-    hist = f22.get("history", {}) if isinstance(f22.get("history"), dict) else {}
-
-    market = f13.get("market", {}) if isinstance(f13.get("market"), dict) else {}
-    m_used = market.get("used", False)
-    m_conf = market.get("confidence", 0.0)
-    m_line = market.get("totals_line", None)
-
-    return (
-        f"🏀 {home} - {away}\n"
-        f"🏷️ {league} | 📅 {date_str}\n\n"
-        f"🧠 FAZ-13 Base: {base_pred}\n"
-        f"🎯 FAZ-13 Band: {band}\n"
-        f"🚦 Oynanır mı?: {play_flag} | Risk: {play_risk} | Reason: {play_reason}\n\n"
-        f"🧬 FAZ-22 META: {meta_pred}\n"
-        f"📌 Final Band: [{rlow}, {rhigh}]\n"
-        f"✅ Confidence: {conf}\n"
-        f"📚 History: n={hist.get('n',0)} hit={hist.get('hit_rate',0)} mae={hist.get('mae',0)}\n\n"
-        f"⏱️ Senaryo (Toplam):\n"
-        f" • 1Q: {periods.get('q1')}  2Q: {periods.get('q2')}  (İY: {periods.get('h1')})\n"
-        f" • 3Q: {periods.get('q3')}  4Q: {periods.get('q4')}\n\n"
-        f"📈 Market:\n"
-        f" • Used: {m_used} | Conf: {m_conf} | Line: {m_line}\n"
-    )
 
 
 @bot.message_handler(commands=["mac"])
@@ -129,7 +91,6 @@ def handle_mac(message):
 
     log.info(f"MAC REQUEST | {league} | {date_str} | {home} vs {away}")
 
-    # FAZ-17 market (safe)
     market_data, market_meta = faz17_fetch_market_safe(
         provider_fetch_func=faz17_fetch_market,
         league=league,
@@ -138,7 +99,6 @@ def handle_mac(message):
         away=away,
     )
 
-    # FAZ-13 base
     faz13 = run_faz13_auto_pipeline(
         league=league,
         home=home,
@@ -148,7 +108,6 @@ def handle_mac(message):
         market_meta=market_meta,
     )
 
-    # FAZ-22 meta + true confidence
     match_data = {
         "league": league,
         "base_pred": faz13.get("base_pred"),
@@ -156,9 +115,9 @@ def handle_mac(message):
         "band": faz13.get("band"),
         "faz17_market_ref": (faz13.get("market") or {}).get("totals_line"),
     }
+
     faz22 = faz22_meta_engine(match_data)
 
-    # FAZ-23 memory write
     faz23_memory_write(
         league=league,
         date_str=date_str,
@@ -169,7 +128,17 @@ def handle_mac(message):
         actual_total=None,
     )
 
-    bot.reply_to(message, _format_reply(faz13, faz22))
+    reply = (
+        f"🏀 {home} - {away}\n"
+        f"🏷️ {league} | 📅 {date_str}\n\n"
+        f"🧠 Base: {faz13.get('base_pred')}\n"
+        f"🎯 Band: {faz13.get('band')}\n"
+        f"🧬 META: {faz22.get('meta_pred')} "
+        f"[{faz22.get('range_low')}, {faz22.get('range_high')}]\n"
+        f"✅ Confidence: {faz22.get('confidence')}\n"
+    )
+
+    bot.reply_to(message, reply)
 
 
 @bot.message_handler(commands=["result"])
@@ -187,19 +156,10 @@ def handle_result(message):
         actual_total=parsed["total"],
     )
 
-    msg = (
-        f"✅ Sonuç işlendi.\n"
-        f"🏷️ {parsed['league']} | 📅 {parsed['date']}\n"
-        f"🏀 {parsed['home']} - {parsed['away']}\n"
-        f"📌 Actual Total: {parsed['total']}\n\n"
-        f"🧠 Error: {out.get('error')}\n"
-        f"🏷️ Tags: {', '.join(out.get('tags') or []) or 'Yok'}\n"
-        f"📉 AbsErr: {out.get('abs_error')}\n"
-        f"🎯 HitBand: {out.get('hit_band')}\n"
-        f"🧬 MetaΔ: {out.get('meta_delta_hint')}\n"
-        f"⚙️ NewWeights: {out.get('new_weights')}\n"
+    bot.reply_to(
+        message,
+        f"✅ Sonuç işlendi.\nTags: {out.get('tags')}\nAbsErr: {out.get('abs_error')}"
     )
-    bot.reply_to(message, msg)
 
 
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
@@ -219,7 +179,14 @@ def health():
     return "OK", 200
 
 
+# ==========================================================
+# 🔥 TELEGRAM MODE FIX (409 CONFLICT FIXED)
+# ==========================================================
 if __name__ == "__main__":
-    # Lokal test için polling
-    log.info("Starting in polling mode (local)")
-    bot.infinity_polling() 
+    if WEBHOOK_URL:
+        log.info("Starting in WEBHOOK mode")
+        bot.remove_webhook(drop_pending_updates=True)
+        bot.set_webhook(url=f"{WEBHOOK_URL}/{BOT_TOKEN}")
+    else:
+        log.info("Starting in POLLING mode (no webhook)")
+        bot.infinity_polling()
