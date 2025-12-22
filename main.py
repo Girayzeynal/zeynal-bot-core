@@ -185,7 +185,7 @@ def health():
 if __name__ == "__main__":
     if WEBHOOK_URL:
         log.info("Starting in WEBHOOK mode")
-        bot.remove_webhook(drop_pending_updates=True)
+        bot.remove_webhook()
         bot.set_webhook(url=f"{WEBHOOK_URL}/{BOT_TOKEN}")
     else:
         log.info("Starting in POLLING mode (no webhook)")
