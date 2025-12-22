@@ -1,79 +1,165 @@
- # ================================================================
-# FAZ-17 MARKET — Odds API PRIMARY / API-Sports FALLBACK
-# None yok; üst katman fallback uygular.
-# ================================================================
+# -*- coding: utf-8 -*-
 from __future__ import annotations
-import os, json, time, urllib.parse, urllib.request
-from typing import Any, Dict, Optional, Tuple
 
-def _now(): return int(time.time())
+import os
+import time
+import requests
+from typing import Dict, Any, Optional, Tuple
 
-def _safe_float(x: Any) -> Optional[float]:
-    try: return float(x)
-    except Exception: return None
+# =========================
+# ENV
+# =========================
+ODDS_API_KEY = os.getenv("ODDS_API_KEY", "").strip()
+ODDS_API_URL = os.getenv("ODDS_API_URL", "https://api.the-odds-api.com/v4").strip()
 
-def _http_get_json(url: str, headers: Dict[str, str], timeout: int = 12) -> Dict[str, Any]:
-    req = urllib.request.Request(url, headers=headers, method="GET")
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        raw = r.read().decode("utf-8", errors="ignore")
-    try: return json.loads(raw)
-    exceptexcept: return {"_raw": raw}
+API_SPORT_KEY = os.getenv("API_SPORT_KEY", "").strip()
+API_SPORT_URL = os.getenv("API_SPORT_URL", "https://v1.basketball.api-sports.io").strip()
 
-def _odds_url_with_key(base_url: str, api_key: str) -> str:
-    if "apiKey=" in base_url or "apikey=" in base_url: return base_url
-    joiner = "&" if "?" in base_url else "?"
-    return f"{base_url}{joiner}apiKey={urllib.parse.quote(api_key)}"
+TIMEOUT = 8
 
-def fetch_market_line_odds_api(league: str, date_str: str, home: str, away: str):
-    key = (os.getenv("ODDS_API_KEY","") or "").strip()
-    url = (os.getenv("ODDS_API_URL","") or "").strip()
-    meta = {"provider":"odds_api","used":False,"reason":"","ts":_now()}
-    if not key or not url:
-        meta["reason"]="missing_odds_key_or_url"; return None, meta
+
+# =========================
+# UTILS
+# =========================
+def implied_prob(odds: float) -> float:
     try:
-        data = _http_get_json(_odds_url_with_key(url, key), headers={}, timeout=12)
-        line = _safe_float(data.get("totals_line"))
-        if line is None and isinstance(data, list) and data:
-            first = data[0]; 
-            if isinstance(first, dict):
-                line = _safe_float(first.get("totals_line") or first.get("total_line") or first.get("line"))
-        if line is None:
-            meta["reason"]="no_line_in_odds"; return None, meta
-        meta["used"]=True; meta["reason"]="ok"; 
-        return float(line), meta
-    except Exception as e:
-        meta["reason"]=f"odds_err:{e}"; return None, meta
+        o = float(odds)
+        if o <= 1.0:
+            return 0.0
+        return 1.0 / o
+    except Exception:
+        return 0.0
 
-def fetch_market_line_api_sports(league: str, date_str: str, home: str, away: str):
-    key = (os.getenv("API_SPORT_KEY","") or "").strip()
-    base = (os.getenv("API_SPORT_URL","") or "").strip().rstrip("/")
-    meta = {"provider":"api_sports","used":False,"reason":"","ts":_now()}
-    if not key or not base:
-        meta["reason"]="missing_api_sport_key_or_url"; return None, meta
+
+def clamp01(x: float) -> float:
     try:
-        headers={"x-apisports-key": key}
-        params = urllib.parse.urlencode({"league":league,"date":date_str,"home":home,"away":away})
-        url = f"{base}?{params}" if "?" not in base else base
-        data = _http_get_json(url, headers=headers, timeout=12)
-        line = _safe_float(data.get("totals_line"))
-        if line is None:
-            resp = data.get("response")
-            if isinstance(resp, list) and resp:
-                first = resp[0]
-                if isinstance(first, dict):
-                    line = _safe_float(first.get("totals_line") or first.get("line"))
-        if line is None:
-            meta["reason"]="no_line_in_api_sports"; return None, meta
-        meta["used"]=True; meta["reason"]="ok"; 
-        return float(line), meta
-    except Exception as e:
-        meta["reason"]=f"api_sports_err:{e}"; return None, meta
+        v = float(x)
+    except Exception:
+        return 0.0
+    return max(0.0, min(1.0, v))
 
-def fetch_market(league: str, date_str: str, home: str, away: str):
-    l1, m1 = fetch_market_line_odds_api(league, date_str, home, away)
-    if l1 is not None:
-        return {"provider":"odds_api","totals_line":l1,"ts":_now()}, {"market":{"used":True,"provider":"odds_api","reason":"ok"}}
-    l2, m2 = fetch_market_line_api_sports(league, date_str, home, away)
-    if l2 is not None:
-        return {"provider":"api_sports","totals_line":l2,"ts":_now()}, {"market":{"used":True,"provider":"api_sports","reason":"ok"}}
-    return {"provider":None,"totals_line":None,"ts":_now(),"meta":{"odds":m1,"api_sports":m2}}, {"market":{"used":False,"provider":None,"reason":"no_market_line"}}
+
+def _safe_get(d: Dict[str, Any], *keys, default=None):
+    cur = d
+    for k in keys:
+        if not isinstance(cur, dict):
+            return default
+        cur = cur.get(k)
+    return cur if cur is not None else default
+
+
+# =========================
+# CORE – MARKET FETCH
+# =========================
+def fetch_market(
+    league: str,
+    date_str: str,
+    home: str,
+    away: str,
+) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
+    """
+    Market verisini çeker.
+    DÖNÜŞ:
+    - market_data: dict | None
+    - market_meta: dict (debug + status)
+    """
+
+    meta = {
+        "source": None,
+        "status": "EMPTY",
+        "error": None,
+        "league": league,
+        "date": date_str,
+    }
+
+    # -------------------------
+    # 1) ODDS API
+    # -------------------------
+    if ODDS_API_KEY:
+        try:
+            url = f"{ODDS_API_URL}/sports/basketball/odds"
+            params = {
+                "apiKey": ODDS_API_KEY,
+                "regions": "eu,us",
+                "markets": "totals",
+                "oddsFormat": "decimal",
+            }
+
+            r = requests.get(url, params=params, timeout=TIMEOUT)
+            if r.status_code == 200:
+                data = r.json()
+                for g in data:
+                    h = _safe_get(g, "home_team")
+                    a = _safe_get(g, "away_team")
+                    if not h or not a:
+                        continue
+                    if home.lower() in h.lower() and away.lower() in a.lower():
+                        totals = _safe_get(g, "bookmakers", 0, "markets", 0, "outcomes", default=[])
+                        over = next((x for x in totals if x.get("name") == "Over"), None)
+                        under = next((x for x in totals if x.get("name") == "Under"), None)
+
+                        market = {
+                            "totals_line": over.get("point") if over else None,
+                            "odds_over": over.get("price") if over else None,
+                            "odds_under": under.get("price") if under else None,
+                            "raw": g,
+                        }
+
+                        meta["source"] = "ODDS_API"
+                        meta["status"] = "OK"
+                        return market, meta
+        except Exception as e:
+            meta["error"] = f"ODDS_API_ERROR: {e}"
+
+    # -------------------------
+    # 2) API-SPORTS (fallback)
+    # -------------------------
+    if API_SPORT_KEY:
+        try:
+            headers = {"x-apisports-key": API_SPORT_KEY}
+            url = f"{API_SPORT_URL}/games"
+            params = {
+                "date": date_str,
+                "league": league,
+            }
+
+            r = requests.get(url, headers=headers, params=params, timeout=TIMEOUT)
+            if r.status_code == 200:
+                data = r.json()
+                meta["source"] = "API_SPORTS"
+                meta["status"] = "OK"
+                return {"raw": data}, meta
+        except Exception as e:
+            meta["error"] = f"API_SPORTS_ERROR: {e}"
+
+    # -------------------------
+    # 3) FAIL SAFE
+    # -------------------------
+    meta["status"] = "NO_MARKET"
+    return None, meta
+
+
+# =========================
+# ENRICH – MODEL + MARKET
+# =========================
+def enrich_with_market(
+    model_prob_over: float,
+    model_prob_under: Optional[float],
+    odds_over: Optional[float],
+    odds_under: Optional[float],
+) -> Dict[str, float]:
+
+    imp_over = implied_prob(odds_over) if odds_over else 0.0
+    imp_under = implied_prob(odds_under) if odds_under else 0.0
+
+    mpo = clamp01(model_prob_over)
+    mpu = clamp01(model_prob_under if model_prob_under is not None else 1.0 - mpo)
+
+    return {
+        "implied_over": imp_over,
+        "implied_under": imp_under,
+        "model_prob_over": mpo,
+        "model_prob_under": mpu,
+        "edge_over": mpo - imp_over,
+        "edge_under": mpu - imp_under,
+    } 
