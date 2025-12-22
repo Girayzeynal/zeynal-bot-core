@@ -5,7 +5,7 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Sistem bağımlılıkları (requests vs. için güvenli)
+# Sistem bağımlılıkları
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -15,9 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Fly varsayılan port (Flask health/webhook için)
 ENV PORT=8080
 
-# ❗ Gunicorn YOK
-# ❗ Tek process: Telegram bot + Flask
-CMD ["python", "main.py"] 
+# Tek process: Telegram bot + Flask
+CMD ["python", "main.py"]
