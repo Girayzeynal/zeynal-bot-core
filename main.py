@@ -10,28 +10,23 @@ from faz13_engine import run_faz13_auto_pipeline
 from faz22_engine import faz22_meta_engine
 from faz23_engine import faz23_memory_write, faz23_apply_result
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 )
 log = logging.getLogger("MAIN")
 
-# Environment variables
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()  # e.g. https://zeynal-bot-core.fly.dev/webhook
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
 PORT = int(os.getenv("PORT", "8080"))
 
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN is missing")
 
-# Telegram bot and Flask app
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 
-# Helper parsers
 def parse_mac_command(text: str):
-    """Parse /mac LEAGUE | YYYY-MM-DD | HOME - AWAY"""
     try:
         raw = text.replace("/mac", "").strip()
         parts = [p.strip() for p in raw.split("|")]
@@ -49,7 +44,6 @@ def parse_mac_command(text: str):
         return None
 
 def parse_result_command(text: str):
-    """Parse /result LEAGUE | YYYY-MM-DD | HOME - AWAY | TOTAL"""
     try:
         raw = text.replace("/result", "").strip()
         parts = [p.strip() for p in raw.split("|")]
@@ -67,7 +61,6 @@ def parse_result_command(text: str):
     except Exception:
         return None
 
-# /mac handler
 @bot.message_handler(commands=["mac"])
 def handle_mac(message):
     parsed = parse_mac_command(message.text or "")
@@ -82,7 +75,6 @@ def handle_mac(message):
 
     log.info(f"MAC REQUEST | {league} | {date_str} | {home} vs {away}")
 
-    # FAZ-17 market (safe wrapper)
     market_data, market_meta = faz17_fetch_market_safe(
         provider_fetch_func=faz17_fetch_market,
         league=league,
@@ -91,7 +83,6 @@ def handle_mac(message):
         away=away,
     )
 
-    # FAZ-13 base
     faz13 = run_faz13_auto_pipeline(
         league=league,
         home=home,
@@ -101,7 +92,6 @@ def handle_mac(message):
         market_meta=market_meta,
     )
 
-    # FAZ-22 meta
     match_data = {
         "league": league,
         "base_pred": faz13.get("base_pred"),
@@ -111,7 +101,6 @@ def handle_mac(message):
     }
     faz22 = faz22_meta_engine(match_data)
 
-    # FAZ-23 memory
     faz23_memory_write(
         league=league,
         date_str=date_str,
@@ -122,7 +111,7 @@ def handle_mac(message):
         actual_total=None,
     )
 
-    # Reply (avoid market_data; use faz13['market'])
+    periods = faz13.get("periods", {})
     market = faz13.get("market") or {}
 
     reply = (
@@ -130,15 +119,17 @@ def handle_mac(message):
         f"🏷️ {league} | 📅 {date_str}\n\n"
         f"🧠 Base: {faz13.get('base_pred')}\n"
         f"🎯 Band: {faz13.get('band')}\n"
-        f"🧬 META: {faz22.get('meta_pred')} "
-        f"[{faz22.get('range_low')}, {faz22.get('range_high')}]\n"
-        f"✅ Confidence: {faz22.get('confidence')}\n"
+        f"🧬 META: {faz22.get('meta_pred')} [{faz22.get('range_low')}, {faz22.get('range_high')}]\n"
+        f"✅ Confidence: {faz22.get('confidence')}\n\n"
+        f"📊 Periyot Tahminleri:\n"
+        f" • 1. Çeyrek: {periods.get('q1')}\n"
+        f" • 2. Çeyrek: {periods.get('q2')} (İlk Yarı: {periods.get('h1')})\n"
+        f" • 3. Çeyrek: {periods.get('q3')}\n"
+        f" • 4. Çeyrek: {periods.get('q4')} (İkinci Yarı: {periods.get('h2')})\n"
         f"📈 Market Line: {market.get('totals_line')}\n"
     )
-
     bot.reply_to(message, reply)
 
-# /result handler
 @bot.message_handler(commands=["result"])
 def handle_result(message):
     parsed = parse_result_command(message.text or "")
@@ -156,7 +147,6 @@ def handle_result(message):
 
     bot.reply_to(message, f"✅ Sonuç işlendi.\nTags: {out.get('tags')}\nAbsErr: {out.get('abs_error')}")
 
-# Webhook endpoint (accept /webhook and /webhook/<anything>)
 @app.route("/webhook", methods=["POST"])
 @app.route("/webhook/<path:extra>", methods=["POST"])
 def webhook(extra=None):
@@ -169,20 +159,15 @@ def webhook(extra=None):
     bot.process_new_updates([update])
     return "OK", 200
 
-# Health check
 @app.route("/")
 def health():
     return "OK", 200
 
-# Entrypoint
 if __name__ == "__main__":
     if WEBHOOK_URL:
         log.info("Starting in WEBHOOK mode")
-        # Clean previous webhook
         bot.remove_webhook()
-        # Use the full WEBHOOK_URL without appending /webhook; assume it already contains path or not
         bot.set_webhook(url=WEBHOOK_URL)
-        # Keep Flask alive for Fly health check
         app.run(host="0.0.0.0", port=PORT)
     else:
         log.info("Starting in POLLING mode (no webhook)")
