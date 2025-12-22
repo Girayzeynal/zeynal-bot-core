@@ -1,3 +1,4 @@
+# main.py
 import os
 import json
 import logging
@@ -5,15 +6,14 @@ from flask import Flask, request
 import telebot
 
 from core.elite_league_registry import normalize_league_input
-from faz17_engine import faz17_fetch_market, faz17_fetch_market_safe
-from faz13_engine import run_faz13_auto_pipeline
-from faz22_engine import faz22_meta_engine
-from faz23_engine import faz23_memory_write, faz23_apply_result
+from faz17_engine.providers import faz17_fetch_market
+from faz17_engine.faz17_market_fetcher import faz17_fetch_market_safe
+from faz13_engine.faz13_orchestrator import run_faz13_auto_pipeline
+from faz22_engine.faz22_meta import faz22_meta_engine
+from faz23_engine.faz23_core import faz23_memory_write
+from faz23_engine.faz23_feedback import faz23_apply_result, get_w_market
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s")
 log = logging.getLogger("MAIN")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
@@ -25,6 +25,18 @@ if not BOT_TOKEN:
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
+
+_LAST_UPD = {"id": 0}
+
+def _dedupe_update(payload: dict) -> bool:
+    try:
+        upd_id = int(payload.get("update_id", 0))
+        if upd_id <= _LAST_UPD["id"]:
+            return False
+        _LAST_UPD["id"] = upd_id
+        return True
+    except Exception:
+        return True
 
 def parse_mac_command(text: str):
     try:
@@ -61,6 +73,21 @@ def parse_result_command(text: str):
     except Exception:
         return None
 
+@bot.message_handler(commands=["status"])
+def handle_status(message):
+    odds_ok = bool(os.getenv("ODDS_API_KEY","").strip()) and bool(os.getenv("ODDS_API_URL","").strip())
+    sport_ok = bool(os.getenv("API_SPORT_KEY","").strip()) and bool(os.getenv("API_SPORT_URL","").strip())
+    reply = (
+        "🧠 Zeynal Core AI /status\n"
+        f"✅ Mode: {'WEBHOOK' if WEBHOOK_URL else 'POLLING'}\n"
+        f"✅ PORT: {PORT}\n"
+        f"📈 ODDS: {'OK' if odds_ok else 'MISSING'}\n"
+        f"📰 API-SPORTS: {'OK' if sport_ok else 'MISSING'}\n"
+        f"⚙️ w_market(NBA): {get_w_market('NBA')}\n"
+        f"⚙️ w_market(EUROLEAGUE): {get_w_market('EUROLEAGUE')}\n"
+    )
+    bot.reply_to(message, reply)
+
 @bot.message_handler(commands=["mac"])
 def handle_mac(message):
     parsed = parse_mac_command(message.text or "")
@@ -68,11 +95,7 @@ def handle_mac(message):
         bot.reply_to(message, "❌ Format hatalı.\n/mac LIG | YYYY-MM-DD | EV - DEP")
         return
 
-    league = parsed["league"]
-    date_str = parsed["date"]
-    home = parsed["home"]
-    away = parsed["away"]
-
+    league = parsed["league"]; date_str = parsed["date"]; home = parsed["home"]; away = parsed["away"]
     log.info(f"MAC REQUEST | {league} | {date_str} | {home} vs {away}")
 
     market_data, market_meta = faz17_fetch_market_safe(
@@ -92,12 +115,12 @@ def handle_mac(message):
         market_meta=market_meta,
     )
 
+    market_line = (market_data or {}).get("totals_line") if isinstance(market_data, dict) else None
     match_data = {
         "league": league,
-        "base_pred": faz13.get("base_pred"),
         "faz13_pred": faz13.get("base_pred"),
         "band": faz13.get("band"),
-        "faz17_market_ref": (faz13.get("market") or {}).get("totals_line"),
+        "faz17_market_ref": market_line,
     }
     faz22 = faz22_meta_engine(match_data)
 
@@ -112,21 +135,36 @@ def handle_mac(message):
     )
 
     periods = faz13.get("periods", {})
-    market = faz13.get("market") or {}
+    base = faz13.get("base_pred")
+    band = faz13.get("band")
+    meta_pred = faz22.get("meta_pred")
+    rlow = faz22.get("range_low"); rhigh = faz22.get("range_high")
+    conf = faz22.get("confidence")
+
+    # market delta + alt/üst
+    delta = faz22.get("market", {}).get("delta")
+    ou_dir = "UNKNOWN"
+    if market_line is not None and meta_pred is not None:
+        try:
+            ou_dir = "OVER" if float(meta_pred) > float(market_line) else "UNDER"
+        except Exception:
+            pass
 
     reply = (
         f"🏀 {home} - {away}\n"
         f"🏷️ {league} | 📅 {date_str}\n\n"
-        f"🧠 Base: {faz13.get('base_pred')}\n"
-        f"🎯 Band: {faz13.get('band')}\n"
-        f"🧬 META: {faz22.get('meta_pred')} [{faz22.get('range_low')}, {faz22.get('range_high')}]\n"
-        f"✅ Confidence: {faz22.get('confidence')}\n\n"
+        f"🧠 Base: {base}\n"
+        f"🎯 Band: {band}\n"
+        f"🧬 META: {meta_pred} [{rlow}, {rhigh}]\n"
+        f"✅ Confidence: {conf}\n"
+        f"📈 Market Line: {market_line}\n"
+        f"📉 Market Δ: {delta}\n"
+        f"🔼/🔽 O/U Dir: {ou_dir}\n\n"
         f"📊 Periyot Tahminleri:\n"
-        f" • 1. Çeyrek: {periods.get('q1')}\n"
-        f" • 2. Çeyrek: {periods.get('q2')} (İlk Yarı: {periods.get('h1')})\n"
-        f" • 3. Çeyrek: {periods.get('q3')}\n"
-        f" • 4. Çeyrek: {periods.get('q4')} (İkinci Yarı: {periods.get('h2')})\n"
-        f"📈 Market Line: {market.get('totals_line')}\n"
+        f" • 1Q: {periods.get('q1')}\n"
+        f" • 2Q: {periods.get('q2')} (İY: {periods.get('h1')})\n"
+        f" • 3Q: {periods.get('q3')}\n"
+        f" • 4Q: {periods.get('q4')} (2Y: {periods.get('h2')})\n"
     )
     bot.reply_to(message, reply)
 
@@ -136,7 +174,6 @@ def handle_result(message):
     if not parsed:
         bot.reply_to(message, "❌ Format hatalı.\n/result LIG | YYYY-MM-DD | EV - DEP | TOTAL")
         return
-
     out = faz23_apply_result(
         league=parsed["league"],
         date_str=parsed["date"],
@@ -144,7 +181,6 @@ def handle_result(message):
         away=parsed["away"],
         actual_total=parsed["total"],
     )
-
     bot.reply_to(message, f"✅ Sonuç işlendi.\nTags: {out.get('tags')}\nAbsErr: {out.get('abs_error')}")
 
 @app.route("/webhook", methods=["POST"])
@@ -155,6 +191,10 @@ def webhook(extra=None):
         payload = json.loads(raw) if raw else {}
     except Exception:
         payload = {}
+
+    if not _dedupe_update(payload):
+        return "OK", 200
+
     update = telebot.types.Update.de_json(payload)
     bot.process_new_updates([update])
     return "OK", 200
@@ -171,4 +211,4 @@ if __name__ == "__main__":
         app.run(host="0.0.0.0", port=PORT)
     else:
         log.info("Starting in POLLING mode (no webhook)")
-        bot.infinity_polling()
+        bot.infinity_polling() 
