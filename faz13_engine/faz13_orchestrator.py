@@ -5,49 +5,69 @@ import logging
 
 log = logging.getLogger(__name__)
 
-# Lig bazlı ayarlar
+# Her lig için varsayılan takım başına ortalama skor
+LEAGUE_TEAM_DEFAULT = {
+    "NBA": 111.0,
+    "EUROLEAGUE": 80.0,
+    "TBL": 82.0,
+    "CBA": 106.0,
+    "DEFAULT": 85.0,
+}
+
+# Her lig için toplam skor, bant yarıçapı ve periyot ağırlıkları
 LEAGUE_CONFIG: Dict[str, Dict[str, Any]] = {
-    # NBA maçları genellikle yüksek tempolu ve yüksek skorludur
     "NBA": {
-        "base_pred": 223.0,
         "band_half": 7.0,
         "weights": [0.24, 0.25, 0.25, 0.26],
     },
-    # EuroLeague: daha düşük tempo, dengeli periyot dağılımı
     "EUROLEAGUE": {
-        "base_pred": 160.0,
         "band_half": 5.5,
         "weights": [0.25, 0.25, 0.25, 0.25],
     },
-    # Türkiye Basketbol Süper Ligi (BSL)
     "TBL": {
-        "base_pred": 161.0,
         "band_half": 6.0,
         "weights": [0.24, 0.24, 0.26, 0.26],
     },
-    # Çin Ligi (CBA): çok yüksek tempo
     "CBA": {
-        "base_pred": 197.0,
         "band_half": 8.0,
         "weights": [0.23, 0.25, 0.25, 0.27],
     },
-    # Varsayılan değerler
     "DEFAULT": {
-        "base_pred": 170.0,
         "band_half": 6.0,
         "weights": [0.25, 0.25, 0.25, 0.25],
     },
 }
 
-# Sezon bazlı ufak ayarlamalar (örnek)
+# Sezona göre toplam skoru küçük ayarlamak için (isteğe bağlı)
 SEASON_ADJUST: Dict[str, float] = {
     "2024": 0.0,
-    "2025": 1.5,  # 2025 sezonunda oyun tempo artışı
+    "2025": 1.5,  # 2025 sezonunda skorlar yükseldi ise
     "2026": 2.0,
 }
 
+# Takım bazlı ortalamaları buraya ekleyebilirsiniz.
+# Anahtar: (lig, takım adı büyük harf)
+TEAM_AVG_POINTS: Dict[str, float] = {
+    # NBA örnekleri
+    "NBA:BOSTON": 113.0,
+    "NBA:INDIANA": 115.0,
+    "NBA:LAKERS": 112.5,
+    "NBA:SUNS": 110.8,
+    # EuroLeague örnekleri
+    "EUROLEAGUE:ANADOLU EFES": 84.0,
+    "EUROLEAGUE:FENERBAHÇE": 82.5,
+    # Tanımsız takımlar için ligin varsayılanı kullanılacaktır
+}
+
+def _get_team_avg(league: str, team: str) -> float:
+    """Takımın ortalama skorunu getir; yoksa lig varsayılanını döndür."""
+    key = f"{league.upper()}:{team.upper()}"
+    if key in TEAM_AVG_POINTS:
+        return TEAM_AVG_POINTS[key]
+    return LEAGUE_TEAM_DEFAULT.get(league.upper(), LEAGUE_TEAM_DEFAULT["DEFAULT"])
+
 def _split_periods_with_weights(total: float, weights) -> Dict[str, int]:
-    """Verilen ağırlıklar ile çeyrek/yarı skorlarına bölüştürür."""
+    """Verilen ağırlıklar ile periyot dağılımı hesaplar."""
     q1 = round(total * weights[0])
     q2 = round(total * weights[1])
     q3 = round(total * weights[2])
@@ -55,10 +75,6 @@ def _split_periods_with_weights(total: float, weights) -> Dict[str, int]:
     h1 = q1 + q2
     h2 = q3 + q4
     return {"q1": q1, "q2": q2, "h1": h1, "q3": q3, "q4": q4, "h2": h2}
-
-def _get_config_for_league(league: str) -> Dict[str, Any]:
-    key = (league or "").upper()
-    return LEAGUE_CONFIG.get(key, LEAGUE_CONFIG["DEFAULT"])
 
 def _get_season_adjust(date_str: str) -> float:
     try:
@@ -77,15 +93,23 @@ def run_faz13_auto_pipeline(
     market_meta: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Lig ve sezon bazlı ayarlarla otomatik pipeline.
-    - Lig parametresinden config çeker
-    - Sezon ayarını uygular
-    - Bant ve periyot dağılımı oluşturur
+    FAZ-13 pipeline – takım bazlı ortalamalara göre toplam skor tahmini.
+    base_pred = ev sahibi takım ortalaması + deplasman takım ortalaması (+ sezon ayarı)
     """
-    cfg = _get_config_for_league(league)
+    league_key = (league or "DEFAULT").upper()
+
+    # Takım ortalamalarını çek
+    home_avg = _get_team_avg(league_key, home)
+    away_avg = _get_team_avg(league_key, away)
+
+    # Sezon ayarını uygula
     season_adj = _get_season_adjust(date_str)
 
-    base_pred = cfg["base_pred"] + season_adj
+    # Toplam skor tahmini = home_avg + away_avg + season_adj
+    base_pred = home_avg + away_avg + season_adj
+
+    # Lig bazlı band ve periyot ağırlıkları
+    cfg = LEAGUE_CONFIG.get(league_key, LEAGUE_CONFIG["DEFAULT"])
     band_half = cfg["band_half"]
     weights = cfg["weights"]
 
@@ -106,5 +130,5 @@ def run_faz13_auto_pipeline(
         "market": market,
     }
 
-    log.info(f"FAZ13 | {league} | {home}-{away} | {result}")
+    log.info(f"FAZ13 | {league_key} | {home}-{away} | {result}")
     return result
