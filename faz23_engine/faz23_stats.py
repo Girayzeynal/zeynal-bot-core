@@ -1,3 +1,5 @@
+# faz23_engine/faz23_stats.py
+from __future__ import annotations
 from typing import Dict, Any
 from collections import deque
 
@@ -37,5 +39,4 @@ def get_summary(league: str) -> Dict[str, float]:
 
     if n == 0:
         return {"n": 0, "hit_rate": 0.0, "mae": 0.0}
-
-    return {"n": n, "hit_rate": round(hits / n, 3), "mae": round(ae_sum / n, 2)}
+    return {"n": n, "hit_rate": round(hits / n, 3), "mae": round(ae_sum / n, 2)} 
