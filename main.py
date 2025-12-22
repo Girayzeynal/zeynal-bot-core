@@ -91,6 +91,7 @@ def handle_mac(message):
 
     log.info(f"MAC REQUEST | {league} | {date_str} | {home} vs {away}")
 
+    # FAZ-17 (safe)
     market_data, market_meta = faz17_fetch_market_safe(
         provider_fetch_func=faz17_fetch_market,
         league=league,
@@ -99,6 +100,7 @@ def handle_mac(message):
         away=away,
     )
 
+    # FAZ-13
     faz13 = run_faz13_auto_pipeline(
         league=league,
         home=home,
@@ -108,6 +110,7 @@ def handle_mac(message):
         market_meta=market_meta,
     )
 
+    # FAZ-22
     match_data = {
         "league": league,
         "base_pred": faz13.get("base_pred"),
@@ -115,9 +118,9 @@ def handle_mac(message):
         "band": faz13.get("band"),
         "faz17_market_ref": (faz13.get("market") or {}).get("totals_line"),
     }
-
     faz22 = faz22_meta_engine(match_data)
 
+    # FAZ-23 memory
     faz23_memory_write(
         league=league,
         date_str=date_str,
@@ -128,6 +131,11 @@ def handle_mac(message):
         actual_total=None,
     )
 
+    # =========================
+    # ✅ DÜZELTİLMİŞ REPLY BLOĞU
+    # =========================
+    market = faz13.get("market") or {}
+
     reply = (
         f"🏀 {home} - {away}\n"
         f"🏷️ {league} | 📅 {date_str}\n\n"
@@ -136,6 +144,7 @@ def handle_mac(message):
         f"🧬 META: {faz22.get('meta_pred')} "
         f"[{faz22.get('range_low')}, {faz22.get('range_high')}]\n"
         f"✅ Confidence: {faz22.get('confidence')}\n"
+        f"📈 Market Line: {market.get('totals_line')}\n"
     )
 
     bot.reply_to(message, reply)
@@ -180,16 +189,14 @@ def health():
 
 
 # ==========================================================
-# 🔥 TELEGRAM MODE FIX (409 CONFLICT FIXED)
+# 🔥 TELEGRAM MODE (WEBHOOK / POLLING) — FINAL
 # ==========================================================
 if __name__ == "__main__":
     if WEBHOOK_URL:
         log.info("Starting in WEBHOOK mode")
         bot.remove_webhook()
         bot.set_webhook(url=f"{WEBHOOK_URL}/{BOT_TOKEN}")
-
-        # 🔥 ÇOK KRİTİK: Flask server AYAKTA KALMALI
         app.run(host="0.0.0.0", port=PORT)
     else:
         log.info("Starting in POLLING mode (no webhook)")
-        bot.infinity_polling()
+        bot.infinity_polling() 
