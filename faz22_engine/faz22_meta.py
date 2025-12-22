@@ -1,48 +1,81 @@
+# faz22_engine/faz22_meta.py
+from __future__ import annotations
 import time
 from typing import Dict, Any
 
-from .faz22_state import get_weights
-from .faz22_confidence import combine_confidence
-from faz23_engine.faz23_stats import get_summary
+def _clamp(x: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, x))
 
 def faz22_meta_engine(match_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Meta: base + (small) market influence + confidence calibration seed.
+    Lig bazlı politika:
+      - NBA: market şişme büyükse risk artar / oynanmaz filtresini tetikleyebilir
+      - EUROLEAGUE: şişme varsa confidence düşer, ama oynanmaz agresif değil
+      - Others: orta yol
+    """
     ts = int(time.time())
 
-    league = str(match_data.get("league", "UNKNOWN"))
-    w = get_weights(league)
-    w13 = float(w["w13"])
-    w17 = float(w["w17"])
+    league = str(match_data.get("league", "UNKNOWN")).upper()
+    base_pred = float(match_data.get("faz13_pred", match_data.get("base_pred", 0.0)) or 0.0)
+    band = match_data.get("band") or [None, None]
+    market_line = match_data.get("faz17_market_ref", None)
 
-    base_pred = float(match_data.get("faz13_pred", match_data.get("base_pred", 165.0)))
-    market_ref = match_data.get("faz17_market_ref", None)
     try:
-        market_ref = float(market_ref) if market_ref is not None else None
+        market_line_f = float(market_line) if market_line is not None else None
     except Exception:
-        market_ref = None
+        market_line_f = None
 
-    if market_ref is None:
-        w13_eff, w17_eff = 1.0, 0.0
-    else:
-        w13_eff, w17_eff = w13, w17
+    # very small influence
+    w_market = 0.10 if market_line_f is not None else 0.0
+    w_base = 1.0 - w_market
 
-    denom = (w13_eff + w17_eff) if (w13_eff + w17_eff) > 0 else 1.0
-    meta_pred = (base_pred * w13_eff + (market_ref or 0.0) * w17_eff) / denom
+    meta_pred = base_pred
+    if market_line_f is not None:
+        meta_pred = (base_pred * w_base) + (market_line_f * w_market)
 
-    band = match_data.get("band")
+    # variance from band
+    var = 6.0
     if isinstance(band, (list, tuple)) and len(band) == 2:
         try:
             var = max(3.0, (float(band[1]) - float(band[0])) / 2.0)
         except Exception:
-            var = max(3.0, abs(meta_pred) * 0.06)
-    else:
-        var = max(3.0, abs(meta_pred) * 0.06)
+            var = 6.0
 
     low = round(meta_pred - var)
     high = round(meta_pred + var)
 
-    var_conf = round(max(0.01, min(0.99, 1.0 - (var / 100.0))), 3)
-    hist = get_summary(league)
-    confidence = combine_confidence(var_conf, hist)
+    # market delta
+    delta = None
+    if market_line_f is not None:
+        delta = round(market_line_f - base_pred, 1)
+
+    # base confidence from variance
+    var_conf = _clamp(1.0 - (var / 100.0), 0.35, 0.97)
+
+    # lig bazlı penalty
+    penalty = 0.0
+    if delta is not None:
+        ad = abs(delta)
+        if league == "NBA":
+            # NBA: büyük şişme sert
+            if ad >= 8:
+                penalty = 0.12
+            elif ad >= 5:
+                penalty = 0.07
+        elif league == "EUROLEAGUE":
+            # EL: daha yumuşak
+            if ad >= 7:
+                penalty = 0.08
+            elif ad >= 4:
+                penalty = 0.04
+        else:
+            if ad >= 7:
+                penalty = 0.10
+            elif ad >= 4:
+                penalty = 0.05
+
+    confidence = _clamp(var_conf - penalty, 0.35, 0.97)
 
     return {
         "ts": ts,
@@ -51,7 +84,11 @@ def faz22_meta_engine(match_data: Dict[str, Any]) -> Dict[str, Any]:
         "meta_pred": round(meta_pred, 1),
         "range_low": int(low),
         "range_high": int(high),
-        "confidence": confidence,
-        "weights": {"w13": round(w13_eff, 3), "w17": round(w17_eff, 3)},
-        "history": hist,
+        "confidence": round(confidence, 3),
+        "market": {
+            "line": market_line_f,
+            "delta": delta,
+            "w_market": w_market,
+            "penalty": penalty,
+        }
     } 
