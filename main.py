@@ -3,9 +3,10 @@
 # Goals:
 # - Crash-proof: no unhandled exceptions in handlers
 # - FAZ modules are OPTIONAL imports (no "hayalet" sessiz çöküş)
-# - Market fetch guarded
-# - FAZ-22 function name fixed: faz22_meta_engine
-# - Webhook setup controlled via AUTO_SET_WEBHOOK=1 (safe for multi-worker)
+# - Market fetch guarded (FAZ-17)
+# - FAZ-22 meta engine entry fixed: faz22_engine/faz22_meta_engine.py -> faz22_meta_engine()
+# - FAZ-23 learning hooks: apply_state + record_result (real feedback loop entry)
+# - Telebot Update.de_json signature fixed (NO bot arg)
 
 import os
 import json
@@ -34,6 +35,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
 PORT = int(os.getenv("PORT", "8080"))
 
+# NOT: Fly machines v2 + multi-worker ortamında AUTO_SET_WEBHOOK genelde sorun çıkarır.
+# Sen zaten 0 yaptın; burada sadece destek için bırakıyoruz.
 AUTO_SET_WEBHOOK = os.getenv("AUTO_SET_WEBHOOK", "0").strip() in ("1", "true", "TRUE", "yes", "YES")
 
 
@@ -59,7 +62,7 @@ def _safe_import(path: str, name: str):
         return None
 
 
-# Core league registry / normalizer (optional)
+# Core league normalizer (optional)
 normalize_league = _safe_import("core.elite_league_registry", "normalize_league")
 
 # FAZ-13 orchestrator (primary)
@@ -69,14 +72,11 @@ run_faz13_auto_pipeline = _safe_import("faz13_engine.faz13_orchestrator", "run_f
 fetch_market = _safe_import("faz17_engine.faz17_market_fetcher", "fetch_market")
 
 # FAZ-22 meta engine (optional) — IMPORTANT: name must be faz22_meta_engine
-faz22_meta_engine = _safe_import(
-    "faz22_engine.faz22_meta_engine",
-    "faz22_meta_engine"
-)
+faz22_meta_engine = _safe_import("faz22_engine.faz22_meta_engine", "faz22_meta_engine")
 
-# FAZ-23 state/orchestrator hooks (optional)
+# FAZ-23 learning/state hooks (optional)
 faz23_apply_state = _safe_import("faz23_engine.faz23_state", "faz23_apply_state")
-faz23_feedback = _safe_import("faz23_engine.faz23_state", "faz23_feedback")  # if exists
+faz23_record_result = _safe_import("faz23_engine.faz23_state", "faz23_record_result")
 
 
 # -----------------------------------------------------------------------------
@@ -86,28 +86,17 @@ def _ok(v: Any) -> str:
     return "OK" if v else "MISSING"
 
 
-def _compact_json(x: Any) -> str:
-    try:
-        return json.dumps(x, ensure_ascii=False)
-    except Exception:
-        return str(x)
-
-
 def _parse_mac_command(text: str) -> Optional[Dict[str, str]]:
     """
     Expected:
-      /mac <LEAGUE> | <YYYY-MM-DD> | <HOME>-<AWAY>
-    Example:
-      /mac NBA | 2025-12-23 | Boston-Celtics - Detroit-Pistons   (spaces tolerated)
+      /mac <LEAGUE> | <YYYY-MM-DD> | <HOME> - <AWAY>
     """
     try:
         raw = (text or "").strip()
         if not raw.startswith("/mac"):
             return None
 
-        # remove leading "/mac"
         raw = raw.replace("/mac", "", 1).strip()
-
         parts = [p.strip() for p in raw.split("|")]
         if len(parts) != 3:
             return None
@@ -116,18 +105,13 @@ def _parse_mac_command(text: str) -> Optional[Dict[str, str]]:
         date_str = parts[1]
         matchup = parts[2]
 
-        # normalize league if function exists
         league = normalize_league(league_in) if normalize_league else league_in.strip().upper()
 
-        # parse HOME-AWAY (support both '-' and ' - ')
-        if "-" not in matchup:
-            return None
-
-        # If user uses "HOME - AWAY" (with spaces), split by " - " first
         if " - " in matchup:
             home, away = [x.strip() for x in matchup.split(" - ", 1)]
         else:
-            # fallback first dash split
+            if "-" not in matchup:
+                return None
             home, away = [x.strip() for x in matchup.split("-", 1)]
 
         if not league or not date_str or not home or not away:
@@ -136,6 +120,54 @@ def _parse_mac_command(text: str) -> Optional[Dict[str, str]]:
         return {"league": league, "date_str": date_str, "home": home, "away": away}
     except Exception as e:
         log.warning(f"parse_mac_command failed: {e}")
+        return None
+
+
+def _parse_result_command(text: str) -> Optional[Dict[str, Any]]:
+    """
+    Expected:
+      /result LEAGUE | YYYY-MM-DD | HOME - AWAY | 102-98
+    """
+    try:
+        raw = (text or "").strip()
+        if not raw.startswith("/result"):
+            return None
+
+        raw = raw.replace("/result", "", 1).strip()
+        parts = [p.strip() for p in raw.split("|")]
+        if len(parts) != 4:
+            return None
+
+        league_in = parts[0]
+        date_str = parts[1]
+        matchup = parts[2]
+        score = parts[3]
+
+        league = normalize_league(league_in) if normalize_league else league_in.strip().upper()
+
+        if " - " in matchup:
+            home, away = [x.strip() for x in matchup.split(" - ", 1)]
+        else:
+            if "-" not in matchup:
+                return None
+            home, away = [x.strip() for x in matchup.split("-", 1)]
+
+        if "-" not in score:
+            return None
+        hs_s, as_s = [x.strip() for x in score.split("-", 1)]
+        home_score = int(hs_s)
+        away_score = int(as_s)
+
+        return {
+            "league": league,
+            "date_str": date_str,
+            "home": home,
+            "away": away,
+            "home_score": home_score,
+            "away_score": away_score,
+        }
+    except Exception as e:
+        log.warning(f"parse_result_command failed: {e}")
         return None
 
 
@@ -150,7 +182,6 @@ def _safe_fetch_market(league: str, date_str: str, home: str, away: str) -> Tupl
 
 
 def _build_context_for_match(league: str, home: str, away: str, date_str: str, market_data: Optional[dict]) -> Dict[str, Any]:
-    # Keep context minimal; FAZ-13 can enrich it further.
     return {
         "league": league,
         "home": home,
@@ -162,12 +193,12 @@ def _build_context_for_match(league: str, home: str, away: str, date_str: str, m
 
 
 def _format_faz13_reply(league: str, home: str, away: str, date_str: str, faz13: Dict[str, Any]) -> str:
-    # Defensive reads
     base = faz13.get("base_pred")
     band = faz13.get("band")
     confidence = faz13.get("confidence")
     risk = faz13.get("risk")
     market = faz13.get("market")
+
     ou = None
     try:
         ou = (market or {}).get("ou", {})
@@ -186,28 +217,24 @@ def _format_faz13_reply(league: str, home: str, away: str, date_str: str, faz13:
     lines.append(f"🏀 {home} — {away}")
     lines.append(f"🗓️ {league} | {date_str}")
     lines.append("")
-    lines.append(f"🎯 Base: {base}")
+    lines.append(f"🧠 Base: {base}")
     lines.append(f"📦 Band: {band}")
-    lines.append(f"🧠 Confidence: {confidence}")
+    lines.append(f"✅ Confidence: {confidence}")
     lines.append(f"⚠️ Risk: {risk}")
     lines.append(f"📈 Market: {market}")
     if ou:
         lines.append(f"🧮 O/U: {ou.get('dir')} (line={ou.get('line')})")
     lines.append("")
-    lines.append("⏱️ Periyotlar:")
-    lines.append(f"1Q: {p1} | 2Q: {p2} | İY: {h1}")
-    lines.append(f"3Q: {p3} | 4Q: {p4} | 2Y: {h2}")
+    lines.append("📊 Periyot Tahminleri:")
+    lines.append(f"• 1Q: {p1}")
+    lines.append(f"• 2Q: {p2} (İY: {h1})")
+    lines.append(f"• 3Q: {p3}")
+    lines.append(f"• 4Q: {p4} (2Y: {h2})")
 
     return "\n".join(lines)
 
 
 def _apply_faz22_if_available(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    FAZ-22 meta engine can post-process the payload:
-    - calibration
-    - sanity checks
-    - variance/risk refinements
-    """
     if not faz22_meta_engine:
         return payload
     try:
@@ -219,9 +246,6 @@ def _apply_faz22_if_available(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _apply_faz23_if_available(league: str, home: str, away: str, date_str: str, result: Dict[str, Any]) -> None:
-    """
-    FAZ-23 state binding (optional). Does NOT break pipeline if missing.
-    """
     if not faz23_apply_state:
         return
     try:
@@ -238,18 +262,15 @@ def _apply_faz23_if_available(league: str, home: str, away: str, date_str: str, 
 
 def _run_pipeline(league: str, date_str: str, home: str, away: str) -> Dict[str, Any]:
     """
-    Main orchestration:
+    Orchestration:
     - FAZ-17 market
     - Context
     - FAZ-13 prediction
     - FAZ-22 meta post-process
-    - FAZ-23 state apply
+    - FAZ-23 state snapshot (learning hook)
     """
     if not run_faz13_auto_pipeline:
         return {"error": "FAZ-13 orchestrator missing (run_faz13_auto_pipeline import failed)."}
-        
-        if faz22_meta_engine:
-           faz13_output = faz22_meta_engine(faz13_output)
 
     market_data, market_meta = _safe_fetch_market(league, date_str, home, away)
     context = _build_context_for_match(league, home, away, date_str, market_data)
@@ -271,14 +292,13 @@ def _run_pipeline(league: str, date_str: str, home: str, away: str) -> Dict[str,
     if not isinstance(faz13, dict):
         return {"error": f"FAZ-13 returned non-dict: {type(faz13).__name__}"}
 
-    # Meta engine post-process
-    faz13 = _apply_faz22_if_available(faz13)
-
-    # Guard periods
     if "periods" not in faz13:
         faz13["periods"] = {}
 
-    # State apply
+    # FAZ-22 post process
+    faz13 = _apply_faz22_if_available(faz13)
+
+    # FAZ-23 snapshot (prediction store for later /result learning)
     _apply_faz23_if_available(league, home, away, date_str, faz13)
 
     return faz13
@@ -297,7 +317,7 @@ if bot:
                 message,
                 "❌ Format:\n"
                 "/mac LEAGUE | YYYY-MM-DD | HOME - AWAY\n"
-                "Örn: /mac NBA | 2025-12-23 | Boston - Detroit"
+                "Örn: /mac NBA | 2025-12-23 | Denver - Utah"
             )
             return
 
@@ -308,13 +328,39 @@ if bot:
 
         log.info(f"MAC | {league} | {date_str} | {home}-{away}")
 
-        faz13 = _run_pipeline(league, date_str, home, away)
-        if "error" in faz13:
-            bot.reply_to(message, f"❌ {faz13['error']}")
+        out = _run_pipeline(league, date_str, home, away)
+        if "error" in out:
+            bot.reply_to(message, f"❌ {out['error']}")
             return
 
-        reply = _format_faz13_reply(league, home, away, date_str, faz13)
+        reply = _format_faz13_reply(league, home, away, date_str, out)
         bot.reply_to(message, reply)
+
+    @bot.message_handler(commands=["result"])
+    def handle_result(message: types.Message):
+        if not faz23_record_result:
+            bot.reply_to(message, "❌ FAZ-23 öğrenme fonksiyonu yok (faz23_record_result import failed).")
+            return
+
+        parsed = _parse_result_command(message.text or "")
+        if not parsed:
+            bot.reply_to(
+                message,
+                "❌ Format:\n"
+                "/result LEAGUE | YYYY-MM-DD | HOME - AWAY | 102-98\n"
+                "Örn: /result NBA | 2025-12-23 | Denver - Utah | 121-115"
+            )
+            return
+
+        ok, msg = faz23_record_result(
+            parsed["league"],
+            parsed["home"],
+            parsed["away"],
+            parsed["date_str"],
+            parsed["home_score"],
+            parsed["away_score"],
+        )
+        bot.reply_to(message, msg if ok else f"❌ {msg}")
 
     @bot.message_handler(commands=["status"])
     def status(message: types.Message):
@@ -327,6 +373,7 @@ if bot:
             f"FAZ-17: {_ok(fetch_market)}\n"
             f"FAZ-22: {_ok(faz22_meta_engine)}\n"
             f"FAZ-23: {_ok(faz23_apply_state)}\n"
+            f"FAZ-23 RESULT: {_ok(faz23_record_result)}\n"
         )
 
 
@@ -350,62 +397,26 @@ def debug_env():
         "FAZ17": bool(fetch_market),
         "FAZ22": bool(faz22_meta_engine),
         "FAZ23": bool(faz23_apply_state),
+        "FAZ23_RESULT": bool(faz23_record_result),
     }, 200
 
 
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def telegram_webhook():
+    if not bot:
+        return "BOT_TOKEN missing", 500
     try:
         payload = request.get_json(force=True)
-        update = types.Update.de_json(payload)
+        update = types.Update.de_json(payload)  # IMPORTANT: no bot arg
         bot.process_new_updates([update])
         return "OK", 200
-    except Exception as e:
+    except Exception:
         log.exception("Webhook processing failed")
-        return "ERR", 200
-    except Exception as e:
-        log.exception(f"Webhook processing failed: {e}")
         return "ERR", 200  # Telegram retries; 200 prevents retry storms
 
 
 # -----------------------------------------------------------------------------
-# Webhook setup (optional & safe-ish)
-# -----------------------------------------------------------------------------
-_webhook_set_once = False
-
-
-@app.before_request
-def _maybe_set_webhook_once():
-    """
-    In multi-worker deployments, this can run per worker.
-    We keep it conservative: only set if AUTO_SET_WEBHOOK=1 and WEBHOOK_URL is present,
-    and only attempt once per worker process.
-    """
-    global _webhook_set_once
-    if _webhook_set_once:
-        return
-    if not AUTO_SET_WEBHOOK:
-        return
-    if not bot or not WEBHOOK_URL:
-        return
-    try:
-        bot.remove_webhook()
-        # small delay helps Telegram side sometimes
-        time.sleep(0.3)
-        ok = bot.set_webhook(url=WEBHOOK_URL.rstrip("/") + f"/{BOT_TOKEN}")
-        log.info(f"Webhook set: {ok} -> {WEBHOOK_URL.rstrip('/') + f'/{BOT_TOKEN}'}")
-    except Exception as e:
-        log.warning(f"Auto webhook setup failed: {e}")
-    finally:
-        _webhook_set_once = True
-
-
-# -----------------------------------------------------------------------------
-# Local run (NOT used by gunicorn on Fly normally)
+# Local run
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
-    # For local dev:
-    #   export BOT_TOKEN=...
-    #   export WEBHOOK_URL=https://<your-domain>
-    #   export AUTO_SET_WEBHOOK=1
     app.run(host="0.0.0.0", port=PORT)
