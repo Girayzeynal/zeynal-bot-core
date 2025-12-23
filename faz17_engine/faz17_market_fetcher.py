@@ -60,27 +60,3 @@ def fetch_market(league: str, date_str: str, home: str, away: str):
         home=home,
         away=away,
     ) 
-
-# ---- PUBLIC ENTRY POINT (FAZ-17) ----
-
-def fetch_market(league: str, date_str: str, home: str, away: str):
-    """
-    Main entry point expected by main.py
-    Wraps faz17_fetch_market_safe with a default provider
-    """
-
-    try:
-        # Şu an provider yoksa bile FAZ-17 OK görmek için geçici stub
-        market = {
-            "totals_line": None,
-            "provider": "stub"
-        }
-        meta = {
-            "used": False,
-            "confidence": 0.0,
-            "reason": "no-provider-attached"
-        }
-        return market, meta
-
-    except Exception:
-        return None, {"used": False, "confidence": 0.0}
