@@ -247,6 +247,9 @@ def _run_pipeline(league: str, date_str: str, home: str, away: str) -> Dict[str,
     """
     if not run_faz13_auto_pipeline:
         return {"error": "FAZ-13 orchestrator missing (run_faz13_auto_pipeline import failed)."}
+        
+        if faz22_meta_engine:
+           faz13_output = faz22_meta_engine(faz13_output)
 
     market_data, market_meta = _safe_fetch_market(league, date_str, home, away)
     context = _build_context_for_match(league, home, away, date_str, market_data)
