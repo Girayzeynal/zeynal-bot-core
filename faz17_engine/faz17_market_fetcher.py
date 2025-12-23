@@ -48,3 +48,15 @@ def faz17_fetch_market_safe(
     reason = (meta or {}).get("reason") or ("ok" if used else "no_line")
 
     return market, {"market": {"used": used, "confidence": conf, "reason": reason, "provider": provider}}
+
+def fetch_market(league: str, date_str: str, home: str, away: str):
+    # provider_fetch_func burada hangi provider kullanıyorsan O
+    from faz17_engine.providers import fetch_from_odds_api  # örnek
+
+    return faz17_fetch_market_safe(
+        provider_fetch_func=fetch_from_odds_api,
+        league=league,
+        date_str=date_str,
+        home=home,
+        away=away,
+    ) 
