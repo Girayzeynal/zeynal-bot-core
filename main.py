@@ -349,13 +349,14 @@ def debug_env():
 
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def telegram_webhook():
-    if not bot:
-        return "BOT_TOKEN missing", 500
     try:
-        payload = request.get_data(as_text=True) or ""
-        update = types.Update.de_json(json.loads(payload), bot)
+        payload = request.get_json(force=True)
+        update = types.Update.de_json(payload)
         bot.process_new_updates([update])
         return "OK", 200
+    except Exception as e:
+        log.exception("Webhook processing failed")
+        return "ERR", 200
     except Exception as e:
         log.exception(f"Webhook processing failed: {e}")
         return "ERR", 200  # Telegram retries; 200 prevents retry storms
