@@ -11,7 +11,7 @@ def faz23_apply_state(
     result: Dict[str, Any],
 ) -> None:
     """
-    Minimal FAZ-23 state hook.
-    Şimdilik no-op (çökmez).
+    FAZ-23 state hook (minimal).
+    Şimdilik no-op; import edilebilir olması yeterli.
     """
     return
