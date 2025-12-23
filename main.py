@@ -69,7 +69,10 @@ run_faz13_auto_pipeline = _safe_import("faz13_engine.faz13_orchestrator", "run_f
 fetch_market = _safe_import("faz17_engine.faz17_market_fetcher", "fetch_market")
 
 # FAZ-22 meta engine (optional) — IMPORTANT: name must be faz22_meta_engine
-faz22_meta_engine = _safe_import("faz22_engine.faz22_meta_engine", "faz22_meta_engine")
+faz22_meta_engine = _safe_import(
+    "faz22_engine.faz22_meta_engine",
+    "faz22_meta_engine"
+)
 
 # FAZ-23 state/orchestrator hooks (optional)
 faz23_apply_state = _safe_import("faz23_engine.faz23_state", "faz23_apply_state")
