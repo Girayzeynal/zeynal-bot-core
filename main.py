@@ -282,7 +282,6 @@ def _run_pipeline(league: str, date_str: str, home: str, away: str) -> Dict[str,
             away=away,
             date_str=date_str,
             market_data=market_data,
-            market_meta=market_meta,
             extra_inputs=context,
         )
     except Exception as e:
