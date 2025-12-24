@@ -1,4 +1,4 @@
-# main.py — FINAL BUILD (FAZ-7…FAZ-23 Guarded Orchestrator)
+I # main.py — FINAL BUILD (FAZ-7…FAZ-23 Guarded Orchestrator)
 # Fly.io + Flask (health/webhook) + Telebot (Telegram)
 # Goals:
 # - Crash-proof: no unhandled exceptions in handlers
@@ -262,6 +262,7 @@ def _apply_faz23_if_available(league: str, home: str, away: str, date_str: str, 
 
 def _run_pipeline(league: str, date_str: str, home: str, away: str) -> Dict[str, Any]:
     """
+    extra_inputs = {}
     Orchestration:
     - FAZ-17 market
     - Context
