@@ -1,80 +1,250 @@
+# ================================== main.py =====================================
 from __future__ import annotations
 import os
+import json
 import logging
+from typing import Any, Dict, Optional, Tuple
 from flask import Flask, request
 import telebot
 from telebot import types
 
-from faz17_engine.faz17_market_fetcher import fetch_market
-from faz13_engine.faz13_orchestrator import run_faz13_auto_pipeline
-from faz22_engine.faz22_meta import faz22_meta_engine
-
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
+log = logging.getLogger("ZeynalBotCore")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
 PORT = int(os.getenv("PORT", "8080"))
-
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger("ZeynalBot")
-
+AUTO_SET_WEBHOOK = os.getenv("AUTO_SET_WEBHOOK", "0").strip() == "1"
 app = Flask(__name__)
-bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=True) if BOT_TOKEN else None
 
+def _safe_import(module_path: str, name: str):
+    try:
+        module = __import__(module_path, fromlist=[name])
+        return getattr(module, name)
+    except Exception as e:
+        log.warning(f"Optional import failed: {module_path}.{name} -> {e}")
+        return None
+
+fetch_market = _safe_import("faz17_engine.faz17_market_fetcher", "fetch_market")
+run_faz13_auto_pipeline = _safe_import("faz13_engine.faz13_orchestrator", "run_faz13_auto_pipeline")
+faz22_meta_engine = _safe_import("faz22_engine.faz22_meta", "faz22_meta_engine")
+faz23_apply_state = _safe_import("faz23_engine.faz23_state", "faz23_apply_state")
+faz23_feedback = _safe_import("faz23_engine.faz23_stats", "faz23_feedback")
+
+def _ok(v: Any) -> str:
+    return "OK" if v else "MISSING"
 
 @app.route("/", methods=["GET"])
 def health():
     return "OK", 200
 
+@app.route(f"/debug/env", methods=["GET"])
+def debug_env():
+    return {
+        "BOT_TOKEN": _ok(BOT_TOKEN),
+        "WEBHOOK_URL": _ok(WEBHOOK_URL),
+        "AUTO_SET_WEBHOOK": AUTO_SET_WEBHOOK,
+    }, 200
 
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def telegram_webhook():
-    update = types.Update.de_json(request.get_json(force=True))
-    bot.process_new_updates([update])
-    return "OK", 200
+    if not bot:
+        return "ERR", 200
+    try:
+        payload = request.get_json(force=True)
+        update = types.Update.de_json(payload)
+        bot.process_new_updates([update])
+        return "OK", 200
+    except Exception as e:
+        log.exception("Webhook processing failed")
+        return "ERR", 200
 
+_webhook_set_once = False
+@app.before_request
+def _maybe_set_webhook_once():
+    global _webhook_set_once
+    if AUTO_SET_WEBHOOK and not _webhook_set_once and bot and WEBHOOK_URL:
+        try:
+            bot.set_webhook(WEBHOOK_URL)
+            _webhook_set_once = True
+            log.info(f"Webhook set: {WEBHOOK_URL}")
+        except Exception as e:
+            log.warning(f"Failed to set webhook: {e}")
+
+@bot.message_handler(commands=["status"])
+def cmd_status(message: types.Message):
+    lines = [
+        f"BOT_TOKEN: {_ok(BOT_TOKEN)}",
+        f"WEBHOOK_URL: {_ok(WEBHOOK_URL)}",
+        f"FAZ-13: {_ok(run_faz13_auto_pipeline)}",
+        f"FAZ-17: {_ok(fetch_market)}",
+        f"FAZ-22: {_ok(faz22_meta_engine)}",
+        f"FAZ-23: {_ok(faz23_apply_state)}",
+    ]
+    bot.reply_to(message, "🤖 Zeynal Core /status\n" + "\n".join(lines))
+
+def _parse_mac_command(text: str) -> Optional[Dict[str, str]]:
+    try:
+        raw = (text or "").strip()
+        if not raw.startswith("/mac"):
+            return None
+        raw = raw.replace("/mac", "", 1).strip()
+        parts = [p.strip() for p in raw.split("|")]
+        if len(parts) != 3:
+            return None
+        league_in, date_str, matchup = parts
+        league = league_in.upper()
+        if " - " in matchup:
+            home, away = [x.strip() for x in matchup.split(" - ", 1)]
+        elif "-" in matchup:
+            home, away = [x.strip() for x in matchup.split("-", 1)]
+        else:
+            return None
+        return {
+            "league": league,
+            "date_str": date_str,
+            "home": home,
+            "away": away
+        }
+    except Exception:
+        return None
+
+def _format_faz13_reply(data: Dict[str, Any]) -> str:
+    periods = data.get("periods", {})
+    p1 = periods.get("q1")
+    p2 = periods.get("q2")
+    p3 = periods.get("q3")
+    p4 = periods.get("q4")
+    h1 = periods.get("h1")
+    h2 = periods.get("h2")
+    lines = [
+        f"🧠 Base: {data.get('base_pred')}",
+        f"📦 Band: {data.get('band')}",
+        f"✅ Confidence: {data.get('confidence')}",
+        f"⚠️ Risk: {data.get('risk')}",
+    ]
+    market = data.get("market", {})
+    lines.append(
+        f"📈 Market: {{'line': {market.get('line')}, "
+        f"'delta': {market.get('delta')}, "
+        f"'provider': {market.get('provider')}}}"
+    )
+    lines.append("")
+    lines.append("📊 Periyot Tahminleri:")
+    lines.append(f"• 1Q: {p1}")
+    lines.append(f"• 2Q: {p2} (İY: {h1})")
+    lines.append(f"• 3Q: {p3}")
+    lines.append(f"• 4Q: {p4} (2Y: {h2})")
+    return "\n".join(lines)
 
 @bot.message_handler(commands=["mac"])
 def cmd_mac(message: types.Message):
+    if not (fetch_market and run_faz13_auto_pipeline):
+        bot.reply_to(message, "🚫 Market veya FAZ-13 motoru yüklü değil.")
+        return
+    parsed = _parse_mac_command(message.text)
+    if not parsed:
+        bot.reply_to(message, "🚫 Komut hatalı. Örnek: /mac NBA | 2025-12-24 | Lakers - Warriors")
+        return
+    league = parsed["league"]
+    date_str = parsed["date_str"]
+    home = parsed["home"]
+    away = parsed["away"]
     try:
-        raw = message.text.replace("/mac", "", 1).strip()
-        league, date_str, matchup = [p.strip() for p in raw.split("|")]
-        home, away = [x.strip() for x in matchup.split("-")]
-
-        market_data, market_meta = fetch_market(league, date_str, home, away)
-
-        faz13 = run_faz13_auto_pipeline(
+        market_data, market_meta = (None, None)
+        if fetch_market:
+            market_data, meta = fetch_market(league, date_str, home, away)
+            market_meta = meta
+        faz13_data = run_faz13_auto_pipeline(
             league=league,
             home=home,
             away=away,
             date_str=date_str,
-            market_data=market_data,
+            market_data=market_data
         )
-
-        faz22 = faz22_meta_engine({
-            "league": league,
-            "base_pred": faz13["base_pred"],
-            "band": faz13["band"],
-            "confidence": faz13["confidence"],
-            "market": faz13["market"],
+        faz22_data = None
+        if faz22_meta_engine:
+            faz22_data = faz22_meta_engine({
+                "league": faz13_data["match"]["league"],
+                "base_pred": faz13_data["base_pred"],
+                "band": faz13_data["band"],
+                "confidence": faz13_data["confidence"],
+                "market": {
+                    "line": market_data.get("totals_line") if market_data else None,
+                    "provider": market_data.get("provider") if market_data else None,
+                    "used": market_meta.get("market", {}).get("used") if market_meta else None,
+                }
+            })
+        if faz23_apply_state and faz22_data:
+            try:
+                faz23_apply_state(
+                    league=league,
+                    home=home,
+                    away=away,
+                    date_str=date_str,
+                    result=faz22_data
+                )
+            except Exception as e:
+                log.warning(f"FAZ-23 apply state failed: {e}")
+        # Hangi veri gösterilecek: FAZ-22 çıktısı varsa onu, yoksa FAZ-13
+        data_to_show = faz22_data or faz13_data
+        reply = f"🏀 {home} — {away}\n{league} | {date_str}\n\n"
+        reply += _format_faz13_reply({
+            "base_pred": data_to_show["base_pred"],
+            "band": data_to_show["band"],
+            "confidence": data_to_show["confidence"],
+            "risk": data_to_show.get("risk", "-"),
+            "market": {
+                "line": data_to_show.get("market", {}).get("line"),
+                "delta": data_to_show.get("market", {}).get("delta"),
+                "provider": data_to_show.get("market", {}).get("provider"),
+            },
+            "periods": faz13_data["periods"],
         })
-
-        reply = (
-            f"🏀 {home} — {away}\n"
-            f"{league} | {date_str}\n\n"
-            f"🧠 Base: {faz22['base_pred']}\n"
-            f"📦 Band: {faz22['band']}\n"
-            f"✅ Confidence: {faz22['confidence']}\n"
-            f"⚠️ Risk: {faz22['risk']}\n"
-            f"📈 Market: {faz22['market']}"
-        )
-
         bot.reply_to(message, reply)
-
     except Exception as e:
-        log.exception("Pipeline crashed")
-        bot.reply_to(message, f"❌ Pipeline crashed: {e}")
+        log.exception("FAZ-13 pipeline crashed")
+        bot.reply_to(message, f"❌ FAZ-13 pipeline crashed: {e}")
 
+@bot.message_handler(commands=["result"])
+def cmd_result(message: types.Message):
+    if not faz23_feedback:
+        bot.reply_to(message, "🚫 FAZ-23 result feedback motoru mevcut değil.")
+        return
+    try:
+        raw = message.text.replace("/result", "", 1).strip()
+        parts = [p.strip() for p in raw.split("|")]
+        if len(parts) != 4:
+            raise ValueError
+        league = parts[0].upper()
+        date_str = parts[1]
+        matchup = parts[2]
+        result = parts[3]
+        if " - " in matchup:
+            home, away = [x.strip() for x in matchup.split(" - ", 1)]
+        elif "-" in matchup:
+            home, away = [x.strip() for x in matchup.split("-", 1)]
+        else:
+            raise ValueError
+        if faz23_feedback:
+            faz23_feedback(
+                league=league,
+                home=home,
+                away=away,
+                date_str=date_str,
+                result=result
+            )
+            bot.reply_to(message, "✅ Sonuç kaydedildi.")
+        else:
+            bot.reply_to(message, "🚫 FAZ-23 feedback motoru yok.")
+    except Exception:
+        bot.reply_to(message, "🚫 Komut hatalı. Örnek: /result NBA | 2025-12-24 | Lakers - Warriors | 121-115")
 
 if __name__ == "__main__":
-    if WEBHOOK_URL:
-        bot.set_webhook(WEBHOOK_URL)
-    app.run(host="0.0.0.0", port=PORT) 
+    if bot and WEBHOOK_URL and AUTO_SET_WEBHOOK:
+        try:
+            bot.set_webhook(WEBHOOK_URL)
+        except Exception as e:
+            log.warning(f"Webhook set failed: {e}")
+    app.run(host="0.0.0.0", port=PORT 
