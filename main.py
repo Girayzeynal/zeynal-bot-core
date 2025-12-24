@@ -282,7 +282,7 @@ def _run_pipeline(league: str, date_str: str, home: str, away: str) -> Dict[str,
             away=away,
             date_str=date_str,
             market_data=market_data,
-            extra_inputs=context,
+            extra_inputs=extra_inputs, 
         )
     except Exception as e:
         log.exception("FAZ-13 pipeline crashed")
