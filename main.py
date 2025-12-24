@@ -207,44 +207,121 @@ def cmd_mac(message: types.Message):
         log.exception("FAZ-13 pipeline crashed")
         bot.reply_to(message, f"❌ FAZ-13 pipeline crashed: {e}")
 
-@bot.message_handler(commands=["result"])
-def cmd_result(message: types.Message):
-    if not faz23_feedback:
-        bot.reply_to(message, "🚫 FAZ-23 result feedback motoru mevcut değil.")
-        return
-    try:
-        raw = message.text.replace("/result", "", 1).strip()
-        parts = [p.strip() for p in raw.split("|")]
-        if len(parts) != 4:
-            raise ValueError
-        league = parts[0].upper()
-        date_str = parts[1]
-        matchup = parts[2]
-        result = parts[3]
-        if " - " in matchup:
-            home, away = [x.strip() for x in matchup.split(" - ", 1)]
-        elif "-" in matchup:
-            home, away = [x.strip() for x in matchup.split("-", 1)]
-        else:
-            raise ValueError
-        if faz23_feedback:
-            faz23_feedback(
-                league=league,
-                home=home,
-                away=away,
-                date_str=date_str,
-                result=result
-            )
-            bot.reply_to(message, "✅ Sonuç kaydedildi.")
-        else:
-            bot.reply_to(message, "🚫 FAZ-23 feedback motoru yok.")
-    except Exception:
-        bot.reply_to(message, "🚫 Komut hatalı. Örnek: /result NBA | 2025-12-24 | Lakers - Warriors | 121-115")
+# ---------------------------------------------------------------------
+# Mesaj biçimleme (sade – f-string iç içelik yok)
+def _format_faz13_reply_simple(league: str, date_str: str,
+                               home: str, away: str,
+                               base: Any, band: Any,
+                               confidence: Any, risk: Any,
+                               market: Dict[str, Any],
+                               periods: Dict[str, Any]) -> str:
+    m_line = market.get("line")
+    m_delta = market.get("delta")
+    m_provider = market.get("provider")
 
-if __name__ == "__main__":
-    if bot and WEBHOOK_URL and AUTO_SET_WEBHOOK:
+    p1 = periods.get("q1")
+    p2 = periods.get("q2"); h1 = periods.get("h1")
+    p3 = periods.get("q3")
+    p4 = periods.get("q4"); h2 = periods.get("h2")
+
+    lines = []
+    lines.append(f"🏀 {home} — {away}")
+    lines.append(f"{league} | {date_str}")
+    lines.append("")
+    lines.append(f"🧠 Base: {base}")
+    lines.append(f"📦 Band: {band}")
+    lines.append(f"✅ Confidence: {confidence}")
+    lines.append(f"⚠️ Risk: {risk}")
+    lines.append(f"📈 Market: {{'line': {m_line}, 'delta': {m_delta}, 'provider': {m_provider}}}")
+    lines.append("")
+    lines.append("📊 Periyot Tahminleri:")
+    lines.append(f"• 1Q: {p1}")
+    lines.append(f"• 2Q: {p2} (İY: {h1})")
+    lines.append(f"• 3Q: {p3}")
+    lines.append(f"• 4Q: {p4} (2Y: {h2})")
+    return "\n".join(lines)
+
+@bot.message_handler(commands=["mac"])
+def cmd_mac(message: types.Message):
+    if not (fetch_market and run_faz13_auto_pipeline):
+        bot.reply_to(message, "🚫 Market veya FAZ-13 motoru yüklü değil.")
+        return
+
+    parsed = _parse_mac_command(message.text)
+    if not parsed:
+        bot.reply_to(message, "🚫 Komut hatalı. Örnek: /mac NBA | 2025-12-24 | Lakers - Warriors")
+        return
+
+    league = parsed["league"]
+    date_str = parsed["date_str"]
+    home = parsed["home"]
+    away = parsed["away"]
+
+    try:
+        # 1) Market verisini çek (tolerant: (market, meta) veya None)
+        market_data, market_meta = (None, None)
         try:
-            bot.set_webhook(WEBHOOK_URL)
+            m_out = fetch_market(league, date_str, home, away)
+            if isinstance(m_out, tuple) and len(m_out) == 2:
+                market_data, market_meta = m_out
+            else:
+                market_data, market_meta = m_out, {}
         except Exception as e:
-            log.warning(f"Webhook set failed: {e}")
-    app.run(host="0.0.0.0", port=PORT 
+            logging.warning(f"[FAZ17] fetch error: {e}")
+            market_data, market_meta = None, {}
+
+        # 2) FAZ-13 → team-first base (market_data sadece referans)
+        faz13 = run_faz13_auto_pipeline(
+            league=league, home=home, away=away, date_str=date_str, market_data=market_data
+        )
+
+        # 3) FAZ-22 → meta kalibrasyon (varsa)
+        data_to_show = faz13
+        if faz22_meta_engine:
+            try:
+                data_to_show = faz22_meta_engine({
+                    "league": league,
+                    "base_pred": faz13.get("base_pred"),
+                    "band": faz13.get("band"),
+                    "confidence": faz13.get("confidence"),
+                    "market": {
+                        "line": (market_data or {}).get("totals_line"),
+                        "provider": (market_data or {}).get("provider"),
+                        "used": ((market_meta or {}).get("market") or {}).get("used"),
+                    }
+                })
+                # FAZ-22 periods üretmediği için FAZ-13 periods’u göster
+                data_to_show.setdefault("periods", faz13.get("periods", {}))
+            except Exception as e:
+                logging.warning(f"[FAZ22] meta fail: {e}")
+                data_to_show = faz13
+
+        # 4) Mesaj
+        reply = _format_faz13_reply_simple(
+            league=league,
+            date_str=date_str,
+            home=home,
+            away=away,
+            base=data_to_show.get("base_pred"),
+            band=data_to_show.get("band"),
+            confidence=data_to_show.get("confidence"),
+            risk=data_to_show.get("risk", "-"),
+            market=data_to_show.get("market", {}),
+            periods=faz13.get("periods", {}),
+        )
+        bot.reply_to(message, reply)
+
+    except Exception as e:
+        logging.exception("Pipeline crashed")
+        bot.reply_to(message, f"❌ Pipeline crashed: {e}")
+
+# --------------- __main__ BLOĞU: Parantez/tırnaklar kapalı, tek satır -------------
+if __name__ == "__main__":
+    try:
+        if WEBHOOK_URL and bot:
+            bot.remove_webhook()
+            bot.set_webhook(WEBHOOK_URL)
+    except Exception as e:
+        logging.warning(f"Webhook set failed: {e}")
+
+    app.run(host="0.0.0.0", port=PORT) 
