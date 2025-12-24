@@ -1,88 +1,28 @@
-# ======================== faz22_engine/faz22_meta.py ============================
-from __future__ import annotations
-import time
-from typing import Dict, Any
-from faz23_engine.faz23_state import faz23_get_league_calibration
+"""
+faz22_meta.py - handles environment configuration (loading tokens and API keys) and Flask settings.
+"""
+import os
+from dotenv import load_dotenv
 
-def _clamp(x: float, lo: float, hi: float) -> float:
-    return max(lo, min(hi, x))
+# Load environment variables from .env if available
+load_dotenv()
 
-def faz22_meta_engine(match_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    FAZ-22 meta motoru.
-    - FAZ-13 base_pred değeri korunur; market verisi sadece küçük ağırlıkla etki eder.
-    - Bant genişliği varyansına göre confidence ayarlanır; lig bazlı cezalar eklenir.
-    - FAZ-23 online kalibrasyon değerleri (bias_total/conf_scale/conf_bias) uygulanır.
-    """
-    ts = int(time.time())
-    league = str(match_data.get("league", "UNKNOWN")).upper()
-    base_pred = float(match_data.get("base_pred", match_data.get("faz13_pred", 0.0)))
-    band = match_data.get("band")
-    market = match_data.get("market", {})
-    line = market.get("line")
-    try:
-        market_line_f = float(line) if line is not None else None
-    except Exception:
-        market_line_f = None
-    w_market = 0.10 if market_line_f is not None else 0.0
-    w_base = 1.0 - w_market
-    meta_pred = base_pred
-    if market_line_f is not None:
-        meta_pred = (base_pred * w_base) + (market_line_f * w_market)
-    var = 6.0
-    if isinstance(band, (list, tuple)) and len(band) == 2:
-        try:
-            var = max(3.0, float(band[1]) - float(band[0]))
-        except Exception:
-            var = 6.0
-    low = round(meta_pred - var)
-    high = round(meta_pred + var)
-    delta = None
-    if market_line_f is not None:
-        delta = round(market_line_f - base_pred, 1)
-    var_conf = _clamp(1.0 - (var / 100.0), 0.35, 0.97)
-    penalty = 0.0
-    if delta is not None:
-        ad = abs(delta)
-        if league == "NBA":
-            if ad >= 8:
-                penalty = 0.12
-            elif ad >= 5:
-                penalty = 0.07
-        elif league == "EUROLEAGUE":
-            if ad >= 7:
-                penalty = 0.08
-            elif ad >= 4:
-                penalty = 0.04
-        else:
-            if ad >= 7:
-                penalty = 0.10
-            elif ad >= 4:
-                penalty = 0.05
-    confidence = _clamp(var_conf - penalty, 0.35, 0.97)
-    cal = faz23_get_league_calibration(league)
-    bias = float(cal.get("bias_total", 0.0))
-    meta_pred += bias
-    low = int(low + bias)
-    high = int(high + bias)
-    conf = confidence
-    conf = conf * float(cal.get("conf_scale", 1.0)) + float(cal.get("conf_bias", 0.0))
-    confidence = _clamp(conf, 0.0, 1.0)
-    risk = "LOW" if confidence >= 0.85 else "MID" if confidence >= 0.65 else "HIGH"
-    return {
-        "ts": ts,
-        "engine": "FAZ-22",
-        "league": league,
-        "base_pred": round(meta_pred, 1),
-        "band": [low, high],
-        "confidence": round(confidence, 3),
-        "risk": risk,
-        "market": {
-            "line": market_line_f,
-            "delta": delta,
-            "w_market": w_market,
-            "penalty": penalty,
-            "provider": market.get("provider"),
-            "used": market.get("used"),
-        },
-    } 
+# Telegram Bot Token and Odds API Key from environment or default (example values)
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8395841768:AAEmrUCXtIr3n2t2Pf2jTw46Py2w9M9AC-A")
+ODDS_API_KEY = os.getenv("ODDS_API_KEY", "8b4be7b33821ec3702c3a7e2d520179")
+
+# Example usage of .env:
+# TELEGRAM_TOKEN=8395841768:AAEmrUCXtIr3n2t2Pf2jTw46Py2w9M9AC-A
+# ODDS_API_KEY=8b4be7b33821ec3702c3a7e2d520179
+
+# Default values for region and market in Odds API queries
+DEFAULT_REGION = "us"
+DEFAULT_MARKET = "h2h"
+
+# Flask app configuration
+class Config:
+    ENV = "production"
+    DEBUG = False
+    # Bind to all interfaces on given port (for Fly.io deployment, use environment port)
+    # Optionally, set other config like SECRET_KEY if needed for sessions
+    # SECRET_KEY = os.getenv("SECRET_KEY", "change_this_secret") 
