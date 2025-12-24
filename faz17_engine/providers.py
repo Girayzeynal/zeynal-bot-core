@@ -1,194 +1,108 @@
 # faz17_engine/providers.py
 from __future__ import annotations
-import os
-import time
-import json
+import os, json, urllib.request, urllib.parse
 from typing import Any, Dict, Optional, Tuple
-import urllib.request
-import urllib.parse
 
-def _now() -> int:
-    return int(time.time())
+DEFAULT_TIMEOUT = 12
+ODDS_API_KEY = os.getenv("ODDS_API_KEY", "").strip()
+API_SPORT_KEY = os.getenv("API_SPORT_KEY", "").strip()
+ODDS_API_BASE = os.getenv("ODDS_API_URL", "https://api.the-odds-api.com").rstrip("/")
+API_SPORT_BASE = os.getenv("API_SPORT_URL", "https://v1.basketball.api-sports.io").rstrip("/")
+
+def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None, timeout: int = DEFAULT_TIMEOUT) -> Dict[str, Any]:
+    req = urllib.request.Request(url, headers=headers or {})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8", errors="replace"))
 
 def _safe_float(x: Any) -> Optional[float]:
     try:
-        if x is None:
-            return None
-        return float(x)
+        return None if x is None else float(x)
     except Exception:
         return None
 
-def _http_get_json(url: str, headers: Dict[str, str], timeout: int = 12) -> Dict[str, Any]:
-    req = urllib.request.Request(url, headers=headers, method="GET")
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        raw = resp.read().decode("utf-8", errors="ignore")
+def _normalize_team(s: str) -> str:
+    return " ".join((s or "").strip().lower().split())
+
+def _pick_totals_from_odds_api(event: Dict[str, Any]) -> Optional[float]:
     try:
-        return json.loads(raw)
+        for bm in (event.get("bookmakers") or []):
+            for m in (bm.get("markets") or []):
+                if m.get("key") in ("totals", "alternate_totals"):
+                    pts = [_safe_float(o.get("point")) for o in (m.get("outcomes") or [])]
+                    pts = [p for p in pts if p is not None]
+                    if pts:
+                        pts.sort()
+                        return pts[len(pts)//2]
+        return None
     except Exception:
-        return {"_raw": raw}
+        return None
 
-# -------------------------
-# ODDS API (PRIMARY)
-# -------------------------
-def fetch_odds_api_totals(
-    league: str,
-    date_str: str,
-    home: str,
-    away: str,
-) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
-    """
-    Minimal totals_line fetcher.
-    Env:
-      ODDS_API_KEY (required)
-      ODDS_API_URL (optional)  -> if empty uses a placeholder and returns no data
-    """
-    api_key = (os.getenv("ODDS_API_KEY", "") or "").strip()
-    base_url = (os.getenv("ODDS_API_URL", "") or "").strip()
-
-    meta = {"provider": "odds_api", "used": False, "confidence": 0.0, "reason": "", "ts": _now()}
-
-    if not api_key or not base_url:
-        meta["reason"] = "missing_odds_api_key_or_url"
-        return None, meta
-
-    # URL params
-    params = urllib.parse.urlencode({
-        "league": league,
-        "date": date_str,
-        "home": home,
-        "away": away,
-    })
-    url = f"{base_url}?{params}"
-    headers = {"Authorization": f"Bearer {api_key}"}
-
+def fetch_from_odds_api(*, league: str, date_str: str, home: str, away: str) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
+    if not ODDS_API_KEY:
+        return None, {"provider":"odds_api","used":False,"confidence":0.0,"reason":"missing_ODDS_API_KEY"}
+    league_map = {"NBA":"basketball_nba","EUROLEAGUE":"basketball_euroleague"}
+    sport_key = league_map.get(league.upper())
+    if not sport_key:
+        return None, {"provider":"odds_api","used":False,"confidence":0.0,"reason":f"unsupported_league:{league}"}
+    params = {"apiKey":ODDS_API_KEY,"regions":"us","markets":"totals","oddsFormat":"decimal"}
+    url = f"{ODDS_API_BASE}/v4/sports/{sport_key}/odds?{urllib.parse.urlencode(params)}"
     try:
-        data = _http_get_json(url, headers=headers, timeout=12)
-        # Expected minimal fields:
-        # totals_line / over_odds / under_odds
-        totals_line = _safe_float(data.get("totals_line"))
-        if totals_line is None:
-            # alternative keys
-            totals_line = _safe_float(data.get("total_line") or data.get("line") or data.get("totals"))
-
-        market = {
-            "provider": "odds_api",
-            "totals_line": totals_line,
-            "over_odds": _safe_float(data.get("over_odds")),
-            "under_odds": _safe_float(data.get("under_odds")),
-            "book": data.get("book"),
-            "ts": _now(),
-            "raw": data,
-        }
-
-        if totals_line is not None:
-            meta["used"] = True
-            meta["confidence"] = 0.70
-            meta["reason"] = "ok"
-            return market, meta
-
-        meta["reason"] = "no_totals_line"
-        return market, meta
+        data = _http_get_json(url)
     except Exception as e:
-        meta["reason"] = f"odds_api_error:{e}"
-        return None, meta
+        return None, {"provider":"odds_api","used":False,"confidence":0.0,"reason":f"http_error:{e}"}
+    home_norm, away_norm = _normalize_team(home), _normalize_team(away)
+    event = next((ev for ev in data if ( _normalize_team(ev.get("home_team","")) , _normalize_team(ev.get("away_team","")) ) in [(home_norm,away_norm),(away_norm,home_norm)]), None)
+    if not event:
+        return None, {"provider":"odds_api","used":False,"confidence":0.0,"reason":"event_not_found"}
+    line = _pick_totals_from_odds_api(event)
+    return (
+        {"totals_line":line,"provider":"odds_api","raw":event},
+        {"provider":"odds_api","used":line is not None,"confidence":0.85 if line else 0.0,"reason":"ok" if line else "no_totals_market"}
+    )
 
-# -------------------------
-# API-SPORTS (FALLBACK)
-# -------------------------
-def fetch_api_sports_totals(
-    league: str,
-    date_str: str,
-    home: str,
-    away: str,
-) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
-    """
-    Fallback totals_line fetcher.
-    Env:
-      API_SPORT_KEY (required)
-      API_SPORT_URL (optional)
-    """
-    key = (os.getenv("API_SPORT_KEY", "") or "").strip()
-    base_url = (os.getenv("API_SPORT_URL", "") or "").strip()
-
-    meta = {"provider": "api_sports", "used": False, "confidence": 0.0, "reason": "", "ts": _now()}
-
-    if not key or not base_url:
-        meta["reason"] = "missing_api_sport_key_or_url"
-        return None, meta
-
-    params = urllib.parse.urlencode({
-        "league": league,
-        "date": date_str,
-        "home": home,
-        "away": away,
-    })
-    url = f"{base_url}?{params}"
-    headers = {"x-apisports-key": key}
-
+def fetch_from_api_sports(*, league: str, date_str: str, home: str, away: str) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
+    if not API_SPORT_KEY:
+        return None, {"provider":"api_sports","used":False,"confidence":0.0,"reason":"missing_API_SPORT_KEY"}
+    headers = {"x-apisports-key": API_SPORT_KEY}
     try:
-        data = _http_get_json(url, headers=headers, timeout=12)
-
-        # API-Sports response structures vary; we support a few common patterns
-        totals_line = None
-
-        # Pattern A: direct field
-        totals_line = _safe_float(data.get("totals_line"))
-
-        # Pattern B: nested response list
-        if totals_line is None:
-            resp = data.get("response")
-            if isinstance(resp, list) and resp:
-                first = resp[0]
-                if isinstance(first, dict):
-                    totals_line = _safe_float(
-                        first.get("totals_line") or
-                        first.get("line") or
-                        (first.get("odds") or {}).get("totals_line")
-                    )
-
-        market = {
-            "provider": "api_sports",
-            "totals_line": totals_line,
-            "over_odds": None,
-            "under_odds": None,
-            "book": None,
-            "ts": _now(),
-            "raw": data,
-        }
-
-        if totals_line is not None:
-            meta["used"] = True
-            meta["confidence"] = 0.55
-            meta["reason"] = "ok"
-            return market, meta
-
-        meta["reason"] = "no_totals_line"
-        return market, meta
+        games = _http_get_json(f"{API_SPORT_BASE}/games?date={urllib.parse.quote(date_str)}", headers=headers)
     except Exception as e:
-        meta["reason"] = f"api_sports_error:{e}"
-        return None, meta
-
-# -------------------------
-# Unified provider
-# -------------------------
-def faz17_fetch_market(
-    *,
-    league: str,
-    date_str: str,
-    home: str,
-    away: str,
-) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
-    """
-    Primary: Odds API
-    Fallback: API-Sports
-    """
-    m1, meta1 = fetch_odds_api_totals(league, date_str, home, away)
-    if meta1.get("used"):
-        return m1, meta1
-
-    m2, meta2 = fetch_api_sports_totals(league, date_str, home, away)
-    if meta2.get("used"):
-        return m2, meta2
-
-    # none
-    return None, {"provider": None, "used": False, "confidence": 0.0, "reason": "no_market", "ts": _now()}
+        return None, {"provider":"api_sports","used":False,"confidence":0.0,"reason":f"http_error:{e}"}
+    home_norm, away_norm = _normalize_team(home), _normalize_team(away)
+    game_id = None
+    for g in games.get("response", []):
+        teams = g.get("teams") or {}
+        h_name = _normalize_team( (teams.get("home") or {}).get("name","") )
+        a_name = _normalize_team( (teams.get("away") or {}).get("name","") )
+        if {h_name,a_name} == {home_norm,away_norm}:
+            game_id = g.get("id")
+            break
+    if not game_id:
+        return None, {"provider":"api_sports","used":False,"confidence":0.0,"reason":"game_not_found"}
+    try:
+        odds = _http_get_json(f"{API_SPORT_BASE}/odds?game={game_id}", headers=headers)
+    except Exception as e:
+        return None, {"provider":"api_sports","used":False,"confidence":0.0,"reason":f"odds_http_error:{e}"}
+    line = None
+    try:
+        for item in odds.get("response", []):
+            for bm in item.get("bookmakers", []):
+                for bet in bm.get("bets", []):
+                    name = (bet.get("name","")).lower()
+                    if "over/under" in name or "total" in name:
+                        pts=[]
+                        for val in bet.get("values", []):
+                            for token in val.get("value","").replace(",",".").split():
+                                f = _safe_float(token)
+                                if f is not None:
+                                    pts.append(f)
+                        if pts:
+                            pts.sort()
+                            line = pts[len(pts)//2]
+                            raise StopIteration
+    except StopIteration:
+        pass
+    return (
+        {"totals_line":line,"provider":"api_sports","raw":odds},
+        {"provider":"api_sports","used":line is not None,"confidence":0.75 if line else 0.0,"reason":"ok" if line else "no_totals_found"}
+    ) 
