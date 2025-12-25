@@ -2,42 +2,44 @@ import os
 import time
 import requests
 
-# Gerekli API anahtarını ortam değişkeninden al (Fly.io secret olarak tanımlanmalı)
-API_KEY = os.environ.get("MARKET_API_KEY")
+# Odds API anahtarı – Fly secrets üzerinden ODDS_API_KEY olarak ayarlanmalı
+ODDS_API_KEY = os.environ.get("ODDS_API_KEY")
 
-# API uç noktasını tanımla (örnek amaçlı; gerçek servis URL'inizi buraya koyun)
-API_URL = "https://api.example.com/market"
+# Odds API uç noktası – basketbol örneği (NBA) için
+ODDS_API_URL = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
 
-# Önbellek değişkenleri ve süresi
-_cached_data = None
-_last_fetch_time = 0
-CACHE_TIMEOUT = 300  # saniye cinsinden; ör. 300 sn = 5 dakika
+# Basit önbellek (league:date:home:away -> veri) ve zaman aşımı
+_cached_data = {}
+_CACHE_TIMEOUT = 60  # saniye
 
-def fetch_market_data():
+def fetch_market_data(league: str, date_str: str, home: str, away: str):
     """
-    Harici piyasa API'ından veriyi çeker. Önceden çekilmiş veri yakın zamanda alınmışsa,
-    önbellekteki değer döndürülür. Aksi halde API tekrar çağrılır.
+    Belirli bir maç için odds (market verisi) getirir. Sonuçları kısa süreli olarak önbelleğe alır.
+    Geri dönüş değeri, Odds API’nın JSON yanıtıdır veya hata durumunda {'error': ...} sözlüğüdür.
     """
-    global _cached_data, _last_fetch_time
+    cache_key = f"{league}:{date_str}:{home}:{away}"
+    now = time.time()
 
-    # Önbellekte güncel veri varsa direkt onu döndür
-    if _cached_data is not None and (time.time() - _last_fetch_time) < CACHE_TIMEOUT:
-        return _cached_data
+    # Önce önbelleğe bak
+    if cache_key in _cached_data:
+        cached = _cached_data[cache_key]
+        if now - cached["time"] < _CACHE_TIMEOUT:
+            return cached["data"]
 
-    # API istek parametrelerini hazırla (anahtar gerekiyorsa ekle)
-    params = {}
-    if API_KEY:
-        params["apikey"] = API_KEY
+    # API parametrelerini hazırla
+    params = {
+        "apiKey": ODDS_API_KEY,
+        "regions": "us",
+        "markets": "h2h,spreads,totals",
+    }
 
     try:
-        response = requests.get(API_URL, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()  # API'den gelen veriyi al
+        resp = requests.get(ODDS_API_URL, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
     except Exception as e:
-        # Hata durumunda veriyi bir hata mesajıyla döndür (veya logging yapabilirsiniz)
         data = {"error": str(e)}
 
-    # Yeni veriyi önbelleğe al ve zamanını güncelle
-    _cached_data = data
-    _last_fetch_time = time.time()
-    return _cached_data
+    # Önbelleğe kaydet
+    _cached_data[cache_key] = {"time": now, "data": data}
+    return data
