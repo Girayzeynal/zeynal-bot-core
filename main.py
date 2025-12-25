@@ -3,44 +3,40 @@ import logging
 from flask import Flask, request
 import requests
 
-# Engine modüllerini paket yapısı ile içe aktar
+# Orkestratör ve veri çekme fonksiyonları
 from faz13_engine.faz13_orchestrator import run_match_analysis
 from faz17_engine.faz17_market_fetcher import fetch_market_data
-from faz22_engine.faz22_meta_engine import faz22_meta_engine
+from faz17_engine.providers import fetch_sports_data
+from faz22_engine.faz22_meta_engine import faz22_meta_engine  # Flask konfigürasyonu için
 
-# Genel logger ayarı
+# Genel log ayarları
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("zeynal-bot-core")
 
+# Telegram bot token'ı Fly.io secrets ile gelmeli
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 if not BOT_TOKEN:
-    log.warning("BOT_TOKEN boş. Fly secrets üzerinden BOT_TOKEN ayarlayın.")
+    log.warning("BOT_TOKEN tanımsız. Lütfen Fly.io secrets ile BOT_TOKEN ayarlayın.")
 
 TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 def tg_send(chat_id: str, text: str) -> None:
-    """
-    Telegram’a mesaj gönderen yardımcı fonksiyon.
-    """
+    """Telegram'a mesaj gönderir."""
     if not BOT_TOKEN:
         return
     try:
         requests.post(
             f"{TG_API}/sendMessage",
-            json={
-                "chat_id": chat_id,
-                "text": text,
-                "disable_web_page_preview": True,
-            },
+            json={"chat_id": chat_id, "text": text, "disable_web_page_preview": True},
             timeout=12,
         )
     except Exception as e:
-        log.warning(f"Mesaj gönderimi hatası: {e}")
+        log.warning(f"Mesaj gönderim hatası: {e}")
 
 def parse_mac(text: str):
     """
-    /mac komutundan ligi, tarihi, ev sahibi ve deplasman takımını ayrıştırır.
-    Örnek: /mac NBA | 2025-12-24 | Lakers - Warriors
+    /mac komutunu ayrıştırır. Format:
+    /mac LIG | YYYY-MM-DD | EvTakım - Deplasman
     """
     import re
     MAC_RE = re.compile(
@@ -56,9 +52,7 @@ def parse_mac(text: str):
     return league, date_str, home, away
 
 def create_app() -> Flask:
-    """
-    Flask uygulamasını oluşturan ve konfigüre eden fonksiyon.
-    """
+    """Flask uygulamasını oluşturur ve webhook'u tanımlar."""
     app = Flask(__name__)
 
     @app.route("/", methods=["GET"])
@@ -73,16 +67,15 @@ def create_app() -> Flask:
         chat_id = chat.get("id")
         text = (msg.get("text") or "").strip()
 
-        # Chat ID yoksa HTTP 200 döndür
         if not chat_id:
             return {"ok": True}
 
-        # /start komutu
+        # Başlangıç komutu
         if text.startswith("/start"):
-            tg_send(chat_id, "Bot ayakta. Format: /mac LIG | YYYY-MM-DD | EvTakım - Deplasman")
+            tg_send(chat_id, "Bot ayakta. Komut formatı: /mac LIG | YYYY-MM-DD | EvTakım - Deplasman")
             return {"ok": True}
 
-        # /mac komutu
+        # Maç analiz komutu
         if text.startswith("/mac"):
             parsed = parse_mac(text)
             if not parsed:
@@ -92,39 +85,45 @@ def create_app() -> Flask:
             league, date_str, home, away = parsed
             tg_send(chat_id, f"Analiz başlıyor: {league} | {date_str} | {home} - {away}")
 
-            # Piyasa verisini çek
-            market = None
+            # 1) Odds API'den piyasa verilerini al
             try:
-                market = fetch_market_data(league=league, date_str=date_str, home=home, away=away)
+                market_data = fetch_market_data(league=league, date_str=date_str, home=home, away=away)
             except Exception as e:
                 log.warning(f"FAZ-17 market fetch hatası: {e}")
+                market_data = None
 
-            # Maç analizi
-            analysis_result = None
+            # 2) API‑Sports üzerinden takım ve maç istatistiklerini al
+            try:
+                sports_data = fetch_sports_data(league=league, date_str=date_str, home=home, away=away)
+            except Exception as e:
+                log.warning(f"Sports API fetch hatası: {e}")
+                sports_data = None
+
+            # 3) Verileri birleştirip analiz motoruna gönder
+            combined = {"odds": market_data, "sports": sports_data}
             try:
                 analysis_result = run_match_analysis(
                     league=league,
                     date_str=date_str,
                     home=home,
                     away=away,
-                    market=market,
+                    market=combined,
                 )
             except Exception as e:
                 log.warning(f"FAZ-13 orchestrator hatası: {e}")
                 tg_send(chat_id, f"FAZ-13 orchestrator hatası: {e}")
                 return {"ok": True}
 
-            # Sonucu kullanıcıya ilet
+            # 4) Sonucu kullanıcıya ilet
             tg_send(chat_id, f"Analiz sonucu: {analysis_result}")
             return {"ok": True}
 
-        # Diğer durumlar için OK döndür
         return {"ok": True}
 
     return app
 
 if __name__ == "__main__":
     app = create_app()
-    port = int(os.environ.get("PORT", 8080))
-    # Fly.io üzerinde 0.0.0.0:PORT adresini dinler
+    port = int(os.getenv("PORT", 8080))
+    # Fly.io üzerinde her zaman 0.0.0.0:PORT dinlenir
     app.run(host="0.0.0.0", port=port) 
