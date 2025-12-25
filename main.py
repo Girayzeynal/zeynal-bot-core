@@ -258,8 +258,7 @@ def main() -> None:
     app.run_polling(
         allowed_updates=Update.ALL_TYPES,
         close_loop=False,
-        drop_pending_updates=True,
-        on_shutdown=on_shutdown,
+        drop_pending_updates=True, 
     )
 
 
