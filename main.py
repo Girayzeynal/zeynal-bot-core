@@ -45,9 +45,19 @@ import re
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-from telegram import Update
-from telegram.constants import ParseMode
-from telegram.ext import (Application, CommandHandler, ContextTypes)
+try:
+    from telegram import Update
+    from telegram.constants import ParseMode
+    from telegram.ext import (
+        Application,
+        CommandHandler,
+        ContextTypes,
+    )
+except ImportError as e:
+    raise ImportError(
+        "python-telegram-bot library is not installed. "
+        "Ensure that you have 'python-telegram-bot>=20,<21' in your requirements.txt."
+    ) from e
 
 from faz13_engine import Faz13Engine, PrematchRequest
 from faz17_engine import Faz17Engine
