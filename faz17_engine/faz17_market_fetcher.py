@@ -2,20 +2,20 @@ import os
 import time
 import requests
 
-# Odds API anahtarı – Fly secrets üzerinden ODDS_API_KEY olarak ayarlanmalı
+# Odds API anahtarı – Fly.io secrets üzerinden tanımlanmalı
 ODDS_API_KEY = os.environ.get("ODDS_API_KEY")
 
-# Odds API uç noktası – basketbol örneği (NBA) için
+# Basketbol (NBA) için Odds API uç noktası
 ODDS_API_URL = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
 
-# Basit önbellek (league:date:home:away -> veri) ve zaman aşımı
+# Basit önbellek (maç anahtarı → veri) ve süre ayarı
 _cached_data = {}
 _CACHE_TIMEOUT = 60  # saniye
 
 def fetch_market_data(league: str, date_str: str, home: str, away: str):
     """
-    Belirli bir maç için odds (market verisi) getirir. Sonuçları kısa süreli olarak önbelleğe alır.
-    Geri dönüş değeri, Odds API’nın JSON yanıtıdır veya hata durumunda {'error': ...} sözlüğüdür.
+    Belirtilen maç için market (oran) verilerini çeker. Kısa süreli önbellek kullanır.
+    Geri dönüş JSON veri ya da hata durumunda {'error': ...} sözlüğüdür.
     """
     cache_key = f"{league}:{date_str}:{home}:{away}"
     now = time.time()
@@ -26,7 +26,6 @@ def fetch_market_data(league: str, date_str: str, home: str, away: str):
         if now - cached["time"] < _CACHE_TIMEOUT:
             return cached["data"]
 
-    # API parametrelerini hazırla
     params = {
         "apiKey": ODDS_API_KEY,
         "regions": "us",
@@ -42,4 +41,4 @@ def fetch_market_data(league: str, date_str: str, home: str, away: str):
 
     # Önbelleğe kaydet
     _cached_data[cache_key] = {"time": now, "data": data}
-    return data
+    return data 
