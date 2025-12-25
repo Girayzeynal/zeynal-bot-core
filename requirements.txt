@@ -1,4 +1,4 @@
-python-telegram-bot>=20,<21
+python-telegram-bot>=21,<22 
 aiohttp>=3,<4 
 Flask==3.0.0
 requests==2.31.0
