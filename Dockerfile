@@ -1,21 +1,18 @@
+# Python 3 tabanlı bir imaj kullanıyoruz (örnek olarak slim sürümü)
 FROM python:3.11-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
+# Çalışma dizinini oluştur ve ayarla
 WORKDIR /app
 
-# Sistem bağımlılıkları
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
+# Python bağımlılıklarını yükle
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Uygulama kodunu kopyala
 COPY . .
 
-ENV PORT=8080
+# Uygulamanın dinleyeceği portu belirt (Fly.io iç port 8080 kullanır)
+EXPOSE 8080
 
-# Tek process: Telegram bot + Flask
+# Uygulamayı başlat
 CMD ["python", "main.py"]
