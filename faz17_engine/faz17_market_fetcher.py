@@ -1,94 +1,43 @@
-from __future__ import annotations
-from typing import Any, Dict, Optional, Tuple, Callable
+import os
+import time
+import requests
 
-MarketData = Dict[str, Any]
-MarketMeta = Dict[str, Any]
+# Gerekli API anahtarını ortam değişkeninden al (Fly.io secret olarak tanımlanmalı)
+API_KEY = os.environ.get("MARKET_API_KEY")
 
+# API uç noktasını tanımla (örnek amaçlı; gerçek servis URL'inizi buraya koyun)
+API_URL = "https://api.example.com/market"
 
-def faz17_fetch_market_safe(
-    *,
-    provider_fetch_func: Callable[..., Any],
-    league: str,
-    date_str: str,
-    home: str,
-    away: str,
-) -> Tuple[Optional[MarketData], Dict[str, Any]]:
+# Önbellek değişkenleri ve süresi
+_cached_data = None
+_last_fetch_time = 0
+CACHE_TIMEOUT = 300  # saniye cinsinden; ör. 300 sn = 5 dakika
+
+def fetch_market_data():
+    """
+    Harici piyasa API'ından veriyi çeker. Önceden çekilmiş veri yakın zamanda alınmışsa,
+    önbellekteki değer döndürülür. Aksi halde API tekrar çağrılır.
+    """
+    global _cached_data, _last_fetch_time
+
+    # Önbellekte güncel veri varsa direkt onu döndür
+    if _cached_data is not None and (time.time() - _last_fetch_time) < CACHE_TIMEOUT:
+        return _cached_data
+
+    # API istek parametrelerini hazırla (anahtar gerekiyorsa ekle)
+    params = {}
+    if API_KEY:
+        params["apikey"] = API_KEY
+
     try:
-        out = provider_fetch_func(
-            league=league, date_str=date_str, home=home, away=away
-        )
+        response = requests.get(API_URL, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()  # API'den gelen veriyi al
     except Exception as e:
-        return None, {
-            "market": {
-                "used": False,
-                "confidence": 0.0,
-                "reason": f"provider_error:{e}",
-                "provider": None,
-            }
-        }
+        # Hata durumunda veriyi bir hata mesajıyla döndür (veya logging yapabilirsiniz)
+        data = {"error": str(e)}
 
-    market = None
-    meta: Dict[str, Any] = {}
-
-    if isinstance(out, tuple) and len(out) == 2:
-        market, meta = out
-    elif isinstance(out, dict):
-        market = out
-        meta = {
-            "provider": market.get("provider"),
-            "used": bool(market.get("totals_line")),
-            "confidence": 0.4,
-            "reason": "ok",
-        }
-
-    if not market or not isinstance(market, dict):
-        return None, {
-            "market": {
-                "used": False,
-                "confidence": 0.0,
-                "reason": "no_market_data",
-                "provider": None,
-            }
-        }
-
-    line = market.get("totals_line")
-    try:
-        market["totals_line"] = float(line) if line is not None else None
-    except Exception:
-        market["totals_line"] = None
-
-    used = market["totals_line"] is not None
-    provider = meta.get("provider") or market.get("provider")
-
-    return market, {
-        "market": {
-            "used": used,
-            "confidence": float(meta.get("confidence", 0.0)),
-            "reason": meta.get("reason", "ok" if used else "no_line"),
-            "provider": provider,
-        }
-    }
-
-
-def fetch_market(
-    league: str, date_str: str, home: str, away: str
-) -> Tuple[Optional[MarketData], Dict[str, Any]]:
-    from faz17_engine.providers import fetch_from_odds_api, fetch_from_api_sports
-
-    market, meta = faz17_fetch_market_safe(
-        provider_fetch_func=fetch_from_odds_api,
-        league=league,
-        date_str=date_str,
-        home=home,
-        away=away,
-    )
-    if meta.get("market", {}).get("used"):
-        return market, meta
-
-    return faz17_fetch_market_safe(
-        provider_fetch_func=fetch_from_api_sports,
-        league=league,
-        date_str=date_str,
-        home=home,
-        away=away,
-    )
+    # Yeni veriyi önbelleğe al ve zamanını güncelle
+    _cached_data = data
+    _last_fetch_time = time.time()
+    return _cached_data
