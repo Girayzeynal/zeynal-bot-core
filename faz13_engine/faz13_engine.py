@@ -147,7 +147,8 @@ class Faz13Engine:
     async def _team_baseline(self, team: str, league: str, season: str) -> Tuple[TeamAverages, str, int]:
         profile = get_league_profile(league)
         team_id = None
-        # resolve team id
+
+        # find team_id
         try:
             res = await self._api_get("/teams", {"search": team})
             t_resp = res.get("response") or []
@@ -162,7 +163,7 @@ class Faz13Engine:
         except Exception:
             team_id = None
 
-        # 1) statistics
+        # statistics
         if team_id is not None:
             try:
                 stats = await self._api_get("/statistics", {"team": team_id, "league": league, "season": season})
@@ -177,7 +178,7 @@ class Faz13Engine:
             except Exception:
                 pass
 
-        # 2) games last5
+        # games last5
         if team_id is not None:
             try:
                 games = await self._api_get("/games", {"team": team_id, "last": 5})
@@ -215,12 +216,8 @@ class Faz13Engine:
             except Exception:
                 pass
 
-        # 3) fallback league prior
-        priors = {"NBA": (112.0, 112.0), "EUROLEAGUE": (80.0, 80.0), "TBL": (82.0, 82.0), "FIBA": (78.0, 78.0)}
-        pf, pa = priors.get(league.upper(), (88.0, 88.0))
-        pace = max(0.70, min(1.35, 0.95 * profile.pace_scale))
-        stdev = max(profile.volatility_floor, min(profile.volatility_ceil, 9.0))
-        return TeamAverages(pf, pa, pace, stdev), "league_prior", 0
+        # no baseline found -> neutral baseline
+        return TeamAverages(0.0, 0.0, 1.0, 9.0), "none", 0
 
     @staticmethod
     def _dig(obj: Any, path: List[str]) -> Optional[float]:
@@ -243,17 +240,14 @@ class Faz13Engine:
             self._team_baseline(req.away, req.league, season)
         )
 
-        # expected scores
         home_mu = (h_avg.points_for + a_avg.points_against) / 2
         away_mu = (a_avg.points_for + h_avg.points_against) / 2
         total_mu = home_mu + away_mu
 
-        # volatility & pace (clamped to league)
         sigma = (h_avg.stdev_hint + a_avg.stdev_hint) / 2
         sigma = max(profile.volatility_floor, min(profile.volatility_ceil, sigma))
         pace = (h_avg.pace_hint + a_avg.pace_hint) / 2
 
-        # tempo flag
         tempo_flag = "NORMAL"
         if pace > 1.12 and sigma < 9.0:
             tempo_flag = "FAKE_TEMPO_RISK"
@@ -265,14 +259,12 @@ class Faz13Engine:
         gap = abs(home_mu - away_mu)
         blowout = "HIGH" if gap >= 12 else "MID" if gap >= 7 else "LOW"
 
-        # bands from league profile
         hw_total = profile.band_hw_total
         hw_team = profile.band_hw_team
         total_band = (int(round(total_mu - hw_total)), int(round(total_mu + hw_total)))
         home_band = (int(round(home_mu - hw_team)), int(round(home_mu + hw_team)))
         away_band = (int(round(away_mu - hw_team)), int(round(away_mu + hw_team)))
 
-        # OU direction baseline
         ou_dir = "NO_EDGE"
         if tempo_flag in {"SLOW", "FAKE_TEMPO_RISK"} and blowout in {"MID", "HIGH"}:
             ou_dir = "ALT"
@@ -287,8 +279,8 @@ class Faz13Engine:
             f"μ(total)≈{total_mu:.1f}, σ≈{sigma:.1f}, pace≈{pace:.2f}",
             f"gap≈{gap:.1f} → blowout={blowout}"
         ]
-        if h_src == "league_prior" or a_src == "league_prior":
-            notes.append("UYARI: Team baseline alınamadı → league_prior kullanıldı.")
+        if h_src == "none" or a_src == "none":
+            notes.append("UYARI: Team baseline alınamadı → neutral baseline (0/0) kullanıldı.")
         if ou_dir == "NO_EDGE":
             notes.append("Alt/Üst yönünde net edge yok: market çizgisi ile FAZ-17'de belirlenecek.")
 
@@ -325,12 +317,6 @@ class Faz13Engine:
             mu = total_mu * w
             hw = max(2, int(round(hw_total * w)))
             out[k] = (int(round(mu - hw)), int(round(mu + hw)))
-        out["HT"] = (
-            out["1Q"][0] + out["2Q"][0],
-            out["1Q"][1] + out["2Q"][1]
-        )
-        out["FT"] = (
-            int(round(total_mu - hw_total)),
-            int(round(total_mu + hw_total))
-        )
+        out["HT"] = (out["1Q"][0] + out["2Q"][0], out["1Q"][1] + out["2Q"][1])
+        out["FT"] = (int(round(total_mu - hw_total)), int(round(total_mu + hw_total)))
         return out
