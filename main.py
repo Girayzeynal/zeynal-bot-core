@@ -48,6 +48,56 @@ from baseline.team_baseline_store import TeamStatsAdapter
 # ---------------------------------------------------------------------------
 class DummyStatsAdapter(TeamStatsAdapter):
     def __init__(self, api_key: str, base_url: str) -> None:
+"""
+Entry point for the Zeynal Core bot.
+
+This script wires together the various analysis engines (FAZ-13, FAZ-17, FAZ-22
+and FAZ-23) and exposes them through a Telegram bot interface.  It expects
+certain environment variables to be set for API keys and uses a simple
+``DummyStatsAdapter`` as a placeholder for pulling team statistics.  Replace
+``DummyStatsAdapter`` with a concrete implementation of
+:class:`baseline.team_baseline_store.TeamStatsAdapter` that fetches real
+aggregate statistics if you wish to make the predictions more accurate.
+
+Environment variables:
+
+``TELEGRAM_BOT_TOKEN``
+    The bot token obtained from BotFather on Telegram.
+``API_SPORTS_KEY``
+    API key for your sports data provider (used by the stats adapter).
+``API_SPORTS_BASE`` (optional)
+    Base URL for the sports data API.  Defaults to the API Sports basketball endpoint.
+``ODDS_API_KEY``
+    API key for The Odds API.
+``ODDS_BASE`` (optional)
+    Base URL for The Odds API.  Defaults to the v4 endpoint.
+``FAZ23_STORAGE`` (optional)
+    Path to the SQLite database used by FAZ-23 to persist snapshots.
+"""
+
+import logging
+import os
+from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.constants import ParseMode
+
+from faz13_engine import Faz13Engine, PrematchRequest
+from faz17_engine import Faz17Engine
+from faz22_engine import Faz22Engine
+from faz23_engine import Faz23Engine
+from baseline.team_baseline_store import TeamStatsAdapter
+
+
+# ---------------------------------------------------------------------------
+# Stats adapter implementation
+#
+# Faz13Engine requires an object implementing TeamStatsAdapter in order to
+# bootstrap team baselines.  This dummy adapter does not fetch real data and
+# always returns ``None``, which causes the engine to fall back to the neutral
+# baseline.  You should replace this with a real implementation that calls
+# your preferred sports data API.
+# ---------------------------------------------------------------------------
+class DummyStatsAdapter(TeamStatsAdapter):
+    def __init__(self, api_key: str, base_url: str) -> None:
         self.api_key = api_key
         self.base_url = base_url
 
@@ -168,4 +218,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main() 
