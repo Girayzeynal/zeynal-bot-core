@@ -8,4 +8,4 @@ designed to be lightweight and file‑based; you can swap in your own
 storage backend by extending ``TeamBaselineStore``.
 """
 
-__all__ = ["TeamBaseline", "TeamBaselineStore", "TeamBaselineBootstrapper", "TeamStatsAdapter"]
+__all__ = ["TeamBaseline", "TeamBaselineStore", "TeamBaselineBootstrapper", "TeamStatsAdapter"] 
