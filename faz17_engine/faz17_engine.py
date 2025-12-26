@@ -20,14 +20,12 @@ from league_profiles import get_league_profile
 
 class Faz17Engine:
     """Market enrichment engine using The Odds API."""
-
     def __init__(self, odds_api_key: str, odds_base: str) -> None:
         self.key = odds_api_key
         self.base = odds_base.rstrip("/")
         self.session: Optional[aiohttp.ClientSession] = None
 
     async def _session(self) -> aiohttp.ClientSession:
-        """Return a shared aiohttp session (created on demand)."""
         if not self.session or self.session.closed:
             self.session = aiohttp.ClientSession()
         return self.session
@@ -43,7 +41,6 @@ class Faz17Engine:
 
     async def enrich_with_market(self, core: Faz13CoreOutput) -> Faz13CoreOutput:
         """Populate ``core.market`` with totals data from The Odds API, if available."""
-        # Resolve the sport key from league metadata.  Defaults to NBA if unknown.
         profile = get_league_profile(core.ctx.league or "")
         sport_key = profile.api_sport_key or "basketball_nba"
 
@@ -59,14 +56,11 @@ class Faz17Engine:
             async with session.get(url, params=params) as resp:
                 data = await resp.json()
         except Exception:
-            # If network request fails, just return core unchanged with no market info.
             core.market = {"status": "NO_MARKET"}
             return core
 
-        # Normalize target team names once
         nh, na = self._norm(core.ctx.home), self._norm(core.ctx.away)
         for event in data:
-            # Fuzzy match the event by comparing normalized names
             h = self._norm(event.get("home_team", ""))
             a = self._norm(event.get("away_team", ""))
             if nh and na and ((nh in h and na in a) or (nh in a and na in h)):
@@ -77,11 +71,9 @@ class Faz17Engine:
                     if market.get("key") == "totals":
                         for oc in market.get("outcomes", []):
                             nm = (oc.get("name") or "").lower()
-                            # consider Over/Üst outcomes only
                             if "over" in nm or "üst" in nm:
                                 total = oc.get("point")
                                 break
-                # Compute an edge hint relative to the predicted band
                 edge_hint = "Line yakın → net edge yok"
                 if total is not None and isinstance(core.total_band, (list, tuple)) and len(core.total_band) == 2:
                     lo, hi = core.total_band
@@ -98,6 +90,5 @@ class Faz17Engine:
                 }
                 return core
 
-        # No matching event found or totals missing
         core.market = {"status": "NO_MARKET"}
         return core 
