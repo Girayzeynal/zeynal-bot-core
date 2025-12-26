@@ -85,4 +85,4 @@ LEAGUE_PROFILES = {
 
 def get_league_profile(league: str) -> LeagueProfile:
     key = (league or "").upper().strip()
-    return LEAGUE_PROFILES.get(key, LEAGUE_PROFILES["EUROLEAGUE"])
+    return LEAGUE_PROFILES.get(key, LEAGUE_PROFILES["EUROLEAGUE"]) 
