@@ -13,10 +13,10 @@ class Faz23Engine:
     """
     Faz23Engine – Prediction snapshot storage and self-learning hooks.
 
-    This engine stores every prediction in a SQLite database. Each snapshot
-    includes the full context, team averages, bands, market data and meta
-    information. Stored snapshots can later be used for analysis and model
-    calibration (e.g. comparing predicted bands with actual results).
+    Bu sınıf, her analiz çıktısını bir SQLite veritabanında saklar. Kaydedilen
+    snapshot, tam bağlam (ctx), takım ortalamaları (home_avg/away_avg),
+    bandlar, market verisi ve meta bilgileri içerir. Böylece daha sonra
+    yapılacak kalibrasyon ve model analizi için bu veriler kullanılabilir0.
     """
 
     def __init__(self, storage_path: str = "faz23_storage.sqlite") -> None:
@@ -24,6 +24,7 @@ class Faz23Engine:
         self._init_db()
 
     def _init_db(self) -> None:
+        """Ensure the SQLite table and index exist."""
         con = sqlite3.connect(self.path)
         try:
             cur = con.cursor()
@@ -46,26 +47,31 @@ class Faz23Engine:
 
     async def record_snapshot(self, out: Faz13CoreOutput) -> None:
         """
-        Persist a prediction snapshot. The fixture_key is derived from date,
-        home, away and league to avoid collisions when fixture IDs are not used.
+        Persist a prediction snapshot asynchronously.  The fixture_key is derived
+        from date, home, away and league to avoid collisions when fixture IDs are
+        not used1.  Only the last 12 notlar saklanır.
         """
+        # Derive a unique key for the fixture
         fixture_key = f"{out.ctx.date}:{out.ctx.home}:{out.ctx.away}:{out.ctx.league}"
+
+        # Build the payload dictionary mirroring upstream expectations
         payload: Dict[str, Any] = {
             "ctx": asdict(out.ctx),
-            "home_avg": asdict(out.home_avg),
-            "away_avg": asdict(out.away_avg),
+            "home_avg": asdict(out.home_avg) if out.home_avg else None,
+            "away_avg": asdict(out.away_avg) if out.away_avg else None,
             "total_band": out.total_band,
             "home_band": out.home_band,
             "away_band": out.away_band,
             "ou_direction": out.ou_direction,
-            "quarters": out.quarters,
+            "quarters": out.quarters if out.quarters is not None else [],
             "blowout_risk": out.blowout_risk,
             "tempo_flag": out.tempo_flag,
-            "notes": out.notes[-12:],
+            "notes": out.notes[-12:],  # keep only last 12 notes2
             "market": out.market,
             "meta": out.meta,
         }
 
+        # Write the snapshot into SQLite
         con = sqlite3.connect(self.path)
         try:
             cur = con.cursor()
@@ -79,4 +85,4 @@ class Faz23Engine:
             )
             con.commit()
         finally:
-            con.close()
+            con.close() 
