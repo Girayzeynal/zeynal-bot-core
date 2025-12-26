@@ -46,6 +46,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 try:
+    # The python-telegram-bot library provides the Telegram types used below.
     from telegram import Update
     from telegram.constants import ParseMode
     from telegram.ext import (
@@ -59,7 +60,7 @@ except ImportError as e:
         "Ensure that you have 'python-telegram-bot>=20,<21' in your requirements.txt."
     ) from e
 
-from faz13_engine.faz13_engine import Faz13Engine, PrematchRequest 
+from faz13_engine import Faz13Engine, PrematchRequest
 from faz17_engine import Faz17Engine
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
@@ -255,10 +256,15 @@ def main() -> None:
     app.add_handler(CommandHandler("health", cmd_health))
     app.add_handler(CommandHandler("analyze", cmd_analyze))
     log.info("Bot starting…")
+    # Run the bot.  We omit the `on_shutdown` argument here to maintain
+    # compatibility across python-telegram-bot versions.  The on_shutdown
+    # callback is still registered on the Application instance; it will
+    # be invoked if supported.  The polling loop fetches updates
+    # continuously and blocks until the process is stopped.
     app.run_polling(
         allowed_updates=Update.ALL_TYPES,
         close_loop=False,
-        drop_pending_updates=True, 
+        drop_pending_updates=True,
     )
 
 
