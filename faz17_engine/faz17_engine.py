@@ -100,4 +100,4 @@ class Faz17Engine:
 
         # No matching event found or totals missing
         core.market = {"status": "NO_MARKET"}
-        return core
+        return core 
