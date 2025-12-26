@@ -1,88 +1,145 @@
-# league_profiles.py
-# Central league behavior configuration
-# All engines (FAZ-13 / FAZ-17 / FAZ-22 / LIVE) must read from here
+# config/league_profiles.py
+from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional, Dict
 
 
 @dataclass(frozen=True)
 class LeagueProfile:
-    name: str
-
-    # Scoring behavior
-    pace_scale: float           # tempo multiplier
-    volatility_floor: float     # min sigma
-    volatility_ceil: float      # max sigma
-
-    # Prediction band control
-    band_hw_total: int          # half-width of total band
-    band_hw_team: int           # half-width of team band
-
-    # Market trust (FAZ-17)
-    market_weight: float        # how much market can shift FAZ-13
-    market_required: bool       # if False → NO_MARKET is acceptable
-
-    # Live behavior
-    live_weight: float          # momentum importance
-    garbage_time_factor: float  # blowout late-game inflation
+    key: str                   # internal key (EUROLEAGUE, NBA, ...)
+    name: str                  # human label
+    api_sport_key: Optional[str]  # TheOddsAPI sport_key (if supported)
+    tier: str                  # ELITE / MAJOR / REGIONAL
+    provider: str              # "theoddsapi" | "api_basketball" | "manual"
+    notes: str = ""
 
 
-LEAGUE_PROFILES = {
+# ✅ The Odds API (basketball) sport_key list contains:
+# basketball_euroleague, basketball_nba, basketball_wnba, basketball_ncaab, basketball_nbl
+# (plus preseason variants etc. but core keys above are enough for production mapping)
+# Source: The Odds API sports list. 1
 
+LEAGUE_PROFILES: Dict[str, LeagueProfile] = {
+    # --- ELITE (global) ---
     "NBA": LeagueProfile(
+        key="NBA",
         name="NBA",
-        pace_scale=1.10,
-        volatility_floor=8.5,
-        volatility_ceil=15.0,
-        band_hw_total=7,
-        band_hw_team=5,
-        market_weight=0.85,
-        market_required=True,
-        live_weight=0.80,
-        garbage_time_factor=1.15,
+        api_sport_key="basketball_nba",
+        tier="ELITE",
+        provider="theoddsapi",
     ),
-
     "EUROLEAGUE": LeagueProfile(
-        name="EUROLEAGUE",
-        pace_scale=0.92,
-        volatility_floor=7.0,
-        volatility_ceil=11.0,
-        band_hw_total=6,
-        band_hw_team=4,
-        market_weight=0.55,
-        market_required=False,
-        live_weight=0.60,
-        garbage_time_factor=1.05,
+        key="EUROLEAGUE",
+        name="EuroLeague",
+        api_sport_key="basketball_euroleague",
+        tier="ELITE",
+        provider="theoddsapi",
     ),
 
-    "TBL": LeagueProfile(
-        name="TBL",
-        pace_scale=0.98,
-        volatility_floor=7.5,
-        volatility_ceil=12.0,
-        band_hw_total=6,
-        band_hw_team=4,
-        market_weight=0.50,
-        market_required=False,
-        live_weight=0.55,
-        garbage_time_factor=1.05,
+    # --- ELITE-ish / top ecosystems ---
+    "WNBA": LeagueProfile(
+        key="WNBA",
+        name="WNBA",
+        api_sport_key="basketball_wnba",
+        tier="ELITE",
+        provider="theoddsapi",
+    ),
+    "NCAAB": LeagueProfile(
+        key="NCAAB",
+        name="NCAA Men (NCAAB)",
+        api_sport_key="basketball_ncaab",
+        tier="MAJOR",
+        provider="theoddsapi",
+    ),
+    "NBL": LeagueProfile(
+        key="NBL",
+        name="Australia NBL",
+        api_sport_key="basketball_nbl",
+        tier="MAJOR",
+        provider="theoddsapi",
     ),
 
-    "FIBA": LeagueProfile(
-        name="FIBA",
-        pace_scale=0.95,
-        volatility_floor=6.5,
-        volatility_ceil=10.0,
-        band_hw_total=5,
-        band_hw_team=4,
-        market_weight=0.40,
-        market_required=False,
-        live_weight=0.50,
-        garbage_time_factor=1.00,
+    # --- ELITE club leagues (NOT in The Odds API basketball list right now) ---
+    # Bunları yine lig profiline ekliyoruz; market için provider "api_basketball" veya "manual"
+    "ACB": LeagueProfile(
+        key="ACB",
+        name="Spain Liga ACB",
+        api_sport_key=None,
+        tier="ELITE",
+        provider="api_basketball",
+        notes="The Odds API basketball list does not include ACB sport_key; use api-basketball or manual mapping.",
+    ),
+    "TURKEY_BSL": LeagueProfile(
+        key="TURKEY_BSL",
+        name="Turkey BSL (Super Ligi)",
+        api_sport_key=None,
+        tier="ELITE",
+        provider="api_basketball",
+    ),
+    "ITALY_SERIE_A": LeagueProfile(
+        key="ITALY_SERIE_A",
+        name="Italy Lega Basket Serie A",
+        api_sport_key=None,
+        tier="ELITE",
+        provider="api_basketball",
+    ),
+    "GREECE_A1": LeagueProfile(
+        key="GREECE_A1",
+        name="Greece A1 / Basket League",
+        api_sport_key=None,
+        tier="ELITE",
+        provider="api_basketball",
+    ),
+    "FRANCE_PROA": LeagueProfile(
+        key="FRANCE_PROA",
+        name="France Pro A (LNB Elite)",
+        api_sport_key=None,
+        tier="MAJOR",
+        provider="api_basketball",
+    ),
+    "GERMANY_BBL": LeagueProfile(
+        key="GERMANY_BBL",
+        name="Germany BBL",
+        api_sport_key=None,
+        tier="MAJOR",
+        provider="api_basketball",
+    ),
+    "ABA": LeagueProfile(
+        key="ABA",
+        name="ABA Adriatic League",
+        api_sport_key=None,
+        tier="MAJOR",
+        provider="api_basketball",
+    ),
+    "EUROCUP": LeagueProfile(
+        key="EUROCUP",
+        name="EuroCup",
+        api_sport_key=None,
+        tier="MAJOR",
+        provider="api_basketball",
+    ),
+
+    # --- BIG leagues outside EU/US ---
+    "CBA": LeagueProfile(
+        key="CBA",
+        name="China CBA",
+        api_sport_key=None,
+        tier="MAJOR",
+        provider="api_basketball",
+    ),
+    "BSL_JAPAN": LeagueProfile(
+        key="BSL_JAPAN",
+        name="Japan B.League",
+        api_sport_key=None,
+        tier="MAJOR",
+        provider="api_basketball",
     ),
 }
 
-
-def get_league_profile(league: str) -> LeagueProfile:
-    key = (league or "").upper().strip()
-    return LEAGUE_PROFILES.get(key, LEAGUE_PROFILES["EUROLEAGUE"]) 
+# Convenience: only TheOddsAPI-supported keys (what you asked: API_SPORT_KEY list)
+API_SPORT_KEYS = {
+    k: v.api_sport_key
+    for k, v in LEAGUE_PROFILES.items()
+    if v.api_sport_key
+}
