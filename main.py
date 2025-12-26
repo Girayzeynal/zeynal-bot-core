@@ -34,7 +34,6 @@ from faz13_engine import Faz13Engine, PrematchRequest
 from faz17_engine import Faz17Engine
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
-from baseline.team_baseline_store import TeamStatsAdapter
 
 
 # ---------------------------------------------------------------------------
@@ -46,65 +45,17 @@ from baseline.team_baseline_store import TeamStatsAdapter
 # baseline.  You should replace this with a real implementation that calls
 # your preferred sports data API.
 # ---------------------------------------------------------------------------
-class DummyStatsAdapter(TeamStatsAdapter):
-    def __init__(self, api_key: str, base_url: str) -> None:
-"""
-Entry point for the Zeynal Core bot.
-
-This script wires together the various analysis engines (FAZ-13, FAZ-17, FAZ-22
-and FAZ-23) and exposes them through a Telegram bot interface.  It expects
-certain environment variables to be set for API keys and uses a simple
-``DummyStatsAdapter`` as a placeholder for pulling team statistics.  Replace
-``DummyStatsAdapter`` with a concrete implementation of
-:class:`baseline.team_baseline_store.TeamStatsAdapter` that fetches real
-aggregate statistics if you wish to make the predictions more accurate.
-
-Environment variables:
-
-``TELEGRAM_BOT_TOKEN``
-    The bot token obtained from BotFather on Telegram.
-``API_SPORTS_KEY``
-    API key for your sports data provider (used by the stats adapter).
-``API_SPORTS_BASE`` (optional)
-    Base URL for the sports data API.  Defaults to the API Sports basketball endpoint.
-``ODDS_API_KEY``
-    API key for The Odds API.
-``ODDS_BASE`` (optional)
-    Base URL for The Odds API.  Defaults to the v4 endpoint.
-``FAZ23_STORAGE`` (optional)
-    Path to the SQLite database used by FAZ-23 to persist snapshots.
-"""
-
-import logging
-import os
-from telegram.ext import Application, CommandHandler, ContextTypes
-from telegram.constants import ParseMode
-
-from faz13_engine import Faz13Engine, PrematchRequest
-from faz17_engine import Faz17Engine
-from faz22_engine import Faz22Engine
-from faz23_engine import Faz23Engine
-from baseline.team_baseline_store import TeamStatsAdapter
-
-
-# ---------------------------------------------------------------------------
-# Stats adapter implementation
-#
-# Faz13Engine requires an object implementing TeamStatsAdapter in order to
-# bootstrap team baselines.  This dummy adapter does not fetch real data and
-# always returns ``None``, which causes the engine to fall back to the neutral
-# baseline.  You should replace this with a real implementation that calls
-# your preferred sports data API.
-# ---------------------------------------------------------------------------
-class DummyStatsAdapter(TeamStatsAdapter):
+# DummyStatsAdapter is retained for backward compatibility but is no longer
+# referenced by main().  ``Faz13Engine`` can now be initialized directly
+# with an API key and base URL, so this class is unused in normal
+# operation.  You may delete it entirely if you do not require legacy
+# adapter support.
+class DummyStatsAdapter:
     def __init__(self, api_key: str, base_url: str) -> None:
         self.api_key = api_key
         self.base_url = base_url
 
     def fetch_team_recent_aggregate(self, league: str, team: str, n_games: int):
-        # TODO: Implement actual API calls to fetch recent aggregate stats
-        # For now this dummy implementation returns None, triggering the
-        # neutral baseline behaviour in Faz13Engine.
         return None
 
 
@@ -198,8 +149,9 @@ def main() -> None:
         .build()
     )
     # Create engine instances
-    stats_adapter = DummyStatsAdapter(api_sports_key, api_sports_base)
-    app.bot_data["faz13"] = Faz13Engine(stats_adapter)
+    # ``Faz13Engine`` accepts either a TeamStatsAdapter or an API key/base URL.
+    # Passing the API key directly allows use of the built‑in default adapter.
+    app.bot_data["faz13"] = Faz13Engine(api_sports_key, api_sports_base)
     app.bot_data["faz17"] = Faz17Engine(odds_key, odds_base)
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine(storage_path=faz23_storage)
