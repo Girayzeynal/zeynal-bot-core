@@ -178,26 +178,14 @@ def _risk_label(conf: float, issues: List[str]) -> str:
 
 
 class Faz13Engine:
-    """Pre‑match analysis engine.
-
-    The engine takes a :class:`TeamStatsAdapter` which it uses to populate
-    team baselines.  It can compute a preliminary analysis for a fixture
-    synchronously (via :meth:`pre_analyze`) and wrap that analysis into a
-    full :class:`Faz13CoreOutput` asynchronously (via
-    :meth:`run_prematch`).
-    """
+    """Pre‑match analysis engine."""
 
     def __init__(self, stats_adapter: TeamStatsAdapter) -> None:
         self.store = TeamBaselineStore()
         self.bootstrap = TeamBaselineBootstrapper(self.store, stats_adapter)
 
     def pre_analyze(self, league: str, home: str, away: str) -> Dict[str, Any]:
-        """Compute a dictionary of baseline and band data for a fixture.
-
-        This method attempts to bootstrap team baselines if none exist,
-        calculates expected totals and spreads and returns a structured
-        dictionary similar to the one produced by earlier FAZ‑13 versions.
-        """
+        """Compute a dictionary of baseline and band data for a fixture."""
         issues: List[str] = []
         # Ensure baselines exist; if missing, bootstrap from adapter
         hb = self.bootstrap.ensure(league, home, min_games=6)
@@ -206,7 +194,7 @@ class Faz13Engine:
             issues.append("no_team_data")
         if not ab and "no_team_data" not in issues:
             issues.append("no_team_data")
-        # If still missing, don't pretend it's fine.  Return a stub analysis
+        # If still missing, return a stub analysis with neutral bands
         if not hb or not ab:
             conf = 45.0  # reduced confidence when no data
             return {
@@ -218,6 +206,12 @@ class Faz13Engine:
                     "home_baseline_n": 0,
                     "away_baseline_src": "none",
                     "away_baseline_n": 0,
+                },
+                # Provide structured bands with neutral ranges to avoid unpacking errors
+                "bands": {
+                    "ft": [0, 0],  # full time total band
+                    "ht": [0, 0],  # half time band
+                    "q": [0, 0],   # quarter band
                 },
                 "signals": {
                     "alt_ust": "NO_EDGE",
@@ -235,10 +229,9 @@ class Faz13Engine:
                     "Çözüm: TeamStatsAdapter veri kaynağına bağlanmalı veya baselines klasörü doldurulmalı.",
                 ],
             }
-        # Otherwise compute the expected total and standard deviation from both teams
+        # Otherwise compute expected total and bands from team statistics
         exp_total = (hb.pts_for + ab.pts_for) / 2.0
         sigma = (hb.stdev_total + ab.stdev_total) / 2.0
-        # Keep existing confidence calculation; you may substitute your own
         conf = 62.8
         return {
             "league_profile": league,
@@ -273,41 +266,31 @@ class Faz13Engine:
         }
 
     async def run_prematch(self, request: PrematchRequest) -> Faz13CoreOutput:
-        """Asynchronously compute a pre‑match analysis for the given request.
-
-        Although this method is defined as ``async`` to integrate smoothly with
-        the overall application (which uses asynchronous Telegram handlers),
-        it performs all of its work synchronously.  Should future
-        implementations of ``TeamStatsAdapter`` perform network I/O, this
-        method could be adapted to await those operations.
-        """
-        # Run the underlying analysis
+        """Asynchronously compute a pre‑match analysis for the given request."""
         result = self.pre_analyze(request.league, request.home, request.away)
-        # Extract fields from the result dict
         baseline: Dict[str, Any] = result.get("baseline", {})
         bands: Dict[str, Any] = result.get("bands", {})
         signals: Dict[str, Any] = result.get("signals", {})
         meta_info: Dict[str, Any] = result.get("meta", {})
         notes: List[str] = result.get("notes", [])
-        # Determine total band
-        total_band = bands.get("ft", []) if isinstance(bands, dict) else []
-        # Compute per‑team bands.  Prefer the underlying mu_total when present
-        mu_total: Optional[float] = baseline.get("mu_total")  # type: ignore[assignment]
-        home_band: List[int]
-        away_band: List[int]
+        # Determine total band; fall back to [0, 0] if missing
+        if isinstance(bands, dict):
+            total_band = bands.get("ft", [0, 0])
+        else:
+            total_band = [0, 0]
+        # Compute per‑team bands
+        mu_total: Optional[float] = baseline.get("mu_total")
         if isinstance(mu_total, (int, float)):
-            # Use half of mu_total ±3 as a simple per‑team range
             home_band = [round(mu_total / 2.0 - 3), round(mu_total / 2.0 + 3)]
             away_band = [round(mu_total / 2.0 - 3), round(mu_total / 2.0 + 3)]
         elif total_band and len(total_band) == 2:
-            # Fall back to splitting the total band evenly
             lo, hi = total_band
             home_band = [round(lo / 2.0), round(hi / 2.0)]
             away_band = [round(lo / 2.0), round(hi / 2.0)]
         else:
             home_band = [0, 0]
             away_band = [0, 0]
-        # Build context
+        # Build and return output
         ctx = FixtureContext(
             league=request.league,
             date=request.date,
