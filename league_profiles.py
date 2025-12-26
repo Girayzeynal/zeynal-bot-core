@@ -1,32 +1,3 @@
-# config/league_profiles.py
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Optional, Dict
-
-
-@dataclass(frozen=True)
-class LeagueProfile:
-    key: str                   # internal key (EUROLEAGUE, NBA, ...)
-    name: str                  # human label
-    api_sport_key: Optional[str]  # TheOddsAPI sport_key (if supported)
-    tier: str                  # ELITE / MAJOR / REGIONAL
-    provider: str              # "theoddsapi" | "api_basketball" | "manual"
-    notes: str = ""
-
-
-# ✅ The Odds API (basketball) sport_key list contains:
-# basketball_euroleague, basketball_nba, basketball_wnba, basketball_ncaab, basketball_nbl
-# (plus preseason variants etc. but core keys above are enough for production mapping)
-# Source: The Odds API sports list. 1
-
-LEAGUE_PROFILES: Dict[str, LeagueProfile] = {
-    # --- ELITE (global) ---
-    "NBA": LeagueProfile(
-        key="NBA",
-        name="NBA",
-        api_sport_key="basketball_nba",
-        tier="ELITE",
 """
 league_profiles.py
 ====================
@@ -212,13 +183,16 @@ LEAGUE_PROFILES: Dict[str, LeagueProfile] = {
     ),
 }
 
+
 # Build a convenience mapping for sports keys directly supported by The Odds API
 API_SPORT_KEYS: Dict[str, str] = {
     k: v.api_sport_key for k, v in LEAGUE_PROFILES.items() if v.api_sport_key
 }
 
+
 def get_league_profile(key: str) -> LeagueProfile:
     """Return the LeagueProfile for `key` (case‑insensitive).
+
     Unknown keys fall back to a generic profile with neutral parameters.
     """
     if not key:
