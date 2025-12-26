@@ -10,13 +10,7 @@ outside the predicted band, and a market summary is attached.  If
 no matching market is found, the core output is returned unmodified
 with a status indicator.
 
-The Odds API v4 is expected.  The endpoint pattern used is:
-
-    /sports/{sport_key}/odds?regions=eu&markets=totals,spreads&oddsFormat=decimal&apiKey=...  
-
-This implementation is non‑blocking and employs basic TTL caching
-and retry logic to avoid hammering the API when multiple analyses
-are run in quick succession.
+The Odds API v4 is expected.
 """
 
 from __future__ import annotations
@@ -53,15 +47,7 @@ class _TTLCache:
 
 
 class Faz17Engine:
-    """Market adjustment layer using The Odds API.
-
-    Given a ``Faz13CoreOutput`` from the pre‑match engine, this engine
-    looks up betting market lines (totals and spreads) and enriches
-    the prediction.  It modifies the ``ou_direction`` and populates
-    ``core.market`` with details of the market line and a simple
-    edge heuristic.  If no market can be found, a ``status`` field
-    reflects that.
-    """
+    """Market adjustment layer using The Odds API."""
 
     def __init__(self, odds_api_key: str, odds_base: str) -> None:
         self.key = odds_api_key
@@ -81,12 +67,7 @@ class Faz17Engine:
             await self.session.close()
 
     async def _get(self, path: str, params: Dict[str, Any]) -> Any:
-        """Perform an HTTP GET with caching and retry.
-
-        The path should include the leading slash.  Params are
-        serialized into the cache key.  On transient errors, the
-        request is retried with exponential backoff.
-        """
+        """Perform an HTTP GET with caching and retry."""
         key = f"{path}?{json.dumps(params, sort_keys=True)}"
         cached = self.cache.get(key)
         if cached is not None:
@@ -110,12 +91,7 @@ class Faz17Engine:
 
     @staticmethod
     def _guess_sport_keys(league: str) -> List[str]:
-        """Return a list of probable sport keys for the league.
-
-        The Odds API organizes sports by keys such as ``basketball_nba``
-        or ``basketball_euroleague``.  This heuristic attempts to map
-        a league name or abbreviation to one or more candidate keys.
-        """
+        """Return a list of probable sport keys for the league."""
         l = (league or "").lower()
         keys: List[str] = []
         if "nba" in l:
@@ -148,18 +124,25 @@ class Faz17Engine:
 
     @staticmethod
     def _norm(s: str) -> str:
-        """Normalize a team name: lowercase alphanumeric only."""
-        return "".join(ch.lower() for ch in (s or "") if ch.isalnum())
+        """Normalize a team name for fuzzy matching.
+
+        Many bookmaker feeds include club descriptors such as “BC”, “BK”,
+        “basket”, or “basketball”. To improve matching between API‑Sports
+        team names and Odds API team names, we remove common basketball‑related
+        tokens before stripping non‑alphanumeric characters.
+        """
+        if not s:
+            return ""
+        s_lower = str(s).lower()
+        for token in ["basketball", "basket", "bk", "bc", "club"]:
+            s_lower = s_lower.replace(token, "")
+        return "".join(ch for ch in s_lower if ch.isalnum())
 
     @classmethod
     def _find_event(
         cls, events: Any, home: str, away: str
     ) -> Optional[Dict[str, Any]]:
-        """Find an event in a list of events matching home and away names.
-
-        Team names are normalized by stripping non‑alphanumeric characters.
-        A match is considered if one name contains the other in either order.
-        """
+        """Find an event in a list of events matching home and away names."""
         if not isinstance(events, list):
             return None
         nh = cls._norm(home)
@@ -171,7 +154,7 @@ class Faz17Engine:
                 if nh and na:
                     if (nh in h or h in nh) and (na in a or a in na):
                         return ev
-                    if (nh in a or a in nh) and (na in h or h in nh):
+                    if (nh in a or a in nh) and (na in h or h in na):
                         return ev
             except Exception:
                 continue
@@ -179,11 +162,7 @@ class Faz17Engine:
 
     @staticmethod
     def _extract_market(ev: Dict[str, Any]) -> Dict[str, Any]:
-        """Extract the total line and home spread from an event record.
-
-        The Odds API returns a nested structure with bookmakers and markets.
-        This helper inspects only the first bookmaker for simplicity.
-        """
+        """Extract the total line and home spread from an event record."""
         out: Dict[str, Any] = {}
         books = ev.get("bookmakers") or []
         if not books:
@@ -195,13 +174,11 @@ class Faz17Engine:
             if mk == "totals":
                 for oc in m.get("outcomes") or []:
                     name = (oc.get("name") or "").lower()
-                    # Accept Over/Üst outcome; take line once
                     if "over" in name or "üst" in name or "total" in name:
                         out["total_line"] = oc.get("point")
                         break
             elif mk == "spreads":
                 for oc in m.get("outcomes") or []:
-                    # We capture the first spread; mapping to home/away is nontrivial
                     if "point" in oc:
                         out.setdefault("home_spread", oc.get("point"))
                         break
@@ -222,26 +199,19 @@ class Faz17Engine:
     async def enrich_with_market(
         self, core: Faz13CoreOutput
     ) -> Faz13CoreOutput:
-        """Enrich a Faz13CoreOutput with betting market data.
-
-        This method tries a sequence of sport keys derived from the league.
-        For each key, it queries the Odds API for current odds and attempts
-        to find an event matching the core’s home and away team names.  On
-        success, the core output is updated with market data and the
-        over/under direction is adjusted if the market line lies well
-        outside the predicted band.  If no event is found, a status is
-        recorded in ``core.market`` without modifying the prediction.
-        """
+        """Enrich a Faz13CoreOutput with betting market data."""
         league = core.ctx.league or ""
         sport_keys = self._guess_sport_keys(league)
         best_market: Dict[str, Any] = {}
         found_key: Optional[str] = None
         for sk in sport_keys:
             try:
+                # Query multiple regions at once to broaden the search. Some leagues
+                # (e.g., Euroleague) may only have markets listed in US regions.
                 data = await self._get(
                     f"/sports/{sk}/odds",
                     {
-                        "regions": "eu",
+                        "regions": "eu,us",
                         "markets": "totals,spreads",
                         "oddsFormat": "decimal",
                         "apiKey": self.key,
@@ -257,16 +227,13 @@ class Faz17Engine:
                         break
             except Exception:
                 continue
-        # If no market found
         if not best_market:
             core.market = {
                 "status": "NO_MARKET",
                 "note": "Market verisi bulunamadı veya eşleşme çözülemedi.",
             }
             return core
-        # Interpret line and adjust OU direction
         line = best_market.get("total_line")
-        # Determine new ou_direction based on band
         new_ou = core.ou_direction
         lo, hi = core.total_band
         if isinstance(line, (int, float)):
@@ -274,8 +241,6 @@ class Faz17Engine:
                 new_ou = "UST"
             elif line >= hi + 2:
                 new_ou = "ALT"
-            # otherwise keep previous value
-        # Populate market summary
         core.ou_direction = new_ou
         core.market = {
             "status": "OK",
@@ -285,4 +250,4 @@ class Faz17Engine:
             "book": best_market.get("book"),
             "edge_hint": self._edge_hint(core.total_band, line),
         }
-        return core
+        return core 
