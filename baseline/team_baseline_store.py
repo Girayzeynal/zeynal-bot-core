@@ -1,6 +1,7 @@
 """
 team_baseline_store.py
-----------------------
+------------------
+
 Definitions for persisting and bootstrapping team baseline statistics.  A
 team baseline consists of the number of games considered plus aggregate
 metrics such as points scored, points allowed, pace and total volatility.
@@ -19,6 +20,7 @@ import time
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, Optional
 
+
 @dataclass
 class TeamBaseline:
     league: str
@@ -29,6 +31,7 @@ class TeamBaseline:
     pace: float
     stdev_total: float
     updated_ts: int
+
 
 class TeamBaselineStore:
     """Simple file‑based store for team baselines."""
@@ -50,7 +53,6 @@ class TeamBaselineStore:
                 data = json.load(f)
             return TeamBaseline(**data)
         except Exception:
-            # corrupted file -> treat as missing
             return None
 
     def put(self, baseline: TeamBaseline) -> None:
@@ -59,6 +61,7 @@ class TeamBaselineStore:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(asdict(baseline), f, ensure_ascii=False, indent=2)
         os.replace(tmp, p)
+
 
 class TeamBaselineBootstrapper:
     """Automatically create a team baseline when none exists."""
@@ -70,12 +73,11 @@ class TeamBaselineBootstrapper:
         existing = self.store.get(league, team)
         if existing and existing.n_games >= min_games:
             return existing
-        # Try fetch last N games stats via adapter
         stats = self.adapter.fetch_team_recent_aggregate(
             league=league, team=team, n_games=max(min_games, 8)
         )
         if not stats:
-            return existing  # still None or old
+            return existing
         baseline = TeamBaseline(
             league=league,
             team=team,
@@ -89,14 +91,8 @@ class TeamBaselineBootstrapper:
         self.store.put(baseline)
         return baseline
 
+
 class TeamStatsAdapter:
-    """Interface for providing team aggregate statistics.
-    Your project should implement this adapter to fetch aggregate team stats from
-    your preferred source (database, API or scraper).  The method must return a
-    dictionary containing at least the keys: n_games, pts_for, pts_against,
-    pace and stdev_total.
-    """
+    """Interface for providing team aggregate statistics."""
     def fetch_team_recent_aggregate(self, league: str, team: str, n_games: int) -> Optional[Dict[str, Any]]:
-        raise NotImplementedError(
-            "Implement using your existing stats provider (db/api/scraper)."
-        ) 
+        raise NotImplementedError("Implement using your existing stats provider (db/api/scraper).") 
