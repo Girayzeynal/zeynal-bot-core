@@ -23,7 +23,7 @@ encountered when ``main.py`` attempted to import ``PrematchRequest``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from baseline.team_baseline_store import (
     TeamBaselineStore,
@@ -31,21 +31,13 @@ from baseline.team_baseline_store import (
     TeamStatsAdapter,
 )
 
+# ---------------------------------------------------------------------------
+# Data structures
+# ---------------------------------------------------------------------------
 
 @dataclass
 class PrematchRequest:
-    """Input payload for pre‑match analysis.
-
-    :param user_id: Identifier of the user making the request.  This
-        value is carried through the pipeline but not currently used by
-        the engine; it is reserved for future per‑user customisation.
-    :param league: The league code (e.g. ``EUROLEAGUE``, ``NBA``) of the
-        fixture to analyse.
-    :param date: The date of the fixture in ``YYYY-MM-DD`` format.
-    :param home: The home team name.
-    :param away: The away team name.
-    """
-
+    """Input payload for pre‑match analysis."""
     user_id: int
     league: str
     date: str
@@ -56,7 +48,6 @@ class PrematchRequest:
 @dataclass
 class FixtureContext:
     """Context information for a fixture under analysis."""
-
     league: str
     date: str
     home: str
@@ -65,14 +56,7 @@ class FixtureContext:
 
 @dataclass
 class TeamAverages:
-    """Aggregate statistics for a single team.
-
-    This structure holds summary information about a team's recent
-    performance.  It is defined for completeness but is not actively used
-    by the current implementation.  In future versions it may be used to
-    carry more granular statistics into the engine.
-    """
-
+    """Aggregate statistics for a single team."""
     league: str
     team: str
     n_games: int
@@ -84,17 +68,10 @@ class TeamAverages:
 
 @dataclass
 class Faz13CoreOutput:
-    """Output of the pre‑match analysis engine.
-
-    Instances of this class carry the results of a pre‑match analysis.  The
-    ``ctx`` attribute contains fixture metadata; the band attributes
-    describe predicted ranges for team and total scores; the ``tempo_flag``
-    and ``blowout_risk`` indicate stylistic considerations; ``ou_direction``
-    hints at the model's tilt towards over/under on the betting line; and
-    ``meta`` stores confidence, risk and issue flags.  The ``notes`` list
-    contains any warnings or explanatory messages.
     """
-
+    Output of the pre‑match analysis engine.
+    Carries predicted bands, tempo/blowout signals, and meta information.
+    """
     ctx: FixtureContext
     home_band: List[int]
     away_band: List[int]
@@ -106,27 +83,13 @@ class Faz13CoreOutput:
     notes: List[str]
     market: Dict[str, Any] = field(default_factory=dict)
 
-    # New fields for compatibility with FAZ-23 snapshots
-    # Average statistics for the home team.  Stored as a TeamAverages dataclass
-    # so that ``dataclasses.asdict`` can be applied in Faz23Engine.
+    # Additional attributes expected by Faz23Engine
     home_avg: TeamAverages | None = None
-    # Average statistics for the away team.
     away_avg: TeamAverages | None = None
-    # Predicted quarter bands (lo, hi) for a single quarter.  FAZ-23 persists
-    # this for potential calibration.  When unavailable, defaults to [] or
-    # [0, 0] to avoid attribute errors.
     quarters: List[int] | None = None
 
     def render_html(self) -> str:
-        """Render this analysis as an HTML fragment suitable for Telegram.
-
-        The HTML contains basic bold formatting for key fields and
-        structures the information in a human‑readable way.  Downstream
-        engines may augment the HTML further, but this baseline output
-        ensures that even a standalone FAZ‑13 analysis produces a useful
-        response.
-        """
-        # Fixture header
+        """Render this analysis as an HTML fragment suitable for Telegram."""
         html_lines: List[str] = []
         html_lines.append("<b>FAZ-13 Ön Analiz</b><br>")
         html_lines.append(
@@ -172,14 +135,8 @@ class Faz13CoreOutput:
 
 
 def _risk_label(conf: float, issues: List[str]) -> str:
-    """Map a confidence value and issue list to a risk label.
-
-    This helper mirrors the logic used in the original implementation.
-    """
-    # If team data is missing then confidence should be treated as higher risk
+    """Map a confidence value and issue list to a risk label."""
     if "no_team_data" in issues:
-        # Force the label to HIGH so that downstream engines treat the
-        # prediction conservatively.
         return "HIGH"
     if conf >= 75:
         return "LOW"
@@ -189,40 +146,52 @@ def _risk_label(conf: float, issues: List[str]) -> str:
 
 
 class Faz13Engine:
-    """Pre‑match analysis engine.
-
-    The engine takes a :class:`TeamStatsAdapter` which it uses to populate
-    team baselines.  It can compute a preliminary analysis for a fixture
-    synchronously (via :meth:`pre_analyze`) and wrap that analysis into a
-    full :class:`Faz13CoreOutput` asynchronously (via
-    :meth:`run_prematch`).
+    """
+    Pre‑match analysis engine.
+    
+    The engine takes either a :class:`TeamStatsAdapter` instance or an API
+    key (string) with an optional base URL for API Sports.  If an adapter
+    instance is provided, it will be used directly.  If a string is provided,
+    a minimal internal adapter is created which returns ``None`` for recent
+    stats, causing the engine to use neutral baselines.  This makes it
+    compatible with both modern and legacy usage.
     """
 
-    def __init__(self, stats_adapter: TeamStatsAdapter) -> None:
+    def __init__(self, stats_adapter_or_key: TeamStatsAdapter | str, base_url: Optional[str] = None) -> None:
+        # Determine whether a TeamStatsAdapter instance or an API key was provided.
+        if isinstance(stats_adapter_or_key, TeamStatsAdapter):
+            adapter = stats_adapter_or_key
+        else:
+            # Treat the argument as an API key.  Use the provided base URL or
+            # default to the API Sports basketball endpoint.
+            api_key = stats_adapter_or_key
+            base = base_url or "https://v1.basketball.api-sports.io"
+
+            class _DefaultAdapter(TeamStatsAdapter):
+                """A basic adapter that does not fetch real data."""
+                def __init__(self, key: str, url: str) -> None:
+                    self.api_key = key
+                    self.base_url = url
+
+                def fetch_team_recent_aggregate(
+                    self, league: str, team: str, n_games: int
+                ) -> Optional[Dict[str, Any]]:
+                    return None
+
+            adapter = _DefaultAdapter(api_key, base)
         self.store = TeamBaselineStore()
-        self.bootstrap = TeamBaselineBootstrapper(self.store, stats_adapter)
+        self.bootstrap = TeamBaselineBootstrapper(self.store, adapter)
 
     def pre_analyze(self, league: str, home: str, away: str) -> Dict[str, Any]:
-        """Compute a dictionary of baseline and band data for a fixture.
-
-        This method attempts to bootstrap team baselines if none exist,
-        calculates expected totals and spreads and returns a structured
-        dictionary similar to the one produced by earlier FAZ‑13 versions.
-        """
+        """Compute baseline and band data for a fixture."""
         issues: List[str] = []
-        # Ensure baselines exist; if missing, bootstrap from adapter
         hb = self.bootstrap.ensure(league, home, min_games=6)
         ab = self.bootstrap.ensure(league, away, min_games=6)
         if not hb:
             issues.append("no_team_data")
         if not ab and "no_team_data" not in issues:
             issues.append("no_team_data")
-        # If still missing, don't pretend it's fine.  Return a stub analysis
         if not hb or not ab:
-            # When no team statistics exist we cannot compute meaningful bands.  To
-            # prevent downstream engines (e.g. FAZ‑22) from throwing unpack errors,
-            # always return a bands dictionary with placeholder ranges.  The total
-            # band is set to [0, 0], and per‑quarter/half bands mirror this.
             conf = 45.0  # reduced confidence when no data
             return {
                 "league_profile": league,
@@ -234,11 +203,10 @@ class Faz13Engine:
                     "away_baseline_src": "none",
                     "away_baseline_n": 0,
                 },
-                # Provide empty but structured bands to avoid unpacking errors.
                 "bands": {
-                    "ft": [0, 0],  # full time total band
-                    "ht": [0, 0],  # half time band
-                    "q": [0, 0],   # quarter band
+                    "ft": [0, 0],
+                    "ht": [0, 0],
+                    "q": [0, 0],
                 },
                 "signals": {
                     "alt_ust": "NO_EDGE",
@@ -256,10 +224,8 @@ class Faz13Engine:
                     "Çözüm: TeamStatsAdapter veri kaynağına bağlanmalı veya baselines klasörü doldurulmalı.",
                 ],
             }
-        # Otherwise compute the expected total and standard deviation from both teams
         exp_total = (hb.pts_for + ab.pts_for) / 2.0
         sigma = (hb.stdev_total + ab.stdev_total) / 2.0
-        # Keep existing confidence calculation; you may substitute your own
         conf = 62.8
         return {
             "league_profile": league,
@@ -280,7 +246,7 @@ class Faz13Engine:
                 "q": [round((exp_total / 4.0) - 2), round((exp_total / 4.0) + 2)],
             },
             "signals": {
-                "alt_ust": "NO_EDGE",  # market will refine this later
+                "alt_ust": "NO_EDGE",
                 "tempo_flag": "NORMAL",
                 "blowout_risk": "LOW",
             },
@@ -294,54 +260,34 @@ class Faz13Engine:
         }
 
     async def run_prematch(self, request: PrematchRequest) -> Faz13CoreOutput:
-        """Asynchronously compute a pre‑match analysis for the given request.
-
-        Although this method is defined as ``async`` to integrate smoothly with
-        the overall application (which uses asynchronous Telegram handlers),
-        it performs all of its work synchronously.  Should future
-        implementations of ``TeamStatsAdapter`` perform network I/O, this
-        method could be adapted to await those operations.
-        """
-        # Run the underlying analysis
+        """Compute a pre‑match analysis for the given request."""
         result = self.pre_analyze(request.league, request.home, request.away)
-        # Extract fields from the result dict
         baseline: Dict[str, Any] = result.get("baseline", {})
         bands: Dict[str, Any] = result.get("bands", {})
         signals: Dict[str, Any] = result.get("signals", {})
         meta_info: Dict[str, Any] = result.get("meta", {})
         notes: List[str] = result.get("notes", [])
-        # Determine total band.  If the result from pre_analyze omitted bands or
-        # provided an empty list, fall back to a neutral [0, 0] band so that
-        # downstream engines (FAZ‑22) can safely unpack it.
         if isinstance(bands, dict):
             total_band = bands.get("ft", [0, 0])
         else:
             total_band = [0, 0]
-        # Compute per‑team bands.  Prefer the underlying mu_total when present
-        mu_total: Optional[float] = baseline.get("mu_total")  # type: ignore[assignment]
-        home_band: List[int]
-        away_band: List[int]
+        mu_total: Optional[float] = baseline.get("mu_total")
         if isinstance(mu_total, (int, float)):
-            # Use half of mu_total ±3 as a simple per‑team range
             home_band = [round(mu_total / 2.0 - 3), round(mu_total / 2.0 + 3)]
             away_band = [round(mu_total / 2.0 - 3), round(mu_total / 2.0 + 3)]
         elif total_band and len(total_band) == 2:
-            # Fall back to splitting the total band evenly
             lo, hi = total_band
             home_band = [round(lo / 2.0), round(hi / 2.0)]
             away_band = [round(lo / 2.0), round(hi / 2.0)]
         else:
             home_band = [0, 0]
             away_band = [0, 0]
-        # Build context
         ctx = FixtureContext(
             league=request.league,
             date=request.date,
             home=request.home,
             away=request.away,
         )
-        # Derive per‑team average statistics for snapshotting.  Look up the
-        # persisted baselines directly; if missing, fall back to neutral values.
         hb_raw = self.store.get(request.league, request.home)
         if hb_raw:
             home_avg_obj = TeamAverages(
@@ -403,4 +349,4 @@ class Faz13Engine:
             home_avg=home_avg_obj,
             away_avg=away_avg_obj,
             quarters=q_band if q_band is not None else [0, 0],
-        ) 
+            ) 
