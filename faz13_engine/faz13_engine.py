@@ -1,15 +1,9 @@
-# faz13_engine.py
 from __future__ import annotations
-
-import asyncio
-import html
-import json
-import time
+import asyncio, html, json, time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 
 import aiohttp
-
 from league_profiles import get_league_profile
 
 @dataclass(frozen=True)
@@ -148,7 +142,6 @@ class Faz13Engine:
         profile = get_league_profile(league)
         team_id = None
 
-        # find team_id
         try:
             res = await self._api_get("/teams", {"search": team})
             t_resp = res.get("response") or []
@@ -163,7 +156,6 @@ class Faz13Engine:
         except Exception:
             team_id = None
 
-        # statistics
         if team_id is not None:
             try:
                 stats = await self._api_get("/statistics", {"team": team_id, "league": league, "season": season})
@@ -178,7 +170,6 @@ class Faz13Engine:
             except Exception:
                 pass
 
-        # games last5
         if team_id is not None:
             try:
                 games = await self._api_get("/games", {"team": team_id, "last": 5})
@@ -216,7 +207,6 @@ class Faz13Engine:
             except Exception:
                 pass
 
-        # no baseline found -> neutral baseline
         return TeamAverages(0.0, 0.0, 1.0, 9.0), "none", 0
 
     @staticmethod
