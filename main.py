@@ -100,38 +100,13 @@ def load_config() -> AppConfig:
 
 
 async def post_init(application: Application) -> None:
-    """Application post‑initialisation callback.
-
-    This callback runs once after the Telegram ``Application`` has been
-    constructed but before it starts polling updates.  It reads
-    configuration from the environment and populates the ``bot_data``
-    dictionary with the analysis engines.  Storing engines in
-    ``bot_data`` allows command handlers to retrieve them without using
-    global state.
-    """
-    cfg = load_config()
-    # Build engine instances using configuration values.  FAZ‑13 accepts
-    # either a TeamStatsAdapter or an API key/base URL.  Passing the
-    # API key directly causes it to fall back to its built‑in stub
-    # adapter when no concrete stats provider is supplied.
-    application.bot_data["faz13"] = Faz13Engine(cfg.api_sports_key, cfg.api_sports_base)
-    application.bot_data["faz17"] = Faz17Engine(cfg.odds_api_key, cfg.odds_base)
-    application.bot_data["faz22"] = Faz22Engine()
-    application.bot_data["faz23"] = Faz23Engine(storage_path=cfg.faz23_storage)
+    # unused in this synchronous version
+    pass
 
 
 async def on_shutdown(application: Application) -> None:
-    """Application shutdown callback.
-
-    Ensures that any asynchronous resources are cleaned up when the bot
-    stops.  In particular, this closes the aiohttp session used by
-    ``Faz17Engine`` if it has been opened.
-    """
-    faz17: Optional[Faz17Engine] = application.bot_data.get("faz17")  # type: ignore[assignment]
-    if faz17 and getattr(faz17, "session", None):
-        session = faz17.session
-        if session and not session.closed:
-            await session.close()
+    # unused in this synchronous version
+    pass
 
 
 async def cmd_analyze(update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -161,7 +136,7 @@ async def cmd_analyze(update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "Kullanım: /analyze <lig> | <YYYY-MM-DD> | <EvTakım> - <DepTakım>"
         )
         return
-    # Retrieve engines from bot_data; they were instantiated in post_init.
+    # Retrieve engines from bot_data; they were instantiated in main().
     faz13: Faz13Engine = context.application.bot_data["faz13"]
     faz17: Faz17Engine = context.application.bot_data["faz17"]
     faz22: Faz22Engine = context.application.bot_data["faz22"]
@@ -207,29 +182,35 @@ async def cmd_start(update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def main() -> None:
-    """Create the Telegram application, register handlers and run it."""
-    # Load the configuration to obtain the bot token.  Engines are
-    # initialized in the post_init callback rather than here.
+    """Instantiate engines and run the Telegram bot."""
+    # Load required API keys and other configuration.  Engines are
+    # constructed synchronously below.
     cfg = load_config()
-    application = (
+    # Build Telegram application
+    app = (
         Application.builder()
         .token(cfg.telegram_bot_token)
         .concurrent_updates(True)
-        .post_init(post_init)
-        .on_shutdown(on_shutdown)
         .build()
     )
+    # Create engine instances.  ``Faz13Engine`` accepts either a
+    # TeamStatsAdapter or an API key/base URL.  Passing the API key
+    # directly allows use of the built‑in default adapter.
+    app.bot_data["faz13"] = Faz13Engine(cfg.api_sports_key, cfg.api_sports_base)
+    app.bot_data["faz17"] = Faz17Engine(cfg.odds_api_key, cfg.odds_base)
+    app.bot_data["faz22"] = Faz22Engine()
+    app.bot_data["faz23"] = Faz23Engine(storage_path=cfg.faz23_storage)
     # Register command handlers
-    application.add_handler(CommandHandler("start", cmd_start))
-    application.add_handler(CommandHandler("help", cmd_start))
-    application.add_handler(CommandHandler("health", cmd_health))
-    application.add_handler(CommandHandler("analyze", cmd_analyze))
+    app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("help", cmd_start))
+    app.add_handler(CommandHandler("health", cmd_health))
+    app.add_handler(CommandHandler("analyze", cmd_analyze))
     # Configure logging
     logging.basicConfig(level=logging.INFO)
     log = logging.getLogger("zeynal-bot-core")
     log.info("Bot starting…")
-    # Run the bot.  run_polling() is a blocking call.
-    application.run_polling(allowed_updates=None, close_loop=False, drop_pending_updates=True)
+    # Run the bot (blocking call)
+    app.run_polling(allowed_updates=None, close_loop=False, drop_pending_updates=True)
 
 
 if __name__ == "__main__":
