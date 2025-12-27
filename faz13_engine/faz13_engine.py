@@ -8,6 +8,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+import os  # Added for local stats support
+
 import aiohttp
 
 from league_profiles import get_league_profile
@@ -109,10 +111,58 @@ class _TTLCache:
 
 class Faz13Engine:
     def __init__(self, api_sports_key: str, api_sports_base: str):
+        """
+        Initialize the FAZ-13 engine.
+
+        In addition to the API‑Sports parameters, this initializer attempts to
+        load a local team statistics dataset.  If the environment variable
+        ``TEAM_STATS_FILE`` is set, it will be used as the path to a JSON
+        file containing per‑team averages.  Otherwise ``team_stats.json`` in
+        the current working directory is attempted.  When present, these
+        statistics are used to compute baselines instead of making remote
+        API calls.  The dataset should be a mapping of seasons to team
+        records, for example::
+
+            {
+              "2025": {
+                "Miami Heat": {"points_for": 120.2, "points_against": 117.4},
+                "Indiana Pacers": {"points_for": 109.7, "points_against": 117.7},
+                ...
+              }
+            }
+
+        Each record may also include a ``pace`` field; if absent the pace
+        estimate is derived from (points_for + points_against) / 180.0.
+        """
         self.api_key = api_sports_key
         self.base = api_sports_base.rstrip("/")
         self.session: Optional[aiohttp.ClientSession] = None
         self.cache = _TTLCache()
+        # Load optional local stats file
+        # Determine path of local stats file.  When the environment variable
+        # TEAM_STATS_FILE is provided it takes precedence.  Otherwise look for
+        # ``team_stats.json`` in the current working directory.  If not found
+        # there, fall back to the repository root (two levels above this file).
+        stats_env = os.environ.get("TEAM_STATS_FILE")
+        if stats_env:
+            stats_path = stats_env
+        else:
+            # start with CWD
+            cwd_default = os.path.join(os.getcwd(), "team_stats.json")
+            if os.path.exists(cwd_default):
+                stats_path = cwd_default
+            else:
+                # attempt to locate relative to this module's directory
+                repo_default = os.path.join(os.path.dirname(__file__), "..", "..", "team_stats.json")
+                stats_path = os.path.normpath(repo_default)
+        self._team_stats: Dict[str, Dict[str, Any]] = {}
+        try:
+            if os.path.exists(stats_path):
+                with open(stats_path, "r", encoding="utf-8") as f:
+                    self._team_stats = json.load(f)
+        except Exception:
+            # If file cannot be read, ignore and continue with empty stats
+            self._team_stats = {}
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self.session and not self.session.closed:
@@ -146,6 +196,27 @@ class Faz13Engine:
 
     async def _team_baseline(self, team: str, league: str, season: str) -> Tuple[TeamAverages, str, int]:
         profile = get_league_profile(league)
+        # Check local stats first
+        local = self._team_stats.get(season)
+        if local:
+            # Case‑insensitive match against keys
+            for nm, rec in local.items():
+                if nm.lower().strip() == team.lower().strip():
+                    try:
+                        pf = float(rec.get("points_for", 0.0))
+                        pa = float(rec.get("points_against", 0.0))
+                    except Exception:
+                        pf = pa = 0.0
+                    # Pace from record or derived
+                    pace = rec.get("pace")
+                    if pace is None:
+                        pace = max(0.70, min(1.35, (pf + pa) / 180.0))
+                    stdev = 9.0
+                    # Local stats may include stdev_hint
+                    if isinstance(rec.get("stdev"), (int, float)):
+                        stdev = float(rec["stdev"])
+                    stdev = max(profile.volatility_floor, min(profile.volatility_ceil, stdev))
+                    return TeamAverages(pf, pa, pace, stdev), "local", int(rec.get("games", 0))
         team_id = None
 
         # find team_id
