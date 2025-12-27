@@ -34,18 +34,7 @@ from baseline.team_baseline_store import (
 
 @dataclass
 class PrematchRequest:
-    """Input payload for pre‑match analysis.
-
-    :param user_id: Identifier of the user making the request.  This
-        value is carried through the pipeline but not currently used by
-        the engine; it is reserved for future per‑user customisation.
-    :param league: The league code (e.g. ``EUROLEAGUE``, ``NBA``) of the
-        fixture to analyse.
-    :param date: The date of the fixture in ``YYYY-MM-DD`` format.
-    :param home: The home team name.
-    :param away: The away team name.
-    """
-
+    """Input payload for pre‑match analysis."""
     user_id: int
     league: str
     date: str
@@ -56,7 +45,6 @@ class PrematchRequest:
 @dataclass
 class FixtureContext:
     """Context information for a fixture under analysis."""
-
     league: str
     date: str
     home: str
@@ -65,14 +53,7 @@ class FixtureContext:
 
 @dataclass
 class TeamAverages:
-    """Aggregate statistics for a single team.
-
-    This structure holds summary information about a team's recent
-    performance.  It is defined for completeness but is not actively used
-    by the current implementation.  In future versions it may be used to
-    carry more granular statistics into the engine.
-    """
-
+    """Aggregate statistics for a single team."""
     league: str
     team: str
     n_games: int
@@ -84,17 +65,7 @@ class TeamAverages:
 
 @dataclass
 class Faz13CoreOutput:
-    """Output of the pre‑match analysis engine.
-
-    Instances of this class carry the results of a pre‑match analysis.  The
-    ``ctx`` attribute contains fixture metadata; the band attributes
-    describe predicted ranges for team and total scores; the ``tempo_flag``
-    and ``blowout_risk`` indicate stylistic considerations; ``ou_direction``
-    hints at the model's tilt towards over/under on the betting line; and
-    ``meta`` stores confidence, risk and issue flags.  The ``notes`` list
-    contains any warnings or explanatory messages.
-    """
-
+    """Output of the pre‑match analysis engine."""
     ctx: FixtureContext
     home_band: List[int]
     away_band: List[int]
@@ -105,29 +76,16 @@ class Faz13CoreOutput:
     meta: Dict[str, Any]
     notes: List[str]
     market: Dict[str, Any] = field(default_factory=dict)
-
-    # New fields for compatibility with FAZ-23 snapshots
-    # Average statistics for the home team.  Stored as a TeamAverages dataclass
-    # so that ``dataclasses.asdict`` can be applied in Faz23Engine.
     home_avg: TeamAverages | None = None
-    # Average statistics for the away team.
     away_avg: TeamAverages | None = None
-    # Predicted quarter bands (lo, hi) for a single quarter.  FAZ-23 persists
-    # this for potential calibration.  When unavailable, defaults to [] or
-    # [0, 0] to avoid attribute errors.
     quarters: List[int] | None = None
 
     def render_html(self) -> str:
         """Render this analysis as an HTML fragment suitable for Telegram.
 
-        Telegram's HTML parse mode has a limited set of supported tags (see
-        https://core.telegram.org/bots/api#html-style).  In particular
-        ``<br>``, ``<ul>`` and ``<li>`` are not allowed.  Instead of using
-        those tags we insert newlines (``\n``) to separate sections and
-        prefix list items with hyphens.  Bold tags (``<b>``) and italics
-        (``<i>``) are preserved to emphasise key information.  This method
-        therefore returns a string that is both human‑readable and
-        compatible with Telegram's parser.
+        Telegram's HTML parse mode does not allow <br>, <ul> or <li> tags.
+        Newlines (\\n) are used to separate sections; list items are
+        prefixed with hyphens; bold and italic tags are preserved.
         """
         html_lines: List[str] = []
         # Heading
@@ -153,9 +111,7 @@ class Faz13CoreOutput:
         html_lines.append(
             f"<b>Tempo:</b> {self.tempo_flag} | <b>Blowout riski:</b> {self.blowout_risk}\n"
         )
-        html_lines.append(
-            f"<b>Alt/Üst yönü:</b> {self.ou_direction}\n"
-        )
+        html_lines.append(f"<b>Alt/Üst yönü:</b> {self.ou_direction}\n")
         # Meta information
         conf = self.meta.get("confidence")
         risk = self.meta.get("risk")
@@ -165,27 +121,17 @@ class Faz13CoreOutput:
                 parts.append(f"Güven: {conf}")
             if risk is not None:
                 parts.append(f"Risk: {risk}")
-            # Bold combined meta string
             html_lines.append("<b>" + " | ".join(parts) + "</b>\n")
         # Notes
         if self.notes:
             html_lines.append("\n<i>Notlar:</i>")
             for note in self.notes:
-                # Prefix each note with a hyphen and a space
                 html_lines.append(f"\n- {note}")
-        # Join all parts together
         return "".join(html_lines)
 
 
 def _risk_label(conf: float, issues: List[str]) -> str:
-    """Map a confidence value and issue list to a risk label.
-
-    This helper mirrors the logic used in the original implementation.
-    """
-    # If team data is missing then confidence should be treated as higher risk
     if "no_team_data" in issues:
-        # Force the label to HIGH so that downstream engines treat the
-        # prediction conservatively.
         return "HIGH"
     if conf >= 75:
         return "LOW"
@@ -197,65 +143,73 @@ def _risk_label(conf: float, issues: List[str]) -> str:
 class Faz13Engine:
     """Pre‑match analysis engine.
 
-    The engine takes either a :class:`TeamStatsAdapter` instance or an API
-    key and optional base URL for API Sports.  When constructed with a
-    `TeamStatsAdapter`, it will use that adapter directly to fetch team
-    statistics.  When provided with a string (assumed to be an API key),
-    the engine will internally build a minimal adapter that returns no
-    recent team statistics, triggering neutral baselines.  This fallback
-    behaviour allows backwards compatibility with earlier versions that
-    expected ``Faz13Engine(api_sports_key, base_url)``.  If no base URL
-    is supplied when using the API key form, a sensible default for
-    Basketball API Sports is used.
-    
-    :param stats_adapter_or_key: A ``TeamStatsAdapter`` implementation or
-        a string API key.  If a string, a dummy adapter is created.
-    :param base_url: Optional base URL for the sports data API when
-        ``stats_adapter_or_key`` is a string.  Ignored when an adapter
-        instance is provided.
+    The engine takes either a TeamStatsAdapter instance or an API key with an
+    optional base URL for API Sports.  If given a string API key, it
+    constructs a dummy adapter that returns no recent stats, causing
+    neutral baselines to be used.  This preserves compatibility with
+    earlier usage patterns.
     """
 
     def __init__(self, stats_adapter_or_key: TeamStatsAdapter | str, base_url: Optional[str] = None) -> None:
-        # Determine whether a TeamStatsAdapter instance or an API key was provided.
         if isinstance(stats_adapter_or_key, TeamStatsAdapter):
             adapter = stats_adapter_or_key
         else:
-            # Treat the argument as an API key.  Use the provided base URL or
-            # default to the API Sports basketball endpoint.  Define a
-            # minimal adapter inline that satisfies the TeamStatsAdapter
-            # interface but returns ``None`` for recent aggregate stats,
-            # causing the engine to fall back to neutral baselines.  This
-            # preserves compatibility with earlier architectures where
-            # ``Faz13Engine(api_key, base_url)`` was expected.
             api_key = stats_adapter_or_key
             base = base_url or "https://v1.basketball.api-sports.io"
 
             class _DefaultAdapter(TeamStatsAdapter):
-                """A basic adapter that does not fetch real data.
-
-                When used, baseline bootstrapping will fail to find
-                statistics and will therefore return ``None``, which in
-                turn causes the analysis to operate in neutral mode.
-                """
-
                 def __init__(self, key: str, url: str) -> None:
                     self.api_key = key
                     self.base_url = url
 
                 def fetch_team_recent_aggregate(self, league: str, team: str, n_games: int) -> Optional[Dict[str, Any]]:
-                    # Returning None indicates no recent statistics are available.
                     return None
 
             adapter = _DefaultAdapter(api_key, base)
-        # Initialise baseline storage and bootstrapping with the selected adapter.
         self.store = TeamBaselineStore()
         self.bootstrap = TeamBaselineBootstrapper(self.store, adapter)
 
     def pre_analyze(self, league: str, home: str, away: str) -> Dict[str, Any]:
-        """Compute a dictionary of baseline and band data for a fixture.
+        """Compute baseline and band data for a fixture."""
+        # ... (bootstrap logic and computation)
+        # See earlier explanation for details.
 
-        This method attempts to bootstrap team baselines if none exist,
-        calculates expected totals and spreads and returns a structured
-        dictionary similar to the one produced by earlier FAZ‑13 versions.
-        """
-        # ... (remaining logic unchanged) 
+    async def run_prematch(self, request: PrematchRequest) -> Faz13CoreOutput:
+        """Asynchronous wrapper around pre_analyze that returns Faz13CoreOutput."""
+        result = self.pre_analyze(request.league, request.home, request.away)
+        baseline: Dict[str, Any] = result.get("baseline", {})
+        bands: Dict[str, Any] = result.get("bands", {})
+        signals: Dict[str, Any] = result.get("signals", {})
+        meta_info: Dict[str, Any] = result.get("meta", {})
+        notes: List[str] = result.get("notes", [])
+        # Determine total band
+        if isinstance(bands, dict):
+            total_band = bands.get("ft", [0, 0])
+        else:
+            total_band = [0, 0]
+        mu_total: Optional[float] = baseline.get("mu_total")
+        if isinstance(mu_total, (int, float)):
+            home_band = [round(mu_total / 2.0 - 3), round(mu_total / 2.0 + 3)]
+            away_band = home_band.copy()
+        else:
+            lo, hi = total_band
+            home_band = [round(lo / 2.0), round(hi / 2.0)]
+            away_band = home_band.copy()
+        ctx = FixtureContext(
+            league=request.league,
+            date=request.date,
+            home=request.home,
+            away=request.away,
+        )
+        return Faz13CoreOutput(
+            ctx=ctx,
+            home_band=home_band,
+            away_band=away_band,
+            total_band=total_band,
+            tempo_flag=signals.get("tempo_flag", "UNKNOWN"),
+            blowout_risk=signals.get("blowout_risk", "UNKNOWN"),
+            ou_direction=signals.get("alt_ust", "NO_EDGE"),
+            meta=meta_info,
+            notes=notes,
+            market={},
+        )
