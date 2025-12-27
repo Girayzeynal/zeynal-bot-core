@@ -6,7 +6,7 @@ from telegram.constants import ParseMode
 from faz13_engine import Faz13Engine, PrematchRequest
 from baseline.team_baseline_store import TeamBaselineStore
 from faz17_engine import Faz17Engine
-# Faz16Engine importu: önce paket kökünden dener, sonra alt modüle düşer
+# Faz16Engine importu: önce paket kökünden dener, olmazsa alt modüle düşer
 try:
     from faz16_engine import Faz16Engine  # type: ignore[attr-defined]
 except ImportError:
@@ -55,20 +55,26 @@ async def cmd_analyze(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     faz22: Faz22Engine = context.application.bot_data["faz22"]
     faz23: Faz23Engine = context.application.bot_data["faz23"]
 
+    # 1) Pre-match core analysis
     core = await faz13.run_prematch(
         PrematchRequest(0, league, date_str, home, away)
     )
 
+    # 2) Market enrichment
     core = await faz17.enrich_with_market(core)
 
-    # Simülasyon motoru varsa Monte Carlo çalıştır
+    # 2.5) Monte Carlo simulation (optional)
+    # If a simulation engine is configured, run it to attach probabilistic summaries.
     if faz16 is not None:
         core = faz16.run_simulation(core)
 
+    # 3) Confidence & risk calibration
     core = faz22.score_and_finalize(core)
 
+    # 4) Persist snapshot
     await faz23.record_snapshot(core)
 
+    # Send result
     await update.message.reply_text(
         core.render_html(),
         parse_mode=ParseMode.HTML
@@ -134,4 +140,4 @@ def main() -> None:
     )
 
 if __name__ == "__main__":
-    main()
+    main() 
