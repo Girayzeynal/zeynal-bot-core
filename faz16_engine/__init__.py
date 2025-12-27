@@ -9,9 +9,10 @@ Monte Carlo simülasyonları; FAZ-13 içinden kullanılmak üzere tasarlandı.
 from .faz16_simulation import faz16_run_simulation
 
 # Faz16Engine sınıfını güvenli bir şekilde içe aktarmak için importlib kullan.
-# Bu sayede paket henüz tam inşa edilirken yeniden kendisini import etmeye çalışmaz.
+# Burada relative import kullandık; böylece Python “faz16_engine.faz16_engine”
+# gibi var olmayan bir alt paket aramaz.
 import importlib
-_engine_module = importlib.import_module(__name__ + '.faz16_engine')
+_engine_module = importlib.import_module('.faz16_engine', package=__name__)
 Faz16Engine = getattr(_engine_module, 'Faz16Engine')
 
 __all__ = [
