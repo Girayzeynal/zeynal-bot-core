@@ -6,10 +6,20 @@ from telegram.constants import ParseMode
 from faz13_engine import Faz13Engine, PrematchRequest
 from baseline.team_baseline_store import TeamBaselineStore
 from faz17_engine import Faz17Engine
+from faz16_engine import Faz16Engine
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
-import os
-os.environ.setdefault("TEAM_STATS_FILE", os.path.join(os.path.dirname(__file__), "team_stats.json"))
+
+# ---------------------------------------------------------------------------
+# Ensure that the FAZ-13 engine can locate the team statistics file.
+# When the bot is run from different working directories, the relative path
+# to ``team_stats.json`` may differ.  We set the ``TEAM_STATS_FILE``
+# environment variable here to point to the file that sits alongside this
+# module.  If the variable is already defined, this call has no effect.
+os.environ.setdefault(
+    "TEAM_STATS_FILE",
+    os.path.join(os.path.dirname(__file__), "team_stats.json"),
+)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("zeynal-bot-core")
@@ -22,7 +32,10 @@ def _env(name: str) -> str:
     return val
 
 async def cmd_analyze(update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/analyze <lig> | <YYYY-MM-DD> | <EvTakım> - <DepTakım>"""
+    """
+    /analyze <lig> | <YYYY-MM-DD> | <EvTakım> - <DepTakım>
+    Example: /analyze EUROLEAGUE | 2025-12-26 | AS Monaco - Real Madrid
+    """
     if not context.args:
         await update.message.reply_text(
             "Kullanım: /analyze <lig> | <YYYY-MM-DD> | <EvTakım> - <DepTakım>"
@@ -44,6 +57,8 @@ async def cmd_analyze(update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     faz13: Faz13Engine = context.application.bot_data["faz13"]
     faz17: Faz17Engine = context.application.bot_data["faz17"]
+    # Obtain the simulation engine; it may or may not be present depending on configuration.
+    faz16: Faz16Engine | None = context.application.bot_data.get("faz16")  # type: ignore[assignment]
     faz22: Faz22Engine = context.application.bot_data["faz22"]
     faz23: Faz23Engine = context.application.bot_data["faz23"]
 
@@ -54,6 +69,11 @@ async def cmd_analyze(update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # 2) Market enrichment
     core = await faz17.enrich_with_market(core)
+
+    # 2.5) Monte Carlo simulation (optional)
+    # If a simulation engine is configured, run it to attach probabilistic summaries.
+    if faz16 is not None:
+        core = faz16.run_simulation(core)
 
     # 3) Confidence & risk calibration
     core = faz22.score_and_finalize(core)
@@ -102,6 +122,7 @@ def main() -> None:
     )
 
     # Create engine instances
+    # Instantiate a baseline store.  The directory can be overridden via BASELINE_DIR env var.
     baseline_dir = os.getenv("BASELINE_DIR", "data/baselines")
     baseline_store = TeamBaselineStore(baseline_dir)
     app.bot_data["faz13"] = Faz13Engine(
@@ -113,6 +134,8 @@ def main() -> None:
         odds_key,
         os.getenv("ODDS_BASE", "https://api.the-odds-api.com/v4")
     )
+    # Register the simulation engine.  It may rely on FAZ‑13 meta values to run.
+    app.bot_data["faz16"] = Faz16Engine()
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine(
         storage_path=os.getenv("FAZ23_STORAGE", "faz23_storage.sqlite")
