@@ -1,322 +1,322 @@
-"""
-Re-implemented FAZ-13 pre-match analysis engine.
-
-This implementation defines the data structures and engine used by the Telegram
-bot to perform a basic pre-match analysis.  It intentionally avoids any
-undefined API calls (such as `self.api.get_prematch_data`) and instead uses
-simple heuristics to compute neutral baselines when no real team data is
-available.  The goal is to provide a working example of the FAZ-13 engine
-that returns a consistent `Faz13CoreOutput` object for use downstream.
-
-If you have access to a real data source, you can implement your own
-`TeamStatsAdapter` to fetch recent team averages and plug it into
-`Faz13Engine`.
-"""
-
+# faz13_engine.py
 from __future__ import annotations
 
+import asyncio
+import html
+import json
+import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-######################################################################
-# Data classes
-######################################################################
+import aiohttp
 
+from league_profiles import get_league_profile
 
-@dataclass
+@dataclass(frozen=True)
 class PrematchRequest:
-    """Input payload for pre‑match analysis."""
-
-    user_id: int
+    fixture_id: int
     league: str
-    date: str
+    date_str: str
     home: str
     away: str
-
-
-@dataclass
-class FixtureContext:
-    """Context information for a fixture under analysis."""
-
-    league: str
-    date: str
-    home: str
-    away: str
-
 
 @dataclass
 class TeamAverages:
-    """Aggregate statistics for a single team (recent average performance)."""
+    points_for: float
+    points_against: float
+    pace_hint: float
+    stdev_hint: float
 
+@dataclass
+class FixtureContext:
     league: str
-    team: str
-    n_games: int
-    pts_for: float
-    pts_against: float
-    pace: float
-    stdev_total: float
-
+    date: str
+    home: str
+    away: str
 
 @dataclass
 class Faz13CoreOutput:
-    """Output of the pre‑match analysis engine."""
-
     ctx: FixtureContext
-    home_band: List[int]
-    away_band: List[int]
-    total_band: List[int]
-    tempo_flag: str
-    blowout_risk: str
+    home_avg: TeamAverages
+    away_avg: TeamAverages
+    total_band: Tuple[int, int]
+    home_band: Tuple[int, int]
+    away_band: Tuple[int, int]
     ou_direction: str
-    meta: Dict[str, Any]
-    notes: List[str]
-    # Additional fields for downstream enrichment
+    quarters: Dict[str, Tuple[int, int]]
+    blowout_risk: str
+    tempo_flag: str
+    notes: List[str] = field(default_factory=list)
     market: Dict[str, Any] = field(default_factory=dict)
-    home_avg: TeamAverages | None = None
-    away_avg: TeamAverages | None = None
-    quarters: List[int] | None = None
+    meta: Dict[str, Any] = field(default_factory=dict)
 
     def render_html(self) -> str:
-        """
-        Render this analysis as an HTML fragment suitable for Telegram.  Newline
-        characters are used to separate sections; list items are prefixed
-        with hyphens.  Bold and italic tags are preserved.
-        """
-        html_lines: List[str] = []
-        # Heading
-        html_lines.append("FAZ-13 Ön Analiz\n")
-        # Fixture summary
-        html_lines.append(
-            f"Maç: {self.ctx.home} vs {self.ctx.away} | Lig: {self.ctx.league} | Tarih: {self.ctx.date}\n"
-        )
-        # Bands (if available)
-        if self.total_band and len(self.total_band) == 2:
-            html_lines.append(
-                f"Toplam (Tahmin): {self.total_band[0]}–{self.total_band[1]}\n"
-            )
-        if self.home_band and len(self.home_band) == 2:
-            html_lines.append(
-                f"{self.ctx.home} Bant: {self.home_band[0]}–{self.home_band[1]}\n"
-            )
-        if self.away_band and len(self.away_band) == 2:
-            html_lines.append(
-                f"{self.ctx.away} Bant: {self.away_band[0]}–{self.away_band[1]}\n"
-            )
-        # Signals
-        html_lines.append(
-            f"Tempo: {self.tempo_flag} | Blowout riski: {self.blowout_risk}\n"
-        )
-        html_lines.append(f"Alt/Üst yönü: {self.ou_direction}\n")
-        # Meta information (confidence and risk)
-        conf = self.meta.get("confidence")
-        risk = self.meta.get("risk")
-        if conf is not None or risk is not None:
-            parts: List[str] = []
-            if conf is not None:
-                parts.append(f"Güven: {conf}")
-            if risk is not None:
-                parts.append(f"Risk: {risk}")
-            html_lines.append("" + " | ".join(parts) + "\n")
-        # Notes
+        esc = html.escape
+        lines = []
+        lines.append("<b>FAZ-13 Ön Analiz</b>")
+        lines.append(f"Maç: {esc(self.ctx.home)} vs {esc(self.ctx.away)} | Lig: {esc(self.ctx.league)} | Tarih: {esc(self.ctx.date)}")
+        lines.append("")
+        lines.append("<b>Dar Bant</b>")
+        lines.append(f"• Toplam: {self.total_band[0]}–{self.total_band[1]}")
+        lines.append(f"• Ev: {self.home_band[0]}–{self.home_band[1]} | Dep: {self.away_band[0]}–{self.away_band[1]}")
+        lines.append(f"• Alt/Üst yönü: {esc(self.ou_direction)}")
+        lines.append("")
+        lines.append("<b>Periyot Bantları</b>")
+        for k in ["1Q", "2Q", "HT", "3Q", "4Q", "FT"]:
+            if k in self.quarters:
+                lo, hi = self.quarters[k]
+                lines.append(f"• {k}: {lo}–{hi}")
+        lines.append("")
+        lines.append("<b>Risk Göstergeleri</b>")
+        lines.append(f"• Blowout riski: {esc(self.blowout_risk)}")
+        lines.append(f"• Tempo flag: {esc(self.tempo_flag)}")
         if self.notes:
-            html_lines.append("\nNotlar:")
-            for note in self.notes:
-                html_lines.append(f"\n- {note}")
+            lines.append("")
+            lines.append("<b>Notlar</b>")
+            for n in self.notes:
+                lines.append(f"• {esc(n)}")
+        if self.market:
+            lines.append("")
+            lines.append("<b>Market Entegrasyonu</b>")
+            for k, v in self.market.items():
+                lines.append(f"• {esc(str(k))}: {esc(str(v))}")
+        if self.meta:
+            lines.append("")
+            lines.append("<b>Meta Skor</b>")
+            for k, v in self.meta.items():
+                lines.append(f"• {esc(str(k))}: {esc(str(v))}")
+        lines.append("")
+        lines.append("<i>Bu çıktı analiz/simülasyon amaçlıdır. Bahis tavsiyesi değildir.</i>")
+        return "\n".join(lines)
 
-        # Per-quarter bands and halftime band
-        qb = self.meta.get("quarter_bands")
-        if qb:
-            html_lines.append("\n\nPeriyot Bantları\n")
-            # 1st quarter
-            q1 = qb.get("1q") or [0, 0]
-            html_lines.append(f"1Q: {q1[0]}–{q1[1]}\n")
-            # 2nd quarter
-            q2 = qb.get("2q") or [0, 0]
-            html_lines.append(f"2Q: {q2[0]}–{q2[1]}\n")
-            # Half-time
-            ht = qb.get("ht") or [0, 0]
-            html_lines.append(f"HT: {ht[0]}–{ht[1]}\n")
-            # 3rd quarter
-            q3 = qb.get("3q") or [0, 0]
-            html_lines.append(f"3Q: {q3[0]}–{q3[1]}\n")
-            # 4th quarter
-            q4 = qb.get("4q") or [0, 0]
-            html_lines.append(f"4Q: {q4[0]}–{q4[1]}\n")
-            # Full-time
-            ft = self.total_band or [0, 0]
-            html_lines.append(f"FT: {ft[0]}–{ft[1]}\n")
-        return "".join(html_lines)
+class _TTLCache:
+    def __init__(self, ttl_sec: float = 25.0) -> None:
+        self.ttl = ttl_sec
+        self._data: Dict[str, Tuple[float, Any]] = {}
 
+    def get(self, key: str) -> Any:
+        hit = self._data.get(key)
+        if not hit:
+            return None
+        ts, val = hit
+        if time.time() - ts > self.ttl:
+            self._data.pop(key, None)
+            return None
+        return val
 
-######################################################################
-# Faz13Engine Implementation
-######################################################################
-
+    def set(self, key: str, value: Any) -> None:
+        self._data[key] = (time.time(), value)
 
 class Faz13Engine:
-    """
-    Pre‑match analysis engine.
+    def __init__(self, api_sports_key: str, api_sports_base: str):
+        self.api_key = api_sports_key
+        self.base = api_sports_base.rstrip("/")
+        self.session: Optional[aiohttp.ClientSession] = None
+        self.cache = _TTLCache()
 
-    This class takes either a `TeamStatsAdapter` implementation or an API key and
-    base URL for a sports data API.  If a string API key is provided, a dummy
-    adapter is used that returns no recent stats, causing neutral baselines to
-    be used.  Downstream engines (FAZ‑17, FAZ‑22, FAZ‑23) can enrich and score
-    the output produced here.
-    """
+    async def _get_session(self) -> aiohttp.ClientSession:
+        if self.session and not self.session.closed:
+            return self.session
+        self.session = aiohttp.ClientSession()
+        return self.session
 
-    def __init__(self, stats_adapter_or_key: Any, base_url: Optional[str] = None) -> None:
-        # For simplicity we do not implement a real TeamStatsAdapter here.  If
-        # `stats_adapter_or_key` is not a string, we assume it provides a
-        # `fetch_team_recent_aggregate` method; otherwise we ignore it.  Real
-        # implementations should replace this stub with actual data fetching.
-        self.adapter = None
-        if not isinstance(stats_adapter_or_key, str):
-            self.adapter = stats_adapter_or_key
-        # When using a string key, we could initialise a default adapter here,
-        # but for this example we keep it None to always use neutral baselines.
+    async def aclose(self) -> None:
+        if self.session and not self.session.closed:
+            await self.session.close()
 
-    def pre_analyze(self, league: str, home: str, away: str) -> Dict[str, Any]:
-        """
-        Compute baseline and band data for a fixture.
+    async def _api_get(self, path: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        key = f"{path}?{json.dumps(params, sort_keys=True)}"
+        cached = self.cache.get(key)
+        if cached is not None:
+            return cached
 
-        This stub implementation returns neutral baselines when no real team
-        statistics are available.  If you implement `TeamStatsAdapter` and
-        assign it to `self.adapter`, you can fetch real aggregates here and
-        calculate meaningful bands.
-        """
-        notes: List[str] = []
-        issues: List[str] = []
-        baseline: Dict[str, Any] = {}
-        bands: Dict[str, Any] = {}
-        signals: Dict[str, Any] = {}
-        meta: Dict[str, Any] = {}
-
-        # Attempt to fetch aggregates for home and away teams if an adapter is provided.
-        home_avg = None
-        away_avg = None
-        if self.adapter is not None:
+        s = await self._get_session()
+        headers = {"x-apisports-key": self.api_key}
+        for attempt in range(4):
             try:
-                home_data = self.adapter.fetch_team_recent_aggregate(league, home, 5)
-                away_data = self.adapter.fetch_team_recent_aggregate(league, away, 5)
-                if home_data:
-                    home_avg = TeamAverages(
-                        league=league,
-                        team=home,
-                        n_games=home_data.get("n_games", 0),
-                        pts_for=home_data.get("pts_for", 0.0),
-                        pts_against=home_data.get("pts_against", 0.0),
-                        pace=home_data.get("pace", 0.0),
-                        stdev_total=home_data.get("stdev_total", 0.0),
-                    )
-                if away_data:
-                    away_avg = TeamAverages(
-                        league=league,
-                        team=away,
-                        n_games=away_data.get("n_games", 0),
-                        pts_for=away_data.get("pts_for", 0.0),
-                        pts_against=away_data.get("pts_against", 0.0),
-                        pace=away_data.get("pace", 0.0),
-                        stdev_total=away_data.get("stdev_total", 0.0),
-                    )
+                async with s.get(f"{self.base}{path}", params=params, headers=headers) as resp:
+                    data = await resp.json()
+                    if resp.status >= 500:
+                        raise RuntimeError(f"API-Sports error {resp.status}")
+                    self.cache.set(key, data)
+                    return data
             except Exception:
-                # If fetching fails, note the issue and fall back to neutral baseline.
-                issues.append("fetch_error")
+                await asyncio.sleep(0.3 * (2**attempt))
+        raise RuntimeError("API-Sports request failed")
 
-        # If no team averages are available, use neutral baseline (0/0) and note the issue.
-        if home_avg is None or away_avg is None:
-            issues.append("no_team_data")
-            notes.append(
-                "UYARI: Team baseline alınamadı → neutral baseline (0/0) kullanıldı."
-            )
-            # Use simple neutral baseline: mu_total = 0, sigma_total = 9
-            baseline = {"mu_total": 0.0, "sigma_total": 9.0, "pace": 1.0}
-            bands = {"ft": [0, 0]}
-            # Set neutral quarter and half-time bands as 0-0 as well
-            bands.update({"1q": [0, 0], "2q": [0, 0], "3q": [0, 0], "4q": [0, 0], "ht": [0, 0]})
-            signals = {"tempo_flag": "NORMAL", "blowout_risk": "LOW", "alt_ust": "NO_EDGE"}
-            meta = {"confidence": 63.0, "risk": self._risk_label(63.0, issues)}
-            # store quarter bands in meta for rendering
-            meta["quarter_bands"] = {"1q": [0, 0], "2q": [0, 0], "3q": [0, 0], "4q": [0, 0], "ht": [0, 0]}
-        else:
-            # If real data exists, compute a simple baseline using team averages.
-            # Here we calculate the expected total as the average of points for and against.
-            mu_total = (home_avg.pts_for + home_avg.pts_against + away_avg.pts_for + away_avg.pts_against) / 2.0
-            baseline = {"mu_total": mu_total, "sigma_total": 9.0, "pace": (home_avg.pace + away_avg.pace) / 2.0}
-            # Bands: ±6 points around mu_total
-            lo = int(round(mu_total - 6))
-            hi = int(round(mu_total + 6))
-            bands = {"ft": [lo, hi]}
-            # Also compute per-quarter bands (approximate) and half-time band
-            q_lo = int(round(mu_total / 4.0 - 2))
-            q_hi = int(round(mu_total / 4.0 + 2))
-            ht_lo = int(round(mu_total / 2.0 - 4))
-            ht_hi = int(round(mu_total / 2.0 + 4))
-            bands.update({"1q": [q_lo, q_hi], "2q": [q_lo, q_hi], "3q": [q_lo, q_hi], "4q": [q_lo, q_hi], "ht": [ht_lo, ht_hi]})
-            # Simple tempo flag and blowout risk
-            signals = {"tempo_flag": "NORMAL", "blowout_risk": "LOW", "alt_ust": "NO_EDGE"}
-            meta = {"confidence": 70.0, "risk": self._risk_label(70.0, issues)}
-            # store quarter bands in meta for rendering
-            meta["quarter_bands"] = {"1q": [q_lo, q_hi], "2q": [q_lo, q_hi], "3q": [q_lo, q_hi], "4q": [q_lo, q_hi], "ht": [ht_lo, ht_hi]}
-        return {
-            "baseline": baseline,
-            "bands": bands,
-            "signals": signals,
-            "meta": meta,
-            "notes": notes,
-        }
+    async def _team_baseline(self, team: str, league: str, season: str) -> Tuple[TeamAverages, str, int]:
+        profile = get_league_profile(league)
+        team_id = None
 
-    def _risk_label(self, conf: float, issues: List[str]) -> str:
-        """
-        Determine a textual risk label based on confidence and known issues.
-        """
-        if "no_team_data" in issues:
-            return "HIGH"
-        if conf >= 75:
-            return "LOW"
-        if conf >= 60:
-            return "MID"
-        return "HIGH"
+        # find team_id
+        try:
+            res = await self._api_get("/teams", {"search": team})
+            t_resp = res.get("response") or []
+            if t_resp:
+                for t in t_resp:
+                    nm = (t.get("name") or "").strip().lower()
+                    if nm == team.lower().strip():
+                        team_id = int(t.get("id"))
+                        break
+                if team_id is None:
+                    team_id = int(t_resp[0]["id"])
+        except Exception:
+            team_id = None
 
-    async def run_prematch(self, request: PrematchRequest) -> Faz13CoreOutput:
-        """
-        Asynchronous wrapper around `pre_analyze` that returns a `Faz13CoreOutput`
-        object.  This method does not perform any network I/O itself; it simply
-        wraps the synchronous `pre_analyze` call to maintain compatibility with
-        the asynchronous Telegram handler.
-        """
-        result = self.pre_analyze(request.league, request.home, request.away) or {}
-        baseline: Dict[str, Any] = result.get("baseline", {}) or {}
-        bands: Dict[str, Any] = result.get("bands", {}) or {}
-        signals: Dict[str, Any] = result.get("signals", {}) or {}
-        meta_info: Dict[str, Any] = result.get("meta", {}) or {}
-        notes: List[str] = result.get("notes", []) or []
+        # statistics
+        if team_id is not None:
+            try:
+                stats = await self._api_get("/statistics", {"team": team_id, "league": league, "season": season})
+                r = stats.get("response") or {}
+                pf = self._dig(r, ["points", "for", "average", "total"])
+                pa = self._dig(r, ["points", "against", "average", "total"])
+                if pf is not None and pa is not None:
+                    pace = max(0.85, min(1.20, (pf + pa) / 180.0))
+                    pace = max(0.70, min(1.35, pace * profile.pace_scale))
+                    stdev = max(profile.volatility_floor, min(profile.volatility_ceil, 9.0))
+                    return TeamAverages(pf, pa, pace, stdev), "statistics", 0
+            except Exception:
+                pass
 
-        # Determine total, home and away bands
-        total_band: List[int] = bands.get("ft", [0, 0]) if isinstance(bands, dict) else [0, 0]
-        mu_total: Optional[float] = baseline.get("mu_total")
-        if isinstance(mu_total, (int, float)):
-            home_band = [int(round(mu_total / 2.0 - 3)), int(round(mu_total / 2.0 + 3))]
-            away_band = home_band.copy()
-        else:
-            lo, hi = total_band
-            home_band = [int(round(lo / 2.0)), int(round(hi / 2.0))]
-            away_band = home_band.copy()
+        # games last5
+        if team_id is not None:
+            try:
+                games = await self._api_get("/games", {"team": team_id, "last": 5})
+                resp = games.get("response") or []
+                scored, allowed = [], []
+                for g in resp:
+                    s = g.get("scores") or {}
+                    h = s.get("home") or {}
+                    a = s.get("away") or {}
+                    ht = h.get("total")
+                    at = a.get("total")
+                    if ht is None or at is None:
+                        continue
+                    teams = g.get("teams") or {}
+                    hn = (teams.get("home") or {}).get("name", "").strip().lower()
+                    an = (teams.get("away") or {}).get("name", "").strip().lower()
+                    if hn == team.lower().strip():
+                        scored.append(float(ht))
+                        allowed.append(float(at))
+                    elif an == team.lower().strip():
+                        scored.append(float(at))
+                        allowed.append(float(ht))
+                if scored and allowed:
+                    pf = sum(scored) / len(scored)
+                    pa = sum(allowed) / len(allowed)
+                    pace = max(0.85, min(1.20, (pf + pa) / 180.0))
+                    pace = max(0.70, min(1.35, pace * profile.pace_scale))
+                    stdev = 9.0
+                    if len(scored) >= 4:
+                        mean = pf
+                        var = sum((x - mean) ** 2 for x in scored) / (len(scored) - 1)
+                        stdev = var ** 0.5
+                    stdev = max(profile.volatility_floor, min(profile.volatility_ceil, stdev))
+                    return TeamAverages(pf, pa, pace, stdev), "games_last5", len(scored)
+            except Exception:
+                pass
 
-        ctx = FixtureContext(
-            league=request.league,
-            date=request.date,
-            home=request.home,
-            away=request.away,
+        # no baseline found -> neutral baseline
+        return TeamAverages(0.0, 0.0, 1.0, 9.0), "none", 0
+
+    @staticmethod
+    def _dig(obj: Any, path: List[str]) -> Optional[float]:
+        cur = obj
+        for p in path:
+            if not isinstance(cur, dict) or p not in cur:
+                return None
+            cur = cur[p]
+        try:
+            return float(cur)
+        except Exception:
+            return None
+
+    async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
+        profile = get_league_profile(req.league)
+        season = req.date_str.split("-")[0]
+
+        (h_avg, h_src, h_n), (a_avg, a_src, a_n) = await asyncio.gather(
+            self._team_baseline(req.home, req.league, season),
+            self._team_baseline(req.away, req.league, season)
         )
+
+        home_mu = (h_avg.points_for + a_avg.points_against) / 2
+        away_mu = (a_avg.points_for + h_avg.points_against) / 2
+        total_mu = home_mu + away_mu
+
+        sigma = (h_avg.stdev_hint + a_avg.stdev_hint) / 2
+        sigma = max(profile.volatility_floor, min(profile.volatility_ceil, sigma))
+        pace = (h_avg.pace_hint + a_avg.pace_hint) / 2
+
+        tempo_flag = "NORMAL"
+        if pace > 1.12 and sigma < 9.0:
+            tempo_flag = "FAKE_TEMPO_RISK"
+        elif pace > 1.05:
+            tempo_flag = "FAST"
+        elif pace < 0.95:
+            tempo_flag = "SLOW"
+
+        gap = abs(home_mu - away_mu)
+        blowout = "HIGH" if gap >= 12 else "MID" if gap >= 7 else "LOW"
+
+        hw_total = profile.band_hw_total
+        hw_team = profile.band_hw_team
+        total_band = (int(round(total_mu - hw_total)), int(round(total_mu + hw_total)))
+        home_band = (int(round(home_mu - hw_team)), int(round(home_mu + hw_team)))
+        away_band = (int(round(away_mu - hw_team)), int(round(away_mu + hw_team)))
+
+        ou_dir = "NO_EDGE"
+        if tempo_flag in {"SLOW", "FAKE_TEMPO_RISK"} and blowout in {"MID", "HIGH"}:
+            ou_dir = "ALT"
+        elif tempo_flag == "FAST" and blowout == "LOW":
+            ou_dir = "UST"
+
+        quarters = self._quarter_bands(total_mu, hw_total)
+
+        notes = [
+            f"Profile: {profile.name}",
+            f"Baseline(home)={h_src} n={h_n} | Baseline(away)={a_src} n={a_n}",
+            f"μ(total)≈{total_mu:.1f}, σ≈{sigma:.1f}, pace≈{pace:.2f}",
+            f"gap≈{gap:.1f} → blowout={blowout}"
+        ]
+        if h_src == "none" or a_src == "none":
+            notes.append("UYARI: Team baseline alınamadı → neutral baseline (0/0) kullanıldı.")
+        if ou_dir == "NO_EDGE":
+            notes.append("Alt/Üst yönünde net edge yok: market çizgisi ile FAZ-17'de belirlenecek.")
+
+        ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
+        meta = {
+            "league_profile": profile.name,
+            "home_baseline_src": h_src,
+            "home_baseline_n": h_n,
+            "away_baseline_src": a_src,
+            "away_baseline_n": a_n,
+        }
 
         return Faz13CoreOutput(
             ctx=ctx,
+            home_avg=h_avg,
+            away_avg=a_avg,
+            total_band=total_band,
             home_band=home_band,
             away_band=away_band,
-            total_band=total_band,
-            tempo_flag=signals.get("tempo_flag", "UNKNOWN"),
-            blowout_risk=signals.get("blowout_risk", "UNKNOWN"),
-            ou_direction=signals.get("alt_ust", "NO_EDGE"),
-            meta=meta_info,
+            ou_direction=ou_dir,
+            quarters=quarters,
+            blowout_risk=blowout,
+            tempo_flag=tempo_flag,
             notes=notes,
-        ) 
+            market={},
+            meta=meta
+        )
+
+    @staticmethod
+    def _quarter_bands(total_mu: float, hw_total: int) -> Dict[str, Tuple[int, int]]:
+        splits = {"1Q": 0.24, "2Q": 0.26, "3Q": 0.25, "4Q": 0.25}
+        out: Dict[str, Tuple[int, int]] = {}
+        for k, w in splits.items():
+            mu = total_mu * w
+            hw = max(2, int(round(hw_total * w)))
+            out[k] = (int(round(mu - hw)), int(round(mu + hw)))
+        out["HT"] = (out["1Q"][0] + out["2Q"][0], out["1Q"][1] + out["2Q"][1])
+        out["FT"] = (int(round(total_mu - hw_total)), int(round(total_mu + hw_total)))
+        return out 
