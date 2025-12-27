@@ -1,178 +1,70 @@
-"""
-league_profiles.py
-====================
-
-This module defines `LeagueProfile` data structures and exposes a registry for
-basketball leagues supported by the bot.  It also provides a convenience
-function to look up the configuration for a given league.
-"""
-
+# league_profiles.py
 from dataclasses import dataclass
-from typing import Dict, Optional
 
 @dataclass(frozen=True)
 class LeagueProfile:
-    key: str
     name: str
-    api_sport_key: Optional[str]
-    tier: str
-    provider: str
-    band_hw_total: float = 6.0
-    market_weight: float = 0.5
-    market_required: bool = False
-    notes: str = ""
+    pace_scale: float
+    volatility_floor: float
+    volatility_ceil: float
+    band_hw_total: int
+    band_hw_team: int
+    market_weight: float
+    market_required: bool
+    live_weight: float
+    garbage_time_factor: float
 
-LEAGUE_PROFILES: Dict[str, LeagueProfile] = {
+LEAGUE_PROFILES = {
     "NBA": LeagueProfile(
-        key="NBA",
         name="NBA",
-        api_sport_key="basketball_nba",
-        tier="ELITE",
-        provider="theoddsapi",
-        band_hw_total=6.0,
-        market_weight=0.6,
-        market_required=False,
+        pace_scale=1.10,
+        volatility_floor=8.5,
+        volatility_ceil=15.0,
+        band_hw_total=7,
+        band_hw_team=5,
+        market_weight=0.85,
+        market_required=True,
+        live_weight=0.80,
+        garbage_time_factor=1.15,
     ),
     "EUROLEAGUE": LeagueProfile(
-        key="EUROLEAGUE",
-        name="EuroLeague",
-        api_sport_key="basketball_euroleague",
-        tier="ELITE",
-        provider="theoddsapi",
-        band_hw_total=6.0,
-        market_weight=0.6,
+        name="EUROLEAGUE",
+        pace_scale=0.92,
+        volatility_floor=7.0,
+        volatility_ceil=11.0,
+        band_hw_total=6,
+        band_hw_team=4,
+        market_weight=0.55,
         market_required=False,
+        live_weight=0.60,
+        garbage_time_factor=1.05,
     ),
-    "WNBA": LeagueProfile(
-        key="WNBA",
-        name="WNBA",
-        api_sport_key="basketball_wnba",
-        tier="ELITE",
-        provider="theoddsapi",
-        band_hw_total=5.5,
-        market_weight=0.5,
+    "TBL": LeagueProfile(
+        name="TBL",
+        pace_scale=0.98,
+        volatility_floor=7.5,
+        volatility_ceil=12.0,
+        band_hw_total=6,
+        band_hw_team=4,
+        market_weight=0.50,
         market_required=False,
+        live_weight=0.55,
+        garbage_time_factor=1.05,
     ),
-    "NCAAB": LeagueProfile(
-        key="NCAAB",
-        name="NCAA Men (NCAAB)",
-        api_sport_key="basketball_ncaab",
-        tier="MAJOR",
-        provider="theoddsapi",
-        band_hw_total=7.0,
-        market_weight=0.4,
+    "FIBA": LeagueProfile(
+        name="FIBA",
+        pace_scale=0.95,
+        volatility_floor=6.5,
+        volatility_ceil=10.0,
+        band_hw_total=5,
+        band_hw_team=4,
+        market_weight=0.40,
         market_required=False,
-    ),
-    "NBL": LeagueProfile(
-        key="NBL",
-        name="Australia NBL",
-        api_sport_key="basketball_nbl",
-        tier="MAJOR",
-        provider="theoddsapi",
-        band_hw_total=6.5,
-        market_weight=0.4,
-        market_required=False,
-    ),
-    "ACB": LeagueProfile(
-        key="ACB",
-        name="Spain Liga ACB",
-        api_sport_key=None,
-        tier="ELITE",
-        provider="api_basketball",
-        notes="The Odds API does not provide a sport_key for ACB; use api_basketball or manual sources.",
-    ),
-    "TURKEY_BSL": LeagueProfile(
-        key="TURKEY_BSL",
-        name="Turkey BSL (Super Ligi)",
-        api_sport_key=None,
-        tier="ELITE",
-        provider="api_basketball",
-    ),
-    "ITALY_SERIE_A": LeagueProfile(
-        key="ITALY_SERIE_A",
-        name="Italy Lega Basket Serie A",
-        api_sport_key=None,
-        tier="ELITE",
-        provider="api_basketball",
-    ),
-    "GREECE_A1": LeagueProfile(
-        key="GREECE_A1",
-        name="Greece A1 / Basket League",
-        api_sport_key=None,
-        tier="ELITE",
-        provider="api_basketball",
-    ),
-    "FRANCE_PROA": LeagueProfile(
-        key="FRANCE_PROA",
-        name="France Pro A (LNB Elite)",
-        api_sport_key=None,
-        tier="MAJOR",
-        provider="api_basketball",
-    ),
-    "GERMANY_BBL": LeagueProfile(
-        key="GERMANY_BBL",
-        name="Germany BBL",
-        api_sport_key=None,
-        tier="MAJOR",
-        provider="api_basketball",
-    ),
-    "ABA": LeagueProfile(
-        key="ABA",
-        name="ABA Adriatic League",
-        api_sport_key=None,
-        tier="MAJOR",
-        provider="api_basketball",
-    ),
-    "EUROCUP": LeagueProfile(
-        key="EUROCUP",
-        name="EuroCup",
-        api_sport_key=None,
-        tier="MAJOR",
-        provider="api_basketball",
-    ),
-    "CBA": LeagueProfile(
-        key="CBA",
-        name="China CBA",
-        api_sport_key=None,
-        tier="MAJOR",
-        provider="api_basketball",
-    ),
-    "BSL_JAPAN": LeagueProfile(
-        key="BSL_JAPAN",
-        name="Japan B.League",
-        api_sport_key=None,
-        tier="MAJOR",
-        provider="api_basketball",
+        live_weight=0.50,
+        garbage_time_factor=1.00,
     ),
 }
 
-API_SPORT_KEYS: Dict[str, str] = {
-    k: v.api_sport_key for k, v in LEAGUE_PROFILES.items() if v.api_sport_key
-}
-
-def get_league_profile(key: str) -> LeagueProfile:
-    """Return the LeagueProfile for `key` (case‑insensitive)."""
-    if not key:
-        return LeagueProfile(
-            key="UNKNOWN",
-            name="Unknown League",
-            api_sport_key=None,
-            tier="REGIONAL",
-            provider="manual",
-            band_hw_total=6.0,
-            market_weight=0.5,
-            market_required=False,
-        )
-    prof = LEAGUE_PROFILES.get(key.upper())
-    if prof:
-        return prof
-    return LeagueProfile(
-        key=key.upper(),
-        name=key,
-        api_sport_key=None,
-        tier="REGIONAL",
-        provider="manual",
-        band_hw_total=6.0,
-        market_weight=0.5,
-        market_required=False,
-    ) 
+def get_league_profile(league: str) -> LeagueProfile:
+    key = (league or "").upper().strip()
+    return LEAGUE_PROFILES.get(key, LEAGUE_PROFILES["EUROLEAGUE"]) 
