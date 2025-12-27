@@ -40,7 +40,7 @@ def faz16_run_simulation(
         base_total: Beklenen toplam skorun ortalaması.
         vol: Tahmini standart sapma. Sıfır veya negatif ise minimum değer
             uygulanır.
-        n_iter: Üretilecek örnek sayısı (varsayılan 10_000).
+        n_iter: Üretilecek örnek sayısı (varsayılan 10 000).
         line: Piyasa toplam çizgisi; verilirse “p_over” ve “p_under”
             olasılıkları hesaplanır.
 
@@ -48,7 +48,7 @@ def faz16_run_simulation(
         Bir sözlük: {"mean", "std", "p25", "p50", "p75", "line", "p_over", "p_under"}.
     """
 
-    # Negatif veya sıfır volatilite gelirse dinamik bir minimum uygula.  
+    # Negatif veya sıfır volatilite gelirse dinamik bir minimum uygula.
     # Lig ortalaması 8,0 civarında; aynı zamanda skor toplamının %5'i kadar.
     if vol <= 0:
         vol = max(8.0, base_total * 0.05)
