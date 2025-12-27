@@ -8,6 +8,8 @@ from baseline.team_baseline_store import TeamBaselineStore
 from faz17_engine import Faz17Engine
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
+import os
+os.environ.setdefault("TEAM_STATS_FILE", os.path.join(os.path.dirname(__file__), "team_stats.json"))
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("zeynal-bot-core")
