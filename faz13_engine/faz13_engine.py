@@ -122,6 +122,29 @@ class Faz13CoreOutput:
             html_lines.append("\nNotlar:")
             for note in self.notes:
                 html_lines.append(f"\n- {note}")
+
+        # Per-quarter bands and halftime band
+        qb = self.meta.get("quarter_bands")
+        if qb:
+            html_lines.append("\n\nPeriyot Bantları\n")
+            # 1st quarter
+            q1 = qb.get("1q") or [0, 0]
+            html_lines.append(f"1Q: {q1[0]}–{q1[1]}\n")
+            # 2nd quarter
+            q2 = qb.get("2q") or [0, 0]
+            html_lines.append(f"2Q: {q2[0]}–{q2[1]}\n")
+            # Half-time
+            ht = qb.get("ht") or [0, 0]
+            html_lines.append(f"HT: {ht[0]}–{ht[1]}\n")
+            # 3rd quarter
+            q3 = qb.get("3q") or [0, 0]
+            html_lines.append(f"3Q: {q3[0]}–{q3[1]}\n")
+            # 4th quarter
+            q4 = qb.get("4q") or [0, 0]
+            html_lines.append(f"4Q: {q4[0]}–{q4[1]}\n")
+            # Full-time
+            ft = self.total_band or [0, 0]
+            html_lines.append(f"FT: {ft[0]}–{ft[1]}\n")
         return "".join(html_lines)
 
 
@@ -207,9 +230,13 @@ class Faz13Engine:
             )
             # Use simple neutral baseline: mu_total = 0, sigma_total = 9
             baseline = {"mu_total": 0.0, "sigma_total": 9.0, "pace": 1.0}
-            bands = {"ft": [0, 0], "1q": [0, 0], "2q": [0, 0], "3q": [0, 0], "4q": [0, 0]}
+            bands = {"ft": [0, 0]}
+            # Set neutral quarter and half-time bands as 0-0 as well
+            bands.update({"1q": [0, 0], "2q": [0, 0], "3q": [0, 0], "4q": [0, 0], "ht": [0, 0]})
             signals = {"tempo_flag": "NORMAL", "blowout_risk": "LOW", "alt_ust": "NO_EDGE"}
             meta = {"confidence": 63.0, "risk": self._risk_label(63.0, issues)}
+            # store quarter bands in meta for rendering
+            meta["quarter_bands"] = {"1q": [0, 0], "2q": [0, 0], "3q": [0, 0], "4q": [0, 0], "ht": [0, 0]}
         else:
             # If real data exists, compute a simple baseline using team averages.
             # Here we calculate the expected total as the average of points for and against.
@@ -219,9 +246,17 @@ class Faz13Engine:
             lo = int(round(mu_total - 6))
             hi = int(round(mu_total + 6))
             bands = {"ft": [lo, hi]}
+            # Also compute per-quarter bands (approximate) and half-time band
+            q_lo = int(round(mu_total / 4.0 - 2))
+            q_hi = int(round(mu_total / 4.0 + 2))
+            ht_lo = int(round(mu_total / 2.0 - 4))
+            ht_hi = int(round(mu_total / 2.0 + 4))
+            bands.update({"1q": [q_lo, q_hi], "2q": [q_lo, q_hi], "3q": [q_lo, q_hi], "4q": [q_lo, q_hi], "ht": [ht_lo, ht_hi]})
             # Simple tempo flag and blowout risk
             signals = {"tempo_flag": "NORMAL", "blowout_risk": "LOW", "alt_ust": "NO_EDGE"}
             meta = {"confidence": 70.0, "risk": self._risk_label(70.0, issues)}
+            # store quarter bands in meta for rendering
+            meta["quarter_bands"] = {"1q": [q_lo, q_hi], "2q": [q_lo, q_hi], "3q": [q_lo, q_hi], "4q": [q_lo, q_hi], "ht": [ht_lo, ht_hi]}
         return {
             "baseline": baseline,
             "bands": bands,
@@ -284,4 +319,4 @@ class Faz13Engine:
             ou_direction=signals.get("alt_ust", "NO_EDGE"),
             meta=meta_info,
             notes=notes,
-        )
+        ) 
