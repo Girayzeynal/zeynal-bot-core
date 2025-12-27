@@ -6,7 +6,15 @@ from telegram.constants import ParseMode
 from faz13_engine import Faz13Engine, PrematchRequest
 from baseline.team_baseline_store import TeamBaselineStore
 from faz17_engine import Faz17Engine
-from faz16_engine import Faz16Engine
+# Import Faz16Engine explicitly from its module to avoid namespace shadowing issues.
+# Some package managers may not include Faz16Engine at the package root, so we
+# attempt to import it from the root first and fall back to the submodule.
+try:
+    # Preferred: import from package root when __all__ exposes it
+    from faz16_engine import Faz16Engine  # type: ignore[attr-defined]
+except ImportError:
+    # Fallback: import directly from the module file
+    from faz16_engine.faz16_engine import Faz16Engine  # type: ignore[attr-defined]
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 
@@ -21,8 +29,10 @@ os.environ.setdefault(
     os.path.join(os.path.dirname(__file__), "team_stats.json"),
 )
 
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("zeynal-bot-core")
+
 
 def _env(name: str) -> str:
     """Read a required environment variable or raise."""
@@ -30,6 +40,7 @@ def _env(name: str) -> str:
     if not val:
         raise RuntimeError(f"Missing required environment variable: {name}")
     return val
+
 
 async def cmd_analyze(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
@@ -87,11 +98,13 @@ async def cmd_analyze(update, context: ContextTypes.DEFAULT_TYPE) -> None:
         parse_mode=ParseMode.HTML
     )
 
+
 async def cmd_health(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Simple health check command."""
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat()
     await update.message.reply_text(f"OK ✅\nUTC: {now}")
+
 
 async def cmd_start(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send help/usage instructions."""
@@ -106,6 +119,7 @@ async def cmd_start(update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "\nÖrnek:\n/analyze NBA | 2025-12-25 | Lakers - Warriors"
     )
     await update.message.reply_text(msg, parse_mode=ParseMode.HTML)
+
 
 def main() -> None:
     # Load required API keys
@@ -153,6 +167,7 @@ def main() -> None:
         close_loop=False,
         drop_pending_updates=True,
     )
+
 
 if __name__ == "__main__":
     main() 
