@@ -1,14 +1,17 @@
 """
 Entry point for the Zeynal Core bot.
 
-This module wires together the various analysis engines (FAZ‑13, FAZ‑17, FAZ‑22 and
-FAZ‑23) and exposes them through a Telegram bot interface.  Rather than
-instantiating the engines at import time, the engines are created lazily
-in a ``post_init`` callback once the Telegram application has been built.
-This design more closely follows the idioms of ``python‑telegram‑bot``
-(v20+) and ensures that asynchronous resources like HTTP sessions are
-constructed in an event loop context.  On shutdown the market client
-session is closed cleanly via an ``on_shutdown`` callback.
+This module wires together the various analysis engines (FAZ‑13, FAZ‑17,
+FAZ‑22 and FAZ‑23) and exposes them through a Telegram bot interface.
+
+In earlier versions the engines were constructed in a ``post_init`` callback
+and a separate ``on_shutdown`` callback was used to clean up resources.
+However, certain versions of ``python‑telegram‑bot`` do not expose an
+``on_shutdown`` attribute on the ``ApplicationBuilder``.  To maximise
+compatibility this version constructs the engines synchronously in
+``main()`` and stores them in the application's ``bot_data`` dictionary.
+This approach avoids reliance on unavailable callbacks while still
+keeping all engine instances together for easy retrieval.
 
 Configuration is provided via environment variables.  The following
 variables are mandatory:
@@ -99,6 +102,11 @@ def load_config() -> AppConfig:
     return cfg
 
 
+# The post_init and on_shutdown callbacks defined in previous revisions are
+# retained for reference but are no longer used.  Engines are now
+# constructed synchronously in ``main()`` to avoid relying on
+# ApplicationBuilder.on_shutdown(), which is unavailable in some
+# versions of ``python-telegram-bot``.
 async def post_init(application: Application) -> None:
     # unused in this synchronous version
     pass
@@ -136,7 +144,7 @@ async def cmd_analyze(update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "Kullanım: /analyze <lig> | <YYYY-MM-DD> | <EvTakım> - <DepTakım>"
         )
         return
-    # Retrieve engines from bot_data; they were instantiated in main().
+    # Retrieve engines from bot_data; they were instantiated in post_init.
     faz13: Faz13Engine = context.application.bot_data["faz13"]
     faz17: Faz17Engine = context.application.bot_data["faz17"]
     faz22: Faz22Engine = context.application.bot_data["faz22"]
