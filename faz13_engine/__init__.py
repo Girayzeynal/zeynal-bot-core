@@ -1,24 +1,26 @@
 """
-faz13_engine package
-=====================
+Initialization for the faz13_engine package.
 
-This package contains the pre‑match analysis engine used by the Zeynal Core bot.
-It exposes several classes and data structures which encapsulate the inputs
-and outputs of the engine as well as the engine itself.
+This module exposes the main engine classes and data structures for
+external imports. It pulls the key classes from the underlying
+`faz13_engine` module so that users can simply do:
+
+    from faz13_engine import Faz13Engine, PrematchRequest, FixtureContext,
+        TeamAverages, Faz13CoreOutput
 """
 
 from .faz13_engine import (
     Faz13Engine,
     PrematchRequest,
-    TeamAverages,
     FixtureContext,
+    TeamAverages,
     Faz13CoreOutput,
 )
 
 __all__ = [
     "Faz13Engine",
     "PrematchRequest",
-    "TeamAverages",
     "FixtureContext",
+    "TeamAverages",
     "Faz13CoreOutput",
-]
+] 
