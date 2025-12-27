@@ -284,4 +284,4 @@ class Faz13Engine:
             ou_direction=signals.get("alt_ust", "NO_EDGE"),
             meta=meta_info,
             notes=notes,
-        ) 
+        )
