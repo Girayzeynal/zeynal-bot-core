@@ -1,4 +1,4 @@
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Optional
 
 import numpy as np
 
@@ -7,7 +7,7 @@ def faz16_run_simulation(
     base_total: float,
     vol: float,
     n_iter: int = 10000,
-    line: float | None = None,
+    line: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Gelişmiş Monte Carlo simülasyonu.
