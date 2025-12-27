@@ -1,5 +1,4 @@
 # faz22_engine.py
-# faz22_engine.py
 from typing import List
 from league_profiles import get_league_profile
 from faz13_engine import Faz13CoreOutput
