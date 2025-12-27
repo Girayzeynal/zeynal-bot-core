@@ -10,26 +10,20 @@ def faz16_run_simulation(
     """
     Gelişmiş Monte Carlo simülasyonu.
 
-    Bu fonksiyon, toplam skorun dağılımını daha gerçekçi modellemek için
-    normal dağılım karışımları kullanır. Lig skorları genellikle ağır
-    kuyruklara ve değişkenliğe sahiptir; bu nedenle örneklerin %80'i
-    verilen standart sapma (vol) ile, %20'si ise 1.5 katı ile üretilir.
-    Böylece yüksek ve düşük skorların olasılığı daha doğru yansıtılır.
-
-    Fonksiyon, örneklerin ortalamasını, standart sapmasını, 25./50./75.
-    yüzdeliklerini hesaplar ve opsiyonel olarak bir çizgi (line) verildiğinde
-    üst/alt olasılıklarını döndürür.
+    Toplam skor dağılımını daha gerçekçi modellemek için normal dağılım karışımları
+    kullanılır; örneklerin %80'i verilen sapma ile, %20'si 1.5 kat sapma ile üretilir.
+    Negatif veya sıfır volatilite için dinamik minimum değer uygulanır.
 
     Args:
-        base_total: Beklenen toplam skorun ortalaması.
-        vol: Tahmini standart sapma. Sıfır veya negatif ise minimum değer uygulanır.
-        n_iter: Üretilecek örnek sayısı (varsayılan 10_000).
-        line: Piyasa toplam çizgisi; verilirse "p_over" ve "p_under"
-            olasılıkları hesaplanır.
+        base_total: Beklenen toplam skor ortalaması.
+        vol: Standart sapma (negatif veya sıfırsa otomatik düzeltilir).
+        n_iter: Örnek sayısı (varsayılan 10_000).
+        line: Piyasa toplam çizgisi; verilirse over/under olasılıkları hesaplanır.
 
     Returns:
-        Bir sözlük: {"mean", "std", "p25", "p50", "p75", "line", "p_over", "p_under"}.
+        Sözlük: {"mean", "std", "p25", "p50", "p75", "line", "p_over", "p_under"}.
     """
+    # Dinamik minimum volatilite uygula
     if vol <= 0:
         vol = max(8.0, base_total * 0.05)
 
