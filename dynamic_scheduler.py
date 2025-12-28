@@ -1,14 +1,14 @@
 """
-dynamic_scheduler.py
-ADVANCED – TEAM CALIBRATION & REPORTS – FREE API ONLY
+dynamic_scheduler.py – TEAM ERROR CURVE & REPORTS
 
 Bu sürüm:
-- 24h, 2h, 30dk analizleri yapar (odds sadece 30dk’da çekilir).
-- Canlı maç sırasında (Q1-Q4/HT) ek analiz ve snapshot kaydı yapar.
-- Maç bittikten sonra toplam skorları çekip tahminlerle karşılaştırır, kalibrasyon katsayısını takım bazında günceller.
-- Over/Under sonuçları ve son 10 maç özetini Telegram üzerinden raporlar.
+- 24h/2h/30dk analiz
+- Canlı yeniden analiz
+- Takım bazlı kalibrasyon ve hata kaydı
+- Telegram komutları: /scheduler_status, /scheduler_pause, /scheduler_run_now,
+  /scheduler_calibration, /scheduler_errors <Takım> [N]
+- Yalnızca API‑Sports’ın ücretsiz games endpoint’i kullanılır.
 
-Yalnızca ücretsiz API’ler kullanılır (API‑Sports games endpoint).
 """
 
 import asyncio
@@ -18,7 +18,7 @@ import os
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
-from typing import Dict, Any, List
+from typing import List
 
 from faz13_engine import Faz13Engine, PrematchRequest
 from faz17_engine import Faz17Engine
@@ -30,9 +30,7 @@ from baseline.team_baseline_store import TeamBaselineStore
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# -------------------------------------------------
-# GLOBALS
-# -------------------------------------------------
+# Globals and configuration
 TZ = ZoneInfo("Europe/Istanbul")
 DB_PATH = "scheduler_cache.sqlite"
 PAUSED = False
@@ -48,9 +46,7 @@ LIVE_RECHECK_MINUTES = 10
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("scheduler")
 
-# -------------------------------------------------
-# DATABASE UTILITIES
-# -------------------------------------------------
+# Database helpers
 def db():
     return sqlite3.connect(DB_PATH)
 
@@ -85,17 +81,22 @@ def init_db():
             vol_factor REAL
         )
         """)
-
-def job_done(k):
-    with db() as c:
-        return c.execute("SELECT 1 FROM jobs WHERE job_key=?", (k,)).fetchone() is not None
-
-def mark_job(k):
-    with db() as c:
-        c.execute(
-            "INSERT OR REPLACE INTO jobs VALUES (?,?)",
-            (k, datetime.now(timezone.utc).isoformat())
+        c.execute("""
+        CREATE TABLE IF NOT EXISTS team_errors(
+            team TEXT,
+            error REAL,
+            created_utc TEXT
         )
+        """)
+
+def job_done(key):
+    with db() as c:
+        return c.execute("SELECT 1 FROM jobs WHERE job_key=?", (key,)).fetchone() is not None
+
+def mark_job(key):
+    with db() as c:
+        c.execute("INSERT OR REPLACE INTO jobs VALUES (?,?)",
+                  (key, datetime.now(timezone.utc).isoformat()))
 
 def get_vol_factor(team):
     with db() as c:
@@ -103,35 +104,42 @@ def get_vol_factor(team):
         return row[0] if row else 1.0
 
 def update_vol_factor(team, error):
-    # Kaba ayar: daha büyük hata → vol. artar, düşük hata → azalır
-    adj = min(max(error / 20.0, 0.85), 1.15)
+    # Hata kaydı
     with db() as c:
-        c.execute("INSERT OR REPLACE INTO team_calibration(team, vol_factor) VALUES (?,?)", (team, adj))
+        c.execute("INSERT INTO team_errors VALUES (?,?,?)",
+                  (team, error, datetime.now(timezone.utc).isoformat()))
+        # Kalibrasyon ayarı (lineer)
+        adj = min(max(error / 20.0, 0.85), 1.15)
+        c.execute("INSERT OR REPLACE INTO team_calibration(team, vol_factor) VALUES (?,?)",
+                  (team, adj))
 
-# -------------------------------------------------
-# UTILITIES
-# -------------------------------------------------
+def get_all_calibrations():
+    with db() as c:
+        return c.execute("SELECT team, vol_factor FROM team_calibration").fetchall()
+
+def get_last_errors(team, n):
+    with db() as c:
+        return c.execute(
+            "SELECT error, created_utc FROM team_errors WHERE team=? ORDER BY created_utc DESC LIMIT ?",
+            (team, n)
+        ).fetchall()
+
+# Utility
 def _env(name, default=None):
-    val = os.getenv(name, default)
-    if not val:
+    v = os.getenv(name, default)
+    if not v:
         raise RuntimeError(f"Missing env {name}")
-    return val
+    return v
 
 def load_leagues():
     with open("leagues.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
-# -------------------------------------------------
-# API-SPORTS (FREE) – GET GAMES
-# -------------------------------------------------
+# API-Sports (free) – get games and scores
 async def fetch_games(league_id, date):
     import urllib.request, urllib.parse
     url = _env("API_SPORTS_BASE") + "/games"
-    q = urllib.parse.urlencode({
-        "league": league_id,
-        "date": date,
-        "timezone": "UTC"
-    })
+    q = urllib.parse.urlencode({"league": league_id, "date": date, "timezone": "UTC"})
     req = urllib.request.Request(
         url + "?" + q,
         headers={"x-apisports-key": _env("API_SPORTS_KEY")}
@@ -141,7 +149,6 @@ async def fetch_games(league_id, date):
             js = json.loads(r.read().decode())
     except:
         return []
-
     out = []
     for g in js.get("response", []):
         try:
@@ -157,64 +164,39 @@ async def fetch_games(league_id, date):
             pass
     return out
 
-# -------------------------------------------------
-# ANALYSIS
-# -------------------------------------------------
+# Analysis
 async def run_analysis(faz13, faz17, faz22, faz23,
                        league, date, home, away, use_odds):
-    # Tek takım/maç id
     game_id = f"{league}:{home}-{away}"
-
-    # Çekirdek analiz
     core = await faz13.run_prematch(PrematchRequest(0, league, date, home, away))
-
-    # Market
     if use_odds:
         try:
             core = await faz17.enrich_with_market(core)
         except:
             pass
-
-    # Volatiliteyi takım bazlı ayarla (her iki takım için)
     base_total = float(getattr(core, "market_total", 180))
     vol = float(getattr(core, "market_vol", 15))
     vol_home = vol * get_vol_factor(home)
     vol_away = vol * get_vol_factor(away)
-    # Simülasyonları ayrı ayrı hesaplayıp ortalamasını alalım
     sim_home = faz16_run_simulation(base_total, vol_home)
     sim_away = faz16_run_simulation(base_total, vol_away)
     predicted_total = (sim_home["mean"] + sim_away["mean"]) / 2.0
-
     over_under = 1 if predicted_total > base_total else 0
-
-    # Tahmin kaydı
     with db() as c:
         c.execute(
             "INSERT INTO predictions VALUES (?,?,?,?,?)",
-            (
-                game_id,
-                home,
-                predicted_total,
-                over_under,
-                datetime.now(timezone.utc).isoformat()
-            )
+            (game_id, home, predicted_total, over_under, datetime.now(timezone.utc).isoformat())
         )
-
-    # FAZ-22 + snapshot
     core = faz22.score_and_finalize(core)
     await faz23.record_snapshot(core)
 
-# -------------------------------------------------
-# LIVE & RESULT HANDLER
-# -------------------------------------------------
+# Live and result handler
 async def handle_live_and_result(faz13, faz22, faz23,
                                  league, game, date):
-
     gid = f"{league}:{game['id']}"
     home = game["home"]
     away = game["away"]
-
-    # MAÇ BİTTİ → SONUÇ & KALİBRASYON
+    # Final score
     if game["status"] == "FT":
         if job_done("RES:"+gid):
             return
@@ -223,34 +205,21 @@ async def handle_live_and_result(faz13, faz22, faz23,
             actual_total = scores["home"]["total"] + scores["away"]["total"]
         except:
             return
-        over_under = 1 if actual_total > float(game["scores"]["home"]["total"] + game["scores"]["away"]["total"]) else 0
-        # Gerçek skor kaydı
+        over_under = 1 if actual_total > scores["home"]["total"] + scores["away"]["total"] else 0
         with db() as c:
-            c.execute(
-                "INSERT OR REPLACE INTO results VALUES (?,?,?,?)",
-                (
-                    gid,
-                    actual_total,
-                    over_under,
-                    datetime.now(timezone.utc).isoformat()
-                )
-            )
-            # Son tahmini al
-            r = c.execute(
+            c.execute("INSERT OR REPLACE INTO results VALUES (?,?,?,?)",
+                      (gid, actual_total, over_under, datetime.now(timezone.utc).isoformat()))
+            preds = c.execute(
                 "SELECT predicted_total, team FROM predictions WHERE game_id=? ORDER BY created_utc DESC LIMIT 2",
                 (f"{league}:{home}-{away}",)
             ).fetchall()
-
-        # Kalibrasyonu her takım için güncelle (fark ortalaması)
-        for pred_total, team in r:
+        for pred_total, team in preds:
             err = abs(pred_total - actual_total)
             update_vol_factor(team, err)
-
         mark_job("RES:"+gid)
         log.info(f"[RESULT] {gid} = {actual_total}")
         return
-
-    # CANLI MAÇ – Yeniden analiz
+    # Live analysis
     if game["status"] in ("Q1","Q2","Q3","Q4","HT"):
         lk = "LIVE:"+gid
         if job_done(lk):
@@ -267,24 +236,19 @@ async def handle_live_and_result(faz13, faz22, faz23,
         except:
             pass
 
-# -------------------------------------------------
-# SCHEDULER LOOP
-# -------------------------------------------------
+# Scheduler loop
 async def scheduler():
     init_db()
     leagues = load_leagues()
-
     baseline = TeamBaselineStore("data/baselines")
     faz13 = Faz13Engine(_env("API_SPORTS_KEY"), _env("API_SPORTS_BASE"), baseline)
     faz17 = Faz17Engine(_env("ODDS_API_KEY"), _env("ODDS_BASE"))
     faz22 = Faz22Engine()
     faz23 = Faz23Engine()
-
     while True:
         if PAUSED:
             await asyncio.sleep(30)
             continue
-
         now = datetime.now(timezone.utc)
         for lg in leagues:
             date = now.astimezone(TZ).date().isoformat()
@@ -300,16 +264,13 @@ async def scheduler():
                             st["use_odds"]
                         )
                         mark_job(key)
-
                 await handle_live_and_result(
                     faz13, faz22, faz23,
                     lg["name"], g, date
                 )
         await asyncio.sleep(30)
 
-# -------------------------------------------------
-# TELEGRAM COMMANDS
-# -------------------------------------------------
+# Telegram commands
 async def scheduler_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     with db() as c:
         jobs = c.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
@@ -341,7 +302,6 @@ async def scheduler_run_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not lg_cfg:
         await update.message.reply_text(f"Lig bulunamadı: {league}")
         return
-    # Kısa süreli engine
     baseline = TeamBaselineStore("data/baselines")
     faz13 = Faz13Engine(_env("API_SPORTS_KEY"), _env("API_SPORTS_BASE"), baseline)
     faz17 = Faz17Engine(_env("ODDS_API_KEY"), _env("ODDS_BASE"))
@@ -350,40 +310,43 @@ async def scheduler_run_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await run_analysis(faz13, faz17, faz22, faz23, league, date_str, home, away, True)
     await update.message.reply_text("Anlık analiz başlatıldı.")
 
-async def scheduler_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    # /scheduler_report <Takım> <n>
+async def scheduler_calibration(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    rows = get_all_calibrations()
+    if not rows:
+        await update.message.reply_text("Kalibrasyon verisi yok.")
+        return
+    msg = "🔧 *Kalibrasyon Katsayıları* (Takım:Volatilite)\n"
+    for team, factor in rows:
+        msg += f"{team}: {factor:.2f}\n"
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+async def scheduler_errors(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args:
-        await update.message.reply_text("Kullanım: /scheduler_report <Takım> [N]")
+        await update.message.reply_text("Kullanım: /scheduler_errors <Takım> [N]")
         return
     team = ctx.args[0]
     n = int(ctx.args[1]) if len(ctx.args) > 1 else 10
-    with db() as c:
-        rows = c.execute("""
-        SELECT p.game_id, p.predicted_total, r.actual_total, p.over_under, r.over_under
-        FROM predictions p
-        JOIN results r ON p.game_id = r.game_id
-        WHERE p.team=? ORDER BY r.finished_utc DESC LIMIT ?
-        """, (team, n)).fetchall()
+    rows = get_last_errors(team, n)
     if not rows:
-        await update.message.reply_text("Sonuç bulunamadı.")
+        await update.message.reply_text("Hata verisi bulunamadı.")
         return
-    over_hits = sum(1 for (_, pt, at, po, ao) in rows if (pt > at and ao == 0) or (pt <= at and ao == 1))
-    msg = f"📊 *{team} Son {len(rows)} Maç Raporu*\n\n"
-    msg += "Maç ID | Tahmin | Gerçek | Tahmin (O/U) | Gerçek (O/U)\n"
-    for (gid, pt, at, po, ao) in rows:
-        msg += f"{gid} | {pt:.1f} | {at:.1f} | {po} | {ao}\n"
-    msg += f"\n✔ Over/Under doğruluk: {over_hits}/{len(rows)}"
+    msg = f"📈 *{team} Hata Eğrisi* (son {len(rows)} kayıt)\n"
+    total_err = 0.0
+    for idx, (err, ts) in enumerate(rows, 1):
+        msg += f"{idx}. {err:.2f} (UTC {ts})\n"
+        total_err += err
+    avg_err = total_err / len(rows)
+    msg += f"\nOrtalama hata: {avg_err:.2f}"
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-# -------------------------------------------------
-# MAIN
-# -------------------------------------------------
+# Main
 async def main():
     app = Application.builder().token(_env("TELEGRAM_BOT_TOKEN")).build()
     app.add_handler(CommandHandler("scheduler_status", scheduler_status))
     app.add_handler(CommandHandler("scheduler_pause", scheduler_pause))
     app.add_handler(CommandHandler("scheduler_run_now", scheduler_run_now))
-    app.add_handler(CommandHandler("scheduler_report", scheduler_report))
+    app.add_handler(CommandHandler("scheduler_calibration", scheduler_calibration))
+    app.add_handler(CommandHandler("scheduler_errors", scheduler_errors))
     await app.initialize()
     await app.start()
     asyncio.create_task(scheduler())
