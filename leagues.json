@@ -1,0 +1,79 @@
+[
+  {
+    "name": "NBA",
+    "api_sports_league_id": 12,
+    "odds_sport_key": "basketball_nba",
+    "enabled_odds": true,
+    "enabled_schedule": true
+  },
+  {
+    "name": "EuroLeague",
+    "api_sports_league_id": 120,
+    "odds_sport_key": null,
+    "enabled_odds": false,
+    "enabled_schedule": true
+  },
+  {
+    "name": "EuroCup",
+    "api_sports_league_id": 194,
+    "odds_sport_key": null,
+    "enabled_odds": false,
+    "enabled_schedule": true
+  },
+  {
+    "name": "FIBA EuroCup",
+    "api_sports_league_id": 201,
+    "odds_sport_key": null,
+    "enabled_odds": false,
+    "enabled_schedule": true
+  },
+  {
+    "name": "BCL",
+    "api_sports_league_id": 0,
+    "odds_sport_key": null,
+    "enabled_odds": false,
+    "enabled_schedule": true
+  },
+  {
+    "name": "Spain ACB",
+    "api_sports_league_id": 117,
+    "odds_sport_key": null,
+    "enabled_odds": false,
+    "enabled_schedule": true
+  },
+  {
+    "name": "Italy Serie A",
+    "api_sports_league_id": 52,
+    "odds_sport_key": null,
+    "enabled_odds": false,
+    "enabled_schedule": true
+  },
+  {
+    "name": "Turkey BSL",
+    "api_sports_league_id": 102,
+    "odds_sport_key": null,
+    "enabled_odds": false,
+    "enabled_schedule": true
+  },
+  {
+    "name": "Greece A1",
+    "api_sports_league_id": 45,
+    "odds_sport_key": null,
+    "enabled_odds": false,
+    "enabled_schedule": true
+  },
+  {
+    "name": "Germany BBL",
+    "api_sports_league_id": 40,
+    "odds_sport_key": null,
+    "enabled_odds": false,
+    "enabled_schedule": true
+  },
+  {
+    "name": "France Pro A",
+    "api_sports_league_id": 2,
+    "odds_sport_key": null,
+    "enabled_odds": false,
+    "enabled_schedule": true
+  }
+]
