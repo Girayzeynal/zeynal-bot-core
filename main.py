@@ -11,9 +11,13 @@ try:
     from faz16_engine import Faz16Engine  # type: ignore[attr-defined]
 except ImportError:
     try:
-        from faz16_engine.faz16_engine import Faz16Engine  # type: ignore[attr-defined]
+    from faz16_engine import Faz16Engine
+except ImportError:
+    try:
+        from faz16_engine.faz16_engine import Faz16Engine
     except ImportError:
-        from faz16_engine.engine import Faz16Engine  # type: ignore[attr-defined]
+        from faz16_engine.engine import Faz16Engine
+        
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 
