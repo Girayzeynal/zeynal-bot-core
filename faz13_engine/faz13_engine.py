@@ -1,26 +1,25 @@
-# faz13_engine.py
+# faz13_engine/faz13_engine.py
+
 from __future__ import annotations
 
 import asyncio
 import html
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-import os
-
 import aiohttp
 
-# Optional baseline storage integration
 from baseline.team_baseline_store import (
     TeamBaselineStore,
     TeamBaselineBootstrapper,
     TeamStatsAdapter,
     TeamBaseline,
 )
-
 from league_profiles import get_league_profile
+
 
 @dataclass(frozen=True)
 class PrematchRequest:
@@ -30,6 +29,7 @@ class PrematchRequest:
     home: str
     away: str
 
+
 @dataclass
 class TeamAverages:
     points_for: float
@@ -37,12 +37,14 @@ class TeamAverages:
     pace_hint: float
     stdev_hint: float
 
+
 @dataclass
 class FixtureContext:
     league: str
     date: str
     home: str
     away: str
+
 
 @dataclass
 class Faz13CoreOutput:
@@ -60,48 +62,59 @@ class Faz13CoreOutput:
     market: Dict[str, Any] = field(default_factory=dict)
     meta: Dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def is_valid(self) -> bool:
+        # Scheduler ve bot çıktısı için “veri var mı” kontrolü
+        return (
+            self.meta.get("home_baseline_src") not in (None, "none")
+            and self.meta.get("away_baseline_src") not in (None, "none")
+        )
+
     def render_html(self) -> str:
         esc = html.escape
-        lines = []
-        lines.append("<b>FAZ-13 Ön Analiz</b>")
+        lines: List[str] = []
+        lines.append("FAZ-13 Ön Analiz")
         lines.append(
             f"Maç: {esc(self.ctx.home)} vs {esc(self.ctx.away)} | Lig: {esc(self.ctx.league)} | Tarih: {esc(self.ctx.date)}"
         )
         lines.append("")
-        lines.append("<b>Dar Bant</b>")
+        lines.append("Dar Bant")
         lines.append(f"• Toplam: {self.total_band[0]}–{self.total_band[1]}")
-        lines.append(
-            f"• Ev: {self.home_band[0]}–{self.home_band[1]} | Dep: {self.away_band[0]}–{self.away_band[1]}"
-        )
+        lines.append(f"• Ev: {self.home_band[0]}–{self.home_band[1]} | Dep: {self.away_band[0]}–{self.away_band[1]}")
         lines.append(f"• Alt/Üst yönü: {esc(self.ou_direction)}")
         lines.append("")
-        lines.append("<b>Periyot Bantları</b>")
+        lines.append("Periyot Bantları")
         for k in ["1Q", "2Q", "HT", "3Q", "4Q", "FT"]:
             if k in self.quarters:
                 lo, hi = self.quarters[k]
                 lines.append(f"• {k}: {lo}–{hi}")
         lines.append("")
-        lines.append("<b>Risk Göstergeleri</b>")
+        lines.append("Risk Göstergeleri")
         lines.append(f"• Blowout riski: {esc(self.blowout_risk)}")
         lines.append(f"• Tempo flag: {esc(self.tempo_flag)}")
+
         if self.notes:
             lines.append("")
-            lines.append("<b>Notlar</b>")
+            lines.append("Notlar")
             for n in self.notes:
                 lines.append(f"• {esc(n)}")
+
         if self.market:
             lines.append("")
-            lines.append("<b>Market Entegrasyonu</b>")
+            lines.append("Market Entegrasyonu")
             for k, v in self.market.items():
                 lines.append(f"• {esc(str(k))}: {esc(str(v))}")
+
         if self.meta:
             lines.append("")
-            lines.append("<b>Meta Skor</b>")
+            lines.append("Meta Skor")
             for k, v in self.meta.items():
                 lines.append(f"• {esc(str(k))}: {esc(str(v))}")
+
         lines.append("")
-        lines.append("<i>Bu çıktı analiz/simülasyon amaçlıdır. Bahis tavsiyesi değildir.</i>")
+        lines.append("Bu çıktı analiz/simülasyon amaçlıdır. Bahis tavsiyesi değildir.")
         return "\n".join(lines)
+
 
 class _TTLCache:
     def __init__(self, ttl_sec: float = 25.0) -> None:
@@ -121,6 +134,7 @@ class _TTLCache:
     def set(self, key: str, value: Any) -> None:
         self._data[key] = (time.time(), value)
 
+
 class Faz13Engine:
     def __init__(
         self,
@@ -129,37 +143,18 @@ class Faz13Engine:
         baseline_store: Optional[TeamBaselineStore] = None,
         min_baseline_games: int = 6,
     ) -> None:
-        """
-        Initialize the FAZ-13 engine.
-
-        In addition to the API‑Sports parameters, this initializer attempts to
-        load a local team statistics dataset.  If the environment variable
-        ``TEAM_STATS_FILE`` is set, it will be used as the path to a JSON
-        file containing per‑team averages.  Otherwise ``team_stats.json`` in
-        the current working directory is attempted.  When present, these
-        statistics are used to compute baselines instead of making remote
-        API calls.
-        """
-        self.api_key = api_sports_key
-        self.base = api_sports_base.rstrip("/")
+        self.api_key = (api_sports_key or "").strip()
+        self.base = (api_sports_base or "https://v1.basketball.api-sports.io").rstrip("/")
         self.session: Optional[aiohttp.ClientSession] = None
         self.cache = _TTLCache()
 
-        # Determine path of local stats file: environment or default
-        stats_env = os.environ.get("TEAM_STATS_FILE")
-        if stats_env:
-            stats_path = stats_env
-        else:
-            cwd_default = os.path.join(os.getcwd(), "team_stats.json")
-            if os.path.exists(cwd_default):
-                stats_path = cwd_default
-            else:
-                repo_default = os.path.join(
-                    os.path.dirname(__file__), "..", "..", "team_stats.json"
-                )
-                stats_path = os.path.normpath(repo_default)
+        # leagues.json -> league name -> api_sports_league_id
+        self._league_id_map: Dict[str, int] = self._load_league_id_map()
 
+        # local stats file (opsiyonel)
         self._team_stats: Dict[str, Dict[str, Any]] = {}
+        stats_env = os.environ.get("TEAM_STATS_FILE")
+        stats_path = stats_env or "team_stats.json"
         try:
             if os.path.exists(stats_path):
                 with open(stats_path, "r", encoding="utf-8") as f:
@@ -167,20 +162,16 @@ class Faz13Engine:
         except Exception:
             self._team_stats = {}
 
-        # Baseline store integration
         self.baseline_store = baseline_store
         self.min_baseline_games = min_baseline_games
         self.baseline_bootstrapper: Optional[TeamBaselineBootstrapper] = None
 
         if self.baseline_store is not None:
-            # LocalStatsAdapter reads from self._team_stats
             class _LocalStatsAdapter(TeamStatsAdapter):
                 def __init__(self, dataset: Dict[str, Dict[str, Any]]):
                     self.dataset = dataset
 
-                def fetch_team_recent_aggregate(
-                    self, league: str, team: str, n_games: int
-                ) -> Optional[Dict[str, Any]]:
+                def fetch_team_recent_aggregate(self, league: str, team: str, n_games: int) -> Optional[Dict[str, Any]]:
                     if not self.dataset:
                         return None
                     season = sorted(self.dataset.keys())[-1]
@@ -204,14 +195,50 @@ class Faz13Engine:
                         "n_games": int(rec.get("games", n_games)),
                         "pts_for": pf,
                         "pts_against": pa,
-                        "pace": pace,
-                        "stdev_total": stdev_total,
+                        "pace": float(pace),
+                        "stdev_total": float(stdev_total),
                     }
 
             self.baseline_adapter = _LocalStatsAdapter(self._team_stats)
-            self.baseline_bootstrapper = TeamBaselineBootstrapper(
-                self.baseline_store, self.baseline_adapter
-            )
+            self.baseline_bootstrapper = TeamBaselineBootstrapper(self.baseline_store, self.baseline_adapter)
+
+    def _load_league_id_map(self) -> Dict[str, int]:
+        """
+        leagues.json beklenen format (repo içinde var):
+        [
+          {"name": "NBA", "api_sports_league_id": 12},
+          ...
+        ]
+        """
+        candidates = ["leagues.json", os.path.join(os.path.dirname(__file__), "..", "..", "leagues.json")]
+        for p in candidates:
+            p = os.path.normpath(p)
+            try:
+                if os.path.exists(p):
+                    with open(p, "r", encoding="utf-8") as f:
+                        arr = json.load(f)
+                    out: Dict[str, int] = {}
+                    if isinstance(arr, list):
+                        for item in arr:
+                            if not isinstance(item, dict):
+                                continue
+                            name = (item.get("name") or "").strip().upper()
+                            lid = item.get("api_sports_league_id")
+                            if name and isinstance(lid, int):
+                                out[name] = lid
+                    return out
+            except Exception:
+                continue
+        return {}
+
+    def _league_to_id(self, league: str) -> Optional[int]:
+        s = (league or "").strip()
+        if not s:
+            return None
+        # numeric string ise direkt id say
+        if s.isdigit():
+            return int(s)
+        return self._league_id_map.get(s.upper())
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self.session and not self.session.closed:
@@ -228,13 +255,13 @@ class Faz13Engine:
         cached = self.cache.get(key)
         if cached is not None:
             return cached
+
         s = await self._get_session()
         headers = {"x-apisports-key": self.api_key}
+
         for attempt in range(4):
             try:
-                async with s.get(
-                    f"{self.base}{path}", params=params, headers=headers
-                ) as resp:
+                async with s.get(f"{self.base}{path}", params=params, headers=headers, timeout=15) as resp:
                     data = await resp.json()
                     if resp.status >= 500:
                         raise RuntimeError(f"API-Sports error {resp.status}")
@@ -242,51 +269,34 @@ class Faz13Engine:
                     return data
             except Exception:
                 await asyncio.sleep(0.3 * (2**attempt))
+
         raise RuntimeError("API-Sports request failed")
 
-    async def _team_baseline(
-        self, team: str, league: str, season: str
-    ) -> Tuple[TeamAverages, str, int]:
+    async def _team_baseline(self, team: str, league: str, season: str) -> Tuple[TeamAverages, str, int]:
         profile = get_league_profile(league)
 
-        # 1) Baseline store (if configured)
-        if self.baseline_bootstrapper is not None:
+        # 1) Baseline store (varsa)
+        if self.baseline_bootstrapper is not None and self.baseline_store is not None:
             bl = self.baseline_store.get(league, team)
             if bl and bl.n_games >= self.min_baseline_games:
-                pf = bl.pts_for
-                pa = bl.pts_against
-                pace = bl.pace
-                stdev = max(
-                    profile.volatility_floor,
-                    min(profile.volatility_ceil, bl.stdev_total),
-                )
-                return TeamAverages(pf, pa, pace, stdev), "baseline_store", bl.n_games
-            # Bootstrap if missing
+                stdev = max(profile.volatility_floor, min(profile.volatility_ceil, bl.stdev_total))
+                return TeamAverages(bl.pts_for, bl.pts_against, bl.pace, stdev), "baseline_store", bl.n_games
+
+            # bootstrap dene (local adapter ile)
             try:
-                new_bl = self.baseline_bootstrapper.ensure(
-                    league, team, min_games=self.min_baseline_games
-                )
+                new_bl = self.baseline_bootstrapper.ensure(league, team, min_games=self.min_baseline_games)
             except Exception:
                 new_bl = None
+
             if new_bl and new_bl.n_games >= self.min_baseline_games:
-                pf = new_bl.pts_for
-                pa = new_bl.pts_against
-                pace = new_bl.pace
-                stdev = max(
-                    profile.volatility_floor,
-                    min(profile.volatility_ceil, new_bl.stdev_total),
-                )
-                return (
-                    TeamAverages(pf, pa, pace, stdev),
-                    "baseline_store",
-                    new_bl.n_games,
-                )
+                stdev = max(profile.volatility_floor, min(profile.volatility_ceil, new_bl.stdev_total))
+                return TeamAverages(new_bl.pts_for, new_bl.pts_against, new_bl.pace, stdev), "baseline_store", new_bl.n_games
 
         # 2) Local stats file
         local = self._team_stats.get(season)
         if local:
             for nm, rec in local.items():
-                if nm.lower().strip() == team.lower().strip():
+                if (nm or "").lower().strip() == team.lower().strip():
                     try:
                         pf = float(rec.get("points_for", 0.0))
                         pa = float(rec.get("points_against", 0.0))
@@ -295,20 +305,14 @@ class Faz13Engine:
                     pace = rec.get("pace")
                     if pace is None:
                         pace = max(0.70, min(1.35, (pf + pa) / 180.0))
-                    stdev = 9.0
-                    if isinstance(rec.get("stdev"), (int, float)):
-                        stdev = float(rec["stdev"])
-                    stdev = max(
-                        profile.volatility_floor, min(profile.volatility_ceil, stdev)
-                    )
-                    return (
-                        TeamAverages(pf, pa, pace, stdev),
-                        "local",
-                        int(rec.get("games", 0)),
-                    )
+                    stdev = float(rec.get("stdev", 9.0))
+                    stdev = max(profile.volatility_floor, min(profile.volatility_ceil, stdev))
+                    return TeamAverages(pf, pa, float(pace), stdev), "local", int(rec.get("games", 0))
 
-        # 3) Remote API statistics
-        team_id = None
+        # 3) Remote API statistics (KRİTİK: league id)
+        league_id = self._league_to_id(league)
+        team_id: Optional[int] = None
+
         try:
             res = await self._api_get("/teams", {"search": team})
             t_resp = res.get("response") or []
@@ -323,31 +327,27 @@ class Faz13Engine:
         except Exception:
             team_id = None
 
-        if team_id is not None:
+        if team_id is not None and league_id is not None:
             try:
-                stats = await self._api_get(
-                    "/statistics",
-                    {"team": team_id, "league": league, "season": season},
-                )
+                stats = await self._api_get("/statistics", {"team": team_id, "league": league_id, "season": season})
                 r = stats.get("response") or {}
                 pf = self._dig(r, ["points", "for", "average", "total"])
                 pa = self._dig(r, ["points", "against", "average", "total"])
                 if pf is not None and pa is not None:
                     pace = max(0.85, min(1.20, (pf + pa) / 180.0))
                     pace = max(0.70, min(1.35, pace * profile.pace_scale))
-                    stdev = max(
-                        profile.volatility_floor, min(profile.volatility_ceil, 9.0)
-                    )
+                    stdev = max(profile.volatility_floor, min(profile.volatility_ceil, 9.0))
                     return TeamAverages(pf, pa, pace, stdev), "statistics", 0
             except Exception:
                 pass
 
-        # 4) Last 5 games
+        # 4) Last 5 games (league id gerektirmez)
         if team_id is not None:
             try:
                 games = await self._api_get("/games", {"team": team_id, "last": 5})
                 resp = games.get("response") or []
-                scored, allowed = [], []
+                scored: List[float] = []
+                allowed: List[float] = []
                 for g in resp:
                     s = g.get("scores") or {}
                     h = s.get("home") or {}
@@ -357,14 +357,13 @@ class Faz13Engine:
                     if ht is None or at is None:
                         continue
                     teams = g.get("teams") or {}
-                    hn = (teams.get("home") or {}).get("name", "").strip().lower()
-                    an = (teams.get("away") or {}).get("name", "").strip().lower()
+                    hn = ((teams.get("home") or {}).get("name") or "").strip().lower()
+                    an = ((teams.get("away") or {}).get("name") or "").strip().lower()
                     if hn == team.lower().strip():
-                        scored.append(float(ht))
-                        allowed.append(float(at))
+                        scored.append(float(ht)); allowed.append(float(at))
                     elif an == team.lower().strip():
-                        scored.append(float(at))
-                        allowed.append(float(ht))
+                        scored.append(float(at)); allowed.append(float(ht))
+
                 if scored and allowed:
                     pf = sum(scored) / len(scored)
                     pa = sum(allowed) / len(allowed)
@@ -375,14 +374,12 @@ class Faz13Engine:
                         mean = pf
                         var = sum((x - mean) ** 2 for x in scored) / (len(scored) - 1)
                         stdev = var ** 0.5
-                    stdev = max(
-                        profile.volatility_floor, min(profile.volatility_ceil, stdev)
-                    )
+                    stdev = max(profile.volatility_floor, min(profile.volatility_ceil, stdev))
                     return TeamAverages(pf, pa, pace, stdev), "games_last5", len(scored)
             except Exception:
                 pass
 
-        # Fallback: neutral baseline
+        # Fallback
         return TeamAverages(0.0, 0.0, 1.0, 9.0), "none", 0
 
     @staticmethod
@@ -412,6 +409,7 @@ class Faz13Engine:
 
         sigma = (h_avg.stdev_hint + a_avg.stdev_hint) / 2
         sigma = max(profile.volatility_floor, min(profile.volatility_ceil, sigma))
+
         pace = (h_avg.pace_hint + a_avg.pace_hint) / 2
 
         tempo_flag = "NORMAL"
@@ -427,18 +425,10 @@ class Faz13Engine:
 
         hw_total = profile.band_hw_total
         hw_team = profile.band_hw_team
-        total_band = (
-            int(round(total_mu - hw_total)),
-            int(round(total_mu + hw_total)),
-        )
-        home_band = (
-            int(round(home_mu - hw_team)),
-            int(round(home_mu + hw_team)),
-        )
-        away_band = (
-            int(round(away_mu - hw_team)),
-            int(round(away_mu + hw_team)),
-        )
+
+        total_band = (int(round(total_mu - hw_total)), int(round(total_mu + hw_total)))
+        home_band = (int(round(home_mu - hw_team)), int(round(home_mu + hw_team)))
+        away_band = (int(round(away_mu - hw_team)), int(round(away_mu + hw_team)))
 
         ou_dir = "NO_EDGE"
         if tempo_flag in {"SLOW", "FAKE_TEMPO_RISK"} and blowout in {"MID", "HIGH"}:
@@ -454,14 +444,15 @@ class Faz13Engine:
             f"μ(total)≈{total_mu:.1f}, σ≈{sigma:.1f}, pace≈{pace:.2f}",
             f"gap≈{gap:.1f} → blowout={blowout}",
         ]
+
         if h_src == "none" or a_src == "none":
-            notes.append(
-                "UYARI: Team baseline alınamadı → neutral baseline (0/0) kullanıldı."
-            )
+            notes.append("UYARI: Team baseline alınamadı → neutral baseline (0/0) kullanıldı.")
+            # burada lig id bulunamadıysa özellikle belirt
+            if self._league_to_id(req.league) is None:
+                notes.append("UYARI: League ID bulunamadı (leagues.json eşleşmedi).")
+
         if ou_dir == "NO_EDGE":
-            notes.append(
-                "Alt/Üst yönünde net edge yok: market çizgisi ile FAZ-17'de belirlenecek."
-            )
+            notes.append("Alt/Üst yönünde net edge yok: market çizgisi ile FAZ-17'de belirlenecek.")
 
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
         meta = {
@@ -496,12 +487,6 @@ class Faz13Engine:
             mu = total_mu * w
             hw = max(2, int(round(hw_total * w)))
             out[k] = (int(round(mu - hw)), int(round(mu + hw)))
-        out["HT"] = (
-            out["1Q"][0] + out["2Q"][0],
-            out["1Q"][1] + out["2Q"][1],
-        )
-        out["FT"] = (
-            int(round(total_mu - hw_total)),
-            int(round(total_mu + hw_total)),
-        )
+        out["HT"] = (out["1Q"][0] + out["2Q"][0], out["1Q"][1] + out["2Q"][1])
+        out["FT"] = (int(round(total_mu - hw_total)), int(round(total_mu + hw_total)))
         return out
