@@ -41,13 +41,13 @@ class Faz13CoreOutput:
     def render_html(self) -> str:
         esc = html.escape
         if not self.is_valid:
-            return f"⚠️ <b>ANALİZ HATASI</b>\nMaç: {esc(self.ctx.home)} vs {esc(self.ctx.away)}\n<i>Nedeni: Takım verileri bulunamadı.</i>"
+            return f"⚠️ <b>ANALİZ HATASI</b>\nMaç: {esc(self.ctx.home)} vs {esc(self.ctx.away)}\n<i>Nedeni: Baseline verisi bulunamadı.</i>"
         
         lines = [
             "<b>🏀 FAZ-13 Analiz Raporu</b>",
             f"Maç: {esc(self.ctx.home)} vs {esc(self.ctx.away)}",
-            f"Bant: {self.total_band[0]} – {self.total_band[1]}",
-            f"Yön: {esc(self.ou_direction)} | Risk: {esc(self.blowout_risk)}"
+            f"Tahmin: {self.total_band[0]} – {self.total_band[1]}",
+            f"Yön: {esc(self.ou_direction)}",
         ]
         return "\n".join(lines)
 
@@ -63,7 +63,8 @@ class Faz13Engine:
             if os.path.exists(path):
                 with open(path, "r", encoding="utf-8") as f:
                     return json.load(f)
-        except: return {}
+        except:
+            return {}
         return {}
 
     async def _team_baseline(self, team: str, season: str) -> Tuple[Optional[TeamAverages], str, int]:
@@ -97,12 +98,10 @@ class Faz13Engine:
                 quarters={}, blowout_risk="N/A", tempo_flag="N/A", is_valid=False
             )
 
-        # Hesaplama Mantığı
         h_mu = (h_avg.points_for + a_avg.points_against) / 2
         a_mu = (a_avg.points_for + h_avg.points_against) / 2
         total_mu = h_mu + a_mu
 
-        # DÜZELTİLMİŞ RETURN (Sözdizimi hatası giderildi)
         return Faz13CoreOutput(
             ctx=req,
             home_avg=h_avg,
@@ -118,4 +117,4 @@ class Faz13Engine:
             meta={"h_n": h_n, "a_n": a_n},
             is_valid=True
         )
-
+ 
