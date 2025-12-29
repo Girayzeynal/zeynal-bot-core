@@ -16,3 +16,5 @@ EXPOSE 8080
 
 # Uygulama başlangıç komutu
 CMD ["python", "main.py"]
+
+CMD ["bash", "./entrypoint.sh"]
