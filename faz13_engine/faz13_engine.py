@@ -590,8 +590,8 @@ class Faz13Engine:
         season = req.date_str.split("-")[0]
 
         (h_avg, h_src, h_n), (a_avg, a_src, a_n) = await asyncio.gather(
-            self._team_baseline(req.home, req.league, season),
-            self._team_baseline(req.away, req.league, season),
+        self._team_baseline(req.home, req.league, season),
+        self._team_baseline(req.away, req.league, season),
         )
 
         home_mu = (h_avg.points_for + a_avg.points_against) / 2
