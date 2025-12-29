@@ -1,20 +1,23 @@
 app = "zeynal-bot-core"
-primary_region = "ams"
 kill_signal = "SIGINT"
 kill_timeout = "5s"
+primary_region = "ams"
 
 [build]
 dockerfile = "Dockerfile"
 
-#
-# Application environment variables.  These are set at runtime.
-# Secrets such as TELEGRAM_BOT_TOKEN, API_SPORTS_KEY and ODDS_API_KEY
-# should be provided via `fly secrets` instead of hard-coding them here.
 [env]
 PYTHONUNBUFFERED = "1"
 
-#
-# Note: This bot uses long polling and does not expose an HTTP server.  The
-# http_service section has been removed to prevent Fly from performing
-# health checks against a non-existent HTTP endpoint.  Fly will run a
-# single machine without expecting it to respond on port 8080. 
+# API uç noktaları
+API_SPORTS_BASE = "https://v1.basketball.api-sports.io"
+ODDS_BASE = "https://api.the-odds-api.com/v4"
+
+# Odds varsayılanları
+ODDS_REGIONS = "us,eu"
+ODDS_MARKETS = "totals"
+ODDS_FORMAT = "decimal"
+
+# Baseline klasörü (istersen volume ile kalıcı yaparsın)
+BASELINE_DIR = "data/baselines"
+FAZ23_STORAGE = "faz23_storage.sqlite" 
