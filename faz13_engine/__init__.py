@@ -8,7 +8,6 @@ from .faz13_engine import (
     FixtureContext,
     TeamAverages,
     Faz13CoreOutput,
-    fetch_team_stats_from_bdl,
 )
 
 __all__ = [
@@ -17,5 +16,4 @@ __all__ = [
     "FixtureContext",
     "TeamAverages",
     "Faz13CoreOutput",
-    "fetch_team_stats_from_bdl",
-] 
+]
