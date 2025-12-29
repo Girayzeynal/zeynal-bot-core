@@ -1,91 +1,94 @@
-# faz22_engine.py
 from typing import List
+import logging
 from league_profiles import get_league_profile
 from faz13_engine import Faz13CoreOutput
+
+log = logging.getLogger("zeynal-bot-core")
 
 class Faz22Engine:
     def score_and_finalize(self, core: Faz13CoreOutput) -> Faz13CoreOutput:
         profile = get_league_profile(core.ctx.league)
+        
+        # 1. Veri Kalitesi (Baseline Quality) - DAHA SERT CEZALAR
+        def q(src: str, n: int) -> float:
+            if src == "statistics": return 1.0
+            if src == "local_match": return 0.90
+            if src == "games_last5": return min(0.85, 0.50 + 0.07 * n)
+            return 0.0  # Veri yoksa kalite SIFIRDIR
+
+        h_src = core.meta.get("home_baseline_src")
+        a_src = core.meta.get("away_baseline_src")
+        h_n = core.meta.get("home_baseline_n", 0)
+        a_n = core.meta.get("away_baseline_n", 0)
+
+        hq = q(h_src, h_n)
+        aq = q(a_src, a_n)
+        baseline_quality = (hq + aq) / 2
+
+        # 2. Bant Genişliği Analizi
         lo, hi = core.total_band
         actual_width = hi - lo
         expected_width = profile.band_hw_total * 2
+        
+        # Base confidence calculation
+        base_conf = 75 - (actual_width - expected_width) * 4
+        base_conf = max(20.0, min(90.0, base_conf))
+        
+        # Veri kalitesi çarpanını daha etkili hale getirdik
+        conf = base_conf * (0.3 + 0.7 * baseline_quality)
 
-        # Baseline quality
-        def q(src: str, n: int) -> float:
-            if src == "statistics":
-                return 1.0
-            if src == "games_last5":
-                return min(1.0, 0.75 + 0.05 * n)
-            return 0.50  # none or unknown
+        # 3. Risk Modifikatörleri
+        if core.blowout_risk == "HIGH": conf -= 15
+        elif core.blowout_risk == "MID": conf -= 7
 
-        hq = q(core.meta.get("home_baseline_src"), core.meta.get("home_baseline_n", 0))
-        aq = q(core.meta.get("away_baseline_src"), core.meta.get("away_baseline_n", 0))
-        baseline_quality = (hq + aq) / 2
+        if core.tempo_flag == "FAKE_TEMPO_RISK": conf -= 10
+        elif core.tempo_flag == "FAST": conf -= 3
 
-        base_conf = 75 - (actual_width - expected_width) * 3
-        base_conf = max(30.0, min(90.0, base_conf))
-        conf = base_conf * (0.6 + 0.4 * baseline_quality)
-
-        if core.blowout_risk == "HIGH":
-            conf -= 10
-        elif core.blowout_risk == "MID":
-            conf -= 5
-
-        if core.tempo_flag == "FAKE_TEMPO_RISK":
-            conf -= 6
-        elif core.tempo_flag == "FAST":
-            conf -= 2
-        elif core.tempo_flag == "SLOW":
-            conf -= 3
-
+        # 4. Market Entegrasyonu Etkisi
         m = core.market or {}
         if m.get("status") == "OK":
-            line = m.get("market_total")
+            line = m.get("total")
+            # Eğer market çizgisi bizim bandımızın dışındaysa bu bir fırsattır (Edge)
             if isinstance(line, (int, float)):
                 if line < lo or line > hi:
-                    conf += profile.market_weight * 5
+                    conf += (profile.market_weight * 8)
                 else:
-                    conf -= profile.market_weight * 5
+                    conf -= 5 # Market ile aynı fikirdeysek güven düşer (Value azalır)
         else:
-            if profile.market_required:
-                conf -= 8
+            conf -= 12 # Market verisi yoksa belirsizlik artar
 
-        conf = max(25.0, min(95.0, conf))
+        # 5. Final Sınırlandırma
+        # Eğer veri yoksa güven skorunu %25'in üzerine çıkartma
+        if baseline_quality < 0.3:
+            conf = min(conf, 25.0)
 
-        if conf < 45:
-            risk = "HIGH"
-        elif conf < 65:
-            risk = "MID"
-        else:
-            risk = "LOW"
+        conf = max(5.0, min(98.0, conf))
 
-        issues: List[str] = []
-        if core.meta.get("home_baseline_src") in {"none"} or core.meta.get("away_baseline_src") in {"none"}:
-            issues.append("no_team_data")
-        if core.meta.get("home_baseline_src") == "games_last5" and core.meta.get("home_baseline_n", 0) < 3:
-            issues.append("home_small_sample")
-        if core.meta.get("away_baseline_src") == "games_last5" and core.meta.get("away_baseline_n", 0) < 3:
-            issues.append("away_small_sample")
+        # 6. Risk Seviyesi Belirleme
+        if conf < 40: risk = "EXTREME HIGH"
+        elif conf < 55: risk = "HIGH"
+        elif conf < 75: risk = "MID"
+        else: risk = "LOW"
 
-        hb_lo, hb_hi = core.home_band
-        ab_lo, ab_hi = core.away_band
-        if hb_lo + ab_lo > hi + 4:
-            issues.append("team_low_bands > total_hi")
-        if hb_hi + ab_hi < lo - 4:
-            issues.append("team_hi_bands < total_lo")
-        if not issues:
-            issues.append("OK")
+        # 7. Issue (Hata) Avcısı
+        issues = []
+        if baseline_quality == 0: issues.append("KRITIK_VERI_YOK")
+        if h_n < 3 or a_n < 3: issues.append("YETERSIZ_ORNEKLEM")
+        if not m.get("status") == "OK": issues.append("MARKET_YOK")
 
+        # Core objesini güncelle
         core.meta.update({
             "confidence": round(conf, 1),
             "risk": risk,
-            "issues": issues,
-            "baseline_quality": round(baseline_quality, 2),
-            "mode": "FAZ-22 META CALIBRATED"
+            "issues": issues if issues else ["OK"],
+            "mode": "FAZ-22 CALIBRATED V2"
         })
 
-        core.notes.append(f"Skor yönü: {core.ou_direction} | Güven: {round(conf)} | Risk: {risk}")
-        if any(i != "OK" for i in issues):
-            core.notes.append("Hata avcısı: " + " | ".join([i for i in issues if i != 'OK']))
+        # Notları temizle ve yeniden yaz
+        core.notes = [n for n in core.notes if "Güven:" not in n and "Hata avcısı:" not in n]
+        core.notes.append(f"📊 Güven: %{round(conf)} | Risk: {risk}")
+        if issues:
+            core.notes.append(f"🕵️ Hata Avcısı: {', '.join(issues)}")
 
-        return core 
+        return core
+ 
