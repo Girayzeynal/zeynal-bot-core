@@ -1,5 +1,6 @@
 FROM python:3.11-slim
 
+# Çalışma dizini
 WORKDIR /app
 
 # Sistem bağımlılıkları
@@ -14,6 +15,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Proje dosyaları
 COPY . .
+
+# 🔴 KRİTİK SATIR – entrypoint.sh dosyasını KOPYALA
+COPY entrypoint.sh entrypoint.sh
 
 # entrypoint çalıştırma izni
 RUN chmod +x entrypoint.sh
