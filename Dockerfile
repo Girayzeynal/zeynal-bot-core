@@ -16,6 +16,3 @@ EXPOSE 8080
 
 # Uygulama başlangıç komutu
 CMD ["python", "main.py"]
-
-# ...
-CMD ["python", "dynamic_scheduler.py"]
