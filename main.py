@@ -1,8 +1,7 @@
 """
 Main entry point for the HoopBrain Telegram bot.
 
-This module wires together several underlying engines (FAZ13, FAZ16,
-FAZ17, FAZ22 and FAZ23) to deliver pre-match analysis, market enrichment,
+This module wires together several underlying engines (FAZ13, FAZ16, FAZ17, FAZ22 and FAZ23) to deliver pre-match analysis, market enrichment,
 Monte Carlo simulations, risk calibration and snapshot persistence.
 
 FAZ16 was originally expected to provide a Faz16Engine class. However,
