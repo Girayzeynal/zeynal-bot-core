@@ -1,43 +1,20 @@
 app = "zeynal-bot-core"
-primary_region = "otp" # Türkiye'ye yakınlık için 'otp' (Bükreş) veya 'fra' (Frankfurt) seçilebilir
+primary_region = "ams"
+kill_signal = "SIGINT"
+kill_timeout = "5s"
 
 [build]
-  # Dockerfile kullanıyorsan bu satır kalsın
-  # python-buildpack kullanıyorsan buildpack ayarı eklenebilir
+dockerfile = "Dockerfile"
 
+#
+# Application environment variables.  These are set at runtime.
+# Secrets such as TELEGRAM_BOT_TOKEN, API_SPORTS_KEY and ODDS_API_KEY
+# should be provided via `fly secrets` instead of hard-coding them here.
 [env]
-  API_SPORTS_BASE = "https://v1.basketball.api-sports.io"
-  ODDS_BASE = "https://api.the-odds-api.com/v4"
-  # Önemli: Takım istatistiklerinin yolu
-  TEAM_STATS_FILE = "/data/team_stats.json" 
-  BASELINE_DIR = "/data/baselines"
-  FAZ23_STORAGE = "/data/faz23_storage.sqlite"
+PYTHONUNBUFFERED = "1"
 
-[[mounts]]
-  source = "zeynal_data"
-  destination = "/data"
-  initial_size = "1gb"
-
-[http_service]
-  internal_port = 8080
-  force_https = true
-  auto_stop_machines = false # Botun uyumaması için kritik
-  auto_start_machines = true
-  min_machines_running = 1
-  processes = ["app"]
-
-[[vm]]
-  size = "shared-cpu-1x"
-  memory = "512mb" # Monte Carlo simülasyonları için en az 512MB önerilir
-  cpus = 1
-
-[[services]]
-  protocol = "tcp"
-  internal_port = 8080
-  
-  # Botun Telegram ile bağlantısının kopmaması için timeout sürelerini uzun tutuyoruz
-  [services.concurrency]
-    type = "connections"
-    hard_limit = 25
-    soft_limit = 20
- 
+#
+# Note: This bot uses long polling and does not expose an HTTP server.  The
+# http_service section has been removed to prevent Fly from performing
+# health checks against a non-existent HTTP endpoint.  Fly will run a
+# single machine without expecting it to respond on port 8080. 
