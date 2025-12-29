@@ -1,20 +1,22 @@
-# Python 3.11 tabanlı slim imaj
 FROM python:3.11-slim
 
-# Çalışma dizini
 WORKDIR /app
 
-# Bağımlılıkları yükle
+# Sistem bağımlılıkları
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python bağımlılıkları
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Uygulama kodunu kopyala
+# Proje dosyaları
 COPY . .
 
-# Fly.io iç portu
-EXPOSE 8080
+# entrypoint çalıştırma izni
+RUN chmod +x entrypoint.sh
 
-# Uygulama başlangıç komutu
-CMD ["python", "main.py"]
-
-CMD ["bash", "./entrypoint.sh"]
+# 🚀 FINAL START
+CMD ["bash", "./entrypoint.sh"] 
