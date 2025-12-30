@@ -13,10 +13,10 @@ class Faz23Engine:
     """
     Faz23Engine – Prediction snapshot storage and self-learning hooks.
 
-    Bu sınıf, her analiz çıktısını bir SQLite veritabanında saklar. Kaydedilen
-    snapshot, tam bağlam (ctx), takım ortalamaları (home_avg/away_avg),
-    bandlar, market verisi ve meta bilgileri içerir. Böylece daha sonra
-    yapılacak kalibrasyon ve model analizi için bu veriler kullanılabilir0.
+    Bu sınıf, her analiz çıktısını bir SQLite veritabanında saklar.
+    Kaydedilen snapshot, tam bağlam (ctx), takım ortalamaları (home_avg/away_avg),
+    bandlar, market verisi ve meta bilgileri içerir.
+    Böylece daha sonra yapılacak kalibrasyon ve model analizi için bu veriler kullanılabilir.
     """
 
     def __init__(self, storage_path: str = "faz23_storage.sqlite") -> None:
@@ -38,23 +38,20 @@ class Faz23Engine:
                 )
                 """
             )
-            cur.execute(
-                "CREATE INDEX IF NOT EXISTS idx_snapshots_fixture ON snapshots(fixture_key)"
-            )
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_snapshots_fixture ON snapshots(fixture_key)")
             con.commit()
         finally:
             con.close()
 
     async def record_snapshot(self, out: Faz13CoreOutput) -> None:
         """
-        Persist a prediction snapshot asynchronously.  The fixture_key is derived
-        from date, home, away and league to avoid collisions when fixture IDs are
-        not used1.  Only the last 12 notlar saklanır.
+        Persist a prediction snapshot asynchronously.
+
+        The fixture_key is derived from date, home, away and league to avoid collisions
+        when fixture IDs are not used. Only the last 12 notes are stored.
         """
-        # Derive a unique key for the fixture
         fixture_key = f"{out.ctx.date}:{out.ctx.home}:{out.ctx.away}:{out.ctx.league}"
 
-        # Build the payload dictionary mirroring upstream expectations
         payload: Dict[str, Any] = {
             "ctx": asdict(out.ctx),
             "home_avg": asdict(out.home_avg) if out.home_avg else None,
@@ -66,23 +63,18 @@ class Faz23Engine:
             "quarters": out.quarters if out.quarters is not None else [],
             "blowout_risk": out.blowout_risk,
             "tempo_flag": out.tempo_flag,
-            "notes": out.notes[-12:],  # keep only last 12 notes2
+            "notes": out.notes[-12:],
             "market": out.market,
             "meta": out.meta,
         }
 
-        # Write the snapshot into SQLite
         con = sqlite3.connect(self.path)
         try:
             cur = con.cursor()
             cur.execute(
                 "INSERT INTO snapshots(ts, fixture_key, payload) VALUES(?,?,?)",
-                (
-                    int(time.time()),
-                    fixture_key,
-                    json.dumps(payload, ensure_ascii=False),
-                ),
+                (int(time.time()), fixture_key, json.dumps(payload, ensure_ascii=False)),
             )
             con.commit()
         finally:
-            con.close() 
+            con.close()
