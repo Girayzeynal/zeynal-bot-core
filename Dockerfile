@@ -1,26 +1,35 @@
+# Base image
 FROM python:3.11-slim
 
-# Çalışma dizini
+# Set work directory
 WORKDIR /app
 
-# Sistem bağımlılıkları
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        git \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Python bağımlılıkları
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy project
+COPY . /app
 
-# Proje dosyaları
-COPY . .
+# Install Python dependencies
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
 
-# 🔴 KRİTİK SATIR – entrypoint.sh dosyasını KOPYALA
-COPY entrypoint.sh entrypoint.sh
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV TELEGRAM_BOT_TOKEN=""
+ENV API_SPORTS_KEY=""
+ENV API_SPORTS_BASE="https://v1.basketball.api-sports.io"
+ENV BALLDONTLIE_API_KEY=""
+ENV ODDS_API_KEY=""
+ENV ODDS_API_BASE="https://api.the-odds-api.com"
 
-# entrypoint çalıştırma izni
-RUN chmod +x entrypoint.sh
+# Expose port for health checks if needed
+EXPOSE 8080
 
-# 🚀 FINAL START
-CMD ["bash", "./entrypoint.sh"] 
+# Run the bot
+CMD ["python3", "main.py"]
