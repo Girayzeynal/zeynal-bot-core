@@ -161,7 +161,7 @@ class Faz13Engine:
 
         if self.baseline_store is not None:
             self.baseline_bootstrapper = TeamBaselineBootstrapper(
-                self.baseline_store, TeamStatsAdapter({})
+                self.baseline_store, TeamStatsAdapter()
             )
 
         self._bdl_team_map: Optional[Dict[str, int]] = None
