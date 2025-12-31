@@ -10,17 +10,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
 
-from baseline.team_baseline_store import (
-    TeamBaselineStore,
-    TeamBaselineBootstrapper,
-    TeamStatsAdapter,
-)
+from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstrapper
 from league_profiles import get_league_profile
 
-
-# =========================
-# DATA MODELS
-# =========================
 
 @dataclass(frozen=True)
 class PrematchRequest:
@@ -79,14 +71,6 @@ class Faz13CoreOutput:
             f"Dep: {self.away_band[0]}–{self.away_band[1]}"
         )
         out.append(f"• Alt/Üst yönü: {esc(self.ou_direction)}")
-
-        out.append("")
-        out.append("Periyot Bantları")
-        for k in ["1Q", "2Q", "HT", "3Q", "4Q", "FT"]:
-            if k in self.quarters:
-                lo, hi = self.quarters[k]
-                out.append(f"• {k}: {lo}–{hi}")
-
         out.append("")
         out.append("Risk Göstergeleri")
         out.append(f"• Blowout riski: {esc(self.blowout_risk)}")
@@ -115,10 +99,6 @@ class Faz13CoreOutput:
         return "\n".join(out)
 
 
-# =========================
-# INTERNAL CACHE
-# =========================
-
 class _TTLCache:
     def __init__(self, ttl_sec: float = 30.0) -> None:
         self.ttl = ttl_sec
@@ -138,10 +118,6 @@ class _TTLCache:
         self._data[key] = (time.time(), value)
 
 
-# =========================
-# FAZ-13 ENGINE
-# =========================
-
 class Faz13Engine:
     def __init__(
         self,
@@ -160,24 +136,21 @@ class Faz13Engine:
         self.baseline_bootstrapper: Optional[TeamBaselineBootstrapper] = None
 
         if self.baseline_store is not None:
-            self.baseline_bootstrapper = TeamBaselineBootstrapper(
-                self.baseline_store, TeamStatsAdapter()
-            )
+            # ❗ TeamStatsAdapter takes no args; None passed
+            self.baseline_bootstrapper = TeamBaselineBootstrapper(self.baseline_store, None)
 
         self._bdl_team_map: Optional[Dict[str, int]] = None
 
-    # =========================
-    # NBA SEASON FIX
-    # =========================
-    def _season_for_league(self, league: str, date_str: str) -> str:
+    @staticmethod
+    def resolve_nba_season(date_str: str) -> str:
         try:
             y = int(date_str[:4])
             m = int(date_str[5:7])
         except Exception:
-            return date_str.split("-")[0]
-
-        if league.upper() == "NBA":
-            return str(y if m >= 10 else (y - 1))
+            return date_str[:4]
+        # 🎯 NBA: Ekim → sezon = next year
+        if m >= 10:
+            return str(y + 1)
         return str(y)
 
     async def _get_session(self) -> aiohttp.ClientSession:
@@ -186,21 +159,16 @@ class Faz13Engine:
         self.session = aiohttp.ClientSession()
         return self.session
 
-    # =========================
-    # 🔥 BallDontLie AUTH FIX
-    # =========================
     async def _bdl_get(self, url: str, params: Dict[str, Any]) -> Dict[str, Any]:
         api_key = (os.getenv("BALLDONTLIE_API_KEY") or "").strip()
         if not api_key:
             raise RuntimeError("BALLDONTLIE_API_KEY missing")
 
         s = await self._get_session()
-
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Accept": "application/json",
         }
-
         async with s.get(url, params=params, headers=headers, timeout=20) as resp:
             ct = resp.headers.get("Content-Type", "")
             if "application/json" not in ct:
@@ -209,69 +177,49 @@ class Faz13Engine:
                     f"BallDontLie unauthorized or invalid response "
                     f"(status={resp.status}, content-type={ct}): {text[:200]}"
                 )
-
             data = await resp.json()
             if resp.status >= 400:
                 raise RuntimeError(f"BallDontLie error {resp.status}: {data}")
-
             return data
 
     async def _bdl_load_team_map(self) -> Dict[str, int]:
         if self._bdl_team_map is not None:
             return self._bdl_team_map
-
-        js = await self._bdl_get(
-            "https://api.balldontlie.io/nba/v1/teams", {"per_page": 100}
-        )
-
+        js = await self._bdl_get("https://api.balldontlie.io/nba/v1/teams", {"per_page": 100})
         out: Dict[str, int] = {}
         for t in js.get("data", []):
             tid = t.get("id")
             if not isinstance(tid, int):
                 continue
-            name = (t.get("full_name") or "").lower().strip()
+            full = (t.get("full_name") or "").lower().strip()
             short = (t.get("name") or "").lower().strip()
-            if name:
-                out[name] = tid
+            if full:
+                out[full] = tid
             if short:
                 out[short] = tid
-
         self._bdl_team_map = out
         return out
 
-    async def _bdl_team_baseline(
-        self, team: str, season: str
-    ) -> Optional[Tuple[float, float, float, float, int]]:
+    async def _bdl_team_baseline(self, team: str, season: str) -> Optional[Tuple[float, float, float, float, int]]:
         team_map = await self._bdl_load_team_map()
         tid = team_map.get(team.lower().strip())
         if not tid:
             return None
-
         year = int(season)
-
         js = await self._bdl_get(
             "https://api.balldontlie.io/nba/v1/games",
             {"seasons[]": year, "team_ids[]": tid, "per_page": 100},
         )
-
-        games = sorted(
-            js.get("data", []),
-            key=lambda g: g.get("date", ""),
-            reverse=True,
-        )
-
+        games = sorted(js.get("data", []), key=lambda g: g.get("date", ""), reverse=True)
         scored, allowed, totals = [], [], []
         need_n = max(12, self.min_baseline_games)
-
         for g in games:
             hs = g.get("home_team_score")
             vs = g.get("visitor_team_score")
             if hs is None or vs is None:
                 continue
-
             hid = g["home_team"]["id"]
             vid = g["visitor_team"]["id"]
-
             if hid == tid:
                 scored.append(hs)
                 allowed.append(vs)
@@ -280,29 +228,26 @@ class Faz13Engine:
                 allowed.append(hs)
             else:
                 continue
-
             totals.append(hs + vs)
             if len(scored) >= need_n:
                 break
-
         if len(scored) < need_n:
             return None
-
         pf = sum(scored) / len(scored)
         pa = sum(allowed) / len(allowed)
         pace = max(0.8, min(1.3, (pf + pa) / 180.0))
         mean_total = sum(totals) / len(totals)
         var = sum((x - mean_total) ** 2 for x in totals) / max(1, len(totals) - 1)
-        stdev = var**0.5
-
+        stdev = var ** 0.5
         return pf, pa, pace, stdev, len(scored)
 
-    # =========================
-    # MAIN PREMATCH
-    # =========================
     async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
         profile = get_league_profile(req.league)
-        season = self._season_for_league(req.league, req.date_str)
+
+        if req.league.upper() == "NBA":
+            season = self.resolve_nba_season(req.date_str)
+        else:
+            season = req.date_str[:4]
 
         h = await self._bdl_team_baseline(req.home, season)
         a = await self._bdl_team_baseline(req.away, season)
@@ -311,14 +256,14 @@ class Faz13Engine:
             h_avg = TeamAverages(h[0], h[1], h[2], h[3])
             h_src, h_n = "balldontlie", h[4]
         else:
-            h_avg = TeamAverages(0.0, 0.0, 1.0, 9.0)
+            h_avg = TeamAverages(0, 0, 1, 9)
             h_src, h_n = "none", 0
 
         if a:
             a_avg = TeamAverages(a[0], a[1], a[2], a[3])
             a_src, a_n = "balldontlie", a[4]
         else:
-            a_avg = TeamAverages(0.0, 0.0, 1.0, 9.0)
+            a_avg = TeamAverages(0, 0, 1, 9)
             a_src, a_n = "none", 0
 
         home_mu = (h_avg.points_for + a_avg.points_against) / 2
@@ -337,6 +282,11 @@ class Faz13Engine:
         ]
 
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
+        meta = {
+            "season": season,
+            "home_baseline_src": h_src,
+            "away_baseline_src": a_src,
+        }
 
         return Faz13CoreOutput(
             ctx=ctx,
@@ -351,9 +301,5 @@ class Faz13Engine:
             tempo_flag="NORMAL",
             notes=notes,
             market={},
-            meta={
-                "season": season,
-                "home_baseline_src": h_src,
-                "away_baseline_src": a_src,
-            },
-        )
+            meta=meta,
+            ) 
