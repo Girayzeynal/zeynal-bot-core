@@ -1,0 +1,103 @@
+# ----------------------------------------
+# 1. Secrets and environment variables
+# ----------------------------------------
+.env
+.env.*
+*.env
+secrets.*
+*.secret
+*.secrets
+apikeys.*
+tokens.*
+config.local.*
+local_settings.*
+.fly.env
+
+# ----------------------------------------
+# 2. Python cache / compiled files
+# ----------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ----------------------------------------
+# 3. Virtual environment and tooling
+# ----------------------------------------
+.venv/
+venv/
+env/
+ENV/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.tox/
+.coverage
+coverage.*
+htmlcov/
+
+# ----------------------------------------
+# 4. Build artefacts
+# ----------------------------------------
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-log.txt
+
+# ----------------------------------------
+# 5. Runtime storage (SQLite / databases)
+#    FAZ‑23 snapshot or other DBs should not be tracked
+# ----------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+faz23_storage.sqlite
+data/*.sqlite
+data/*.db
+
+# ----------------------------------------
+# 6. Generated data / baselines / caches
+#    Generated baseline files and temporary caches
+# ----------------------------------------
+data/baselines/
+baselines/
+team_stats.json
+leagues.json
+*.cache
+cache/
+tmp/
+temp/
+
+# ----------------------------------------
+# 7. Fly.io / deployment artefacts
+#    fly.toml itself is kept (not ignored)
+# ----------------------------------------
+.fly/
+flyctl/
+flyctl*.log
+
+# ----------------------------------------
+# 8. OS / Editor / IDE files
+# ----------------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ----------------------------------------
+# 9. (Optional) Node-related if present
+# ----------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ----------------------------------------
+# 10. Jupyter / notebook checkpoints
+# ----------------------------------------
+.ipynb_checkpoints/
