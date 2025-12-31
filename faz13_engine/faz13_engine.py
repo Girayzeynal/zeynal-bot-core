@@ -14,6 +14,10 @@ from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstra
 from league_profiles import get_league_profile
 
 
+# =====================================================
+# DATA MODELS
+# =====================================================
+
 @dataclass(frozen=True)
 class PrematchRequest:
     fixture_id: int
@@ -71,6 +75,7 @@ class Faz13CoreOutput:
             f"Dep: {self.away_band[0]}–{self.away_band[1]}"
         )
         out.append(f"• Alt/Üst yönü: {esc(self.ou_direction)}")
+
         out.append("")
         out.append("Risk Göstergeleri")
         out.append(f"• Blowout riski: {esc(self.blowout_risk)}")
@@ -99,6 +104,10 @@ class Faz13CoreOutput:
         return "\n".join(out)
 
 
+# =====================================================
+# SIMPLE TTL CACHE
+# =====================================================
+
 class _TTLCache:
     def __init__(self, ttl_sec: float = 30.0) -> None:
         self.ttl = ttl_sec
@@ -118,6 +127,10 @@ class _TTLCache:
         self._data[key] = (time.time(), value)
 
 
+# =====================================================
+# FAZ-13 ENGINE
+# =====================================================
+
 class Faz13Engine:
     def __init__(
         self,
@@ -133,25 +146,30 @@ class Faz13Engine:
 
         self.baseline_store = baseline_store
         self.min_baseline_games = int(min_baseline_games)
-        self.baseline_bootstrapper: Optional[TeamBaselineBootstrapper] = None
 
+        # ❗ TeamStatsAdapter argüman ALMAZ → None geçiyoruz (crash fix)
+        self.baseline_bootstrapper: Optional[TeamBaselineBootstrapper] = None
         if self.baseline_store is not None:
-            # ❗ TeamStatsAdapter takes no args; None passed
             self.baseline_bootstrapper = TeamBaselineBootstrapper(self.baseline_store, None)
 
         self._bdl_team_map: Optional[Dict[str, int]] = None
 
+    # -------------------------------------------------
+    # NBA SEASON RESOLVER (YEAR-END SAFE)
+    # -------------------------------------------------
     @staticmethod
     def resolve_nba_season(date_str: str) -> str:
+        """
+        NBA season logic:
+        - Oct–Dec  → year + 1  (2025-26 → 2026)
+        - Jan–Sep  → year      (2025-26 → 2026)
+        """
         try:
             y = int(date_str[:4])
             m = int(date_str[5:7])
         except Exception:
             return date_str[:4]
-        # 🎯 NBA: Ekim → sezon = next year
-        if m >= 10:
-            return str(y + 1)
-        return str(y)
+        return str(y + 1) if m >= 10 else str(y)
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self.session and not self.session.closed:
@@ -159,33 +177,45 @@ class Faz13Engine:
         self.session = aiohttp.ClientSession()
         return self.session
 
-    async def _bdl_get(self, url: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    # -------------------------------------------------
+    # BallDontLie GET (RATE-LIMIT SAFE)
+    # -------------------------------------------------
+    async def _bdl_get(self, url: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         api_key = (os.getenv("BALLDONTLIE_API_KEY") or "").strip()
         if not api_key:
-            raise RuntimeError("BALLDONTLIE_API_KEY missing")
+            return None  # sessiz fallback
 
         s = await self._get_session()
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Accept": "application/json",
         }
+
         async with s.get(url, params=params, headers=headers, timeout=20) as resp:
+            # 429 / HTML → sessiz fallback (crash yok)
+            if resp.status == 429:
+                return None
+
             ct = resp.headers.get("Content-Type", "")
             if "application/json" not in ct:
-                text = await resp.text()
-                raise RuntimeError(
-                    f"BallDontLie unauthorized or invalid response "
-                    f"(status={resp.status}, content-type={ct}): {text[:200]}"
-                )
-            data = await resp.json()
+                return None
+
             if resp.status >= 400:
-                raise RuntimeError(f"BallDontLie error {resp.status}: {data}")
-            return data
+                return None
+
+            return await resp.json()
 
     async def _bdl_load_team_map(self) -> Dict[str, int]:
         if self._bdl_team_map is not None:
             return self._bdl_team_map
-        js = await self._bdl_get("https://api.balldontlie.io/nba/v1/teams", {"per_page": 100})
+
+        js = await self._bdl_get(
+            "https://api.balldontlie.io/nba/v1/teams", {"per_page": 100}
+        )
+        if not js:
+            self._bdl_team_map = {}
+            return self._bdl_team_map
+
         out: Dict[str, int] = {}
         for t in js.get("data", []):
             tid = t.get("id")
@@ -197,29 +227,40 @@ class Faz13Engine:
                 out[full] = tid
             if short:
                 out[short] = tid
+
         self._bdl_team_map = out
         return out
 
-    async def _bdl_team_baseline(self, team: str, season: str) -> Optional[Tuple[float, float, float, float, int]]:
+    async def _bdl_team_baseline(
+        self, team: str, season: str
+    ) -> Optional[Tuple[float, float, float, float, int]]:
         team_map = await self._bdl_load_team_map()
         tid = team_map.get(team.lower().strip())
         if not tid:
             return None
+
         year = int(season)
         js = await self._bdl_get(
             "https://api.balldontlie.io/nba/v1/games",
             {"seasons[]": year, "team_ids[]": tid, "per_page": 100},
         )
+        if not js:
+            return None
+
         games = sorted(js.get("data", []), key=lambda g: g.get("date", ""), reverse=True)
+
         scored, allowed, totals = [], [], []
         need_n = max(12, self.min_baseline_games)
+
         for g in games:
             hs = g.get("home_team_score")
             vs = g.get("visitor_team_score")
             if hs is None or vs is None:
                 continue
+
             hid = g["home_team"]["id"]
             vid = g["visitor_team"]["id"]
+
             if hid == tid:
                 scored.append(hs)
                 allowed.append(vs)
@@ -228,19 +269,26 @@ class Faz13Engine:
                 allowed.append(hs)
             else:
                 continue
+
             totals.append(hs + vs)
             if len(scored) >= need_n:
                 break
+
         if len(scored) < need_n:
             return None
+
         pf = sum(scored) / len(scored)
         pa = sum(allowed) / len(allowed)
         pace = max(0.8, min(1.3, (pf + pa) / 180.0))
         mean_total = sum(totals) / len(totals)
         var = sum((x - mean_total) ** 2 for x in totals) / max(1, len(totals) - 1)
         stdev = var ** 0.5
+
         return pf, pa, pace, stdev, len(scored)
 
+    # -------------------------------------------------
+    # MAIN PREMATCH
+    # -------------------------------------------------
     async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
         profile = get_league_profile(req.league)
 
@@ -256,14 +304,14 @@ class Faz13Engine:
             h_avg = TeamAverages(h[0], h[1], h[2], h[3])
             h_src, h_n = "balldontlie", h[4]
         else:
-            h_avg = TeamAverages(0, 0, 1, 9)
+            h_avg = TeamAverages(0.0, 0.0, 1.0, 9.0)
             h_src, h_n = "none", 0
 
         if a:
             a_avg = TeamAverages(a[0], a[1], a[2], a[3])
             a_src, a_n = "balldontlie", a[4]
         else:
-            a_avg = TeamAverages(0, 0, 1, 9)
+            a_avg = TeamAverages(0.0, 0.0, 1.0, 9.0)
             a_src, a_n = "none", 0
 
         home_mu = (h_avg.points_for + a_avg.points_against) / 2
@@ -282,8 +330,10 @@ class Faz13Engine:
         ]
 
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
+
         meta = {
             "season": season,
+            "season_resolved": True,
             "home_baseline_src": h_src,
             "away_baseline_src": a_src,
         }
@@ -302,4 +352,4 @@ class Faz13Engine:
             notes=notes,
             market={},
             meta=meta,
-            ) 
+        ) 
