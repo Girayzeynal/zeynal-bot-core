@@ -1,6 +1,6 @@
+
 from __future__ import annotations
 
-import asyncio
 import html
 import os
 import time
@@ -11,6 +11,44 @@ import aiohttp
 
 from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstrapper
 from league_profiles import get_league_profile
+
+
+# =====================================================
+# NBA CANONICAL TEAM MAP (API-Sports uyumlu)
+# =====================================================
+
+NBA_TEAM_CANONICAL = {
+    "atlanta hawks": "Hawks",
+    "boston celtics": "Celtics",
+    "brooklyn nets": "Nets",
+    "charlotte hornets": "Hornets",
+    "chicago bulls": "Bulls",
+    "cleveland cavaliers": "Cavaliers",
+    "dallas mavericks": "Mavericks",
+    "denver nuggets": "Nuggets",
+    "detroit pistons": "Pistons",
+    "golden state warriors": "Warriors",
+    "houston rockets": "Rockets",
+    "indiana pacers": "Pacers",
+    "los angeles clippers": "Clippers",
+    "los angeles lakers": "Lakers",
+    "memphis grizzlies": "Grizzlies",
+    "miami heat": "Heat",
+    "milwaukee bucks": "Bucks",
+    "minnesota timberwolves": "Timberwolves",
+    "new orleans pelicans": "Pelicans",
+    "new york knicks": "Knicks",
+    "oklahoma city thunder": "Thunder",
+    "orlando magic": "Magic",
+    "philadelphia 76ers": "76ers",
+    "phoenix suns": "Suns",
+    "portland trail blazers": "Blazers",
+    "sacramento kings": "Kings",
+    "san antonio spurs": "Spurs",
+    "toronto raptors": "Raptors",
+    "utah jazz": "Jazz",
+    "washington wizards": "Wizards",
+}
 
 
 # =====================================================
@@ -104,29 +142,6 @@ class Faz13CoreOutput:
 
 
 # =====================================================
-# SIMPLE TTL CACHE
-# =====================================================
-
-class _TTLCache:
-    def __init__(self, ttl_sec: float = 30.0) -> None:
-        self.ttl = ttl_sec
-        self._data: Dict[str, Tuple[float, Any]] = {}
-
-    def get(self, key: str) -> Any:
-        hit = self._data.get(key)
-        if not hit:
-            return None
-        ts, val = hit
-        if time.time() - ts > self.ttl:
-            self._data.pop(key, None)
-            return None
-        return val
-
-    def set(self, key: str, value: Any) -> None:
-        self._data[key] = (time.time(), value)
-
-
-# =====================================================
 # FAZ-13 ENGINE (TEAM-FIRST)
 # =====================================================
 
@@ -141,20 +156,16 @@ class Faz13Engine:
         self.api_key = (api_sports_key or "").strip()
         self.base = (api_sports_base or "https://v1.basketball.api-sports.io").rstrip("/")
         self.session: Optional[aiohttp.ClientSession] = None
-        self.cache = _TTLCache()
 
         self.baseline_store = baseline_store
         self.min_baseline_games = int(min_baseline_games)
 
-        # TeamStatsAdapter argüman ALMAZ → güvenli bootstrap
         self.baseline_bootstrapper: Optional[TeamBaselineBootstrapper] = None
         if self.baseline_store is not None:
             self.baseline_bootstrapper = TeamBaselineBootstrapper(self.baseline_store, None)
 
-        self._bdl_team_map: Optional[Dict[str, int]] = None
-
     # -------------------------------------------------
-    # NBA SEASON RESOLVER (year-boundary safe)
+    # NBA SEASON RESOLVER
     # -------------------------------------------------
     @staticmethod
     def resolve_nba_season(date_str: str) -> str:
@@ -172,26 +183,25 @@ class Faz13Engine:
         return self.session
 
     # -------------------------------------------------
-    # API-Sports TEAM STATS (FALLBACK)  ✅
+    # API-Sports TEAM BASELINE (CANONICAL MAP)
     # -------------------------------------------------
     async def _api_sports_team_baseline(
         self, team: str, league: str, season: str
     ) -> Optional[Tuple[float, float, float, float, int]]:
-        """
-        API-Sports üzerinden takım bazlı istatistik fallback.
-        Lig ortalaması YOK. Sadece takım verisi.
-        """
         if not self.api_key:
             return None
+
+        search_name = team
+        if league.upper() == "NBA":
+            search_name = NBA_TEAM_CANONICAL.get(team.lower(), team)
 
         s = await self._get_session()
         headers = {"x-apisports-key": self.api_key}
 
-        # Takımı bul
         try:
             async with s.get(
                 f"{self.base}/teams",
-                params={"search": team},
+                params={"search": search_name},
                 headers=headers,
                 timeout=15,
             ) as r:
@@ -202,11 +212,11 @@ class Faz13Engine:
         teams = js.get("response") or []
         if not teams:
             return None
+
         team_id = teams[0].get("id")
         if not team_id:
             return None
 
-        # İstatistikleri çek
         try:
             async with s.get(
                 f"{self.base}/statistics",
@@ -219,133 +229,17 @@ class Faz13Engine:
             return None
 
         resp = js.get("response") or {}
-        pf = (
-            resp.get("points", {})
-            .get("for", {})
-            .get("average", {})
-            .get("total")
-        )
-        pa = (
-            resp.get("points", {})
-            .get("against", {})
-            .get("average", {})
-            .get("total")
-        )
+        pf = resp.get("points", {}).get("for", {}).get("average", {}).get("total")
+        pa = resp.get("points", {}).get("against", {}).get("average", {}).get("total")
 
         if pf is None or pa is None:
             return None
 
-        # Pace / stdev: lig profilinden güvenli aralık
         profile = get_league_profile(league)
         pace = max(0.8, min(1.3, (pf + pa) / 180.0))
-        stdev = min(profile.volatility_ceil, max(profile.volatility_floor, 9.0))
+        stdev = max(profile.volatility_floor, min(profile.volatility_ceil, 10.0))
 
         return float(pf), float(pa), pace, stdev, 5
-
-    # -------------------------------------------------
-    # BallDontLie (NBA, opsiyonel & rate-limit safe)
-    # -------------------------------------------------
-    async def _bdl_get(self, url: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        api_key = (os.getenv("BALLDONTLIE_API_KEY") or "").strip()
-        if not api_key:
-            return None
-
-        s = await self._get_session()
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Accept": "application/json",
-        }
-
-        async with s.get(url, params=params, headers=headers, timeout=20) as resp:
-            if resp.status == 429:
-                return None
-            ct = resp.headers.get("Content-Type", "")
-            if "application/json" not in ct:
-                return None
-            if resp.status >= 400:
-                return None
-            return await resp.json()
-
-    async def _bdl_load_team_map(self) -> Dict[str, int]:
-        if self._bdl_team_map is not None:
-            return self._bdl_team_map
-
-        js = await self._bdl_get(
-            "https://api.balldontlie.io/nba/v1/teams", {"per_page": 100}
-        )
-        if not js:
-            self._bdl_team_map = {}
-            return self._bdl_team_map
-
-        out: Dict[str, int] = {}
-        for t in js.get("data", []):
-            tid = t.get("id")
-            if not isinstance(tid, int):
-                continue
-            full = (t.get("full_name") or "").lower().strip()
-            short = (t.get("name") or "").lower().strip()
-            if full:
-                out[full] = tid
-            if short:
-                out[short] = tid
-
-        self._bdl_team_map = out
-        return out
-
-    async def _bdl_team_baseline(
-        self, team: str, season: str
-    ) -> Optional[Tuple[float, float, float, float, int]]:
-        team_map = await self._bdl_load_team_map()
-        tid = team_map.get(team.lower().strip())
-        if not tid:
-            return None
-
-        year = int(season)
-        js = await self._bdl_get(
-            "https://api.balldontlie.io/nba/v1/games",
-            {"seasons[]": year, "team_ids[]": tid, "per_page": 100},
-        )
-        if not js:
-            return None
-
-        games = sorted(js.get("data", []), key=lambda g: g.get("date", ""), reverse=True)
-
-        scored, allowed, totals = [], [], []
-        need_n = max(12, self.min_baseline_games)
-
-        for g in games:
-            hs = g.get("home_team_score")
-            vs = g.get("visitor_team_score")
-            if hs is None or vs is None:
-                continue
-
-            hid = g["home_team"]["id"]
-            vid = g["visitor_team"]["id"]
-
-            if hid == tid:
-                scored.append(hs)
-                allowed.append(vs)
-            elif vid == tid:
-                scored.append(vs)
-                allowed.append(hs)
-            else:
-                continue
-
-            totals.append(hs + vs)
-            if len(scored) >= need_n:
-                break
-
-        if len(scored) < need_n:
-            return None
-
-        pf = sum(scored) / len(scored)
-        pa = sum(allowed) / len(allowed)
-        pace = max(0.8, min(1.3, (pf + pa) / 180.0))
-        mean_total = sum(totals) / len(totals)
-        var = sum((x - mean_total) ** 2 for x in totals) / max(1, len(totals) - 1)
-        stdev = var ** 0.5
-
-        return pf, pa, pace, stdev, len(scored)
 
     # -------------------------------------------------
     # MAIN PREMATCH (TEAM-FIRST)
@@ -353,24 +247,14 @@ class Faz13Engine:
     async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
         profile = get_league_profile(req.league)
 
-        if req.league.upper() == "NBA":
-            season = self.resolve_nba_season(req.date_str)
-        else:
-            season = req.date_str[:4]
+        season = (
+            self.resolve_nba_season(req.date_str)
+            if req.league.upper() == "NBA"
+            else req.date_str[:4]
+        )
 
-        # 1) Baseline Store (varsa)
-        h = None
-        a = None
-
-        # 2) API-Sports TEAM fallback
         h = await self._api_sports_team_baseline(req.home, req.league, season)
         a = await self._api_sports_team_baseline(req.away, req.league, season)
-
-        # 3) BallDontLie (NBA, opsiyonel)
-        if h is None and req.league.upper() == "NBA":
-            h = await self._bdl_team_baseline(req.home, season)
-        if a is None and req.league.upper() == "NBA":
-            a = await self._bdl_team_baseline(req.away, season)
 
         # TEAM-FIRST: takım verisi yoksa NO_PLAY
         if not h or not a:
@@ -395,7 +279,6 @@ class Faz13Engine:
                 },
             )
 
-        # Her iki takım da VAR
         h_avg = TeamAverages(h[0], h[1], h[2], h[3])
         a_avg = TeamAverages(a[0], a[1], a[2], a[3])
 
@@ -403,10 +286,18 @@ class Faz13Engine:
         away_mu = (a_avg.points_for + h_avg.points_against) / 2
         total_mu = home_mu + away_mu
 
-        hw = profile.band_hw_total
-        total_band = (int(total_mu - hw), int(total_mu + hw))
-        home_band = (int(home_mu - profile.band_hw_team), int(home_mu + profile.band_hw_team))
-        away_band = (int(away_mu - profile.band_hw_team), int(away_mu + profile.band_hw_team))
+        total_band = (
+            int(total_mu - profile.band_hw_total),
+            int(total_mu + profile.band_hw_total),
+        )
+        home_band = (
+            int(home_mu - profile.band_hw_team),
+            int(home_mu + profile.band_hw_team),
+        )
+        away_band = (
+            int(away_mu - profile.band_hw_team),
+            int(away_mu + profile.band_hw_team),
+        )
 
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
 
@@ -423,7 +314,7 @@ class Faz13Engine:
             tempo_flag="NORMAL",
             notes=[
                 f"Season: {season}",
-                "TEAM-FIRST mode",
+                "TEAM-FIRST mode (API-Sports)",
             ],
             market={},
             meta={
