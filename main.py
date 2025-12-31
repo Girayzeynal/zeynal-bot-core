@@ -1,50 +1,49 @@
+# ======================================================
+# CLEAN + FIXED MAIN.PY (PROD READY)
+# ======================================================
+
 import os
 import logging
 import html
-import asyncio
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# ----------------------------
-# ENVIRONMENT
-# ----------------------------
-
+# ------------------------------------------------------
+# ENV
+# ------------------------------------------------------
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 API_SPORTS_KEY = os.getenv("API_SPORTS_KEY")
 API_SPORTS_BASE = os.getenv("API_SPORTS_BASE", "https://v1.basketball.api-sports.io")
 BALLDONTLIE_API_KEY = os.getenv("BALLDONTLIE_API_KEY")
+
 ODDS_API_KEY = os.getenv("ODDS_API_KEY")
 ODDS_API_BASE = os.getenv("ODDS_API_BASE", "https://api.the-odds-api.com")
 
 if not TELEGRAM_BOT_TOKEN:
-    raise RuntimeError("TELEGRAM_BOT_TOKEN ortam değişkeni eksik")
+    raise RuntimeError("TELEGRAM_BOT_TOKEN eksik")
 
-# ----------------------------
+# ------------------------------------------------------
 # LOGGING
-# ----------------------------
-
+# ------------------------------------------------------
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger("zeynal-core")
 
-# ----------------------------
-# MODULAR ENGINE IMPORTS
-# ----------------------------
-
+# ------------------------------------------------------
+# MODULAR ENGINE IMPORTS (TEK GERÇEK KAYNAK)
+# ------------------------------------------------------
 from faz13_engine.faz13_engine import Faz13Engine, PrematchRequest
 from faz16_engine.faz16_simulation import faz16_run_simulation
 from faz17_engine.faz17_engine import Faz17Engine
 from faz22_engine.faz22_engine import Faz22Engine
 from faz23_engine.faz23_engine import Faz23Engine
-
 from baseline.team_baseline_store import TeamBaselineStore
 
-# ----------------------------
+# ------------------------------------------------------
 # /analyze COMMAND
-# ----------------------------
-
+# ------------------------------------------------------
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
 
@@ -68,7 +67,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "vs" in [p.lower() for p in rest]:
         idx = [p.lower() for p in rest].index("vs")
         home = " ".join(rest[:idx]).strip()
-        away = " ".join(rest[idx + 1 :]).strip()
+        away = " ".join(rest[idx + 1:]).strip()
     else:
         mid = len(rest) // 2
         home = " ".join(rest[:mid]).strip()
@@ -76,14 +75,14 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"ANALYZE {league} {date} {home} vs {away}")
 
-    faz13_engine: Faz13Engine = context.application.bot_data["faz13"]
-    faz17_engine: Faz17Engine = context.application.bot_data["faz17"]
-    faz22_engine: Faz22Engine = context.application.bot_data["faz22"]
-    faz23_engine: Faz23Engine = context.application.bot_data["faz23"]
+    faz13: Faz13Engine = context.application.bot_data["faz13"]
+    faz17: Faz17Engine = context.application.bot_data["faz17"]
+    faz22: Faz22Engine = context.application.bot_data["faz22"]
+    faz23: Faz23Engine = context.application.bot_data["faz23"]
 
-    # --------------------------------
-    # FAZ-13: BASELINE + CONTEXT
-    # --------------------------------
+    # --------------------------------------------------
+    # FAZ-13 : PREMATCH CORE
+    # --------------------------------------------------
     req = PrematchRequest(
         fixture_id=0,
         league=league,
@@ -93,33 +92,42 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     try:
-        core = await faz13_engine.run_prematch(req)
+        core = await faz13.run_prematch(req)
     except Exception as e:
-        logger.error(e)
+        logger.exception("FAZ-13 error")
         await update.message.reply_text("FAZ-13 hata: " + html.escape(str(e)))
         return
 
-    # --------------------------------
-    # FAZ-16: SIMULATION
-    # --------------------------------
+    # --------------------------------------------------
+    # FAZ-16 : SIMULATION (FIX #1)
+    # --------------------------------------------------
     try:
-        simulation = faz16_run_simulation(core)
+        base_total = core.home_avg.points_for + core.away_avg.points_for
+        vol = (core.home_avg.stdev_hint + core.away_avg.stdev_hint) / 2
+        pace = (core.home_avg.pace_hint + core.away_avg.pace_hint) / 2
+
+        simulation = faz16_run_simulation(
+            base_total,
+            vol,
+            pace,
+        )
+
+        # simülasyon çıktısını core.meta içine yaz
+        core.meta["simulation"] = simulation
+
     except Exception as e:
-        logger.error(e)
+        logger.exception("FAZ-16 error")
         simulation = None
 
-    # --------------------------------
-    # FAZ-17: MARKET ODDS
-    # --------------------------------
+    # --------------------------------------------------
+    # FAZ-17 : MARKET (FIX #2)
+    # --------------------------------------------------
     try:
-        market = await faz17_engine.get_odds(
-            core.ctx.league,
-            core.ctx.home,
-            core.ctx.away,
-        )
+        # doğru method: enrich_with_market
+        await faz17.enrich_with_market(core)
     except Exception as e:
-        logger.error(e)
-        market = {
+        logger.exception("FAZ-17 error")
+        core.market = {
             "status": "NO_MARKET",
             "reason": str(e),
             "total": None,
@@ -128,44 +136,40 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "bookmaker": None,
         }
 
-    core.market = market
-
-    # --------------------------------
-    # FAZ-22: RISK + CONFIDENCE
-    # --------------------------------
+    # --------------------------------------------------
+    # FAZ-22 : RISK / CONFIDENCE (FIX #3)
+    # --------------------------------------------------
     try:
-        final_core = faz22_engine.score_and_finalize(core, simulation, market)
+        final_core = faz22.score_and_finalize(core)
     except Exception as e:
-        logger.error(e)
+        logger.exception("FAZ-22 error")
         await update.message.reply_text("FAZ-22 hata: " + html.escape(str(e)))
         return
 
-    # --------------------------------
-    # FAZ-23: SNAPSHOT STORAGE
-    # --------------------------------
+    # --------------------------------------------------
+    # FAZ-23 : SNAPSHOT
+    # --------------------------------------------------
     try:
-        await faz23_engine.record_snapshot(final_core)
+        await faz23.record_snapshot(final_core)
     except Exception:
-        # snapshot is optional
-        pass
+        pass  # snapshot opsiyonel
 
-    # --------------------------------
-    # OUTPUT TO TELEGRAM
-    # --------------------------------
+    # --------------------------------------------------
+    # OUTPUT
+    # --------------------------------------------------
     try:
-        out_msg = final_core.render_html()
+        msg = final_core.render_html()
     except Exception:
-        out_msg = str(final_core)
+        msg = str(final_core)
 
     await update.message.reply_text(
-        out_msg,
+        msg,
         disable_web_page_preview=True,
     )
 
-# ----------------------------
+# ------------------------------------------------------
 # MAIN
-# ----------------------------
-
+# ------------------------------------------------------
 def main():
     baseline_store = TeamBaselineStore()
 
