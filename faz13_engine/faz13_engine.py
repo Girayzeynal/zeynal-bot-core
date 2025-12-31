@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import html
-import json
 import os
 import time
 from dataclasses import dataclass, field
@@ -105,7 +104,7 @@ class Faz13CoreOutput:
 
 
 # =====================================================
-# SIMPLE TTL CACHE
+# TTL CACHE
 # =====================================================
 
 class _TTLCache:
@@ -147,7 +146,7 @@ class Faz13Engine:
         self.baseline_store = baseline_store
         self.min_baseline_games = int(min_baseline_games)
 
-        # ❗ adapter argümanı yok – crash fix
+        # TeamStatsAdapter argüman almaz → güvenli bootstrap
         self.baseline_bootstrapper: Optional[TeamBaselineBootstrapper] = None
         if self.baseline_store is not None:
             self.baseline_bootstrapper = TeamBaselineBootstrapper(self.baseline_store, None)
@@ -178,21 +177,20 @@ class Faz13Engine:
     def _ultra1_fallback_baseline(
         self, team: str, league: str
     ) -> Tuple[TeamAverages, str, int, float]:
-        """
-        Deterministic fallback when no real team data exists.
-        Uses league profile + team role heuristics.
-        """
         profile = get_league_profile(league)
 
-        # League-level safe defaults
-        league_ppg = profile.avg_points
+        # LeagueProfile alanlarıyla uyumlu ULTRA-1 fallback
+        league_total = profile.avg_total            # lig toplam sayı
+        league_ppg = league_total / 2.0             # takım başına
         league_pace = profile.avg_pace
-        league_stdev = profile.volatility_floor + 2.5
+        league_stdev = min(
+            profile.volatility_ceil,
+            profile.volatility_floor + 2.5
+        )
 
-        # Very light home/away bias
-        is_home = True
-        pf = league_ppg + (2.5 if is_home else -2.5)
-        pa = league_ppg - (2.5 if is_home else -2.5)
+        # hafif home/away bias
+        pf = league_ppg + 2.5
+        pa = league_ppg - 2.5
 
         avg = TeamAverages(
             points_for=pf,
@@ -201,13 +199,12 @@ class Faz13Engine:
             stdev_hint=league_stdev,
         )
 
-        # quality > 0.0 breaks NO_PLAY lock safely
-        quality = 0.35
+        quality = 0.35  # NO_PLAY kilidini açan minimum kalite
 
         return avg, "ultra_fallback", 1, quality
 
     # -------------------------------------------------
-    # BallDontLie GET (rate-limit tolerant)
+    # BallDontLie (rate-limit safe)
     # -------------------------------------------------
     async def _bdl_get(self, url: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         api_key = (os.getenv("BALLDONTLIE_API_KEY") or "").strip()
@@ -325,21 +322,20 @@ class Faz13Engine:
         h = await self._bdl_team_baseline(req.home, season)
         a = await self._bdl_team_baseline(req.away, season)
 
-        # -------- HOME --------
+        # HOME
         if h:
             h_avg = TeamAverages(h[0], h[1], h[2], h[3])
             h_src, h_n, h_q = "balldontlie", h[4], 1.0
         else:
             h_avg, h_src, h_n, h_q = self._ultra1_fallback_baseline(req.home, req.league)
 
-        # -------- AWAY --------
+        # AWAY
         if a:
             a_avg = TeamAverages(a[0], a[1], a[2], a[3])
             a_src, a_n, a_q = "balldontlie", a[4], 1.0
         else:
             a_avg, a_src, a_n, a_q = self._ultra1_fallback_baseline(req.away, req.league)
 
-        # -------- QUALITY AGGREGATION --------
         baseline_quality = round((h_q + a_q) / 2.0, 2)
 
         home_mu = (h_avg.points_for + a_avg.points_against) / 2
