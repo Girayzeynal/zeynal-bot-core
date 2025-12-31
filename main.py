@@ -3,6 +3,7 @@ import logging
 import html
 import math
 import random
+import asyncio
 import requests
 from typing import Any, Dict, Optional, List, Tuple
 
@@ -34,7 +35,6 @@ if not API_SPORTS_KEY:
     raise RuntimeError("Missing API_SPORTS_KEY")
 if not ODDS_API_KEY:
     raise RuntimeError("Missing ODDS_API_KEY")
-
 
 # =========================================================
 # Helpers: League normalization (NO league baseline!)
@@ -141,7 +141,6 @@ class FAZ13Engine:
             tid = t.get("id")
             if fn and tid:
                 self.nba_team_cache[fn] = tid
-
         return self.nba_team_cache.get(key)
 
     def _get_nba_team_stats(self, team_id: int, season_year: int) -> Optional[Dict[str, Any]]:
@@ -163,6 +162,7 @@ class FAZ13Engine:
             away_id = g["visitor_team"]["id"]
             hs = g["home_team_score"]
             as_ = g["visitor_team_score"]
+
             if team_id == home_id:
                 pf += hs
                 pa += as_
@@ -179,7 +179,6 @@ class FAZ13Engine:
 
     # ---------- Football (soccer) ----------
     def _get_soccer_team_id(self, team_name: str) -> Optional[int]:
-        # In football API, team id resolution is messy; we will search and use first result.
         try:
             r = requests.get(
                 f"https://v3.football.api-sports.io/teams?search={team_name}",
@@ -213,6 +212,7 @@ class FAZ13Engine:
         goals = stats.get("goals", {})
         avg_for = goals.get("for", {}).get("average", {}).get("total")
         avg_against = goals.get("against", {}).get("average", {}).get("total")
+
         try:
             gf = float(avg_for) if avg_for not in [None, ""] else None
             ga = float(avg_against) if avg_against not in [None, ""] else None
@@ -227,66 +227,55 @@ class FAZ13Engine:
     # ---------- Basketball (Europe/others) via API-Sports Basketball ----------
     def _resolve_basket_league_id(self, league_norm: str) -> Optional[int]:
         """
-        NO league baseline. Only used to fetch team games for TEAM baseline.
-        We resolve league_id by searching API-Sports Basketball leagues endpoint and cache it.
+        NO league baseline. Only used to fetch TEAM baseline.
+        Resolve league_id by searching API-Sports Basketball leagues endpoint and cache it.
         """
-        league_norm = normalize_league(league_norm)
-        if league_norm in self.basket_league_cache:
-            return self.basket_league_cache[league_norm]
-
-        # search term mapping (API-Sports names)
-        search_term_map = {
-            "EUROLEAGUE": "Euroleague",
-            "EUROCUP": "Eurocup",
-            "BSL": "Super Ligi",  # can vary; best-effort search
-            "ACB": "ACB",
-            "LNB": "Pro A",
-            "BBL": "BBL",
-            "LBA": "Serie A",
-            "LKL": "LKL",
-            "ABA": "ABA",
-            "VTB": "VTB",
-            "CBA": "CBA",
-        }
-        q = search_term_map.get(league_norm, league_norm)
+        league_norm_u = (league_norm or "").strip().upper()
+        if not league_norm_u:
+            return None
+        if league_norm_u in self.basket_league_cache:
+            return self.basket_league_cache[league_norm_u]
 
         try:
             r = requests.get(
-                f"https://v1.basketball.api-sports.io/leagues?search={q}",
+                "https://v1.basketball.api-sports.io/leagues",
                 headers=self.api_sports_headers,
                 timeout=15,
             )
             r.raise_for_status()
-            leagues = r.json().get("response", [])
-        except Exception as e:
-            logger.error(f"Basketball leagues search failed q={q}: {e}")
+            resp = r.json().get("response", []) or []
+        except Exception:
             return None
 
-        if not leagues:
-            return None
-
-        # pick the first active-looking league
-        league_id = None
-        for item in leagues:
-            # API-Sports typically returns {id, name, type, season...}
-            lid = item.get("id")
-            name = (item.get("name") or "")
-            if lid and name:
-                league_id = int(lid)
+        # best-effort match by name
+        picked = None
+        for item in resp:
+            nm = (item.get("name") or "").strip().upper()
+            if nm == league_norm_u:
+                picked = item
                 break
+        if not picked and resp:
+            # fallback: first match by "contains"
+            for item in resp:
+                nm = (item.get("name") or "").strip().upper()
+                if league_norm_u in nm or nm in league_norm_u:
+                    picked = item
+                    break
 
-        if league_id is None:
+        if not picked:
             return None
 
-        self.basket_league_cache[league_norm] = league_id
-        return league_id
+        lid = picked.get("id")
+        if isinstance(lid, int):
+            self.basket_league_cache[league_norm_u] = lid
+            return lid
+        return None
 
     def _resolve_basket_team_id(self, league_id: int, team_name: str) -> Optional[int]:
-        key = (league_id, (team_name or "").strip().lower())
+        key = (league_id, norm_key(team_name))
         if key in self.basket_team_cache:
             return self.basket_team_cache[key]
 
-        # search team globally
         try:
             r = requests.get(
                 f"https://v1.basketball.api-sports.io/teams?search={team_name}",
@@ -294,63 +283,67 @@ class FAZ13Engine:
                 timeout=15,
             )
             r.raise_for_status()
-            teams = r.json().get("response", [])
+            resp = r.json().get("response", []) or []
         except Exception:
             return None
 
-        if not teams:
+        if not resp:
             return None
 
+        # prefer exact normalized match
         team_id = None
-        # best-effort: pick first
-        if teams[0].get("id"):
-            team_id = int(teams[0]["id"])
-
+        tn = norm_key(team_name)
+        for t in resp:
+            nm = norm_key(t.get("name", ""))
+            if nm == tn:
+                team_id = t.get("id")
+                break
         if team_id is None:
-            return None
+            team_id = resp[0].get("id")
 
-        self.basket_team_cache[key] = team_id
-        return team_id
+        if isinstance(team_id, int):
+            self.basket_team_cache[key] = team_id
+            return team_id
+        return None
 
     def _get_basket_team_stats_last_n(
-        self, league_norm: str, season_year: int, team_name: str, last_n: int = 10
+        self, league_norm: str, season: int, team_name: str, last_n: int = 10
     ) -> Optional[Dict[str, Any]]:
         league_id = self._resolve_basket_league_id(league_norm)
-        if not league_id:
+        if league_id is None:
             return None
-
         team_id = self._resolve_basket_team_id(league_id, team_name)
-        if not team_id:
+        if team_id is None:
             return None
 
         try:
             r = requests.get(
-                f"https://v1.basketball.api-sports.io/games?team={team_id}&league={league_id}&season={season_year}",
+                f"https://v1.basketball.api-sports.io/games?league={league_id}&season={season}&team={team_id}&last={last_n}",
                 headers=self.api_sports_headers,
                 timeout=15,
             )
             r.raise_for_status()
-            games = r.json().get("response", [])
+            games = r.json().get("response", []) or []
         except Exception:
             return None
 
         if not games:
             return None
 
-        games = games[:last_n]
-
         pf = pa = n = 0
         home_pf = home_pa = home_n = 0
         away_pf = away_pa = away_n = 0
 
         for g in games:
-            # API-Sports: teams.home.id / teams.away.id, scores.home.total / scores.away.total
             try:
                 hid = g["teams"]["home"]["id"]
                 aid = g["teams"]["away"]["id"]
                 hs = g["scores"]["home"]["total"]
                 as_ = g["scores"]["away"]["total"]
             except Exception:
+                continue
+
+            if hs is None or as_ is None:
                 continue
 
             if team_id == hid:
@@ -382,7 +375,6 @@ class FAZ13Engine:
     # ---------- analyze ----------
     def analyze(self, league: str, date: str, home_team: str, away_team: str) -> Dict[str, Any]:
         league_norm = normalize_league(league)
-
         try:
             year = int(str(date)[:4])
         except Exception:
@@ -406,7 +398,6 @@ class FAZ13Engine:
             season = year if year else 2025
             hid = self._get_soccer_team_id(home_team)
             aid = self._get_soccer_team_id(away_team)
-
             hs = self._get_soccer_team_stats(league_id, season, hid) if hid else None
             as_ = self._get_soccer_team_stats(league_id, season, aid) if aid else None
 
@@ -416,11 +407,9 @@ class FAZ13Engine:
                 result["home_exp_score"] = home_exp
                 result["away_exp_score"] = away_exp
             else:
-                # NO league baseline: for soccer we still need something; we will NO-PLAY if missing
                 result["baseline_fallback"].append("TEAM_BASELINE_MISSING")
                 result["home_exp_score"] = None
                 result["away_exp_score"] = None
-
             return result
 
         # NBA path
@@ -432,7 +421,6 @@ class FAZ13Engine:
             as_ = self._get_nba_team_stats(aid, season_year) if aid else None
 
             if hs and as_:
-                # TEAM baseline only (no league)
                 result["home_exp_score"] = (hs["points_for"] + as_["points_against"]) / 2.0
                 result["away_exp_score"] = (as_["points_for"] + hs["points_against"]) / 2.0
                 result["baseline_n_home"] = int(hs["sample_n"])
@@ -441,19 +429,16 @@ class FAZ13Engine:
                 result["baseline_fallback"].append("TEAM_BASELINE_MISSING")
                 result["home_exp_score"] = None
                 result["away_exp_score"] = None
-
             return result
 
-        # Other basketball leagues path (EuroLeague / ACB / etc.) — TEAM baseline via API-Sports Basketball
+        # Other basketball leagues
         season_year = year if year else 2025
         home_stats = self._get_basket_team_stats_last_n(league_norm, season_year, home_team, last_n=10)
         away_stats = self._get_basket_team_stats_last_n(league_norm, season_year, away_team, last_n=10)
 
         if home_stats and away_stats:
-            # home uses home split if available; away uses away split if available
             home_pf = home_stats.get("home_points_for") or home_stats["points_for"]
             away_pf = away_stats.get("away_points_for") or away_stats["points_for"]
-
             result["home_exp_score"] = float(home_pf)
             result["away_exp_score"] = float(away_pf)
             result["baseline_n_home"] = int(home_stats["sample_n"])
@@ -517,7 +502,6 @@ class FAZ16Engine:
         # Basketball-ish normal
         std_home = max(1.0, 0.15 * float(home_exp))
         std_away = max(1.0, 0.15 * float(away_exp))
-
         for _ in range(iterations):
             hp = max(0.0, random.gauss(float(home_exp), std_home))
             ap = max(0.0, random.gauss(float(away_exp), std_away))
@@ -593,9 +577,7 @@ class FAZ17Engine:
     def get_odds(self, league: str, home_team: str, away_team: str) -> Dict[str, Any]:
         league_norm = normalize_league(league)
         sport_key = self.sport_key_map.get(league_norm)
-
         if not sport_key:
-            # Always return dict (Market shown always)
             return {
                 "status": "UNSUPPORTED_LEAGUE",
                 "reason": f"No sport_key for league={league_norm}",
@@ -688,6 +670,7 @@ class FAZ17Engine:
         for m in (book.get("markets") or []):
             key = m.get("key")
             outs = m.get("outcomes") or []
+
             if key == "spreads":
                 for o in outs:
                     nm = self._norm(o.get("name", ""))
@@ -702,6 +685,7 @@ class FAZ17Engine:
                         out["spread_home"] = ptf
                     elif away_n in nm:
                         out["spread_away"] = ptf
+
             elif key == "totals":
                 for o in outs:
                     if o.get("name") in ["Over", "Under"]:
@@ -723,12 +707,7 @@ class FAZ17Engine:
 # FAZ-22 Engine (Risk/Tempo/Confidence + NO-PLAY)
 # =========================================================
 class FAZ22Engine:
-    def assess(
-        self,
-        analysis: Dict[str, Any],
-        simulation: Optional[Dict[str, Any]],
-        market: Dict[str, Any],
-    ) -> Dict[str, Any]:
+    def assess(self, analysis: Dict[str, Any], simulation: Optional[Dict[str, Any]], market: Dict[str, Any]) -> Dict[str, Any]:
         # NO-PLAY if missing TEAM baseline
         if analysis.get("home_exp_score") is None or analysis.get("away_exp_score") is None:
             return {
@@ -762,8 +741,8 @@ class FAZ22Engine:
         p_home = hw / it if it else 0.0
         p_away = aw / it if it else 0.0
         p_draw = dr / it if it else 0.0
-        max_prob = max(p_home, p_away, p_draw)
 
+        max_prob = max(p_home, p_away, p_draw)
         confidence = min(0.95, max(0.10, max_prob))
 
         if max_prob >= 0.75:
@@ -868,79 +847,51 @@ class FAZ23Engine:
         m_sa = market.get("spread_away")
         m_bk = market.get("bookmaker")
 
-        # Edge calc (disabled if NO_PLAY)
-        if risk == "NO_PLAY":
-            edge_line = "EDGE: DISABLED (NO_PLAY)"
-        else:
-            edge_line = "EDGE: N/A"
-            if m_total is not None and pred_total is not None:
-                diff = float(pred_total) - float(m_total)
-                if diff > 0.5:
-                    direction = "ÜST"
-                elif diff < -0.5:
-                    direction = "ALT"
-                else:
-                    direction = "NO_EDGE"
-                edge_line = f"Alt/Üst: {direction} | Model-Çizgi Farkı: {diff:+.1f}"
+        # edge line
+        edge_line = "-"
+        if pred_total is not None and m_total is not None:
+            diff = pred_total - float(m_total)
+            if diff >= 3:
+                edge_line = f"ÜST eğilimi (+{diff:.1f})"
+            elif diff <= -3:
+                edge_line = f"ALT eğilimi ({diff:.1f})"
+            else:
+                edge_line = f"EDGE YOK ({diff:.1f})"
 
-        notes: List[str] = []
-        if league.upper() == "NBA":
-            notes.append(f"baseline_n(home/away)={analysis.get('baseline_n_home',0)}/{analysis.get('baseline_n_away',0)}")
-        if pred_total is not None:
-            notes.append(f"model_total={pred_total:.1f}")
-        if avg_total is not None:
-            notes.append(f"sim_avg_total={avg_total:.1f}")
-
+        esc = html.escape
         lines: List[str] = []
-        title = (
-            f"<b>FAZ-13 ÖN ANALİZ</b>\n"
-            f"<b>{html.escape(league)} | {html.escape(date)}</b>\n"
-            f"<b>{html.escape(home)} - {html.escape(away)}</b>"
-        )
-        lines.append(title)
-
-        if home_exp is not None and away_exp is not None:
-            lines.append(f"<b>Model Skor:</b> {html.escape(home)} {home_exp:.1f} - {away_exp:.1f} {html.escape(away)}")
-        else:
-            lines.append("<b>Model Skor:</b> NO-PLAY (takım verisi yok)")
-
-        if band_str:
-            lines.append(f"<b>Band Values:</b> {html.escape(band_str)}")
-
-        lines.append("<b>RİSK GÖSTERGELERİ</b>")
-        lines.append(f"• risk: {html.escape(str(risk))}")
-        if tempo is not None:
-            t = str(tempo)
-            if avg_total is not None:
-                t += f" (toplam~{avg_total:.1f})"
-            lines.append(f"• tempo: {html.escape(t)}")
-        lines.append(f"• confidence: <b>{conf_pct}%</b>")
-
-        lines.append("<b>NOTLAR</b>")
-        if notes:
-            for n in notes[:10]:
-                lines.append(f"• {html.escape(n)}")
-        else:
-            lines.append("• -")
-
+        lines.append("<b>FAZ-13 → FAZ-23</b>")
+        lines.append(f"<b>{esc(home)} - {esc(away)}</b>")
+        lines.append(f"• Lig: {esc(league)} | Tarih: {esc(date)}")
+        lines.append("")
+        lines.append("<b>BAZ SKOR</b>")
+        lines.append(f"• Ev exp: {esc(str(home_exp))} | Dep exp: {esc(str(away_exp))}")
+        lines.append(f"• Toplam exp: {esc(str(pred_total))}")
+        lines.append("")
+        lines.append("<b>SIMÜLASYON</b>")
+        lines.append(f"• band: {esc(band_str)}")
+        lines.append(f"• avg_total: {esc(str(avg_total))}")
+        lines.append("")
+        lines.append("<b>FAZ-22 RİSK</b>")
+        lines.append(f"• risk: {esc(str(risk))} | tempo: {esc(str(tempo))} | güven: %{esc(str(conf_pct))}")
         lines.append("<b>HATA AVCISI</b>")
         if issues:
-            lines.append("• " + html.escape(", ".join(map(str, issues[:12]))))
+            lines.append("• " + esc(", ".join(map(str, issues[:12]))))
         else:
             lines.append("• YOK")
-
+        lines.append("")
         lines.append("<b>MARKET ENTEGRASYONU</b>")
-        lines.append(f"• status: {html.escape(str(m_status))}")
-        lines.append(f"• reason: {html.escape(str(m_reason))}")
-        lines.append(f"• bookmaker: {html.escape(str(m_bk))}")
-        lines.append(f"• total: {html.escape(str(m_total))}")
-        lines.append(f"• spread_home: {html.escape(str(m_sh))}")
-        lines.append(f"• spread_away: {html.escape(str(m_sa))}")
-
+        lines.append(f"• status: {esc(str(m_status))}")
+        lines.append(f"• reason: {esc(str(m_reason))}")
+        lines.append(f"• bookmaker: {esc(str(m_bk))}")
+        lines.append(f"• total: {esc(str(m_total))}")
+        lines.append(f"• spread_home: {esc(str(m_sh))}")
+        lines.append(f"• spread_away: {esc(str(m_sa))}")
+        lines.append("")
         lines.append("<b>ALT/ÜST</b>")
-        lines.append(f"• {html.escape(edge_line)}")
-
-        lines.append("\n<i>Bu çıktı analiz/simülasyon amaçlıdır. Bahis tavsiyesi değildir.</i>")
+        lines.append(f"• {esc(edge_line)}")
+        lines.append("")
+        lines.append("Bu çıktı analiz/simülasyon amaçlıdır. Bahis tavsiyesi değildir.")
         return "\n".join(lines)
 
 
@@ -952,7 +903,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     try:
         _, params = message.split(" ", 1)
     except ValueError:
-        await update.message.reply_text("Kullanım: /analyze <Lig> <YYYY-MM-DD> <Home Team> vs <Away Team>")
+        await update.message.reply_text("Kullanım: /analyze LIG YYYY-MM-DD HOME vs AWAY")
         return
 
     tokens = params.split()
@@ -981,11 +932,14 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     faz22: FAZ22Engine = context.application.bot_data["faz22"]
     faz23: FAZ23Engine = context.application.bot_data["faz23"]
 
-    analysis = faz13.analyze(league, date, home_team, away_team)
-    simulation = faz16.simulate(analysis)
-    market = faz17.get_odds(analysis.get("league", league), home_team, away_team)
-    assess = faz22.assess(analysis, simulation, market)
+    # =========================================================
+    # FIX: Bloklayıcı fazlar event-loop üstünde çalışmasın
+    # =========================================================
+    analysis = await asyncio.to_thread(faz13.analyze, league, date, home_team, away_team)
+    simulation = await asyncio.to_thread(faz16.simulate, analysis)
+    market = await asyncio.to_thread(faz17.get_odds, analysis.get("league", league), home_team, away_team)
 
+    assess = faz22.assess(analysis, simulation, market)
     report = faz23.build_report_html(analysis, simulation, market, assess)
 
     try:
@@ -1003,7 +957,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 def main() -> None:
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-
     application.bot_data["faz13"] = FAZ13Engine(BALLDONTLIE_API_KEY, API_SPORTS_KEY)
     application.bot_data["faz16"] = FAZ16Engine()
     application.bot_data["faz17"] = FAZ17Engine(ODDS_API_KEY)
