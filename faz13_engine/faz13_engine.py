@@ -11,6 +11,28 @@ import aiohttp
 from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstrapper
 from league_profiles import get_league_profile
 
+# --- Multi-source provider layer (NBA first) ---
+try:
+    from providers import ESPNAdapter  # type: ignore
+except Exception:  # pragma: no cover
+    ESPNAdapter = None  # type: ignore
+
+try:
+    from core.aggregate_engine import aggregate_baseline  # type: ignore
+except Exception:  # pragma: no cover
+    def aggregate_baseline(rows):  # type: ignore
+        if not rows:
+            return None
+        total_conf = sum(r.get('confidence', 0) for r in rows)
+        if total_conf <= 0:
+            return None
+        return {
+            'pts_for': sum(r['pts_for'] * r['confidence'] for r in rows) / total_conf,
+            'pts_against': sum(r['pts_against'] * r['confidence'] for r in rows) / total_conf,
+            'confidence': total_conf / len(rows),
+            'sources': [r.get('source') for r in rows],
+        }
+
 
 # =====================================================
 # DATA MODELS
@@ -108,14 +130,10 @@ class Faz13CoreOutput:
 
 class Faz13Engine:
     """
-    Patch hedefleri:
-      1) Teams Endpoint tek kaynak
-      2) Canonical Team Map otomatik üret (cache)
-      3) Telegram string -> team_id resolve
-      4) FAZ-13 artık string değil team_id ile stats çeksin
-
-    Ek kritik düzeltme:
-      - NBA season resolver düzeltildi (Ocak 2026 -> season 2025 olmalı)
+    FAZ-13 Engine (TEAM-FIRST)
+    - NBA season fix
+    - API-Sports canonical team resolver (kept for ID + fallback)
+    - NEW: ESPN provider baseline + confidence aggregation (NBA first)
     """
 
     def __init__(
@@ -136,14 +154,13 @@ class Faz13Engine:
         if self.baseline_store is not None:
             self.baseline_bootstrapper = TeamBaselineBootstrapper(self.baseline_store, None)
 
-        # ---- Canonical team map cache ----
+        # ---- Canonical team map cache (API-Sports) ----
         # key: f"{LEAGUE}:{SEASON}"
         # value: {"ts": float, "team_map": {team_id: {...}}, "alias_index": {alias: team_id}}
         self._teammap_cache: Dict[str, Dict[str, Any]] = {}
         self._teammap_ttl_sec = int(os.getenv("FAZ13_TEAMMAP_TTL_SEC", "21600"))  # default 6h
 
         # NBA league id (API-Sports Basketball)
-        # Not: API tarafında değişebilirse env ile override edilebilir.
         self._nba_league_id = int(os.getenv("API_SPORTS_NBA_LEAGUE_ID", "12"))
 
     # -------------------------------------------------
@@ -170,7 +187,7 @@ class Faz13Engine:
         return self.session
 
     # -------------------------------------------------
-    # Canonical Team Map (Teams endpoint = single source of truth)
+    # Canonical Team Map (API-Sports) - kept
     # -------------------------------------------------
     @staticmethod
     def _norm(s: str) -> str:
@@ -196,19 +213,77 @@ class Faz13Engine:
             "alias_index": alias_index,
         }
 
+    # -------------------------------------------------
+    # ESPN (NBA) TEAM ABBR RESOLVER (no key required)
+    # -------------------------------------------------
+    async def _espn_get_team_alias_index(self) -> Dict[str, str]:
+        """
+        Builds a normalized alias -> ESPN team abbreviation map using ESPN teams endpoint.
+        Cached with TTL via _teammap_cache (separate key namespace).
+        """
+        cache_key = self._cache_key("NBA_ESPN_TEAMS", "0")
+        cached = self._teammap_cache_get(cache_key)
+        if cached:
+            # reuse alias_index field to store alias->abbr
+            return cached["alias_index"]
+
+        s = await self._get_session()
+        try:
+            async with s.get(
+                "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+                timeout=20,
+            ) as r:
+                js = await r.json()
+        except Exception:
+            return {}
+
+        alias_index: Dict[str, str] = {}
+        try:
+            sports = js.get("sports") or []
+            leagues = (sports[0].get("leagues") or []) if sports else []
+            teams = (leagues[0].get("teams") or []) if leagues else []
+        except Exception:
+            teams = []
+
+        for t in teams:
+            team = (t or {}).get("team") or {}
+            abbr = (team.get("abbreviation") or "").lower()
+            display = team.get("displayName") or ""
+            short = team.get("shortDisplayName") or ""
+            name = team.get("name") or ""
+            location = team.get("location") or ""
+            nickname = team.get("nickname") or ""
+
+            if not abbr:
+                continue
+
+            for raw in (display, short, name, location, nickname, abbr):
+                key = self._norm(raw)
+                if key:
+                    alias_index.setdefault(key, abbr)
+
+            combo = self._norm(f"{location} {name}")
+            if combo:
+                alias_index.setdefault(combo, abbr)
+
+        # store into ttl cache structure
+        self._teammap_cache_set(cache_key, team_map={}, alias_index=alias_index)  # type: ignore[arg-type]
+        return alias_index
+
+    async def _espn_resolve_abbr(self, team_name: str) -> Optional[str]:
+        key = self._norm(team_name)
+        if not key:
+            return None
+        idx = await self._espn_get_team_alias_index()
+        return idx.get(key)
+
     async def _fetch_teams_for_league(self, league: str, season: str) -> List[Dict[str, Any]]:
-        """
-        Teams endpoint tek kaynak.
-        NBA için: /teams?league=<NBA_ID>&season=<season>
-        Diğer ligler için: /teams?search=... fallback ile tek tek çözüyoruz.
-        """
         if not self.api_key:
             return []
 
         s = await self._get_session()
         headers = {"x-apisports-key": self.api_key}
 
-        # NBA: lig id ile tüm takımları çek (canonical map üretmek için ideal)
         if league.upper() == "NBA":
             try:
                 async with s.get(
@@ -222,28 +297,20 @@ class Faz13Engine:
                 return []
             return js.get("response") or []
 
-        # Non-NBA: burada tüm takımları çekmek için lig id gerekebilir.
-        # Mevcut mimariyi bozmamak için "full map" yerine resolver sırasında search kullanacağız.
         return []
 
-    async def _build_canonical_team_map(self, league: str, season: str) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, int]]:
-        """
-        Returns:
-          team_map: {team_id: {"id": int, "name": str, "code": str, "aliases": set[str]}}
-          alias_index: {alias_norm: team_id}
-        """
+    async def _build_canonical_team_map(self, league: str, season: str) -> Tuple[Dict[int, dict], Dict[str, int]]:
         ck = self._cache_key(league, season)
         cached = self._teammap_cache_get(ck)
         if cached:
             return cached["team_map"], cached["alias_index"]
 
-        team_map: Dict[int, Dict[str, Any]] = {}
+        team_map: Dict[int, dict] = {}
         alias_index: Dict[str, int] = {}
 
         teams = await self._fetch_teams_for_league(league, season)
 
         for t in teams:
-            # API-Sports response bazen {"id":..,"name":..} veya {"team":{...}} şeklinde gelebilir.
             obj = t.get("team") if isinstance(t, dict) and "team" in t else t
             if not isinstance(obj, dict):
                 continue
@@ -259,7 +326,6 @@ class Faz13Engine:
 
             aliases = set()
 
-            # En sağlam alias'lar:
             aliases.add(self._norm(name))
             if code:
                 aliases.add(self._norm(code))
@@ -277,22 +343,15 @@ class Faz13Engine:
                 "aliases": aliases,
             }
 
-        # alias index
         for tid, info in team_map.items():
             for a in info.get("aliases", set()):
                 if a:
-                    # çakışma olursa ilk gelen kazanır (NBA'de genelde çakışmaz)
                     alias_index.setdefault(a, tid)
 
         self._teammap_cache_set(ck, team_map, alias_index)
         return team_map, alias_index
 
     async def _resolve_team_id(self, team_name: str, league: str, season: str) -> Optional[int]:
-        """
-        Telegram string -> canonical team_id
-        NBA: canonical map üzerinden
-        Non-NBA: mevcut davranışı bozmamak adına /teams?search=... ile çöz (tek kaynak yine teams endpoint)
-        """
         if not self.api_key:
             return None
 
@@ -304,29 +363,6 @@ class Faz13Engine:
             if tid:
                 return tid
 
-            # NBA fallback: teams search (hala teams endpoint)
-            s = await self._get_session()
-            headers = {"x-apisports-key": self.api_key}
-            try:
-                async with s.get(
-                    f"{self.base}/teams",
-                    params={"search": team_name},
-                    headers=headers,
-                    timeout=15,
-                ) as r:
-                    js = await r.json()
-            except Exception:
-                return None
-            resp = js.get("response") or []
-            if not resp:
-                return None
-
-            obj = resp[0].get("team") if isinstance(resp[0], dict) and "team" in resp[0] else resp[0]
-            if isinstance(obj, dict) and obj.get("id"):
-                return int(obj["id"])
-            return None
-
-        # Non-NBA: mevcut sistem bozulmasın diye direkt search
         s = await self._get_session()
         headers = {"x-apisports-key": self.api_key}
         try:
@@ -350,14 +386,11 @@ class Faz13Engine:
         return None
 
     # -------------------------------------------------
-    # API-Sports TEAM BASELINE (TEAM_ID FIRST)
+    # API-Sports TEAM BASELINE (TEAM_ID FIRST) - kept as fallback
     # -------------------------------------------------
     async def _api_sports_team_baseline_by_id(
         self, team_id: int, league: str, season: str
     ) -> Optional[Tuple[float, float, float, float, int]]:
-        """
-        Artık baseline stats çekimi team_id ile yapılır.
-        """
         if not self.api_key:
             return None
 
@@ -386,46 +419,80 @@ class Faz13Engine:
         pace = max(0.8, min(1.3, (float(pf) + float(pa)) / 180.0))
         stdev = max(profile.volatility_floor, min(profile.volatility_ceil, 10.0))
 
-        # n = 5 (mevcut dosyada sabitlenmişti, bozmadım)
         return float(pf), float(pa), pace, stdev, 5
 
-    async def _api_sports_team_baseline(
-        self, team: str, league: str, season: str
-    ) -> Optional[Tuple[float, float, float, float, int]]:
-        """
-        Backward-compatible wrapper:
-          - önce team_id resolve
-          - sonra stats team_id ile çek
-        """
-        team_id = await self._resolve_team_id(team, league, season)
-        if not team_id:
-            return None
-        return await self._api_sports_team_baseline_by_id(team_id, league, season)
-
-    # -------------------------------------------------
-    # MAIN PREMATCH (TEAM-FIRST)
-    # -------------------------------------------------
     async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
         profile = get_league_profile(req.league)
 
+        # NBA season fix (important for any source)
         season = (
             self.resolve_nba_season(req.date_str)
             if req.league.upper() == "NBA"
             else req.date_str[:4]
         )
 
-        # 1) Telegram string -> team_id
+        notes: List[str] = [f"Season: {season}", "TEAM-FIRST mode (MULTI-SOURCE)"]
+
+        # 1) Resolve team IDs (API-Sports) for diagnostics + fallback
         home_id = await self._resolve_team_id(req.home, req.league, season)
         away_id = await self._resolve_team_id(req.away, req.league, season)
 
-        # TEAM-FIRST: takım id çözülemezse NO_PLAY (daha doğru hata)
-        if not home_id or not away_id:
+        # 2) Primary baseline path (NBA): ESPN (no key), aggregated (confidence aware)
+        home_rows: List[Dict[str, Any]] = []
+        away_rows: List[Dict[str, Any]] = []
+
+        if req.league.upper() == "NBA" and ESPNAdapter is not None:
+            espn = ESPNAdapter()
+            home_abbr = await self._espn_resolve_abbr(req.home)
+            away_abbr = await self._espn_resolve_abbr(req.away)
+
+            if home_abbr:
+                r = await espn.fetch_team_baseline(home_abbr)  # type: ignore[attr-defined]
+                if r:
+                    home_rows.append(r)
+            if away_abbr:
+                r = await espn.fetch_team_baseline(away_abbr)  # type: ignore[attr-defined]
+                if r:
+                    away_rows.append(r)
+
+            if home_abbr or away_abbr:
+                notes.append(f"ESPN abbr: home={home_abbr} away={away_abbr}")
+
+        home_baseline = aggregate_baseline(home_rows) if home_rows else None
+        away_baseline = aggregate_baseline(away_rows) if away_rows else None
+
+        # 3) Fallback: API-Sports statistics by ID (when ESPN missing or partial)
+        if home_baseline is None and home_id:
+            h = await self._api_sports_team_baseline_by_id(home_id, req.league, season)
+            if h:
+                home_baseline = {
+                    "pts_for": float(h[0]),
+                    "pts_against": float(h[1]),
+                    "pace": float(h[2]),
+                    "stdev": float(h[3]),
+                    "confidence": 0.55,
+                    "sources": ["API_SPORTS"],
+                }
+        if away_baseline is None and away_id:
+            a = await self._api_sports_team_baseline_by_id(away_id, req.league, season)
+            if a:
+                away_baseline = {
+                    "pts_for": float(a[0]),
+                    "pts_against": float(a[1]),
+                    "pace": float(a[2]),
+                    "stdev": float(a[3]),
+                    "confidence": 0.55,
+                    "sources": ["API_SPORTS"],
+                }
+
+        if not home_baseline or not away_baseline:
             ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
-            notes = ["NO_PLAY: TEAM_ID_RESOLVE_FAILED"]
-            if not home_id:
-                notes.append(f"Resolve failed (home): {req.home}")
-            if not away_id:
-                notes.append(f"Resolve failed (away): {req.away}")
+            miss = []
+            if not home_baseline:
+                miss.append("home")
+            if not away_baseline:
+                miss.append("away")
+            notes.append(f"NO_PLAY: BASELINE_NOT_AVAILABLE ({','.join(miss)})")
             return Faz13CoreOutput(
                 ctx=ctx,
                 home_avg=TeamAverages(0, 0, 1, 9),
@@ -443,49 +510,34 @@ class Faz13Engine:
                     "season": season,
                     "team_first": True,
                     "baseline_missing": True,
-                    "team_id_missing": True,
                     "home_id": home_id,
                     "away_id": away_id,
+                    "sources_home": (home_baseline or {}).get("sources"),
+                    "sources_away": (away_baseline or {}).get("sources"),
+                    "confidence": 0.0,
                 },
             )
 
-        # 2) Baseline artık team_id ile çekilir
-        h = await self._api_sports_team_baseline_by_id(home_id, req.league, season)
-        a = await self._api_sports_team_baseline_by_id(away_id, req.league, season)
+        # Convert to TeamAverages
+        def _pace_from_pts(pf: float, pa: float) -> float:
+            pace = (pf + pa) / 180.0 if (pf + pa) > 0 else 1.0
+            return max(0.8, min(1.3, pace))
 
-        # TEAM-FIRST: takım verisi yoksa NO_PLAY
-        if not h or not a:
-            ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
-            notes = ["NO_PLAY: TEAM_BASELINE_MISSING"]
-            if not h:
-                notes.append(f"Missing baseline (home_id={home_id})")
-            if not a:
-                notes.append(f"Missing baseline (away_id={away_id})")
-            return Faz13CoreOutput(
-                ctx=ctx,
-                home_avg=TeamAverages(0, 0, 1, 9),
-                away_avg=TeamAverages(0, 0, 1, 9),
-                total_band=(0, 0),
-                home_band=(0, 0),
-                away_band=(0, 0),
-                ou_direction="NO_PLAY",
-                quarters={},
-                blowout_risk="UNKNOWN",
-                tempo_flag="UNKNOWN",
-                notes=notes,
-                market={},
-                meta={
-                    "season": season,
-                    "team_first": True,
-                    "baseline_missing": True,
-                    "home_id": home_id,
-                    "away_id": away_id,
-                },
-            )
+        h_pf = float(home_baseline["pts_for"])
+        h_pa = float(home_baseline["pts_against"])
+        a_pf = float(away_baseline["pts_for"])
+        a_pa = float(away_baseline["pts_against"])
 
-        h_avg = TeamAverages(h[0], h[1], h[2], h[3])
-        a_avg = TeamAverages(a[0], a[1], a[2], a[3])
+        h_pace = float(home_baseline.get("pace", _pace_from_pts(h_pf, h_pa)))
+        a_pace = float(away_baseline.get("pace", _pace_from_pts(a_pf, a_pa)))
 
+        h_stdev = float(home_baseline.get("stdev", max(profile.volatility_floor, min(profile.volatility_ceil, 10.0))))
+        a_stdev = float(away_baseline.get("stdev", max(profile.volatility_floor, min(profile.volatility_ceil, 10.0))))
+
+        h_avg = TeamAverages(h_pf, h_pa, h_pace, h_stdev)
+        a_avg = TeamAverages(a_pf, a_pa, a_pace, a_stdev)
+
+        # Classic FAZ-13 math
         home_mu = (h_avg.points_for + a_avg.points_against) / 2
         away_mu = (a_avg.points_for + h_avg.points_against) / 2
         total_mu = home_mu + away_mu
@@ -503,6 +555,15 @@ class Faz13Engine:
             int(away_mu + profile.band_hw_team),
         )
 
+        sources_home = home_baseline.get("sources") or home_baseline.get("sources_home") or home_baseline.get("source")
+        sources_away = away_baseline.get("sources") or away_baseline.get("sources_away") or away_baseline.get("source")
+        notes.append(f"Sources(home)={sources_home}")
+        notes.append(f"Sources(away)={sources_away}")
+
+        conf_home = float(home_baseline.get("confidence", 0.5))
+        conf_away = float(away_baseline.get("confidence", 0.5))
+        meta_conf = min(conf_home, conf_away)
+
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
 
         return Faz13CoreOutput(
@@ -516,17 +577,16 @@ class Faz13Engine:
             quarters={},
             blowout_risk="LOW",
             tempo_flag="NORMAL",
-            notes=[
-                f"Season: {season}",
-                "TEAM-FIRST mode (API-Sports)",
-                f"Resolved IDs: home_id={home_id} away_id={away_id}",
-            ],
+            notes=notes,
             market={},
             meta={
                 "season": season,
                 "team_first": True,
-                "baseline_quality": 1.0,
+                "baseline_missing": False,
                 "home_id": home_id,
                 "away_id": away_id,
+                "confidence": round(meta_conf * 100, 1),
+                "sources_home": sources_home,
+                "sources_away": sources_away,
             },
-            ) 
+        ) 
