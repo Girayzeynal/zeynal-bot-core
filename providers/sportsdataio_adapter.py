@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 
 
-ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba"
+SPORTSDATA_BASE = "https://api.sportsdata.io/v3/nba/scores/json"
 
 
 # =====================================================
@@ -43,24 +43,16 @@ class _TTLCache:
 
 
 # =====================================================
-# HELPERS
+# SPORTS DATA IO ADAPTER
 # =====================================================
 
-def _norm(s: str) -> str:
-    return " ".join((s or "").strip().lower().replace("-", " ").replace("_", " ").split())
-
-
-# =====================================================
-# ESPN ADAPTER
-# =====================================================
-
-class ESPNAdapter:
+class SportsDataIOAdapter:
     """
-    ESPN provider adapter (NO API KEY).
+    SportsDataIO provider adapter.
 
     Responsibilities:
-      - Team baseline (avgPointsFor / avgPointsAgainst)
-      - Injury information (parsed from ESPN injury pages)
+      - Team season baseline (PointsPerGame / OpponentPointsPerGame)
+      - Injury data via Players/{team} endpoint
       - Caching + retry + backoff
 
     This adapter:
@@ -69,17 +61,15 @@ class ESPNAdapter:
       - ONLY returns raw provider data
     """
 
-    name = "ESPN"
-    confidence = 0.60
+    name = "SPORTSDATAIO"
+    confidence = 0.85  # provider reliability weight
 
     def __init__(self) -> None:
+        self.api_key = (os.getenv("SPORTSDATA_API_KEY") or "").strip()
         self._session: Optional[aiohttp.ClientSession] = None
 
         self._cache = _TTLCache(
-            ttl_sec=int(os.getenv("ESPN_CACHE_TTL_SEC", "900"))  # 15 min
-        )
-        self._teams_cache = _TTLCache(
-            ttl_sec=int(os.getenv("ESPN_TEAMS_TTL_SEC", "21600"))  # 6h
+            ttl_sec=int(os.getenv("SPORTSDATA_CACHE_TTL_SEC", "900"))  # 15 min
         )
 
         self._disk_cache_dir = (os.getenv("FAZ_CACHE_DIR") or "").strip()
@@ -99,10 +89,11 @@ class ESPNAdapter:
         if self._session and not self._session.closed:
             await self._session.close()
 
-    async def _request_json(
-        self, url: str, params: Optional[Dict[str, Any]] = None
-    ) -> Optional[Dict[str, Any]]:
-        cache_key = f"json:{url}:{json.dumps(params, sort_keys=True) if params else ''}"
+    async def _request_json(self, url: str) -> Optional[Any]:
+        if not self.api_key:
+            return None
+
+        cache_key = f"json:{url}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -122,11 +113,13 @@ class ESPNAdapter:
             except Exception:
                 pass
 
-        backoff = 0.6
+        headers = {"Ocp-Apim-Subscription-Key": self.api_key}
+        backoff = 0.7
+
         for _ in range(4):
             try:
                 s = await self._get_session()
-                async with s.get(url, params=params) as resp:
+                async with s.get(url, headers=headers) as resp:
                     if resp.status in (429, 503, 502, 504):
                         await asyncio.sleep(backoff)
                         backoff *= 1.7
@@ -151,93 +144,45 @@ class ESPNAdapter:
 
         return None
 
-    async def _request_text(self, url: str) -> Optional[str]:
-        cache_key = f"text:{url}"
-        cached = self._cache.get(cache_key)
-        if cached is not None:
-            return cached
-
-        disk_key = None
-        if self._disk_cache_dir:
-            safe = re.sub(r"[^a-zA-Z0-9_.-]+", "_", cache_key)[:180]
-            disk_key = os.path.join(self._disk_cache_dir, f"{safe}.txt")
-
-            try:
-                if os.path.exists(disk_key):
-                    if (time.time() - os.path.getmtime(disk_key)) <= self._cache.ttl_sec:
-                        with open(disk_key, "r", encoding="utf-8", errors="ignore") as f:
-                            txt = f.read()
-                        self._cache.set(cache_key, txt)
-                        return txt
-            except Exception:
-                pass
-
-        backoff = 0.6
-        for _ in range(4):
-            try:
-                s = await self._get_session()
-                async with s.get(url) as resp:
-                    if resp.status in (429, 503, 502, 504):
-                        await asyncio.sleep(backoff)
-                        backoff *= 1.7
-                        continue
-                    if resp.status != 200:
-                        return None
-                    txt = await resp.text()
-                    self._cache.set(cache_key, txt)
-
-                    if disk_key:
-                        try:
-                            os.makedirs(self._disk_cache_dir, exist_ok=True)
-                            with open(disk_key, "w", encoding="utf-8") as f:
-                                f.write(txt)
-                        except Exception:
-                            pass
-
-                    return txt
-            except Exception:
-                await asyncio.sleep(backoff)
-                backoff *= 1.7
-
-        return None
-
     # -------------------------------------------------
     # TEAM BASELINE
     # -------------------------------------------------
 
-    async def fetch_team_baseline(self, team_abbr: str) -> Optional[Dict[str, Any]]:
+    async def fetch_team_baseline(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
         """
         Returns (or None):
           {
             "pts_for": float,
             "pts_against": float,
             "confidence": float (0..1),
-            "source": "ESPN",
+            "source": "SPORTSDATAIO",
             "fetched_at": int
           }
         """
-        abbr = (team_abbr or "").strip().lower()
-        if not abbr:
+        if not self.api_key:
             return None
 
-        js = await self._request_json(f"{ESPN_BASE}/teams/{abbr}")
-        if not js:
+        key = (team_key or "").upper().strip()
+        if not key:
             return None
 
-        items = js.get("team", {}).get("record", {}).get("items", [])
-        stats: Dict[str, Any] = {}
-        for it in items:
-            for st in it.get("stats", []):
-                nm = st.get("name")
-                if nm:
-                    stats[nm] = st.get("value")
+        url = f"{SPORTSDATA_BASE}/TeamSeasonStats/{season_year}"
+        data = await self._request_json(url)
+        if not isinstance(data, list):
+            return None
 
-        if "avgPointsFor" not in stats or "avgPointsAgainst" not in stats:
+        row = next((x for x in data if str(x.get("Key", "")).upper() == key), None)
+        if not row:
+            return None
+
+        pf = row.get("PointsPerGame")
+        pa = row.get("OpponentPointsPerGame")
+        if pf is None or pa is None:
             return None
 
         return {
-            "pts_for": float(stats["avgPointsFor"]),
-            "pts_against": float(stats["avgPointsAgainst"]),
+            "pts_for": float(pf),
+            "pts_against": float(pa),
             "confidence": float(self.confidence),
             "source": self.name,
             "fetched_at": int(time.time()),
@@ -247,92 +192,52 @@ class ESPNAdapter:
     # INJURIES
     # -------------------------------------------------
 
-    async def _get_teams_directory(self) -> Optional[Dict[str, Any]]:
-        cached = self._teams_cache.get("nba_teams_dir")
-        if cached is not None:
-            return cached
-
-        js = await self._request_json(f"{ESPN_BASE}/teams")
-        if not js:
-            return None
-
-        self._teams_cache.set("nba_teams_dir", js)
-        return js
-
-    async def resolve_team_injury_url(self, team_abbr: str) -> Optional[str]:
-        abbr = (team_abbr or "").strip().lower()
-        if not abbr:
-            return None
-
-        js = await self._get_teams_directory()
-        if not js:
-            return None
-
-        teams = (
-            js.get("sports", [{}])[0]
-            .get("leagues", [{}])[0]
-            .get("teams", [])
-        )
-
-        for t in teams:
-            team = (t or {}).get("team") or {}
-            if str(team.get("abbreviation", "")).lower() != abbr:
-                continue
-            for lk in team.get("links", []) or []:
-                rel = lk.get("rel", []) or []
-                href = lk.get("href")
-                if href and "injuries" in rel:
-                    return href
-        return None
-
-    @staticmethod
-    def _parse_injuries_html(html_text: str) -> List[Dict[str, Any]]:
-        if not html_text:
-            return []
-
-        txt = re.sub(r"\s+", " ", html_text)
-        status_keywords = r"(Out|Day-To-Day|Questionable|Probable|Doubtful)"
-        pattern = re.compile(
-            r"([A-Z][A-Za-z\.\-\' ]{2,35})\s+[A-Z]{0,2}\s*Status\s+(" + status_keywords + r")",
-            re.IGNORECASE,
-        )
-
-        injuries: List[Dict[str, Any]] = []
-        for m in pattern.finditer(txt):
-            injuries.append(
-                {
-                    "player": m.group(1).strip(),
-                    "status": m.group(2).strip(),
-                }
-            )
-        return injuries
-
-    async def fetch_team_injuries(self, team_abbr: str) -> Optional[Dict[str, Any]]:
+    async def fetch_team_injuries(self, team_key: str) -> Optional[Dict[str, Any]]:
         """
         Returns (or None):
           {
-            "source": "ESPN",
-            "team_abbr": "BKN",
-            "injuries": [ {player, status}, ... ],
+            "source": "SPORTSDATAIO",
+            "team_key": "BKN",
+            "injuries": [ {player_id, name, status, body_part, notes, position}, ... ],
             "injury_count": int,
-            "fetched_at": int,
-            "url": str
+            "fetched_at": int
           }
         """
-        url = await self.resolve_team_injury_url(team_abbr)
-        if not url:
+        if not self.api_key:
             return None
 
-        html_text = await self._request_text(url)
-        if html_text is None:
+        key = (team_key or "").upper().strip()
+        if not key:
             return None
 
-        injuries = self._parse_injuries_html(html_text)
+        url = f"{SPORTSDATA_BASE}/Players/{key}"
+        data = await self._request_json(url)
+        if not isinstance(data, list):
+            return None
+
+        injuries: List[Dict[str, Any]] = []
+        for p in data:
+            status = p.get("InjuryStatus")
+            notes = p.get("InjuryNotes")
+            body = p.get("InjuryBodyPart")
+            start = p.get("InjuryStartDate")
+
+            if status or notes or body or start:
+                injuries.append(
+                    {
+                        "player_id": p.get("PlayerID"),
+                        "name": f"{p.get('FirstName','')} {p.get('LastName','')}".strip(),
+                        "status": status,
+                        "body_part": body,
+                        "notes": notes,
+                        "position": p.get("Position"),
+                    }
+                )
+
         return {
             "source": self.name,
-            "team_abbr": team_abbr.upper(),
+            "team_key": key,
             "injuries": injuries,
             "injury_count": len(injuries),
             "fetched_at": int(time.time()),
-            "url": url,
-        } 
+        }
