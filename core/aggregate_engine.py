@@ -1,42 +1,64 @@
 # core/aggregate_engine.py
 
-from typing import List, Dict, Optional
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 
-def aggregate_baseline(rows: List[Dict]) -> Optional[Dict]:
+@dataclass(frozen=True)
+class AggregateResult:
+    pts_for: float
+    pts_against: float
+    confidence_raw: float  # 0..1
+    sources: List[str]
+    fetched_at: int
+
+
+def aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
-    Birden fazla provider'dan gelen baseline verisini
-    confidence ağırlıklı şekilde birleştirir.
-
-    Input örneği:
-    [
-        {
-            "pts_for": 109.7,
-            "pts_against": 113.9,
-            "confidence": 0.60,
-            "source": "ESPN"
-        }
-    ]
+    Production-grade aggregation:
+      - Strictly uses provided real rows (no fabrication)
+      - Confidence-weighted blend
+      - Returns normalized confidence_raw in 0..1 and sources list[str]
     """
-
     if not rows:
         return None
 
-    total_conf = sum(r.get("confidence", 0) for r in rows)
-    if total_conf == 0:
+    clean: List[Dict[str, Any]] = []
+    for r in rows:
+        try:
+            pf = float(r["pts_for"])
+            pa = float(r["pts_against"])
+            conf = float(r.get("confidence", 0.0))
+            src = str(r.get("source", "")).strip()
+        except Exception:
+            continue
+        if conf <= 0 or not src:
+            continue
+        clean.append({"pts_for": pf, "pts_against": pa, "confidence": conf, "source": src})
+
+    if not clean:
         return None
 
-    pts_for = sum(
-        r["pts_for"] * r["confidence"] for r in rows if "pts_for" in r
-    ) / total_conf
+    total_conf = sum(x["confidence"] for x in clean)
+    if total_conf <= 0:
+        return None
 
-    pts_against = sum(
-        r["pts_against"] * r["confidence"] for r in rows if "pts_against" in r
-    ) / total_conf
+    pts_for = sum(x["pts_for"] * x["confidence"] for x in clean) / total_conf
+    pts_against = sum(x["pts_against"] * x["confidence"] for x in clean) / total_conf
+
+    # normalized provider confidence: mean confidence of included sources (bounded)
+    conf_out = min(1.0, max(0.0, total_conf / len(clean)))
+
+    # sources ordered by confidence desc
+    sources = [x["source"] for x in sorted(clean, key=lambda z: z["confidence"], reverse=True)]
 
     return {
         "pts_for": pts_for,
         "pts_against": pts_against,
-        "confidence": total_conf / len(rows),
-        "sources": [r.get("source") for r in rows],
+        "confidence": conf_out,
+        "sources": sources,
+        "fetched_at": int(time.time()),
     } 
