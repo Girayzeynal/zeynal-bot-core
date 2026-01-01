@@ -1,24 +1,24 @@
+
 """
-faz13_engine package initialization.
+FAZ-13 Engine package initialization.
 
-This package exposes the FAZ-13 core engine and its primary data models.
+Exports the production-grade FAZ-13 engine and its core data models.
+This module is intentionally minimal to avoid circular imports
+and to stay compatible with main.py and downstream phases.
 """
 
-from typing import Optional, Dict
-
-# Re-export main engine and core data models
 from .faz13_engine import (
     Faz13Engine,
     PrematchRequest,
-    FixtureContext,
     TeamAverages,
+    FixtureContext,
     Faz13CoreOutput,
 )
 
 __all__ = [
     "Faz13Engine",
     "PrematchRequest",
-    "FixtureContext",
     "TeamAverages",
+    "FixtureContext",
     "Faz13CoreOutput",
-] 
+]
