@@ -2,156 +2,257 @@ from __future__ import annotations
 
 import re
 import time
+import math
 import logging
-from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, List, Tuple
 
 import aiohttp
 
 logger = logging.getLogger("faz17")
 
 
+# =====================================================
+# PUBLIC API — FAZ-13 EXPECTS THESE
+# =====================================================
+@dataclass
+class MarketRequest:
+    league: str
+    home: str
+    away: str
+    date: Optional[str] = None
+    is_live: bool = False
+
+
+@dataclass
+class MarketResult:
+    status: str
+    total: Optional[float] = None
+    spread_home: Optional[float] = None
+    spread_away: Optional[float] = None
+    confidence_boost: float = 0.0
+    latency_ms: Optional[int] = None
+    reason: Optional[str] = None
+
+
+# =====================================================
+# INTERNAL CACHE (TTL)
+# =====================================================
+@dataclass
+class _CacheEntry:
+    ts: float
+    value: Any
+
+
+class _TTLCache:
+    def __init__(self, ttl_sec: int = 60):
+        self.ttl = ttl_sec
+        self.data: Dict[str, _CacheEntry] = {}
+
+    def get(self, key: str) -> Optional[Any]:
+        ent = self.data.get(key)
+        if not ent:
+            return None
+        if time.time() - ent.ts > self.ttl:
+            self.data.pop(key, None)
+            return None
+        return ent.value
+
+    def set(self, key: str, value: Any) -> None:
+        self.data[key] = _CacheEntry(time.time(), value)
+
+
+# =====================================================
+# HELPERS
+# =====================================================
 def _norm(s: str) -> str:
-    s = (s or "").lower().strip()
-    s = re.sub(r"[^a-z0-9\s\-\.]", " ", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
+    s = (s or "").lower()
+    s = re.sub(r"[^a-z0-9\s]", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
 
 
-def _team_match_score(api_home: str, api_away: str, home: str, away: str) -> int:
-    """
-    Hızlı fuzzy eşleşme skoru.
-    """
+def _team_score(api_home: str, api_away: str, home: str, away: str) -> int:
     ah, aa = _norm(api_home), _norm(api_away)
     h, a = _norm(home), _norm(away)
 
     score = 0
-    if ah == h:
-        score += 5
-    elif h in ah or ah in h:
-        score += 3
+    if ah == h or h in ah or ah in h:
+        score += 4
+    if aa == a or a in aa or aa in a:
+        score += 4
 
-    if aa == a:
-        score += 5
-    elif a in aa or aa in a:
-        score += 3
-
-    ht = set(h.split())
-    at = set(a.split())
-    aht = set(ah.split())
-    aat = set(aa.split())
-
-    score += min(2, len(ht & aht))
-    score += min(2, len(at & aat))
+    score += min(2, len(set(h.split()) & set(ah.split())))
+    score += min(2, len(set(a.split()) & set(aa.split())))
     return score
 
 
-def _extract_total_from_event(event: Dict[str, Any]) -> Optional[float]:
+def _extract_markets(event: Dict[str, Any]) -> Tuple[Optional[float], Optional[float]]:
     """
-    The Odds API totals line okumaya çalışır.
-    Bulamazsa None.
+    Returns (total_line, home_spread)
     """
-    bookmakers = event.get("bookmakers") or []
-    for b in bookmakers:
-        markets = b.get("markets") or []
-        for m in markets:
-            if (m.get("key") or "").lower() != "totals":
-                continue
-            outcomes = m.get("outcomes") or []
-            for o in outcomes:
-                if "point" in o and isinstance(o["point"], (int, float)):
-                    return float(o["point"])
-    return None
+    total = None
+    spread = None
+
+    for b in event.get("bookmakers", []):
+        for m in b.get("markets", []):
+            key = (m.get("key") or "").lower()
+
+            if key == "totals":
+                for o in m.get("outcomes", []):
+                    if isinstance(o.get("point"), (int, float)):
+                        total = float(o["point"])
+
+            if key == "spreads":
+                for o in m.get("outcomes", []):
+                    if o.get("name", "").lower() in ("home", "home team"):
+                        if isinstance(o.get("point"), (int, float)):
+                            spread = float(o["point"])
+
+    return total, spread
 
 
+def _confidence_from_market(total: Optional[float], spread: Optional[float]) -> float:
+    """
+    Market varsa FAZ-22 confidence’ına küçük katkı yapar.
+    """
+    boost = 0.0
+    if total is not None:
+        boost += 0.04
+    if spread is not None:
+        boost += 0.03
+    return boost
+
+
+# =====================================================
+# FAZ-17 ENGINE (REAL)
+# =====================================================
 @dataclass
 class Faz17Engine:
-    """
-    Market entegrasyonu OPSİYONEL:
-    - API key yoksa: crash yok
-    - enrich_with_market her zaman var, her zaman safe
-    """
     api_key: Optional[str]
     base_url: str
+    cache_ttl: int = 60
 
+    _cache: _TTLCache = field(init=False)
+
+    def __post_init__(self):
+        self._cache = _TTLCache(self.cache_ttl)
+
+    # -------------------------------------------------
+    # CORE ENTRY
+    # -------------------------------------------------
     async def enrich_with_market(self, core: Any) -> Any:
         """
-        core.market içine:
-          - status: MARKET_OPTIONAL
-          - total: (varsa)
-          - reason: (yoksa niye yok)
+        FAZ-13 → FAZ-17 entegrasyon noktası.
+        Core objesini MUTATE eder.
+        Asla crash etmez.
         """
-        # market alanını garanti et
-        try:
-            if not hasattr(core, "market") or not isinstance(getattr(core, "market", None), dict):
-                core.market = {}
-        except Exception:
-            pass
 
+        if not hasattr(core, "market") or not isinstance(core.market, dict):
+            core.market = {}
+
+        req = MarketRequest(
+            league=getattr(core, "league", "NBA"),
+            home=getattr(core, "home", ""),
+            away=getattr(core, "away", ""),
+            date=getattr(core, "date_str", None),
+            is_live=getattr(core, "is_live", False),
+        )
+
+        result = await self._fetch_market(req)
+
+        core.market = {
+            "status": result.status,
+            "total": result.total,
+            "spread_home": result.spread_home,
+            "spread_away": result.spread_away,
+            "latency_ms": result.latency_ms,
+            "reason": result.reason,
+        }
+
+        # FAZ-22 için confidence katkısı
+        meta = getattr(core, "meta", {})
+        if isinstance(meta, dict):
+            meta["market_confidence_boost"] = result.confidence_boost
+            core.meta = meta
+
+        return core
+
+    # -------------------------------------------------
+    # INTERNAL FETCH
+    # -------------------------------------------------
+    async def _fetch_market(self, req: MarketRequest) -> MarketResult:
         if not self.api_key:
-            try:
-                core.market = {"status": "MARKET_OPTIONAL", "reason": "ODDS_API_KEY_MISSING"}
-            except Exception:
-                pass
-            return core
+            return MarketResult(
+                status="MARKET_OPTIONAL",
+                reason="ODDS_API_KEY_MISSING",
+            )
 
-        league = getattr(core, "league", None) or getattr(core, "league_name", None) or "NBA"
-        league_u = str(league).upper().strip()
+        if req.league.upper() != "NBA":
+            return MarketResult(
+                status="MARKET_OPTIONAL",
+                reason=f"UNSUPPORTED_LEAGUE:{req.league}",
+            )
 
-        # The Odds API sport key
-        sport_key = "basketball_nba" if league_u == "NBA" else None
-        if not sport_key:
-            core.market = {"status": "MARKET_OPTIONAL", "reason": f"UNSUPPORTED_LEAGUE_FOR_MARKET: {league_u}"}
-            return core
+        cache_key = f"{req.league}:{req.home}:{req.away}"
+        cached = self._cache.get(cache_key)
+        if cached:
+            return cached
 
-        home = getattr(core, "home", None) or ""
-        away = getattr(core, "away", None) or ""
-
-        url = f"{self.base_url.rstrip('/')}/sports/{sport_key}/odds/"
+        url = f"{self.base_url.rstrip('/')}/sports/basketball_nba/odds/"
         params = {
             "apiKey": self.api_key,
             "regions": "us",
-            "markets": "totals",
+            "markets": "totals,spreads",
             "oddsFormat": "decimal",
-            "dateFormat": "iso",
         }
 
         t0 = time.time()
+
         try:
             timeout = aiohttp.ClientTimeout(total=8)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.get(url, params=params) as resp:
                     if resp.status != 200:
-                        txt = await resp.text()
-                        core.market = {"status": "MARKET_OPTIONAL", "reason": f"ODDS_HTTP_{resp.status}: {txt[:160]}"}
-                        return core
+                        return MarketResult(
+                            status="MARKET_OPTIONAL",
+                            reason=f"HTTP_{resp.status}",
+                        )
                     data = await resp.json()
         except Exception as e:
-            core.market = {"status": "MARKET_OPTIONAL", "reason": f"ODDS_FETCH_FAIL: {e}"}
-            return core
+            return MarketResult(
+                status="MARKET_OPTIONAL",
+                reason=f"FETCH_FAIL:{e}",
+            )
 
-        # en iyi match
         best: Tuple[int, Optional[Dict[str, Any]]] = (0, None)
-        if isinstance(data, list):
-            for ev in data:
-                api_home = ev.get("home_team") or ""
-                api_away = ev.get("away_team") or ""
-                sc = _team_match_score(api_home, api_away, home, away)
-                if sc > best[0]:
-                    best = (sc, ev)
+        for ev in data if isinstance(data, list) else []:
+            sc = _team_score(
+                ev.get("home_team", ""),
+                ev.get("away_team", ""),
+                req.home,
+                req.away,
+            )
+            if sc > best[0]:
+                best = (sc, ev)
 
-        if best[1] is None or best[0] < 4:
-            core.market = {"status": "MARKET_OPTIONAL", "reason": f"MARKET_MATCH_NOT_FOUND (score={best[0]})"}
-            return core
+        if not best[1] or best[0] < 4:
+            return MarketResult(
+                status="MARKET_OPTIONAL",
+                reason="MATCH_NOT_FOUND",
+            )
 
-        line = _extract_total_from_event(best[1])
-        if line is None:
-            core.market = {"status": "MARKET_OPTIONAL", "reason": "TOTAL_LINE_NOT_FOUND"}
-            return core
+        total, spread = _extract_markets(best[1])
 
-        core.market = {
-            "status": "MARKET_OPTIONAL",
-            "total": float(line),
-            "latency_ms": int((time.time() - t0) * 1000),
-        }
-        return core 
+        boost = _confidence_from_market(total, spread)
+
+        res = MarketResult(
+            status="MARKET_OPTIONAL",
+            total=total,
+            spread_home=spread,
+            spread_away=-spread if spread is not None else None,
+            confidence_boost=boost,
+            latency_ms=int((time.time() - t0) * 1000),
+        )
+
+        self._cache.set(cache_key, res)
+        return res
