@@ -1,5 +1,3 @@
-# faz17_engine/faz17_engine.py
-
 from __future__ import annotations
 
 import asyncio
@@ -33,9 +31,29 @@ class Faz17Engine:
       - ODDS_BOOKMAKER_PREFER (default: FanDuel)
     """
 
-    def __init__(self) -> None:
-        self.api_key = (os.getenv("ODDS_API_KEY") or "").strip()
-        self.base = (os.getenv("ODDS_BASE") or "https://api.the-odds-api.com/v4").rstrip("/")
+    def __init__(
+        self,
+        odds_api_key: Optional[str] = None,
+        odds_base: Optional[str] = None,
+        *args,
+        **kwargs,
+    ) -> None:
+        """
+        main.py geri uyumu:
+            Faz17Engine(ODDS_API_KEY, ODDS_BASE)
+
+        - Parametre verilmezse ENV kullanılır
+        - Fazladan argümanlar crash etmez
+        """
+
+        # main.py’den gelenler (varsa)
+        self.odds_api_key = odds_api_key
+        self.odds_base = odds_base
+
+        # Gerçek kullanımda ENV öncelikli
+        self.api_key = (odds_api_key or "").strip() or (os.getenv("ODDS_API_KEY") or "").strip()
+        self.base = (odds_base or "").strip() or (os.getenv("ODDS_BASE") or "https://api.the-odds-api.com/v4").rstrip("/")
+
         self.sport_key = (os.getenv("ODDS_SPORT_KEY") or "basketball_nba").strip()
         self.regions = (os.getenv("ODDS_REGIONS") or "us").strip()
         self.markets = (os.getenv("ODDS_MARKETS") or "totals").strip()
