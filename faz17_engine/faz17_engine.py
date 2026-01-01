@@ -1,114 +1,155 @@
-import aiohttp
+# faz17_engine/faz17_engine.py
+
+from __future__ import annotations
+
+import asyncio
+import json
 import os
-import logging
-from typing import Optional
+import re
+import time
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
-from faz13_engine import Faz13CoreOutput
+import aiohttp
 
-log = logging.getLogger("zeynal-bot-core")
+
+@dataclass(frozen=True)
+class MarketRequest:
+    league: str
+    date_str: str  # YYYY-MM-DD
+    home: str
+    away: str
 
 
 class Faz17Engine:
-    def __init__(self, odds_api_key: str, odds_base: str) -> None:
-        self.key = odds_api_key
-        self.base = odds_base.rstrip("/")
-        self.regions = os.getenv("ODDS_REGIONS", "us,eu")
-        self.markets = "totals"
-        self.odds_format = "decimal"
-        self.session: Optional[aiohttp.ClientSession] = None
+    """
+    Market engine (The Odds API compatible).
+    Env:
+      - ODDS_API_KEY
+      - ODDS_BASE (default: https://api.the-odds-api.com/v4)
+      - ODDS_SPORT_KEY (default for NBA: basketball_nba)
+      - ODDS_REGIONS (default: us)
+      - ODDS_MARKETS (default: totals)
+      - ODDS_BOOKMAKER_PREFER (default: FanDuel)
+    """
 
-    async def _session(self) -> aiohttp.ClientSession:
-        if not self.session or self.session.closed:
-            self.session = aiohttp.ClientSession()
-        return self.session
+    def __init__(self) -> None:
+        self.api_key = (os.getenv("ODDS_API_KEY") or "").strip()
+        self.base = (os.getenv("ODDS_BASE") or "https://api.the-odds-api.com/v4").rstrip("/")
+        self.sport_key = (os.getenv("ODDS_SPORT_KEY") or "basketball_nba").strip()
+        self.regions = (os.getenv("ODDS_REGIONS") or "us").strip()
+        self.markets = (os.getenv("ODDS_MARKETS") or "totals").strip()
+        self.prefer_bookmaker = (os.getenv("ODDS_BOOKMAKER_PREFER") or "FanDuel").strip()
+
+        self._session: Optional[aiohttp.ClientSession] = None
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        if self._session and not self._session.closed:
+            return self._session
+        timeout = aiohttp.ClientTimeout(total=25)
+        self._session = aiohttp.ClientSession(timeout=timeout)
+        return self._session
+
+    async def close(self) -> None:
+        if self._session and not self._session.closed:
+            await self._session.close()
 
     @staticmethod
-    def _norm(s: str) -> set:
-        """Kelime kümesi döndürür. Bu sayede 'Trail Blazers' ile 'Portland' eşleşebilir."""
-        if not s:
-            return set()
-        s = s.lower()
-        for token in ("basketball", "basket", "club", "team", "bc", "bk"):
-            s = s.replace(token, "")
-        import re
-        words = re.findall(r"\w+", s)
-        return set(words)
+    def _norm(s: str) -> str:
+        return " ".join((s or "").strip().lower().replace("-", " ").replace("_", " ").split())
 
-    async def enrich_with_market(self, core: Faz13CoreOutput) -> Faz13CoreOutput:
-        league_upper = (core.ctx.league or "").upper()
+    @staticmethod
+    def _same_date(iso_ts: str, ymd: str) -> bool:
+        # iso_ts like 2026-01-02T03:00:00Z
+        return str(iso_ts or "")[:10] == ymd
 
-        sport_key = "basketball_nba"
-        if "EURO" in league_upper:
-            sport_key = "basketball_euroleague"
-        elif "TURK" in league_upper or "BSL" in league_upper:
-            sport_key = "basketball_turkey_bsl"
-        elif "SPAIN" in league_upper or "ACB" in league_upper:
-            sport_key = "basketball_spain_liga_acb"
+    @staticmethod
+    def _parse_total_from_bookmaker(bm: Dict[str, Any]) -> Optional[float]:
+        for mkt in bm.get("markets", []) or []:
+            if (mkt.get("key") or "").lower() != "totals":
+                continue
+            outcomes = mkt.get("outcomes", []) or []
+            # outcomes: [{"name":"Over","point":219.5,...},{"name":"Under","point":219.5,...}]
+            for o in outcomes:
+                pt = o.get("point")
+                if pt is not None:
+                    return float(pt)
+        return None
 
-        url = f"{self.base}/sports/{sport_key}/odds"
+    async def fetch_market_total(self, req: MarketRequest) -> Optional[Dict[str, Any]]:
+        if not self.api_key:
+            return None
+
+        url = f"{self.base}/sports/{self.sport_key}/odds"
         params = {
-            "apiKey": self.key,
+            "apiKey": self.api_key,
             "regions": self.regions,
             "markets": self.markets,
-            "oddsFormat": self.odds_format,
+            "oddsFormat": "decimal",
+            "dateFormat": "iso",
         }
 
-        session = await self._session()
-        try:
-            async with session.get(url, params=params, timeout=10) as resp:
-                if resp.status != 200:
-                    raise Exception(f"API Error: {resp.status}")
-                data = await resp.json()
-        except Exception as e:
-            log.error(f"Market fetch failed: {e}")
-            core.market = {"status": "NO_MARKET", "reason": "API_CONNECTION_ERROR"}
-            return core
+        backoff = 0.7
+        data: Optional[List[Dict[str, Any]]] = None
+        for _ in range(4):
+            try:
+                s = await self._get_session()
+                async with s.get(url, params=params) as resp:
+                    if resp.status in (429, 503, 502, 504):
+                        await asyncio.sleep(backoff)
+                        backoff *= 1.7
+                        continue
+                    if resp.status != 200:
+                        return None
+                    data = await resp.json()
+                    break
+            except Exception:
+                await asyncio.sleep(backoff)
+                backoff *= 1.7
 
-        nh_set, na_set = self._norm(core.ctx.home), self._norm(core.ctx.away)
+        if not isinstance(data, list):
+            return None
 
-        for event in data:
-            # ✅ GUARD: event dict değilse atla
-            if not hasattr(event, "get"):
+        home_n = self._norm(req.home)
+        away_n = self._norm(req.away)
+
+        candidates: List[Dict[str, Any]] = []
+        for g in data:
+            ht = self._norm(g.get("home_team", ""))
+            at = self._norm(g.get("away_team", ""))
+            if not ht or not at:
                 continue
+            if not self._same_date(str(g.get("commence_time", "")), req.date_str):
+                continue
+            # match either orientation
+            if (ht == home_n and at == away_n) or (ht == away_n and at == home_n):
+                candidates.append(g)
 
-            h_api = self._norm(event.get("home_team", ""))
-            a_api = self._norm(event.get("away_team", ""))
+        if not candidates:
+            return None
 
-            home_match = bool(nh_set & h_api)
-            away_match = bool(na_set & a_api)
-            home_rev_match = bool(nh_set & a_api)
-            away_rev_match = bool(na_set & h_api)
+        game = candidates[0]
+        bookmakers = game.get("bookmakers", []) or []
 
-            if (home_match and away_match) or (home_rev_match and away_rev_match):
-                selected_total = None
-                book_name = "N/A"
+        # prefer bookmaker if available
+        chosen = None
+        for bm in bookmakers:
+            if str(bm.get("title", "")).strip().lower() == self.prefer_bookmaker.lower():
+                chosen = bm
+                break
+        if chosen is None and bookmakers:
+            chosen = bookmakers[0]
 
-                for bookmaker in event.get("bookmakers", []):
-                    for market in bookmaker.get("markets", []):
-                        if market.get("key") == "totals":
-                            for outcome in market.get("outcomes", []):
-                                name = (outcome.get("name") or "").lower()
-                                if "over" in name or "üst" in name:
-                                    selected_total = outcome.get("point")
-                                    book_name = bookmaker.get("title") or bookmaker.get("key") or "N/A"
-                                    break
-                        if selected_total is not None:
-                            break
-                    if selected_total is not None:
-                        break
+        if not chosen:
+            return None
 
-                if selected_total is not None:
-                    lo, hi = core.total_band if hasattr(core, "total_band") else (0, 0)
-                    edge = "NÖTR"
-                    if isinstance(selected_total, (int, float)):
-                        if selected_total > hi + 1.5:
-                            edge = "Line Yüksek ➡ ALT"
-                        elif selected_total < lo - 1.5:
-                            edge = "Line Düşük ➡ ÜST"
+        total = self._parse_total_from_bookmaker(chosen)
+        if total is None:
+            return None
 
-                    core.market = {"status": "OK", "total": selected_total, "bookmaker": book_name, "edge": edge}
-                    setattr(core, "market_total", selected_total)
-                    return core
-
-        core.market = {"status": "NO_MARKET", "reason": "MATCH_NOT_FOUND"}
-        return core
+        return {
+            "status": "OK",
+            "total": float(total),
+            "bookmaker": str(chosen.get("title", "")) or self.prefer_bookmaker,
+            "fetched_at": int(time.time()),
+        }
