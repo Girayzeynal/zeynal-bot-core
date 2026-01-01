@@ -11,27 +11,16 @@ import aiohttp
 from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstrapper
 from league_profiles import get_league_profile
 
-# --- Multi-source provider layer (NBA first) ---
+# Optional: if you already have these modules, they will be used.
 try:
-    from providers import ESPNAdapter  # type: ignore
-except Exception:  # pragma: no cover
-    ESPNAdapter = None  # type: ignore
+    from core.aggregate_engine import aggregate_baseline as _aggregate_baseline  # type: ignore
+except Exception:
+    _aggregate_baseline = None
 
 try:
-    from core.aggregate_engine import aggregate_baseline  # type: ignore
-except Exception:  # pragma: no cover
-    def aggregate_baseline(rows):  # type: ignore
-        if not rows:
-            return None
-        total_conf = sum(r.get('confidence', 0) for r in rows)
-        if total_conf <= 0:
-            return None
-        return {
-            'pts_for': sum(r['pts_for'] * r['confidence'] for r in rows) / total_conf,
-            'pts_against': sum(r['pts_against'] * r['confidence'] for r in rows) / total_conf,
-            'confidence': total_conf / len(rows),
-            'sources': [r.get('source') for r in rows],
-        }
+    from providers import ESPNAdapter  # type: ignore
+except Exception:
+    ESPNAdapter = None  # type: ignore
 
 
 # =====================================================
@@ -87,6 +76,7 @@ class Faz13CoreOutput:
             f"Maç: {esc(self.ctx.home)} vs {esc(self.ctx.away)} | "
             f"Lig: {esc(self.ctx.league)} | Tarih: {esc(self.ctx.date)}"
         )
+
         out.append("")
         out.append("Dar Bant")
         out.append(f"• Toplam: {self.total_band[0]}–{self.total_band[1]}")
@@ -105,7 +95,7 @@ class Faz13CoreOutput:
             out.append("")
             out.append("Notlar")
             for n in self.notes:
-                out.append(f"• {esc(n)}")
+                out.append(f"• {esc(str(n))}")
 
         if self.market:
             out.append("")
@@ -125,15 +115,102 @@ class Faz13CoreOutput:
 
 
 # =====================================================
+# UTIL: safe aggregate (works even if core.aggregate_engine is missing)
+# =====================================================
+
+def _fallback_aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not rows:
+        return None
+
+    total_conf = sum(float(r.get("confidence", 0.0)) for r in rows)
+    if total_conf <= 0:
+        return None
+
+    pts_for = sum(float(r["pts_for"]) * float(r["confidence"]) for r in rows) / total_conf
+    pts_against = sum(float(r["pts_against"]) * float(r["confidence"]) for r in rows) / total_conf
+
+    return {
+        "pts_for": pts_for,
+        "pts_against": pts_against,
+        "confidence": total_conf / len(rows),
+        "sources": [str(r.get("source")) for r in rows if r.get("source")],
+    }
+
+
+def aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if _aggregate_baseline:
+        try:
+            return _aggregate_baseline(rows)  # type: ignore[misc]
+        except Exception:
+            return _fallback_aggregate_baseline(rows)
+    return _fallback_aggregate_baseline(rows)
+
+
+# =====================================================
+# PROVIDER: SportsDataIO (NBA)
+# - Key: SPORTSDATA_API_KEY
+# - Endpoint: /v3/nba/scores/json/TeamSeasonStats/{season}
+# - We match the team by its "Key" field (usually "BKN", "HOU", etc.)
+# =====================================================
+
+class SportsDataIOAdapter:
+    name = "SPORTSDATAIO"
+    confidence = 0.85  # official-ish paid data, higher trust
+
+    def __init__(self) -> None:
+        self.key = os.getenv("SPORTSDATA_API_KEY", "").strip()
+
+    async def fetch_team_baseline(self, team_abbr_upper: str, season_year: str) -> Optional[Dict[str, Any]]:
+        if not self.key:
+            return None
+
+        abbr = (team_abbr_upper or "").strip().upper()
+        if not abbr:
+            return None
+
+        url = f"https://api.sportsdata.io/v3/nba/scores/json/TeamSeasonStats/{season_year}"
+        headers = {"Ocp-Apim-Subscription-Key": self.key}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, timeout=20) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json()
+
+        # data is a list of teams
+        row = None
+        for x in data or []:
+            # SportsDataIO uses "Key" for team abbreviation in many feeds.
+            if str(x.get("Key", "")).upper() == abbr:
+                row = x
+                break
+
+        if not row:
+            return None
+
+        pf = row.get("PointsPerGame")
+        pa = row.get("OpponentPointsPerGame")
+        if pf is None or pa is None:
+            return None
+
+        return {
+            "pts_for": float(pf),
+            "pts_against": float(pa),
+            "confidence": float(self.confidence),
+            "source": self.name,
+        }
+
+
+# =====================================================
 # FAZ-13 ENGINE (TEAM-FIRST)
 # =====================================================
 
 class Faz13Engine:
     """
-    FAZ-13 Engine (TEAM-FIRST)
-    - NBA season fix
-    - API-Sports canonical team resolver (kept for ID + fallback)
-    - NEW: ESPN provider baseline + confidence aggregation (NBA first)
+    Fix pack (3-in-1):
+      1) SportsDataIO gerçekten devrede (Sources listesine girer)
+      2) Confidence normalize/doğru (100 saçmalığı biter)
+      3) Sources HTML escape değil (temiz string)
     """
 
     def __init__(
@@ -152,32 +229,28 @@ class Faz13Engine:
 
         self.baseline_bootstrapper: Optional[TeamBaselineBootstrapper] = None
         if self.baseline_store is not None:
-            self.baseline_bootstrapper = TeamBaselineBootstrapper(self.baseline_store, None)
+            self.baseline_bootstrapper = TeamBaselineBootstrapper(self.baseline_store)
 
-        # ---- Canonical team map cache (API-Sports) ----
-        # key: f"{LEAGUE}:{SEASON}"
-        # value: {"ts": float, "team_map": {team_id: {...}}, "alias_index": {alias: team_id}}
+        # TTL caches
         self._teammap_cache: Dict[str, Dict[str, Any]] = {}
-        self._teammap_ttl_sec = int(os.getenv("FAZ13_TEAMMAP_TTL_SEC", "21600"))  # default 6h
-
-        # NBA league id (API-Sports Basketball)
+        self._teammap_ttl_sec = int(os.getenv("FAZ13_TEAMMAP_TTL_SEC", "21600"))  # 6h
         self._nba_league_id = int(os.getenv("API_SPORTS_NBA_LEAGUE_ID", "12"))
+
+        # ESPN alias index cache (abbr resolver)
+        self._espn_alias_cache: Dict[str, Any] = {"ts": 0.0, "index": {}}
+        self._espn_alias_ttl_sec = int(os.getenv("FAZ13_ESPN_ALIAS_TTL_SEC", "21600"))  # 6h
 
     # -------------------------------------------------
     # NBA SEASON RESOLVER  (FIXED)
     # -------------------------------------------------
     @staticmethod
     def resolve_nba_season(date_str: str) -> str:
-        """
-        NBA sezonu Ekim'de başlar.
-          - 2026-01-02 => 2025 season (2025-26)
-          - 2026-11-02 => 2026 season (2026-27)
-        """
         try:
             y = int(date_str[:4])
             m = int(date_str[5:7])
         except Exception:
             return date_str[:4]
+        # Oct-Dec => season = same year, Jan-Jun => season = prev year
         return str(y) if m >= 10 else str(y - 1)
 
     async def _get_session(self) -> aiohttp.ClientSession:
@@ -187,7 +260,7 @@ class Faz13Engine:
         return self.session
 
     # -------------------------------------------------
-    # Canonical Team Map (API-Sports) - kept
+    # Helpers
     # -------------------------------------------------
     @staticmethod
     def _norm(s: str) -> str:
@@ -207,25 +280,17 @@ class Faz13Engine:
         return entry
 
     def _teammap_cache_set(self, key: str, team_map: Dict[int, Dict[str, Any]], alias_index: Dict[str, int]) -> None:
-        self._teammap_cache[key] = {
-            "ts": time.time(),
-            "team_map": team_map,
-            "alias_index": alias_index,
-        }
+        self._teammap_cache[key] = {"ts": time.time(), "team_map": team_map, "alias_index": alias_index}
 
     # -------------------------------------------------
-    # ESPN (NBA) TEAM ABBR RESOLVER (no key required)
+    # ESPN abbr resolver (teams endpoint)
     # -------------------------------------------------
-    async def _espn_get_team_alias_index(self) -> Dict[str, str]:
-        """
-        Builds a normalized alias -> ESPN team abbreviation map using ESPN teams endpoint.
-        Cached with TTL via _teammap_cache (separate key namespace).
-        """
-        cache_key = self._cache_key("NBA_ESPN_TEAMS", "0")
-        cached = self._teammap_cache_get(cache_key)
-        if cached:
-            # reuse alias_index field to store alias->abbr
-            return cached["alias_index"]
+    async def _espn_get_alias_index(self) -> Dict[str, str]:
+        now = time.time()
+        if (now - float(self._espn_alias_cache.get("ts", 0))) < self._espn_alias_ttl_sec:
+            idx = self._espn_alias_cache.get("index", {})
+            if isinstance(idx, dict) and idx:
+                return idx  # type: ignore[return-value]
 
         s = await self._get_session()
         try:
@@ -238,49 +303,53 @@ class Faz13Engine:
             return {}
 
         alias_index: Dict[str, str] = {}
+        teams = []
         try:
             sports = js.get("sports") or []
-            leagues = (sports[0].get("leagues") or []) if sports else []
-            teams = (leagues[0].get("teams") or []) if leagues else []
+            leagues = sports[0].get("leagues") or []
+            teams = leagues[0].get("teams") or []
         except Exception:
             teams = []
 
         for t in teams:
             team = (t or {}).get("team") or {}
-            abbr = (team.get("abbreviation") or "").lower()
-            display = team.get("displayName") or ""
-            short = team.get("shortDisplayName") or ""
-            name = team.get("name") or ""
-            location = team.get("location") or ""
-            nickname = team.get("nickname") or ""
-
+            abbr = str(team.get("abbreviation", "")).lower()
             if not abbr:
                 continue
 
-            for raw in (display, short, name, location, nickname, abbr):
-                key = self._norm(raw)
-                if key:
-                    alias_index.setdefault(key, abbr)
+            candidates = [
+                team.get("displayName", ""),
+                team.get("shortDisplayName", ""),
+                team.get("name", ""),
+                team.get("location", ""),
+                team.get("nickname", ""),
+                abbr,
+            ]
+            for c in candidates:
+                k = self._norm(str(c))
+                if k:
+                    alias_index.setdefault(k, abbr)
 
-            combo = self._norm(f"{location} {name}")
+            combo = self._norm(f"{team.get('location','')} {team.get('name','')}")
             if combo:
                 alias_index.setdefault(combo, abbr)
 
-        # store into ttl cache structure
-        self._teammap_cache_set(cache_key, team_map={}, alias_index=alias_index)  # type: ignore[arg-type]
+        self._espn_alias_cache = {"ts": now, "index": alias_index}
         return alias_index
 
     async def _espn_resolve_abbr(self, team_name: str) -> Optional[str]:
-        key = self._norm(team_name)
-        if not key:
+        k = self._norm(team_name)
+        if not k:
             return None
-        idx = await self._espn_get_team_alias_index()
-        return idx.get(key)
+        idx = await self._espn_get_alias_index()
+        return idx.get(k)
 
+    # -------------------------------------------------
+    # API-Sports team_id resolver (kept as fallback / meta)
+    # -------------------------------------------------
     async def _fetch_teams_for_league(self, league: str, season: str) -> List[Dict[str, Any]]:
         if not self.api_key:
             return []
-
         s = await self._get_session()
         headers = {"x-apisports-key": self.api_key}
 
@@ -299,17 +368,16 @@ class Faz13Engine:
 
         return []
 
-    async def _build_canonical_team_map(self, league: str, season: str) -> Tuple[Dict[int, dict], Dict[str, int]]:
+    async def _build_canonical_team_map(self, league: str, season: str) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, int]]:
         ck = self._cache_key(league, season)
         cached = self._teammap_cache_get(ck)
         if cached:
             return cached["team_map"], cached["alias_index"]
 
-        team_map: Dict[int, dict] = {}
+        team_map: Dict[int, Dict[str, Any]] = {}
         alias_index: Dict[str, int] = {}
 
         teams = await self._fetch_teams_for_league(league, season)
-
         for t in teams:
             obj = t.get("team") if isinstance(t, dict) and "team" in t else t
             if not isinstance(obj, dict):
@@ -325,7 +393,6 @@ class Faz13Engine:
             nickname = obj.get("nickname") or ""
 
             aliases = set()
-
             aliases.add(self._norm(name))
             if code:
                 aliases.add(self._norm(code))
@@ -336,12 +403,7 @@ class Faz13Engine:
             if nickname:
                 aliases.add(self._norm(nickname))
 
-            team_map[int(team_id)] = {
-                "id": int(team_id),
-                "name": name,
-                "code": code,
-                "aliases": aliases,
-            }
+            team_map[int(team_id)] = {"id": int(team_id), "name": name, "code": code, "aliases": aliases}
 
         for tid, info in team_map.items():
             for a in info.get("aliases", set()):
@@ -356,22 +418,17 @@ class Faz13Engine:
             return None
 
         key = self._norm(team_name)
-
         if league.upper() == "NBA":
             _, alias_index = await self._build_canonical_team_map(league, season)
             tid = alias_index.get(key)
             if tid:
                 return tid
 
+        # search fallback
         s = await self._get_session()
         headers = {"x-apisports-key": self.api_key}
         try:
-            async with s.get(
-                f"{self.base}/teams",
-                params={"search": team_name},
-                headers=headers,
-                timeout=15,
-            ) as r:
+            async with s.get(f"{self.base}/teams", params={"search": team_name}, headers=headers, timeout=15) as r:
                 js = await r.json()
         except Exception:
             return None
@@ -386,7 +443,7 @@ class Faz13Engine:
         return None
 
     # -------------------------------------------------
-    # API-Sports TEAM BASELINE (TEAM_ID FIRST) - kept as fallback
+    # API-Sports fallback baseline by team_id
     # -------------------------------------------------
     async def _api_sports_team_baseline_by_id(
         self, team_id: int, league: str, season: str
@@ -411,80 +468,98 @@ class Faz13Engine:
         resp = js.get("response") or {}
         pf = resp.get("points", {}).get("for", {}).get("average", {}).get("total")
         pa = resp.get("points", {}).get("against", {}).get("average", {}).get("total")
-
         if pf is None or pa is None:
             return None
 
         profile = get_league_profile(league)
         pace = max(0.8, min(1.3, (float(pf) + float(pa)) / 180.0))
         stdev = max(profile.volatility_floor, min(profile.volatility_ceil, 10.0))
-
         return float(pf), float(pa), pace, stdev, 5
 
+    # -------------------------------------------------
+    # MAIN PREMATCH
+    # -------------------------------------------------
     async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
         profile = get_league_profile(req.league)
 
-        # NBA season fix (important for any source)
-        season = (
-            self.resolve_nba_season(req.date_str)
-            if req.league.upper() == "NBA"
-            else req.date_str[:4]
-        )
+        season = self.resolve_nba_season(req.date_str) if req.league.upper() == "NBA" else req.date_str[:4]
 
-        notes: List[str] = [f"Season: {season}", "TEAM-FIRST mode (MULTI-SOURCE)"]
-
-        # 1) Resolve team IDs (API-Sports) for diagnostics + fallback
+        # Resolve IDs for meta/debug + fallback
         home_id = await self._resolve_team_id(req.home, req.league, season)
         away_id = await self._resolve_team_id(req.away, req.league, season)
 
-        # 2) Primary baseline path (NBA): ESPN (no key), aggregated (confidence aware)
+        notes: List[str] = [f"Season: {season}", "TEAM-FIRST mode (MULTI-SOURCE)"]
+
+        # --- Multi-source baseline rows
         home_rows: List[Dict[str, Any]] = []
         away_rows: List[Dict[str, Any]] = []
 
+        # ESPN (NBA)
+        home_abbr = None
+        away_abbr = None
         if req.league.upper() == "NBA" and ESPNAdapter is not None:
-            espn = ESPNAdapter()
-            home_abbr = await self._espn_resolve_abbr(req.home)
-            away_abbr = await self._espn_resolve_abbr(req.away)
+            try:
+                espn = ESPNAdapter()
+                home_abbr = await self._espn_resolve_abbr(req.home)
+                away_abbr = await self._espn_resolve_abbr(req.away)
+                if home_abbr:
+                    r = await espn.fetch_team_baseline(home_abbr)  # type: ignore[attr-defined]
+                    if r:
+                        home_rows.append(r)
+                if away_abbr:
+                    r = await espn.fetch_team_baseline(away_abbr)  # type: ignore[attr-defined]
+                    if r:
+                        away_rows.append(r)
+                if home_abbr or away_abbr:
+                    notes.append(f"ESPN abbr: home={home_abbr} away={away_abbr}")
+            except Exception:
+                # ESPN failure should not kill the pipeline
+                notes.append("ESPN: fetch failed")
 
+        # SportsDataIO (NBA) - uses team abbr (BKN/HOU) derived from ESPN abbr
+        # If ESPN abbr is missing, we can try to fallback to upper-cased last token, but ESPN abbr is preferred.
+        if req.league.upper() == "NBA":
+            sd = SportsDataIOAdapter()
+            sd_season = str(season)  # SportsDataIO expects season year like 2025
             if home_abbr:
-                r = await espn.fetch_team_baseline(home_abbr)  # type: ignore[attr-defined]
+                r = await sd.fetch_team_baseline(home_abbr.upper(), sd_season)
                 if r:
                     home_rows.append(r)
             if away_abbr:
-                r = await espn.fetch_team_baseline(away_abbr)  # type: ignore[attr-defined]
+                r = await sd.fetch_team_baseline(away_abbr.upper(), sd_season)
                 if r:
                     away_rows.append(r)
 
-            if home_abbr or away_abbr:
-                notes.append(f"ESPN abbr: home={home_abbr} away={away_abbr}")
-
+        # Aggregate
         home_baseline = aggregate_baseline(home_rows) if home_rows else None
         away_baseline = aggregate_baseline(away_rows) if away_rows else None
 
-        # 3) Fallback: API-Sports statistics by ID (when ESPN missing or partial)
+        # API-Sports fallback ONLY if still missing
         if home_baseline is None and home_id:
-            h = await self._api_sports_team_baseline_by_id(home_id, req.league, season)
-            if h:
+            fb = await self._api_sports_team_baseline_by_id(home_id, req.league, season)
+            if fb:
                 home_baseline = {
-                    "pts_for": float(h[0]),
-                    "pts_against": float(h[1]),
-                    "pace": float(h[2]),
-                    "stdev": float(h[3]),
-                    "confidence": 0.55,
-                    "sources": ["API_SPORTS"],
-                }
-        if away_baseline is None and away_id:
-            a = await self._api_sports_team_baseline_by_id(away_id, req.league, season)
-            if a:
-                away_baseline = {
-                    "pts_for": float(a[0]),
-                    "pts_against": float(a[1]),
-                    "pace": float(a[2]),
-                    "stdev": float(a[3]),
+                    "pts_for": float(fb[0]),
+                    "pts_against": float(fb[1]),
+                    "pace": float(fb[2]),
+                    "stdev": float(fb[3]),
                     "confidence": 0.55,
                     "sources": ["API_SPORTS"],
                 }
 
+        if away_baseline is None and away_id:
+            fb = await self._api_sports_team_baseline_by_id(away_id, req.league, season)
+            if fb:
+                away_baseline = {
+                    "pts_for": float(fb[0]),
+                    "pts_against": float(fb[1]),
+                    "pace": float(fb[2]),
+                    "stdev": float(fb[3]),
+                    "confidence": 0.55,
+                    "sources": ["API_SPORTS"],
+                }
+
+        # If still missing -> NO_PLAY
         if not home_baseline or not away_baseline:
             ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
             miss = []
@@ -512,13 +587,12 @@ class Faz13Engine:
                     "baseline_missing": True,
                     "home_id": home_id,
                     "away_id": away_id,
-                    "sources_home": (home_baseline or {}).get("sources"),
-                    "sources_away": (away_baseline or {}).get("sources"),
-                    "confidence": 0.0,
+                    "confidence_pct": 0.0,
+                    "risk": "NO_PLAY",
                 },
             )
 
-        # Convert to TeamAverages
+        # Compute pace/stdev if not present
         def _pace_from_pts(pf: float, pa: float) -> float:
             pace = (pf + pa) / 180.0 if (pf + pa) > 0 else 1.0
             return max(0.8, min(1.3, pace))
@@ -537,32 +611,41 @@ class Faz13Engine:
         h_avg = TeamAverages(h_pf, h_pa, h_pace, h_stdev)
         a_avg = TeamAverages(a_pf, a_pa, a_pace, a_stdev)
 
-        # Classic FAZ-13 math
+        # FAZ-13 band math
         home_mu = (h_avg.points_for + a_avg.points_against) / 2
         away_mu = (a_avg.points_for + h_avg.points_against) / 2
         total_mu = home_mu + away_mu
 
-        total_band = (
-            int(total_mu - profile.band_hw_total),
-            int(total_mu + profile.band_hw_total),
-        )
-        home_band = (
-            int(home_mu - profile.band_hw_team),
-            int(home_mu + profile.band_hw_team),
-        )
-        away_band = (
-            int(away_mu - profile.band_hw_team),
-            int(away_mu + profile.band_hw_team),
-        )
+        total_band = (int(total_mu - profile.band_hw_total), int(total_mu + profile.band_hw_total))
+        home_band = (int(home_mu - profile.band_hw_team), int(home_mu + profile.band_hw_team))
+        away_band = (int(away_mu - profile.band_hw_team), int(away_mu + profile.band_hw_team))
 
-        sources_home = home_baseline.get("sources") or home_baseline.get("sources_home") or home_baseline.get("source")
-        sources_away = away_baseline.get("sources") or away_baseline.get("sources_away") or away_baseline.get("source")
-        notes.append(f"Sources(home)={sources_home}")
-        notes.append(f"Sources(away)={sources_away}")
-
+        # --- FIX #1: confidence is 0..1, not 0..100
         conf_home = float(home_baseline.get("confidence", 0.5))
         conf_away = float(away_baseline.get("confidence", 0.5))
-        meta_conf = min(conf_home, conf_away)
+        conf_raw = min(conf_home, conf_away)
+        confidence_pct = round(conf_raw * 100.0, 1)
+
+        # --- FIX #2: risk derived from confidence (FAZ-13 level)
+        if confidence_pct >= 75:
+            risk = "LOW"
+        elif confidence_pct >= 50:
+            risk = "MEDIUM"
+        else:
+            risk = "HIGH"
+
+        # --- FIX #3: sources as clean strings (no HTML entities)
+        sources_home = home_baseline.get("sources") or [home_baseline.get("source")] if home_baseline.get("source") else []
+        sources_away = away_baseline.get("sources") or [away_baseline.get("source")] if away_baseline.get("source") else []
+        # normalize to list[str]
+        if isinstance(sources_home, str):
+            sources_home = [sources_home]
+        if isinstance(sources_away, str):
+            sources_away = [sources_away]
+
+        # Notes: show clean sources
+        notes.append(f"Sources(home)={', '.join([str(x) for x in sources_home if x])}")
+        notes.append(f"Sources(away)={', '.join([str(x) for x in sources_away if x])}")
 
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
 
@@ -585,8 +668,10 @@ class Faz13Engine:
                 "baseline_missing": False,
                 "home_id": home_id,
                 "away_id": away_id,
-                "confidence": round(meta_conf * 100, 1),
-                "sources_home": sources_home,
-                "sources_away": sources_away,
+                "confidence_pct": confidence_pct,
+                "confidence_raw": round(conf_raw, 3),
+                "risk": risk,
+                "sources_home": [str(x) for x in sources_home if x],
+                "sources_away": [str(x) for x in sources_away if x],
             },
-        ) 
+        )
