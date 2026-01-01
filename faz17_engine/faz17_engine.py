@@ -17,8 +17,10 @@ class MarketRequest:
     league: str
     home: str
     away: str
+
     date_str: Optional[str] = None
     date: Optional[str] = None
+
     regions: str = "us"
     markets: str = "totals"
     odds_format: str = "decimal"
@@ -84,7 +86,7 @@ class Faz17Engine:
         self.ttl_sec = int(ttl_sec)
         self._cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
         logger.info(
-            f"FAZ-17 init | api_key={'YES' if self.api_key else 'NO'} | base_url={self.base_url}"
+            f"FAZ17 init | api_key={'YES' if self.api_key else 'NO'} | base_url={self.base_url}"
         )
 
     def _cache_get(self, key: str) -> Optional[Dict[str, Any]]:
@@ -129,16 +131,22 @@ class Faz17Engine:
                 async with session.get(url, params=params) as resp:
                     if resp.status != 200:
                         txt = await resp.text()
-                        out = {"status": "MARKET_OPTIONAL", "total": None,
-                               "latency_ms": int((time.time() - t0) * 1000),
-                               "reason": f"HTTP_{resp.status}:{txt[:180]}"}
+                        out = {
+                            "status": "MARKET_OPTIONAL",
+                            "total": None,
+                            "latency_ms": int((time.time() - t0) * 1000),
+                            "reason": f"HTTP_{resp.status}:{txt[:180]}",
+                        }
                         self._cache_set(cache_key, out)
                         return out
                     data = await resp.json()
         except Exception as e:
-            out = {"status": "MARKET_OPTIONAL", "total": None,
-                   "latency_ms": int((time.time() - t0) * 1000),
-                   "reason": f"FETCH_FAIL:{e}"}
+            out = {
+                "status": "MARKET_OPTIONAL",
+                "total": None,
+                "latency_ms": int((time.time() - t0) * 1000),
+                "reason": f"FETCH_FAIL:{e}",
+            }
             self._cache_set(cache_key, out)
             return out
 
@@ -157,17 +165,22 @@ class Faz17Engine:
                     best_event = ev
 
         if not best_event or best_score < 4:
-            out = {"status": "MARKET_OPTIONAL", "total": None,
-                   "latency_ms": int((time.time() - t0) * 1000),
-                   "reason": f"MATCH_NOT_FOUND(score={best_score})"}
+            out = {
+                "status": "MARKET_OPTIONAL",
+                "total": None,
+                "latency_ms": int((time.time() - t0) * 1000),
+                "reason": f"MATCH_NOT_FOUND(score={best_score})",
+            }
             self._cache_set(cache_key, out)
             return out
 
         total_line = _extract_total(best_event)
-        out = {"status": "MARKET_OPTIONAL",
-               "total": float(total_line) if isinstance(total_line, (int, float)) else None,
-               "latency_ms": int((time.time() - t0) * 1000),
-               "reason": None if total_line is not None else "TOTAL_NOT_FOUND"}
+        out = {
+            "status": "MARKET_OPTIONAL",
+            "total": float(total_line) if isinstance(total_line, (int, float)) else None,
+            "latency_ms": int((time.time() - t0) * 1000),
+            "reason": None if total_line is not None else "TOTAL_NOT_FOUND",
+        }
         self._cache_set(cache_key, out)
         return out
 
