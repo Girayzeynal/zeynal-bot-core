@@ -1,9 +1,6 @@
-# faz13_engine/faz13_engine.py
-
 from __future__ import annotations
 
 import html
-import os
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
@@ -119,16 +116,28 @@ class Faz13CoreOutput:
 
 class Faz13Engine:
     """
-    Production-grade FAZ-13:
-      - Real providers only (ESPN + SportsDataIO), API-Sports is NOT used here
-      - Market total required, fetched via FAZ-17 engine (Odds API). If missing => NO_PLAY: MARKET_MISSING
-      - Injury data required (SportsDataIO + ESPN). If missing => NO_PLAY: INJURY_DATA_MISSING
-      - Edge computed from expected_total - market_total
-      - NO_EDGE only when |edge| < threshold (never due to missing data)
-      - Evidence fields: sources, fetched_at, data_coverage, missing_fields
+    Production-grade FAZ-13
+    - Real providers only (ESPN + SportsDataIO)
+    - Market total via FAZ-17 (Odds API)
+    - Injury data required (SportsDataIO + ESPN)
+    - Edge math: expected_total - market_total
+    - NO_EDGE only when |edge| < threshold
+    - Evidence: sources, fetched_at, data_coverage, missing_fields
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        api_sports_key: Optional[str] = None,
+        api_sports_base: Optional[str] = None,
+        baseline_store: Optional[Any] = None,
+        min_baseline_games: int = 6,
+    ) -> None:
+        # main.py uyumu için kabul edilir; FAZ-13 core'da zorunlu değil
+        self.api_sports_key = api_sports_key
+        self.api_sports_base = api_sports_base
+        self.baseline_store = baseline_store
+        self.min_baseline_games = int(min_baseline_games)
+
         self.espn = ESPNAdapter()
         self.sd = SportsDataIOAdapter()
         self.faz17 = Faz17Engine()
@@ -156,6 +165,7 @@ class Faz13Engine:
 
     @staticmethod
     def _risk_label(confidence_pct: float, abs_edge: float, edge_threshold: float) -> str:
+        # confidence component
         if confidence_pct >= 80:
             c_score = 0.15
         elif confidence_pct >= 65:
@@ -165,6 +175,7 @@ class Faz13Engine:
         else:
             c_score = 0.75
 
+        # edge clarity component
         if edge_threshold <= 0:
             e_score = 1.0
         else:
@@ -185,13 +196,9 @@ class Faz13Engine:
 
     @staticmethod
     def _injury_penalty(injuries: List[Dict[str, Any]]) -> float:
-        """
-        Purely data-driven on injury statuses. No fake player baselines.
-        Returns points penalty to apply to expected_total (negative reduces total).
-        """
+        # data-driven penalty based on statuses only (no fabricated players/values)
         if not injuries:
             return 0.0
-
         w = 0.0
         for it in injuries:
             st = str(it.get("status", "") or "").lower()
@@ -223,7 +230,7 @@ class Faz13Engine:
         missing_fields: List[str] = []
         notes: List[str] = [f"Season: {season}", "TEAM-FIRST mode (MULTI-SOURCE)"]
 
-        # ---- Market total (required)
+        # ---- MARKET (required)
         market = await self.faz17.fetch_market_total(
             MarketRequest(league=req.league, date_str=req.date_str, home=req.home, away=req.away)
         )
@@ -249,6 +256,8 @@ class Faz13Engine:
                     "risk": "NO_PLAY",
                     "confidence_pct": 0.0,
                     "confidence_raw": 0.0,
+                    "edge_value": None,
+                    "edge_threshold": None,
                     "fetched_at": fetched_at,
                     "data_coverage": data_coverage,
                     "missing_fields": missing_fields,
@@ -262,9 +271,9 @@ class Faz13Engine:
         market_total = float(market["total"])
         data_coverage["market"] = True
 
-        # ---- Resolve ESPN team keys
-        home_abbr = await self.espn._espn_resolve_abbr(req.home)  # type: ignore[attr-defined]
-        away_abbr = await self.espn._espn_resolve_abbr(req.away)  # type: ignore[attr-defined]
+        # ---- TEAM KEYS (ESPN abbr)
+        home_abbr = await self.espn._espn_resolve_abbr(req.home)
+        away_abbr = await self.espn._espn_resolve_abbr(req.away)
         notes.append(f"ESPN abbr: home={home_abbr} away={away_abbr}")
 
         if not home_abbr:
@@ -292,6 +301,8 @@ class Faz13Engine:
                     "risk": "NO_PLAY",
                     "confidence_pct": 0.0,
                     "confidence_raw": 0.0,
+                    "edge_value": None,
+                    "edge_threshold": None,
                     "fetched_at": fetched_at,
                     "data_coverage": data_coverage,
                     "missing_fields": missing_fields,
@@ -302,12 +313,12 @@ class Faz13Engine:
                 },
             )
 
-        # ---- Team baseline from real providers
+        # ---- BASELINES (real providers only)
         home_rows: List[Dict[str, Any]] = []
         away_rows: List[Dict[str, Any]] = []
 
-        espn_home = await self.espn.fetch_team_baseline(home_abbr)  # type: ignore[attr-defined]
-        espn_away = await self.espn.fetch_team_baseline(away_abbr)  # type: ignore[attr-defined]
+        espn_home = await self.espn.fetch_team_baseline(home_abbr)
+        espn_away = await self.espn.fetch_team_baseline(away_abbr)
         if espn_home:
             home_rows.append(espn_home)
         if espn_away:
@@ -348,6 +359,8 @@ class Faz13Engine:
                     "risk": "NO_PLAY",
                     "confidence_pct": 0.0,
                     "confidence_raw": 0.0,
+                    "edge_value": None,
+                    "edge_threshold": None,
                     "fetched_at": fetched_at,
                     "data_coverage": data_coverage,
                     "missing_fields": missing_fields,
@@ -359,14 +372,12 @@ class Faz13Engine:
             )
 
         data_coverage["team_stats"] = True
-
         sources_home = home_base.get("sources", [])
         sources_away = away_base.get("sources", [])
-
         notes.append(f"Sources(home)={', '.join(sources_home)}")
         notes.append(f"Sources(away)={', '.join(sources_away)}")
 
-        # ---- Injury data (required) from SportsDataIO + ESPN
+        # ---- INJURIES (required): SportsDataIO + ESPN
         inj_sources_home: List[str] = []
         inj_sources_away: List[str] = []
 
@@ -377,14 +388,13 @@ class Faz13Engine:
         if sd_inj_away is not None:
             inj_sources_away.append("SPORTSDATAIO")
 
-        espn_inj_home = await self.espn.fetch_team_injuries(home_abbr)  # type: ignore[attr-defined]
-        espn_inj_away = await self.espn.fetch_team_injuries(away_abbr)  # type: ignore[attr-defined]
+        espn_inj_home = await self.espn.fetch_team_injuries(home_abbr)
+        espn_inj_away = await self.espn.fetch_team_injuries(away_abbr)
         if espn_inj_home is not None:
             inj_sources_home.append("ESPN")
         if espn_inj_away is not None:
             inj_sources_away.append("ESPN")
 
-        # Require at least one injury source per team (NBA)
         if not inj_sources_home:
             missing_fields.append("home_injury_data")
         if not inj_sources_away:
@@ -410,6 +420,8 @@ class Faz13Engine:
                     "risk": "NO_PLAY",
                     "confidence_pct": 0.0,
                     "confidence_raw": 0.0,
+                    "edge_value": None,
+                    "edge_threshold": None,
                     "fetched_at": fetched_at,
                     "data_coverage": data_coverage,
                     "missing_fields": missing_fields,
@@ -422,12 +434,12 @@ class Faz13Engine:
 
         data_coverage["injuries"] = True
 
-        # ---- Injury penalty (data-driven) from SportsDataIO injuries list (primary)
+        # Injury penalty uses SportsDataIO list only (more structured)
         home_inj_list = (sd_inj_home or {}).get("injuries", []) if sd_inj_home else []
         away_inj_list = (sd_inj_away or {}).get("injuries", []) if sd_inj_away else []
         inj_penalty = self._injury_penalty(home_inj_list) + self._injury_penalty(away_inj_list)
 
-        # ---- Expected totals from baseline
+        # ---- EXPECTED TOTAL (real data only)
         h_pf = float(home_base["pts_for"])
         h_pa = float(home_base["pts_against"])
         a_pf = float(away_base["pts_for"])
@@ -436,17 +448,15 @@ class Faz13Engine:
         home_mu = (h_pf + a_pa) / 2.0
         away_mu = (a_pf + h_pa) / 2.0
         expected_total_raw = home_mu + away_mu
-        expected_total = expected_total_raw + inj_penalty  # injury-adjusted expectation
+        expected_total = expected_total_raw + inj_penalty
 
         total_band = (int(expected_total - profile.band_hw_total), int(expected_total + profile.band_hw_total))
         home_band = (int(home_mu - profile.band_hw_team), int(home_mu + profile.band_hw_team))
         away_band = (int(away_mu - profile.band_hw_team), int(away_mu + profile.band_hw_team))
 
-        # ---- Confidence (consistent)
         conf_raw = min(float(home_base.get("confidence", 0.0)), float(away_base.get("confidence", 0.0)))
         confidence_pct = round(conf_raw * 100.0, 1)
 
-        # ---- Edge
         edge_value = expected_total - market_total
         edge_threshold = self._edge_threshold(conf_raw, profile.band_hw_total)
 
@@ -457,10 +467,12 @@ class Faz13Engine:
         else:
             ou_direction = "NO_EDGE"
 
-        # ---- Risk (consistent with confidence + edge clarity)
         risk = self._risk_label(confidence_pct, abs(edge_value), edge_threshold)
 
-        notes.append(f"Model E[total]={expected_total:.1f} | Market total={market_total:.1f} | Edge={edge_value:+.1f} | Thr={edge_threshold:.1f}")
+        notes.append(
+            f"Model E[total]={expected_total:.1f} | Market total={market_total:.1f} | "
+            f"Edge={edge_value:+.1f} | Thr={edge_threshold:.1f}"
+        )
         if inj_penalty != 0.0:
             notes.append(f"Injury penalty applied: {inj_penalty:+.1f} (SportsDataIO)")
 
