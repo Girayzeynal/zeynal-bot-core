@@ -1,15 +1,12 @@
 """
-Faz13_engine package initialisation.
+faz13_engine package initialization.
 
-This file ensures that any optional type hints used within the package
-are properly imported to avoid ``NameError`` when the package is loaded.
-It also re-exports the primary classes used by external callers.
+This package exposes the FAZ-13 core engine and its primary data models.
 """
 
-from typing import Optional, Dict  # Optional and Dict imported for type hints
+from typing import Optional, Dict
 
-# Re-export key classes from the submodule. Importing here makes them available
-# at the package level, e.g. ``from faz13_engine import Faz13Engine``.
+# Re-export main engine and core data models
 from .faz13_engine import (
     Faz13Engine,
     PrematchRequest,
