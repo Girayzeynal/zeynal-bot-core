@@ -1,5 +1,3 @@
-# providers/espn_adapter.py
-
 from __future__ import annotations
 
 import asyncio
@@ -8,13 +6,17 @@ import os
 import re
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba"
 
+
+# =====================================================
+# CACHE
+# =====================================================
 
 @dataclass
 class _CacheEntry:
@@ -40,16 +42,31 @@ class _TTLCache:
         self._data[key] = _CacheEntry(time.time(), value)
 
 
+# =====================================================
+# HELPERS
+# =====================================================
+
 def _norm(s: str) -> str:
     return " ".join((s or "").strip().lower().replace("-", " ").replace("_", " ").split())
 
 
+# =====================================================
+# ESPN ADAPTER
+# =====================================================
+
 class ESPNAdapter:
     """
-    ESPN provider (no API key).
-    Provides:
-      - team baseline (avgPointsFor/avgPointsAgainst) via /teams/{abbr}
-      - injury data via ESPN team injury page (HTML) resolved from /teams directory
+    ESPN provider adapter (NO API KEY).
+
+    Responsibilities:
+      - Team baseline (avgPointsFor / avgPointsAgainst)
+      - Injury information (parsed from ESPN injury pages)
+      - Caching + retry + backoff
+
+    This adapter:
+      - NEVER fabricates data
+      - NEVER computes edge / risk
+      - ONLY returns raw provider data
     """
 
     name = "ESPN"
@@ -57,10 +74,19 @@ class ESPNAdapter:
 
     def __init__(self) -> None:
         self._session: Optional[aiohttp.ClientSession] = None
-        self._cache = _TTLCache(ttl_sec=int(os.getenv("ESPN_CACHE_TTL_SEC", "900")))  # 15m
-        self._teams_cache_ttl = int(os.getenv("ESPN_TEAMS_TTL_SEC", "21600"))  # 6h
-        self._teams_cache = _TTLCache(ttl_sec=self._teams_cache_ttl)
+
+        self._cache = _TTLCache(
+            ttl_sec=int(os.getenv("ESPN_CACHE_TTL_SEC", "900"))  # 15 min
+        )
+        self._teams_cache = _TTLCache(
+            ttl_sec=int(os.getenv("ESPN_TEAMS_TTL_SEC", "21600"))  # 6h
+        )
+
         self._disk_cache_dir = (os.getenv("FAZ_CACHE_DIR") or "").strip()
+
+    # -------------------------------------------------
+    # HTTP
+    # -------------------------------------------------
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session and not self._session.closed:
@@ -73,7 +99,9 @@ class ESPNAdapter:
         if self._session and not self._session.closed:
             await self._session.close()
 
-    async def _request_json(self, url: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    async def _request_json(
+        self, url: str, params: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
         cache_key = f"json:{url}:{json.dumps(params, sort_keys=True) if params else ''}"
         cached = self._cache.get(cache_key)
         if cached is not None:
@@ -83,6 +111,7 @@ class ESPNAdapter:
         if self._disk_cache_dir:
             safe = re.sub(r"[^a-zA-Z0-9_.-]+", "_", cache_key)[:180]
             disk_key = os.path.join(self._disk_cache_dir, f"{safe}.json")
+
             try:
                 if os.path.exists(disk_key):
                     if (time.time() - os.path.getmtime(disk_key)) <= self._cache.ttl_sec:
@@ -94,7 +123,7 @@ class ESPNAdapter:
                 pass
 
         backoff = 0.6
-        for attempt in range(4):
+        for _ in range(4):
             try:
                 s = await self._get_session()
                 async with s.get(url, params=params) as resp:
@@ -106,6 +135,7 @@ class ESPNAdapter:
                         return None
                     data = await resp.json()
                     self._cache.set(cache_key, data)
+
                     if disk_key:
                         try:
                             os.makedirs(self._disk_cache_dir, exist_ok=True)
@@ -113,10 +143,12 @@ class ESPNAdapter:
                                 json.dump(data, f)
                         except Exception:
                             pass
+
                     return data
             except Exception:
                 await asyncio.sleep(backoff)
                 backoff *= 1.7
+
         return None
 
     async def _request_text(self, url: str) -> Optional[str]:
@@ -129,6 +161,7 @@ class ESPNAdapter:
         if self._disk_cache_dir:
             safe = re.sub(r"[^a-zA-Z0-9_.-]+", "_", cache_key)[:180]
             disk_key = os.path.join(self._disk_cache_dir, f"{safe}.txt")
+
             try:
                 if os.path.exists(disk_key):
                     if (time.time() - os.path.getmtime(disk_key)) <= self._cache.ttl_sec:
@@ -140,7 +173,7 @@ class ESPNAdapter:
                 pass
 
         backoff = 0.6
-        for attempt in range(4):
+        for _ in range(4):
             try:
                 s = await self._get_session()
                 async with s.get(url) as resp:
@@ -152,6 +185,7 @@ class ESPNAdapter:
                         return None
                     txt = await resp.text()
                     self._cache.set(cache_key, txt)
+
                     if disk_key:
                         try:
                             os.makedirs(self._disk_cache_dir, exist_ok=True)
@@ -159,17 +193,27 @@ class ESPNAdapter:
                                 f.write(txt)
                         except Exception:
                             pass
+
                     return txt
             except Exception:
                 await asyncio.sleep(backoff)
                 backoff *= 1.7
+
         return None
+
+    # -------------------------------------------------
+    # TEAM BASELINE
+    # -------------------------------------------------
 
     async def fetch_team_baseline(self, team_abbr: str) -> Optional[Dict[str, Any]]:
         """
-        Returns:
+        Returns (or None):
           {
-            pts_for, pts_against, confidence, source, fetched_at
+            "pts_for": float,
+            "pts_against": float,
+            "confidence": float (0..1),
+            "source": "ESPN",
+            "fetched_at": int
           }
         """
         abbr = (team_abbr or "").strip().lower()
@@ -199,20 +243,23 @@ class ESPNAdapter:
             "fetched_at": int(time.time()),
         }
 
+    # -------------------------------------------------
+    # INJURIES
+    # -------------------------------------------------
+
     async def _get_teams_directory(self) -> Optional[Dict[str, Any]]:
         cached = self._teams_cache.get("nba_teams_dir")
         if cached is not None:
             return cached
+
         js = await self._request_json(f"{ESPN_BASE}/teams")
         if not js:
             return None
+
         self._teams_cache.set("nba_teams_dir", js)
         return js
 
     async def resolve_team_injury_url(self, team_abbr: str) -> Optional[str]:
-        """
-        Returns ESPN injury page URL for the team by reading the teams directory.
-        """
         abbr = (team_abbr or "").strip().lower()
         if not abbr:
             return None
@@ -229,10 +276,9 @@ class ESPNAdapter:
 
         for t in teams:
             team = (t or {}).get("team") or {}
-            if str(team.get("abbreviation", "")).lower() != abbr.upper().lower():
+            if str(team.get("abbreviation", "")).lower() != abbr:
                 continue
-            links = team.get("links", []) or []
-            for lk in links:
+            for lk in team.get("links", []) or []:
                 rel = lk.get("rel", []) or []
                 href = lk.get("href")
                 if href and "injuries" in rel:
@@ -241,41 +287,36 @@ class ESPNAdapter:
 
     @staticmethod
     def _parse_injuries_html(html_text: str) -> List[Dict[str, Any]]:
-        """
-        ESPN team injury pages are HTML. We extract a structured list using conservative parsing:
-        - This is NOT fabricated data; it’s parsed from the page content.
-        """
         if not html_text:
             return []
 
-        # Normalize whitespace
         txt = re.sub(r"\s+", " ", html_text)
-
-        # A conservative pattern around "Status" occurrences is unreliable; instead:
-        # We parse rows around "Status" labels if present.
-        # We'll extract player names + status keywords if found.
         status_keywords = r"(Out|Day-To-Day|Questionable|Probable|Doubtful)"
-        # A heuristic: "Status <keyword>" appears in the page snippet for team injury pages.
-        pattern = re.compile(r"([A-Z][A-Za-z\.\-\' ]{2,35})\s+[A-Z]{0,2}\s*Status\s+(" + status_keywords + r")", re.IGNORECASE)
+        pattern = re.compile(
+            r"([A-Z][A-Za-z\.\-\' ]{2,35})\s+[A-Z]{0,2}\s*Status\s+(" + status_keywords + r")",
+            re.IGNORECASE,
+        )
 
-        out: List[Dict[str, Any]] = []
+        injuries: List[Dict[str, Any]] = []
         for m in pattern.finditer(txt):
-            name = m.group(1).strip()
-            status = m.group(2).strip()
-            out.append({"player": name, "status": status})
-
-        # If pattern yields nothing, still treat page as present but unknown format
-        return out
+            injuries.append(
+                {
+                    "player": m.group(1).strip(),
+                    "status": m.group(2).strip(),
+                }
+            )
+        return injuries
 
     async def fetch_team_injuries(self, team_abbr: str) -> Optional[Dict[str, Any]]:
         """
-        Returns:
+        Returns (or None):
           {
             "source": "ESPN",
-            "team_abbr": "...",
-            "injuries": [ {player, status, ...}, ... ],
+            "team_abbr": "BKN",
+            "injuries": [ {player, status}, ... ],
             "injury_count": int,
-            "fetched_at": int
+            "fetched_at": int,
+            "url": str
           }
         """
         url = await self.resolve_team_injury_url(team_abbr)
@@ -294,4 +335,4 @@ class ESPNAdapter:
             "injury_count": len(injuries),
             "fetched_at": int(time.time()),
             "url": url,
-        }
+                } 
