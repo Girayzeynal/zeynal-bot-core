@@ -2,60 +2,68 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-
 if TYPE_CHECKING:
     from faz13_engine.faz13_engine import Faz13CoreOutput
 
 
 class Faz22Engine:
+    """
+    FAZ-22 FINAL ENGINE
+
+    - FAZ-13 meta'yı KORUR
+    - Confidence / risk'i override ETMEZ
+    - Sadece eksik alanları tamamlar
+    - DEGRADED_MODE'a saygı duyar
+    """
+
     def score_and_finalize(self, core: "Faz13CoreOutput") -> "Faz13CoreOutput":
-        """
-        FAZ-22 scoring + meta enrichment.
-        Bu versiyon, sezon edge-case’ini NBA resolver ile temiz şekilde geçirir.
-        """
+        meta = core.meta  # ❗ COPY YOK — DOĞRUDAN REFERANS
 
-        total_low, total_high = core.total_band
-        sim_mean = core.meta.get("sim_mean")
-        sim_std = core.meta.get("sim_std")
-
-        meta = core.meta.copy()
+        # -------------------------------------------------
+        # SIMULATION (varsa koru)
+        # -------------------------------------------------
+        sim_mean = meta.get("sim_mean")
+        sim_std = meta.get("sim_std")
 
         if sim_mean is not None:
-            expected = sim_mean
-        else:
-            expected = (total_low + total_high) / 2
+            meta["sim_mean"] = sim_mean
+        if sim_std is not None:
+            meta["sim_std"] = sim_std
 
-        # NBA resolver signal
-        season_resolved = bool(meta.get("season"))
+        # -------------------------------------------------
+        # CONFIDENCE / RISK
+        # -------------------------------------------------
+        # Eğer FAZ-13 zaten hesapladıysa ASLA dokunma
+        if "confidence_pct" in meta and "risk" in meta:
+            return core
 
-        # confidence hesaplama
+        # Fallback (sadece hiç yoksa)
         try:
-            center = expected
-            width = (total_high - total_low) / 2
-            if width > 0:
-                confidence = float(1.0 - abs(center - expected) / width) * 100
-            else:
-                confidence = 10.0
+            total_low, total_high = core.total_band
+            width = max(1.0, (total_high - total_low) / 2.0)
+            expected = sim_mean if sim_mean is not None else (total_low + total_high) / 2.0
+            center = (total_low + total_high) / 2.0
+
+            confidence_pct = max(
+                5.0,
+                min(95.0, (1.0 - abs(expected - center) / width) * 100.0),
+            )
         except Exception:
-            confidence = 10.0
+            confidence_pct = 10.0
 
-        risk = "LOW" if confidence >= 50 else "HIGH"
+        meta.setdefault("confidence_pct", round(confidence_pct, 1))
 
-        # Eğer sezon resolved olarak geldiyse artık NO_PLAY kilidini aç
-        if season_resolved:
-            # override risk thresholds
-            risk = risk
+        # Risk mapping (modern)
+        if meta.get("degraded_mode"):
+            risk = "HIGH"
         else:
-            # fallback
-            risk = "NO_PLAY"
+            if confidence_pct >= 75:
+                risk = "LOW"
+            elif confidence_pct >= 55:
+                risk = "MEDIUM"
+            else:
+                risk = "HIGH"
 
-        meta.update({
-            "sim_mean": sim_mean,
-            "sim_std": sim_std,
-            "confidence": confidence,
-            "risk": risk,
-        })
+        meta.setdefault("risk", risk)
 
-        core.meta = meta
-        return core
+        return core 
