@@ -185,4 +185,4 @@ class Faz22Engine:
         lines.append("Herhangi bir şekilde bahis tavsiyesi değildir.")
         lines.append("İstatistiksel veriler ve model projeksiyonlarına dayanır.")
 
-        return lines 
+        return lines  
