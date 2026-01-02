@@ -3,23 +3,35 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict, Optional, List
 
 if TYPE_CHECKING:
-    from faz13_engine.faz13_engine import Faz13CoreOutput
+    from faz13_engine import Faz13CoreOutput
 
 
 class Faz22Engine:
     """
-    FAZ-22 v2.2 — STRONG SIDE FILTER (ANALYSIS / SIMULATION MODE)
+    FAZ-22 v3 — STRONG SIDE FILTER (ANALYSIS / SIMULATION MODE)
 
     - Zorla tahmin YOK
     - Bahis dili YOK
-    - Sadece güçlü istatistiksel yönler raporlanır
-    - Analiz ve simülasyon amaçlıdır
+    - Sadece güçlü istatistiksel sinyal varsa konuşur
+    - 1Y / 2Y / MS / Q1–Q4 ayrı ayrı değerlendirilir
+    - İnsan okunur Telegram çıktısı üretir
     """
 
-    EDGE_MIN_1H = 4.0
-    EDGE_MIN_2H = 4.0
+    # -------------------------
+    # CONFIG (tunable thresholds)
+    # -------------------------
     CONF_MIN = 70.0
 
+    EDGE_MIN = {
+        "1Y": 4.0,
+        "2Y": 4.0,
+        "MS": 6.0,
+        "Q": 3.0,   # Q1–Q4
+    }
+
+    # -------------------------
+    # HELPERS
+    # -------------------------
     @staticmethod
     def _safe_float(v: Any) -> Optional[float]:
         try:
@@ -28,18 +40,23 @@ class Faz22Engine:
             return None
 
     @staticmethod
-    def _dir(edge: float) -> str:
+    def _direction(edge: float) -> str:
         return "ÜST" if edge > 0 else "ALT"
 
-    def _evaluate_half(
+    # -------------------------
+    # CORE STRONG-SIDE CHECK
+    # -------------------------
+    def _evaluate(
         self,
-        name: str,
+        label: str,
         expected: Optional[float],
         market: Optional[float],
         confidence: Optional[float],
         edge_min: float,
     ) -> Optional[Dict[str, Any]]:
-
+        """
+        Returns dict if STRONG, else None
+        """
         if expected is None or market is None or confidence is None:
             return None
 
@@ -52,47 +69,92 @@ class Faz22Engine:
             return None
 
         return {
-            "half": name,
+            "label": label,
             "expected": round(expected, 1),
             "market": round(market, 1),
             "edge": round(edge, 1),
-            "direction": self._dir(edge),
+            "direction": self._direction(edge),
             "confidence": round(confidence, 1),
         }
 
+    # -------------------------
+    # PUBLIC API
+    # -------------------------
     def score_and_finalize(self, core: "Faz13CoreOutput") -> "Faz13CoreOutput":
         meta = core.meta
+        notes: List[str] = []
 
-        conf = self._safe_float(meta.get("confidence_pct"))
-        market_1h = self._safe_float(meta.get("market_1h"))
-        market_2h = self._safe_float(meta.get("market_2h"))
-        exp_1h = self._safe_float(meta.get("expected_1h"))
-        exp_2h = self._safe_float(meta.get("expected_2h"))
+        confidence = self._safe_float(meta.get("confidence_pct"))
+        market_total = self._safe_float(meta.get("market_total"))
 
-        decisions: List[Dict[str, Any]] = []
+        strong_signals: List[Dict[str, Any]] = []
 
-        d1 = self._evaluate_half("İLK YARI", exp_1h, market_1h, conf, self.EDGE_MIN_1H)
-        if d1:
-            decisions.append(d1)
+        # ---- MAÇ SONU ----
+        ms = self._evaluate(
+            "MAÇ SONU",
+            self._safe_float(meta.get("expected_total")),
+            market_total,
+            confidence,
+            self.EDGE_MIN["MS"],
+        )
+        if ms:
+            strong_signals.append(ms)
 
-        d2 = self._evaluate_half("İKİNCİ YARI", exp_2h, market_2h, conf, self.EDGE_MIN_2H)
-        if d2:
-            decisions.append(d2)
+        # ---- İLK YARI ----
+        y1 = self._evaluate(
+            "İLK YARI",
+            self._safe_float(meta.get("expected_1h")),
+            market_total / 2 if market_total else None,
+            confidence,
+            self.EDGE_MIN["1Y"],
+        )
+        if y1:
+            strong_signals.append(y1)
 
-        meta["half_analysis"] = decisions
-        meta["analysis_status"] = "STRONG_SIGNAL" if decisions else "NO_STRONG_SIGNAL"
+        # ---- İKİNCİ YARI ----
+        y2 = self._evaluate(
+            "İKİNCİ YARI",
+            self._safe_float(meta.get("expected_2h")),
+            market_total / 2 if market_total else None,
+            confidence,
+            self.EDGE_MIN["2Y"],
+        )
+        if y2:
+            strong_signals.append(y2)
 
-        if not decisions:
+        # ---- PERİYOTLAR ----
+        for q in ("q1", "q2", "q3", "q4"):
+            exp_q = self._safe_float(meta.get(f"expected_{q}"))
+            q_res = self._evaluate(
+                q.upper(),
+                exp_q,
+                market_total / 4 if market_total else None,
+                confidence,
+                self.EDGE_MIN["Q"],
+            )
+            if q_res:
+                strong_signals.append(q_res)
+
+        # ---- META WRITE (NON-DESTRUCTIVE) ----
+        meta["strong_signals"] = strong_signals
+        meta["analysis_status"] = "STRONG_SIGNAL" if strong_signals else "NO_STRONG_SIGNAL"
+
+        if not strong_signals:
             meta["uncertainty_level"] = "YÜKSEK"
-        elif len(decisions) == 1:
+        elif len(strong_signals) == 1:
             meta["uncertainty_level"] = "ORTA"
         else:
             meta["uncertainty_level"] = "DÜŞÜK"
 
-        core.notes = self.render_user_summary(core)
+        # ---- TELEGRAM SUMMARY ----
+        core.notes = self._render_summary(core)
+
         return core
 
-    def render_user_summary(self, core: "Faz13CoreOutput") -> List[str]:
+    # -------------------------
+    # TELEGRAM OUTPUT (HUMAN)
+    # -------------------------
+    def _render_summary(self, core: "Faz13CoreOutput") -> List[str]:
         ctx = core.ctx
         meta = core.meta
         lines: List[str] = []
@@ -101,19 +163,19 @@ class Faz22Engine:
         lines.append(f"🗓 {ctx.date}")
         lines.append("")
 
-        decisions = meta.get("half_analysis") or []
+        signals = meta.get("strong_signals") or []
 
-        if not decisions:
+        if not signals:
             lines.append("📉 Güçlü bir istatistiksel yön tespit edilmedi.")
             lines.append("Bu karşılaşma analiz kapsamında izleme listesindedir.")
         else:
-            for d in decisions:
-                lines.append(f"📊 {d['half']} Analizi")
-                lines.append(f"• Beklenen Toplam: {d['expected']}")
-                lines.append(f"• Market Referansı: {d['market']}")
-                lines.append(f"• Sapma (Edge): {d['edge']}")
-                lines.append(f"📌 İstatistiksel Yön: {d['half']} {d['direction']}")
-                lines.append(f"🔐 Model Güveni: {d['confidence']}%")
+            for s in signals:
+                lines.append(f"📊 {s['label']} Analizi")
+                lines.append(f"• Beklenen Toplam: {s['expected']}")
+                lines.append(f"• Market Referansı: {s['market']}")
+                lines.append(f"• Sapma (Edge): {s['edge']}")
+                lines.append(f"📌 İstatistiksel Yön: {s['label']} {s['direction']}")
+                lines.append(f"🔐 Model Güveni: {s['confidence']}%")
                 lines.append("")
 
             lines.append(f"⚠️ Belirsizlik Seviyesi: {meta.get('uncertainty_level')}")
