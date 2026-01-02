@@ -4,15 +4,13 @@ import os
 import re
 import html
 import logging
+import inspect
 from datetime import datetime
 from typing import Any, Dict, Optional
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# -----
-# Project imports (repo'na göre bu importlar zaten mevcut olmalı)
-# -----
 from baseline.team_baseline_store import TeamBaselineStore
 from faz13_engine import Faz13Engine, PrematchRequest
 from faz16_engine import faz16_run_simulation
@@ -21,9 +19,6 @@ from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 
 
-# ----------------------------
-# LOGGING
-# ----------------------------
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -31,9 +26,6 @@ logging.basicConfig(
 logger = logging.getLogger("zeynal-core")
 
 
-# ----------------------------
-# ENV
-# ----------------------------
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 API_SPORTS_KEY = os.getenv("API_SPORTS_KEY")
@@ -48,22 +40,11 @@ if not TELEGRAM_BOT_TOKEN:
     raise RuntimeError("Missing TELEGRAM_BOT_TOKEN")
 
 
-# ----------------------------
-# HELPERS
-# ----------------------------
 def _parse_date(date_str: str) -> datetime:
     return datetime.strptime(date_str.strip(), "%Y-%m-%d")
 
 
 def nba_season_string(date_str: str) -> tuple[int, str]:
-    """
-    NBA season naming:
-    - Oct..Dec: season starts same year
-    - Jan..Sep: season starts previous year
-    Example:
-      2026-01-02 -> 2025–2026
-      2025-11-10 -> 2025–2026
-    """
     d = _parse_date(date_str)
     start = d.year if d.month >= 10 else d.year - 1
     season_str = f"{start}\u2013{start + 1}"  # en dash
@@ -94,6 +75,16 @@ def _ensure_list_attr(obj: Any, name: str) -> list:
         return []
 
 
+def _safe_float(v: Any) -> Optional[float]:
+    if v is None:
+        return None
+    try:
+        s = str(v).strip().replace(",", ".")
+        return float(s)
+    except Exception:
+        return None
+
+
 def _inject_season(core: Any, league: str, date_str: str) -> None:
     meta = _ensure_dict_attr(core, "meta")
     notes = _ensure_list_attr(core, "notes")
@@ -106,11 +97,9 @@ def _inject_season(core: Any, league: str, date_str: str) -> None:
         season_start = d.year
         season_str = str(d.year)
 
-    # canonical fields
     meta["season"] = season_start
     meta["season_str"] = season_str
 
-    # for renderers that read direct attrs
     try:
         setattr(core, "season", season_start)
     except Exception:
@@ -120,7 +109,6 @@ def _inject_season(core: Any, league: str, date_str: str) -> None:
     except Exception:
         pass
 
-    # clean/replace any old note lines "Season: ..."
     try:
         new_notes = []
         replaced = False
@@ -134,7 +122,6 @@ def _inject_season(core: Any, league: str, date_str: str) -> None:
             new_notes.append(f"Season: {season_str}")
         setattr(core, "notes", new_notes)
     except Exception:
-        # worst-case: append
         try:
             notes.append(f"Season: {season_str}")
         except Exception:
@@ -142,12 +129,6 @@ def _inject_season(core: Any, league: str, date_str: str) -> None:
 
 
 def _apply_degraded_mode(core: Any) -> None:
-    """
-    Eğer data coverage yok/boş/hiç True yoksa:
-      - analiz DURMASIN
-      - kullanıcı DEGRADED_MODE görsün
-      - 0 confidence yerine “degraded” sinyali çıksın
-    """
     meta = _ensure_dict_attr(core, "meta")
     notes = _ensure_list_attr(core, "notes")
 
@@ -160,17 +141,13 @@ def _apply_degraded_mode(core: Any) -> None:
         return
 
     meta["degraded_mode"] = True
-
-    # risk fallback
     if not meta.get("risk"):
         meta["risk"] = "HIGH"
 
-    # NOTE: output kesin görünsün diye not basıyoruz
     notes.append(
         "⚠️ DEGRADED_MODE: Kaynak veriler eksik (team_stats/pace/roster/market). Analiz fallback ile üretildi."
     )
 
-    # confidence 0'a çakılıysa açıklama
     cp = meta.get("confidence_pct")
     try:
         if cp is None or float(cp) <= 0:
@@ -180,19 +157,14 @@ def _apply_degraded_mode(core: Any) -> None:
 
 
 def _set_market_optional(core: Any, reason: str) -> None:
-    # Core'da market field yoksa ekle
     try:
         core.market = {"status": "MARKET_OPTIONAL", "reason": reason}
     except Exception:
-        # meta içine göm
         meta = _ensure_dict_attr(core, "meta")
         meta["market"] = {"status": "MARKET_OPTIONAL", "reason": reason}
 
 
 def _normalize_market_status(core: Any) -> None:
-    """
-    NO_MARKET gibi durumları çıktıda MARKET_OPTIONAL’a çevir.
-    """
     try:
         m = getattr(core, "market", None)
         if isinstance(m, dict):
@@ -205,9 +177,6 @@ def _normalize_market_status(core: Any) -> None:
 
 
 def _parse_analyze_params(raw: str) -> tuple[str, str, str, str]:
-    """
-    /analyze NBA 2026-01-02 Brooklyn Nets vs Houston Rockets
-    """
     params = raw.strip()
     parts = params.split()
     if len(parts) < 4:
@@ -223,7 +192,6 @@ def _parse_analyze_params(raw: str) -> tuple[str, str, str, str]:
         home = " ".join(rest[:idx]).strip()
         away = " ".join(rest[idx + 1 :]).strip()
     else:
-        # fallback: split mid
         mid = len(rest) // 2
         home = " ".join(rest[:mid]).strip()
         away = " ".join(rest[mid:]).strip()
@@ -275,48 +243,101 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("FAZ-13 hata: " + html.escape(str(e)))
         return
 
-    # ✅ Season fix
     _inject_season(core, league, date_str)
 
     # ----------------------------
-    # FAZ-17 (market) — SAFE MODE
+    # FAZ-17 (market) — ✅ KESİN WIRING
     # ----------------------------
+    meta = _ensure_dict_attr(core, "meta")
+    notes = _ensure_list_attr(core, "notes")
+
+    # ensure data_coverage dict exists
+    cov = meta.get("data_coverage")
+    if not isinstance(cov, dict):
+        cov = {}
+        meta["data_coverage"] = cov
+
     try:
-        if hasattr(faz17, "enrich_with_market") and callable(getattr(faz17, "enrich_with_market")):
-            await faz17.enrich_with_market(core)
+        # 1) PRIMARY PATH: async fetch_market_total (en temiz yol)
+        if hasattr(faz17, "fetch_market_total") and callable(getattr(faz17, "fetch_market_total")):
+            m = await faz17.fetch_market_total(
+                {"league": league, "date_str": date_str, "home": home, "away": away}  # fallback if MarketRequest class differs
+            )
+            # Some versions expect MarketRequest dataclass; try that first
         else:
-            _set_market_optional(core, "FAZ17_METHOD_MISSING (safe bypass)")
+            m = None
+
+        # 1b) If the above used dict and failed silently in your version, retry with MarketRequest if available
+        if not isinstance(m, dict):
+            try:
+                if "MarketRequest" in globals() and MarketRequest is not None:
+                    m = await faz17.fetch_market_total(MarketRequest(league=league, date_str=date_str, home=home, away=away))  # type: ignore
+            except Exception:
+                pass
+
+        # 2) SECONDARY PATH: enrich_with_market (sync or async), but NEVER "await sync"
+        if not isinstance(m, dict):
+            if hasattr(faz17, "enrich_with_market") and callable(getattr(faz17, "enrich_with_market")):
+                fn = getattr(faz17, "enrich_with_market")
+                try:
+                    if inspect.iscoroutinefunction(fn):
+                        m = await fn(MarketRequest(league=league, date_str=date_str, home=home, away=away))  # type: ignore
+                    else:
+                        m = fn(MarketRequest(league=league, date_str=date_str, home=home, away=away))  # type: ignore
+                except TypeError:
+                    # some old versions accept core directly
+                    if inspect.iscoroutinefunction(fn):
+                        await fn(core)  # type: ignore
+                        m = getattr(core, "market", None)
+                    else:
+                        fn(core)  # type: ignore
+                        m = getattr(core, "market", None)
+
+        if isinstance(m, dict):
+            # ✅ always attach to core.market
+            try:
+                core.market = m
+            except Exception:
+                pass
+
+            # ✅ THE FIX: market_total MUST be copied into meta
+            mt = _safe_float(m.get("total"))
+            meta["market_total"] = mt
+
+            # coverage flag (this is what your degraded_mode logic relies on)
+            cov["market"] = bool(mt is not None)
+
+        else:
+            _set_market_optional(core, "FAZ17_NO_DATA")
+            cov["market"] = False
+            meta["market_total"] = None
+
     except Exception as e:
         logger.exception("FAZ-17 error")
         _set_market_optional(core, f"FAZ17_EXCEPTION: {e}")
+        cov["market"] = False
+        meta["market_total"] = None
 
     _normalize_market_status(core)
 
     # ----------------------------
-    # FAZ-16 (simulation) — SAFE + OPTIONAL MARKET LINE
+    # FAZ-16 (simulation)
     # ----------------------------
     try:
-        meta = _ensure_dict_attr(core, "meta")
-        notes = _ensure_list_attr(core, "notes")
-
         line = None
-        m = getattr(core, "market", None)
-        if isinstance(m, dict) and isinstance(m.get("total"), (int, float)):
-            line = float(m["total"])
+        mkt = getattr(core, "market", None)
+        if isinstance(mkt, dict):
+            line = _safe_float(mkt.get("total"))
 
-        # total_band bekleniyorsa kullan; yoksa meta’dan/attr’dan fallback
         base_total = None
         if hasattr(core, "total_band") and isinstance(core.total_band, (list, tuple)) and len(core.total_band) >= 2:
             base_total = (float(core.total_band[0]) + float(core.total_band[1])) / 2.0
         else:
-            # fallback: meta total
             bt = meta.get("base_total")
             base_total = float(bt) if isinstance(bt, (int, float)) else 220.0
 
         vol = 15.0
-        # stdev hint yoksa 15
         try:
-            # bazı core modellerinde home_avg/away_avg olabilir
             ha = getattr(core, "home_avg", None)
             aa = getattr(core, "away_avg", None)
             sh = getattr(ha, "stdev_hint", None) if ha else None
@@ -357,7 +378,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ----------------------------
-    # FAZ-23 snapshot (opsiyonel)
+    # FAZ-23 snapshot
     # ----------------------------
     try:
         await faz23.record_snapshot(core)
@@ -394,7 +415,7 @@ def main():
 
     app.add_handler(CommandHandler("analyze", analyze_command))
 
-    logger.info("BOT STARTED — FAZ-CORE FIX ACTIVE (season auto + market safe + degraded mode)")
+    logger.info("BOT STARTED — FAZ-CORE FIX ACTIVE (season auto + market hard-wire + degraded mode)")
     app.run_polling()
 
 
