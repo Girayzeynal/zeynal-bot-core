@@ -147,12 +147,19 @@ def _fallback_aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[st
         if s:
             sources.append(str(s))
 
-    return {
+    out = {
         "pts_for": pts_for,
         "pts_against": pts_against,
         "confidence": total_conf / len(rows),  # 0..1
         "sources": sources,
     }
+
+    # Optional extras (pace etc.)
+    pace_vals = [float(r["pace"]) for r in rows if r.get("pace") is not None]
+    if pace_vals:
+        out["pace"] = sum(pace_vals) / len(pace_vals)
+
+    return out
 
 
 def aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -178,12 +185,9 @@ class SportsDataIOAdapter:
     def __init__(self) -> None:
         self.key = os.getenv("SPORTSDATA_API_KEY", "").strip()
 
-    async def fetch_team_baseline(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
+    async def _fetch_teamseasonstats(self, season_year: str) -> Optional[List[Dict[str, Any]]]:
+        """Tek noktadan TeamSeasonStats çek (baseline + pace aynı endpoint)."""
         if not self.key:
-            return None
-
-        key = (team_key or "").upper().strip()
-        if not key:
             return None
 
         url = f"https://api.sportsdata.io/v3/nba/scores/json/TeamSeasonStats/{season_year}"
@@ -195,8 +199,24 @@ class SportsDataIOAdapter:
                     return None
                 data = await resp.json()
 
+        if isinstance(data, list):
+            return data
+        return None
+
+    async def fetch_team_baseline(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
+        if not self.key:
+            return None
+
+        key = (team_key or "").upper().strip()
+        if not key:
+            return None
+
+        data = await self._fetch_teamseasonstats(season_year)
+        if not data:
+            return None
+
         row = None
-        for x in data or []:
+        for x in data:
             if str(x.get("Key", "")).upper() == key:
                 row = x
                 break
@@ -209,11 +229,65 @@ class SportsDataIOAdapter:
         if pf is None or pa is None:
             return None
 
-        return {
+        out: Dict[str, Any] = {
             "pts_for": float(pf),
             "pts_against": float(pa),
             "confidence": float(self.confidence),
             "source": self.name,
+        }
+
+        # BONUS: pace (possessions per game) — gerçek veri alanları varsa ekle
+        poss = row.get("Possessions")
+        games = row.get("Games")
+        try:
+            if poss is not None and games is not None and float(games) > 0:
+                out["pace"] = float(poss) / float(games)
+        except Exception:
+            pass
+
+        return out
+
+    async def fetch_team_pace(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
+        """
+        Gerçek PACE/POSSESSIONS (SportsDataIO TeamSeasonStats):
+        pace = Possessions / Games
+        """
+        if not self.key:
+            return None
+
+        key = (team_key or "").upper().strip()
+        if not key:
+            return None
+
+        data = await self._fetch_teamseasonstats(season_year)
+        if not data:
+            return None
+
+        row = next((x for x in data if str(x.get("Key", "")).upper() == key), None)
+        if not row:
+            return None
+
+        poss = row.get("Possessions")
+        games = row.get("Games")
+        if poss is None or games is None:
+            return None
+
+        try:
+            poss_f = float(poss)
+            games_i = int(games)
+        except Exception:
+            return None
+
+        if games_i <= 0:
+            return None
+
+        pace = poss_f / games_i
+        return {
+            "pace": float(pace),
+            "possessions": float(poss_f),
+            "games": int(games_i),
+            "source": self.name,
+            "fetched_at": int(time.time()),
         }
 
 
@@ -317,6 +391,17 @@ class Faz13Engine:
         self._espn_alias_cache = {"ts": now, "index": alias_index}
         return alias_index.get(k)
 
+    @staticmethod
+    def _tempo_flag_from_pace(pace: Optional[float]) -> str:
+        # NBA possessions per game kabaca 95-105 bandında döner.
+        if pace is None:
+            return "UNKNOWN"
+        if pace >= 102.0:
+            return "FAST"
+        if pace <= 97.0:
+            return "SLOW"
+        return "NORMAL"
+
     # -----------------------------
     # MAIN
     # -----------------------------
@@ -353,17 +438,29 @@ class Faz13Engine:
             except Exception:
                 notes.append("ESPN: fetch failed")
 
-        # 2) SportsDataIO baseline (uses same team keys as abbreviations, uppercased)
+        # 2) SportsDataIO baseline + pace
+        pace_home: Optional[float] = None
+        pace_away: Optional[float] = None
+
         if req.league.upper() == "NBA":
             sd = SportsDataIOAdapter()
             if home_abbr:
                 r = await sd.fetch_team_baseline(home_abbr.upper(), str(season))
                 if r:
                     home_rows.append(r)
+                p = await sd.fetch_team_pace(home_abbr.upper(), str(season))
+                if p:
+                    pace_home = float(p["pace"])
             if away_abbr:
                 r = await sd.fetch_team_baseline(away_abbr.upper(), str(season))
                 if r:
                     away_rows.append(r)
+                p = await sd.fetch_team_pace(away_abbr.upper(), str(season))
+                if p:
+                    pace_away = float(p["pace"])
+
+        if pace_home is not None and pace_away is not None:
+            notes.append(f"Pace(home)={pace_home:.1f} | Pace(away)={pace_away:.1f}")
 
         home_baseline = aggregate_baseline(home_rows) if home_rows else None
         away_baseline = aggregate_baseline(away_rows) if away_rows else None
@@ -427,19 +524,26 @@ class Faz13Engine:
         notes.append(f"Sources(home)={', '.join(sources_home)}")
         notes.append(f"Sources(away)={', '.join(sources_away)}")
 
+        # tempo flag from pace (mean)
+        pace_mean: Optional[float] = None
+        if pace_home is not None and pace_away is not None:
+            pace_mean = (pace_home + pace_away) / 2.0
+
+        tempo_flag = self._tempo_flag_from_pace(pace_mean)
+
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
 
         return Faz13CoreOutput(
             ctx=ctx,
-            home_avg=TeamAverages(h_pf, h_pa, 1.0, 10.0),
-            away_avg=TeamAverages(a_pf, a_pa, 1.0, 10.0),
+            home_avg=TeamAverages(h_pf, h_pa, float(pace_home or 1.0), 10.0),
+            away_avg=TeamAverages(a_pf, a_pa, float(pace_away or 1.0), 10.0),
             total_band=total_band,
             home_band=home_band,
             away_band=away_band,
             ou_direction="NO_EDGE",
             quarters={},
             blowout_risk="LOW",
-            tempo_flag="NORMAL",
+            tempo_flag=tempo_flag,
             notes=notes,
             market={},
             meta={
@@ -453,5 +557,8 @@ class Faz13Engine:
                 "risk": risk,
                 "sources_home": sources_home,
                 "sources_away": sources_away,
+                "pace_home": pace_home,
+                "pace_away": pace_away,
+                "pace_mean": pace_mean,
             },
         )
