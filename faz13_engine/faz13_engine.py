@@ -671,5 +671,4 @@ class Faz13Engine:
                 "data_coverage": data_coverage,
                 "fetched_at": int(time.time()),
             },
-        )
-```0 
+        ) 
