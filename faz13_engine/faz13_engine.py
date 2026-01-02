@@ -288,10 +288,6 @@ class SportsDataIOAdapter:
 
 # =====================================================
 # FAZ-13 ENGINE (REF-BASED FINAL BUILD)
-# - Legacy output preserved
-# - Market edge wired correctly (market_total now filled)
-# - Periyot bandı eklendi
-# - Confidence curve tightened
 # =====================================================
 
 class Faz13Engine:
@@ -331,6 +327,17 @@ class Faz13Engine:
             return f"{y}-{y+1}"  # 2025-2026
         except Exception:
             return season_start
+
+    # ✅ PATCH: safe float normalizer (fixes market_total None while market.total exists)
+    @staticmethod
+    def _safe_float(v: Any) -> Optional[float]:
+        if v is None:
+            return None
+        try:
+            s = str(v).strip().replace(",", ".")
+            return float(s)
+        except Exception:
+            return None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self.session and not self.session.closed:
@@ -555,7 +562,7 @@ class Faz13Engine:
         conf_tight = self._tight_confidence(conf_raw)
         confidence_pct = round(conf_tight * 100.0, 1)
 
-        # risk: tighten means 50% should not be LOW
+        # risk: 50% should not be LOW
         if confidence_pct >= 82.0:
             risk = "LOW"
         elif confidence_pct >= 62.0:
@@ -573,7 +580,7 @@ class Faz13Engine:
         tempo_flag = self._tempo_flag_from_pace(pace_mean)
         quarters = self._quarters_band(expected_total, profile.band_hw_total, tempo_flag)
 
-        # market edge (wired)
+        # market edge (wired) ✅
         market: Dict[str, Any] = {}
         market_total: Optional[float] = None
         edge_value: Optional[float] = None
@@ -586,12 +593,14 @@ class Faz13Engine:
                 )
                 if isinstance(m, dict):
                     market = m
-                    if m.get("total") is not None:
-                        market_total = float(m["total"])
+                    market_total = self._safe_float(m.get("total"))
             except Exception:
                 market = {"status": "MARKET_OPTIONAL", "reason": "FAZ17_EXCEPTION"}
 
-        # ✅ FIX: market_total present => mark coverage true
+        # ✅ SIGORTA: market dict'te total varsa market_total mutlaka dolar
+        if market_total is None and isinstance(market, dict):
+            market_total = self._safe_float(market.get("total"))
+
         data_coverage = {
             "team_stats": True,
             "pace": True,
