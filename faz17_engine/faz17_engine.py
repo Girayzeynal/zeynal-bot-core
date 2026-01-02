@@ -186,15 +186,3 @@ class Faz17Engine:
                 pass
 
         return result
-
-    def enrich_with_market(self, market_request: MarketRequest) -> Dict[str, Any]:
-        try:
-            return asyncio.run(self.fetch_market_total(market_request))
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            try:
-                asyncio.set_event_loop(loop)
-                return loop.run_until_complete(self.fetch_market_total(market_request))
-            finally:
-                asyncio.set_event_loop(None)
-                loop.close()
