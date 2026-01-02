@@ -241,3 +241,47 @@ class SportsDataIOAdapter:
             "injury_count": len(injuries),
             "fetched_at": int(time.time()),
         }
+
+       async def fetch_team_pace(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
+        """
+        REAL pace / possessions from TeamSeasonStats
+        pace = Possessions / Games
+        """
+        if not self.api_key:
+            return None
+
+        key = (team_key or "").upper().strip()
+        if not key:
+            return None
+
+        url = f"{SPORTSDATA_BASE}/TeamSeasonStats/{season_year}"
+        data = await self._request_json(url)
+        if not isinstance(data, list):
+            return None
+
+        row = next((x for x in data if str(x.get("Key", "")).upper() == key), None)
+        if not row:
+            return None
+
+        poss = row.get("Possessions")
+        games = row.get("Games")
+        if poss is None or games is None:
+            return None
+
+        try:
+            poss_f = float(poss)
+            games_i = int(games)
+        except Exception:
+            return None
+
+        if games_i <= 0:
+            return None
+
+        return {
+            "source": self.name,
+            "team_key": key,
+            "pace": poss_f / games_i,
+            "possessions": poss_f,
+            "games": games_i,
+            "fetched_at": int(time.time()),
+        }
