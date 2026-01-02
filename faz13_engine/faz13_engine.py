@@ -328,7 +328,6 @@ class Faz13Engine:
         except Exception:
             return season_start
 
-    # ✅ PATCH: safe float normalizer (fixes market_total None while market.total exists)
     @staticmethod
     def _safe_float(v: Any) -> Optional[float]:
         if v is None:
@@ -441,7 +440,6 @@ class Faz13Engine:
         home_abbr: Optional[str] = None
         away_abbr: Optional[str] = None
 
-        # ESPN baseline
         if req.league.upper() == "NBA" and ESPNAdapter is not None:
             try:
                 espn = ESPNAdapter()
@@ -462,7 +460,6 @@ class Faz13Engine:
             except Exception:
                 notes.append("ESPN: fetch failed")
 
-        # SportsDataIO baseline + pace
         pace_home: Optional[float] = None
         pace_away: Optional[float] = None
 
@@ -514,7 +511,6 @@ class Faz13Engine:
                 },
             )
 
-        # pace fallback chain
         if pace_home is None:
             try:
                 v = home_baseline.get("pace")
@@ -543,7 +539,6 @@ class Faz13Engine:
 
         notes.append(f"Pace(home)={pace_home:.1f} | Pace(away)={pace_away:.1f}")
 
-        # expected totals
         h_pf = float(home_baseline["pts_for"])
         h_pa = float(home_baseline["pts_against"])
         a_pf = float(away_baseline["pts_for"])
@@ -557,12 +552,10 @@ class Faz13Engine:
         home_band = (int(home_mu - profile.band_hw_team), int(home_mu + profile.band_hw_team))
         away_band = (int(away_mu - profile.band_hw_team), int(away_mu + profile.band_hw_team))
 
-        # confidence tightened
         conf_raw = min(float(home_baseline.get("confidence", 0.5)), float(away_baseline.get("confidence", 0.5)))
         conf_tight = self._tight_confidence(conf_raw)
         confidence_pct = round(conf_tight * 100.0, 1)
 
-        # risk: 50% should not be LOW
         if confidence_pct >= 82.0:
             risk = "LOW"
         elif confidence_pct >= 62.0:
@@ -575,12 +568,23 @@ class Faz13Engine:
         notes.append(f"Sources(home)={', '.join(sources_home)}")
         notes.append(f"Sources(away)={', '.join(sources_away)}")
 
-        # tempo + quarters
         pace_mean = (pace_home + pace_away) / 2.0
         tempo_flag = self._tempo_flag_from_pace(pace_mean)
         quarters = self._quarters_band(expected_total, profile.band_hw_total, tempo_flag)
 
-        # market edge (wired) ✅
+        # ---- NEW: expected_1h / expected_2h (for FAZ-22 strong-half filter) ----
+        def _mid(b: Tuple[int, int]) -> float:
+            return (float(b[0]) + float(b[1])) / 2.0
+
+        expected_q1 = _mid(quarters["1Q"]) if "1Q" in quarters else None
+        expected_q2 = _mid(quarters["2Q"]) if "2Q" in quarters else None
+        expected_q3 = _mid(quarters["3Q"]) if "3Q" in quarters else None
+        expected_q4 = _mid(quarters["4Q"]) if "4Q" in quarters else None
+
+        expected_1h = round((expected_q1 + expected_q2), 1) if (expected_q1 is not None and expected_q2 is not None) else None
+        expected_2h = round((expected_q3 + expected_q4), 1) if (expected_q3 is not None and expected_q4 is not None) else None
+
+        # market edge (internal, but main.py is authoritative for market_total)
         market: Dict[str, Any] = {}
         market_total: Optional[float] = None
         edge_value: Optional[float] = None
@@ -597,7 +601,6 @@ class Faz13Engine:
             except Exception:
                 market = {"status": "MARKET_OPTIONAL", "reason": "FAZ17_EXCEPTION"}
 
-        # ✅ SIGORTA: market dict'te total varsa market_total mutlaka dolar
         if market_total is None and isinstance(market, dict):
             market_total = self._safe_float(market.get("total"))
 
@@ -655,6 +658,12 @@ class Faz13Engine:
                 "pace_mean": pace_mean,
                 "tempo_flag": tempo_flag,
                 "expected_total": round(expected_total, 3),
+                "expected_q1": None if expected_q1 is None else round(expected_q1, 1),
+                "expected_q2": None if expected_q2 is None else round(expected_q2, 1),
+                "expected_q3": None if expected_q3 is None else round(expected_q3, 1),
+                "expected_q4": None if expected_q4 is None else round(expected_q4, 1),
+                "expected_1h": expected_1h,
+                "expected_2h": expected_2h,
                 "market_total": market_total,
                 "edge_value": None if edge_value is None else round(edge_value, 3),
                 "edge_threshold": edge_thr,
@@ -663,3 +672,4 @@ class Faz13Engine:
                 "fetched_at": int(time.time()),
             },
         )
+```0 
