@@ -49,16 +49,6 @@ class _TTLCache:
 class SportsDataIOAdapter:
     """
     SportsDataIO provider adapter.
-
-    Responsibilities:
-      - Team season baseline (PointsPerGame / OpponentPointsPerGame)
-      - Injury data via Players/{team} endpoint
-      - Caching + retry + backoff
-
-    This adapter:
-      - NEVER fabricates data
-      - NEVER computes edge / risk
-      - ONLY returns raw provider data
     """
 
     name = "SPORTSDATAIO"
@@ -149,16 +139,6 @@ class SportsDataIOAdapter:
     # -------------------------------------------------
 
     async def fetch_team_baseline(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
-        """
-        Returns (or None):
-          {
-            "pts_for": float,
-            "pts_against": float,
-            "confidence": float (0..1),
-            "source": "SPORTSDATAIO",
-            "fetched_at": int
-          }
-        """
         if not self.api_key:
             return None
 
@@ -193,16 +173,6 @@ class SportsDataIOAdapter:
     # -------------------------------------------------
 
     async def fetch_team_injuries(self, team_key: str) -> Optional[Dict[str, Any]]:
-        """
-        Returns (or None):
-          {
-            "source": "SPORTSDATAIO",
-            "team_key": "BKN",
-            "injuries": [ {player_id, name, status, body_part, notes, position}, ... ],
-            "injury_count": int,
-            "fetched_at": int
-          }
-        """
         if not self.api_key:
             return None
 
@@ -242,10 +212,13 @@ class SportsDataIOAdapter:
             "fetched_at": int(time.time()),
         }
 
-       async def fetch_team_pace(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
+    # -------------------------------------------------
+    # PACE / POSSESSIONS  ✅ DOĞRU İNDENT
+    # -------------------------------------------------
+
+    async def fetch_team_pace(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
         """
-        REAL pace / possessions from TeamSeasonStats
-        pace = Possessions / Games
+        REAL pace = Possessions / Games
         """
         if not self.api_key:
             return None
