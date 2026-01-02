@@ -12,24 +12,28 @@ import aiohttp
 logger = logging.getLogger("faz17")
 
 
+
 # =====================================================
-# BACKWARD-COMPATIBLE MARKETREQUEST
+# BACKWARD-COMPAT PUBLIC API (FAZ-13 IMPORTS THESE)
 # =====================================================
 @dataclass
 class MarketRequest:
     """
-    FAZ-13 ve farklı modüller bu parametreleri kullanarak
-    MarketRequest(league=…, date_str=…, home=…, away=…) çağırabiliyor.
-    Bu yüzden tüm argüman isimlerini açıkça destekliyoruz.
+    FAZ-13 kodunun değişik versiyonlarında şu signature ile çağrılır:
+      MarketRequest(league=req.league, date_str=req.date_str, home=req.home, away=req.away)
+    ve bazen:
+      fetch_market(MarketRequest(...))
+
+    Bu yüzden tüm olası parametre isimlerini destekliyoruz.
     """
     league: str
     home: str
     away: str
 
-    # FAZ-13 kodunun literal olarak verdiği ana parametre
+    # FAZ-13 tarafı date_str ile verir
     date_str: Optional[str] = None
 
-    # alias olarak date de tut
+    # alias olarak date de var
     date: Optional[str] = None
 
     regions: str = "us"
@@ -38,11 +42,13 @@ class MarketRequest:
     date_format: str = "iso"
 
     def __post_init__(self):
-        # Eğer date_str varsa onu date’e eşitle
+        # Eğer date_str varsa bunu date’e ata
         if self.date_str and not self.date:
             self.date = self.date_str
+        # Eğer date varsa ve date_str yoksa onu ata
         elif self.date and not self.date_str:
             self.date_str = self.date
+
 
 
 # =====================================================
@@ -55,6 +61,9 @@ def _norm(s: str) -> str:
 
 
 def _team_match_score(api_home: str, api_away: str, home: str, away: str) -> int:
+    """
+    Basit fuzzy eşleşme skoru algoritması.
+    """
     ah, aa = _norm(api_home), _norm(api_away)
     h, a = _norm(home), _norm(away)
 
@@ -75,6 +84,9 @@ def _team_match_score(api_home: str, api_away: str, home: str, away: str) -> int
 
 
 def _extract_total(event: Dict[str, Any]) -> Optional[float]:
+    """
+    The Odds API v4 'totals' market’inden total line’ı çek.
+    """
     for b in (event.get("bookmakers") or []):
         for m in (b.get("markets") or []):
             if (m.get("key") or "").lower() != "totals":
@@ -93,14 +105,16 @@ def _safe_getattr(obj: Any, name: str, default=None):
         return default
 
 
+
 # =====================================================
-# FAZ-17 ENGINE
+# FAZ-17 ENGINE (FULL PRODUCTION-READY)
 # =====================================================
 class Faz17Engine:
     """
-    - FAZ-13’in beklediği API yöntemlerini barındırır
-    - Parametresiz init ile de çalışır (env fallback)
-    - fetch_market, fetch_market_total, enrich_with_market uyumludur
+    - Faz13'in beklediği tüm import ve method’lar var
+    - Parametresiz init çalışır
+    - Market opsiyonel + asla crash etmez
+    - fetch_market, fetch_market_total, enrich_with_market destekli
     """
 
     def __init__(
@@ -109,18 +123,20 @@ class Faz17Engine:
         base_url: Optional[str] = None,
         ttl_sec: int = 60,
     ):
-        # either direct args or ENV
+        # ENV fallback
         self.api_key = api_key or os.getenv("ODDS_API_KEY")
         self.base_url = base_url or os.getenv("ODDS_BASE", "https://api.the-odds-api.com/v4")
         self.ttl_sec = int(ttl_sec)
+        # basit cache
         self._cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 
         logger.info(
             f"FAZ17 init | api_key={'YES' if self.api_key else 'NO'} | base_url={self.base_url}"
         )
 
+
     # ----------------------------
-    # CACHE HANDLING
+    # CACHE METHODS
     # ----------------------------
     def _cache_get(self, key: str) -> Optional[Dict[str, Any]]:
         ent = self._cache.get(key)
@@ -135,15 +151,24 @@ class Faz17Engine:
     def _cache_set(self, key: str, val: Dict[str, Any]) -> None:
         self._cache[key] = (time.time(), val)
 
+
     # ----------------------------
-    # FETCH MARKET (CORE)
+    # MAIN FETCH METHOD
     # ----------------------------
     async def fetch_market(self, req: MarketRequest) -> Dict[str, Any]:
         """
-        Runs a market odds request via The Odds API.
-        Always returns a dict with:
-          {"status":…,"total":…,"latency_ms":…,"reason":…}
+        Bu method hemFAZ-13'in beklediği fetch_market için
+        hem enrich_with_market pipeline’ı için kullanılır.
+
+        Çıktı formatı:
+          {
+            "status": "MARKET_OPTIONAL",
+            "total": float | None,
+            "latency_ms": int | None,
+            "reason": Optional[str]
+          }
         """
+
         if not self.api_key:
             return {"status": "MARKET_OPTIONAL", "total": None, "latency_ms": None, "reason": "ODDS_API_KEY_MISSING"}
 
@@ -176,10 +201,11 @@ class Faz17Engine:
                             "status": "MARKET_OPTIONAL",
                             "total": None,
                             "latency_ms": int((time.time() - t0) * 1000),
-                            "reason": f"HTTP_{resp.status}:{txt[:180]}",
+                            "reason": f"HTTP_{resp.status}:{txt[:160]}",
                         }
                         self._cache_set(cache_key, out)
                         return out
+
                     data = await resp.json()
         except Exception as e:
             out = {
@@ -193,6 +219,7 @@ class Faz17Engine:
 
         best_score = 0
         best_event = None
+
         if isinstance(data, list):
             for ev in data:
                 sc = _team_match_score(
@@ -216,6 +243,7 @@ class Faz17Engine:
             return out
 
         total_line = _extract_total(best_event)
+
         out = {
             "status": "MARKET_OPTIONAL",
             "total": float(total_line) if isinstance(total_line, (int, float)) else None,
@@ -225,23 +253,27 @@ class Faz17Engine:
         self._cache_set(cache_key, out)
         return out
 
-    # ----------------------------
-    # FETCH MARKET TOTAL (COMPAT)
-    # ----------------------------
-    async def fetch_market_total(self, *args, **kwargs) -> Dict[str, Any]:
-        """
-        FAZ-13 sometimes calls this directly.
-        Always returns a dict with:
-          {"total": float|None, "status": str, "reason": str|None}
-        """
 
-        # 1) MarketRequest passed
+    # ----------------------------
+    # FAZ-13 EXPECTS THIS
+    # ----------------------------
+    async def fetch_market_total(self, *args, **kwargs) -> Optional[float]:
+        """
+        backward compatible wrapper:
+        signature:
+          - fetch_market_total(league, home, away, date_str=?)
+          - fetch_market_total(MarketRequest)
+          - fetch_market_total(core_like_object)
+
+        returns float or None
+        """
+        # MarketRequest passed
         if len(args) == 1 and isinstance(args[0], MarketRequest):
             mk = await self.fetch_market(args[0])
-            return {"total": mk.get("total"), "status": mk.get("status"), "reason": mk.get("reason")}
+            return mk.get("total")
 
-        # 2) core-like object passed
-        if len(args) == 1 and not isinstance(args[0], (str, int, float, dict, list, tuple)):
+        # core-like object passed
+        if len(args) == 1 and not isinstance(args[0], (str, int, float, dict, list, tuple)):  
             obj = args[0]
             req = MarketRequest(
                 league=str(_safe_getattr(obj, "league", "NBA")),
@@ -250,9 +282,9 @@ class Faz17Engine:
                 date_str=_safe_getattr(obj, "date_str", None),
             )
             mk = await self.fetch_market(req)
-            return {"total": mk.get("total"), "status": mk.get("status"), "reason": mk.get("reason")}
+            return mk.get("total")
 
-        # 3) Positional args legacy style
+        # positional args as legacy
         league = kwargs.get("league")
         home = kwargs.get("home")
         away = kwargs.get("away")
@@ -267,14 +299,17 @@ class Faz17Engine:
 
         req = MarketRequest(
             league=str(league or "NBA"),
-            home=str(home or ""), away=str(away or ""),
+            home=str(home or ""),
+            away=str(away or ""),
             date_str=str(date_str) if date_str else None,
         )
+
         mk = await self.fetch_market(req)
-        return {"total": mk.get("total"), "status": mk.get("status"), "reason": mk.get("reason")}
+        return mk.get("total")
+
 
     # ----------------------------
-    # PIPELINE ENRICH
+    # MAIN PIPELINE USE
     # ----------------------------
     async def enrich_with_market(self, core: Any) -> Any:
         req = MarketRequest(
@@ -284,6 +319,7 @@ class Faz17Engine:
             date_str=_safe_getattr(core, "date_str", None),
         )
         mk = await self.fetch_market(req)
+
         try:
             core.market = mk
         except Exception:
@@ -294,4 +330,5 @@ class Faz17Engine:
                     core.meta = meta
                 except Exception:
                     pass
-        return core
+
+        return core  
