@@ -169,7 +169,6 @@ def _fallback_aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[st
         "sources": sources,
     }
 
-    # Optional extras (pace etc.)
     pace_vals = [float(r["pace"]) for r in rows if r.get("pace") is not None]
     if pace_vals:
         out["pace"] = sum(pace_vals) / len(pace_vals)
@@ -187,10 +186,8 @@ def aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
 
 
 # =====================================================
-# PROVIDER: SportsDataIO (NBA)
-# Secret: SPORTSDATA_API_KEY
-# Endpoint: /v3/nba/scores/json/TeamSeasonStats/{season_year}
-# Match via row["Key"] == "BKN"/"LAC"/"UTAH"/etc (SportsDataIO team key)
+# PROVIDER: SportsDataIO (LOCAL LIGHT ADAPTER)
+# (kept for compatibility: baseline + pace)
 # =====================================================
 
 class SportsDataIOAdapter:
@@ -201,22 +198,16 @@ class SportsDataIOAdapter:
         self.key = os.getenv("SPORTSDATA_API_KEY", "").strip()
 
     async def _fetch_teamseasonstats(self, season_year: str) -> Optional[List[Dict[str, Any]]]:
-        """Tek noktadan TeamSeasonStats çek (baseline + pace aynı endpoint)."""
         if not self.key:
             return None
-
         url = f"https://api.sportsdata.io/v3/nba/scores/json/TeamSeasonStats/{season_year}"
         headers = {"Ocp-Apim-Subscription-Key": self.key}
-
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers, timeout=20) as resp:
                 if resp.status != 200:
                     return None
                 data = await resp.json()
-
-        if isinstance(data, list):
-            return data
-        return None
+        return data if isinstance(data, list) else None
 
     async def fetch_team_baseline(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
         if not self.key:
@@ -246,7 +237,6 @@ class SportsDataIOAdapter:
             "source": self.name,
         }
 
-        # BONUS: pace (possessions per game) — gerçek veri alanları varsa ekle
         poss = row.get("Possessions")
         games = row.get("Games")
         try:
@@ -258,10 +248,6 @@ class SportsDataIOAdapter:
         return out
 
     async def fetch_team_pace(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
-        """
-        Gerçek PACE/POSSESSIONS (SportsDataIO TeamSeasonStats):
-        pace = Possessions / Games
-        """
         if not self.key:
             return None
 
@@ -291,9 +277,8 @@ class SportsDataIOAdapter:
         if games_i <= 0:
             return None
 
-        pace = poss_f / games_i
         return {
-            "pace": float(pace),
+            "pace": float(poss_f / games_i),
             "possessions": float(poss_f),
             "games": int(games_i),
             "source": self.name,
@@ -303,9 +288,10 @@ class SportsDataIOAdapter:
 
 # =====================================================
 # FAZ-13 ENGINE (REF-BASED FINAL BUILD)
-# - Preserves legacy output format
-# - Adds: season label (2025-26), market edge (optional), quarter bands, tighter confidence
-# - Fixes: pace None by multi-fallback (SDIO pace -> baseline pace -> safe default)
+# - Legacy output preserved
+# - Market edge wired correctly (market_total now filled)
+# - Periyot bandı eklendi
+# - Confidence curve tightened
 # =====================================================
 
 class Faz13Engine:
@@ -329,9 +315,6 @@ class Faz13Engine:
 
         self._faz17 = Faz17Engine() if Faz17Engine is not None else None
 
-    # -----------------------------
-    # NBA season resolver
-    # -----------------------------
     @staticmethod
     def resolve_nba_season(date_str: str) -> str:
         try:
@@ -343,10 +326,9 @@ class Faz13Engine:
 
     @staticmethod
     def _season_label(season_start: str) -> str:
-        # "2025" -> "2025-26"
         try:
             y = int(season_start)
-            return f"{y}-{str((y + 1) % 100).zfill(2)}"
+            return f"{y}-{y+1}"  # 2025-2026
         except Exception:
             return season_start
 
@@ -356,9 +338,6 @@ class Faz13Engine:
         self.session = aiohttp.ClientSession()
         return self.session
 
-    # -----------------------------
-    # ESPN alias resolver
-    # -----------------------------
     @staticmethod
     def _norm(s: str) -> str:
         return " ".join((s or "").strip().lower().replace("-", " ").replace("_", " ").split())
@@ -418,20 +397,17 @@ class Faz13Engine:
 
     @staticmethod
     def _tight_confidence(conf_raw: float) -> float:
-        # daha seçici: orta bandı aşağı çeker
         c = max(0.0, min(1.0, float(conf_raw)))
         return c ** 1.35
 
     @staticmethod
     def _edge_threshold(conf_tight: float, band_hw_total: int) -> float:
         base = max(2.0, float(band_hw_total) * 0.30)
-        # düşük conf => daha yüksek eşik
         factor = 1.25 - 0.40 * max(0.0, min(1.0, conf_tight))
         return base * factor
 
     @staticmethod
     def _quarters_band(total_mu: float, band_hw_total: int, tempo_flag: str) -> Dict[str, Tuple[int, int]]:
-        # deterministik split + tempo
         w = [0.24, 0.26, 0.25, 0.25]
         if tempo_flag == "FAST":
             w = [0.245, 0.265, 0.245, 0.245]
@@ -445,15 +421,12 @@ class Faz13Engine:
             qs[lab] = (int(mu - q_hw), int(mu + q_hw))
         return qs
 
-    # -----------------------------
-    # MAIN
-    # -----------------------------
     async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
         profile = get_league_profile(req.league)
         season = self.resolve_nba_season(req.date_str) if req.league.upper() == "NBA" else req.date_str[:4]
-        season_label = self._season_label(season) if req.league.upper() == "NBA" else season
+        season_str = self._season_label(season) if req.league.upper() == "NBA" else season
 
-        notes: List[str] = [f"Season: {season_label}", "TEAM-FIRST mode (MULTI-SOURCE)"]
+        notes: List[str] = [f"Season: {season_str}", "TEAM-FIRST mode (MULTI-SOURCE)"]
 
         home_rows: List[Dict[str, Any]] = []
         away_rows: List[Dict[str, Any]] = []
@@ -461,7 +434,7 @@ class Faz13Engine:
         home_abbr: Optional[str] = None
         away_abbr: Optional[str] = None
 
-        # 1) ESPN baseline
+        # ESPN baseline
         if req.league.upper() == "NBA" and ESPNAdapter is not None:
             try:
                 espn = ESPNAdapter()
@@ -482,7 +455,7 @@ class Faz13Engine:
             except Exception:
                 notes.append("ESPN: fetch failed")
 
-        # 2) SportsDataIO baseline + pace
+        # SportsDataIO baseline + pace
         pace_home: Optional[float] = None
         pace_away: Optional[float] = None
 
@@ -523,7 +496,7 @@ class Faz13Engine:
                 market={},
                 meta={
                     "season": season,
-                    "season_str": season_label,
+                    "season_str": season_str,
                     "team_first": True,
                     "baseline_missing": True,
                     "confidence_pct": 0.0,
@@ -534,7 +507,7 @@ class Faz13Engine:
                 },
             )
 
-        # Fallback chain for pace (fixes pace None)
+        # pace fallback chain
         if pace_home is None:
             try:
                 v = home_baseline.get("pace")
@@ -563,7 +536,7 @@ class Faz13Engine:
 
         notes.append(f"Pace(home)={pace_home:.1f} | Pace(away)={pace_away:.1f}")
 
-        # FAZ-13 math
+        # expected totals
         h_pf = float(home_baseline["pts_for"])
         h_pa = float(home_baseline["pts_against"])
         a_pf = float(away_baseline["pts_for"])
@@ -577,12 +550,12 @@ class Faz13Engine:
         home_band = (int(home_mu - profile.band_hw_team), int(home_mu + profile.band_hw_team))
         away_band = (int(away_mu - profile.band_hw_team), int(away_mu + profile.band_hw_team))
 
-        # tighter confidence
+        # confidence tightened
         conf_raw = min(float(home_baseline.get("confidence", 0.5)), float(away_baseline.get("confidence", 0.5)))
         conf_tight = self._tight_confidence(conf_raw)
         confidence_pct = round(conf_tight * 100.0, 1)
 
-        # risk (legacy semantics)
+        # risk: tighten means 50% should not be LOW
         if confidence_pct >= 82.0:
             risk = "LOW"
         elif confidence_pct >= 62.0:
@@ -592,16 +565,15 @@ class Faz13Engine:
 
         sources_home = home_baseline.get("sources", [])
         sources_away = away_baseline.get("sources", [])
-
         notes.append(f"Sources(home)={', '.join(sources_home)}")
         notes.append(f"Sources(away)={', '.join(sources_away)}")
 
-        # tempo flag + quarters
+        # tempo + quarters
         pace_mean = (pace_home + pace_away) / 2.0
         tempo_flag = self._tempo_flag_from_pace(pace_mean)
         quarters = self._quarters_band(expected_total, profile.band_hw_total, tempo_flag)
 
-        # market edge (optional)
+        # market edge (wired)
         market: Dict[str, Any] = {}
         market_total: Optional[float] = None
         edge_value: Optional[float] = None
@@ -619,6 +591,13 @@ class Faz13Engine:
             except Exception:
                 market = {"status": "MARKET_OPTIONAL", "reason": "FAZ17_EXCEPTION"}
 
+        # ✅ FIX: market_total present => mark coverage true
+        data_coverage = {
+            "team_stats": True,
+            "pace": True,
+            "market": market_total is not None,
+        }
+
         ou_direction = "NO_EDGE"
         if market_total is not None:
             edge_value = expected_total - market_total
@@ -634,12 +613,6 @@ class Faz13Engine:
             if not market:
                 market = {"status": "MARKET_OPTIONAL"}
 
-        # degraded mode signal (for your higher layer)
-        data_coverage = {
-            "team_stats": True,
-            "pace": True,
-            "market": market_total is not None,
-        }
         degraded_mode = not (data_coverage["team_stats"] and data_coverage["pace"] and data_coverage["market"])
 
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
@@ -659,7 +632,7 @@ class Faz13Engine:
             market=market,
             meta={
                 "season": season,
-                "season_str": season_label,
+                "season_str": season_str,
                 "team_first": True,
                 "baseline_missing": False,
                 "confidence_pct": confidence_pct,
