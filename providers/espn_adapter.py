@@ -336,3 +336,19 @@ class ESPNAdapter:
             "fetched_at": int(time.time()),
             "url": url,
                 } 
+
+    async def fetch_rotation_proxy(self, team_abbr: str) -> Optional[Dict[str, Any]]:
+        """
+        Rotation / roster stress proxy (injury-based).
+        DOES NOT fabricate data.
+        """
+        inj = await self.fetch_team_injuries(team_abbr)
+        if not inj:
+            return None
+
+        return {
+            "source": self.name,
+            "team_abbr": team_abbr.upper(),
+            "injury_count": inj.get("injury_count", 0),
+            "fetched_at": int(time.time()),
+        }
