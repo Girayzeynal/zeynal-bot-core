@@ -1,188 +1,151 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, List
-
-if TYPE_CHECKING:
-    from faz13_engine import Faz13CoreOutput
+from typing import Dict, Any, List, Optional
 
 
 class Faz22Engine:
     """
-    FAZ-22 v3 — STRONG SIDE FILTER (ANALYSIS / SIMULATION MODE)
+    FAZ-22 v3 — STRONG SIDE FILTER
 
+    Amaç:
     - Zorla tahmin YOK
-    - Bahis dili YOK
-    - Sadece güçlü istatistiksel sinyal varsa konuşur
-    - 1Y / 2Y / MS / Q1–Q4 ayrı ayrı değerlendirilir
-    - İnsan okunur Telegram çıktısı üretir
+    - Sadece güçlü istatistiksel + market uyumu varsa konuş
+    - 1Y / 2Y / MS ayrı ayrı değerlendir
+    - Market yoksa → NO_STRONG_SIGNAL
     """
 
-    # -------------------------
-    # CONFIG (tunable thresholds)
-    # -------------------------
-    CONF_MIN = 70.0
+    # ---- PARAMETRELER ----
+    EDGE_MIN_ABS = 4.0          # minimum mutlak fark (puan)
+    EDGE_STD_MULT = 0.30        # std'e göre minimum fark
+    CONF_MIN = 0.62             # confidence_tight altı konuşmaz
+    MAX_RISK_FOR_PLAY = "MEDIUM"
 
-    EDGE_MIN = {
-        "1Y": 4.0,
-        "2Y": 4.0,
-        "MS": 6.0,
-        "Q": 3.0,   # Q1–Q4
-    }
+    def _risk_rank(self, risk: str) -> int:
+        return {"LOW": 0, "MEDIUM": 1, "HIGH": 2}.get(risk, 3)
 
-    # -------------------------
-    # HELPERS
-    # -------------------------
-    @staticmethod
-    def _safe_float(v: Any) -> Optional[float]:
-        try:
-            return float(v)
-        except Exception:
-            return None
-
-    @staticmethod
-    def _direction(edge: float) -> str:
-        return "ÜST" if edge > 0 else "ALT"
-
-    # -------------------------
-    # CORE STRONG-SIDE CHECK
-    # -------------------------
-    def _evaluate(
+    def _eval_block(
         self,
         label: str,
         expected: Optional[float],
         market: Optional[float],
-        confidence: Optional[float],
-        edge_min: float,
+        std: Optional[float],
+        conf_tight: float,
+        risk: str,
+        notes: List[str],
     ) -> Optional[Dict[str, Any]]:
         """
-        Returns dict if STRONG, else None
+        Tek blok (1H / 2H / MS) değerlendirmesi
         """
-        if expected is None or market is None or confidence is None:
+        if expected is None or market is None or std is None:
             return None
 
-        edge = expected - market
+        diff = expected - market
+        min_edge = max(self.EDGE_MIN_ABS, std * self.EDGE_STD_MULT)
 
-        if abs(edge) < edge_min:
+        if abs(diff) < min_edge:
             return None
 
-        if confidence < self.CONF_MIN:
+        if conf_tight < self.CONF_MIN:
             return None
+
+        if self._risk_rank(risk) > self._risk_rank(self.MAX_RISK_FOR_PLAY):
+            return None
+
+        direction = "ÜST" if diff > 0 else "ALT"
+
+        notes.append(
+            f"✅ {label}: expected={expected:.1f} | market={market:.1f} | "
+            f"diff={diff:+.1f} ≥ {min_edge:.1f}"
+        )
 
         return {
-            "label": label,
-            "expected": round(expected, 1),
-            "market": round(market, 1),
-            "edge": round(edge, 1),
-            "direction": self._direction(edge),
-            "confidence": round(confidence, 1),
+            "segment": label,
+            "direction": direction,
+            "edge": round(diff, 2),
+            "threshold": round(min_edge, 2),
         }
 
-    # -------------------------
-    # PUBLIC API
-    # -------------------------
-    def score_and_finalize(self, core: "Faz13CoreOutput") -> "Faz13CoreOutput":
+    # =====================================================
+    # MAIN
+    # =====================================================
+    def score_and_finalize(self, core):
         meta = core.meta
-        notes: List[str] = []
-
-        confidence = self._safe_float(meta.get("confidence_pct"))
-        market_total = self._safe_float(meta.get("market_total"))
+        notes = core.notes
 
         strong_signals: List[Dict[str, Any]] = []
 
-        # ---- MAÇ SONU ----
-        ms = self._evaluate(
-            "MAÇ SONU",
-            self._safe_float(meta.get("expected_total")),
-            market_total,
-            confidence,
-            self.EDGE_MIN["MS"],
-        )
-        if ms:
-            strong_signals.append(ms)
+        # Ortak metrikler
+        conf_tight = float(meta.get("confidence_tight", 0.0))
+        risk = meta.get("risk", "HIGH")
+        sim_std = meta.get("sim_std")
 
-        # ---- İLK YARI ----
-        y1 = self._evaluate(
-            "İLK YARI",
-            self._safe_float(meta.get("expected_1h")),
-            market_total / 2 if market_total else None,
-            confidence,
-            self.EDGE_MIN["1Y"],
-        )
-        if y1:
-            strong_signals.append(y1)
+        # -------- MARKET --------
+        market_total = meta.get("market_total")
 
-        # ---- İKİNCİ YARI ----
-        y2 = self._evaluate(
-            "İKİNCİ YARI",
-            self._safe_float(meta.get("expected_2h")),
-            market_total / 2 if market_total else None,
-            confidence,
-            self.EDGE_MIN["2Y"],
-        )
-        if y2:
-            strong_signals.append(y2)
-
-        # ---- PERİYOTLAR ----
-        for q in ("q1", "q2", "q3", "q4"):
-            exp_q = self._safe_float(meta.get(f"expected_{q}"))
-            q_res = self._evaluate(
-                q.upper(),
-                exp_q,
-                market_total / 4 if market_total else None,
-                confidence,
-                self.EDGE_MIN["Q"],
-            )
-            if q_res:
-                strong_signals.append(q_res)
-
-        # ---- META WRITE (NON-DESTRUCTIVE) ----
-        meta["strong_signals"] = strong_signals
-        meta["analysis_status"] = "STRONG_SIGNAL" if strong_signals else "NO_STRONG_SIGNAL"
-
-        if not strong_signals:
+        if market_total is None:
+            meta["analysis_status"] = "NO_STRONG_SIGNAL"
             meta["uncertainty_level"] = "YÜKSEK"
-        elif len(strong_signals) == 1:
-            meta["uncertainty_level"] = "ORTA"
-        else:
+            notes.append("⚠️ Market verisi yok → güçlü sinyal üretilemez.")
+            meta["strong_signals"] = []
+            return core
+
+        # -------- MS --------
+        strong = self._eval_block(
+            label="MAÇ SONU",
+            expected=meta.get("expected_total"),
+            market=market_total,
+            std=sim_std,
+            conf_tight=conf_tight,
+            risk=risk,
+            notes=notes,
+        )
+        if strong:
+            strong_signals.append(strong)
+
+        # -------- 1Y --------
+        strong = self._eval_block(
+            label="İLK YARI",
+            expected=meta.get("expected_1h"),
+            market=market_total / 2 if market_total else None,
+            std=sim_std * 0.7 if sim_std else None,
+            conf_tight=conf_tight,
+            risk=risk,
+            notes=notes,
+        )
+        if strong:
+            strong_signals.append(strong)
+
+        # -------- 2Y --------
+        strong = self._eval_block(
+            label="İKİNCİ YARI",
+            expected=meta.get("expected_2h"),
+            market=market_total / 2 if market_total else None,
+            std=sim_std * 0.7 if sim_std else None,
+            conf_tight=conf_tight,
+            risk=risk,
+            notes=notes,
+        )
+        if strong:
+            strong_signals.append(strong)
+
+        # =====================================================
+        # KARAR
+        # =====================================================
+        if strong_signals:
+            meta["analysis_status"] = "STRONG_SIGNAL"
             meta["uncertainty_level"] = "DÜŞÜK"
+            meta["strong_signals"] = strong_signals
 
-        # ---- TELEGRAM SUMMARY ----
-        core.notes = self._render_summary(core)
-
-        return core
-
-    # -------------------------
-    # TELEGRAM OUTPUT (HUMAN)
-    # -------------------------
-    def _render_summary(self, core: "Faz13CoreOutput") -> List[str]:
-        ctx = core.ctx
-        meta = core.meta
-        lines: List[str] = []
-
-        lines.append(f"🏀 {ctx.home} – {ctx.away}")
-        lines.append(f"🗓 {ctx.date}")
-        lines.append("")
-
-        signals = meta.get("strong_signals") or []
-
-        if not signals:
-            lines.append("📉 Güçlü bir istatistiksel yön tespit edilmedi.")
-            lines.append("Bu karşılaşma analiz kapsamında izleme listesindedir.")
+            # Telegram'da net görünmesi için
+            notes.append("🎯 Güçlü istatistiksel sinyal tespit edildi.")
         else:
-            for s in signals:
-                lines.append(f"📊 {s['label']} Analizi")
-                lines.append(f"• Beklenen Toplam: {s['expected']}")
-                lines.append(f"• Market Referansı: {s['market']}")
-                lines.append(f"• Sapma (Edge): {s['edge']}")
-                lines.append(f"📌 İstatistiksel Yön: {s['label']} {s['direction']}")
-                lines.append(f"🔐 Model Güveni: {s['confidence']}%")
-                lines.append("")
+            meta["analysis_status"] = "NO_STRONG_SIGNAL"
+            meta["uncertainty_level"] = "YÜKSEK"
+            meta["strong_signals"] = []
 
-            lines.append(f"⚠️ Belirsizlik Seviyesi: {meta.get('uncertainty_level')}")
+            notes.append(
+                "📉 Güçlü bir istatistiksel + market uyumu yok. "
+                "Bu karşılaşma analiz kapsamında izleme listesindedir."
+            )
 
-        lines.append("──────────────────")
-        lines.append("ℹ️ Bu analiz ve simülasyon amaçlıdır.")
-        lines.append("Herhangi bir şekilde bahis tavsiyesi değildir.")
-        lines.append("İstatistiksel veriler ve model projeksiyonlarına dayanır.")
-
-        return lines  
+        return core 
