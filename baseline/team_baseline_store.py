@@ -273,4 +273,4 @@ class TeamStatsAdapter:
             "home": bool
         }
         """
-        raise NotImplementedError 
+        raise NotImplementedError  
