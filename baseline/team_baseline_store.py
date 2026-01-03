@@ -3,10 +3,8 @@ from __future__ import annotations
 import json
 import os
 import time
-import asyncio
-import inspect
 from dataclasses import dataclass, asdict
-from typing import Any, Dict, List, Optional, Iterable
+from typing import Any, Dict, List, Optional
 from statistics import mean, pstdev
 
 
@@ -42,7 +40,6 @@ class TeamGameRecord:
 class TeamBaselineStore:
     """
     File-based baseline + recent game series store.
-    Backward compatible with existing TeamBaseline usage.
     """
 
     def __init__(self, base_dir: str = "data/baselines") -> None:
@@ -61,7 +58,7 @@ class TeamBaselineStore:
         return os.path.join(self.series_dir, f"SERIES__{self._key(league, team)}.json")
 
     # -------------------------
-    # BASELINE (OLD API)
+    # BASELINE
     # -------------------------
 
     def get(self, league: str, team: str) -> Optional[TeamBaseline]:
@@ -82,7 +79,7 @@ class TeamBaselineStore:
         os.replace(tmp, p)
 
     # -------------------------
-    # SERIES (NEW)
+    # SERIES
     # -------------------------
 
     def append_game(
@@ -122,13 +119,12 @@ class TeamBaselineStore:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 raw = json.load(f)
-            records = [TeamGameRecord(**r) for r in raw]
-            return records[-n_games:]
+            return [TeamGameRecord(**r) for r in raw][-n_games:]
         except Exception:
             return []
 
     # -------------------------
-    # ANALYTIC HELPERS
+    # ANALYTIC CORE
     # -------------------------
 
     def compute_dynamic_baseline(
@@ -141,160 +137,87 @@ class TeamBaselineStore:
         pts_for = [r.pts_for for r in series]
         pts_against = [r.pts_against for r in series]
         pace = [r.pace for r in series]
-        total_pts = [a + b for a, b in zip(pts_for, pts_against)]
+        total = [a + b for a, b in zip(pts_for, pts_against)]
 
         return {
             "n_games": len(series),
             "pts_for": mean(pts_for),
             "pts_against": mean(pts_against),
             "pace": mean(pace),
-            "stdev_total": pstdev(total_pts) if len(total_pts) >= 2 else 0.0,
+            "stdev_total": pstdev(total) if len(total) >= 2 else 0.0,
         }
 
 
 # =====================================================
-# BOOTSTRAP (MULTI-SOURCE + ASYNC AWARE)
+# BOOTSTRAP (🔥 FIXED)
 # =====================================================
 
 class TeamBaselineBootstrapper:
     """
     Multi-source bootstrapper.
-
-    - Tries adapters in order (primary -> fallback)
-    - Async-aware: supports async adapters (like ESPNAdapter/SportsDataIOAdapter)
-    - Resolves team name -> abbreviation via adapter if possible
-    - Stores series under ORIGINAL team name (so /analyze names work)
+    Resolves team name → abbreviation when needed.
     """
 
-    def __init__(
-        self,
-        store: TeamBaselineStore,
-        adapter: Optional["TeamStatsAdapter"] = None,
-        adapters: Optional[Iterable["TeamStatsAdapter"]] = None,
-    ) -> None:
+    def __init__(self, store: TeamBaselineStore, adapters: List[Any]) -> None:
         self.store = store
-        if adapters is not None:
-            self.adapters: List["TeamStatsAdapter"] = list(adapters)
-        elif adapter is not None:
-            self.adapters = [adapter]
-        else:
-            self.adapters = []
+        self.adapters = adapters
 
-    @staticmethod
-    def _looks_like_abbr(team: str) -> bool:
-        t = (team or "").strip()
-        return 2 <= len(t) <= 4 and " " not in t
+    async def ensure_async(
+        self, league: str, team_name: str, min_games: int = 6
+    ) -> Optional[TeamBaseline]:
 
-    async def _resolve_abbr(self, league: str, team: str) -> Optional[str]:
-        """
-        Try to resolve team name -> abbr using any adapter that offers resolve_team_abbr().
-        If already abbr-like, return upper.
-        """
-        if self._looks_like_abbr(team):
-            return team.strip().upper()
-
-        for ad in self.adapters:
-            fn = getattr(ad, "resolve_team_abbr", None)
-            if callable(fn):
-                try:
-                    res = fn(league, team)
-                    if inspect.isawaitable(res):
-                        res = await res
-                    if isinstance(res, str) and res.strip():
-                        return res.strip().upper()
-                except Exception:
-                    continue
-        return None
-
-    async def ensure_async(self, league: str, team: str, min_games: int = 6) -> Optional[TeamBaseline]:
-        existing = self.store.get(league, team)
+        existing = self.store.get(league, team_name)
         if existing and existing.n_games >= min_games:
             return existing
 
-        if not self.adapters:
-            return existing
-
-        # Resolve team name to abbr for providers
-        abbr = await self._resolve_abbr(league, team)
-        team_for_fetch = abbr or team  # if cannot resolve, try raw (some adapters may accept it)
-
-        games: Optional[List[Dict[str, Any]]] = None
-
         for ad in self.adapters:
             try:
-                res = ad.fetch_team_recent_games(league=league, team=team_for_fetch, n_games=max(min_games, 10))
-                if inspect.isawaitable(res):
-                    res = await res
-                if isinstance(res, list) and res:
-                    games = res
-                    break
-            except Exception:
-                continue
+                team_key = team_name
 
-        if not games:
-            return existing
+                # 🔥 RESOLVE NAME → ABBR IF SUPPORTED
+                resolver = getattr(ad, "resolve_team_abbr", None)
+                if callable(resolver):
+                    resolved = await resolver(league, team_name)
+                    if resolved:
+                        team_key = resolved
 
-        # Feed rolling series under ORIGINAL team name
-        for g in games:
-            try:
-                pace_val = g.get("pace")
-                if pace_val is None:
-                    pace_val = 100.0  # neutral fallback; NOT league avg
-                self.store.append_game(
+                fetch = getattr(ad, "fetch_team_recent_games", None)
+                if not callable(fetch):
+                    continue
+
+                games = await fetch(league, team_key, max(min_games, 10))
+                if not games:
+                    continue
+
+                for g in games:
+                    self.store.append_game(
+                        league=league,
+                        team=team_name,
+                        pts_for=g["pts_for"],
+                        pts_against=g["pts_against"],
+                        pace=float(g.get("pace") or 100.0),
+                        home=bool(g.get("home", False)),
+                        ts_utc=g.get("ts_utc"),
+                    )
+
+                agg = self.store.compute_dynamic_baseline(league, team_name, min_games)
+                if not agg:
+                    continue
+
+                baseline = TeamBaseline(
                     league=league,
-                    team=team,
-                    pts_for=float(g["pts_for"]),
-                    pts_against=float(g["pts_against"]),
-                    pace=float(pace_val),
-                    home=bool(g.get("home", False)),
-                    ts_utc=g.get("ts_utc"),
+                    team=team_name,
+                    n_games=agg["n_games"],
+                    pts_for=agg["pts_for"],
+                    pts_against=agg["pts_against"],
+                    pace=agg["pace"],
+                    stdev_total=agg["stdev_total"],
+                    updated_ts=int(time.time()),
                 )
+                self.store.put(baseline)
+                return baseline
+
             except Exception:
                 continue
 
-        agg = self.store.compute_dynamic_baseline(league, team, min_games)
-        if not agg:
-            return existing
-
-        baseline = TeamBaseline(
-            league=league,
-            team=team,
-            n_games=int(agg["n_games"]),
-            pts_for=float(agg["pts_for"]),
-            pts_against=float(agg["pts_against"]),
-            pace=float(agg["pace"]),
-            stdev_total=float(agg["stdev_total"]),
-            updated_ts=int(time.time()),
-        )
-        self.store.put(baseline)
-        return baseline
-
-    # Legacy sync entrypoint (for old sync adapters)
-    def ensure(self, league: str, team: str, min_games: int = 6) -> Optional[TeamBaseline]:
-        """
-        If you're using async adapters (ESPN/SportsDataIO), call ensure_async() from an async context.
-        This sync method is kept for backward compatibility only.
-        """
-        # If there is a running event loop, user MUST await ensure_async
-        try:
-            asyncio.get_running_loop()
-            # running loop exists -> cannot block here safely
-            return self.store.get(league, team)
-        except RuntimeError:
-            # no running loop -> safe to run
-            return asyncio.run(self.ensure_async(league, team, min_games=min_games))
-
-
-# =====================================================
-# ADAPTER INTERFACE
-# =====================================================
-
-class TeamStatsAdapter:
-    """
-    Adapter must return per-game time series in UTC.
-    """
-
-    def fetch_team_recent_games(
-        self, league: str, team: str, n_games: int
-    ) -> Optional[List[Dict[str, Any]]]:
-        raise NotImplementedError 
+        return existing 
