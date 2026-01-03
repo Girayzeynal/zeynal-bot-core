@@ -13,6 +13,7 @@ from baseline.team_baseline_store import TeamBaselineStore
 from faz13_engine import Faz13Engine, PrematchRequest
 from faz16_engine import faz16_run_simulation
 from faz17_engine import Faz17Engine
+from faz17_engine.faz17_engine import MarketRequest  # ✅ FIX: doğru import yolu
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 
@@ -174,23 +175,27 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cov = meta.setdefault("data_coverage", {})
 
     # ============================
-    # FAZ-17 — MARKET (DICT MODE)
+    # FAZ-17 — MARKET (✅ FIX: fetch_market + MarketRequest)
     # ============================
     market: Dict[str, Any] = {}
     market_total: Optional[float] = None
 
     try:
-        m = await faz17.fetch_market_total({
-            "league": league,
-            "date_str": date_str,
-            "home": home,
-            "away": away,
-        })
-        if isinstance(m, dict):
-            market = m
-            market_total = _safe_float(m.get("total"))
+        mk = await faz17.fetch_market(
+            MarketRequest(
+                league=league,
+                date_str=date_str,
+                home=home,
+                away=away,
+            )
+        )
+
+        if isinstance(mk, dict):
+            market = mk
+            market_total = _safe_float(mk.get("total"))
+
     except Exception as e:
-        market = {"status": "MARKET_OPTIONAL", "reason": str(e)}
+        market = {"status": "MARKET_OPTIONAL", "total": None, "reason": f"FAZ17_EXCEPTION:{e}"}
 
     core.market = market
     meta["market_total"] = market_total
@@ -277,7 +282,7 @@ def main():
 
     app.add_handler(CommandHandler("analyze", analyze_command))
 
-    logger.info("BOT STARTED — MAIN PIPELINE STABLE (NO MarketRequest)")
+    logger.info("BOT STARTED — MARKET WIRING FIXED (fetch_market + MarketRequest)")
     app.run_polling()
 
 
