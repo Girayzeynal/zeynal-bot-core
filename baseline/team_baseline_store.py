@@ -4,7 +4,7 @@ import json
 import os
 import time
 from dataclasses import dataclass, asdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Iterable
 from statistics import mean, pstdev
 
 
@@ -159,40 +159,75 @@ class TeamBaselineStore:
 
 
 # =====================================================
-# BOOTSTRAP
+# BOOTSTRAP (MULTI-SOURCE PATCH)
 # =====================================================
 
 class TeamBaselineBootstrapper:
     """
     Creates/updates baseline AND feeds the rolling series.
+
+    PATCH:
+    - Supports MULTIPLE adapters
+    - Tries adapters in order (primary → fallback)
+    - Backward compatible with single-adapter usage
     """
 
-    def __init__(self, store: TeamBaselineStore, adapter: "TeamStatsAdapter") -> None:
+    def __init__(
+        self,
+        store: TeamBaselineStore,
+        adapter: Optional["TeamStatsAdapter"] = None,
+        adapters: Optional[Iterable["TeamStatsAdapter"]] = None,
+    ) -> None:
         self.store = store
-        self.adapter = adapter
+
+        if adapters is not None:
+            self.adapters: List["TeamStatsAdapter"] = list(adapters)
+        elif adapter is not None:
+            # backward compatibility
+            self.adapters = [adapter]
+        else:
+            self.adapters = []
 
     def ensure(self, league: str, team: str, min_games: int = 6) -> Optional[TeamBaseline]:
         existing = self.store.get(league, team)
         if existing and existing.n_games >= min_games:
             return existing
 
-        stats = self.adapter.fetch_team_recent_games(
-            league=league, team=team, n_games=max(min_games, 10)
-        )
-        if not stats:
+        games: Optional[List[Dict[str, Any]]] = None
+        source_used: Optional[str] = None
+
+        # 🔥 MULTI-SOURCE TRY (PRIMARY → FALLBACK)
+        for ad in self.adapters:
+            try:
+                stats = ad.fetch_team_recent_games(
+                    league=league,
+                    team=team,
+                    n_games=max(min_games, 10),
+                )
+                if stats:
+                    games = stats
+                    source_used = getattr(ad, "name", ad.__class__.__name__)
+                    break
+            except Exception:
+                continue
+
+        if not games:
             return existing
 
-        # feed series
-        for g in stats:
-            self.store.append_game(
-                league=league,
-                team=team,
-                pts_for=g["pts_for"],
-                pts_against=g["pts_against"],
-                pace=g["pace"],
-                home=g.get("home", False),
-                ts_utc=g.get("ts_utc"),
-            )
+        # ---- feed rolling series
+        for g in games:
+            try:
+                self.store.append_game(
+                    league=league,
+                    team=team,
+                    pts_for=float(g["pts_for"]),
+                    pts_against=float(g["pts_against"]),
+                    pace=float(g.get("pace") or 100.0),  # neutral fallback (NOT league avg)
+                    home=bool(g.get("home", False)),
+                    ts_utc=g.get("ts_utc"),
+                )
+            except Exception:
+                continue
 
         agg = self.store.compute_dynamic_baseline(league, team, min_games)
         if not agg:
@@ -209,6 +244,10 @@ class TeamBaselineBootstrapper:
             updated_ts=int(time.time()),
         )
         self.store.put(baseline)
+
+        # (Optional) internal trace – not persisted
+        # source_used tells which adapter succeeded
+
         return baseline
 
 
