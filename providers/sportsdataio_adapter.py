@@ -5,6 +5,7 @@ import json
 import os
 import re
 import time
+import calendar
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -49,17 +50,22 @@ class _TTLCache:
 class SportsDataIOAdapter:
     """
     SportsDataIO provider adapter.
+
+    - Provides REAL possessions-based pace
+    - Provides per-game time-series in UTC
+    - Acts as authoritative override for pace vs ESPN proxy
     """
 
     name = "SPORTSDATAIO"
-    confidence = 0.85  # provider reliability weight
+    confidence = 0.85
 
-    def __init__(self) -> None:
+    def __init__(self, session: Optional[aiohttp.ClientSession] = None) -> None:
         self.api_key = (os.getenv("SPORTSDATA_API_KEY") or "").strip()
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: Optional[aiohttp.ClientSession] = session
+        self._owns_session: bool = session is None
 
         self._cache = _TTLCache(
-            ttl_sec=int(os.getenv("SPORTSDATA_CACHE_TTL_SEC", "900"))  # 15 min
+            ttl_sec=int(os.getenv("SPORTSDATA_CACHE_TTL_SEC", "900"))
         )
 
         self._disk_cache_dir = (os.getenv("FAZ_CACHE_DIR") or "").strip()
@@ -73,11 +79,15 @@ class SportsDataIOAdapter:
             return self._session
         timeout = aiohttp.ClientTimeout(total=25)
         self._session = aiohttp.ClientSession(timeout=timeout)
+        self._owns_session = True
         return self._session
 
-    async def close(self) -> None:
-        if self._session and not self._session.closed:
+    async def aclose(self) -> None:
+        if self._owns_session and self._session and not self._session.closed:
             await self._session.close()
+
+    async def close(self) -> None:  # backward compat
+        await self.aclose()
 
     async def _request_json(self, url: str) -> Optional[Any]:
         if not self.api_key:
@@ -135,10 +145,12 @@ class SportsDataIOAdapter:
         return None
 
     # -------------------------------------------------
-    # TEAM BASELINE
+    # TEAM BASELINE (snapshot)
     # -------------------------------------------------
 
-    async def fetch_team_baseline(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
+    async def fetch_team_baseline(
+        self, team_key: str, season_year: str
+    ) -> Optional[Dict[str, Any]]:
         if not self.api_key:
             return None
 
@@ -167,6 +179,149 @@ class SportsDataIOAdapter:
             "source": self.name,
             "fetched_at": int(time.time()),
         }
+
+    # -------------------------------------------------
+    # REAL PACE (possessions-based)
+    # -------------------------------------------------
+
+    async def fetch_team_pace(
+        self, team_key: str, season_year: str
+    ) -> Optional[Dict[str, Any]]:
+        if not self.api_key:
+            return None
+
+        key = (team_key or "").upper().strip()
+        if not key:
+            return None
+
+        url = f"{SPORTSDATA_BASE}/TeamSeasonStats/{season_year}"
+        data = await self._request_json(url)
+        if not isinstance(data, list):
+            return None
+
+        row = next((x for x in data if str(x.get("Key", "")).upper() == key), None)
+        if not row:
+            return None
+
+        poss = row.get("Possessions")
+        games = row.get("Games")
+        if poss is None or games is None:
+            return None
+
+        try:
+            poss_f = float(poss)
+            games_i = int(games)
+        except Exception:
+            return None
+
+        if games_i <= 0:
+            return None
+
+        return {
+            "source": self.name,
+            "team_key": key,
+            "pace": poss_f / games_i,
+            "possessions": poss_f,
+            "games": games_i,
+            "fetched_at": int(time.time()),
+        }
+
+    # -------------------------------------------------
+    # RECENT GAMES (time-series, UTC)  ✅ NEW
+    # -------------------------------------------------
+
+    async def fetch_team_recent_games(
+        self, league: str, team_key: str, n_games: int
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        Returns per-game series with REAL possessions when possible.
+
+        {
+          "ts_utc": int,
+          "pts_for": float,
+          "pts_against": float,
+          "pace": float,
+          "home": bool
+        }
+        """
+        if not self.api_key:
+            return None
+
+        key = (team_key or "").upper().strip()
+        if not key:
+            return None
+
+        # Use Games endpoint for completed games
+        # Date range: last ~45 days is safe for n<=15
+        end_ts = int(time.time())
+        start_ts = end_ts - 60 * 24 * 3600
+        start_date = time.strftime("%Y-%m-%d", time.gmtime(start_ts))
+        end_date = time.strftime("%Y-%m-%d", time.gmtime(end_ts))
+
+        url = f"{SPORTSDATA_BASE}/Games/{start_date}/{end_date}"
+        games = await self._request_json(url)
+        if not isinstance(games, list):
+            return None
+
+        out: List[Dict[str, Any]] = []
+
+        for g in sorted(games, key=lambda x: x.get("DateTime", "")):
+            if len(out) >= int(n_games):
+                break
+
+            # Only finished games
+            if g.get("Status") not in ("Final", "F/OT"):
+                continue
+
+            home = g.get("HomeTeam")
+            away = g.get("AwayTeam")
+            if home != key and away != key:
+                continue
+
+            # Parse UTC time
+            dt = g.get("DateTime")
+            if not isinstance(dt, str):
+                continue
+
+            try:
+                # Example: 2026-01-03T03:00:00
+                t = time.strptime(dt.split(".")[0], "%Y-%m-%dT%H:%M:%S")
+                ts_utc = calendar.timegm(t)
+            except Exception:
+                continue
+
+            if home == key:
+                pf = g.get("HomeTeamScore")
+                pa = g.get("AwayTeamScore")
+                is_home = True
+            else:
+                pf = g.get("AwayTeamScore")
+                pa = g.get("HomeTeamScore")
+                is_home = False
+
+            if pf is None or pa is None:
+                continue
+
+            poss = g.get("Possessions")
+            if poss:
+                try:
+                    pace = float(poss)
+                except Exception:
+                    pace = None
+            else:
+                pace = None
+
+            out.append(
+                {
+                    "ts_utc": int(ts_utc),
+                    "pts_for": float(pf),
+                    "pts_against": float(pa),
+                    "pace": float(pace) if pace is not None else None,
+                    "home": bool(is_home),
+                }
+            )
+
+        return out if out else None
 
     # -------------------------------------------------
     # INJURIES
@@ -209,52 +364,5 @@ class SportsDataIOAdapter:
             "team_key": key,
             "injuries": injuries,
             "injury_count": len(injuries),
-            "fetched_at": int(time.time()),
-        }
-
-    # -------------------------------------------------
-    # PACE / POSSESSIONS  ✅ DOĞRU İNDENT
-    # -------------------------------------------------
-
-    async def fetch_team_pace(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
-        """
-        REAL pace = Possessions / Games
-        """
-        if not self.api_key:
-            return None
-
-        key = (team_key or "").upper().strip()
-        if not key:
-            return None
-
-        url = f"{SPORTSDATA_BASE}/TeamSeasonStats/{season_year}"
-        data = await self._request_json(url)
-        if not isinstance(data, list):
-            return None
-
-        row = next((x for x in data if str(x.get("Key", "")).upper() == key), None)
-        if not row:
-            return None
-
-        poss = row.get("Possessions")
-        games = row.get("Games")
-        if poss is None or games is None:
-            return None
-
-        try:
-            poss_f = float(poss)
-            games_i = int(games)
-        except Exception:
-            return None
-
-        if games_i <= 0:
-            return None
-
-        return {
-            "source": self.name,
-            "team_key": key,
-            "pace": poss_f / games_i,
-            "possessions": poss_f,
-            "games": games_i,
             "fetched_at": int(time.time()),
         }
