@@ -205,3 +205,22 @@ def faz16_band(mean: float, std: float, sigma: float = 0.55) -> Dict[str, float]
         "hi": round(hi, 1),
         "center": round(mean, 1)
     } 
+
+
+# ============================
+# BACKWARD COMPATIBILITY SHIM
+# ============================
+
+def faz16_run_simulation(*args, **kwargs):
+    """
+    Geriye uyumluluk köprüsü.
+    Eski main.py çağrılarını kırmadan
+    yeni FAZ-16 live recalibrate motorunu çalıştırır.
+    """
+    try:
+        return faz16_live_recalibrate(*args, **kwargs)
+    except Exception as e:
+        return {
+            "error": "FAZ16_RUN_SIMULATION_FAILED",
+            "detail": str(e),
+        } 
