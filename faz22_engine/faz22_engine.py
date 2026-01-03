@@ -7,7 +7,7 @@ from league_profiles import get_league_profile
 
 class Faz22Engine:
     """
-    FAZ-22 v4.1 — Meta Decision Engine (PRE + LIVE) [LEAGUE-AWARE + SOFT UNLOCK FIX]
+    FAZ-22 v4.1 — Meta Decision Engine (PRE + LIVE)
 
     - Segment-aware strong signal detection (ESKİ MOTOR KORUNDU)
     - Confidence Lock sistemi
@@ -39,7 +39,7 @@ class Faz22Engine:
     LIVE_WEAK_BOOST = 4.0
     LIVE_STRONG_BOOST = 8.0
 
-    # PRE soft unlock threshold: edge_distance >= sim_std * alpha
+    # PATCH: PRE soft unlock alpha
     PRE_SOFT_UNLOCK_ALPHA_NBA = 0.50
     PRE_SOFT_UNLOCK_ALPHA_DEFAULT = 0.40
 
@@ -128,7 +128,7 @@ class Faz22Engine:
         base_notes: List[str] = getattr(core, "notes", []) or []
 
         # =========================
-        # LEAGUE PROFILE (NEW)
+        # LEAGUE PROFILE
         # =========================
         league_name = None
         try:
@@ -148,7 +148,7 @@ class Faz22Engine:
         edge_distance = self._sf(meta.get("edge_distance"))
 
         prematch_edge = meta.get("edge_flag", "NO_EDGE")
-        live_edge = meta.get("live_edge_flag")  # FAZ-16 yazacak
+        live_edge = meta.get("live_edge_flag")
         risk = meta.get("risk", "HIGH")
 
         # =========================
@@ -156,25 +156,29 @@ class Faz22Engine:
         # =========================
         decision_phase = "LIVE" if live_edge else "PRE"
 
-        # Market required liglerde market yoksa hard block (NBA gibi)
+        # PATCH: market_required hard lock
         if profile.market_required and market_total is None:
             confidence_lock = True
             meta["lock_reason"] = "MARKET_REQUIRED_BUT_MISSING"
         else:
             confidence_lock = prematch_edge in ("NO_EDGE", "WEAK_EDGE")
 
-        # Live EDGE varsa kilidi aç
+        # PATCH: Live edge unlock
         if live_edge in ("LIVE_WEAK_EDGE", "LIVE_EDGE"):
             confidence_lock = False
             meta["lock_reason"] = "LIVE_EDGE_UNLOCK"
 
         # =========================
-        # PRE SOFT UNLOCK (NEW)
+        # PATCH: PRE SOFT UNLOCK
         # =========================
         prematch_soft_unlock = False
         if decision_phase == "PRE" and confidence_lock:
             if edge_distance is not None and sim_std is not None:
-                alpha = self.PRE_SOFT_UNLOCK_ALPHA_NBA if profile.name == "NBA" else self.PRE_SOFT_UNLOCK_ALPHA_DEFAULT
+                alpha = (
+                    self.PRE_SOFT_UNLOCK_ALPHA_NBA
+                    if profile.name == "NBA"
+                    else self.PRE_SOFT_UNLOCK_ALPHA_DEFAULT
+                )
                 if edge_distance >= sim_std * alpha:
                     confidence_lock = False
                     prematch_soft_unlock = True
@@ -186,25 +190,20 @@ class Faz22Engine:
         # =========================
         final_conf = conf_pct
 
-        # Lock cap (PRE lock only)
         if confidence_lock:
             final_conf = min(final_conf, self.PRE_LOCK_CAP)
         else:
-            # Live boosts
             if live_edge == "LIVE_WEAK_EDGE":
                 final_conf += self.LIVE_WEAK_BOOST
             elif live_edge == "LIVE_EDGE":
                 final_conf += self.LIVE_STRONG_BOOST
 
-            # Small bump for prematch soft unlock (controlled)
             if prematch_soft_unlock:
                 final_conf += 3.0
 
-        # Risk cap
         final_conf = min(final_conf, self.RISK_CAPS.get(risk, 70.0))
 
-        # League market weight (NEW): market influence calibration
-        # If market is missing and market_required is False, keep as-is.
+        # PATCH: League market weight
         if market_total is not None:
             final_conf = final_conf * float(profile.market_weight)
             meta["market_weight_applied"] = float(profile.market_weight)
@@ -292,4 +291,4 @@ class Faz22Engine:
 
         core.notes = summary
         core.meta = meta
-        return core
+        return core 
