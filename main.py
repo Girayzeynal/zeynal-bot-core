@@ -163,8 +163,9 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     faz22: Faz22Engine = context.application.bot_data["faz22"]
     faz23: Faz23Engine = context.application.bot_data["faz23"]
 
-    # ---- bootstrapper (multi-source)
+    # ---- shared objects
     bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
+    baseline_store: TeamBaselineStore = context.application.bot_data["baseline_store"]
 
     # ============================
     # 🔥 BASELINE BOOTSTRAP (ASYNC – REAL DATA)
@@ -174,6 +175,18 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await bootstrapper.ensure_async(league, away, min_games=5)
     except Exception as e:
         logger.warning(f"Baseline bootstrap failed: {e}")
+
+    # ============================
+    # ✅ DEBUG: SERIES CHECK (KANIT)
+    # ============================
+    try:
+        h_series = baseline_store.get_series(league, home, 5)
+        a_series = baseline_store.get_series(league, away, 5)
+        logger.info(
+            f"SERIES_CHECK home={home} n={len(h_series)} | away={away} n={len(a_series)}"
+        )
+    except Exception as e:
+        logger.warning(f"SERIES_CHECK error: {e}")
 
     # ============================
     # FAZ-13 — PREMATCH ANALYSIS
@@ -262,7 +275,6 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     baseline_store = TeamBaselineStore("data/baselines")
 
-    # MULTI-SOURCE BOOTSTRAP (PRIMARY → FALLBACK)
     baseline_bootstrapper = TeamBaselineBootstrapper(
         store=baseline_store,
         adapters=[
@@ -274,6 +286,7 @@ def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     # ---- shared objects
+    app.bot_data["baseline_store"] = baseline_store
     app.bot_data["baseline_bootstrapper"] = baseline_bootstrapper
 
     # ---- engines
@@ -317,4 +330,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main() 
