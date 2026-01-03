@@ -11,8 +11,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from baseline.team_baseline_store import TeamBaselineStore
 from faz13_engine import Faz13Engine, PrematchRequest
-from faz17_engine import Faz17Engine
-from faz17_engine import MarketRequest
+from faz17_engine import Faz17Engine, MarketRequest
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 from faz7_engine.faz7_memory import faz7_memory
@@ -169,7 +168,6 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     meta = _ensure_dict(core, "meta")
     notes = _ensure_list(core, "notes")
     cov = meta.setdefault("data_coverage", {})
-
     cov["prematch"] = True
 
     # ============================
@@ -261,20 +259,28 @@ def main():
     # ---- handlers
     app.add_handler(CommandHandler("analyze", analyze_command))
 
-    # ---- graceful shutdown (IMPORTANT)
-    async def _shutdown(app: Application):
-        try:
-            await app.bot_data["faz13"].aclose()
-        except Exception:
-            pass
-        try:
-            await app.bot_data["faz17"].aclose()
-        except Exception:
-            pass
+    # ---- GRACEFUL SHUTDOWN (Telegram v20+ SAFE)
+    async def _graceful_shutdown(application: Application):
+        logger.info("Graceful shutdown initiated")
 
-    app.post_shutdown.append(_shutdown)
+        try:
+            faz13 = application.bot_data.get("faz13")
+            if faz13:
+                await faz13.aclose()
+        except Exception as e:
+            logger.warning(f"FAZ13 shutdown error: {e}")
 
-    logger.info("BOT STARTED — ANALYTIC CORE ACTIVE (FAZ-13/16/17)")
+        try:
+            faz17 = application.bot_data.get("faz17")
+            if faz17:
+                await faz17.aclose()
+        except Exception as e:
+            logger.warning(f"FAZ17 shutdown error: {e}")
+
+    # Telegram v20+ uyumlu
+    app.shutdown = _graceful_shutdown
+
+    logger.info("BOT STARTED — ANALYTIC CORE ACTIVE (FAZ-13/17/22/23)")
     app.run_polling()
 
 
