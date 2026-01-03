@@ -9,7 +9,13 @@ from typing import Any, Dict, Optional
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-from baseline.team_baseline_store import TeamBaselineStore
+from baseline.team_baseline_store import (
+    TeamBaselineStore,
+    TeamBaselineBootstrapper,
+)
+from providers.espn_adapter import ESPNAdapter
+from providers.sportsdataio_adapter import SportsDataIOAdapter
+
 from faz13_engine import Faz13Engine, PrematchRequest
 from faz17_engine import Faz17Engine, MarketRequest
 from faz22_engine import Faz22Engine
@@ -39,7 +45,7 @@ if not TELEGRAM_BOT_TOKEN:
 
 
 # ============================
-# HELPERS
+# HELPERS (UNCHANGED)
 # ============================
 def _parse_date(date_str: str) -> datetime:
     return datetime.strptime(date_str.strip(), "%Y-%m-%d")
@@ -151,10 +157,23 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"ANALYZE {league} {date_str} {home} vs {away}")
 
+    # ---- engines
     faz13: Faz13Engine = context.application.bot_data["faz13"]
     faz17: Faz17Engine = context.application.bot_data["faz17"]
     faz22: Faz22Engine = context.application.bot_data["faz22"]
     faz23: Faz23Engine = context.application.bot_data["faz23"]
+
+    # ---- bootstrapper (multi-source)
+    bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
+
+    # ============================
+    # 🔥 BASELINE BOOTSTRAP (NO DATA LOGIC HERE)
+    # ============================
+    try:
+        bootstrapper.ensure(league, home, min_games=5)
+        bootstrapper.ensure(league, away, min_games=5)
+    except Exception as e:
+        logger.warning(f"Baseline bootstrap failed: {e}")
 
     # ============================
     # FAZ-13 — PREMATCH ANALYSIS
@@ -171,7 +190,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cov["prematch"] = True
 
     # ============================
-    # FAZ-17 — MARKET
+    # FAZ-17 — MARKET (ONLY MARKET)
     # ============================
     market_total: Optional[float] = None
 
@@ -243,12 +262,22 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     baseline_store = TeamBaselineStore("data/baselines")
 
+    # 🔥 MULTI-SOURCE BOOTSTRAP (PRIMARY → FALLBACK)
+    baseline_bootstrapper = TeamBaselineBootstrapper(
+        store=baseline_store,
+        adapters=[
+            SportsDataIOAdapter(),  # PRIMARY
+            ESPNAdapter(),          # FALLBACK
+        ],
+    )
+
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
+    # ---- shared objects
+    app.bot_data["baseline_bootstrapper"] = baseline_bootstrapper
+
     # ---- engines
-    app.bot_data["faz13"] = Faz13Engine(
-        baseline_store=baseline_store,
-    )
+    app.bot_data["faz13"] = Faz13Engine(baseline_store=baseline_store)
     app.bot_data["faz17"] = Faz17Engine(
         api_key=ODDS_API_KEY,
         base_url=ODDS_BASE,
@@ -259,27 +288,33 @@ def main():
     # ---- handlers
     app.add_handler(CommandHandler("analyze", analyze_command))
 
-    # ---- GRACEFUL SHUTDOWN (Telegram v20+ SAFE)
+    # ---- GRACEFUL SHUTDOWN
     async def _graceful_shutdown(application: Application):
         logger.info("Graceful shutdown initiated")
 
-        try:
-            faz13 = application.bot_data.get("faz13")
-            if faz13:
-                await faz13.aclose()
-        except Exception as e:
-            logger.warning(f"FAZ13 shutdown error: {e}")
+        for k in ("faz13", "faz17"):
+            try:
+                eng = application.bot_data.get(k)
+                if eng:
+                    await eng.aclose()
+            except Exception:
+                pass
 
-        try:
-            faz17 = application.bot_data.get("faz17")
-            if faz17:
-                await faz17.aclose()
-        except Exception as e:
-            logger.warning(f"FAZ17 shutdown error: {e}")
+        # close providers if needed
+        for k in ("baseline_bootstrapper",):
+            try:
+                bs = application.bot_data.get(k)
+                if bs:
+                    for ad in getattr(bs, "adapters", []):
+                        close = getattr(ad, "aclose", None)
+                        if callable(close):
+                            await close()
+            except Exception:
+                pass
 
     app.shutdown = _graceful_shutdown
 
-    logger.info("BOT STARTED — ANALYTIC CORE ACTIVE (FAZ-13/17/22/23)")
+    logger.info("BOT STARTED — ORCHESTRATOR MODE (MULTI-SOURCE BOOTSTRAP ACTIVE)")
     app.run_polling()
 
 
