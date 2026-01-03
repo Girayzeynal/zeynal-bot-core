@@ -2,15 +2,18 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from league_profiles import get_league_profile
+
 
 class Faz22Engine:
     """
-    FAZ-22 v4.0 — Meta Decision Engine (PRE + LIVE)
+    FAZ-22 v4.1 — Meta Decision Engine (PRE + LIVE) [LEAGUE-AWARE + SOFT UNLOCK FIX]
 
     - Segment-aware strong signal detection (ESKİ MOTOR KORUNDU)
-    - Confidence Lock sistemi (YENİ)
-    - Prematch NO_EDGE → kilitli
+    - Confidence Lock sistemi
+    - Prematch NO_EDGE → kilitli (ama SOFT UNLOCK ile açılabilir)
     - Live EDGE → kilit açılır
+    - LeagueProfile.market_weight uygulanır (gerçekçi confidence)
     """
 
     # -------------------------
@@ -35,6 +38,10 @@ class Faz22Engine:
     PRE_LOCK_CAP = 55.0
     LIVE_WEAK_BOOST = 4.0
     LIVE_STRONG_BOOST = 8.0
+
+    # PRE soft unlock threshold: edge_distance >= sim_std * alpha
+    PRE_SOFT_UNLOCK_ALPHA_NBA = 0.50
+    PRE_SOFT_UNLOCK_ALPHA_DEFAULT = 0.40
 
     RISK_CAPS = {
         "HIGH": 68.0,
@@ -121,11 +128,24 @@ class Faz22Engine:
         base_notes: List[str] = getattr(core, "notes", []) or []
 
         # =========================
+        # LEAGUE PROFILE (NEW)
+        # =========================
+        league_name = None
+        try:
+            league_name = getattr(getattr(core, "ctx", None), "league", None)
+        except Exception:
+            league_name = None
+
+        profile = get_league_profile(str(league_name or meta.get("league") or "EUROLEAGUE"))
+        meta["league_profile"] = profile.name
+
+        # =========================
         # INPUTS
         # =========================
         conf_pct = self._sf(meta.get("confidence_pct")) or 0.0
         sim_std = self._sf(meta.get("sim_std"))
         market_total = self._sf(meta.get("market_total"))
+        edge_distance = self._sf(meta.get("edge_distance"))
 
         prematch_edge = meta.get("edge_flag", "NO_EDGE")
         live_edge = meta.get("live_edge_flag")  # FAZ-16 yazacak
@@ -135,25 +155,60 @@ class Faz22Engine:
         # DECISION PHASE + LOCK
         # =========================
         decision_phase = "LIVE" if live_edge else "PRE"
-        confidence_lock = prematch_edge in ("NO_EDGE", "WEAK_EDGE")
 
+        # Market required liglerde market yoksa hard block (NBA gibi)
+        if profile.market_required and market_total is None:
+            confidence_lock = True
+            meta["lock_reason"] = "MARKET_REQUIRED_BUT_MISSING"
+        else:
+            confidence_lock = prematch_edge in ("NO_EDGE", "WEAK_EDGE")
+
+        # Live EDGE varsa kilidi aç
         if live_edge in ("LIVE_WEAK_EDGE", "LIVE_EDGE"):
             confidence_lock = False
+            meta["lock_reason"] = "LIVE_EDGE_UNLOCK"
+
+        # =========================
+        # PRE SOFT UNLOCK (NEW)
+        # =========================
+        prematch_soft_unlock = False
+        if decision_phase == "PRE" and confidence_lock:
+            if edge_distance is not None and sim_std is not None:
+                alpha = self.PRE_SOFT_UNLOCK_ALPHA_NBA if profile.name == "NBA" else self.PRE_SOFT_UNLOCK_ALPHA_DEFAULT
+                if edge_distance >= sim_std * alpha:
+                    confidence_lock = False
+                    prematch_soft_unlock = True
+                    meta["prematch_soft_unlock"] = True
+                    meta["soft_unlock_reason"] = f"EDGE_DISTANCE_GE_STD_X_{alpha:.2f}"
 
         # =========================
         # CONFIDENCE UPDATE
         # =========================
         final_conf = conf_pct
 
+        # Lock cap (PRE lock only)
         if confidence_lock:
             final_conf = min(final_conf, self.PRE_LOCK_CAP)
         else:
+            # Live boosts
             if live_edge == "LIVE_WEAK_EDGE":
                 final_conf += self.LIVE_WEAK_BOOST
             elif live_edge == "LIVE_EDGE":
                 final_conf += self.LIVE_STRONG_BOOST
 
+            # Small bump for prematch soft unlock (controlled)
+            if prematch_soft_unlock:
+                final_conf += 3.0
+
+        # Risk cap
         final_conf = min(final_conf, self.RISK_CAPS.get(risk, 70.0))
+
+        # League market weight (NEW): market influence calibration
+        # If market is missing and market_required is False, keep as-is.
+        if market_total is not None:
+            final_conf = final_conf * float(profile.market_weight)
+            meta["market_weight_applied"] = float(profile.market_weight)
+
         final_conf = round(final_conf, 1)
 
         # =========================
@@ -220,7 +275,7 @@ class Faz22Engine:
 
         summary: List[str] = []
         summary.append(
-            f"📌 FAZ-22 Karar | Phase={decision_phase} | Conf={final_conf}% | Lock={confidence_lock}"
+            f"📌 FAZ-22 Karar | League={profile.name} | Phase={decision_phase} | Conf={final_conf}% | Lock={confidence_lock}"
         )
         summary.append("")
 
@@ -230,13 +285,11 @@ class Faz22Engine:
         else:
             summary.append("✅ Güçlü sinyaller:")
             for s in strong:
-                summary.append(
-                    f"• {s['segment']} {s['direction']} | edge={s['edge']:+.1f}"
-                )
+                summary.append(f"• {s['segment']} {s['direction']} | edge={s['edge']:+.1f}")
 
         summary.append("──────────────────")
         summary.append("ℹ️ Analiz/simülasyon amaçlıdır. Bahis tavsiyesi değildir.")
 
         core.notes = summary
         core.meta = meta
-        return core 
+        return core
