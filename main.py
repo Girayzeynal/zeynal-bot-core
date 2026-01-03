@@ -157,7 +157,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     faz23: Faz23Engine = context.application.bot_data["faz23"]
 
     # ============================
-    # FAZ-13 — ANALYTIC PREMATCH
+    # FAZ-13 — PREMATCH ANALYSIS
     # ============================
     core = await faz13.run_prematch(
         PrematchRequest(0, league, date_str, home, away)
@@ -216,7 +216,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _apply_degraded_mode(core)
 
     # ============================
-    # FAZ-22 — FINAL SCORE / CONFIDENCE
+    # FAZ-22 — FINALIZE
     # ============================
     core = faz22.score_and_finalize(core)
 
@@ -277,7 +277,6 @@ def main():
         except Exception as e:
             logger.warning(f"FAZ17 shutdown error: {e}")
 
-    # Telegram v20+ uyumlu
     app.shutdown = _graceful_shutdown
 
     logger.info("BOT STARTED — ANALYTIC CORE ACTIVE (FAZ-13/17/22/23)")
@@ -285,4 +284,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
