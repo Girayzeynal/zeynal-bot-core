@@ -1,3 +1,8 @@
+# =====================================================
+# FAZ-13 FULL FINAL (LEAGUE-PROFILE INTEGRATED)
+# File: faz13_engine.py
+# =====================================================
+
 from __future__ import annotations
 
 import html
@@ -64,7 +69,7 @@ class Faz13CoreOutput:
     blowout_risk: str
     tempo_flag: str
 
-    # ✅ NEW: FAZ-13/16/22/23 ortak prematch referansları
+    # ✅ FAZ-13/16/22/23 ortak prematch referansları
     sim_mean: float = 0.0
     sim_std: float = 0.0
     center_total: float = 0.0
@@ -112,11 +117,9 @@ class Faz13CoreOutput:
                     self.edge_flag = "EDGE"
                     self.watchlist = False
 
-                # ou_direction: EDGE varsa direction göster, yoksa NO_EDGE
                 direction = "OVER" if float(self.sim_mean) > float(market_total) else "UNDER"
                 self.ou_direction = direction if self.edge_flag in ("WEAK_EDGE", "EDGE") else "NO_EDGE"
 
-                # meta içine de yaz (FAZ-22/23 için)
                 if isinstance(self.meta, dict):
                     self.meta["market_total"] = market_total
                     self.meta["sim_mean"] = round(float(self.sim_mean), 3)
@@ -149,12 +152,14 @@ class Faz13CoreOutput:
         )
         out.append(f"• Alt/Üst yönü: {esc(self.ou_direction)}")
 
-        # ✅ NEW: merkez + edge durumu
         if self.sim_mean and self.sim_std:
             out.append("")
             out.append("FAZ-13 Referans (PRE)")
             out.append(f"• Sim Mean: {self.sim_mean:.2f} | Sim SD: {self.sim_std:.2f}")
-            out.append(f"• Center: {self.center_total:.1f} | Edge Flag: {esc(self.edge_flag)} | Watchlist: {self.watchlist}")
+            out.append(
+                f"• Center: {self.center_total:.1f} | Edge Flag: {esc(self.edge_flag)} | "
+                f"Watchlist: {self.watchlist}"
+            )
             if self.edge_distance is not None:
                 out.append(f"• Edge Distance: {self.edge_distance:.2f}")
 
@@ -339,7 +344,7 @@ class SportsDataIOAdapter:
 
 
 # =====================================================
-# FAZ-13 ENGINE (REF-BASED FINAL BUILD)
+# FAZ-13 ENGINE
 # =====================================================
 
 class Faz13Engine:
@@ -460,19 +465,15 @@ class Faz13Engine:
         return qs
 
     # ============================
-    # ✅ NEW: Prematch sim/std + edge helpers
+    # Prematch sim/std + edge helpers
     # ============================
-
     @staticmethod
     def _estimate_sim_std_from_band(band_hw_total: int) -> float:
-        # band_hw_total ~ dar bant yarı genişlik (±)
-        # FAZ-16 ile uyumlu bir std proxy: hw ≈ 0.55 * std => std ≈ hw / 0.55
         try:
             hw = float(band_hw_total)
             std = hw / 0.55
         except Exception:
             std = 10.0
-        # NBA gibi liglerde aşırı uçları kırp (stabilite)
         return max(6.0, min(14.0, float(std)))
 
     @staticmethod
@@ -484,11 +485,6 @@ class Faz13Engine:
 
     @staticmethod
     def _prematch_edge_decision(sim_mean: float, sim_std: float, market_total: Optional[float]) -> Tuple[str, bool, str]:
-        """
-        returns: (edge_flag, watchlist, direction)
-        edge_flag: NO_EDGE | WEAK_EDGE | EDGE
-        direction: NONE | OVER | UNDER
-        """
         if market_total is None:
             return "NO_EDGE", True, "NONE"
 
@@ -504,36 +500,9 @@ class Faz13Engine:
             return "WEAK_EDGE", True, direction
         return "EDGE", False, direction
 
-    @staticmethod
-    def _extract_market_total(market: Dict[str, Any]) -> Optional[float]:
-        """
-        main.py farklı anahtar adları kullanabilir diye toleranslı okuma.
-        Öneri: core.market["total"] = 239.5 şeklinde bas.
-        """
-        if not isinstance(market, dict):
-            return None
-
-        # En yaygın anahtarlar
-        for k in ("total", "market_total", "ou_total", "total_line"):
-            v = market.get(k)
-            try:
-                if v is not None:
-                    return float(v)
-            except Exception:
-                pass
-
-        # Bazı yapılarda nested olabilir
-        try:
-            v = market.get("ou", {}).get("total")
-            if v is not None:
-                return float(v)
-        except Exception:
-            pass
-
-        return None
-
     async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
         profile = get_league_profile(req.league)
+
         season = self.resolve_nba_season(req.date_str) if req.league.upper() == "NBA" else req.date_str[:4]
         season_str = self._season_label(season) if req.league.upper() == "NBA" else season
 
@@ -542,12 +511,10 @@ class Faz13Engine:
         home_rows: List[Dict[str, Any]] = []
         away_rows: List[Dict[str, Any]] = []
 
-        # Resolve abbr
         home_abbr = await self._espn_resolve_abbr(req.home) if (req.league.upper() == "NBA" and ESPNAdapter is not None) else None
         away_abbr = await self._espn_resolve_abbr(req.away) if (req.league.upper() == "NBA" and ESPNAdapter is not None) else None
         notes.append(f"ESPN abbr: home={home_abbr} away={away_abbr}")
 
-        # ESPN baseline
         if req.league.upper() == "NBA" and ESPNAdapter is not None:
             try:
                 espn = ESPNAdapter()
@@ -562,7 +529,6 @@ class Faz13Engine:
             except Exception:
                 notes.append("ESPN: fetch failed")
 
-        # SportsDataIO baseline + pace
         pace_home: Optional[float] = None
         pace_away: Optional[float] = None
         if req.league.upper() == "NBA":
@@ -598,9 +564,8 @@ class Faz13Engine:
                 quarters={},
                 blowout_risk="UNKNOWN",
                 tempo_flag="UNKNOWN",
-                # ✅ NEW
                 sim_mean=0.0,
-                sim_std=9.0,
+                sim_std=profile.volatility_floor,
                 center_total=0.0,
                 edge_distance=None,
                 edge_flag="NO_EDGE",
@@ -618,9 +583,8 @@ class Faz13Engine:
                     "risk": "NO_PLAY",
                     "degraded_mode": True,
                     "data_coverage": {"team_stats": False, "pace": False},
-                    # ✅ NEW (segment-ready)
                     "sim_mean": 0.0,
-                    "sim_std": 9.0,
+                    "sim_std": profile.volatility_floor,
                     "center_total": 0.0,
                     "edge_distance": None,
                     "edge_flag": "NO_EDGE",
@@ -628,7 +592,6 @@ class Faz13Engine:
                 },
             )
 
-        # Pace fallback
         if pace_home is None:
             try:
                 v = home_baseline.get("pace")
@@ -649,7 +612,6 @@ class Faz13Engine:
             pace_away = 100.0
         notes.append(f"Pace(home)={pace_home:.1f} | Pace(away)={pace_away:.1f}")
 
-        # Expected totals
         h_pf = float(home_baseline["pts_for"])
         h_pa = float(home_baseline["pts_against"])
         a_pf = float(away_baseline["pts_for"])
@@ -657,19 +619,16 @@ class Faz13Engine:
 
         home_mu = (h_pf + a_pa) / 2.0
         away_mu = (a_pf + h_pa) / 2.0
-        expected_total = home_mu + away_mu
 
-        # ✅ FAZ-13 prematch sim referansları
+        expected_total = (home_mu + away_mu) * float(profile.pace_scale)
+
+        # League-aware sim_std
+        raw_std = self._estimate_sim_std_from_band(profile.band_hw_total)
+        sim_std = max(profile.volatility_floor, min(profile.volatility_ceil, raw_std))
+
         sim_mean = float(expected_total)
-        sim_std = self._estimate_sim_std_from_band(profile.band_hw_total)
 
-        # Market total burada sahiplenilmiyor (main.py inject edecek).
-        # Eğer ileride direct inject yapılırsa render_html otomatik edge güncelleyecek.
-        market_total = None
-        center_total, edge_distance = self._compute_center_and_edge(sim_mean, market_total)
-        edge_flag, watchlist, direction = self._prematch_edge_decision(sim_mean, sim_std, market_total)
-
-        total_band = (int(expected_total - profile.band_hw_total), int(expected_total + profile.band_hw_total))
+        total_band = (int(sim_mean - profile.band_hw_total), int(sim_mean + profile.band_hw_total))
         home_band = (int(home_mu - profile.band_hw_team), int(home_mu + profile.band_hw_team))
         away_band = (int(away_mu - profile.band_hw_team), int(away_mu + profile.band_hw_team))
 
@@ -684,12 +643,10 @@ class Faz13Engine:
         else:
             risk = "HIGH"
 
-        # Tempo + quarters
         pace_mean = (pace_home + pace_away) / 2.0
         tempo_flag = self._tempo_flag_from_pace(pace_mean)
-        quarters = self._quarters_band(expected_total, profile.band_hw_total, tempo_flag)
+        quarters = self._quarters_band(sim_mean, profile.band_hw_total, tempo_flag)
 
-        # ---- GUARANTEE expected_* keys (segment-ready) ----
         def _mid(b: Tuple[int, int]) -> float:
             return (float(b[0]) + float(b[1])) / 2.0
 
@@ -701,29 +658,27 @@ class Faz13Engine:
         expected_1h = round(expected_q1 + expected_q2, 1) if (expected_q1 is not None and expected_q2 is not None) else None
         expected_2h = round(expected_q3 + expected_q4, 1) if (expected_q3 is not None and expected_q4 is not None) else None
 
-        # Sources
         sources_home = home_baseline.get("sources", [])
         sources_away = away_baseline.get("sources", [])
         notes.append(f"Sources(home)={', '.join(sources_home)}")
         notes.append(f"Sources(away)={', '.join(sources_away)}")
 
-        # NOTE: market_total/market_1h/market_2h are owned by main.py (FAZ-17 wiring).
-        # FAZ-13 will NOT fetch or overwrite them.
-
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
+
+        center_total, edge_distance = self._compute_center_and_edge(sim_mean, None)
+        edge_flag, watchlist, _ = self._prematch_edge_decision(sim_mean, sim_std, None)
 
         return Faz13CoreOutput(
             ctx=ctx,
-            home_avg=TeamAverages(h_pf, h_pa, float(pace_home), 10.0),
-            away_avg=TeamAverages(a_pf, a_pa, float(pace_away), 10.0),
+            home_avg=TeamAverages(h_pf, h_pa, float(pace_home), sim_std),
+            away_avg=TeamAverages(a_pf, a_pa, float(pace_away), sim_std),
             total_band=total_band,
             home_band=home_band,
             away_band=away_band,
-            ou_direction="NO_EDGE",  # market inject olunca render_html otomatik günceller
+            ou_direction="NO_EDGE",
             quarters=quarters,
             blowout_risk="LOW",
             tempo_flag=tempo_flag,
-            # ✅ NEW
             sim_mean=sim_mean,
             sim_std=sim_std,
             center_total=center_total,
@@ -731,10 +686,11 @@ class Faz13Engine:
             edge_flag=edge_flag,
             watchlist=watchlist,
             notes=notes,
-            market={},  # main.py sets core.market
+            market={},
             meta={
                 "season": season,
                 "season_str": season_str,
+                "league_profile": profile.name,
                 "team_first": True,
                 "baseline_missing": False,
                 "confidence_pct": confidence_pct,
@@ -747,18 +703,16 @@ class Faz13Engine:
                 "pace_away": pace_away,
                 "pace_mean": pace_mean,
                 "tempo_flag": tempo_flag,
-                "expected_total": round(expected_total, 3),
+                "expected_total": round(sim_mean, 3),
                 "expected_q1": None if expected_q1 is None else round(expected_q1, 1),
                 "expected_q2": None if expected_q2 is None else round(expected_q2, 1),
                 "expected_q3": None if expected_q3 is None else round(expected_q3, 1),
                 "expected_q4": None if expected_q4 is None else round(expected_q4, 1),
                 "expected_1h": expected_1h,
                 "expected_2h": expected_2h,
-                # market_total will be injected by main.py
                 "data_coverage": {"team_stats": True, "pace": True},
                 "degraded_mode": False,
                 "fetched_at": int(time.time()),
-                # ✅ NEW (segment-ready)
                 "sim_mean": round(sim_mean, 3),
                 "sim_std": round(sim_std, 3),
                 "center_total": round(sim_mean, 1),
