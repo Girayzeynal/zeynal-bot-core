@@ -167,11 +167,11 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
 
     # ============================
-    # BASELINE BOOTSTRAP (ORCHESTRATION ONLY)
+    # 🔥 BASELINE BOOTSTRAP (ASYNC – REAL DATA)
     # ============================
     try:
-        bootstrapper.ensure(league, home, min_games=5)
-        bootstrapper.ensure(league, away, min_games=5)
+        await bootstrapper.ensure_async(league, home, min_games=5)
+        await bootstrapper.ensure_async(league, away, min_games=5)
     except Exception as e:
         logger.warning(f"Baseline bootstrap failed: {e}")
 
@@ -292,7 +292,6 @@ def main():
     async def _graceful_shutdown():
         logger.info("Graceful shutdown initiated")
 
-        # close engines
         for k in ("faz13", "faz17"):
             try:
                 eng = app.bot_data.get(k)
@@ -301,7 +300,6 @@ def main():
             except Exception:
                 pass
 
-        # close providers (bootstrapper adapters)
         try:
             bs = app.bot_data.get("baseline_bootstrapper")
             if bs:
