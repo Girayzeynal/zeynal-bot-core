@@ -63,12 +63,70 @@ class Faz13CoreOutput:
     quarters: Dict[str, Tuple[int, int]]
     blowout_risk: str
     tempo_flag: str
+
+    # ✅ NEW: FAZ-13/16/22/23 ortak prematch referansları
+    sim_mean: float = 0.0
+    sim_std: float = 0.0
+    center_total: float = 0.0
+    edge_distance: Optional[float] = None
+    edge_flag: str = "NO_EDGE"  # NO_EDGE | WEAK_EDGE | EDGE
+    watchlist: bool = True
+
     notes: List[str] = field(default_factory=list)
     market: Dict[str, Any] = field(default_factory=dict)
     meta: Dict[str, Any] = field(default_factory=dict)
 
     def render_html(self) -> str:
         esc = html.escape
+
+        # ✅ Market total sonradan inject edildiyse edge/meta'yı burada güncelle
+        try:
+            market_total: Optional[float] = None
+
+            if isinstance(self.market, dict):
+                for k in ("total", "market_total", "ou_total", "total_line"):
+                    if k in self.market and self.market[k] is not None:
+                        market_total = float(self.market[k])
+                        break
+
+                if market_total is None and isinstance(self.market.get("ou"), dict):
+                    v = self.market["ou"].get("total")
+                    if v is not None:
+                        market_total = float(v)
+
+            if market_total is not None and float(self.sim_mean) and float(self.sim_std):
+                self.center_total = round(float(self.sim_mean), 1)
+                self.edge_distance = round(abs(float(market_total) - float(self.sim_mean)), 2)
+
+                weak_th = float(self.sim_std) * 0.35
+                strong_th = float(self.sim_std) * 0.55
+                diff = float(self.edge_distance)
+
+                if diff < weak_th:
+                    self.edge_flag = "NO_EDGE"
+                    self.watchlist = True
+                elif diff < strong_th:
+                    self.edge_flag = "WEAK_EDGE"
+                    self.watchlist = True
+                else:
+                    self.edge_flag = "EDGE"
+                    self.watchlist = False
+
+                # ou_direction: EDGE varsa direction göster, yoksa NO_EDGE
+                direction = "OVER" if float(self.sim_mean) > float(market_total) else "UNDER"
+                self.ou_direction = direction if self.edge_flag in ("WEAK_EDGE", "EDGE") else "NO_EDGE"
+
+                # meta içine de yaz (FAZ-22/23 için)
+                if isinstance(self.meta, dict):
+                    self.meta["market_total"] = market_total
+                    self.meta["sim_mean"] = round(float(self.sim_mean), 3)
+                    self.meta["sim_std"] = round(float(self.sim_std), 3)
+                    self.meta["center_total"] = self.center_total
+                    self.meta["edge_distance"] = self.edge_distance
+                    self.meta["edge_flag"] = self.edge_flag
+                    self.meta["watchlist"] = self.watchlist
+        except Exception:
+            pass
 
         def _fmt(v: Any) -> str:
             if isinstance(v, (list, tuple, set)):
@@ -90,6 +148,15 @@ class Faz13CoreOutput:
             f"Dep: {self.away_band[0]}–{self.away_band[1]}"
         )
         out.append(f"• Alt/Üst yönü: {esc(self.ou_direction)}")
+
+        # ✅ NEW: merkez + edge durumu
+        if self.sim_mean and self.sim_std:
+            out.append("")
+            out.append("FAZ-13 Referans (PRE)")
+            out.append(f"• Sim Mean: {self.sim_mean:.2f} | Sim SD: {self.sim_std:.2f}")
+            out.append(f"• Center: {self.center_total:.1f} | Edge Flag: {esc(self.edge_flag)} | Watchlist: {self.watchlist}")
+            if self.edge_distance is not None:
+                out.append(f"• Edge Distance: {self.edge_distance:.2f}")
 
         if self.quarters:
             out.append("")
@@ -392,6 +459,79 @@ class Faz13Engine:
             qs[lab] = (int(mu - q_hw), int(mu + q_hw))
         return qs
 
+    # ============================
+    # ✅ NEW: Prematch sim/std + edge helpers
+    # ============================
+
+    @staticmethod
+    def _estimate_sim_std_from_band(band_hw_total: int) -> float:
+        # band_hw_total ~ dar bant yarı genişlik (±)
+        # FAZ-16 ile uyumlu bir std proxy: hw ≈ 0.55 * std => std ≈ hw / 0.55
+        try:
+            hw = float(band_hw_total)
+            std = hw / 0.55
+        except Exception:
+            std = 10.0
+        # NBA gibi liglerde aşırı uçları kırp (stabilite)
+        return max(6.0, min(14.0, float(std)))
+
+    @staticmethod
+    def _compute_center_and_edge(sim_mean: float, market_total: Optional[float]) -> Tuple[float, Optional[float]]:
+        center_total = round(float(sim_mean), 1)
+        if market_total is None:
+            return center_total, None
+        return center_total, round(abs(float(market_total) - float(sim_mean)), 2)
+
+    @staticmethod
+    def _prematch_edge_decision(sim_mean: float, sim_std: float, market_total: Optional[float]) -> Tuple[str, bool, str]:
+        """
+        returns: (edge_flag, watchlist, direction)
+        edge_flag: NO_EDGE | WEAK_EDGE | EDGE
+        direction: NONE | OVER | UNDER
+        """
+        if market_total is None:
+            return "NO_EDGE", True, "NONE"
+
+        diff = abs(float(sim_mean) - float(market_total))
+        weak_th = float(sim_std) * 0.35
+        strong_th = float(sim_std) * 0.55
+
+        direction = "OVER" if float(sim_mean) > float(market_total) else "UNDER"
+
+        if diff < weak_th:
+            return "NO_EDGE", True, direction
+        if diff < strong_th:
+            return "WEAK_EDGE", True, direction
+        return "EDGE", False, direction
+
+    @staticmethod
+    def _extract_market_total(market: Dict[str, Any]) -> Optional[float]:
+        """
+        main.py farklı anahtar adları kullanabilir diye toleranslı okuma.
+        Öneri: core.market["total"] = 239.5 şeklinde bas.
+        """
+        if not isinstance(market, dict):
+            return None
+
+        # En yaygın anahtarlar
+        for k in ("total", "market_total", "ou_total", "total_line"):
+            v = market.get(k)
+            try:
+                if v is not None:
+                    return float(v)
+            except Exception:
+                pass
+
+        # Bazı yapılarda nested olabilir
+        try:
+            v = market.get("ou", {}).get("total")
+            if v is not None:
+                return float(v)
+        except Exception:
+            pass
+
+        return None
+
     async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
         profile = get_league_profile(req.league)
         season = self.resolve_nba_season(req.date_str) if req.league.upper() == "NBA" else req.date_str[:4]
@@ -458,6 +598,13 @@ class Faz13Engine:
                 quarters={},
                 blowout_risk="UNKNOWN",
                 tempo_flag="UNKNOWN",
+                # ✅ NEW
+                sim_mean=0.0,
+                sim_std=9.0,
+                center_total=0.0,
+                edge_distance=None,
+                edge_flag="NO_EDGE",
+                watchlist=True,
                 notes=notes + ["NO_PLAY: BASELINE_NOT_AVAILABLE"],
                 market={},
                 meta={
@@ -471,6 +618,13 @@ class Faz13Engine:
                     "risk": "NO_PLAY",
                     "degraded_mode": True,
                     "data_coverage": {"team_stats": False, "pace": False},
+                    # ✅ NEW (segment-ready)
+                    "sim_mean": 0.0,
+                    "sim_std": 9.0,
+                    "center_total": 0.0,
+                    "edge_distance": None,
+                    "edge_flag": "NO_EDGE",
+                    "watchlist": True,
                 },
             )
 
@@ -504,6 +658,16 @@ class Faz13Engine:
         home_mu = (h_pf + a_pa) / 2.0
         away_mu = (a_pf + h_pa) / 2.0
         expected_total = home_mu + away_mu
+
+        # ✅ FAZ-13 prematch sim referansları
+        sim_mean = float(expected_total)
+        sim_std = self._estimate_sim_std_from_band(profile.band_hw_total)
+
+        # Market total burada sahiplenilmiyor (main.py inject edecek).
+        # Eğer ileride direct inject yapılırsa render_html otomatik edge güncelleyecek.
+        market_total = None
+        center_total, edge_distance = self._compute_center_and_edge(sim_mean, market_total)
+        edge_flag, watchlist, direction = self._prematch_edge_decision(sim_mean, sim_std, market_total)
 
         total_band = (int(expected_total - profile.band_hw_total), int(expected_total + profile.band_hw_total))
         home_band = (int(home_mu - profile.band_hw_team), int(home_mu + profile.band_hw_team))
@@ -555,10 +719,17 @@ class Faz13Engine:
             total_band=total_band,
             home_band=home_band,
             away_band=away_band,
-            ou_direction="NO_EDGE",
+            ou_direction="NO_EDGE",  # market inject olunca render_html otomatik günceller
             quarters=quarters,
             blowout_risk="LOW",
             tempo_flag=tempo_flag,
+            # ✅ NEW
+            sim_mean=sim_mean,
+            sim_std=sim_std,
+            center_total=center_total,
+            edge_distance=edge_distance,
+            edge_flag=edge_flag,
+            watchlist=watchlist,
             notes=notes,
             market={},  # main.py sets core.market
             meta={
@@ -587,5 +758,12 @@ class Faz13Engine:
                 "data_coverage": {"team_stats": True, "pace": True},
                 "degraded_mode": False,
                 "fetched_at": int(time.time()),
+                # ✅ NEW (segment-ready)
+                "sim_mean": round(sim_mean, 3),
+                "sim_std": round(sim_std, 3),
+                "center_total": round(sim_mean, 1),
+                "edge_distance": None,
+                "edge_flag": "NO_EDGE",
+                "watchlist": True,
             },
         )
