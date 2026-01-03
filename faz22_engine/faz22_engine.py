@@ -5,32 +5,42 @@ from typing import Any, Dict, List, Optional
 
 class Faz22Engine:
     """
-    FAZ-22 v3.1 — Segment-Aware Strong Side Filter (ANALYSIS / SIMULATION)
+    FAZ-22 v4.0 — Meta Decision Engine (PRE + LIVE)
 
-    - Zorla tahmin yok
-    - Bahis dili yok
-    - Sadece güçlü sinyal varsa konuşur
-    - MS / 1Y / 2Y / Q1-Q4 ayrı değerlendirilir
-    - STD (sim_std) yüksekse full-game susabilir ama yarı/çeyrek konuşabilir
+    - Segment-aware strong signal detection (ESKİ MOTOR KORUNDU)
+    - Confidence Lock sistemi (YENİ)
+    - Prematch NO_EDGE → kilitli
+    - Live EDGE → kilit açılır
     """
 
     # -------------------------
-    # Tunables (pratik eşikler)
+    # Tunables (segment motoru)
     # -------------------------
-    CONF_MIN_PCT = 60.0       # confidence_pct altı konuşmaz
-    EDGE_MIN_MS = 6.0         # maç sonu minimum mutlak edge
-    EDGE_MIN_1H = 4.0         # yarı minimum mutlak edge
-    EDGE_MIN_Q = 3.0          # çeyrek minimum mutlak edge
+    CONF_MIN_PCT = 60.0
+    EDGE_MIN_MS = 6.0
+    EDGE_MIN_1H = 4.0
+    EDGE_MIN_Q = 3.0
 
-    # STD oranları (NBA pratik segment ölçekleri)
     STD_RATIO_1H = 0.55
     STD_RATIO_2H = 0.60
     STD_RATIO_Q = 0.35
 
-    # STD bazlı eşik çarpanı: |edge| >= max(min_edge, std_seg * k)
     STD_K_MS = 0.40
     STD_K_1H = 0.35
     STD_K_Q = 0.30
+
+    # -------------------------
+    # Meta / Decision tunables
+    # -------------------------
+    PRE_LOCK_CAP = 55.0
+    LIVE_WEAK_BOOST = 4.0
+    LIVE_STRONG_BOOST = 8.0
+
+    RISK_CAPS = {
+        "HIGH": 68.0,
+        "MEDIUM": 75.0,
+        "LOW": 82.0,
+    }
 
     # -------------------------
     # Utils
@@ -68,7 +78,7 @@ class Faz22Engine:
         return max(base, float(std_seg) * k)
 
     # -------------------------
-    # Core evaluation
+    # Segment evaluation (ESKİ)
     # -------------------------
     def _eval_segment(
         self,
@@ -85,7 +95,6 @@ class Faz22Engine:
         edge = expected - market
         thr = self._threshold(seg, std_seg)
 
-        # filtreler
         if conf_pct < self.CONF_MIN_PCT:
             return None
         if abs(edge) < thr:
@@ -105,41 +114,69 @@ class Faz22Engine:
         }
 
     # -------------------------
-    # Public API
+    # PUBLIC API
     # -------------------------
     def score_and_finalize(self, core):
         meta: Dict[str, Any] = getattr(core, "meta", {}) or {}
         base_notes: List[str] = getattr(core, "notes", []) or []
 
-        # --- inputs ---
+        # =========================
+        # INPUTS
+        # =========================
         conf_pct = self._sf(meta.get("confidence_pct")) or 0.0
-        sim_std = self._sf(meta.get("sim_std"))  # FAZ-16'den gelir
+        sim_std = self._sf(meta.get("sim_std"))
         market_total = self._sf(meta.get("market_total"))
 
-        # Market yoksa güçlü sinyal üretmeyiz (tasarım gereği)
+        prematch_edge = meta.get("edge_flag", "NO_EDGE")
+        live_edge = meta.get("live_edge_flag")  # FAZ-16 yazacak
+        risk = meta.get("risk", "HIGH")
+
+        # =========================
+        # DECISION PHASE + LOCK
+        # =========================
+        decision_phase = "LIVE" if live_edge else "PRE"
+        confidence_lock = prematch_edge in ("NO_EDGE", "WEAK_EDGE")
+
+        if live_edge in ("LIVE_WEAK_EDGE", "LIVE_EDGE"):
+            confidence_lock = False
+
+        # =========================
+        # CONFIDENCE UPDATE
+        # =========================
+        final_conf = conf_pct
+
+        if confidence_lock:
+            final_conf = min(final_conf, self.PRE_LOCK_CAP)
+        else:
+            if live_edge == "LIVE_WEAK_EDGE":
+                final_conf += self.LIVE_WEAK_BOOST
+            elif live_edge == "LIVE_EDGE":
+                final_conf += self.LIVE_STRONG_BOOST
+
+        final_conf = min(final_conf, self.RISK_CAPS.get(risk, 70.0))
+        final_conf = round(final_conf, 1)
+
+        # =========================
+        # SEGMENT ANALYSIS (ESKİ MOTOR)
+        # =========================
         if market_total is None:
-            meta["analysis_status"] = "NO_STRONG_SIGNAL"
-            meta["uncertainty_level"] = "YÜKSEK"
-            meta["strong_signals"] = []
-            base_notes.append("⚠️ Market verisi yok → güçlü sinyal üretilemez.")
+            meta.update({
+                "analysis_status": "NO_STRONG_SIGNAL",
+                "uncertainty_level": "YÜKSEK",
+                "decision_phase": decision_phase,
+                "confidence_lock": confidence_lock,
+                "final_confidence": final_conf,
+                "strong_signals": [],
+            })
             core.meta = meta
-            core.notes = base_notes
+            core.notes = ["⚠️ Market verisi yok → karar üretilemedi."]
             return core
 
-        # --- derive segment markets ---
         market_ms = market_total
-        market_1h = self._sf(meta.get("market_1h"))
-        market_2h = self._sf(meta.get("market_2h"))
-
-        # Eğer 1Y/2Y market yoksa, MS/2 fallback (analiz için makul)
-        if market_1h is None:
-            market_1h = market_total / 2.0
-        if market_2h is None:
-            market_2h = market_total / 2.0
-
+        market_1h = self._sf(meta.get("market_1h")) or market_total / 2.0
+        market_2h = self._sf(meta.get("market_2h")) or market_total / 2.0
         market_q = market_total / 4.0
 
-        # --- expected values from FAZ-13 ---
         exp_ms = self._sf(meta.get("expected_total"))
         exp_1h = self._sf(meta.get("expected_1h"))
         exp_2h = self._sf(meta.get("expected_2h"))
@@ -148,78 +185,58 @@ class Faz22Engine:
         exp_q3 = self._sf(meta.get("expected_q3"))
         exp_q4 = self._sf(meta.get("expected_q4"))
 
-        # --- segment std derivation ---
         std_ms = sim_std
-        std_1h = (sim_std * self.STD_RATIO_1H) if sim_std is not None else None
-        std_2h = (sim_std * self.STD_RATIO_2H) if sim_std is not None else None
-        std_q = (sim_std * self.STD_RATIO_Q) if sim_std is not None else None
+        std_1h = sim_std * self.STD_RATIO_1H if sim_std else None
+        std_2h = sim_std * self.STD_RATIO_2H if sim_std else None
+        std_q = sim_std * self.STD_RATIO_Q if sim_std else None
 
-        # store for debug / research
-        meta["std_ms"] = None if std_ms is None else round(std_ms, 3)
-        meta["std_1h"] = None if std_1h is None else round(std_1h, 3)
-        meta["std_2h"] = None if std_2h is None else round(std_2h, 3)
-        meta["std_q"] = None if std_q is None else round(std_q, 3)
-
-        # --- evaluate segments ---
-        decision_notes: List[str] = []
         strong: List[Dict[str, Any]] = []
+        notes: List[str] = []
 
-        # MS
-        r = self._eval_segment("MS", exp_ms, market_ms, std_ms, conf_pct, decision_notes)
-        if r:
-            strong.append(r)
+        for seg, exp, mkt, std in [
+            ("MS", exp_ms, market_ms, std_ms),
+            ("1Y", exp_1h, market_1h, std_1h),
+            ("2Y", exp_2h, market_2h, std_2h),
+            ("Q1", exp_q1, market_q, std_q),
+            ("Q2", exp_q2, market_q, std_q),
+            ("Q3", exp_q3, market_q, std_q),
+            ("Q4", exp_q4, market_q, std_q),
+        ]:
+            r = self._eval_segment(seg, exp, mkt, std, final_conf, notes)
+            if r:
+                strong.append(r)
 
-        # 1Y / 2Y
-        r = self._eval_segment("1Y", exp_1h, market_1h, std_1h, conf_pct, decision_notes)
-        if r:
-            strong.append(r)
+        # =========================
+        # FINAL META
+        # =========================
+        meta.update({
+            "decision_phase": decision_phase,
+            "confidence_lock": confidence_lock,
+            "final_confidence": final_conf,
+            "analysis_status": "STRONG_SIGNAL" if strong else "NO_STRONG_SIGNAL",
+            "uncertainty_level": "DÜŞÜK" if strong else "YÜKSEK",
+            "strong_signals": strong,
+        })
 
-        r = self._eval_segment("2Y", exp_2h, market_2h, std_2h, conf_pct, decision_notes)
-        if r:
-            strong.append(r)
-
-        # Q1–Q4
-        r = self._eval_segment("Q1", exp_q1, market_q, std_q, conf_pct, decision_notes)
-        if r:
-            strong.append(r)
-        r = self._eval_segment("Q2", exp_q2, market_q, std_q, conf_pct, decision_notes)
-        if r:
-            strong.append(r)
-        r = self._eval_segment("Q3", exp_q3, market_q, std_q, conf_pct, decision_notes)
-        if r:
-            strong.append(r)
-        r = self._eval_segment("Q4", exp_q4, market_q, std_q, conf_pct, decision_notes)
-        if r:
-            strong.append(r)
-
-        # --- finalize meta ---
-        meta["strong_signals"] = strong
-        meta["analysis_status"] = "STRONG_SIGNAL" if strong else "NO_STRONG_SIGNAL"
-        meta["uncertainty_level"] = "DÜŞÜK" if strong else "YÜKSEK"
-
-        # --- Human-readable output (notes) ---
-        # Eski note yığınını silmeden, karar özetini en üste koyuyoruz.
         summary: List[str] = []
-        summary.append(f"📌 Analiz Özeti: market={market_total:.1f} | conf={conf_pct:.1f}% | std≈{self._fmt1(sim_std)}")
+        summary.append(
+            f"📌 FAZ-22 Karar | Phase={decision_phase} | Conf={final_conf}% | Lock={confidence_lock}"
+        )
         summary.append("")
 
         if not strong:
-            summary.append("📉 Güçlü bir istatistiksel + market uyumu yok.")
-            summary.append("Bu karşılaşma analiz kapsamında izleme listesindedir.")
+            summary.append("📉 Güçlü ve güvenli bir sinyal oluşmadı.")
+            summary.append("Maç izleme listesindedir.")
         else:
-            summary.append("✅ Güçlü sinyal tespit edildi (segment bazlı):")
+            summary.append("✅ Güçlü sinyaller:")
             for s in strong:
                 summary.append(
-                    f"• {s['segment']} {s['direction']} | edge={s['edge']:+.1f} (eşik≥{s['threshold']:.1f})"
+                    f"• {s['segment']} {s['direction']} | edge={s['edge']:+.1f}"
                 )
 
         summary.append("──────────────────")
-        summary.append("ℹ️ Bu analiz ve simülasyon amaçlıdır.")
-        summary.append("Herhangi bir şekilde bahis tavsiyesi değildir.")
-        summary.append("İstatistiksel veriler ve model projeksiyonlarına dayanır.")
+        summary.append("ℹ️ Analiz/simülasyon amaçlıdır. Bahis tavsiyesi değildir.")
 
-        # notes'u replace edelim: karar odaklı olsun
         core.notes = summary
-
         core.meta = meta
         return core 
