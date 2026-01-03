@@ -11,11 +11,11 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from baseline.team_baseline_store import TeamBaselineStore
 from faz13_engine import Faz13Engine, PrematchRequest
-from faz16_engine import faz16_run_simulation
 from faz17_engine import Faz17Engine
-from faz17_engine.faz17_engine import MarketRequest
+from faz17_engine import MarketRequest
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
+from faz7_engine.faz7_memory import faz7_memory
 
 
 # ============================
@@ -32,10 +32,6 @@ logger = logging.getLogger("zeynal-core")
 # ENV
 # ============================
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-
-API_SPORTS_KEY = os.getenv("API_SPORTS_KEY")
-API_SPORTS_BASE = os.getenv("API_SPORTS_BASE", "https://v1.basketball.api-sports.io")
-
 ODDS_API_KEY = os.getenv("ODDS_API_KEY")
 ODDS_BASE = os.getenv("ODDS_BASE", "https://api.the-odds-api.com/v4")
 
@@ -112,7 +108,7 @@ def _apply_degraded_mode(core: Any) -> None:
     meta["degraded_mode"] = True
     meta.setdefault("risk", "HIGH")
     notes.append(
-        "⚠️ DEGRADED_MODE: Kaynak veriler eksik (team_stats / pace / market). Analiz fallback ile üretildi."
+        "⚠️ DEGRADED_MODE: Kaynak veriler eksik. Analiz fallback ile üretildi."
     )
 
 
@@ -162,7 +158,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     faz23: Faz23Engine = context.application.bot_data["faz23"]
 
     # ============================
-    # FAZ-13
+    # FAZ-13 — ANALYTIC PREMATCH
     # ============================
     core = await faz13.run_prematch(
         PrematchRequest(0, league, date_str, home, away)
@@ -174,10 +170,11 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     notes = _ensure_list(core, "notes")
     cov = meta.setdefault("data_coverage", {})
 
+    cov["prematch"] = True
+
     # ============================
     # FAZ-17 — MARKET
     # ============================
-    market: Dict[str, Any] = {}
     market_total: Optional[float] = None
 
     try:
@@ -189,19 +186,16 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 away=away,
             )
         )
-
         if isinstance(mk, dict):
-            market = mk
+            core.market = mk
             market_total = _safe_float(mk.get("total"))
-
     except Exception as e:
-        market = {
+        core.market = {
             "status": "MARKET_OPTIONAL",
             "total": None,
             "reason": f"FAZ17_EXCEPTION:{e}",
         }
 
-    core.market = market
     meta["market_total"] = market_total
     cov["market"] = market_total is not None
 
@@ -211,43 +205,12 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         notes.append("Market unavailable → MARKET_OPTIONAL")
 
     # ============================
-    # FAZ-16 — SIMULATION (NBA-TUNED VOL)
+    # FAZ-7 — MEMORY TRACE
     # ============================
     try:
-        base_total = (
-            (core.total_band[0] + core.total_band[1]) / 2
-            if core.total_band
-            else 220.0
-        )
-
-        # band half-width
-        hw = abs(core.total_band[1] - core.total_band[0]) / 2.0
-
-        conf_tight = float(meta.get("confidence_tight") or 0.0)
-
-        # NBA tuned volatility
-        vol = 6.5 + (hw * 0.6)
-        vol = vol * (1.15 - 0.5 * max(0.0, min(1.0, conf_tight)))
-        vol = max(7.0, min(14.5, vol))
-
-        sim = faz16_run_simulation(
-            base_total=base_total,
-            vol=vol,
-            n_iter=15_000,
-            line=market_total,
-        )
-
-        meta["sim_mean"] = sim.get("mean")
-        meta["sim_std"] = sim.get("std")
-        meta["sim_vol_used"] = round(vol, 2)
-
-        if sim.get("p50") is not None:
-            notes.append(
-                f"🎲 Sim p50≈{sim['p50']:.1f} | mean≈{sim['mean']:.1f} | std≈{sim['std']:.1f} | vol≈{vol:.2f}"
-            )
-
-    except Exception as e:
-        notes.append(f"⚠️ FAZ-16 sim hata: {e}")
+        faz7_memory(meta)
+    except Exception:
+        pass
 
     # ============================
     # DEGRADED MODE
@@ -255,12 +218,12 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _apply_degraded_mode(core)
 
     # ============================
-    # FAZ-22 FINALIZE
+    # FAZ-22 — FINAL SCORE / CONFIDENCE
     # ============================
     core = faz22.score_and_finalize(core)
 
     # ============================
-    # FAZ-23 SNAPSHOT
+    # FAZ-23 — SNAPSHOT
     # ============================
     try:
         await faz23.record_snapshot(core)
@@ -284,9 +247,8 @@ def main():
 
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
+    # ---- engines
     app.bot_data["faz13"] = Faz13Engine(
-        api_sports_key=API_SPORTS_KEY,
-        api_sports_base=API_SPORTS_BASE,
         baseline_store=baseline_store,
     )
     app.bot_data["faz17"] = Faz17Engine(
@@ -296,11 +258,25 @@ def main():
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine()
 
+    # ---- handlers
     app.add_handler(CommandHandler("analyze", analyze_command))
 
-    logger.info("BOT STARTED — MAIN PIPELINE STABLE (NBA-TUNED VOL)")
+    # ---- graceful shutdown (IMPORTANT)
+    async def _shutdown(app: Application):
+        try:
+            await app.bot_data["faz13"].aclose()
+        except Exception:
+            pass
+        try:
+            await app.bot_data["faz17"].aclose()
+        except Exception:
+            pass
+
+    app.post_shutdown.append(_shutdown)
+
+    logger.info("BOT STARTED — ANALYTIC CORE ACTIVE (FAZ-13/16/17)")
     app.run_polling()
 
 
 if __name__ == "__main__":
-    main()
+    main() 
