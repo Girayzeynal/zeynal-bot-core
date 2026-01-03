@@ -13,7 +13,7 @@ from baseline.team_baseline_store import TeamBaselineStore
 from faz13_engine import Faz13Engine, PrematchRequest
 from faz16_engine import faz16_run_simulation
 from faz17_engine import Faz17Engine
-from faz17_engine.faz17_engine import MarketRequest  # ✅ FIX: doğru import yolu
+from faz17_engine.faz17_engine import MarketRequest
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 
@@ -175,7 +175,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cov = meta.setdefault("data_coverage", {})
 
     # ============================
-    # FAZ-17 — MARKET (✅ FIX: fetch_market + MarketRequest)
+    # FAZ-17 — MARKET
     # ============================
     market: Dict[str, Any] = {}
     market_total: Optional[float] = None
@@ -195,7 +195,11 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             market_total = _safe_float(mk.get("total"))
 
     except Exception as e:
-        market = {"status": "MARKET_OPTIONAL", "total": None, "reason": f"FAZ17_EXCEPTION:{e}"}
+        market = {
+            "status": "MARKET_OPTIONAL",
+            "total": None,
+            "reason": f"FAZ17_EXCEPTION:{e}",
+        }
 
     core.market = market
     meta["market_total"] = market_total
@@ -207,7 +211,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         notes.append("Market unavailable → MARKET_OPTIONAL")
 
     # ============================
-    # FAZ-16 — SIMULATION
+    # FAZ-16 — SIMULATION (NBA-TUNED VOL)
     # ============================
     try:
         base_total = (
@@ -216,20 +220,32 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else 220.0
         )
 
+        # band half-width
+        hw = abs(core.total_band[1] - core.total_band[0]) / 2.0
+
+        conf_tight = float(meta.get("confidence_tight") or 0.0)
+
+        # NBA tuned volatility
+        vol = 6.5 + (hw * 0.6)
+        vol = vol * (1.15 - 0.5 * max(0.0, min(1.0, conf_tight)))
+        vol = max(7.0, min(14.5, vol))
+
         sim = faz16_run_simulation(
             base_total=base_total,
-            vol=15.0,
-            n_iter=10_000,
+            vol=vol,
+            n_iter=15_000,
             line=market_total,
         )
 
         meta["sim_mean"] = sim.get("mean")
         meta["sim_std"] = sim.get("std")
+        meta["sim_vol_used"] = round(vol, 2)
 
         if sim.get("p50") is not None:
             notes.append(
-                f"🎲 Sim p50≈{sim['p50']:.1f} | mean≈{sim['mean']:.1f} | std≈{sim['std']:.1f}"
+                f"🎲 Sim p50≈{sim['p50']:.1f} | mean≈{sim['mean']:.1f} | std≈{sim['std']:.1f} | vol≈{vol:.2f}"
             )
+
     except Exception as e:
         notes.append(f"⚠️ FAZ-16 sim hata: {e}")
 
@@ -282,9 +298,9 @@ def main():
 
     app.add_handler(CommandHandler("analyze", analyze_command))
 
-    logger.info("BOT STARTED — MARKET WIRING FIXED (fetch_market + MarketRequest)")
+    logger.info("BOT STARTED — MAIN PIPELINE STABLE (NBA-TUNED VOL)")
     app.run_polling()
 
 
 if __name__ == "__main__":
-    main() 
+    main()
