@@ -14,6 +14,10 @@ class Faz22Engine:
     - Prematch NO_EDGE → kilitli (ama SOFT UNLOCK ile açılabilir)
     - Live EDGE → kilit açılır
     - LeagueProfile.market_weight uygulanır (gerçekçi confidence)
+
+    PATCH (FORCE MODE):
+    - Eğer core.force varsa, market olmasa bile karar üretir.
+    - FORCE varsa LOCK kapatılır, final_confidence FORCE'tan alınır.
     """
 
     # -------------------------
@@ -121,6 +125,43 @@ class Faz22Engine:
         }
 
     # -------------------------
+    # FORCE MODE HELPERS (NEW)
+    # -------------------------
+    @staticmethod
+    def _get_force(core: Any) -> Optional[Dict[str, Any]]:
+        """
+        FORCE payload can live in:
+          - core.force (preferred)
+          - core.meta["force"] (fallback)
+        """
+        try:
+            f = getattr(core, "force", None)
+            if isinstance(f, dict):
+                return f
+        except Exception:
+            pass
+
+        try:
+            meta = getattr(core, "meta", {}) or {}
+            f2 = meta.get("force")
+            if isinstance(f2, dict):
+                return f2
+        except Exception:
+            pass
+
+        return None
+
+    @staticmethod
+    def _force_direction_label(direction: str) -> str:
+        d = (direction or "").upper().strip()
+        if d in ("OVER", "UST", "ÜST"):
+            return "ÜST"
+        if d in ("UNDER", "ALT"):
+            return "ALT"
+        # FORCE placeholder -> still ok
+        return "ÜST"
+
+    # -------------------------
     # PUBLIC API
     # -------------------------
     def score_and_finalize(self, core):
@@ -152,6 +193,12 @@ class Faz22Engine:
         risk = meta.get("risk", "HIGH")
 
         # =========================
+        # FORCE DETECTION (NEW)
+        # =========================
+        force = self._get_force(core)
+        force_enabled = isinstance(force, dict)
+
+        # =========================
         # DECISION PHASE + LOCK
         # =========================
         decision_phase = "LIVE" if live_edge else "PRE"
@@ -167,6 +214,15 @@ class Faz22Engine:
         if live_edge in ("LIVE_WEAK_EDGE", "LIVE_EDGE"):
             confidence_lock = False
             meta["lock_reason"] = "LIVE_EDGE_UNLOCK"
+
+        # =========================
+        # PATCH: FORCE OVERRIDE (NEW)
+        # =========================
+        if force_enabled:
+            # FORCE varsa lock yok; market_required olsa bile karar ver
+            confidence_lock = False
+            meta["force_enabled"] = True
+            meta["lock_reason"] = "FORCE_MODE_OVERRIDE"
 
         # =========================
         # PATCH: PRE SOFT UNLOCK
@@ -190,7 +246,28 @@ class Faz22Engine:
         # =========================
         final_conf = conf_pct
 
-        if confidence_lock:
+        # FORCE varsa confidence'ı oradan al (zorunlu karar)
+        if force_enabled:
+            try:
+                f_conf = self._sf(force.get("confidence"))
+                if f_conf is not None:
+                    # confidence 0..100 beklenir; değilse clamp
+                    final_conf = max(0.0, min(100.0, float(f_conf)))
+                else:
+                    final_conf = max(final_conf, 55.0)
+            except Exception:
+                final_conf = max(final_conf, 55.0)
+
+            # Risk’i de force’dan alabiliriz
+            try:
+                f_risk = force.get("risk")
+                if isinstance(f_risk, str) and f_risk:
+                    risk = f_risk.upper()
+                    meta["risk"] = risk
+            except Exception:
+                pass
+
+        if confidence_lock and not force_enabled:
             final_conf = min(final_conf, self.PRE_LOCK_CAP)
         else:
             if live_edge == "LIVE_WEAK_EDGE":
@@ -201,9 +278,10 @@ class Faz22Engine:
             if prematch_soft_unlock:
                 final_conf += 3.0
 
+        # Risk cap (force dahil)
         final_conf = min(final_conf, self.RISK_CAPS.get(risk, 70.0))
 
-        # PATCH: League market weight
+        # PATCH: League market weight (market varsa uygula)
         if market_total is not None:
             final_conf = final_conf * float(profile.market_weight)
             meta["market_weight_applied"] = float(profile.market_weight)
@@ -211,7 +289,46 @@ class Faz22Engine:
         final_conf = round(final_conf, 1)
 
         # =========================
-        # SEGMENT ANALYSIS (ESKİ MOTOR)
+        # FORCE MODE PATH when market missing (NEW)
+        # =========================
+        if market_total is None and force_enabled:
+            # Force direction: market yoksa force total tek başına yön taşır (render_html market varsa düzeltir)
+            f_total = self._sf(force.get("total"))
+            f_dir = self._force_direction_label(str(force.get("direction", "OVER")))
+
+            meta.update({
+                "analysis_status": "FORCE_SIGNAL",
+                "uncertainty_level": "ORTA",
+                "decision_phase": decision_phase,
+                "confidence_lock": False,
+                "final_confidence": final_conf,
+                "strong_signals": [{
+                    "segment": "MS",
+                    "direction": f_dir,
+                    "edge": None,
+                    "threshold": None,
+                    "expected": f_total,
+                    "market": None,
+                }],
+            })
+            core.meta = meta
+
+            summary: List[str] = []
+            summary.append(
+                f"📌 FAZ-22 Karar | League={profile.name} | Phase={decision_phase} | Conf={final_conf}% | Lock=False"
+            )
+            summary.append("")
+            summary.append("🔥 FORCE MODE aktif: Market yokken bile karar üretildi.")
+            if f_total is not None:
+                summary.append(f"• MS {f_dir} | Total≈{f_total:.0f}")
+            summary.append("──────────────────")
+            summary.append("ℹ️ Analiz/simülasyon amaçlıdır. Bahis tavsiyesi değildir.")
+
+            core.notes = summary
+            return core
+
+        # =========================
+        # SEGMENT ANALYSIS (ESKİ MOTOR) — market yoksa eski davranış
         # =========================
         if market_total is None:
             meta.update({
@@ -278,6 +395,9 @@ class Faz22Engine:
         )
         summary.append("")
 
+        if force_enabled:
+            summary.append("🔥 FORCE MODE aktif (karar kaçışı yok).")
+
         if not strong:
             summary.append("📉 Güçlü ve güvenli bir sinyal oluşmadı.")
             summary.append("Maç izleme listesindedir.")
@@ -291,4 +411,4 @@ class Faz22Engine:
 
         core.notes = summary
         core.meta = meta
-        return core 
+        return core
