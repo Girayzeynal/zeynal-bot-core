@@ -1,16 +1,22 @@
 """
 Package initializer for ``faz17_engine``.
 
-This module exposes the :class:`Faz17Engine` class so that callers can
-import it directly from the package, e.g.:
+This module exposes the public FAZ-17 API so that callers can import
+core classes directly from the package, e.g.:
 
-    from faz17_engine import Faz17Engine
+    from faz17_engine import Faz17Engine, MarketRequest
 
-The :class:`Faz17Engine` orchestrates market enrichment for pre‑match
-analysis results by querying The Odds API and matching fixtures.
+FAZ-17 is responsible for market enrichment and fixture matching
+via The Odds API. It is designed to be:
+- crash-safe
+- backward compatible
+- tolerant to missing market data
 """
 
-from .faz17_engine import Faz17Engine
+from .faz17_engine import Faz17Engine, MarketRequest
 
-# Re-exported names for `from faz17_engine import *` convenience.
-__all__ = ["Faz17Engine"]
+# Explicit public exports
+__all__ = [
+    "Faz17Engine",
+    "MarketRequest",
+] 
