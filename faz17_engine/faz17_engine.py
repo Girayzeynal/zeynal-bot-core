@@ -426,4 +426,4 @@ class Faz17Engine:
         except Exception:
             pass
 
-        return core
+        return core 
