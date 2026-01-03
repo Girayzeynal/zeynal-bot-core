@@ -14,16 +14,13 @@ class LeagueProfile:
     live_weight: float
     garbage_time_factor: float
 
+
 LEAGUE_PROFILES = {
     "NBA": LeagueProfile(
         name="NBA",
-        pace_scale=1.10,
+        pace_scale=1.00,              # 🔴 GERÇEKÇİ AYAR (1.10 YANLIŞTI)
         volatility_floor=7.0,
         volatility_ceil=13.0,
-        # Moderate tightening of the prediction band: 5-point half width for totals and
-        # 4-point half width for team scores. This yields a ±5 range around the mean
-        # (total width 10), which better reflects typical NBA score variability while
-        # still producing a narrower band than the original settings.
         band_hw_total=5,
         band_hw_team=4,
         market_weight=0.85,
