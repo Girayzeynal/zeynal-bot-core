@@ -11,24 +11,15 @@ import aiohttp
 from baseline.team_baseline_store import TeamBaselineStore
 from league_profiles import get_league_profile
 
-# Optional aggregate import (if core/aggregate_engine.py exists)
 try:
     from core.aggregate_engine import aggregate_baseline as _aggregate_baseline  # type: ignore
 except Exception:
     _aggregate_baseline = None
 
-# Optional ESPN provider (providers/espn_adapter.py)
 try:
     from providers import ESPNAdapter  # type: ignore
 except Exception:
     ESPNAdapter = None  # type: ignore
-
-# Optional FAZ-17 market engine (if exists)
-try:
-    from faz17_engine.faz17_engine import Faz17Engine, MarketRequest  # type: ignore
-except Exception:
-    Faz17Engine = None  # type: ignore
-    MarketRequest = None  # type: ignore
 
 
 # =====================================================
@@ -77,11 +68,6 @@ class Faz13CoreOutput:
     meta: Dict[str, Any] = field(default_factory=dict)
 
     def render_html(self) -> str:
-        """
-        IMPORTANT FIX:
-        - If meta values are lists (e.g. sources), render them as comma-joined text
-          to avoid HTML escaped list output like [&#x27;ESPN&#x27;].
-        """
         esc = html.escape
 
         def _fmt(v: Any) -> str:
@@ -187,7 +173,6 @@ def aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
 
 # =====================================================
 # PROVIDER: SportsDataIO (LOCAL LIGHT ADAPTER)
-# (kept for compatibility: baseline + pace)
 # =====================================================
 
 class SportsDataIOAdapter:
@@ -309,8 +294,6 @@ class Faz13Engine:
         self._espn_alias_cache: Dict[str, Any] = {"ts": 0.0, "index": {}}
         self._espn_alias_ttl_sec = int(os.getenv("FAZ13_ESPN_ALIAS_TTL_SEC", "21600"))
 
-        self._faz17 = Faz17Engine() if Faz17Engine is not None else None
-
     @staticmethod
     def resolve_nba_season(date_str: str) -> str:
         try:
@@ -324,19 +307,9 @@ class Faz13Engine:
     def _season_label(season_start: str) -> str:
         try:
             y = int(season_start)
-            return f"{y}-{y+1}"  # 2025-2026
+            return f"{y}-{y+1}"
         except Exception:
             return season_start
-
-    @staticmethod
-    def _safe_float(v: Any) -> Optional[float]:
-        if v is None:
-            return None
-        try:
-            s = str(v).strip().replace(",", ".")
-            return float(s)
-        except Exception:
-            return None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self.session and not self.session.closed:
@@ -377,7 +350,6 @@ class Faz13Engine:
             abbr = str(team.get("abbreviation", "")).lower()
             if not abbr:
                 continue
-
             for raw in (
                 team.get("displayName"),
                 team.get("shortDisplayName"),
@@ -407,19 +379,12 @@ class Faz13Engine:
         return c ** 1.35
 
     @staticmethod
-    def _edge_threshold(conf_tight: float, band_hw_total: int) -> float:
-        base = max(2.0, float(band_hw_total) * 0.30)
-        factor = 1.25 - 0.40 * max(0.0, min(1.0, conf_tight))
-        return base * factor
-
-    @staticmethod
     def _quarters_band(total_mu: float, band_hw_total: int, tempo_flag: str) -> Dict[str, Tuple[int, int]]:
         w = [0.24, 0.26, 0.25, 0.25]
         if tempo_flag == "FAST":
             w = [0.245, 0.265, 0.245, 0.245]
         elif tempo_flag == "SLOW":
             w = [0.235, 0.255, 0.255, 0.255]
-
         q_hw = max(2, int(round(band_hw_total / 2.8)))
         qs: Dict[str, Tuple[int, int]] = {}
         for lab, wi in zip(("1Q", "2Q", "3Q", "4Q"), w):
@@ -437,32 +402,29 @@ class Faz13Engine:
         home_rows: List[Dict[str, Any]] = []
         away_rows: List[Dict[str, Any]] = []
 
-        home_abbr: Optional[str] = None
-        away_abbr: Optional[str] = None
+        # Resolve abbr
+        home_abbr = await self._espn_resolve_abbr(req.home) if (req.league.upper() == "NBA" and ESPNAdapter is not None) else None
+        away_abbr = await self._espn_resolve_abbr(req.away) if (req.league.upper() == "NBA" and ESPNAdapter is not None) else None
+        notes.append(f"ESPN abbr: home={home_abbr} away={away_abbr}")
 
+        # ESPN baseline
         if req.league.upper() == "NBA" and ESPNAdapter is not None:
             try:
                 espn = ESPNAdapter()
-                home_abbr = await self._espn_resolve_abbr(req.home)
-                away_abbr = await self._espn_resolve_abbr(req.away)
-
                 if home_abbr:
                     r = await espn.fetch_team_baseline(home_abbr)  # type: ignore
                     if r:
                         home_rows.append(r)
-
                 if away_abbr:
                     r = await espn.fetch_team_baseline(away_abbr)  # type: ignore
                     if r:
                         away_rows.append(r)
-
-                notes.append(f"ESPN abbr: home={home_abbr} away={away_abbr}")
             except Exception:
                 notes.append("ESPN: fetch failed")
 
+        # SportsDataIO baseline + pace
         pace_home: Optional[float] = None
         pace_away: Optional[float] = None
-
         if req.league.upper() == "NBA":
             sd = SportsDataIOAdapter()
             if home_abbr:
@@ -504,13 +466,15 @@ class Faz13Engine:
                     "team_first": True,
                     "baseline_missing": True,
                     "confidence_pct": 0.0,
+                    "confidence_raw": 0.0,
+                    "confidence_tight": 0.0,
                     "risk": "NO_PLAY",
-                    "sources_home": [],
-                    "sources_away": [],
                     "degraded_mode": True,
+                    "data_coverage": {"team_stats": False, "pace": False},
                 },
             )
 
+        # Pace fallback
         if pace_home is None:
             try:
                 v = home_baseline.get("pace")
@@ -525,20 +489,13 @@ class Faz13Engine:
                     pace_away = float(v)
             except Exception:
                 pace_away = None
-
-        pace_fallback_used = False
         if pace_home is None:
             pace_home = 100.0
-            pace_fallback_used = True
         if pace_away is None:
             pace_away = 100.0
-            pace_fallback_used = True
-
-        if pace_fallback_used:
-            notes.append("Pace missing from providers → fallback pace=100.0 applied")
-
         notes.append(f"Pace(home)={pace_home:.1f} | Pace(away)={pace_away:.1f}")
 
+        # Expected totals
         h_pf = float(home_baseline["pts_for"])
         h_pa = float(home_baseline["pts_against"])
         a_pf = float(away_baseline["pts_for"])
@@ -563,16 +520,12 @@ class Faz13Engine:
         else:
             risk = "HIGH"
 
-        sources_home = home_baseline.get("sources", [])
-        sources_away = away_baseline.get("sources", [])
-        notes.append(f"Sources(home)={', '.join(sources_home)}")
-        notes.append(f"Sources(away)={', '.join(sources_away)}")
-
+        # Tempo + quarters
         pace_mean = (pace_home + pace_away) / 2.0
         tempo_flag = self._tempo_flag_from_pace(pace_mean)
         quarters = self._quarters_band(expected_total, profile.band_hw_total, tempo_flag)
 
-        # ---- NEW: expected_1h / expected_2h (for FAZ-22 strong-half filter) ----
+        # ---- GUARANTEE expected_* keys (segment-ready) ----
         def _mid(b: Tuple[int, int]) -> float:
             return (float(b[0]) + float(b[1])) / 2.0
 
@@ -581,51 +534,17 @@ class Faz13Engine:
         expected_q3 = _mid(quarters["3Q"]) if "3Q" in quarters else None
         expected_q4 = _mid(quarters["4Q"]) if "4Q" in quarters else None
 
-        expected_1h = round((expected_q1 + expected_q2), 1) if (expected_q1 is not None and expected_q2 is not None) else None
-        expected_2h = round((expected_q3 + expected_q4), 1) if (expected_q3 is not None and expected_q4 is not None) else None
+        expected_1h = round(expected_q1 + expected_q2, 1) if (expected_q1 is not None and expected_q2 is not None) else None
+        expected_2h = round(expected_q3 + expected_q4, 1) if (expected_q3 is not None and expected_q4 is not None) else None
 
-        # market edge (internal, but main.py is authoritative for market_total)
-        market: Dict[str, Any] = {}
-        market_total: Optional[float] = None
-        edge_value: Optional[float] = None
-        edge_thr: Optional[float] = None
+        # Sources
+        sources_home = home_baseline.get("sources", [])
+        sources_away = away_baseline.get("sources", [])
+        notes.append(f"Sources(home)={', '.join(sources_home)}")
+        notes.append(f"Sources(away)={', '.join(sources_away)}")
 
-        if self._faz17 is not None and MarketRequest is not None:
-            try:
-                m = await self._faz17.fetch_market_total(
-                    MarketRequest(league=req.league, date_str=req.date_str, home=req.home, away=req.away)
-                )
-                if isinstance(m, dict):
-                    market = m
-                    market_total = self._safe_float(m.get("total"))
-            except Exception:
-                market = {"status": "MARKET_OPTIONAL", "reason": "FAZ17_EXCEPTION"}
-
-        if market_total is None and isinstance(market, dict):
-            market_total = self._safe_float(market.get("total"))
-
-        data_coverage = {
-            "team_stats": True,
-            "pace": True,
-            "market": market_total is not None,
-        }
-
-        ou_direction = "NO_EDGE"
-        if market_total is not None:
-            edge_value = expected_total - market_total
-            edge_thr = self._edge_threshold(conf_tight, profile.band_hw_total)
-            if edge_value >= edge_thr:
-                ou_direction = "ÜST"
-            elif edge_value <= -edge_thr:
-                ou_direction = "ALT"
-            else:
-                ou_direction = "NO_EDGE"
-            notes.append(f"Market total={market_total:.1f} | Edge={edge_value:+.1f} | Thr={edge_thr:.1f}")
-        else:
-            if not market:
-                market = {"status": "MARKET_OPTIONAL"}
-
-        degraded_mode = not (data_coverage["team_stats"] and data_coverage["pace"] and data_coverage["market"])
+        # NOTE: market_total/market_1h/market_2h are owned by main.py (FAZ-17 wiring).
+        # FAZ-13 will NOT fetch or overwrite them.
 
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
 
@@ -636,12 +555,12 @@ class Faz13Engine:
             total_band=total_band,
             home_band=home_band,
             away_band=away_band,
-            ou_direction=ou_direction,
+            ou_direction="NO_EDGE",
             quarters=quarters,
             blowout_risk="LOW",
             tempo_flag=tempo_flag,
             notes=notes,
-            market=market,
+            market={},  # main.py sets core.market
             meta={
                 "season": season,
                 "season_str": season_str,
@@ -664,11 +583,9 @@ class Faz13Engine:
                 "expected_q4": None if expected_q4 is None else round(expected_q4, 1),
                 "expected_1h": expected_1h,
                 "expected_2h": expected_2h,
-                "market_total": market_total,
-                "edge_value": None if edge_value is None else round(edge_value, 3),
-                "edge_threshold": edge_thr,
-                "degraded_mode": degraded_mode,
-                "data_coverage": data_coverage,
+                # market_total will be injected by main.py
+                "data_coverage": {"team_stats": True, "pace": True},
+                "degraded_mode": False,
                 "fetched_at": int(time.time()),
             },
-        )  
+        )
