@@ -167,7 +167,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
 
     # ============================
-    # 🔥 BASELINE BOOTSTRAP (NO DATA LOGIC HERE)
+    # BASELINE BOOTSTRAP (ORCHESTRATION ONLY)
     # ============================
     try:
         bootstrapper.ensure(league, home, min_games=5)
@@ -262,7 +262,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     baseline_store = TeamBaselineStore("data/baselines")
 
-    # 🔥 MULTI-SOURCE BOOTSTRAP (PRIMARY → FALLBACK)
+    # MULTI-SOURCE BOOTSTRAP (PRIMARY → FALLBACK)
     baseline_bootstrapper = TeamBaselineBootstrapper(
         store=baseline_store,
         adapters=[
@@ -288,29 +288,29 @@ def main():
     # ---- handlers
     app.add_handler(CommandHandler("analyze", analyze_command))
 
-    # ---- GRACEFUL SHUTDOWN
-    async def _graceful_shutdown(application: Application):
+    # ---- GRACEFUL SHUTDOWN (v20+ SAFE)
+    async def _graceful_shutdown():
         logger.info("Graceful shutdown initiated")
 
+        # close engines
         for k in ("faz13", "faz17"):
             try:
-                eng = application.bot_data.get(k)
+                eng = app.bot_data.get(k)
                 if eng:
                     await eng.aclose()
             except Exception:
                 pass
 
-        # close providers if needed
-        for k in ("baseline_bootstrapper",):
-            try:
-                bs = application.bot_data.get(k)
-                if bs:
-                    for ad in getattr(bs, "adapters", []):
-                        close = getattr(ad, "aclose", None)
-                        if callable(close):
-                            await close()
-            except Exception:
-                pass
+        # close providers (bootstrapper adapters)
+        try:
+            bs = app.bot_data.get("baseline_bootstrapper")
+            if bs:
+                for ad in getattr(bs, "adapters", []):
+                    close = getattr(ad, "aclose", None)
+                    if callable(close):
+                        await close()
+        except Exception:
+            pass
 
     app.shutdown = _graceful_shutdown
 
@@ -319,4 +319,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main() 
