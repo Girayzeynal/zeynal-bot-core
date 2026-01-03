@@ -12,7 +12,6 @@ import aiohttp
 logger = logging.getLogger("faz17")
 
 
-
 # =====================================================
 # BACKWARD-COMPAT PUBLIC API (FAZ-13 IMPORTS THESE)
 # =====================================================
@@ -50,7 +49,6 @@ class MarketRequest:
             self.date_str = self.date
 
 
-
 # =====================================================
 # HELPERS
 # =====================================================
@@ -58,6 +56,31 @@ def _norm(s: str) -> str:
     s = (s or "").lower().strip()
     s = re.sub(r"[^a-z0-9\s\-\.]", " ", s)
     return re.sub(r"\s+", " ", s).strip()
+
+
+def _fixture_key(date_str: Optional[str], home: str, away: str) -> str:
+    """
+    Canonical fixture key: YYYY-MM-DD|home|away (lower, normalized)
+    """
+    d = (date_str or "").strip()
+    if len(d) >= 10:
+        d = d[:10]
+    else:
+        d = ""  # date unknown
+    return f"{d}|{_norm(home)}|{_norm(away)}"
+
+
+def _commence_date(ev: Dict[str, Any]) -> Optional[str]:
+    """
+    The Odds API 'commence_time' is ISO. Return YYYY-MM-DD or None.
+    """
+    ct = ev.get("commence_time")
+    if not ct or not isinstance(ct, str):
+        return None
+    # examples: "2026-01-03T00:10:00Z"
+    if len(ct) >= 10 and ct[4] == "-" and ct[7] == "-":
+        return ct[:10]
+    return None
 
 
 def _team_match_score(api_home: str, api_away: str, home: str, away: str) -> int:
@@ -105,7 +128,6 @@ def _safe_getattr(obj: Any, name: str, default=None):
         return default
 
 
-
 # =====================================================
 # FAZ-17 ENGINE (FULL PRODUCTION-READY)
 # =====================================================
@@ -115,6 +137,7 @@ class Faz17Engine:
     - Parametresiz init çalışır
     - Market opsiyonel + asla crash etmez
     - fetch_market, fetch_market_total, enrich_with_market destekli
+    - ✅ NEW: fixture doğrulama + mismatch engeli
     """
 
     def __init__(
@@ -123,17 +146,14 @@ class Faz17Engine:
         base_url: Optional[str] = None,
         ttl_sec: int = 60,
     ):
-        # ENV fallback
         self.api_key = api_key or os.getenv("ODDS_API_KEY")
         self.base_url = base_url or os.getenv("ODDS_BASE", "https://api.the-odds-api.com/v4")
         self.ttl_sec = int(ttl_sec)
-        # basit cache
         self._cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 
         logger.info(
             f"FAZ17 init | api_key={'YES' if self.api_key else 'NO'} | base_url={self.base_url}"
         )
-
 
     # ----------------------------
     # CACHE METHODS
@@ -151,32 +171,50 @@ class Faz17Engine:
     def _cache_set(self, key: str, val: Dict[str, Any]) -> None:
         self._cache[key] = (time.time(), val)
 
-
     # ----------------------------
     # MAIN FETCH METHOD
     # ----------------------------
     async def fetch_market(self, req: MarketRequest) -> Dict[str, Any]:
         """
-        Bu method hemFAZ-13'in beklediği fetch_market için
-        hem enrich_with_market pipeline’ı için kullanılır.
-
         Çıktı formatı:
           {
-            "status": "MARKET_OPTIONAL",
+            "status": "MARKET_OPTIONAL" | "MARKET_OK" | "MARKET_MISMATCH",
             "total": float | None,
             "latency_ms": int | None,
-            "reason": Optional[str]
+            "reason": Optional[str],
+            "fixture_key": str,
+            "event_fixture_key": Optional[str],
+            "match_score": int,
           }
         """
 
+        fixture_key = _fixture_key(req.date_str or req.date, req.home, req.away)
+
         if not self.api_key:
-            return {"status": "MARKET_OPTIONAL", "total": None, "latency_ms": None, "reason": "ODDS_API_KEY_MISSING"}
+            return {
+                "status": "MARKET_OPTIONAL",
+                "total": None,
+                "latency_ms": None,
+                "reason": "ODDS_API_KEY_MISSING",
+                "fixture_key": fixture_key,
+                "event_fixture_key": None,
+                "match_score": 0,
+            }
 
         league_u = (req.league or "").upper().strip()
         if league_u != "NBA":
-            return {"status": "MARKET_OPTIONAL", "total": None, "latency_ms": None, "reason": f"UNSUPPORTED_LEAGUE:{league_u}"}
+            return {
+                "status": "MARKET_OPTIONAL",
+                "total": None,
+                "latency_ms": None,
+                "reason": f"UNSUPPORTED_LEAGUE:{league_u}",
+                "fixture_key": fixture_key,
+                "event_fixture_key": None,
+                "match_score": 0,
+            }
 
-        cache_key = f"{league_u}:{_norm(req.home)}:{_norm(req.away)}:{req.markets}"
+        # ✅ Cache key now includes date (critical to avoid cross-day mismatch)
+        cache_key = f"{league_u}:{fixture_key}:{req.markets}"
         cached = self._cache_get(cache_key)
         if cached:
             return cached
@@ -202,6 +240,9 @@ class Faz17Engine:
                             "total": None,
                             "latency_ms": int((time.time() - t0) * 1000),
                             "reason": f"HTTP_{resp.status}:{txt[:160]}",
+                            "fixture_key": fixture_key,
+                            "event_fixture_key": None,
+                            "match_score": 0,
                         }
                         self._cache_set(cache_key, out)
                         return out
@@ -213,6 +254,9 @@ class Faz17Engine:
                 "total": None,
                 "latency_ms": int((time.time() - t0) * 1000),
                 "reason": f"FETCH_FAIL:{e}",
+                "fixture_key": fixture_key,
+                "event_fixture_key": None,
+                "match_score": 0,
             }
             self._cache_set(cache_key, out)
             return out
@@ -238,21 +282,60 @@ class Faz17Engine:
                 "total": None,
                 "latency_ms": int((time.time() - t0) * 1000),
                 "reason": f"MATCH_NOT_FOUND(score={best_score})",
+                "fixture_key": fixture_key,
+                "event_fixture_key": None,
+                "match_score": int(best_score),
+            }
+            self._cache_set(cache_key, out)
+            return out
+
+        # ✅ Event fixture key using commence_time date if present
+        ev_date = _commence_date(best_event)
+        event_fixture_key = _fixture_key(ev_date, best_event.get("home_team", ""), best_event.get("away_team", ""))
+
+        # ✅ Hard mismatch check when request date is known (YYYY-MM-DD)
+        req_date = (req.date_str or req.date or "")
+        req_date = req_date[:10] if len(req_date) >= 10 else ""
+
+        if req_date and ev_date and req_date != ev_date:
+            out = {
+                "status": "MARKET_MISMATCH",
+                "total": None,
+                "latency_ms": int((time.time() - t0) * 1000),
+                "reason": f"DATE_MISMATCH(req={req_date}, ev={ev_date})",
+                "fixture_key": fixture_key,
+                "event_fixture_key": event_fixture_key,
+                "match_score": int(best_score),
             }
             self._cache_set(cache_key, out)
             return out
 
         total_line = _extract_total(best_event)
 
+        if total_line is None:
+            out = {
+                "status": "MARKET_OPTIONAL",
+                "total": None,
+                "latency_ms": int((time.time() - t0) * 1000),
+                "reason": "TOTAL_NOT_FOUND",
+                "fixture_key": fixture_key,
+                "event_fixture_key": event_fixture_key,
+                "match_score": int(best_score),
+            }
+            self._cache_set(cache_key, out)
+            return out
+
         out = {
-            "status": "MARKET_OPTIONAL",
-            "total": float(total_line) if isinstance(total_line, (int, float)) else None,
+            "status": "MARKET_OK",
+            "total": float(total_line),
             "latency_ms": int((time.time() - t0) * 1000),
-            "reason": None if total_line is not None else "TOTAL_NOT_FOUND",
+            "reason": None,
+            "fixture_key": fixture_key,
+            "event_fixture_key": event_fixture_key,
+            "match_score": int(best_score),
         }
         self._cache_set(cache_key, out)
         return out
-
 
     # ----------------------------
     # FAZ-13 EXPECTS THIS
@@ -267,13 +350,11 @@ class Faz17Engine:
 
         returns float or None
         """
-        # MarketRequest passed
         if len(args) == 1 and isinstance(args[0], MarketRequest):
             mk = await self.fetch_market(args[0])
             return mk.get("total")
 
-        # core-like object passed
-        if len(args) == 1 and not isinstance(args[0], (str, int, float, dict, list, tuple)):  
+        if len(args) == 1 and not isinstance(args[0], (str, int, float, dict, list, tuple)):
             obj = args[0]
             req = MarketRequest(
                 league=str(_safe_getattr(obj, "league", "NBA")),
@@ -284,7 +365,6 @@ class Faz17Engine:
             mk = await self.fetch_market(req)
             return mk.get("total")
 
-        # positional args as legacy
         league = kwargs.get("league")
         home = kwargs.get("home")
         away = kwargs.get("away")
@@ -307,28 +387,52 @@ class Faz17Engine:
         mk = await self.fetch_market(req)
         return mk.get("total")
 
-
     # ----------------------------
     # MAIN PIPELINE USE
     # ----------------------------
     async def enrich_with_market(self, core: Any) -> Any:
+        # core.ctx varsa onu kullan
+        ctx = _safe_getattr(core, "ctx", None)
+        league = _safe_getattr(ctx, "league", None) or _safe_getattr(core, "league", "NBA")
+        home = _safe_getattr(ctx, "home", None) or _safe_getattr(core, "home", "")
+        away = _safe_getattr(ctx, "away", None) or _safe_getattr(core, "away", "")
+        date_str = _safe_getattr(ctx, "date", None) or _safe_getattr(core, "date_str", None) or _safe_getattr(core, "date", None)
+
         req = MarketRequest(
-            league=str(_safe_getattr(core, "league", "NBA") or "NBA"),
-            home=str(_safe_getattr(core, "home", "") or ""),
-            away=str(_safe_getattr(core, "away", "") or ""),
-            date_str=_safe_getattr(core, "date_str", None),
+            league=str(league or "NBA"),
+            home=str(home or ""),
+            away=str(away or ""),
+            date_str=str(date_str) if date_str else None,
         )
+
         mk = await self.fetch_market(req)
 
+        # ✅ core.market standardization:
+        # core.market["total"] -> float | None
+        # core.meta["market_total"] -> float | None
+        # core.meta["market_status"] -> MARKET_OK | MARKET_MISMATCH | MARKET_OPTIONAL
         try:
-            core.market = mk
+            # preserve full mk, but also add convenience field "total" at top
+            if isinstance(mk, dict) and "total" in mk:
+                core.market = mk
+            else:
+                core.market = {"status": "MARKET_OPTIONAL", "total": None, "reason": "BAD_MARKET_PAYLOAD"}
         except Exception:
+            pass
+
+        # meta injection (FAZ-13/22 expects market_total)
+        try:
             meta = _safe_getattr(core, "meta", {}) or {}
             if isinstance(meta, dict):
-                meta["market"] = mk
-                try:
-                    core.meta = meta
-                except Exception:
-                    pass
+                meta["market_total"] = mk.get("total")
+                meta["market_status"] = mk.get("status")
+                meta["market_latency_ms"] = mk.get("latency_ms")
+                meta["market_reason"] = mk.get("reason")
+                meta["market_fixture_key"] = mk.get("fixture_key")
+                meta["market_event_fixture_key"] = mk.get("event_fixture_key")
+                meta["market_match_score"] = mk.get("match_score")
+                core.meta = meta
+        except Exception:
+            pass
 
-        return core  
+        return core 
