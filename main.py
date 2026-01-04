@@ -10,8 +10,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstrapper
-from providers.espn_adapter import ESPNAdapter
-from providers.sportsdataio_adapter import SportsDataIOAdapter
+from providers.espn_adapter import ESPNAdapter  # SADECE ESPN
 
 from faz13_engine import Faz13Engine, PrematchRequest
 from faz17_engine import Faz17Engine, MarketRequest
@@ -94,7 +93,6 @@ def _inject_season(core: Any, league: str, date_str: str) -> None:
     meta["season"] = season_start
     meta["season_str"] = season_str
 
-    # tekrar yazma
     notes[:] = [n for n in notes if not str(n).lower().startswith("season:")]
     notes.insert(0, f"Season: {season_str}")
 
@@ -113,10 +111,6 @@ def _apply_degraded_mode(core: Any) -> None:
 
 
 def _parse_analyze_params(raw: str) -> tuple[str, str, str, str]:
-    """
-    /analyze NBA 2026-01-04 Miami Heat vs Minnesota Timberwolves
-    /analyze NBA 2026-01-04 MIA vs MIN
-    """
     parts = raw.split()
     if len(parts) < 4:
         raise ValueError("Eksik parametre")
@@ -158,13 +152,16 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         league, date_str, home_raw, away_raw = _parse_analyze_params(params)
     except Exception as e:
         await update.message.reply_text(
-            "Kullanım: /analyze NBA 2026-01-04 Miami Heat vs Minnesota Timberwolves\n"
+            "Kullanım: /analyze NBA 2026-01-04 Brooklyn Nets vs Denver Nuggets\n"
             f"Hata: {html.escape(str(e))}",
             disable_web_page_preview=True,
         )
         return
 
-    logger.info(f"ANALYZE RAW league={league} date={date_str} home='{home_raw}' away='{away_raw}' | {_diag_adapter_list(context.application)}")
+    logger.info(
+        f"ANALYZE RAW league={league} date={date_str} home='{home_raw}' away='{away_raw}' | "
+        f"{_diag_adapter_list(context.application)}"
+    )
 
     # engines
     faz13: Faz13Engine = context.application.bot_data["faz13"]
@@ -177,7 +174,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     baseline_store: TeamBaselineStore = context.application.bot_data["baseline_store"]
 
     # ============================
-    # BOOTSTRAP (canonical bootstrapper içinde)
+    # BOOTSTRAP (SADECE ESPN)
     # ============================
     b_home = None
     b_away = None
@@ -191,7 +188,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     away_key = getattr(b_away, "team", None) or away_raw
     logger.info(f"CANONICAL home='{home_raw}' -> '{home_key}' | away='{away_raw}' -> '{away_key}'")
 
-    # kanıt (store series check)
+    # kanıt
     hs_n = 0
     as_n = 0
     try:
@@ -204,13 +201,12 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.warning(f"SERIES_CHECK failed: {e}")
 
     # ============================
-    # FAZ-13 (canonical key ile)
+    # FAZ-13
     # ============================
     core = await faz13.run_prematch(
         PrematchRequest(0, league, date_str, home_key, away_key)
     )
 
-    # kullanıcıya raw isimleri göster
     try:
         core.ctx.home = home_raw
         core.ctx.away = away_raw
@@ -222,13 +218,8 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     meta = _ensure_dict(core, "meta")
     notes = _ensure_list(core, "notes")
     cov = meta.setdefault("data_coverage", {})
-
     cov["prematch"] = True
 
-    # ============================
-    # DIAG SATIRLARI (TELEGRAM OUTPUT İÇİN)
-    # ============================
-    # Davranış değiştirmez; sadece “neden 0” sorusunun cevabını verir.
     meta.setdefault("baseline_diag", {})
     meta["baseline_diag"].update({
         "home_key": home_key,
@@ -236,11 +227,11 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "home_series_n": hs_n,
         "away_series_n": as_n,
     })
-    # Notes içine kısa diag satırı ekle (spam olmasın diye tek satır)
+
     notes.append(f"DIAG: baseline_series home={home_key}:{hs_n} away={away_key}:{as_n}")
 
     # ============================
-    # FAZ-17 (RAW isimlerle market)
+    # FAZ-17 (market)
     # ============================
     market_total: Optional[float] = None
     try:
@@ -299,8 +290,7 @@ def main():
     baseline_bootstrapper = TeamBaselineBootstrapper(
         store=baseline_store,
         adapters=[
-            SportsDataIOAdapter(),  # PRIMARY
-            ESPNAdapter(),          # FALLBACK + resolver
+            ESPNAdapter(),  # SADECE ESPN — SportsDataIO KAPALI
         ],
     )
 
@@ -337,13 +327,11 @@ def main():
         except Exception:
             pass
 
-    # Not: python-telegram-bot Application shutdown override bazı sürümlerde desteklenmez.
-    # Biz yine de referans olarak tutuyoruz.
     app.shutdown = _graceful_shutdown  # type: ignore
 
-    logger.info("BOT STARTED — ORCHESTRATOR MODE (FAZ-7 REMOVED, CANONICAL SAFE)")
+    logger.info("BOT STARTED — ORCHESTRATOR MODE (ESPN ONLY)")
     app.run_polling()
 
 
 if __name__ == "__main__":
-    main() 
+    main()
