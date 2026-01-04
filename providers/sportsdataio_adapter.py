@@ -44,16 +44,16 @@ class _TTLCache:
 
 
 # =====================================================
-# SPORTS DATA IO ADAPTER
+# SPORTS DATA IO ADAPTER (FULL FINAL)
 # =====================================================
 
 class SportsDataIOAdapter:
     """
     SportsDataIO provider adapter.
 
-    - Provides REAL possessions-based pace
-    - Provides per-game time-series in UTC
-    - Acts as authoritative override for pace vs ESPN proxy
+    - REAL possessions-based pace when available
+    - Per-game time-series in UTC
+    - Safe cache + retry
     """
 
     name = "SPORTSDATAIO"
@@ -98,11 +98,11 @@ class SportsDataIOAdapter:
         if cached is not None:
             return cached
 
+        # disk cache (optional)
         disk_key = None
         if self._disk_cache_dir:
             safe = re.sub(r"[^a-zA-Z0-9_.-]+", "_", cache_key)[:180]
             disk_key = os.path.join(self._disk_cache_dir, f"{safe}.json")
-
             try:
                 if os.path.exists(disk_key):
                     if (time.time() - os.path.getmtime(disk_key)) <= self._cache.ttl_sec:
@@ -133,7 +133,7 @@ class SportsDataIOAdapter:
                         try:
                             os.makedirs(self._disk_cache_dir, exist_ok=True)
                             with open(disk_key, "w", encoding="utf-8") as f:
-                                json.dump(data, f)
+                                json.dump(data, f, ensure_ascii=False)
                         except Exception:
                             pass
 
@@ -148,9 +148,7 @@ class SportsDataIOAdapter:
     # TEAM BASELINE (snapshot)
     # -------------------------------------------------
 
-    async def fetch_team_baseline(
-        self, team_key: str, season_year: str
-    ) -> Optional[Dict[str, Any]]:
+    async def fetch_team_baseline(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
         if not self.api_key:
             return None
 
@@ -184,9 +182,7 @@ class SportsDataIOAdapter:
     # REAL PACE (possessions-based)
     # -------------------------------------------------
 
-    async def fetch_team_pace(
-        self, team_key: str, season_year: str
-    ) -> Optional[Dict[str, Any]]:
+    async def fetch_team_pace(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
         if not self.api_key:
             return None
 
@@ -227,15 +223,31 @@ class SportsDataIOAdapter:
         }
 
     # -------------------------------------------------
-    # RECENT GAMES (time-series, UTC)  ✅ NEW
+    # RECENT GAMES (time-series, UTC)  ✅ FIXED
     # -------------------------------------------------
 
-    async def fetch_team_recent_games(
-        self, league: str, team_key: str, n_games: int
-    ) -> Optional[List[Dict[str, Any]]]:
+    @staticmethod
+    def _is_finished_status(status: Any) -> bool:
         """
-        Returns per-game series with REAL possessions when possible.
+        SportsData status values vary.
+        We accept all finished-game patterns.
+        """
+        s = str(status or "").upper().strip()
+        if not s:
+            return False
+        if s == "FINAL":
+            return True
+        if s.startswith("F/"):          # F/OT, F/2OT, F/3OT...
+            return True
+        if "FINAL" in s:                # FINAL/OT etc.
+            return True
+        if s in ("COMPLETED", "CLOSED"):
+            return True
+        return False
 
+    async def fetch_team_recent_games(self, league: str, team_key: str, n_games: int) -> Optional[List[Dict[str, Any]]]:
+        """
+        Returns per-game series:
         {
           "ts_utc": int,
           "pts_for": float,
@@ -251,8 +263,7 @@ class SportsDataIOAdapter:
         if not key:
             return None
 
-        # Use Games endpoint for completed games
-        # Date range: last ~45 days is safe for n<=15
+        # last ~60 days window
         end_ts = int(time.time())
         start_ts = end_ts - 60 * 24 * 3600
         start_date = time.strftime("%Y-%m-%d", time.gmtime(start_ts))
@@ -263,32 +274,39 @@ class SportsDataIOAdapter:
         if not isinstance(games, list):
             return None
 
-        out: List[Dict[str, Any]] = []
-
-        for g in sorted(games, key=lambda x: x.get("DateTime", "")):
-            if len(out) >= int(n_games):
-                break
-
-            # Only finished games
-            if g.get("Status") not in ("Final", "F/OT"):
+        # Filter team games first, then sort by DateTime DESC to get last N
+        team_games: List[Dict[str, Any]] = []
+        for g in games:
+            if not isinstance(g, dict):
                 continue
-
+            if not self._is_finished_status(g.get("Status")):
+                continue
             home = g.get("HomeTeam")
             away = g.get("AwayTeam")
             if home != key and away != key:
                 continue
+            team_games.append(g)
 
-            # Parse UTC time
+        # newest first
+        team_games.sort(key=lambda x: str(x.get("DateTime", "")), reverse=True)
+
+        out: List[Dict[str, Any]] = []
+        for g in team_games:
+            if len(out) >= int(n_games):
+                break
+
             dt = g.get("DateTime")
             if not isinstance(dt, str):
                 continue
 
             try:
-                # Example: 2026-01-03T03:00:00
                 t = time.strptime(dt.split(".")[0], "%Y-%m-%dT%H:%M:%S")
-                ts_utc = calendar.timegm(t)
+                ts_utc = int(calendar.timegm(t))
             except Exception:
                 continue
+
+            home = g.get("HomeTeam")
+            away = g.get("AwayTeam")
 
             if home == key:
                 pf = g.get("HomeTeamScore")
@@ -303,20 +321,14 @@ class SportsDataIOAdapter:
                 continue
 
             poss = g.get("Possessions")
-            if poss:
-                try:
-                    pace = float(poss)
-                except Exception:
-                    pace = None
-            else:
-                pace = None
+            pace = float(poss) if isinstance(poss, (int, float)) else 100.0
 
             out.append(
                 {
-                    "ts_utc": int(ts_utc),
+                    "ts_utc": ts_utc,
                     "pts_for": float(pf),
                     "pts_against": float(pa),
-                    "pace": float(pace) if pace is not None else None,
+                    "pace": float(pace),
                     "home": bool(is_home),
                 }
             )
@@ -342,6 +354,9 @@ class SportsDataIOAdapter:
 
         injuries: List[Dict[str, Any]] = []
         for p in data:
+            if not isinstance(p, dict):
+                continue
+
             status = p.get("InjuryStatus")
             notes = p.get("InjuryNotes")
             body = p.get("InjuryBodyPart")
@@ -365,4 +380,4 @@ class SportsDataIOAdapter:
             "injuries": injuries,
             "injury_count": len(injuries),
             "fetched_at": int(time.time()),
-        }
+    } 
