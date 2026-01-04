@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import re
 import time
 import calendar
 from dataclasses import dataclass
@@ -12,7 +11,6 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba"
-
 
 # =====================================================
 # CACHE
@@ -68,9 +66,10 @@ class ESPNAdapter:
     ESPN provider adapter (NO API KEY).
 
     Rol:
-    - Son maçlar (time-series, UTC)
-    - Takım adı → kısaltma resolver
-    - Analiz / karar YAPMAZ
+    - Son maçlar (UTC, canonical)
+    - Takım adı → abbr resolver
+    - Injury listesi + ağırlıklı etki
+    - Analiz / karar üretmez
     """
 
     name = "ESPN"
@@ -135,7 +134,7 @@ class ESPNAdapter:
         return None
 
     # -------------------------------------------------
-    # TEAM NAME → ABBR (bootstrapper kullanır)
+    # TEAM NAME → ABBR
     # -------------------------------------------------
 
     async def resolve_team_abbr(self, league: str, team_name: str) -> Optional[str]:
@@ -178,7 +177,7 @@ class ESPNAdapter:
         return None
 
     # -------------------------------------------------
-    # RECENT GAMES (UTC, CANONICAL)
+    # RECENT GAMES (UTC)
     # -------------------------------------------------
 
     async def fetch_team_recent_games(
@@ -228,14 +227,11 @@ class ESPNAdapter:
             if pf is None or pa is None:
                 continue
 
-            is_home = str(team_row.get("homeAway") or "").lower() == "home"
-
             ts = ev.get("date")
             if not isinstance(ts, str):
                 continue
 
             try:
-                # ESPN date → UTC epoch (DOĞRU YOL)
                 t = time.strptime(ts.replace("Z", ""), "%Y-%m-%dT%H:%M")
                 ts_utc = int(calendar.timegm(t))
             except Exception:
@@ -251,8 +247,57 @@ class ESPNAdapter:
                     "pts_for": pf,
                     "pts_against": pa,
                     "pace": pace_proxy,
-                    "home": is_home,
+                    "home": str(team_row.get("homeAway") or "").lower() == "home",
                 }
             )
 
-        return out if out else None 
+        return out if out else None
+
+    # -------------------------------------------------
+    # TEAM INJURIES
+    # -------------------------------------------------
+
+    async def fetch_team_injuries(self, team_abbr: str) -> Optional[Dict[str, Any]]:
+        abbr = (team_abbr or "").strip().upper()
+        if not abbr:
+            return None
+
+        js = await self._request_json(f"{ESPN_BASE}/teams/{abbr}/injuries")
+        if not js:
+            return None
+
+        raw = js.get("injuries") or js.get("players") or []
+        injuries: List[Dict[str, Any]] = []
+        weight = 0.0
+
+        for p in raw:
+            athlete = p.get("athlete") or {}
+            status = str(p.get("status") or "").upper()
+
+            if status in ("ACTIVE", "ACTIVE*"):
+                continue
+
+            injuries.append(
+                {
+                    "player_id": athlete.get("id"),
+                    "name": athlete.get("displayName"),
+                    "status": status,
+                    "notes": p.get("statusText"),
+                }
+            )
+
+            if status.startswith("OUT"):
+                weight += 1.0
+            elif "DTD" in status or "QUESTIONABLE" in status:
+                weight += 0.5
+            else:
+                weight += 0.3
+
+        return {
+            "source": self.name,
+            "team_abbr": abbr,
+            "injuries": injuries,
+            "injury_count": len(injuries),
+            "injury_weight": weight,
+            "fetched_at": int(time.time()),
+        }
