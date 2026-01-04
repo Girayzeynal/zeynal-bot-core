@@ -3,9 +3,16 @@ from __future__ import annotations
 import json
 import os
 import time
+import logging
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Optional
 from statistics import mean, pstdev
+
+
+# ============================
+# LOGGING (DIAG)
+# ============================
+logger = logging.getLogger("zeynal-core.baseline")
 
 
 # ============================
@@ -146,6 +153,11 @@ class TeamBaselineBootstrapper:
     FINAL MULTI-SOURCE BOOTSTRAPPER
     - Canonical key = ABBR
     - main.py DOES NOT map names
+
+    DIAG PATCH:
+    - Hangi adapter kaç maç döndürdü
+    - Hangi adapter hata verdi
+    - Append sonrası series kaç oldu
     """
 
     def __init__(self, store: TeamBaselineStore, adapters: List[Any]) -> None:
@@ -166,7 +178,8 @@ class TeamBaselineBootstrapper:
                     abbr = await resolver(league, t)
                     if abbr:
                         return str(abbr).upper().strip()
-                except Exception:
+                except Exception as e:
+                    logger.info(f"[BASELINE-DIAG] resolver_err adapter={ad.__class__.__name__} team_input='{t}' err={e}")
                     continue
         return t
 
@@ -177,18 +190,45 @@ class TeamBaselineBootstrapper:
 
         existing = self.store.get(league, team)
         if existing and existing.n_games >= min_games:
+            logger.info(f"[BASELINE-DIAG] existing_ok league={league} team={team} n_games={existing.n_games}")
             return existing
+
+        # DIAG: başlangıç series sayısı
+        try:
+            pre_series_n = len(self.store.get_series(league, team, 50))
+        except Exception:
+            pre_series_n = -1
+        logger.info(f"[BASELINE-DIAG] start league={league} team_input='{team_input}' canonical='{team}' pre_series={pre_series_n} min_games={min_games}")
 
         for ad in self.adapters:
             try:
                 fetch = getattr(ad, "fetch_team_recent_games", None)
                 if not callable(fetch):
+                    logger.info(f"[BASELINE-DIAG] skip adapter={ad.__class__.__name__} reason=no_fetch_fn")
                     continue
 
-                games = await fetch(league, team, max(min_games, 10))
+                want_n = max(int(min_games), 10)
+                games = await fetch(league, team, want_n)
+
+                # DIAG: adapter kaç maç döndürdü
+                logger.info(
+                    f"[BASELINE-DIAG] fetch adapter={ad.__class__.__name__} league={league} team={team} want={want_n} "
+                    f"got={'None' if games is None else len(games)}"
+                )
+
                 if not games:
                     continue
 
+                # DIAG: ilk/son ts (varsa)
+                try:
+                    ts_list = [int(g.get("ts_utc") or 0) for g in games if isinstance(g, dict)]
+                    ts_list = [t for t in ts_list if t > 0]
+                    if ts_list:
+                        logger.info(f"[BASELINE-DIAG] fetch_ts adapter={ad.__class__.__name__} team={team} ts_min={min(ts_list)} ts_max={max(ts_list)}")
+                except Exception:
+                    pass
+
+                wrote = 0
                 for g in games:
                     self.store.append_game(
                         league=league,
@@ -199,9 +239,19 @@ class TeamBaselineBootstrapper:
                         home=bool(g.get("home", False)),
                         ts_utc=g.get("ts_utc"),
                     )
+                    wrote += 1
+
+                # DIAG: append sonrası series sayısı
+                try:
+                    post_series_n = len(self.store.get_series(league, team, 50))
+                except Exception:
+                    post_series_n = -1
+
+                logger.info(f"[BASELINE-DIAG] appended adapter={ad.__class__.__name__} team={team} wrote={wrote} post_series={post_series_n}")
 
                 agg = self.store.compute_dynamic_baseline(league, team, min_games)
                 if not agg:
+                    logger.info(f"[BASELINE-DIAG] baseline_compute_failed adapter={ad.__class__.__name__} team={team} min_games={min_games}")
                     continue
 
                 baseline = TeamBaseline(
@@ -215,9 +265,13 @@ class TeamBaselineBootstrapper:
                     updated_ts=int(time.time()),
                 )
                 self.store.put(baseline)
+
+                logger.info(f"[BASELINE-DIAG] BASELINE_OK adapter={ad.__class__.__name__} league={league} team={team} n_games={baseline.n_games}")
                 return baseline
 
-            except Exception:
+            except Exception as e:
+                logger.info(f"[BASELINE-DIAG][ERROR] adapter={ad.__class__.__name__} league={league} team={team} err={e}")
                 continue
 
+        logger.info(f"[BASELINE-DIAG] BASELINE_FAIL league={league} team={team} (no adapter produced usable games)")
         return existing
