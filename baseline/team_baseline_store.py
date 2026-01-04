@@ -8,9 +8,9 @@ from typing import Any, Dict, List, Optional
 from statistics import mean, pstdev
 
 
-# =====================================================
+# ============================
 # DATA MODELS
-# =====================================================
+# ============================
 
 @dataclass
 class TeamBaseline:
@@ -33,13 +33,14 @@ class TeamGameRecord:
     home: bool
 
 
-# =====================================================
+# ============================
 # STORE
-# =====================================================
+# ============================
 
 class TeamBaselineStore:
     """
     File-based baseline + recent game series store.
+    Canonical key = team string passed in (we will pass ABBR).
     """
 
     def __init__(self, base_dir: str = "data/baselines") -> None:
@@ -57,10 +58,6 @@ class TeamBaselineStore:
     def _series_path(self, league: str, team: str) -> str:
         return os.path.join(self.series_dir, f"SERIES__{self._key(league, team)}.json")
 
-    # -------------------------
-    # BASELINE
-    # -------------------------
-
     def get(self, league: str, team: str) -> Optional[TeamBaseline]:
         p = self._baseline_path(league, team)
         if not os.path.exists(p):
@@ -77,10 +74,6 @@ class TeamBaselineStore:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(asdict(baseline), f, ensure_ascii=False, indent=2)
         os.replace(tmp, p)
-
-    # -------------------------
-    # SERIES
-    # -------------------------
 
     def append_game(
         self,
@@ -123,10 +116,6 @@ class TeamBaselineStore:
         except Exception:
             return []
 
-    # -------------------------
-    # ANALYTIC CORE
-    # -------------------------
-
     def compute_dynamic_baseline(
         self, league: str, team: str, n_games: int
     ) -> Optional[Dict[str, float]]:
@@ -148,70 +137,81 @@ class TeamBaselineStore:
         }
 
 
-# =====================================================
-# BOOTSTRAP (🔥 FIXED)
-# =====================================================
+# ============================
+# BOOTSTRAP (FINAL)
+# ============================
 
 class TeamBaselineBootstrapper:
     """
-    Multi-source bootstrapper.
-    Resolves team name → abbreviation when needed.
+    FINAL MULTI-SOURCE BOOTSTRAPPER
+    - Canonical key = ABBR
+    - main.py DOES NOT map names
     """
 
     def __init__(self, store: TeamBaselineStore, adapters: List[Any]) -> None:
         self.store = store
         self.adapters = adapters
 
-    async def ensure_async(
-        self, league: str, team_name: str, min_games: int = 6
-    ) -> Optional[TeamBaseline]:
+    async def _canonical(self, league: str, team_input: str) -> str:
+        t = (team_input or "").strip()
+        if not t:
+            return t
+        if 2 <= len(t) <= 4 and " " not in t:
+            return t.upper()
 
-        existing = self.store.get(league, team_name)
+        for ad in self.adapters:
+            resolver = getattr(ad, "resolve_team_abbr", None)
+            if callable(resolver):
+                try:
+                    abbr = await resolver(league, t)
+                    if abbr:
+                        return str(abbr).upper().strip()
+                except Exception:
+                    continue
+        return t
+
+    async def ensure_async(
+        self, league: str, team_input: str, min_games: int = 6
+    ) -> Optional[TeamBaseline]:
+        team = await self._canonical(league, team_input)
+
+        existing = self.store.get(league, team)
         if existing and existing.n_games >= min_games:
             return existing
 
         for ad in self.adapters:
             try:
-                team_key = team_name
-
-                # 🔥 RESOLVE NAME → ABBR IF SUPPORTED
-                resolver = getattr(ad, "resolve_team_abbr", None)
-                if callable(resolver):
-                    resolved = await resolver(league, team_name)
-                    if resolved:
-                        team_key = resolved
-
                 fetch = getattr(ad, "fetch_team_recent_games", None)
                 if not callable(fetch):
                     continue
 
-                games = await fetch(league, team_key, max(min_games, 10))
+                games = await fetch(league, team, max(min_games, 10))
                 if not games:
                     continue
 
                 for g in games:
                     self.store.append_game(
                         league=league,
-                        team=team_name,
-                        pts_for=g["pts_for"],
-                        pts_against=g["pts_against"],
+                        team=team,
+                        pts_for=float(g["pts_for"]),
+                        pts_against=float(g["pts_against"]),
                         pace=float(g.get("pace") or 100.0),
                         home=bool(g.get("home", False)),
                         ts_utc=g.get("ts_utc"),
                     )
 
-                agg = self.store.compute_dynamic_baseline(league, team_name, min_games)
+                agg = self.store.compute_dynamic_baseline(league, team, min_games)
                 if not agg:
                     continue
 
                 baseline = TeamBaseline(
                     league=league,
-                    team=team_name,
-                    n_games=agg["n_games"],
-                    pts_for=agg["pts_for"],
-                    pts_against=agg["pts_against"],
-                    pace=agg["pace"],
-                    stdev_total=agg["stdev_total"],
+                    team=team,
+                    n_games=int(agg["n_games"]),
+                    pts_for=float(agg["pts_for"]),
+                    pts_against=float(agg["pts_against"]),
+                    pace=float(agg["pace"]),
+                    stdev_total=float(agg["stdev_total"]),
                     updated_ts=int(time.time()),
                 )
                 self.store.put(baseline)
@@ -220,4 +220,4 @@ class TeamBaselineBootstrapper:
             except Exception:
                 continue
 
-        return existing 
+        return existing
