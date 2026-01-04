@@ -17,7 +17,6 @@ from faz13_engine import Faz13Engine, PrematchRequest
 from faz17_engine import Faz17Engine, MarketRequest
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
-from faz7_engine.faz7_memory import faz7_memory
 
 
 # ============================
@@ -95,7 +94,7 @@ def _inject_season(core: Any, league: str, date_str: str) -> None:
     meta["season"] = season_start
     meta["season_str"] = season_str
 
-    # aynı notu tekrar tekrar yazma
+    # tekrar yazma
     notes[:] = [n for n in notes if not str(n).lower().startswith("season:")]
     notes.insert(0, f"Season: {season_str}")
 
@@ -110,14 +109,13 @@ def _apply_degraded_mode(core: Any) -> None:
 
     meta["degraded_mode"] = True
     meta.setdefault("risk", "HIGH")
-    notes.append("⚠️ DEGRADED_MODE: Kaynak veriler eksik. Analiz fallback ile üretildi.")
+    notes.append("⚠️ DEGRADED_MODE: Kaynak veriler eksik.")
 
 
 def _parse_analyze_params(raw: str) -> tuple[str, str, str, str]:
     """
-    Format:
-      /analyze NBA 2026-01-04 Miami Heat vs Minnesota Timberwolves
-      /analyze NBA 2026-01-04 MIA vs MIN
+    /analyze NBA 2026-01-04 Miami Heat vs Minnesota Timberwolves
+    /analyze NBA 2026-01-04 MIA vs MIN
     """
     parts = raw.split()
     if len(parts) < 4:
@@ -159,19 +157,18 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"ANALYZE RAW {league} {date_str} {home_raw} vs {away_raw}")
 
-    # ---- engines
+    # engines
     faz13: Faz13Engine = context.application.bot_data["faz13"]
     faz17: Faz17Engine = context.application.bot_data["faz17"]
     faz22: Faz22Engine = context.application.bot_data["faz22"]
     faz23: Faz23Engine = context.application.bot_data["faz23"]
 
-    # ---- shared objects
+    # shared
     bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
     baseline_store: TeamBaselineStore = context.application.bot_data["baseline_store"]
 
     # ============================
-    # BOOTSTRAP (canonical key bootstrapper içinde)
-    # Bu fonksiyon canonical (ABBR) ile baseline döndürür.
+    # BOOTSTRAP (canonical bootstrapper içinde)
     # ============================
     b_home = None
     b_away = None
@@ -181,27 +178,26 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.warning(f"Baseline bootstrap failed: {e}")
 
-    # Canonical keys: baseline döndüyse ordan al, dönmediyse raw ile devam
     home_key = getattr(b_home, "team", None) or home_raw
     away_key = getattr(b_away, "team", None) or away_raw
     logger.info(f"CANONICAL home={home_raw}->{home_key} | away={away_raw}->{away_key}")
 
-    # Debug kanıt
+    # kanıt
     try:
-        h_series = baseline_store.get_series(league, home_key, 5)
-        a_series = baseline_store.get_series(league, away_key, 5)
-        logger.info(f"SERIES_CHECK home={home_key} n={len(h_series)} | away={away_key} n={len(a_series)}")
-    except Exception as e:
-        logger.warning(f"SERIES_CHECK error: {e}")
+        hs = baseline_store.get_series(league, home_key, 5)
+        as_ = baseline_store.get_series(league, away_key, 5)
+        logger.info(f"SERIES_CHECK home={home_key} n={len(hs)} | away={away_key} n={len(as_)}")
+    except Exception:
+        pass
 
     # ============================
-    # FAZ-13 — PREMATCH (canonical key ile)
+    # FAZ-13 (canonical key ile)
     # ============================
     core = await faz13.run_prematch(
         PrematchRequest(0, league, date_str, home_key, away_key)
     )
 
-    # Telegram’da kullanıcıya orijinal isimleri göster
+    # kullanıcıya raw isimleri göster
     try:
         core.ctx.home = home_raw
         core.ctx.away = away_raw
@@ -216,7 +212,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cov["prematch"] = True
 
     # ============================
-    # FAZ-17 — MARKET (raw isimlerle)
+    # FAZ-17 (RAW isimlerle market)
     # ============================
     market_total: Optional[float] = None
     try:
@@ -232,11 +228,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             core.market = mk
             market_total = _safe_float(mk.get("total"))
     except Exception as e:
-        core.market = {
-            "status": "MARKET_OPTIONAL",
-            "total": None,
-            "reason": f"FAZ17_EXCEPTION:{e}",
-        }
+        core.market = {"status": "MARKET_OPTIONAL", "total": None, "reason": str(e)}
 
     meta["market_total"] = market_total
     cov["market"] = market_total is not None
@@ -245,14 +237,6 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         notes.append(f"Market total={market_total:.1f}")
     else:
         notes.append("Market unavailable → MARKET_OPTIONAL")
-
-    # ============================
-    # FAZ-7
-    # ============================
-    try:
-        faz7_memory(meta)
-    except Exception:
-        pass
 
     _apply_degraded_mode(core)
 
@@ -284,7 +268,6 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     baseline_store = TeamBaselineStore("data/baselines")
 
-    # Multi-source bootstrapper: primary SportsDataIO, fallback ESPN
     baseline_bootstrapper = TeamBaselineBootstrapper(
         store=baseline_store,
         adapters=[
@@ -295,23 +278,18 @@ def main():
 
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # Shared
     app.bot_data["baseline_store"] = baseline_store
     app.bot_data["baseline_bootstrapper"] = baseline_bootstrapper
 
-    # Engines
     app.bot_data["faz13"] = Faz13Engine(baseline_store=baseline_store)
     app.bot_data["faz17"] = Faz17Engine(api_key=ODDS_API_KEY, base_url=ODDS_BASE)
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine()
 
-    # Handlers
     app.add_handler(CommandHandler("analyze", analyze_command))
 
-    # Shutdown (PTB v20+ safe)
     async def _graceful_shutdown():
         logger.info("Graceful shutdown initiated")
-
         for k in ("faz13", "faz17"):
             try:
                 eng = app.bot_data.get(k)
@@ -319,8 +297,6 @@ def main():
                     await eng.aclose()
             except Exception:
                 pass
-
-        # Close provider sessions if they expose aclose()
         try:
             bs = app.bot_data.get("baseline_bootstrapper")
             if bs:
@@ -333,9 +309,9 @@ def main():
 
     app.shutdown = _graceful_shutdown
 
-    logger.info("BOT STARTED — ORCHESTRATOR MODE (canonical handled by bootstrapper)")
+    logger.info("BOT STARTED — ORCHESTRATOR MODE (FAZ-7 REMOVED, CANONICAL SAFE)")
     app.run_polling()
 
 
 if __name__ == "__main__":
-    main()
+    main() 
