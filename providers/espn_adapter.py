@@ -5,8 +5,9 @@ import json
 import os
 import re
 import time
+import calendar
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 
@@ -66,9 +67,10 @@ class ESPNAdapter:
     """
     ESPN provider adapter (NO API KEY).
 
-    - Team baseline snapshot
-    - Recent games (time-series, UTC)
-    - Team name -> abbreviation resolver (NEW)
+    Rol:
+    - Son maçlar (time-series, UTC)
+    - Takım adı → kısaltma resolver
+    - Analiz / karar YAPMAZ
     """
 
     name = "ESPN"
@@ -133,22 +135,14 @@ class ESPNAdapter:
         return None
 
     # -------------------------------------------------
-    # 🔥 NEW: TEAM NAME → ABBREVIATION RESOLVER
+    # TEAM NAME → ABBR (bootstrapper kullanır)
     # -------------------------------------------------
 
     async def resolve_team_abbr(self, league: str, team_name: str) -> Optional[str]:
-        """
-        Resolve full team name to ESPN abbreviation.
-        Examples:
-          "Dallas Mavericks" -> "DAL"
-          "Houston Rockets"  -> "HOU"
-        """
-
         key = _norm(team_name)
         if not key:
             return None
 
-        # Cached directory
         cached = self._teams_cache.get("nba_team_dir")
         if cached is None:
             js = await self._request_json(f"{ESPN_BASE}/teams")
@@ -184,44 +178,13 @@ class ESPNAdapter:
         return None
 
     # -------------------------------------------------
-    # TEAM BASELINE (snapshot)
-    # -------------------------------------------------
-
-    async def fetch_team_baseline(self, team_abbr: str) -> Optional[Dict[str, Any]]:
-        abbr = (team_abbr or "").strip().lower()
-        if not abbr:
-            return None
-
-        js = await self._request_json(f"{ESPN_BASE}/teams/{abbr}")
-        if not js:
-            return None
-
-        items = js.get("team", {}).get("record", {}).get("items", [])
-        stats: Dict[str, Any] = {}
-        for it in items:
-            for st in it.get("stats", []):
-                nm = st.get("name")
-                if nm:
-                    stats[nm] = st.get("value")
-
-        if "avgPointsFor" not in stats or "avgPointsAgainst" not in stats:
-            return None
-
-        return {
-            "pts_for": float(stats["avgPointsFor"]),
-            "pts_against": float(stats["avgPointsAgainst"]),
-            "confidence": float(self.confidence),
-            "source": self.name,
-            "fetched_at": int(time.time()),
-        }
-
-    # -------------------------------------------------
-    # RECENT GAMES (time-series)
+    # RECENT GAMES (UTC, CANONICAL)
     # -------------------------------------------------
 
     async def fetch_team_recent_games(
         self, league: str, team_abbr: str, n_games: int
     ) -> Optional[List[Dict[str, Any]]]:
+
         abbr = (team_abbr or "").strip().lower()
         if not abbr:
             return None
@@ -265,16 +228,16 @@ class ESPNAdapter:
             if pf is None or pa is None:
                 continue
 
-            ha = str(team_row.get("homeAway") or "").lower()
-            is_home = ha == "home"
+            is_home = str(team_row.get("homeAway") or "").lower() == "home"
 
             ts = ev.get("date")
             if not isinstance(ts, str):
                 continue
 
             try:
-                t = time.strptime(ts.split("Z")[0], "%Y-%m-%dT%H:%M")
-                ts_utc = int(time.mktime(t))
+                # ESPN date → UTC epoch (DOĞRU YOL)
+                t = time.strptime(ts.replace("Z", ""), "%Y-%m-%dT%H:%M")
+                ts_utc = int(calendar.timegm(t))
             except Exception:
                 continue
 
