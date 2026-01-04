@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import calendar
 import time
-import os
 from typing import Any, Dict, List, Optional
 
 import aiohttp
@@ -16,12 +15,10 @@ class ESPNAdapter:
     """
     ESPN ADAPTER — PRODUCTION GRADE (FREE)
 
-    Özellikler:
     - team_name / abbr -> team_id resolve (cache'li)
     - schedule fetch ONLY team_id ile
     - sadece COMPLETED maçlar
     - retry + backoff
-    - sessiz None yerine kontrollü boş liste
     - TeamBaselineBootstrapper sözleşmesine %100 uyum
     """
 
@@ -30,9 +27,7 @@ class ESPNAdapter:
         self._owns_session = session is None
         self._teams_cache: Optional[List[Dict[str, Any]]] = None
         self._teams_cache_ts: float = 0.0
-
-        # basit TTL (6 saat)
-        self._teams_ttl = 6 * 3600
+        self._teams_ttl = 6 * 3600  # 6 saat
 
     # -------------------------------------------------
     # SESSION
@@ -161,22 +156,31 @@ class ESPNAdapter:
         if not isinstance(events, list):
             return None
 
+        # ---- ÖN ANALİZ DOĞRUSU ----
+        # Tarihe bakmadan, sadece COMPLETED maçları topla,
+        # en son oynanan N maçı al.
+        completed: List[Dict[str, Any]] = []
+        for ev in events:
+            comps = ev.get("competitions") or []
+            if not comps:
+                continue
+            comp = comps[0]
+            if comp.get("status", {}).get("type", {}).get("state") != "completed":
+                continue
+            completed.append(ev)
+
+        if not completed:
+            return None
+
+        completed = completed[-int(n_games):]
+
         out: List[Dict[str, Any]] = []
-
-        # yeni -> eski yerine eski -> yeni (son N için)
-        for ev in reversed(events):
-            if len(out) >= int(n_games):
-                break
-
+        for ev in completed:
             comps = ev.get("competitions") or []
             if not comps:
                 continue
 
             comp = comps[0]
-            state = comp.get("status", {}).get("type", {}).get("state")
-            if state != "completed":
-                continue
-
             competitors = comp.get("competitors") or []
             if len(competitors) != 2:
                 continue
@@ -199,15 +203,20 @@ class ESPNAdapter:
             except Exception:
                 continue
 
+            # ---- TARİH PARSE (saniyeli / saniyesiz) ----
             ts_raw = ev.get("date")
             try:
-                t = time.strptime(ts_raw.replace("Z", ""), "%Y-%m-%dT%H:%M")
+                ts = ts_raw.replace("Z", "")
+                try:
+                    t = time.strptime(ts, "%Y-%m-%dT%H:%M:%S")
+                except ValueError:
+                    t = time.strptime(ts, "%Y-%m-%dT%H:%M")
                 ts_utc = int(calendar.timegm(t))
             except Exception:
                 continue
+            # --------------------------------------------
 
             total = pf + pa
-            # aynı pace proxy: deterministik
             pace = max(94.0, min(106.0, 99.5 + (total - 220.0) * 0.06))
 
             out.append({
@@ -218,4 +227,4 @@ class ESPNAdapter:
                 "home": team_row.get("homeAway") == "home",
             })
 
-        return out if out else None
+        return out if out else None 
