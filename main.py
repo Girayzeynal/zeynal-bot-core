@@ -138,6 +138,15 @@ def _parse_analyze_params(raw: str) -> tuple[str, str, str, str]:
     return league, date_str, home.strip(), away.strip()
 
 
+def _diag_adapter_list(app: Application) -> str:
+    bs = app.bot_data.get("baseline_bootstrapper")
+    if not bs:
+        return "bootstrapper=NONE"
+    ads = getattr(bs, "adapters", []) or []
+    names = [a.__class__.__name__ for a in ads]
+    return "adapters=" + ",".join(names)
+
+
 # ============================
 # /analyze
 # ============================
@@ -155,7 +164,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    logger.info(f"ANALYZE RAW {league} {date_str} {home_raw} vs {away_raw}")
+    logger.info(f"ANALYZE RAW league={league} date={date_str} home='{home_raw}' away='{away_raw}' | {_diag_adapter_list(context.application)}")
 
     # engines
     faz13: Faz13Engine = context.application.bot_data["faz13"]
@@ -180,15 +189,19 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     home_key = getattr(b_home, "team", None) or home_raw
     away_key = getattr(b_away, "team", None) or away_raw
-    logger.info(f"CANONICAL home={home_raw}->{home_key} | away={away_raw}->{away_key}")
+    logger.info(f"CANONICAL home='{home_raw}' -> '{home_key}' | away='{away_raw}' -> '{away_key}'")
 
-    # kanıt
+    # kanıt (store series check)
+    hs_n = 0
+    as_n = 0
     try:
         hs = baseline_store.get_series(league, home_key, 5)
         as_ = baseline_store.get_series(league, away_key, 5)
-        logger.info(f"SERIES_CHECK home={home_key} n={len(hs)} | away={away_key} n={len(as_)}")
-    except Exception:
-        pass
+        hs_n = len(hs)
+        as_n = len(as_)
+        logger.info(f"SERIES_CHECK league={league} home='{home_key}' n={hs_n} | away='{away_key}' n={as_n}")
+    except Exception as e:
+        logger.warning(f"SERIES_CHECK failed: {e}")
 
     # ============================
     # FAZ-13 (canonical key ile)
@@ -209,7 +222,22 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     meta = _ensure_dict(core, "meta")
     notes = _ensure_list(core, "notes")
     cov = meta.setdefault("data_coverage", {})
+
     cov["prematch"] = True
+
+    # ============================
+    # DIAG SATIRLARI (TELEGRAM OUTPUT İÇİN)
+    # ============================
+    # Davranış değiştirmez; sadece “neden 0” sorusunun cevabını verir.
+    meta.setdefault("baseline_diag", {})
+    meta["baseline_diag"].update({
+        "home_key": home_key,
+        "away_key": away_key,
+        "home_series_n": hs_n,
+        "away_series_n": as_n,
+    })
+    # Notes içine kısa diag satırı ekle (spam olmasın diye tek satır)
+    notes.append(f"DIAG: baseline_series home={home_key}:{hs_n} away={away_key}:{as_n}")
 
     # ============================
     # FAZ-17 (RAW isimlerle market)
@@ -294,7 +322,9 @@ def main():
             try:
                 eng = app.bot_data.get(k)
                 if eng:
-                    await eng.aclose()
+                    close = getattr(eng, "aclose", None)
+                    if callable(close):
+                        await close()
             except Exception:
                 pass
         try:
@@ -307,7 +337,9 @@ def main():
         except Exception:
             pass
 
-    app.shutdown = _graceful_shutdown
+    # Not: python-telegram-bot Application shutdown override bazı sürümlerde desteklenmez.
+    # Biz yine de referans olarak tutuyoruz.
+    app.shutdown = _graceful_shutdown  # type: ignore
 
     logger.info("BOT STARTED — ORCHESTRATOR MODE (FAZ-7 REMOVED, CANONICAL SAFE)")
     app.run_polling()
