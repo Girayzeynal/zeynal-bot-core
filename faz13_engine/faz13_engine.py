@@ -1,17 +1,34 @@
 from __future__ import annotations
 
 import html
+import os
+import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+
+import aiohttp
 
 from baseline.team_baseline_store import TeamBaselineStore
 from league_profiles import get_league_profile
 
-# Optional H2H (varsa kullan, yoksa sessiz geç)
+# Optional aggregate import (if core/aggregate_engine.py exists)
 try:
-    from baseline.h2h_store import H2HStore  # type: ignore
+    from core.aggregate_engine import aggregate_baseline as _aggregate_baseline  # type: ignore
 except Exception:
-    H2HStore = None  # type: ignore
+    _aggregate_baseline = None
+
+# Optional ESPN provider (providers/espn_adapter.py)
+try:
+    from providers import ESPNAdapter  # type: ignore
+except Exception:
+    ESPNAdapter = None  # type: ignore
+
+# Optional FAZ-17 market engine (if exists)
+try:
+    from faz17_engine.faz17_engine import Faz17Engine, MarketRequest  # type: ignore
+except Exception:
+    Faz17Engine = None  # type: ignore
+    MarketRequest = None  # type: ignore
 
 
 # =====================================================
@@ -55,22 +72,24 @@ class Faz13CoreOutput:
     quarters: Dict[str, Tuple[int, int]]
     blowout_risk: str
     tempo_flag: str
-
-    sim_mean: float = 0.0
-    sim_std: float = 0.0
-    center_total: float = 0.0
-
     notes: List[str] = field(default_factory=list)
     market: Dict[str, Any] = field(default_factory=dict)
     meta: Dict[str, Any] = field(default_factory=dict)
 
-    # FORCE MODE RESULT
-    force: Optional[Dict[str, Any]] = None
-
     def render_html(self) -> str:
+        """
+        IMPORTANT FIX:
+        - If meta values are lists (e.g. sources), render them as comma-joined text
+          to avoid HTML escaped list output like [&#x27;ESPN&#x27;].
+        """
         esc = html.escape
-        out: List[str] = 
 
+        def _fmt(v: Any) -> str:
+            if isinstance(v, (list, tuple, set)):
+                return ", ".join(str(x) for x in v)
+            return str(v)
+
+        out: List[str] = []
         out.append("FAZ-13 Ön Analiz")
         out.append(
             f"Maç: {esc(self.ctx.home)} vs {esc(self.ctx.away)} | "
@@ -78,59 +97,26 @@ class Faz13CoreOutput:
         )
 
         out.append("")
-        out.append("Dar Bant (bilgi)")
-        out.append(f"• Toplam: {self.total_band}–{self.total_band}") [1](https://stackoverflow.com/questions/74837978/syntaxerror-invalid-non-printable-character-u00a0-in-python)
-        out.append(f"• Ev: {self.home_band}–{self.home_band} | Dep: {self.away_band}–{self.away_band}") [1](https://stackoverflow.com/questions/74837978/syntaxerror-invalid-non-printable-character-u00a0-in-python)
+        out.append("Dar Bant")
+        out.append(f"• Toplam: {self.total_band[0]}–{self.total_band[1]}")
+        out.append(
+            f"• Ev: {self.home_band[0]}–{self.home_band[1]} | "
+            f"Dep: {self.away_band[0]}–{self.away_band[1]}"
+        )
+        out.append(f"• Alt/Üst yönü: {esc(self.ou_direction)}")
+
+        if self.quarters:
+            out.append("")
+            out.append("Periyot Senaryosu (dar bant)")
+            for k in ("1Q", "2Q", "3Q", "4Q"):
+                if k in self.quarters:
+                    a, b = self.quarters[k]
+                    out.append(f"• {k}: {a}–{b}")
 
         out.append("")
-        out.append("Analitik Referans")
-        out.append(f"• Beklenen Toplam (μ): {self.sim_mean:.2f}")
-        out.append(f"• Belirsizlik (σ): {self.sim_std:.2f}")
-        out.append(f"• Tempo: {esc(self.tempo_flag)}")
-
-        # ============================
-        # FORCE MODE OUTPUT (tek rakam)
-        # ============================
-        if isinstance(self.force, dict):
-            f = dict(self.force)  # local copy
-
-            # Market total render anında gelir (main.py meta["market_total"] inject eder)
-            market_total = None
-            try:
-                mt = self.meta.get("market_total")
-                if mt is not None:
-                    market_total = float(mt)
-            except Exception:
-                market_total = None
-
-            total = int(f.get("total", 0))
-
-            # Direction: market varsa kesin, yoksa FORCE
-            if market_total is not None and total > 0:
-                direction = "OVER" if total >= market_total else "UNDER"
-            else:
-                direction = "OVER" if str(f.get("direction", "OVER")).upper() != "UNDER" else "UNDER"
-
-            teams = f.get("teams") or {}
-            halves = f.get("halves") or {}
-            quarters = f.get("quarters") or {}
-
-            out.append("")
-            out.append("🔥 FORCE MODE (TEK RAKAM – SON 5 MAÇ)")
-            out.append(f"• Referans Market: {market_total:.1f}" if market_total is not None else "• Referans Market: YOK")
-            out.append(f"• Toplam: {total} | Yön: {direction}")
-
-            out.append(
-                f"• Takım Skorları: {esc(self.ctx.home)} {int(teams.get('home', 0))} – "
-                f"{int(teams.get('away', 0))} {esc(self.ctx.away)}"
-            )
-            out.append(f"• İlk Yarı: {int(halves.get('1H', 0))} | İkinci Yarı: {int(halves.get('2H', 0))}")
-            out.append(
-                f"• Periyotlar: 1Q {int(quarters.get('1Q', 0))} | 2Q {int(quarters.get('2Q', 0))} | "
-                f"3Q {int(quarters.get('3Q', 0))} | 4Q {int(quarters.get('4Q', 0))}"
-            )
-            out.append(f"• Handikap: {esc(str(f.get('handicap', 'N/A')))}")
-            out.append(f"• Güven: %{int(f.get('confidence', 0))} | Risk: {esc(str(f.get('risk', 'N/A')))}")
+        out.append("Risk Göstergeleri")
+        out.append(f"• Blowout riski: {esc(self.blowout_risk)}")
+        out.append(f"• Tempo flag: {esc(self.tempo_flag)}")
 
         if self.notes:
             out.append("")
@@ -138,180 +124,551 @@ class Faz13CoreOutput:
             for n in self.notes:
                 out.append(f"• {esc(str(n))}")
 
+        if self.market:
+            out.append("")
+            out.append("Market Entegrasyonu")
+            for k, v in self.market.items():
+                out.append(f"• {esc(str(k))}: {esc(_fmt(v))}")
+
+        if self.meta:
+            out.append("")
+            out.append("Meta Skor")
+            for k, v in self.meta.items():
+                out.append(f"• {esc(str(k))}: {esc(_fmt(v))}")
+
         out.append("")
         out.append("Bu çıktı analiz/simülasyon amaçlıdır. Bahis tavsiyesi değildir.")
         return "\n".join(out)
 
 
 # =====================================================
-# FAZ-13 ENGINE
+# AGGREGATE (SAFE)
+# =====================================================
+
+def _fallback_aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not rows:
+        return None
+
+    total_conf = sum(float(r.get("confidence", 0.0)) for r in rows)
+    if total_conf <= 0:
+        return None
+
+    pts_for = sum(float(r["pts_for"]) * float(r["confidence"]) for r in rows) / total_conf
+    pts_against = sum(float(r["pts_against"]) * float(r["confidence"]) for r in rows) / total_conf
+
+    sources = []
+    for r in rows:
+        s = r.get("source")
+        if s:
+            sources.append(str(s))
+
+    out: Dict[str, Any] = {
+        "pts_for": pts_for,
+        "pts_against": pts_against,
+        "confidence": total_conf / len(rows),  # 0..1
+        "sources": sources,
+    }
+
+    pace_vals = [float(r["pace"]) for r in rows if r.get("pace") is not None]
+    if pace_vals:
+        out["pace"] = sum(pace_vals) / len(pace_vals)
+
+    return out
+
+
+def aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if _aggregate_baseline:
+        try:
+            return _aggregate_baseline(rows)  # type: ignore
+        except Exception:
+            return _fallback_aggregate_baseline(rows)
+    return _fallback_aggregate_baseline(rows)
+
+
+# =====================================================
+# PROVIDER: SportsDataIO (LOCAL LIGHT ADAPTER)
+# (kept for compatibility: baseline + pace)
+# =====================================================
+
+class SportsDataIOAdapter:
+    name = "SPORTSDATAIO"
+    confidence = 0.85
+
+    def __init__(self) -> None:
+        self.key = os.getenv("SPORTSDATA_API_KEY", "").strip()
+
+    async def _fetch_teamseasonstats(self, season_year: str) -> Optional[List[Dict[str, Any]]]:
+        if not self.key:
+            return None
+        url = f"https://api.sportsdata.io/v3/nba/scores/json/TeamSeasonStats/{season_year}"
+        headers = {"Ocp-Apim-Subscription-Key": self.key}
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, timeout=20) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json()
+        return data if isinstance(data, list) else None
+
+    async def fetch_team_baseline(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
+        if not self.key:
+            return None
+
+        key = (team_key or "").upper().strip()
+        if not key:
+            return None
+
+        data = await self._fetch_teamseasonstats(season_year)
+        if not data:
+            return None
+
+        row = next((x for x in data if str(x.get("Key", "")).upper() == key), None)
+        if not row:
+            return None
+
+        pf = row.get("PointsPerGame")
+        pa = row.get("OpponentPointsPerGame")
+        if pf is None or pa is None:
+            return None
+
+        out: Dict[str, Any] = {
+            "pts_for": float(pf),
+            "pts_against": float(pa),
+            "confidence": float(self.confidence),
+            "source": self.name,
+        }
+
+        poss = row.get("Possessions")
+        games = row.get("Games")
+        try:
+            if poss is not None and games is not None and float(games) > 0:
+                out["pace"] = float(poss) / float(games)
+        except Exception:
+            pass
+
+        return out
+
+    async def fetch_team_pace(self, team_key: str, season_year: str) -> Optional[Dict[str, Any]]:
+        if not self.key:
+            return None
+
+        key = (team_key or "").upper().strip()
+        if not key:
+            return None
+
+        data = await self._fetch_teamseasonstats(season_year)
+        if not data:
+            return None
+
+        row = next((x for x in data if str(x.get("Key", "")).upper() == key), None)
+        if not row:
+            return None
+
+        poss = row.get("Possessions")
+        games = row.get("Games")
+        if poss is None or games is None:
+            return None
+
+        try:
+            poss_f = float(poss)
+            games_i = int(games)
+        except Exception:
+            return None
+
+        if games_i <= 0:
+            return None
+
+        return {
+            "pace": float(poss_f / games_i),
+            "possessions": float(poss_f),
+            "games": int(games_i),
+            "source": self.name,
+            "fetched_at": int(time.time()),
+        }
+
+
+# =====================================================
+# FAZ-13 ENGINE (REF-BASED FINAL BUILD)
 # =====================================================
 
 class Faz13Engine:
-    """
-    FAZ-13 Prensiplerine göre maç analizi yapan motor.
-    """
-    def __init__(self):
-        self._baseline_store = TeamBaselineStore()
-        self._h2h_store = H2HStore() if H2HStore else None
+    def __init__(
+        self,
+        api_sports_key: str,
+        api_sports_base: str,
+        baseline_store: Optional[TeamBaselineStore] = None,
+        min_baseline_games: int = 6,
+    ) -> None:
+        self.api_key = (api_sports_key or "").strip()
+        self.base = (api_sports_base or "https://v1.basketball.api-sports.io").rstrip("/")
+        self.session: Optional[aiohttp.ClientSession] = None
 
-    def analyze(self, request: PrematchRequest) -> Faz13CoreOutput:
-        # 1. Fixture Context
-        ctx = FixtureContext(
-            league=request.league,
-            date=request.date_str,
-            home=request.home,
-            away=request.away,
-        )
+        self.baseline_store = baseline_store
+        self.min_baseline_games = int(min_baseline_games)
 
-        # 2. Team Averages
-        home_avg = self._get_team_averages(request.home, request.league)
-        away_avg = self._get_team_averages(request.away, request.league)
+        self._nba_league_id = int(os.getenv("API_SPORTS_NBA_LEAGUE_ID", "12"))
+        self._espn_alias_cache: Dict[str, Any] = {"ts": 0.0, "index": {}}
+        self._espn_alias_ttl_sec = int(os.getenv("FAZ13_ESPN_ALIAS_TTL_SEC", "21600"))
 
-        # 3. Total Band
-        total_band = self._calculate_total_band(home_avg, away_avg)
-        home_band = self._calculate_home_band(home_avg, away_avg)
-        away_band = self._calculate_away_band(home_avg, away_avg)
+        self._faz17 = Faz17Engine() if Faz17Engine is not None else None
 
-        # 4. Direction
-        ou_direction = self._determine_ou_direction(home_avg, away_avg)
+    @staticmethod
+    def resolve_nba_season(date_str: str) -> str:
+        try:
+            y = int(date_str[:4])
+            m = int(date_str[5:7])
+        except Exception:
+            return date_str[:4]
+        return str(y) if m >= 10 else str(y - 1)
 
-        # 5. Quarters
-        quarters = self._get_quarter_predictions(home_avg, away_avg)
+    @staticmethod
+    def _season_label(season_start: str) -> str:
+        try:
+            y = int(season_start)
+            return f"{y}-{y+1}"  # 2025-2026
+        except Exception:
+            return season_start
 
-        # 6. Blowout Risk
-        blowout_risk = self._determine_blowout_risk(home_avg, away_avg)
+    @staticmethod
+    def _safe_float(v: Any) -> Optional[float]:
+        if v is None:
+            return None
+        try:
+            s = str(v).strip().replace(",", ".")
+            return float(s)
+        except Exception:
+            return None
 
-        # 7. Tempo Flag
-        tempo_flag = self._determine_tempo_flag(home_avg, away_avg)
+    async def _get_session(self) -> aiohttp.ClientSession:
+        if self.session and not self.session.closed:
+            return self.session
+        self.session = aiohttp.ClientSession()
+        return self.session
 
-        # 8. Simulations
-        sim_mean, sim_std = self._simulate_match(home_avg, away_avg)
+    @staticmethod
+    def _norm(s: str) -> str:
+        return " ".join((s or "").strip().lower().replace("-", " ").replace("_", " ").split())
 
-        # 9. Center Total
-        center_total = (sim_mean + 0.5) // 1 * 1  # round to nearest integer
+    async def _espn_resolve_abbr(self, team_name: str) -> Optional[str]:
+        k = self._norm(team_name)
+        if not k:
+            return None
 
-        # 10. Notes
-        notes = 
-        if not home_avg or not away_avg:
-            notes.append("⚠️ Takım verileri eksik.")
+        now = time.time()
+        if (now - float(self._espn_alias_cache.get("ts", 0))) < self._espn_alias_ttl_sec:
+            idx = self._espn_alias_cache.get("index", {})
+            if isinstance(idx, dict) and k in idx:
+                return idx.get(k)
 
-        # 11. Market (opsiyonel)
-        market = {}
+        s = await self._get_session()
+        try:
+            async with s.get(
+                "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+                timeout=20,
+            ) as r:
+                js = await r.json()
+        except Exception:
+            return None
 
-        # 12. Meta
-        meta = {
-            "season": int(request.date_str.split("-")),
-            "season_str": f"{request.date_str.split('-')}–{int(request.date_str.split('-')) + 1}",
+        alias_index: Dict[str, str] = {}
+        teams = js.get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
+
+        for t in teams:
+            team = t.get("team", {})
+            abbr = str(team.get("abbreviation", "")).lower()
+            if not abbr:
+                continue
+
+            for raw in (
+                team.get("displayName"),
+                team.get("shortDisplayName"),
+                team.get("name"),
+                team.get("location"),
+                team.get("nickname"),
+                abbr,
+            ):
+                key = self._norm(str(raw))
+                if key:
+                    alias_index.setdefault(key, abbr)
+
+        self._espn_alias_cache = {"ts": now, "index": alias_index}
+        return alias_index.get(k)
+
+    @staticmethod
+    def _tempo_flag_from_pace(pace: float) -> str:
+        if pace >= 102.0:
+            return "FAST"
+        if pace <= 97.0:
+            return "SLOW"
+        return "NORMAL"
+
+    @staticmethod
+    def _tight_confidence(conf_raw: float) -> float:
+        c = max(0.0, min(1.0, float(conf_raw)))
+        return c ** 1.35
+
+    @staticmethod
+    def _edge_threshold(conf_tight: float, band_hw_total: int) -> float:
+        base = max(2.0, float(band_hw_total) * 0.30)
+        factor = 1.25 - 0.40 * max(0.0, min(1.0, conf_tight))
+        return base * factor
+
+    @staticmethod
+    def _quarters_band(total_mu: float, band_hw_total: int, tempo_flag: str) -> Dict[str, Tuple[int, int]]:
+        w = [0.24, 0.26, 0.25, 0.25]
+        if tempo_flag == "FAST":
+            w = [0.245, 0.265, 0.245, 0.245]
+        elif tempo_flag == "SLOW":
+            w = [0.235, 0.255, 0.255, 0.255]
+
+        q_hw = max(2, int(round(band_hw_total / 2.8)))
+        qs: Dict[str, Tuple[int, int]] = {}
+        for lab, wi in zip(("1Q", "2Q", "3Q", "4Q"), w):
+            mu = total_mu * wi
+            qs[lab] = (int(mu - q_hw), int(mu + q_hw))
+        return qs
+
+    async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
+        profile = get_league_profile(req.league)
+        season = self.resolve_nba_season(req.date_str) if req.league.upper() == "NBA" else req.date_str[:4]
+        season_str = self._season_label(season) if req.league.upper() == "NBA" else season
+
+        notes: List[str] = [f"Season: {season_str}", "TEAM-FIRST mode (MULTI-SOURCE)"]
+
+        home_rows: List[Dict[str, Any]] = []
+        away_rows: List[Dict[str, Any]] = []
+
+        home_abbr: Optional[str] = None
+        away_abbr: Optional[str] = None
+
+        if req.league.upper() == "NBA" and ESPNAdapter is not None:
+            try:
+                espn = ESPNAdapter()
+                home_abbr = await self._espn_resolve_abbr(req.home)
+                away_abbr = await self._espn_resolve_abbr(req.away)
+
+                if home_abbr:
+                    r = await espn.fetch_team_baseline(home_abbr)  # type: ignore
+                    if r:
+                        home_rows.append(r)
+
+                if away_abbr:
+                    r = await espn.fetch_team_baseline(away_abbr)  # type: ignore
+                    if r:
+                        away_rows.append(r)
+
+                notes.append(f"ESPN abbr: home={home_abbr} away={away_abbr}")
+            except Exception:
+                notes.append("ESPN: fetch failed")
+
+        pace_home: Optional[float] = None
+        pace_away: Optional[float] = None
+
+        if req.league.upper() == "NBA":
+            sd = SportsDataIOAdapter()
+            if home_abbr:
+                r = await sd.fetch_team_baseline(home_abbr.upper(), str(season))
+                if r:
+                    home_rows.append(r)
+                p = await sd.fetch_team_pace(home_abbr.upper(), str(season))
+                if p and p.get("pace") is not None:
+                    pace_home = float(p["pace"])
+            if away_abbr:
+                r = await sd.fetch_team_baseline(away_abbr.upper(), str(season))
+                if r:
+                    away_rows.append(r)
+                p = await sd.fetch_team_pace(away_abbr.upper(), str(season))
+                if p and p.get("pace") is not None:
+                    pace_away = float(p["pace"])
+
+        home_baseline = aggregate_baseline(home_rows) if home_rows else None
+        away_baseline = aggregate_baseline(away_rows) if away_rows else None
+
+        if not home_baseline or not away_baseline:
+            ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
+            return Faz13CoreOutput(
+                ctx=ctx,
+                home_avg=TeamAverages(0, 0, 1, 9),
+                away_avg=TeamAverages(0, 0, 1, 9),
+                total_band=(0, 0),
+                home_band=(0, 0),
+                away_band=(0, 0),
+                ou_direction="NO_PLAY",
+                quarters={},
+                blowout_risk="UNKNOWN",
+                tempo_flag="UNKNOWN",
+                notes=notes + ["NO_PLAY: BASELINE_NOT_AVAILABLE"],
+                market={},
+                meta={
+                    "season": season,
+                    "season_str": season_str,
+                    "team_first": True,
+                    "baseline_missing": True,
+                    "confidence_pct": 0.0,
+                    "risk": "NO_PLAY",
+                    "sources_home": [],
+                    "sources_away": [],
+                    "degraded_mode": True,
+                },
+            )
+
+        if pace_home is None:
+            try:
+                v = home_baseline.get("pace")
+                if v is not None:
+                    pace_home = float(v)
+            except Exception:
+                pace_home = None
+        if pace_away is None:
+            try:
+                v = away_baseline.get("pace")
+                if v is not None:
+                    pace_away = float(v)
+            except Exception:
+                pace_away = None
+
+        pace_fallback_used = False
+        if pace_home is None:
+            pace_home = 100.0
+            pace_fallback_used = True
+        if pace_away is None:
+            pace_away = 100.0
+            pace_fallback_used = True
+
+        if pace_fallback_used:
+            notes.append("Pace missing from providers → fallback pace=100.0 applied")
+
+        notes.append(f"Pace(home)={pace_home:.1f} | Pace(away)={pace_away:.1f}")
+
+        h_pf = float(home_baseline["pts_for"])
+        h_pa = float(home_baseline["pts_against"])
+        a_pf = float(away_baseline["pts_for"])
+        a_pa = float(away_baseline["pts_against"])
+
+        home_mu = (h_pf + a_pa) / 2.0
+        away_mu = (a_pf + h_pa) / 2.0
+        expected_total = home_mu + away_mu
+
+        total_band = (int(expected_total - profile.band_hw_total), int(expected_total + profile.band_hw_total))
+        home_band = (int(home_mu - profile.band_hw_team), int(home_mu + profile.band_hw_team))
+        away_band = (int(away_mu - profile.band_hw_team), int(away_mu + profile.band_hw_team))
+
+        conf_raw = min(float(home_baseline.get("confidence", 0.5)), float(away_baseline.get("confidence", 0.5)))
+        conf_tight = self._tight_confidence(conf_raw)
+        confidence_pct = round(conf_tight * 100.0, 1)
+
+        if confidence_pct >= 82.0:
+            risk = "LOW"
+        elif confidence_pct >= 62.0:
+            risk = "MEDIUM"
+        else:
+            risk = "HIGH"
+
+        sources_home = home_baseline.get("sources", [])
+        sources_away = away_baseline.get("sources", [])
+        notes.append(f"Sources(home)={', '.join(sources_home)}")
+        notes.append(f"Sources(away)={', '.join(sources_away)}")
+
+        pace_mean = (pace_home + pace_away) / 2.0
+        tempo_flag = self._tempo_flag_from_pace(pace_mean)
+        quarters = self._quarters_band(expected_total, profile.band_hw_total, tempo_flag)
+
+        # ---- NEW: expected_1h / expected_2h (for FAZ-22 strong-half filter) ----
+        def _mid(b: Tuple[int, int]) -> float:
+            return (float(b[0]) + float(b[1])) / 2.0
+
+        expected_q1 = _mid(quarters["1Q"]) if "1Q" in quarters else None
+        expected_q2 = _mid(quarters["2Q"]) if "2Q" in quarters else None
+        expected_q3 = _mid(quarters["3Q"]) if "3Q" in quarters else None
+        expected_q4 = _mid(quarters["4Q"]) if "4Q" in quarters else None
+
+        expected_1h = round((expected_q1 + expected_q2), 1) if (expected_q1 is not None and expected_q2 is not None) else None
+        expected_2h = round((expected_q3 + expected_q4), 1) if (expected_q3 is not None and expected_q4 is not None) else None
+
+        # market edge (internal, but main.py is authoritative for market_total)
+        market: Dict[str, Any] = {}
+        market_total: Optional[float] = None
+        edge_value: Optional[float] = None
+        edge_thr: Optional[float] = None
+
+        if self._faz17 is not None and MarketRequest is not None:
+            try:
+                m = await self._faz17.fetch_market_total(
+                    MarketRequest(league=req.league, date_str=req.date_str, home=req.home, away=req.away)
+                )
+                if isinstance(m, dict):
+                    market = m
+                    market_total = self._safe_float(m.get("total"))
+            except Exception:
+                market = {"status": "MARKET_OPTIONAL", "reason": "FAZ17_EXCEPTION"}
+
+        if market_total is None and isinstance(market, dict):
+            market_total = self._safe_float(market.get("total"))
+
+        data_coverage = {
+            "team_stats": True,
+            "pace": True,
+            "market": market_total is not None,
         }
 
-        # 13. Force Mode (opsiyonel)
-        force = None
-        if self._h2h_store:
-            force = self._get_force_mode_result(request)
+        ou_direction = "NO_EDGE"
+        if market_total is not None:
+            edge_value = expected_total - market_total
+            edge_thr = self._edge_threshold(conf_tight, profile.band_hw_total)
+            if edge_value >= edge_thr:
+                ou_direction = "ÜST"
+            elif edge_value <= -edge_thr:
+                ou_direction = "ALT"
+            else:
+                ou_direction = "NO_EDGE"
+            notes.append(f"Market total={market_total:.1f} | Edge={edge_value:+.1f} | Thr={edge_thr:.1f}")
+        else:
+            if not market:
+                market = {"status": "MARKET_OPTIONAL"}
 
-        # 14. Output
+        degraded_mode = not (data_coverage["team_stats"] and data_coverage["pace"] and data_coverage["market"])
+
+        ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
+
         return Faz13CoreOutput(
             ctx=ctx,
-            home_avg=home_avg,
-            away_avg=away_avg,
+            home_avg=TeamAverages(h_pf, h_pa, float(pace_home), 10.0),
+            away_avg=TeamAverages(a_pf, a_pa, float(pace_away), 10.0),
             total_band=total_band,
             home_band=home_band,
             away_band=away_band,
             ou_direction=ou_direction,
             quarters=quarters,
-            blowout_risk=blowout_risk,
+            blowout_risk="LOW",
             tempo_flag=tempo_flag,
-            sim_mean=sim_mean,
-            sim_std=sim_std,
-            center_total=center_total,
             notes=notes,
             market=market,
-            meta=meta,
-            force=force,
-        )
-
-    def _get_team_averages(self, team: str, league: str) -> TeamAverages:
-        # Simülasyon: gerçek veriler yerine örnek veri döner
-        profile = get_league_profile(league)
-        if not profile:
-            return TeamAverages(0.0, 0.0, 0.0, 0.0)
-
-        # Örnek veri
-        return TeamAverages(
-            points_for=110.0,
-            points_against=105.0,
-            pace_hint=100.0,
-            stdev_hint=5.0,
-        )
-
-    def _calculate_total_band(self, home: TeamAverages, away: TeamAverages) -> Tuple[int, int]:
-        mean = (home.points_for + away.points_against) / 2
-        std = (home.stdev_hint + away.stdev_hint) / 2
-        return int(mean - 2 * std), int(mean + 2 * std)
-
-    def _calculate_home_band(self, home: TeamAverages, away: TeamAverages) -> Tuple[int, int]:
-        mean = (home.points_for + away.points_against) / 2
-        std = (home.stdev_hint + away.stdev_hint) / 2
-        return int(mean - 1.5 * std), int(mean + 1.5 * std)
-
-    def _calculate_away_band(self, home: TeamAverages, away: TeamAverages) -> Tuple[int, int]:
-        mean = (away.points_for + home.points_against) / 2
-        std = (away.stdev_hint + home.stdev_hint) / 2
-        return int(mean - 1.5 * std), int(mean + 1.5 * std)
-
-    def _determine_ou_direction(self, home: TeamAverages, away: TeamAverages) -> str:
-        total_mean = (home.points_for + away.points_against) / 2
-        if total_mean > 210:
-            return "OVER"
-        elif total_mean < 190:
-            return "UNDER"
-        else:
-            return "NEUTRAL"
-
-    def _get_quarter_predictions(self, home: TeamAverages, away: TeamAverages) -> Dict[str, Tuple[int, int]]:
-        # Simülasyon: örnek veri
-        return {
-            "1Q": (25, 20),
-            "2Q": (30, 25),
-            "3Q": (28, 27),
-            "4Q": (27, 28),
-        }
-
-    def _determine_blowout_risk(self, home: TeamAverages, away: TeamAverages) -> str:
-        diff = abs(home.points_for - away.points_against)
-        if diff > 20:
-            return "HIGH"
-        elif diff > 10:
-            return "MEDIUM"
-        else:
-            return "LOW"
-
-    def _determine_tempo_flag(self, home: TeamAverages, away: TeamAverages) -> str:
-        pace = (home.pace_hint + away.pace_hint) / 2
-        if pace > 105:
-            return "FAST"
-        elif pace < 95:
-            return "SLOW"
-        else:
-            return "NORMAL"
-
-    def _simulate_match(self, home: TeamAverages, away: TeamAverages) -> Tuple[float, float]:
-        # Simülasyon: örnek veri
-        mean = (home.points_for + away.points_against) / 2
-        std = (home.stdev_hint + away.stdev_hint) / 2
-        return mean, std
-
-    def _get_force_mode_result(self, request: PrematchRequest) -> Dict[str, Any]:
-        # Simülasyon: örnek veri
-        return {
-            "total": 210,
-            "direction": "OVER",
-            "teams": {"home": 110, "away": 100},
-            "halves": {"1H": 55, "2H": 55},
-            "quarters": {"1Q": 25, "2Q": 30, "3Q": 28, "4Q": 27},
-            "handicap": "+3.5",
-            "confidence": 75,
-            "risk": "MEDIUM",
-        }
- 
+            meta={
+                "season": season,
+                "season_str": season_str,
+                "team_first": True,
+                "baseline_missing": False,
+                "confidence_pct": confidence_pct,
+                "confidence_raw": round(conf_raw, 3),
+                "confidence_tight": round(conf_tight, 3),
+                "risk": risk,
+                "sources_home": sources_home,
+                "sources_away": sources_away,
+                "pace_home": pace_home,
+                "pace_away": pace_away,
+                "pace_mean": pace_mean,
+                "tempo_flag": tempo_flag,
+                "expected_total": round(expected_total, 3),
+                "expected_q1": None if expected_q1 is None else round(expected_q1, 1),
+                "expected_q2": None if expected_q2 is None else round(expected_q2, 1),
+                "expected_q3": None if expected_q3 is None else round(expected_q3, 1),
+                "expected_q4": None if expected_q4 is None else round(expected_q4, 1),
+                "expected_1h": expected_1h,
+                "expected_2h": expected_2h,
+                "market_total": market_total,
+                "edge_value": None if edge_value is None else round(edge_value, 3),
+                "edge_threshold": edge_thr,
+                "degraded_mode": degraded_mode,
+                "data_coverage": data_coverage,
+                "fetched_at": int(time.time()),
+            },
+        )  
