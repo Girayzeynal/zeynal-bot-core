@@ -116,7 +116,7 @@ def _parse_analyze_params(raw: str) -> tuple[str, str, str, str]:
         raise ValueError("Eksik parametre: /analyze <Lig> <Tarih> <Ev Sahibi> vs <Deplasman>")
 
     league = parts
-    date_str = parts[1]
+    date_str = parts [1]
     rest = parts[2:]
 
     lower = [p.lower() for p in rest]
@@ -256,4 +256,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
