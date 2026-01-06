@@ -49,7 +49,8 @@ def _parse_date(date_str: str) -> datetime:
 def nba_season_string(date_str: str) -> Tuple[int, str]:
     d = _parse_date(date_str)
     start = d.year if d.month >= 10 else d.year - 1
-    return start, f"{start}–{start + 1}"
+    # ASCII dash kullan (unicode fancy dash riskini sıfırla)
+    return start, f"{start}-{start + 1}"
 
 
 def _ensure_dict(obj: Any, name: str) -> Dict[str, Any]:
@@ -108,7 +109,8 @@ def _apply_degraded_mode(core: Any) -> None:
 
     meta["degraded_mode"] = True
     meta.setdefault("risk", "HIGH")
-    notes.append("⚠️ DEGRADED_MODE: Kaynak veriler eksik.")
+    # ASCII uyarı (unicode emoji riskini azaltmak istersen burayı da sadeleştirebilirsin)
+    notes.append("WARNING: DEGRADED_MODE - Kaynak veriler eksik.")
 
 
 def _parse_analyze_params(raw: str) -> Tuple[str, str, str, str]:
@@ -160,8 +162,8 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not text or len(text.split()) < 4:
         await update.message.reply_text(
-            "Kullanım: /analyze NBA 2026-01-04 Brooklyn Nets vs Denver Nuggets\n"
-            "Lütfen tüm parametreleri doğru girdiğinizden emin olun.",
+            "Kullanim: /analyze NBA 2026-01-04 Brooklyn Nets vs Denver Nuggets\n"
+            "Lutfen tum parametreleri dogru girdiginizden emin olun.",
             disable_web_page_preview=True,
         )
         return
@@ -171,15 +173,15 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         league, date_str, home_raw, away_raw = _parse_analyze_params(params)
     except Exception as e:
         await update.message.reply_text(
-            f"Parametre hatası: {html.escape(str(e))}\n"
-            "Örnek: /analyze NBA 2026-01-04 Brooklyn Nets vs Denver Nuggets",
+            f"Parametre hatasi: {html.escape(str(e))}\n"
+            "Ornek: /analyze NBA 2026-01-04 Brooklyn Nets vs Denver Nuggets",
             disable_web_page_preview=True,
         )
         return
 
     if not home_raw or not away_raw:
         await update.message.reply_text(
-            "Hata: Ev sahibi veya deplasman takımı boş olamaz.",
+            "Hata: Ev sahibi veya deplasman takimi bos olamaz.",
             disable_web_page_preview=True,
         )
         return
@@ -192,16 +194,13 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Engine'leri bot_data'dan al
     try:
         faz13: Faz13Engine = context.application.bot_data["faz13"]
-        # faz17: Faz17Engine = context.application.bot_data["faz17"]
-        # faz22: Faz22Engine = context.application.bot_data["faz22"]
-        # faz23: Faz23Engine = context.application.bot_data["faz23"]
         bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
         baseline_store: TeamBaselineStore = context.application.bot_data["baseline_store"]
-        _ = (bootstrapper, baseline_store)  # şimdilik kullanılmıyor olabilir
+        _ = (bootstrapper, baseline_store)
     except KeyError as e:
         await update.message.reply_text(
-            f"⚠️ Sistem hatası: Bot verileri eksik. {html.escape(str(e))}\n"
-            "Lütfen botu yeniden başlatın.",
+            f"Sistem hatasi: Bot verileri eksik. {html.escape(str(e))}\n"
+            "Lutfen botu yeniden baslatin.",
             disable_web_page_preview=True,
         )
         logger.error(f"Bot data eksik: {e}")
@@ -222,13 +221,12 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             season_str=season_str,
         )
 
-        # Faz13 analizi
         result = faz13.analyze(request)
         _inject_season(result, league, date_str)
         _apply_degraded_mode(result)
 
         await update.message.reply_text(
-            f"✅ {home_raw} vs {away_raw} için analiz tamamlandı.\n"
+            f"OK: {home_raw} vs {away_raw} icin analiz tamamlandi.\n"
             f"Sezon: {result.meta.get('season_str', 'Bilinmiyor')}\n"
             f"Risk: {result.meta.get('risk', 'NORMAL')}\n"
             f"Notlar:\n{_format_notes(getattr(result, 'notes', None))}",
@@ -237,34 +235,40 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(
-            f"Analiz sırasında hata oluştu: {html.escape(str(e))}",
+            f"Analiz sirasinda hata olustu: {html.escape(str(e))}",
             disable_web_page_preview=True,
         )
-        logger.error(f"Analiz hatası: {e}", exc_info=True)
+        logger.error(f"Analiz hatasi: {e}", exc_info=True)
 
 
 # ============================
-# UYGULAMA BAŞLATMA (ÖRNEK)
+# UYGULAMA BASLATMA
 # ============================
 def main():
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # Bot verilerini başlat
-    application.bot_data["faz13"] = Faz13Engine(api_sports_key=ODDS_API_KEY, api_sports_base=ODDS_BASE)
-    application.bot_data["faz17"] = Faz17Engine()
-    application.bot_data["faz22"] = Faz22Engine()
-    application.bot_data["faz23"] = Faz23Engine()
-    application.bot_data["baseline_bootstrapper"] = TeamBaselineBootstrapper(store=baseline_store, adapters=)
-    application.bot_data["baseline_store"] = TeamBaselineStore()
+    # 1) Baseline objelerini önce olustur (Faz13 constructor bunu istiyor)
+    baseline_store = TeamBaselineStore()
+    bootstrapper = TeamBaselineBootstrapper(store=baseline_store, adapters=[])
 
-    # Adaptör ekle (isteğe bağlı)
-    bootstrapper: TeamBaselineBootstrapper = application.bot_data["baseline_bootstrapper"]
+    application.bot_data["baseline_store"] = baseline_store
+    application.bot_data["baseline_bootstrapper"] = bootstrapper
+
+    # 2) Adapter listesi garanti + ESPN adapter ekle
     if not hasattr(bootstrapper, "adapters") or bootstrapper.adapters is None:
         bootstrapper.adapters = []
 
-    # Not: ESPNAdapter ctor parametreleri senin projendeki implementasyona bağlı.
-    # Burada senin verdiğin imzayı koruyorum:
-    bootstrapper.adapters.append(ESPNAdapter(api_key=ODDS_API_KEY, base_url=ODDS_BASE))
+    bootstrapper.adapters.append(
+        ESPNAdapter(api_key=ODDS_API_KEY, base_url=ODDS_BASE)
+    )
+
+    # 3) Engine'ler (Faz13 baseline_store ile init edilmeli)
+    # Not: Daha önce log'larda Faz13Engine(baseline_store=...) istiyordu.
+    # Eğer senin Faz13Engine imzan farklıysa (api_sports_key vs) burayi ona gore ayarla.
+    application.bot_data["faz13"] = Faz13Engine(baseline_store=baseline_store)
+    application.bot_data["faz17"] = Faz17Engine()
+    application.bot_data["faz22"] = Faz22Engine()
+    application.bot_data["faz23"] = Faz23Engine()
 
     application.add_handler(CommandHandler("analyze", analyze_command))
     application.run_polling()
