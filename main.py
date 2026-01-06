@@ -250,7 +250,7 @@ def main():
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     # Bot verilerini başlat
-    application.bot_data["faz13"] = Faz13Engine()
+    application.bot_data["faz13"] = Faz13Engine(api_sports_key=ODDS_API_KEY, api_sports_base=ODDS_BASE)
     application.bot_data["faz17"] = Faz17Engine()
     application.bot_data["faz22"] = Faz22Engine()
     application.bot_data["faz23"] = Faz23Engine()
