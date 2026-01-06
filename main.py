@@ -4,7 +4,7 @@ import os
 import html
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -13,7 +13,7 @@ from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstra
 from providers.espn_adapter import ESPNAdapter  # SADECE ESPN
 
 from faz13_engine import Faz13Engine, PrematchRequest
-from faz17_engine import Faz17Engine, MarketRequest
+from faz17_engine import Faz17Engine, MarketRequest  # noqa: F401 (şimdilik kullanılmıyor olabilir)
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 
@@ -46,7 +46,7 @@ def _parse_date(date_str: str) -> datetime:
     return datetime.strptime(date_str.strip(), "%Y-%m-%d")
 
 
-def nba_season_string(date_str: str) -> tuple[int, str]:
+def nba_season_string(date_str: str) -> Tuple[int, str]:
     d = _parse_date(date_str)
     start = d.year if d.month >= 10 else d.year - 1
     return start, f"{start}–{start + 1}"
@@ -65,7 +65,7 @@ def _ensure_list(obj: Any, name: str) -> list:
     v = getattr(obj, name, None)
     if isinstance(v, list):
         return v
-    lst: list = 
+    lst: list = []
     setattr(obj, name, lst)
     return lst
 
@@ -93,6 +93,7 @@ def _inject_season(core: Any, league: str, date_str: str) -> None:
     meta["season"] = season_start
     meta["season_str"] = season_str
 
+    # "Season:" ile başlayan eski notları temizle
     notes[:] = [n for n in notes if not str(n).lower().startswith("season:")]
     notes.insert(0, f"Season: {season_str}")
 
@@ -102,7 +103,7 @@ def _apply_degraded_mode(core: Any) -> None:
     notes = _ensure_list(core, "notes")
 
     cov = meta.get("data_coverage") or {}
-    if any(bool(v) for v in cov.values()):
+    if isinstance(cov, dict) and any(bool(v) for v in cov.values()):
         return
 
     meta["degraded_mode"] = True
@@ -110,13 +111,13 @@ def _apply_degraded_mode(core: Any) -> None:
     notes.append("⚠️ DEGRADED_MODE: Kaynak veriler eksik.")
 
 
-def _parse_analyze_params(raw: str) -> tuple[str, str, str, str]:
+def _parse_analyze_params(raw: str) -> Tuple[str, str, str, str]:
     parts = raw.split()
     if len(parts) < 4:
         raise ValueError("Eksik parametre: /analyze <Lig> <Tarih> <Ev Sahibi> vs <Deplasman>")
 
-    league = parts
-    date_str = parts [1]
+    league = parts[0]
+    date_str = parts[1]
     rest = parts[2:]
 
     lower = [p.lower() for p in rest]
@@ -125,6 +126,7 @@ def _parse_analyze_params(raw: str) -> tuple[str, str, str, str]:
         home = " ".join(rest[:i])
         away = " ".join(rest[i + 1 :])
     else:
+        # "vs" yoksa ikiye böl (en iyi ihtimal fallback)
         mid = len(rest) // 2
         home = " ".join(rest[:mid])
         away = " ".join(rest[mid:])
@@ -136,9 +138,18 @@ def _diag_adapter_list(app: Application) -> str:
     bs = app.bot_data.get("baseline_bootstrapper")
     if not bs:
         return "bootstrapper=NONE"
-    ads = getattr(bs, "adapters", ) or 
+    ads = getattr(bs, "adapters", []) or []
     names = [a.__class__.__name__ for a in ads]
     return "adapters=" + ",".join(names)
+
+
+def _format_notes(notes: Any, limit: int = 8) -> str:
+    if not notes:
+        return "Not found"
+    if isinstance(notes, list):
+        sliced = notes[:limit]
+        return "\n".join(f"- {str(n)}" for n in sliced)
+    return str(notes)
 
 
 # ============================
@@ -166,7 +177,6 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Güvenlik kontrolü: boş takım ismi
     if not home_raw or not away_raw:
         await update.message.reply_text(
             "Hata: Ev sahibi veya deplasman takımı boş olamaz.",
@@ -182,11 +192,12 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Engine'leri bot_data'dan al
     try:
         faz13: Faz13Engine = context.application.bot_data["faz13"]
-        faz17: Faz17Engine = context.application.bot_data["faz17"]
-        faz22: Faz22Engine = context.application.bot_data["faz22"]
-        faz23: Faz23Engine = context.application.bot_data["faz23"]
+        # faz17: Faz17Engine = context.application.bot_data["faz17"]
+        # faz22: Faz22Engine = context.application.bot_data["faz22"]
+        # faz23: Faz23Engine = context.application.bot_data["faz23"]
         bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
         baseline_store: TeamBaselineStore = context.application.bot_data["baseline_store"]
+        _ = (bootstrapper, baseline_store)  # şimdilik kullanılmıyor olabilir
     except KeyError as e:
         await update.message.reply_text(
             f"⚠️ Sistem hatası: Bot verileri eksik. {html.escape(str(e))}\n"
@@ -198,13 +209,17 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Analiz başlat
     try:
-        # Örnek: Faz13Engine ile analiz
+        if league.upper() == "NBA":
+            season_str = nba_season_string(date_str)[1]
+        else:
+            season_str = str(_parse_date(date_str).year)
+
         request = PrematchRequest(
             league=league,
             date=date_str,
             home=home_raw,
             away=away_raw,
-            season_str=nba_season_string(date_str) if league.upper() == "NBA" else str(_parse_date(date_str).year) [1]
+            season_str=season_str,
         )
 
         # Faz13 analizi
@@ -212,12 +227,11 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _inject_season(result, league, date_str)
         _apply_degraded_mode(result)
 
-        # Sonuç mesajı
         await update.message.reply_text(
             f"✅ {home_raw} vs {away_raw} için analiz tamamlandı.\n"
             f"Sezon: {result.meta.get('season_str', 'Bilinmiyor')}\n"
             f"Risk: {result.meta.get('risk', 'NORMAL')}\n"
-            f"⚠️ {result.notes if result.notes else 'Not found'}",
+            f"Notlar:\n{_format_notes(getattr(result, 'notes', None))}",
             disable_web_page_preview=True,
         )
 
@@ -244,15 +258,17 @@ def main():
     application.bot_data["baseline_store"] = TeamBaselineStore()
 
     # Adaptör ekle (isteğe bağlı)
-    bootstrapper = application.bot_data["baseline_bootstrapper"]
+    bootstrapper: TeamBaselineBootstrapper = application.bot_data["baseline_bootstrapper"]
+    if not hasattr(bootstrapper, "adapters") or bootstrapper.adapters is None:
+        bootstrapper.adapters = []
+
+    # Not: ESPNAdapter ctor parametreleri senin projendeki implementasyona bağlı.
+    # Burada senin verdiğin imzayı koruyorum:
     bootstrapper.adapters.append(ESPNAdapter(api_key=ODDS_API_KEY, base_url=ODDS_BASE))
 
-    # Komutu ekle
     application.add_handler(CommandHandler("analyze", analyze_command))
-
-    # Botu başlat
     application.run_polling()
 
 
 if __name__ == "__main__":
-    main()
+    main() 
