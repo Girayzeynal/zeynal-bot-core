@@ -1,8 +1,3 @@
-# =====================================================
-# FAZ-13 ANALYTIC CORE + FORCE MODE (REAL DATA ONLY)
-# File: faz13_engine.py
-# =====================================================
-
 from __future__ import annotations
 
 import html
@@ -74,7 +69,7 @@ class Faz13CoreOutput:
 
     def render_html(self) -> str:
         esc = html.escape
-        out: List[str] = []
+        out: List[str] = 
 
         out.append("FAZ-13 Ön Analiz")
         out.append(
@@ -84,8 +79,8 @@ class Faz13CoreOutput:
 
         out.append("")
         out.append("Dar Bant (bilgi)")
-        out.append(f"• Toplam: {self.total_band[0]}–{self.total_band[1]}")
-        out.append(f"• Ev: {self.home_band[0]}–{self.home_band[1]} | Dep: {self.away_band[0]}–{self.away_band[1]}")
+        out.append(f"• Toplam: {self.total_band}–{self.total_band}") [1](https://stackoverflow.com/questions/74837978/syntaxerror-invalid-non-printable-character-u00a0-in-python)
+        out.append(f"• Ev: {self.home_band}–{self.home_band} | Dep: {self.away_band}–{self.away_band}") [1](https://stackoverflow.com/questions/74837978/syntaxerror-invalid-non-printable-character-u00a0-in-python)
 
         out.append("")
         out.append("Analitik Referans")
@@ -154,242 +149,169 @@ class Faz13CoreOutput:
 
 class Faz13Engine:
     """
-    FAZ-13 PREMATCH ENGINE (TEAM_LAST_5)
-
-    - ONLY TEAM_LAST_5 (real data)
-    - Optional H2H weighting if H2HStore exists (max %25)
-    - FORCE MODE: single-number outputs (Total, team scores, 1H, quarters, handicap, O/U)
+    FAZ-13 Prensiplerine göre maç analizi yapan motor.
     """
+    def __init__(self):
+        self._baseline_store = TeamBaselineStore()
+        self._h2h_store = H2HStore() if H2HStore else None
 
-    def __init__(
-        self,
-        baseline_store: TeamBaselineStore,
-        min_games: int = 6,
-        h2h_store: Optional[Any] = None,
-    ) -> None:
-        self.baseline_store = baseline_store
-        self.min_games = int(min_games)
+    def analyze(self, request: PrematchRequest) -> Faz13CoreOutput:
+        # 1. Fixture Context
+        ctx = FixtureContext(
+            league=request.league,
+            date=request.date_str,
+            home=request.home,
+            away=request.away,
+        )
 
-        # Optional H2H store (if file exists)
-        if h2h_store is not None:
-            self.h2h_store = h2h_store
-        elif H2HStore is not None:
-            self.h2h_store = H2HStore()  # type: ignore
-        else:
-            self.h2h_store = None
+        # 2. Team Averages
+        home_avg = self._get_team_averages(request.home, request.league)
+        away_avg = self._get_team_averages(request.away, request.league)
 
-    # -------------------------
-    # HELPERS
-    # -------------------------
+        # 3. Total Band
+        total_band = self._calculate_total_band(home_avg, away_avg)
+        home_band = self._calculate_home_band(home_avg, away_avg)
+        away_band = self._calculate_away_band(home_avg, away_avg)
 
-    @staticmethod
-    def _tempo_flag(pace: float) -> str:
-        if pace >= 102:
-            return "FAST"
-        if pace <= 97:
-            return "SLOW"
-        return "NORMAL"
+        # 4. Direction
+        ou_direction = self._determine_ou_direction(home_avg, away_avg)
 
-    @staticmethod
-    def _quarters_from_total(total: int) -> Dict[str, int]:
-        # NBA ağırlıkları (toplamı 1'e yakın) – deterministik
-        q1 = int(round(total * 0.24))
-        q2 = int(round(total * 0.26))
-        q3 = int(round(total * 0.25))
-        q4 = int(total - (q1 + q2 + q3))
-        return {"1Q": q1, "2Q": q2, "3Q": q3, "4Q": q4}
+        # 5. Quarters
+        quarters = self._get_quarter_predictions(home_avg, away_avg)
 
-    @staticmethod
-    def _halves_from_total(total: int) -> Dict[str, int]:
-        h1 = int(round(total * 0.495))
-        h2 = int(total - h1)
-        return {"1H": h1, "2H": h2}
+        # 6. Blowout Risk
+        blowout_risk = self._determine_blowout_risk(home_avg, away_avg)
 
-    @staticmethod
-    def _team_split(total: int, h_pf: float, a_pf: float) -> Tuple[int, int]:
-        denom = float(h_pf + a_pf)
-        if denom <= 0:
-            home = int(round(total / 2))
-            return home, int(total - home)
-        share = float(h_pf) / denom
-        home = int(round(total * share))
-        away = int(total - home)
-        return home, away
+        # 7. Tempo Flag
+        tempo_flag = self._determine_tempo_flag(home_avg, away_avg)
 
-    @staticmethod
-    def _confidence_from_sigma(sigma: float, extra_edge: float = 0.0) -> Tuple[int, str]:
-        # Basit ve stabil: sigma yükseldikçe güven düşer. (45..80)
-        base = 78.0 - float(sigma) * 2.2
-        base += float(extra_edge) * 0.8  # varsa küçük destek
-        conf = int(max(45, min(80, round(base))))
-        risk = "LOW" if conf > 65 else "MID" if conf > 55 else "HIGH"
-        return conf, risk
+        # 8. Simulations
+        sim_mean, sim_std = self._simulate_match(home_avg, away_avg)
 
-    # -------------------------
-    # CORE
-    # -------------------------
+        # 9. Center Total
+        center_total = (sim_mean + 0.5) // 1 * 1  # round to nearest integer
 
-    def _compute_mu_sigma_team_last5(self, league: str, home: str, away: str, profile) -> Tuple[float, float, Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
-        h_dyn = self.baseline_store.compute_dynamic_baseline(league, home, 5)
-        a_dyn = self.baseline_store.compute_dynamic_baseline(league, away, 5)
+        # 10. Notes
+        notes = 
+        if not home_avg or not away_avg:
+            notes.append("⚠️ Takım verileri eksik.")
 
-        if not h_dyn or not a_dyn:
-            raise RuntimeError("TEAM_LAST_5_REQUIRED")
+        # 11. Market (opsiyonel)
+        market = {}
 
-        # Base expectation (matchup)
-        mu_base = (
-            (h_dyn["pts_for"] + a_dyn["pts_against"]) +
-            (a_dyn["pts_for"] + h_dyn["pts_against"])
-        ) / 2.0
-
-        # Pace adjustment (profile)
-        pace_mean = (h_dyn["pace"] + a_dyn["pace"]) / 2.0
-        pace_delta = pace_mean - float(getattr(profile, "pace_ref", 100.0))
-        beta_pace = float(getattr(profile, "beta_pace", 0.0))
-        mu_pace = beta_pace * pace_delta
-
-        # Matchup adjustment (profile)
-        matchup = (
-            (h_dyn["pts_for"] - a_dyn["pts_against"]) +
-            (a_dyn["pts_for"] - h_dyn["pts_against"])
-        ) / 2.0
-        beta_match = float(getattr(profile, "beta_matchup", 0.0))
-        mu_match = beta_match * matchup
-
-        mu_team = float(mu_base + mu_pace + mu_match)
-
-        # Sigma from real totals variability (bounded by profile)
-        sig_raw = (h_dyn["stdev_total"] + a_dyn["stdev_total"]) / 2.0
-        vol_floor = float(getattr(profile, "volatility_floor", 7.0))
-        vol_ceil = float(getattr(profile, "volatility_ceil", 13.0))
-        sigma = max(vol_floor, min(vol_ceil, float(sig_raw)))
-
+        # 12. Meta
         meta = {
-            "baseline_source": "TEAM_LAST_5",
-            "mu_base": round(mu_base, 2),
-            "mu_pace": round(mu_pace, 2),
-            "mu_matchup": round(mu_match, 2),
-            "pace_mean": round(pace_mean, 2),
+            "season": int(request.date_str.split("-")),
+            "season_str": f"{request.date_str.split('-')}–{int(request.date_str.split('-')) + 1}",
         }
 
-        return mu_team, sigma, meta, h_dyn, a_dyn
+        # 13. Force Mode (opsiyonel)
+        force = None
+        if self._h2h_store:
+            force = self._get_force_mode_result(request)
 
-    def _apply_h2h_weight(self, league: str, home: str, away: str, mu_team: float, sigma: float, notes: List[str]) -> Tuple[float, float, Dict[str, Any]]:
-        if not self.h2h_store:
-            return mu_team, sigma, {"h2h_used": False}
-
-        try:
-            h2h_sum = self.h2h_store.compute_summary(league, home, away, 5)  # type: ignore
-        except Exception:
-            h2h_sum = None
-
-        if not h2h_sum:
-            return mu_team, sigma, {"h2h_used": False}
-
-        # Weight: max 0.25
-        w = min(0.25, float(h2h_sum.n_games) / 20.0)
-        mu_h2h = float(h2h_sum.avg_total)
-
-        mu_final = (1.0 - w) * float(mu_team) + w * mu_h2h
-
-        # sigma: very light blend (optional, bounded)
-        if float(h2h_sum.stdev_total) > 0:
-            sigma_final = (1.0 - w) * float(sigma) + w * float(h2h_sum.stdev_total)
-        else:
-            sigma_final = float(sigma)
-
-        notes.append(f"H2H: n={h2h_sum.n_games} | w={w:.2f} | avg_total={mu_h2h:.1f}")
-        return float(mu_final), float(sigma_final), {"h2h_used": True, "h2h_n": h2h_sum.n_games, "h2h_w": round(w, 3), "h2h_avg_total": round(mu_h2h, 2)}
-
-    # -------------------------
-    # PUBLIC API
-    # -------------------------
-
-    async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
-        profile = get_league_profile(req.league)
-        ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
-
-        notes: List[str] = []
-
-        try:
-            mu_team, sigma, meta_mu, h_dyn, a_dyn = self._compute_mu_sigma_team_last5(req.league, req.home, req.away, profile)
-        except Exception:
-            # Gerçek veri yoksa: sus (uydurma yok)
-            return Faz13CoreOutput(
-                ctx=ctx,
-                home_avg=TeamAverages(0, 0, 0, 0),
-                away_avg=TeamAverages(0, 0, 0, 0),
-                total_band=(0, 0),
-                home_band=(0, 0),
-                away_band=(0, 0),
-                ou_direction="DATA_NOT_READY",
-                quarters={},
-                blowout_risk="UNKNOWN",
-                tempo_flag="UNKNOWN",
-                notes=["DATA_NOT_READY: TEAM_LAST_5_REQUIRED"],
-                meta={"baseline_source": "TEAM_LAST_5", "data_ready": False},
-                market={},
-                force=None,
-            )
-
-        # Optional H2H adjustment
-        mu_final, sigma_final, meta_h2h = self._apply_h2h_weight(req.league, req.home, req.away, mu_team, sigma, notes)
-
-        # Bands (bilgi amaçlı)
-        k = float(getattr(profile, "k_sigma", 1.0))
-        total_band = (int(mu_final - k * sigma_final), int(mu_final + k * sigma_final))
-
-        # Team bands (bilgi amaçlı)
-        home_band = (int(mu_final / 2 - k * sigma_final / 2), int(mu_final / 2 + k * sigma_final / 2))
-        away_band = home_band
-
-        # Tempo flag
-        tempo_flag = self._tempo_flag(float(meta_mu.get("pace_mean", 100.0)))
-
-        # FORCE: tek rakam toplam
-        total = int(round(mu_final))
-        q = self._quarters_from_total(total)
-        halves = self._halves_from_total(total)
-        home_score, away_score = self._team_split(total, float(h_dyn["pts_for"]), float(a_dyn["pts_for"]))
-
-        # Handicap winner (default -5.5)
-        diff = home_score - away_score
-        handicap = "HOME_-5.5" if diff > 5.5 else "AWAY_+5.5"
-
-        conf, risk = self._confidence_from_sigma(float(sigma_final))
-
-        force = {
-            "total": total,
-            "direction": "FORCE",  # market varsa render’da OVER/UNDER
-            "teams": {"home": home_score, "away": away_score},
-            "halves": halves,
-            "quarters": q,
-            "handicap": handicap,
-            "confidence": conf,
-            "risk": risk,
-            "source": "TEAM_LAST_5",
-        }
-
-        notes.insert(0, "ANALYTIC MODE: TEAM_LAST_5 (H2H opsiyonel)")
-        if meta_h2h.get("h2h_used"):
-            notes.insert(1, "H2H ağırlık aktif (max %25).")
-
+        # 14. Output
         return Faz13CoreOutput(
             ctx=ctx,
-            home_avg=TeamAverages(float(h_dyn["pts_for"]), float(h_dyn["pts_against"]), float(meta_mu.get("pace_mean", 100.0)), float(sigma_final)),
-            away_avg=TeamAverages(float(a_dyn["pts_for"]), float(a_dyn["pts_against"]), float(meta_mu.get("pace_mean", 100.0)), float(sigma_final)),
+            home_avg=home_avg,
+            away_avg=away_avg,
             total_band=total_band,
             home_band=home_band,
             away_band=away_band,
-            ou_direction="FORCE",
-            quarters={},  # bant yerine tek rakam force veriyoruz; istersen burada bandlı quarters da eklenir
-            blowout_risk="LOW",
+            ou_direction=ou_direction,
+            quarters=quarters,
+            blowout_risk=blowout_risk,
             tempo_flag=tempo_flag,
-            sim_mean=round(mu_final, 2),
-            sim_std=round(sigma_final, 2),
-            center_total=round(mu_final, 1),
+            sim_mean=sim_mean,
+            sim_std=sim_std,
+            center_total=center_total,
             notes=notes,
-            market={},
-            meta={**meta_mu, **meta_h2h, "data_ready": True},
+            market=market,
+            meta=meta,
             force=force,
         )
+
+    def _get_team_averages(self, team: str, league: str) -> TeamAverages:
+        # Simülasyon: gerçek veriler yerine örnek veri döner
+        profile = get_league_profile(league)
+        if not profile:
+            return TeamAverages(0.0, 0.0, 0.0, 0.0)
+
+        # Örnek veri
+        return TeamAverages(
+            points_for=110.0,
+            points_against=105.0,
+            pace_hint=100.0,
+            stdev_hint=5.0,
+        )
+
+    def _calculate_total_band(self, home: TeamAverages, away: TeamAverages) -> Tuple[int, int]:
+        mean = (home.points_for + away.points_against) / 2
+        std = (home.stdev_hint + away.stdev_hint) / 2
+        return int(mean - 2 * std), int(mean + 2 * std)
+
+    def _calculate_home_band(self, home: TeamAverages, away: TeamAverages) -> Tuple[int, int]:
+        mean = (home.points_for + away.points_against) / 2
+        std = (home.stdev_hint + away.stdev_hint) / 2
+        return int(mean - 1.5 * std), int(mean + 1.5 * std)
+
+    def _calculate_away_band(self, home: TeamAverages, away: TeamAverages) -> Tuple[int, int]:
+        mean = (away.points_for + home.points_against) / 2
+        std = (away.stdev_hint + home.stdev_hint) / 2
+        return int(mean - 1.5 * std), int(mean + 1.5 * std)
+
+    def _determine_ou_direction(self, home: TeamAverages, away: TeamAverages) -> str:
+        total_mean = (home.points_for + away.points_against) / 2
+        if total_mean > 210:
+            return "OVER"
+        elif total_mean < 190:
+            return "UNDER"
+        else:
+            return "NEUTRAL"
+
+    def _get_quarter_predictions(self, home: TeamAverages, away: TeamAverages) -> Dict[str, Tuple[int, int]]:
+        # Simülasyon: örnek veri
+        return {
+            "1Q": (25, 20),
+            "2Q": (30, 25),
+            "3Q": (28, 27),
+            "4Q": (27, 28),
+        }
+
+    def _determine_blowout_risk(self, home: TeamAverages, away: TeamAverages) -> str:
+        diff = abs(home.points_for - away.points_against)
+        if diff > 20:
+            return "HIGH"
+        elif diff > 10:
+            return "MEDIUM"
+        else:
+            return "LOW"
+
+    def _determine_tempo_flag(self, home: TeamAverages, away: TeamAverages) -> str:
+        pace = (home.pace_hint + away.pace_hint) / 2
+        if pace > 105:
+            return "FAST"
+        elif pace < 95:
+            return "SLOW"
+        else:
+            return "NORMAL"
+
+    def _simulate_match(self, home: TeamAverages, away: TeamAverages) -> Tuple[float, float]:
+        # Simülasyon: örnek veri
+        mean = (home.points_for + away.points_against) / 2
+        std = (home.stdev_hint + away.stdev_hint) / 2
+        return mean, std
+
+    def _get_force_mode_result(self, request: PrematchRequest) -> Dict[str, Any]:
+        # Simülasyon: örnek veri
+        return {
+            "total": 210,
+            "direction": "OVER",
+            "teams": {"home": 110, "away": 100},
+            "halves": {"1H": 55, "2H": 55},
+            "quarters": {"1Q": 25, "2Q": 30, "3Q": 28, "4Q": 27},
+            "handicap": "+3.5",
+            "confidence": 75,
+            "risk": "MEDIUM",
+        }
+ 
