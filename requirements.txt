@@ -1,6 +1,5 @@
-python-telegram-bot>=21,<22 
-aiohttp>=3,<4 
-Flask==3.0.0
+python-telegram-bot>=21,<22
+aiohttp>=3,<4
 requests==2.31.0
 numpy==1.26.4
 pandas==2.1.4
