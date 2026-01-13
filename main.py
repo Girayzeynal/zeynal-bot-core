@@ -269,7 +269,13 @@ def _build_application() -> Application:
     if ODDS_API_KEY:
         if not hasattr(bootstrapper, "adapters") or bootstrapper.adapters is None:
             bootstrapper.adapters = []
-        bootstrapper.adapters.append(ESPNAdapter(api_key=ODDS_API_KEY, base_url=ODDS_BASE))
+     try:
+    adapter = ESPNAdapter()
+    bootstrapper.adapters.append(adapter)
+    logger.info("ESPNAdapter loaded successfully")
+except Exception as e:
+    logger.warning(f"ESPNAdapter disabled: {e}")
+
     else:
         logger.warning("ODDS_API_KEY missing -> ESPNAdapter disabled (degraded mode likely)")
 
