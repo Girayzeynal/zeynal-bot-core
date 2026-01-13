@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
 # ----------------------------
-# System
+# Python runtime flags
 # ----------------------------
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -31,15 +31,13 @@ RUN pip install --upgrade pip && \
 # ----------------------------
 COPY . .
 
-# Writable dirs (Fly FS / future volume)
-RUN mkdir -p /app/data /app/logs
+# Writable dirs (volume + local)
+RUN mkdir -p /data/baselines /app/logs
 
 # ----------------------------
 # Fly
 # ----------------------------
 EXPOSE 8080
-
-# SIGTERM/SIGINT düzgün işləsin
 STOPSIGNAL SIGINT
 
-CMD ["python", "-u", "main.py"] 
+CMD ["python", "-u", "main.py"]
