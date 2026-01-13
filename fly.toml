@@ -9,15 +9,24 @@ dockerfile = "Dockerfile"
 [env]
 PYTHONUNBUFFERED = "1"
 
-# API uç noktaları
 API_SPORTS_BASE = "https://v1.basketball.api-sports.io"
 ODDS_BASE = "https://api.the-odds-api.com/v4"
-
-# Odds varsayılanları
 ODDS_REGIONS = "us,eu"
 ODDS_MARKETS = "totals"
 ODDS_FORMAT = "decimal"
 
-# Baseline klasörü (istersen volume ile kalıcı yaparsın)
 BASELINE_DIR = "data/baselines"
-FAZ23_STORAGE = "faz23_storage.sqlite" 
+FAZ23_STORAGE = "faz23_storage.sqlite"
+
+[http_service]
+internal_port = 8080
+force_https = true
+auto_start_machines = true
+auto_stop_machines = false
+min_machines_running = 1
+
+[[http_service.checks]]
+interval = "10s"
+timeout = "2s"
+method = "GET"
+path = "/health"
