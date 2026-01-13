@@ -5,7 +5,7 @@ import html
 import logging
 import asyncio
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -14,11 +14,10 @@ from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstra
 from providers.espn_adapter import ESPNAdapter  # SADECE ESPN
 
 from faz13_engine import Faz13Engine, PrematchRequest
-from faz17_engine import Faz17Engine, MarketRequest  # noqa: F401
+from faz17_engine import Faz17Engine  # noqa: F401
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 
-# HTTP health server (Fly health-check için)
 from aiohttp import web
 
 
@@ -36,16 +35,17 @@ logger = logging.getLogger("zeynal-core")
 # ENV (Fly-safe)
 # ============================
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("BOT_TOKEN")
+
 ODDS_API_KEY = os.getenv("ODDS_API_KEY")
 ODDS_BASE = os.getenv("ODDS_BASE", "https://api.the-odds-api.com/v4")
 
-# Fly port
 PORT = int(os.getenv("PORT", "8080"))
 
-# Webhook opsiyonel
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # örn: https://<app>.fly.dev
-WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/telegram")  # istersen token path yaparsın
+WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/telegram")
 
+BASELINE_DIR = os.getenv("BASELINE_DIR", "data/baselines")
+FAZ23_STORAGE = os.getenv("FAZ23_STORAGE", "faz23_storage.sqlite")
 
 if not TELEGRAM_BOT_TOKEN:
     raise RuntimeError("Missing TELEGRAM_BOT_TOKEN (or BOT_TOKEN)")
@@ -151,14 +151,19 @@ async def _health_app(application: Application) -> web.Application:
     app = web.Application()
 
     async def health(_: web.Request) -> web.Response:
-        # Bot/engine hazır mı? kısa diagnostik
         ok = True
         missing = []
         for k in ("faz13", "baseline_store", "baseline_bootstrapper"):
             if k not in application.bot_data:
                 ok = False
                 missing.append(k)
-        payload = {"ok": ok, "missing": missing}
+
+        payload = {
+            "ok": ok,
+            "missing": missing,
+            "baseline_dir": BASELINE_DIR,
+            "faz23_storage": FAZ23_STORAGE,
+        }
         return web.json_response(payload)
 
     app.router.add_get("/health", health)
@@ -201,14 +206,6 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if not home_raw or not away_raw:
-        await update.message.reply_text(
-            "Hata: Ev sahibi veya deplasman takimi bos olamaz.",
-            disable_web_page_preview=True,
-        )
-        return
-
-    # Engine'leri bot_data'dan al
     try:
         faz13: Faz13Engine = context.application.bot_data["faz13"]
     except KeyError as e:
@@ -231,7 +228,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             season_str=season_str,
         )
 
-        # 🔥 Kritik: blocking analyze -> thread'e al (event-loop kilitlenmesin)
+        # blocking analyze -> thread'e al (event-loop kilitlenmesin)
         result = await asyncio.to_thread(faz13.analyze, request)
 
         _inject_season(result, league, date_str)
@@ -259,26 +256,32 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def _build_application() -> Application:
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
+    # Baseline
     baseline_store = TeamBaselineStore()
     bootstrapper = TeamBaselineBootstrapper(store=baseline_store, adapters=[])
 
     application.bot_data["baseline_store"] = baseline_store
     application.bot_data["baseline_bootstrapper"] = bootstrapper
 
+    logger.info(f"BASELINE_DIR={BASELINE_DIR}")
+    logger.info(f"FAZ23_STORAGE={FAZ23_STORAGE}")
+    logger.info(f"ODDS_BASE={ODDS_BASE}")
+    logger.info(f"ODDS_API_KEY={'SET' if bool(ODDS_API_KEY) else 'MISSING'}")
+
     # Adapter: ODDS_API_KEY yoksa ekleme (patlatma)
     if ODDS_API_KEY:
         if not hasattr(bootstrapper, "adapters") or bootstrapper.adapters is None:
             bootstrapper.adapters = []
-     try:
-    adapter = ESPNAdapter()
-    bootstrapper.adapters.append(adapter)
-    logger.info("ESPNAdapter loaded successfully")
-except Exception as e:
-    logger.warning(f"ESPNAdapter disabled: {e}")
-
+        try:
+            adapter = ESPNAdapter()  # imza uyumlu: parametresiz
+            bootstrapper.adapters.append(adapter)
+            logger.info("ESPNAdapter loaded successfully")
+        except Exception as e:
+            logger.warning(f"ESPNAdapter disabled: {e}")
     else:
         logger.warning("ODDS_API_KEY missing -> ESPNAdapter disabled (degraded mode likely)")
 
+    # Engines
     application.bot_data["faz13"] = Faz13Engine(baseline_store=baseline_store)
     application.bot_data["faz17"] = Faz17Engine()
     application.bot_data["faz22"] = Faz22Engine()
@@ -291,26 +294,31 @@ except Exception as e:
 async def _run_polling_with_health(application: Application) -> None:
     runner = await _run_health_server(application)
     try:
-        # polling bloklamasın diye PTB'nin kendi run_polling'i yerine lifecycle'ı yönetiyoruz
         await application.initialize()
         await application.start()
         await application.updater.start_polling()
         logger.info("Bot polling started.")
-        # sonsuza kadar bekle
         await asyncio.Event().wait()
     finally:
-        await application.updater.stop()
-        await application.stop()
-        await application.shutdown()
+        try:
+            await application.updater.stop()
+        except Exception:
+            pass
+        try:
+            await application.stop()
+        except Exception:
+            pass
+        try:
+            await application.shutdown()
+        except Exception:
+            pass
         await runner.cleanup()
 
 
 def main() -> None:
     application = _build_application()
 
-    # WEBHOOK_URL varsa webhook, yoksa polling+health
     if WEBHOOK_URL:
-        # Fly health-check için de aynı portu kullanır
         logger.info(f"Starting in WEBHOOK mode on port {PORT} path={WEBHOOK_PATH}")
         application.run_webhook(
             listen="0.0.0.0",
