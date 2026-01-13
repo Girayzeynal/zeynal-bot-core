@@ -1,21 +1,45 @@
 FROM python:3.11-slim
 
+# ----------------------------
+# System
+# ----------------------------
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Sistem bağımlılıkları (numpy/pandas için yeterli)
+# ----------------------------
+# OS dependencies
+# ----------------------------
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
         curl \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+        ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
+# ----------------------------
+# Python deps
+# ----------------------------
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
+# ----------------------------
+# App
+# ----------------------------
 COPY . .
 
-ENV PYTHONUNBUFFERED=1
+# Writable dirs (Fly FS / future volume)
+RUN mkdir -p /app/data /app/logs
 
+# ----------------------------
+# Fly
+# ----------------------------
 EXPOSE 8080
 
-CMD ["python", "main.py"]
+# SIGTERM/SIGINT düzgün işləsin
+STOPSIGNAL SIGINT
+
+CMD ["python", "-u", "main.py"] 
