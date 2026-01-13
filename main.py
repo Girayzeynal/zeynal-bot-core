@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import html
 import logging
+import asyncio
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
@@ -13,9 +14,12 @@ from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstra
 from providers.espn_adapter import ESPNAdapter  # SADECE ESPN
 
 from faz13_engine import Faz13Engine, PrematchRequest
-from faz17_engine import Faz17Engine, MarketRequest  # noqa: F401 (şimdilik kullanılmıyor olabilir)
+from faz17_engine import Faz17Engine, MarketRequest  # noqa: F401
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
+
+# HTTP health server (Fly health-check için)
+from aiohttp import web
 
 
 # ============================
@@ -29,14 +33,22 @@ logger = logging.getLogger("zeynal-core")
 
 
 # ============================
-# ENV
+# ENV (Fly-safe)
 # ============================
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("BOT_TOKEN")
 ODDS_API_KEY = os.getenv("ODDS_API_KEY")
 ODDS_BASE = os.getenv("ODDS_BASE", "https://api.the-odds-api.com/v4")
 
+# Fly port
+PORT = int(os.getenv("PORT", "8080"))
+
+# Webhook opsiyonel
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # örn: https://<app>.fly.dev
+WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/telegram")  # istersen token path yaparsın
+
+
 if not TELEGRAM_BOT_TOKEN:
-    raise RuntimeError("Missing TELEGRAM_BOT_TOKEN")
+    raise RuntimeError("Missing TELEGRAM_BOT_TOKEN (or BOT_TOKEN)")
 
 
 # ============================
@@ -49,7 +61,6 @@ def _parse_date(date_str: str) -> datetime:
 def nba_season_string(date_str: str) -> Tuple[int, str]:
     d = _parse_date(date_str)
     start = d.year if d.month >= 10 else d.year - 1
-    # ASCII dash kullan (unicode fancy dash riskini sıfırla)
     return start, f"{start}-{start + 1}"
 
 
@@ -71,15 +82,6 @@ def _ensure_list(obj: Any, name: str) -> list:
     return lst
 
 
-def _safe_float(v: Any) -> Optional[float]:
-    if v is None:
-        return None
-    try:
-        return float(str(v).replace(",", ".").strip())
-    except Exception:
-        return None
-
-
 def _inject_season(core: Any, league: str, date_str: str) -> None:
     meta = _ensure_dict(core, "meta")
     notes = _ensure_list(core, "notes")
@@ -94,7 +96,6 @@ def _inject_season(core: Any, league: str, date_str: str) -> None:
     meta["season"] = season_start
     meta["season_str"] = season_str
 
-    # "Season:" ile başlayan eski notları temizle
     notes[:] = [n for n in notes if not str(n).lower().startswith("season:")]
     notes.insert(0, f"Season: {season_str}")
 
@@ -109,7 +110,6 @@ def _apply_degraded_mode(core: Any) -> None:
 
     meta["degraded_mode"] = True
     meta.setdefault("risk", "HIGH")
-    # ASCII uyarı (unicode emoji riskini azaltmak istersen burayı da sadeleştirebilirsin)
     notes.append("WARNING: DEGRADED_MODE - Kaynak veriler eksik.")
 
 
@@ -128,21 +128,11 @@ def _parse_analyze_params(raw: str) -> Tuple[str, str, str, str]:
         home = " ".join(rest[:i])
         away = " ".join(rest[i + 1 :])
     else:
-        # "vs" yoksa ikiye böl (en iyi ihtimal fallback)
         mid = len(rest) // 2
         home = " ".join(rest[:mid])
         away = " ".join(rest[mid:])
 
     return league, date_str, home.strip(), away.strip()
-
-
-def _diag_adapter_list(app: Application) -> str:
-    bs = app.bot_data.get("baseline_bootstrapper")
-    if not bs:
-        return "bootstrapper=NONE"
-    ads = getattr(bs, "adapters", []) or []
-    names = [a.__class__.__name__ for a in ads]
-    return "adapters=" + ",".join(names)
 
 
 def _format_notes(notes: Any, limit: int = 8) -> str:
@@ -152,6 +142,38 @@ def _format_notes(notes: Any, limit: int = 8) -> str:
         sliced = notes[:limit]
         return "\n".join(f"- {str(n)}" for n in sliced)
     return str(notes)
+
+
+# ============================
+# /health HTTP server (Fly)
+# ============================
+async def _health_app(application: Application) -> web.Application:
+    app = web.Application()
+
+    async def health(_: web.Request) -> web.Response:
+        # Bot/engine hazır mı? kısa diagnostik
+        ok = True
+        missing = []
+        for k in ("faz13", "baseline_store", "baseline_bootstrapper"):
+            if k not in application.bot_data:
+                ok = False
+                missing.append(k)
+        payload = {"ok": ok, "missing": missing}
+        return web.json_response(payload)
+
+    app.router.add_get("/health", health)
+    app.router.add_get("/", health)
+    return app
+
+
+async def _run_health_server(application: Application) -> web.AppRunner:
+    app = await _health_app(application)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, host="0.0.0.0", port=PORT)
+    await site.start()
+    logger.info(f"Health server listening on 0.0.0.0:{PORT}")
+    return runner
 
 
 # ============================
@@ -186,17 +208,9 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    logger.info(
-        f"ANALYZE RAW league={league} date={date_str} home='{home_raw}' away='{away_raw}' | "
-        f"{_diag_adapter_list(context.application)}"
-    )
-
     # Engine'leri bot_data'dan al
     try:
         faz13: Faz13Engine = context.application.bot_data["faz13"]
-        bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
-        baseline_store: TeamBaselineStore = context.application.bot_data["baseline_store"]
-        _ = (bootstrapper, baseline_store)
     except KeyError as e:
         await update.message.reply_text(
             f"Sistem hatasi: Bot verileri eksik. {html.escape(str(e))}\n"
@@ -206,12 +220,8 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Bot data eksik: {e}")
         return
 
-    # Analiz başlat
     try:
-        if league.upper() == "NBA":
-            season_str = nba_season_string(date_str)[1]
-        else:
-            season_str = str(_parse_date(date_str).year)
+        season_str = nba_season_string(date_str)[1] if league.upper() == "NBA" else str(_parse_date(date_str).year)
 
         request = PrematchRequest(
             league=league,
@@ -221,7 +231,9 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             season_str=season_str,
         )
 
-        result = faz13.analyze(request)
+        # 🔥 Kritik: blocking analyze -> thread'e al (event-loop kilitlenmesin)
+        result = await asyncio.to_thread(faz13.analyze, request)
+
         _inject_season(result, league, date_str)
         _apply_degraded_mode(result)
 
@@ -242,37 +254,69 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================
-# UYGULAMA BASLATMA
+# BOOTSTRAP
 # ============================
-def main():
+def _build_application() -> Application:
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # 1) Baseline objelerini önce olustur (Faz13 constructor bunu istiyor)
     baseline_store = TeamBaselineStore()
     bootstrapper = TeamBaselineBootstrapper(store=baseline_store, adapters=[])
 
     application.bot_data["baseline_store"] = baseline_store
     application.bot_data["baseline_bootstrapper"] = bootstrapper
 
-    # 2) Adapter listesi garanti + ESPN adapter ekle
-    if not hasattr(bootstrapper, "adapters") or bootstrapper.adapters is None:
-        bootstrapper.adapters = []
+    # Adapter: ODDS_API_KEY yoksa ekleme (patlatma)
+    if ODDS_API_KEY:
+        if not hasattr(bootstrapper, "adapters") or bootstrapper.adapters is None:
+            bootstrapper.adapters = []
+        bootstrapper.adapters.append(ESPNAdapter(api_key=ODDS_API_KEY, base_url=ODDS_BASE))
+    else:
+        logger.warning("ODDS_API_KEY missing -> ESPNAdapter disabled (degraded mode likely)")
 
-    bootstrapper.adapters.append(
-        ESPNAdapter(api_key=ODDS_API_KEY, base_url=ODDS_BASE)
-    )
-
-    # 3) Engine'ler (Faz13 baseline_store ile init edilmeli)
-    # Not: Daha önce log'larda Faz13Engine(baseline_store=...) istiyordu.
-    # Eğer senin Faz13Engine imzan farklıysa (api_sports_key vs) burayi ona gore ayarla.
     application.bot_data["faz13"] = Faz13Engine(baseline_store=baseline_store)
     application.bot_data["faz17"] = Faz17Engine()
     application.bot_data["faz22"] = Faz22Engine()
     application.bot_data["faz23"] = Faz23Engine()
 
     application.add_handler(CommandHandler("analyze", analyze_command))
-    application.run_polling()
+    return application
+
+
+async def _run_polling_with_health(application: Application) -> None:
+    runner = await _run_health_server(application)
+    try:
+        # polling bloklamasın diye PTB'nin kendi run_polling'i yerine lifecycle'ı yönetiyoruz
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling()
+        logger.info("Bot polling started.")
+        # sonsuza kadar bekle
+        await asyncio.Event().wait()
+    finally:
+        await application.updater.stop()
+        await application.stop()
+        await application.shutdown()
+        await runner.cleanup()
+
+
+def main() -> None:
+    application = _build_application()
+
+    # WEBHOOK_URL varsa webhook, yoksa polling+health
+    if WEBHOOK_URL:
+        # Fly health-check için de aynı portu kullanır
+        logger.info(f"Starting in WEBHOOK mode on port {PORT} path={WEBHOOK_PATH}")
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            url_path=WEBHOOK_PATH.lstrip("/"),
+            webhook_url=WEBHOOK_URL.rstrip("/") + WEBHOOK_PATH,
+            allowed_updates=Update.ALL_TYPES,
+        )
+    else:
+        logger.info(f"Starting in POLLING+HEALTH mode on port {PORT}")
+        asyncio.run(_run_polling_with_health(application))
 
 
 if __name__ == "__main__":
-    main() 
+    main()
