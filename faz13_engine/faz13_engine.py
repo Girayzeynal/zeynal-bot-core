@@ -480,6 +480,31 @@ class Faz13Engine:
                 if p and p.get("pace") is not None:
                     pace_away = float(p["pace"])
 
+        # --- BASELINE STORE FALLBACK ---
+        if self.baseline_store:
+            try:
+                h = self.baseline_store.get(req.league, req.home)
+                a = self.baseline_store.get(req.league, req.away)
+                if h:
+                    home_rows.append({
+                        "pts_for": h.pts_for,
+                        "pts_against": h.pts_against,
+                        "confidence": 0.75,
+                        "source": "BASELINE_STORE",
+                        "pace": h.pace,
+                    })
+                if a:
+                    away_rows.append({
+                        "pts_for": a.pts_for,
+                        "pts_against": a.pts_against,
+                        "confidence": 0.75,
+                        "source": "BASELINE_STORE",
+                        "pace": a.pace,
+                    })
+            except Exception:
+                pass
+        # --- /BASELINE STORE FALLBACK ---
+
         home_baseline = aggregate_baseline(home_rows) if home_rows else None
         away_baseline = aggregate_baseline(away_rows) if away_rows else None
 
@@ -671,4 +696,4 @@ class Faz13Engine:
                 "data_coverage": data_coverage,
                 "fetched_at": int(time.time()),
             },
-        )  
+        )
