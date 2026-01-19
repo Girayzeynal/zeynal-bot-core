@@ -14,7 +14,6 @@ from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstra
 from providers.espn_adapter import ESPNAdapter
 
 from faz13_engine import Faz13Engine, PrematchRequest
-from faz17_engine import Faz17Engine
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 
@@ -33,10 +32,8 @@ logger = logging.getLogger("zeynal-core")
 # ENV
 # ============================
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-ODDS_API_KEY = os.getenv("ODDS_API_KEY")
 API_SPORTS_KEY = os.getenv("API_SPORTS_KEY")
 API_SPORTS_BASE = os.getenv("API_SPORTS_BASE", "https://v1.basketball.api-sports.io")
-
 PORT = int(os.getenv("PORT", "8080"))
 
 if not TELEGRAM_BOT_TOKEN:
@@ -48,88 +45,78 @@ if not TELEGRAM_BOT_TOKEN:
 def _parse_date(date_str: str) -> datetime:
     return datetime.strptime(date_str.strip(), "%Y-%m-%d")
 
-def nba_season_string(date_str: str) -> str:
-    d = _parse_date(date_str)
-    start = d.year if d.month >= 10 else d.year - 1
-    return f"{start}-{start + 1}"
 
-def _ensure(obj: Any, name: str, default):
-    if not hasattr(obj, name):
-        setattr(obj, name, default)
-    return getattr(obj, name)
+def _parse_analyze_params(raw: str):
+    parts = raw.split()
+    if len(parts) < 4:
+        raise ValueError("Eksik parametre")
+
+    league = parts[0]
+    date_str = parts[1]
+    rest = parts[2:]
+
+    lower = [p.lower() for p in rest]
+    if "vs" in lower:
+        i = lower.index("vs")
+        home = " ".join(rest[:i])
+        away = " ".join(rest[i + 1 :])
+    else:
+        mid = len(rest) // 2
+        home = " ".join(rest[:mid])
+        away = " ".join(rest[mid:])
+
+    return league, date_str, home.strip(), away.strip()
 
 # ============================
-# ANALYZE COMMAND
+# /analyze
 # ============================
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
 
     try:
         _, params = text.split(" ", 1)
-        league, date_str, rest = params.split(" ", 2)
-
-        if " vs " not in rest.lower():
-            raise ValueError("vs bulunamadı")
-
-        home_raw, away_raw = rest.split(" vs ", 1)
-    except Exception:
+        league, date_str, home_raw, away_raw = _parse_analyze_params(params)
+    except Exception as e:
         await update.message.reply_text(
-            "Kullanım:\n/analyze NBA 2026-01-19 Atlanta Hawks vs Milwaukee Bucks",
+            f"Parametre hatası: {html.escape(str(e))}",
             disable_web_page_preview=True,
         )
         return
 
-    # --- ENGINE ---
     faz13: Faz13Engine = context.application.bot_data["faz13"]
-    bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
 
-    # ============================
-    # 🔥 AUTO BASELINE BOOTSTRAP
-    # ============================
-    try:
+    # ---- AUTO BASELINE BOOTSTRAP ----
+    bootstrapper = context.application.bot_data.get("baseline_bootstrapper")
+    if bootstrapper and hasattr(bootstrapper, "ensure_async"):
         await bootstrapper.ensure_async(league=league, team_input=home_raw, min_games=6)
         await bootstrapper.ensure_async(league=league, team_input=away_raw, min_games=6)
-    except Exception as e:
-        logger.warning(f"Baseline bootstrap failed: {e}")
 
-    # ============================
-    # FAZ-13 PREMATCH
-    # ============================
+    # ---- FAZ-13 REQUEST (DOĞRU) ----
+    req = PrematchRequest(
+        fixture_id=0,
+        league=league,
+        date_str=date_str,
+        home=home_raw,
+        away=away_raw,
+    )
+
     try:
-        season_str = nba_season_string(date_str)
-
-        request = PrematchRequest(
-            None,          # fixture_id (yoksa None)
-            league,
-            date_str,
-            home_raw,
-            away_raw,
-        )
-
-        result = await faz13.run_prematch(request)
-
-        meta = _ensure(result, "meta", {})
-        notes = _ensure(result, "notes", [])
-
-        meta["season_str"] = season_str
+        result = await faz13.run_prematch(req)
 
         await update.message.reply_text(
-            f"OK: analiz tamamlandı.\n"
-            f"Sezon: {season_str}\n"
-            f"Risk: {meta.get('risk', 'UNKNOWN')}\n\n"
-            f"Notlar:\n" + "\n".join(f"- {n}" for n in notes),
+            result.render_html(),
             disable_web_page_preview=True,
         )
 
     except Exception as e:
-        logger.exception("ANALYZE ERROR")
+        logger.exception("FAZ-13 ANALYZE ERROR")
         await update.message.reply_text(
             f"Analiz hatası: {html.escape(str(e))}",
             disable_web_page_preview=True,
         )
 
 # ============================
-# APP BOOTSTRAP
+# BOOTSTRAP
 # ============================
 def _build_application() -> Application:
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -141,12 +128,11 @@ def _build_application() -> Application:
     app.bot_data["baseline_bootstrapper"] = bootstrapper
 
     app.bot_data["faz13"] = Faz13Engine(
-        baseline_store=baseline_store,
         api_sports_key=API_SPORTS_KEY,
         api_sports_base=API_SPORTS_BASE,
+        baseline_store=baseline_store,
     )
 
-    app.bot_data["faz17"] = Faz17Engine()
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine()
 
@@ -158,8 +144,7 @@ def _build_application() -> Application:
 # ============================
 def main():
     app = _build_application()
-    logger.info("Bot polling started")
-    app.run_polling()
+    asyncio.run(app.run_polling())
 
 if __name__ == "__main__":
     main()
