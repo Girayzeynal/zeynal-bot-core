@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from league_profiles import get_league_profile
 
+
 # =====================================================
 # DATA MODELS
 # =====================================================
@@ -94,19 +95,31 @@ class Faz13CoreOutput:
 
 
 # =====================================================
-# FAZ-13 ENGINE v2 (SURVIVAL MODE)
+# FAZ-13 ENGINE (FINAL – SURVIVAL + BACKWARD COMPAT)
 # =====================================================
 
 class Faz13Engine:
     """
-    FAZ-13 v2
-    - Asla 0–0 dönmez
-    - Veri yoksa LEAGUE AVERAGE fallback kullanır
-    - NO_PLAY sadece EXTREME durumda
+    FAZ-13 FINAL ENGINE
+    - main.py ile %100 uyumlu
+    - Parametre fazlalığında crash olmaz
+    - Asla 0–0 bant üretmez
     """
 
-    def __init__(self) -> None:
-        pass
+    def __init__(
+        self,
+        api_sports_key: Optional[str] = None,
+        api_sports_base: Optional[str] = None,
+        baseline_store: Any = None,
+        **kwargs,
+    ) -> None:
+        # Geriye dönük uyum için saklanır ama zorunlu kullanılmaz
+        self.api_sports_key = api_sports_key
+        self.api_sports_base = api_sports_base
+        self.baseline_store = baseline_store
+        self.extra_args = kwargs
+
+    # -------------------------------------------------
 
     @staticmethod
     def _tempo_flag(pace: float) -> str:
@@ -116,12 +129,14 @@ class Faz13Engine:
             return "SLOW"
         return "NORMAL"
 
+    # -------------------------------------------------
+
     async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
         profile = get_league_profile(req.league)
 
-        # -----------------------------
-        # LEAGUE AVERAGE FALLBACK
-        # -----------------------------
+        # -------------------------------------------------
+        # LEAGUE AVERAGE FALLBACK (SURVIVAL MODE)
+        # -------------------------------------------------
         if req.league.upper() == "NBA":
             league_avg = {
                 "pts_for": 113.5,
@@ -138,8 +153,9 @@ class Faz13Engine:
             }
 
         notes = [
-            "FAZ-13 v2 SURVIVAL MODE",
-            "Fallback to league average baseline applied",
+            "FAZ-13 FINAL ENGINE",
+            "SURVIVAL MODE ACTIVE",
+            "Baseline: LEAGUE AVERAGE",
         ]
 
         home_avg = TeamAverages(
@@ -156,9 +172,9 @@ class Faz13Engine:
             league_avg["stdev"],
         )
 
-        # -----------------------------
+        # -------------------------------------------------
         # EXPECTED VALUES
-        # -----------------------------
+        # -------------------------------------------------
         home_mu = (home_avg.points_for + away_avg.points_against) / 2
         away_mu = (away_avg.points_for + home_avg.points_against) / 2
         total_mu = home_mu + away_mu
@@ -202,8 +218,7 @@ class Faz13Engine:
             tempo_flag=tempo_flag,
             notes=notes,
             meta={
-                "season": req.date_str[:4],
-                "engine": "FAZ-13 v2 SURVIVAL",
+                "engine": "FAZ-13 FINAL",
                 "baseline_src": "LEAGUE_AVG",
                 "expected_total": round(total_mu, 2),
                 "pace_mean": (home_avg.pace + away_avg.pace) / 2,
