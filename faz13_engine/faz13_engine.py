@@ -14,7 +14,7 @@ except Exception:
 
 
 # =====================================================
-# NBA TEAM MAP (ESPN SAFE)
+# NBA TEAM MAP (SAFE)
 # =====================================================
 
 NBA_TEAM_MAP = {
@@ -138,7 +138,7 @@ class Faz13CoreOutput:
 
 
 # =====================================================
-# FAZ-13 ENGINE — FINAL v4 (ESPN FIX)
+# FAZ-13 ENGINE (FINAL — SYNTAX SAFE)
 # =====================================================
 
 class Faz13Engine:
@@ -153,29 +153,50 @@ class Faz13Engine:
             return "SLOW"
         return "NORMAL"
 
-    async def _team_baseline(self, league: str, team: str):
+    async def _team_baseline(
+        self, league: str, team: str
+    ) -> Tuple[float, float, float, str]:
+
         key = team.lower().strip()
         abbr = NBA_TEAM_MAP.get(key)
 
         if self.espn and abbr:
-            games = await self.espn.fetch_team_recent_games("NBA", abbr, 5)
-            if games:
-                pf = sum(g["pts_for"] for g in games) / len(games)
-                pa = sum(g["pts_against"] for g in games) / len(games)
-                pace = sum(g["pace"] for g in games) / len(games)
-                return pf, pa, pace, "ESPN_LAST5"
+            try:
+                games = await self.espn.fetch_team_recent_games("NBA", abbr, 5)
+                if games:
+                    pf_sum = 0.0
+                    pa_sum = 0.0
+                    pace_sum = 0.0
+                    count = len(games)
 
-        # League average fallback
+                    for g in games:
+                        pf_sum += g["pts_for"]
+                        pa_sum += g["pts_against"]
+                        pace_sum += g["pace"]
+
+                    return (
+                        pf_sum / count,
+                        pa_sum / count,
+                        pace_sum / count,
+                        "ESPN_LAST5",
+                    )
+            except Exception:
+                pass
+
         return 113.5, 113.5, 99.5, "LEAGUE_AVG"
 
     async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
         profile = get_league_profile(req.league)
 
-        h_pf, h_pa, h_pace, h_src = await self._team_baseline(req.league, req.home)
-        a_pf, a_pa, a_pace, a_src = await self._team_baseline(req.league, req.away)
+        h_pf, h_pa, h_pace, h_src = await self._team_baseline(
+            req.league, req.home
+        )
+        a_pf, a_pa, a_pace, a_src = await self._team_baseline(
+            req.league, req.away
+        )
 
-        home_mu = (h_pf + a_pa) / 2
-        away_mu = (a_pf + h_pa) / 2
+        home_mu = (h_pf + a_pa) / 2.0
+        away_mu = (a_pf + h_pa) / 2.0
         total_mu = home_mu + away_mu
 
         total_band = (
@@ -191,7 +212,7 @@ class Faz13Engine:
             int(away_mu + profile.band_hw_team),
         )
 
-        pace_mean = (h_pace + a_pace) / 2
+        pace_mean = (h_pace + a_pace) / 2.0
         tempo_flag = self._tempo_flag(pace_mean)
 
         quarters = {
@@ -199,9 +220,14 @@ class Faz13Engine:
             "2Q": (int(total_mu * 0.26) - 3, int(total_mu * 0.26) + 3),
             "3Q": (int(total_mu * 0.25) - 3, int(total_mu * 0.25) + 3),
             "4Q": (int(total_mu * 0.25) - 3, int(total_mu * 0.25) + 3),
-        )
+        }
 
-        ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
+        ctx = FixtureContext(
+            league=req.league,
+            date=req.date_str,
+            home=req.home,
+            away=req.away,
+        )
 
         return Faz13CoreOutput(
             ctx=ctx,
@@ -215,12 +241,12 @@ class Faz13Engine:
             blowout_risk="LOW",
             tempo_flag=tempo_flag,
             notes=[
-                "FAZ-13 FINAL BUILD v4",
+                "FAZ-13 FINAL SYNTAX SAFE",
                 f"Home baseline: {h_src}",
                 f"Away baseline: {a_src}",
             ],
             meta={
-                "engine": "FAZ-13 v4",
+                "engine": "FAZ-13 FINAL",
                 "home_src": h_src,
                 "away_src": a_src,
                 "expected_total": round(total_mu, 2),
