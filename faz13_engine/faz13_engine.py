@@ -7,11 +7,48 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from league_profiles import get_league_profile
 
-# Optional ESPN adapter (repo içindeyse otomatik kullanır)
 try:
     from providers.espn_adapter import ESPNAdapter
 except Exception:
     ESPNAdapter = None
+
+
+# =====================================================
+# NBA TEAM MAP (ESPN SAFE)
+# =====================================================
+
+NBA_TEAM_MAP = {
+    "atlanta hawks": "ATL",
+    "boston celtics": "BOS",
+    "brooklyn nets": "BKN",
+    "charlotte hornets": "CHA",
+    "chicago bulls": "CHI",
+    "cleveland cavaliers": "CLE",
+    "dallas mavericks": "DAL",
+    "denver nuggets": "DEN",
+    "detroit pistons": "DET",
+    "golden state warriors": "GSW",
+    "houston rockets": "HOU",
+    "indiana pacers": "IND",
+    "los angeles clippers": "LAC",
+    "los angeles lakers": "LAL",
+    "memphis grizzlies": "MEM",
+    "miami heat": "MIA",
+    "milwaukee bucks": "MIL",
+    "minnesota timberwolves": "MIN",
+    "new orleans pelicans": "NOP",
+    "new york knicks": "NYK",
+    "oklahoma city thunder": "OKC",
+    "orlando magic": "ORL",
+    "philadelphia 76ers": "PHI",
+    "phoenix suns": "PHX",
+    "portland trail blazers": "POR",
+    "sacramento kings": "SAC",
+    "san antonio spurs": "SAS",
+    "toronto raptors": "TOR",
+    "utah jazz": "UTA",
+    "washington wizards": "WAS",
+}
 
 
 # =====================================================
@@ -101,28 +138,12 @@ class Faz13CoreOutput:
 
 
 # =====================================================
-# FAZ-13 ENGINE — FINAL DATA-AWARE
+# FAZ-13 ENGINE — FINAL v4 (ESPN FIX)
 # =====================================================
 
 class Faz13Engine:
-    """
-    FAZ-13 FINAL BUILD v3
-    - baseline_store → ESPN → league_avg
-    - Her maç farklı bant
-    - main.py uyumlu
-    """
-
-    def __init__(
-        self,
-        api_sports_key: Optional[str] = None,
-        api_sports_base: Optional[str] = None,
-        baseline_store: Any = None,
-        **kwargs,
-    ) -> None:
-        self.baseline_store = baseline_store
+    def __init__(self, *args, **kwargs) -> None:
         self.espn = ESPNAdapter() if ESPNAdapter else None
-
-    # -------------------------------------------------
 
     @staticmethod
     def _tempo_flag(pace: float) -> str:
@@ -132,52 +153,26 @@ class Faz13Engine:
             return "SLOW"
         return "NORMAL"
 
-    # -------------------------------------------------
+    async def _team_baseline(self, league: str, team: str):
+        key = team.lower().strip()
+        abbr = NBA_TEAM_MAP.get(key)
 
-    def _league_avg(self, league: str) -> Dict[str, float]:
-        if league.upper() == "NBA":
-            return {"pf": 113.5, "pa": 113.5, "pace": 99.5, "stdev": 10.0}
-        return {"pf": 80.0, "pa": 80.0, "pace": 95.0, "stdev": 9.0}
+        if self.espn and abbr:
+            games = await self.espn.fetch_team_recent_games("NBA", abbr, 5)
+            if games:
+                pf = sum(g["pts_for"] for g in games) / len(games)
+                pa = sum(g["pts_against"] for g in games) / len(games)
+                pace = sum(g["pace"] for g in games) / len(games)
+                return pf, pa, pace, "ESPN_LAST5"
 
-    # -------------------------------------------------
-
-    async def _get_team_baseline(self, league: str, team: str):
-        # 1️⃣ baseline_store
-        if self.baseline_store:
-            b = self.baseline_store.get(league, team)
-            if b:
-                return b.pts_for, b.pts_against, b.pace, b.stdev_total, "BASELINE_STORE"
-
-        # 2️⃣ ESPN
-        if self.espn:
-            try:
-                games = await self.espn.fetch_team_recent_games(league, team, 5)
-                if games:
-                    pf = sum(g["pts_for"] for g in games) / len(games)
-                    pa = sum(g["pts_against"] for g in games) / len(games)
-                    pace = sum(g["pace"] for g in games) / len(games)
-                    return pf, pa, pace, 10.0, "ESPN_LAST5"
-            except Exception:
-                pass
-
-        # 3️⃣ League Avg
-        avg = self._league_avg(league)
-        return avg["pf"], avg["pa"], avg["pace"], avg["stdev"], "LEAGUE_AVG"
-
-    # -------------------------------------------------
+        # League average fallback
+        return 113.5, 113.5, 99.5, "LEAGUE_AVG"
 
     async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
         profile = get_league_profile(req.league)
 
-        h_pf, h_pa, h_pace, h_std, h_src = await self._get_team_baseline(
-            req.league, req.home
-        )
-        a_pf, a_pa, a_pace, a_std, a_src = await self._get_team_baseline(
-            req.league, req.away
-        )
-
-        home_avg = TeamAverages(h_pf, h_pa, h_pace, h_std)
-        away_avg = TeamAverages(a_pf, a_pa, a_pace, a_std)
+        h_pf, h_pa, h_pace, h_src = await self._team_baseline(req.league, req.home)
+        a_pf, a_pa, a_pace, a_src = await self._team_baseline(req.league, req.away)
 
         home_mu = (h_pf + a_pa) / 2
         away_mu = (a_pf + h_pa) / 2
@@ -204,14 +199,14 @@ class Faz13Engine:
             "2Q": (int(total_mu * 0.26) - 3, int(total_mu * 0.26) + 3),
             "3Q": (int(total_mu * 0.25) - 3, int(total_mu * 0.25) + 3),
             "4Q": (int(total_mu * 0.25) - 3, int(total_mu * 0.25) + 3),
-        }
+        )
 
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
 
         return Faz13CoreOutput(
             ctx=ctx,
-            home_avg=home_avg,
-            away_avg=away_avg,
+            home_avg=TeamAverages(h_pf, h_pa, h_pace, 10.0),
+            away_avg=TeamAverages(a_pf, a_pa, a_pace, 10.0),
             total_band=total_band,
             home_band=home_band,
             away_band=away_band,
@@ -220,12 +215,12 @@ class Faz13Engine:
             blowout_risk="LOW",
             tempo_flag=tempo_flag,
             notes=[
-                "FAZ-13 FINAL BUILD v3",
+                "FAZ-13 FINAL BUILD v4",
                 f"Home baseline: {h_src}",
                 f"Away baseline: {a_src}",
             ],
             meta={
-                "engine": "FAZ-13 v3",
+                "engine": "FAZ-13 v4",
                 "home_src": h_src,
                 "away_src": a_src,
                 "expected_total": round(total_mu, 2),
