@@ -7,6 +7,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from league_profiles import get_league_profile
 
+# Optional ESPN adapter (repo içindeyse otomatik kullanır)
+try:
+    from providers.espn_adapter import ESPNAdapter
+except Exception:
+    ESPNAdapter = None
+
 
 # =====================================================
 # DATA MODELS
@@ -95,15 +101,15 @@ class Faz13CoreOutput:
 
 
 # =====================================================
-# FAZ-13 ENGINE (FINAL / SURVIVAL / BACKWARD SAFE)
+# FAZ-13 ENGINE — FINAL DATA-AWARE
 # =====================================================
 
 class Faz13Engine:
     """
-    FAZ-13 FINAL ENGINE
-    - main.py ile %100 uyumlu
-    - Reboot-safe
-    - Asla 0–0 dönmez
+    FAZ-13 FINAL BUILD v3
+    - baseline_store → ESPN → league_avg
+    - Her maç farklı bant
+    - main.py uyumlu
     """
 
     def __init__(
@@ -113,10 +119,8 @@ class Faz13Engine:
         baseline_store: Any = None,
         **kwargs,
     ) -> None:
-        self.api_sports_key = api_sports_key
-        self.api_sports_base = api_sports_base
         self.baseline_store = baseline_store
-        self.extra_args = kwargs
+        self.espn = ESPNAdapter() if ESPNAdapter else None
 
     # -------------------------------------------------
 
@@ -130,70 +134,69 @@ class Faz13Engine:
 
     # -------------------------------------------------
 
+    def _league_avg(self, league: str) -> Dict[str, float]:
+        if league.upper() == "NBA":
+            return {"pf": 113.5, "pa": 113.5, "pace": 99.5, "stdev": 10.0}
+        return {"pf": 80.0, "pa": 80.0, "pace": 95.0, "stdev": 9.0}
+
+    # -------------------------------------------------
+
+    async def _get_team_baseline(self, league: str, team: str):
+        # 1️⃣ baseline_store
+        if self.baseline_store:
+            b = self.baseline_store.get(league, team)
+            if b:
+                return b.pts_for, b.pts_against, b.pace, b.stdev_total, "BASELINE_STORE"
+
+        # 2️⃣ ESPN
+        if self.espn:
+            try:
+                games = await self.espn.fetch_team_recent_games(league, team, 5)
+                if games:
+                    pf = sum(g["pts_for"] for g in games) / len(games)
+                    pa = sum(g["pts_against"] for g in games) / len(games)
+                    pace = sum(g["pace"] for g in games) / len(games)
+                    return pf, pa, pace, 10.0, "ESPN_LAST5"
+            except Exception:
+                pass
+
+        # 3️⃣ League Avg
+        avg = self._league_avg(league)
+        return avg["pf"], avg["pa"], avg["pace"], avg["stdev"], "LEAGUE_AVG"
+
+    # -------------------------------------------------
+
     async def run_prematch(self, req: PrematchRequest) -> Faz13CoreOutput:
         profile = get_league_profile(req.league)
 
-        # -------------------------------------------------
-        # SURVIVAL MODE – LEAGUE AVERAGE
-        # -------------------------------------------------
-        if req.league.upper() == "NBA":
-            league_avg = {
-                "pts_for": 113.5,
-                "pts_against": 113.5,
-                "pace": 99.5,
-                "stdev": 10.0,
-            }
-        else:
-            league_avg = {
-                "pts_for": 80.0,
-                "pts_against": 80.0,
-                "pace": 95.0,
-                "stdev": 9.0,
-            }
-
-        notes = [
-            "FAZ-13 FINAL ENGINE",
-            "SURVIVAL MODE ACTIVE",
-            "Baseline: LEAGUE AVERAGE",
-        ]
-
-        home_avg = TeamAverages(
-            league_avg["pts_for"],
-            league_avg["pts_against"],
-            league_avg["pace"],
-            league_avg["stdev"],
+        h_pf, h_pa, h_pace, h_std, h_src = await self._get_team_baseline(
+            req.league, req.home
+        )
+        a_pf, a_pa, a_pace, a_std, a_src = await self._get_team_baseline(
+            req.league, req.away
         )
 
-        away_avg = TeamAverages(
-            league_avg["pts_for"],
-            league_avg["pts_against"],
-            league_avg["pace"],
-            league_avg["stdev"],
-        )
+        home_avg = TeamAverages(h_pf, h_pa, h_pace, h_std)
+        away_avg = TeamAverages(a_pf, a_pa, a_pace, a_std)
 
-        # -------------------------------------------------
-        # EXPECTED VALUES
-        # -------------------------------------------------
-        home_mu = (home_avg.points_for + away_avg.points_against) / 2
-        away_mu = (away_avg.points_for + home_avg.points_against) / 2
+        home_mu = (h_pf + a_pa) / 2
+        away_mu = (a_pf + h_pa) / 2
         total_mu = home_mu + away_mu
 
         total_band = (
             int(total_mu - profile.band_hw_total),
             int(total_mu + profile.band_hw_total),
         )
-
         home_band = (
             int(home_mu - profile.band_hw_team),
             int(home_mu + profile.band_hw_team),
         )
-
         away_band = (
             int(away_mu - profile.band_hw_team),
             int(away_mu + profile.band_hw_team),
         )
 
-        pace_mean = (home_avg.pace + away_avg.pace) / 2
+        pace_mean = (h_pace + a_pace) / 2
         tempo_flag = self._tempo_flag(pace_mean)
 
         quarters = {
@@ -216,13 +219,18 @@ class Faz13Engine:
             quarters=quarters,
             blowout_risk="LOW",
             tempo_flag=tempo_flag,
-            notes=notes,
+            notes=[
+                "FAZ-13 FINAL BUILD v3",
+                f"Home baseline: {h_src}",
+                f"Away baseline: {a_src}",
+            ],
             meta={
-                "engine": "FAZ-13 FINAL",
-                "baseline_src": "LEAGUE_AVG",
+                "engine": "FAZ-13 v3",
+                "home_src": h_src,
+                "away_src": a_src,
                 "expected_total": round(total_mu, 2),
                 "pace_mean": pace_mean,
-                "degraded_mode": True,
+                "degraded_mode": h_src == "LEAGUE_AVG" or a_src == "LEAGUE_AVG",
                 "generated_at": int(time.time()),
             },
         )
