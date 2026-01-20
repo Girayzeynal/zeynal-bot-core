@@ -95,15 +95,15 @@ class Faz13CoreOutput:
 
 
 # =====================================================
-# FAZ-13 ENGINE (FINAL – SURVIVAL + BACKWARD COMPAT)
+# FAZ-13 ENGINE (FINAL / SURVIVAL / BACKWARD SAFE)
 # =====================================================
 
 class Faz13Engine:
     """
     FAZ-13 FINAL ENGINE
     - main.py ile %100 uyumlu
-    - Parametre fazlalığında crash olmaz
-    - Asla 0–0 bant üretmez
+    - Reboot-safe
+    - Asla 0–0 dönmez
     """
 
     def __init__(
@@ -113,7 +113,6 @@ class Faz13Engine:
         baseline_store: Any = None,
         **kwargs,
     ) -> None:
-        # Geriye dönük uyum için saklanır ama zorunlu kullanılmaz
         self.api_sports_key = api_sports_key
         self.api_sports_base = api_sports_base
         self.baseline_store = baseline_store
@@ -135,7 +134,7 @@ class Faz13Engine:
         profile = get_league_profile(req.league)
 
         # -------------------------------------------------
-        # LEAGUE AVERAGE FALLBACK (SURVIVAL MODE)
+        # SURVIVAL MODE – LEAGUE AVERAGE
         # -------------------------------------------------
         if req.league.upper() == "NBA":
             league_avg = {
@@ -194,7 +193,8 @@ class Faz13Engine:
             int(away_mu + profile.band_hw_team),
         )
 
-        tempo_flag = self._tempo_flag((home_avg.pace + away_avg.pace) / 2)
+        pace_mean = (home_avg.pace + away_avg.pace) / 2
+        tempo_flag = self._tempo_flag(pace_mean)
 
         quarters = {
             "1Q": (int(total_mu * 0.24) - 3, int(total_mu * 0.24) + 3),
@@ -221,7 +221,7 @@ class Faz13Engine:
                 "engine": "FAZ-13 FINAL",
                 "baseline_src": "LEAGUE_AVG",
                 "expected_total": round(total_mu, 2),
-                "pace_mean": (home_avg.pace + away_avg.pace) / 2,
+                "pace_mean": pace_mean,
                 "degraded_mode": True,
                 "generated_at": int(time.time()),
             },
