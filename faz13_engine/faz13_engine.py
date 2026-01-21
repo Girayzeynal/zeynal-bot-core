@@ -6,6 +6,7 @@ import json
 import os
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.aggregate_engine import aggregate_baseline
@@ -80,10 +81,8 @@ class Faz13CoreOutput:
         out.append(f"Alt/Üst: {self.ou_direction}")
         out.append(f"Tempo: {self.tempo_flag}")
         out.append("")
-
         for n in self.notes:
             out.append(f"• {esc(n)}")
-
         out.append("")
         out.append("Bu çıktı analiz/simülasyon amaçlıdır. Bahis tavsiyesi değildir.")
         return "\n".join(out)
@@ -94,15 +93,13 @@ class Faz13CoreOutput:
 # =========================
 
 class Faz13Engine:
-    def __init__(
-        self,
-        api_sports_key: str,
-        api_sports_base: str,
-        **kwargs,
-    ) -> None:
+    def __init__(self, api_sports_key: str, api_sports_base: str, **kwargs) -> None:
         self.api_key = api_sports_key
         self.api_base = api_sports_base
         self.espn = ESPNAdapter() if ESPNAdapter else None
+
+        # ✅ PROJE KÖKÜ (KESİN)
+        self.project_root = Path(__file__).resolve().parents[1]
 
     # ---------------------
 
@@ -115,27 +112,53 @@ class Faz13Engine:
         return "NORMAL"
 
     # ---------------------
-    # MANUAL BASELINE LOADER (KESİN ÇÖZÜM)
+    # TEAM NAME NORMALIZER
+    # ---------------------
+
+    @staticmethod
+    def _normalize_team(team: str) -> List[str]:
+        """
+        Birden fazla aday üretir.
+        """
+        team = team.strip()
+        variants = {team}
+
+        if " vs " in team:
+            variants.add(team.split(" vs ")[0].strip())
+
+        if team.lower() == "jazz":
+            variants.add("Utah Jazz")
+
+        if team.lower() == "timberwolves":
+            variants.add("Minnesota Timberwolves")
+
+        return list(variants)
+
+    # ---------------------
+    # MANUAL BASELINE LOADER (KESİN)
     # ---------------------
 
     def _load_manual_baseline(self, league: str, team: str) -> Optional[Dict[str, Any]]:
-        path = f"data/baselines/series/{league}/{team}.json"
-        if not os.path.exists(path):
-            return None
+        base = self.project_root / "data" / "baselines" / "series" / league
 
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                j = json.load(f)
-        except Exception:
-            return None
+        for name in self._normalize_team(team):
+            path = base / f"{name}.json"
+            if path.exists():
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        j = json.load(f)
+                except Exception:
+                    continue
 
-        return {
-            "pts_for": float(j["pts_for"]),
-            "pts_against": float(j["pts_against"]),
-            "pace": float(j.get("pace", 99.5)),
-            "confidence": 0.90,
-            "sources": ["MANUAL_BASELINE"],
-        }
+                return {
+                    "pts_for": float(j["pts_for"]),
+                    "pts_against": float(j["pts_against"]),
+                    "pace": float(j.get("pace", 99.5)),
+                    "confidence": 0.95,
+                    "sources": ["MANUAL_BASELINE"],
+                }
+
+        return None
 
     # ---------------------
 
@@ -189,11 +212,10 @@ class Faz13Engine:
         home_base = aggregate_baseline(home_rows)
         away_base = aggregate_baseline(away_rows)
 
-        # 4️⃣ FAILSAFE (SON ÇARE – AMA ARTIK DÜŞMEZ)
+        # 4️⃣ SON ÇARE (ARTIK NADİR)
         if not home_base or not away_base:
-            pf = pa = 113.5 if req.league.upper() == "NBA" else 80.0
-            pace = 99.5 if req.league.upper() == "NBA" else 95.0
-
+            pf = pa = 113.5
+            pace = 99.5
             home_base = home_base or {
                 "pts_for": pf,
                 "pts_against": pa,
@@ -255,7 +277,7 @@ class Faz13Engine:
                 "confidence": min(home_base["confidence"], away_base["confidence"]),
                 "expected_total": round(total_mu, 2),
                 "pace_mean": round(pace_mean, 2),
-                "engine": "FAZ-13 FINAL (MANUAL BASELINE)",
+                "engine": "FAZ-13 FINAL (ABSOLUTE PATH + NORMALIZER)",
                 "generated_at": int(time.time()),
             },
         )
