@@ -29,6 +29,20 @@ class ESPNCompletedEventTests(unittest.TestCase):
         self.assertEqual(row["actual_away"], 109)
         self.assertEqual(row["start_ts_utc"], 1792969200)
 
+    def test_real_espn_post_completed_is_accepted(self):
+        e = event()
+        e["competitions"][0]["status"]["type"]["state"] = "post"
+        row = parse_completed_nba_event(e, NOW)
+        self.assertIsNotNone(row)
+        self.assertEqual(row["actual_home"], 115)
+
+    def test_post_without_completed_true_is_rejected(self):
+        e = event()
+        e["competitions"][0]["status"]["type"] = {
+            "state": "post", "completed": False
+        }
+        self.assertIsNone(parse_completed_nba_event(e, NOW))
+
     def test_reject_incomplete_game(self):
         e = event()
         e["competitions"][0]["status"]["type"]["completed"] = False
