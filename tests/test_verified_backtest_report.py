@@ -258,6 +258,23 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "mixed-provider"):
             report(self.path)
 
+    def test_invalid_foreign_provider_does_not_block_valid_espn_sample(self):
+        ledger = PredictionLedger(self.path)
+        for fixture, provider, prediction_ts in (
+            ("espn", "ESPN", 100),
+            ("foreign-late", "OTHER", 210),
+        ):
+            ledger.record_prediction(PredictionRecord(fixture, "NBA", prediction_ts, 110, 100, 0.7))
+            ledger.record_fixture_start("NBA", fixture, 200)
+            ledger.record_fixture_provenance("NBA", fixture, provider, fixture, 200)
+            ledger.record_outcome(OutcomeRecord(fixture, "NBA", 300, 108, 104))
+        result = report(self.path)
+        self.assertEqual(result["status"], "evaluated")
+        self.assertEqual(result["metrics"]["n_games"], 1)
+        self.assertAlmostEqual(result["metrics"]["total_mae"], 2.0)
+        self.assertEqual(result["audit"]["excluded_matched_pairs"], 1)
+        self.assertEqual(result["audit"]["primary_exclusion_reasons"]["prediction_not_before_tipoff"], 1)
+
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
         ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
