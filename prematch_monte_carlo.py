@@ -25,9 +25,11 @@ class PrematchSimulationInput:
 class PrematchSimulationResult:
     simulations: int
     seed: int
-    home_win_probability: float
-    away_win_probability: float
-    tie_probability: float
+    model_scope: str
+    home_regulation_win_probability: float
+    away_regulation_win_probability: float
+    regulation_tie_probability: float
+    observed_score_correlation: float
     expected_home_score: float
     expected_away_score: float
     expected_total: float
@@ -76,8 +78,8 @@ class PrematchMonteCarloEngine:
         if not math.isfinite(corr) or not -0.95 <= corr <= 0.95:
             raise ValueError('score_correlation must be finite and within [-0.95, 0.95]')
         periods = int(request.periods)
-        if periods not in (2, 4, 5):
-            raise ValueError('periods must be 2, 4, or 5')
+        if periods not in (2, 4):
+            raise ValueError('periods must be 2 or 4; overtime is not modeled')
         n = int(request.simulations)
         if not 1000 <= n <= 1000000:
             raise ValueError('simulations must be between 1000 and 1000000')
@@ -133,8 +135,11 @@ class PrematchMonteCarloEngine:
             return round(totals_sorted[lo] * (1 - frac) + totals_sorted[hi] * frac, 2)
 
         return PrematchSimulationResult(
-            simulations=n, seed=int(request.seed),
-            home_win_probability=home_wins / n, away_win_probability=away_wins / n, tie_probability=ties / n,
+            simulations=n, seed=int(request.seed), model_scope='REGULATION_ONLY',
+            home_regulation_win_probability=home_wins / n,
+            away_regulation_win_probability=away_wins / n,
+            regulation_tie_probability=ties / n,
+            observed_score_correlation=statistics.correlation(home_scores, away_scores),
             expected_home_score=statistics.fmean(home_scores), expected_away_score=statistics.fmean(away_scores),
             expected_total=statistics.fmean(totals), total_std=statistics.pstdev(totals),
             total_quantiles={'p05': quantile(0.05), 'p25': quantile(0.25), 'p50': quantile(0.50), 'p75': quantile(0.75), 'p95': quantile(0.95)},
