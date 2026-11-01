@@ -102,6 +102,17 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Historical requests require point-in-time snapshots. Current baselines
+    # would leak post-game information into a retrospective prediction.
+    requested_day = datetime.strptime(date_str, "%Y-%m-%d").date()
+    utc_today = datetime.now(timezone.utc).date()
+    if requested_day < utc_today:
+        await update.message.reply_text(
+            "Geçmiş maç için güncel takım verisi kullanılamaz. "
+            "Tarihsel veri kesiti doğrulanmadan backtest tahmini üretilmedi."
+        )
+        return
+
     faz13: Faz13Engine = context.application.bot_data["faz13"]
     bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
 
