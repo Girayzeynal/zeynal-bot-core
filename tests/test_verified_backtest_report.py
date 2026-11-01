@@ -234,6 +234,20 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         self.assertEqual(result["audit"]["excluded_matched_pairs"], 1)
         self.assertEqual(result["audit"]["primary_exclusion_reasons"]["provider_fixture_start_conflict"], 1)
 
+    def test_whitespace_provider_name_classified_as_missing_identity(self):
+        ledger = PredictionLedger(self.path)
+        ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
+        ledger.record_fixture_start("NBA", "fixture-1", 200)
+        ledger.record_fixture_provenance("NBA", "fixture-1", "ESPN", "espn-1", 200)
+        ledger.record_outcome(OutcomeRecord("fixture-1", "NBA", 300, 108, 104))
+        with ledger._connect() as db:
+            db.execute("UPDATE fixture_provenance SET provider='   '")
+        with self.assertRaisesRegex(ValueError, "mixed-provider"):
+            report(self.path)
+        audit = ledger.audit_provenance("NBA")
+        self.assertEqual(audit["provider_consistent_prematch_pairs"], 0)
+        self.assertEqual(audit["missing_provider_identity"], 1)
+
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
         ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
