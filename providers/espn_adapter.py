@@ -125,6 +125,9 @@ class ESPNAdapter:
 
     # Bootstrapper uyumu için
     async def resolve_team_abbr(self, league: str, team_input: str) -> Optional[str]:
+        # ESPN adapter is NBA-only; never resolve a non-NBA team to an NBA franchise.
+        if (league or "").upper().strip() != "NBA":
+            return None
         ref = await self.resolve_team(team_input)
         return ref["abbr"] if ref else None
 
@@ -140,6 +143,9 @@ class ESPNAdapter:
             ts_utc, pts_for, pts_against, pace, home
         }
         """
+
+        if (league or "").upper().strip() != "NBA":
+            return None
 
         ref = await self.resolve_team(team)
         if not ref:
