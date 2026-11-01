@@ -103,6 +103,17 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             report(self.path)
 
+    def test_blank_provider_name_refused(self):
+        ledger = PredictionLedger(self.path)
+        ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
+        ledger.record_fixture_start("NBA", "fixture-1", 200)
+        ledger.record_fixture_provenance("NBA", "fixture-1", "ESPN", "espn-1", 200)
+        ledger.record_outcome(OutcomeRecord("fixture-1", "NBA", 300, 108, 104))
+        with ledger._connect() as db:
+            db.execute("UPDATE fixture_provenance SET provider='   '")
+        with self.assertRaises(ValueError):
+            report(self.path)
+
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
         ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
