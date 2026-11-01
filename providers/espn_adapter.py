@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import calendar
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import aiohttp
@@ -112,7 +113,6 @@ class ESPNAdapter:
                 key == abbr.lower()
                 or key == name
                 or key == short
-                or key in name
             ):
                 if tid:
                     return {
@@ -172,6 +172,12 @@ class ESPNAdapter:
                 continue
             comp = comps[0]
             if comp.get("status", {}).get("type", {}).get("state") != "completed":
+                continue
+            try:
+                event_time = datetime.fromisoformat(str(ev["date"]).replace("Z", "+00:00"))
+                if event_time.tzinfo is None or event_time >= datetime.now(timezone.utc):
+                    continue
+            except (KeyError, TypeError, ValueError):
                 continue
             completed.append(ev)
 
