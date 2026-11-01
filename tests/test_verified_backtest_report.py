@@ -275,6 +275,22 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         self.assertEqual(result["audit"]["excluded_matched_pairs"], 1)
         self.assertEqual(result["audit"]["primary_exclusion_reasons"]["prediction_not_before_tipoff"], 1)
 
+    def test_other_league_foreign_provider_does_not_contaminate_nba(self):
+        ledger = PredictionLedger(self.path)
+        for league, fixture, provider in (
+            ("NBA", "nba-game", "ESPN"),
+            ("EuroLeague", "euro-game", "OTHER"),
+        ):
+            ledger.record_prediction(PredictionRecord(fixture, league, 100, 110, 100, 0.7))
+            ledger.record_fixture_start(league, fixture, 200)
+            ledger.record_fixture_provenance(league, fixture, provider, fixture, 200)
+            ledger.record_outcome(OutcomeRecord(fixture, league, 300, 108, 104))
+        result = report(self.path, league="NBA")
+        self.assertEqual(result["status"], "evaluated")
+        self.assertEqual(result["metrics"]["n_games"], 1)
+        self.assertEqual(result["audit"]["matched"], 1)
+        self.assertEqual(result["audit"]["excluded_matched_pairs"], 0)
+
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
         ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
