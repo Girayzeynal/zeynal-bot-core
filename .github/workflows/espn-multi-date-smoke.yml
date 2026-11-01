@@ -8,6 +8,7 @@ on:
       - .github/workflows/espn-multi-date-smoke.yml
       - providers/espn_multi_date_smoke.py
       - providers/espn_live_smoke.py
+      - tests/test_espn_multi_date_smoke.py
   workflow_dispatch:
 
 permissions:
