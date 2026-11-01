@@ -382,6 +382,20 @@ class ESPNIngestTests(unittest.TestCase):
         ))
         self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
 
+    def test_result_rejected_if_provider_identity_corrupted(self):
+        for invalid_provider in ("OTHER", "", "   "):
+            with self.subTest(provider=invalid_provider):
+                with self.ledger._connect() as db:
+                    db.execute(
+                        "UPDATE fixture_provenance SET provider=? "
+                        "WHERE league='NBA' AND fixture_id='game-1'",
+                        (invalid_provider,),
+                    )
+                self.assertFalse(ingest_completed_espn_nba_event(
+                    self.ledger, "game-1", self.event(), observed_at_utc=200,
+                ))
+                self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
     def test_unmatched_fixture_rejected(self):
         self.assertFalse(ingest_completed_espn_nba_event(
             self.ledger, "wrong", self.event(), observed_at_utc=200
