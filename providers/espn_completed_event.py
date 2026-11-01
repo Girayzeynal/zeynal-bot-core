@@ -46,7 +46,8 @@ def parse_completed_nba_event(event: Dict[str, Any], now_utc: Optional[datetime]
             if not math.isfinite(value) or value < 0 or not value.is_integer():
                 return None
             by_side[side] = (team_id, int(value))
-        if set(by_side) != {"home", "away"} or by_side["home"][0] == by_side["away"][0]:
+        if (set(by_side) != {"home", "away"} or by_side["home"][0] == by_side["away"][0]
+                or by_side["home"][1] == by_side["away"][1]):
             return None
         return {
             "provider": "ESPN",
