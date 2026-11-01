@@ -55,6 +55,28 @@ class PrematchMonteCarloTests(unittest.TestCase):
         self.assertAlmostEqual(result.expected_home_score, 112.0, delta=0.25)
         self.assertAlmostEqual(result.expected_away_score, 108.0, delta=0.25)
 
+    def test_shared_pace_preserves_marginal_standard_deviations_and_correlation(self):
+        result = self.engine.simulate(self.request(
+            shared_pace_std=3.0, score_correlation=0.25, simulations=40000
+        ))
+        self.assertAlmostEqual(result.observed_home_std, 10.0, delta=0.25)
+        self.assertAlmostEqual(result.observed_away_std, 9.0, delta=0.25)
+        self.assertAlmostEqual(result.observed_score_correlation, 0.25, delta=0.025)
+
+    def test_impossible_shared_pace_covariance_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self.engine.simulate(self.request(
+                shared_pace_std=8.0, score_correlation=-0.9
+            ))
+
+    def test_zero_shared_pace_preserves_target_standard_deviations(self):
+        result = self.engine.simulate(self.request(
+            shared_pace_std=0.0, score_correlation=-0.35, simulations=30000
+        ))
+        self.assertAlmostEqual(result.observed_home_std, 10.0, delta=0.25)
+        self.assertAlmostEqual(result.observed_away_std, 9.0, delta=0.25)
+        self.assertAlmostEqual(result.observed_score_correlation, -0.35, delta=0.025)
+
     def test_non_integer_seed_is_rejected(self):
         with self.assertRaises(ValueError):
             self.engine.simulate(self.request(seed=7.5))
