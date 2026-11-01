@@ -144,6 +144,27 @@ class PredictionLedgerTests(unittest.TestCase):
             "NBA", "fixture-2", "ESPN", "espn-123", 150
         ))
 
+    def test_verified_evaluation_rejects_provenance_conflict(self):
+        self.ledger.record_prediction(self.prediction())
+        self.ledger.record_outcome(self.outcome())
+        self.ledger.record_fixture_start("NBA", "fixture-1", 150)
+        self.ledger.record_fixture_provenance("NBA", "fixture-1", "ESPN", "123", 160)
+        with self.assertRaises(ValueError):
+            self.ledger.evaluate_provenance_verified("NBA")
+
+    def test_verified_evaluation_uses_only_consistent_fixture(self):
+        self.ledger.record_prediction(self.prediction())
+        self.ledger.record_outcome(self.outcome())
+        self.ledger.record_fixture_start("NBA", "fixture-1", 150)
+        self.ledger.record_fixture_provenance("NBA", "fixture-1", "ESPN", "123", 150)
+        self.ledger.record_prediction(self.prediction(fixture_id="other"))
+        self.ledger.record_outcome(self.outcome(fixture_id="other"))
+        self.ledger.record_fixture_start("NBA", "other", 150)
+        self.ledger.record_fixture_provenance("NBA", "other", "ESPN", "124", 160)
+        metrics = self.ledger.evaluate_provenance_verified("NBA")
+        self.assertEqual(metrics.n_games, 1)
+        self.assertAlmostEqual(metrics.score_mae, 2.0)
+
     def test_invalid_probability_rejected(self):
         with self.assertRaises(ValueError):
             self.ledger.record_prediction(self.prediction(home_win_probability=float("nan")))
