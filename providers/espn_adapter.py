@@ -178,6 +178,7 @@ class ESPNAdapter:
         if not completed:
             return None
 
+        completed.sort(key=lambda ev: str(ev.get('date') or ''))
         completed = completed[-int(n_games):]
 
         out: List[Dict[str, Any]] = []
@@ -222,8 +223,8 @@ class ESPNAdapter:
                 continue
             # --------------------------------------------
 
-            total = pf + pa
-            pace = max(94.0, min(106.0, 99.5 + (total - 220.0) * 0.06))
+            # Neutral placeholder; scores do not measure possessions.
+            pace = 100.0
 
             out.append({
                 "ts_utc": ts_utc,
