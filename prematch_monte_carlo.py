@@ -64,7 +64,7 @@ def _allocate_periods(total: int, periods: int, rng: random.Random) -> Tuple[int
 
 
 class PrematchMonteCarloEngine:
-    '''Deterministic correlated-score Monte Carlo engine; no external data fetching.''
+    """Deterministic correlated-score Monte Carlo engine; no external data fetching."""
 
     def simulate(self, request: PrematchSimulationInput) -> PrematchSimulationResult:
         hm = _finite_positive('home_mean', request.home_mean)
