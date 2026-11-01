@@ -291,6 +291,23 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         self.assertEqual(result["audit"]["matched"], 1)
         self.assertEqual(result["audit"]["excluded_matched_pairs"], 0)
 
+    def test_uncertainty_uses_same_valid_sample_as_mae(self):
+        ledger = PredictionLedger(self.path)
+        for fixture, predicted_total, actual_home, actual_away, start in (
+            ("valid-a", 210, 108, 104, 200),
+            ("valid-b", 230, 105, 105, 200),
+            ("invalid", 999, 105, 105, 201),
+        ):
+            ledger.record_prediction(PredictionRecord(fixture, "NBA", 100, predicted_total / 2, predicted_total / 2, 0.7))
+            ledger.record_fixture_start("NBA", fixture, 200)
+            ledger.record_fixture_provenance("NBA", fixture, "ESPN", fixture, start)
+            ledger.record_outcome(OutcomeRecord(fixture, "NBA", 300, actual_home, actual_away))
+        result = report(self.path)
+        self.assertEqual(result["metrics"]["n_games"], 2)
+        self.assertAlmostEqual(result["metrics"]["total_mae"], 11.0)
+        self.assertEqual(result["audit"]["excluded_matched_pairs"], 1)
+        self.assertIsNotNone(result["uncertainty"]["total_mae"])
+
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
         ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
