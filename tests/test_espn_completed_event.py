@@ -58,6 +58,14 @@ class ESPNCompletedEventTests(unittest.TestCase):
         e["date"] = "2026-11-02T23:00:00Z"
         self.assertIsNone(parse_completed_nba_event(e, NOW))
 
+    def test_reject_tied_completed_score(self):
+        for state in ("completed", "post"):
+            with self.subTest(state=state):
+                e = event()
+                e["competitions"][0]["status"]["type"]["state"] = state
+                e["competitions"][0]["competitors"][1]["score"] = "115"
+                self.assertIsNone(parse_completed_nba_event(e, NOW))
+
     def test_reject_fractional_score(self):
         e = event()
         e["competitions"][0]["competitors"][0]["score"] = "115.5"
