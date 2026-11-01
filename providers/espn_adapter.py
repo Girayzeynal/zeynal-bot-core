@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional
 
 import aiohttp
 
+from providers.espn_completed_event import parse_completed_nba_event
+
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba"
 
@@ -130,6 +132,37 @@ class ESPNAdapter:
             return None
         ref = await self.resolve_team(team_input)
         return ref["abbr"] if ref else None
+
+    async def fetch_completed_nba_events(
+        self, team_input: str, limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """Fetch and strictly parse completed NBA events for a resolved team.
+
+        No results are persisted here. The caller must match provider IDs
+        and independently validate prediction provenance before evaluation.
+        """
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError("limit must be an integer from 1 to 100")
+        ref = await self.resolve_team(team_input)
+        if not ref:
+            return []
+        payload = await self._get_json(f"{ESPN_BASE}/teams/{ref['id']}/schedule")
+        if not isinstance(payload, dict):
+            return []
+        events = payload.get("events")
+        if not isinstance(events, list):
+            return []
+        by_id: Dict[str, Dict[str, Any]] = {}
+        for event in events:
+            parsed = parse_completed_nba_event(event)
+            if parsed is None:
+                continue
+            if ref["id"] not in (parsed["home_team_id"], parsed["away_team_id"]):
+                continue
+            by_id[parsed["provider_fixture_id"]] = parsed
+        return sorted(
+            by_id.values(), key=lambda row: row["start_ts_utc"]
+        )[-limit:]
 
     # -------------------------------------------------
     # FETCH RECENT GAMES (PROD SAFE)
