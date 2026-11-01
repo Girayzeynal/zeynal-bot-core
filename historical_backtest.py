@@ -37,6 +37,9 @@ class BacktestMetrics:
     home_win_brier: Optional[float]
     home_win_log_loss: Optional[float]
     n_probability_games: int
+    total_bias: float = 0.0
+    home_score_bias: float = 0.0
+    away_score_bias: float = 0.0
 
 
 def _finite(value: float, name: str) -> float:
@@ -51,7 +54,7 @@ def evaluate_predictions(records: Iterable[HistoricalPrediction]) -> BacktestMet
     if not rows:
         raise ValueError("at least one completed game is required")
     keys = set()
-    score_errors, total_errors, brier, log_loss = [], [], [], []
+    score_errors, total_errors, home_errors, away_errors, brier, log_loss = [], [], [], [], [], []
     for row in rows:
         key = (row.league, row.fixture_id)
         if not row.league.strip() or not row.fixture_id.strip() or key in keys:
@@ -75,6 +78,8 @@ def evaluate_predictions(records: Iterable[HistoricalPrediction]) -> BacktestMet
         if row.actual_home < 0 or row.actual_away < 0:
             raise ValueError("actual scores must be nonnegative")
         score_errors.extend([h - row.actual_home, a - row.actual_away])
+        home_errors.append(h - row.actual_home)
+        away_errors.append(a - row.actual_away)
         total_errors.append(h + a - row.actual_home - row.actual_away)
         if row.home_win_probability is not None:
             p = _finite(row.home_win_probability, "home_win_probability")
@@ -95,4 +100,7 @@ def evaluate_predictions(records: Iterable[HistoricalPrediction]) -> BacktestMet
         home_win_brier=fmean(brier) if brier else None,
         home_win_log_loss=fmean(log_loss) if log_loss else None,
         n_probability_games=len(brier),
+        total_bias=fmean(total_errors),
+        home_score_bias=fmean(home_errors),
+        away_score_bias=fmean(away_errors),
     )
