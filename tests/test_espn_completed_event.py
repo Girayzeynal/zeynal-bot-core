@@ -66,6 +66,20 @@ class ESPNCompletedEventTests(unittest.TestCase):
                 e["competitions"][0]["competitors"][1]["score"] = "115"
                 self.assertIsNone(parse_completed_nba_event(e, NOW))
 
+    def test_reject_malformed_completion_status(self):
+        for bad in (None, "completed", [], True):
+            with self.subTest(status=bad):
+                e = event()
+                e["competitions"][0]["status"]["type"] = bad
+                self.assertIsNone(parse_completed_nba_event(e, NOW))
+
+    def test_reject_malformed_score_types(self):
+        for bad in (None, [], {}, True, "", "  "):
+            with self.subTest(score=bad):
+                e = event()
+                e["competitions"][0]["competitors"][0]["score"] = bad
+                self.assertIsNone(parse_completed_nba_event(e, NOW))
+
     def test_reject_fractional_score(self):
         e = event()
         e["competitions"][0]["competitors"][0]["score"] = "115.5"
