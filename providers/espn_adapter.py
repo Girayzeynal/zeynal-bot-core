@@ -157,6 +157,8 @@ class ESPNAdapter:
         from providers.espn_quality_audit import audit_espn_events
         now = observed_at_utc if observed_at_utc is not None else int(datetime.now(timezone.utc).timestamp())
         report = audit_espn_events(payload["events"], observed_at_utc=now)
+        from providers.espn_status_shapes import summarize_espn_status_shapes
+        report["status_shapes"] = summarize_espn_status_shapes(payload["events"])
         observed = datetime.fromtimestamp(now, tz=timezone.utc)
         rows: Dict[str, Dict[str, Any]] = {}
         conflicts: set[str] = set()
