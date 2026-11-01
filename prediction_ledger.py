@@ -129,6 +129,47 @@ class PredictionLedger:
             ),
         }
 
+    def audit_prematch(self, league: Optional[str] = None) -> dict:
+        """Fail closed unless independently supplied fixture tipoff is recorded."""
+        base = self.audit(league)
+        where = " WHERE p.league = ?" if league is not None else ""
+        args = (league,) if league is not None else ()
+        with self._connect() as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS fixture_starts (
+                league TEXT NOT NULL, fixture_id TEXT NOT NULL,
+                start_ts_utc INTEGER NOT NULL,
+                PRIMARY KEY (league, fixture_id)
+            )""")
+            rows = db.execute("""SELECT p.prediction_ts_utc, o.result_ts_utc,
+                    p.scope, o.scope, f.start_ts_utc
+                FROM predictions p JOIN outcomes o
+                  ON p.league=o.league AND p.fixture_id=o.fixture_id
+                LEFT JOIN fixture_starts f
+                  ON p.league=f.league AND p.fixture_id=f.fixture_id""" + where, args).fetchall()
+        base["missing_fixture_start"] = sum(r[4] is None for r in rows)
+        base["valid_prematch_pairs"] = sum(
+            start is not None and prediction < start < result and p_scope == o_scope
+            for prediction, result, p_scope, o_scope, start in rows
+        )
+        return base
+
+    def record_fixture_start(self, league: str, fixture_id: str, start_ts_utc: int) -> bool:
+        """Insert-only fixture start; callers must verify schedule provenance."""
+        self._identity(league, fixture_id)
+        if type(start_ts_utc) is not int or start_ts_utc <= 0:
+            raise ValueError("fixture start must be positive UTC epoch seconds")
+        with self._connect() as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS fixture_starts (
+                league TEXT NOT NULL, fixture_id TEXT NOT NULL,
+                start_ts_utc INTEGER NOT NULL,
+                PRIMARY KEY (league, fixture_id)
+            )""")
+            cursor = db.execute(
+                "INSERT OR IGNORE INTO fixture_starts VALUES (?, ?, ?)",
+                (league, fixture_id, start_ts_utc),
+            )
+            return cursor.rowcount == 1
+
     def evaluate(self, league: Optional[str] = None) -> BacktestMetrics:
         sql = """SELECT p.fixture_id, p.league, p.prediction_ts_utc,
                     o.result_ts_utc, p.expected_home, p.expected_away,
