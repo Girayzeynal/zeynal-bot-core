@@ -139,6 +139,13 @@ class ESPNIngestTests(unittest.TestCase):
             ).fetchone()
         self.assertEqual(row, (200, 115, 108))
 
+    def test_boolean_scores_rejected_without_insertion(self):
+        for changes in ({"actual_home": True}, {"actual_away": False}):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", self.event(**changes), observed_at_utc=200,
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
     def test_unmatched_fixture_rejected(self):
         self.assertFalse(ingest_completed_espn_nba_event(
             self.ledger, "wrong", self.event(), observed_at_utc=200
