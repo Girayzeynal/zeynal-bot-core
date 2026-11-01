@@ -60,6 +60,29 @@ class PredictionLedgerTests(unittest.TestCase):
         self.assertEqual(self.ledger.evaluate("NBA").n_games, 1)
         self.assertEqual(self.ledger.evaluate("EuroLeague").n_games, 1)
 
+    def test_audit_counts_unmatched_and_invalid_pairs(self):
+        self.ledger.record_prediction(self.prediction())
+        self.ledger.record_outcome(self.outcome())
+        self.ledger.record_prediction(
+            self.prediction(fixture_id="unmatched-prediction")
+        )
+        self.ledger.record_outcome(
+            self.outcome(fixture_id="unmatched-outcome")
+        )
+        self.ledger.record_prediction(
+            self.prediction(fixture_id="late", prediction_ts_utc=300)
+        )
+        self.ledger.record_outcome(self.outcome(fixture_id="late"))
+        audit = self.ledger.audit("NBA")
+        self.assertEqual(audit["predictions"], 3)
+        self.assertEqual(audit["outcomes"], 3)
+        self.assertEqual(audit["matched"], 2)
+        self.assertEqual(audit["eligible_pairs"], 1)
+        self.assertEqual(audit["unmatched_predictions"], 1)
+        self.assertEqual(audit["unmatched_outcomes"], 1)
+        self.assertEqual(audit["invalid_time_pairs"], 1)
+        self.assertEqual(audit["scope_mismatch_pairs"], 0)
+
     def test_invalid_probability_rejected(self):
         with self.assertRaises(ValueError):
             self.ledger.record_prediction(self.prediction(home_win_probability=float("nan")))
