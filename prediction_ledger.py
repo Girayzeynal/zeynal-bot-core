@@ -210,21 +210,27 @@ class PredictionLedger:
                 UNIQUE (league, provider, provider_fixture_id)
             )""")
             rows = db.execute("""SELECT p.prediction_ts_utc, o.result_ts_utc,
-                    p.scope, o.scope, f.start_ts_utc, v.start_ts_utc
+                    p.scope, o.scope, f.start_ts_utc, v.start_ts_utc,
+                    v.provider, v.provider_fixture_id
                 FROM predictions p JOIN outcomes o
                   ON p.league=o.league AND p.fixture_id=o.fixture_id
                 LEFT JOIN fixture_starts f
                   ON p.league=f.league AND p.fixture_id=f.fixture_id
                 LEFT JOIN fixture_provenance v
                   ON p.league=v.league AND p.fixture_id=v.fixture_id""" + where, args).fetchall()
-        base["missing_provider_identity"] = sum(r[5] is None for r in rows)
+        base["missing_provider_identity"] = sum(
+            r[5] is None or not r[6] or not r[6].strip()
+            or not r[7] or not r[7].strip() for r in rows
+        )
         base["provider_start_conflicts"] = sum(
             r[4] is not None and r[5] is not None and r[4] != r[5] for r in rows
         )
         base["provider_consistent_prematch_pairs"] = sum(
             f is not None and v is not None and f == v
+            and provider is not None and bool(provider.strip())
+            and provider_id is not None and bool(provider_id.strip())
             and prediction < f < result and p_scope == o_scope
-            for prediction, result, p_scope, o_scope, f, v in rows
+            for prediction, result, p_scope, o_scope, f, v, provider, provider_id in rows
         )
         return base
 
