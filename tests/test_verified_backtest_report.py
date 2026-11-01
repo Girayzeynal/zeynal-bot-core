@@ -82,6 +82,16 @@ class VerifiedBacktestReportTests(unittest.TestCase):
                                result["metrics"]["total_mae"])
         self.assertEqual(result["uncertainty"]["block_length_sensitivity"]["eligible_block_lengths"], 0)
 
+    def test_non_espn_verified_fixture_refuses_mixed_report(self):
+        ledger = PredictionLedger(self.path)
+        for fixture, provider in (("fixture-espn", "ESPN"), ("fixture-other", "OTHER")):
+            ledger.record_prediction(PredictionRecord(fixture, "NBA", 100, 110, 100, 0.7))
+            ledger.record_fixture_start("NBA", fixture, 200)
+            ledger.record_fixture_provenance("NBA", fixture, provider, fixture, 200)
+            ledger.record_outcome(OutcomeRecord(fixture, "NBA", 300, 108, 104))
+        with self.assertRaisesRegex(ValueError, "mixed-provider"):
+            report(self.path)
+
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
         ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
