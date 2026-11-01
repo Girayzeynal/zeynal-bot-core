@@ -35,7 +35,23 @@ class ESPNQualityAuditTests(unittest.TestCase):
         self.assertEqual(result["conflicting_fixture_ids_detail"], ["b"])
         self.assertEqual(result["invalid_event_indices"], [5])
         self.assertEqual(result["invalid_or_incomplete"], 1)
+        self.assertEqual(result["unfinished_events"], 1)
+        self.assertEqual(result["malformed_or_unverifiable_events"], 0)
         self.assertAlmostEqual(result["coverage_rate"], 2 / 6)
+
+    def test_malformed_and_unfinished_are_distinct(self):
+        result = audit_espn_events([
+            event("a", completed=False),
+            {"id": "broken"},
+            event("b", score="not-a-score"),
+        ], observed_at_utc=1761500000)
+        self.assertEqual(result["invalid_or_incomplete"], 3)
+        self.assertEqual(result["unfinished_events"], 1)
+        self.assertEqual(result["malformed_or_unverifiable_events"], 2)
+        self.assertEqual(
+            result["unfinished_events"] + result["malformed_or_unverifiable_events"],
+            result["invalid_or_incomplete"],
+        )
 
     def test_empty_and_invalid_inputs(self):
         result = audit_espn_events([], observed_at_utc=1761500000)
