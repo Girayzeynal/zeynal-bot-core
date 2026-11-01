@@ -22,8 +22,8 @@ RUN pip install --upgrade pip && \
 # App code
 COPY . .
 
-# 🔴 KRİTİK SATIR (BU YOKSA OLMAZ)
-COPY data/baselines /app/data/baselines
+# Create runtime baseline directories without requiring tracked data files.
+RUN mkdir -p /app/data/baselines/series
 
 # Writable dirs
 RUN mkdir -p /app/logs
