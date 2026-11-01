@@ -134,7 +134,7 @@ class ESPNAdapter:
         return ref["abbr"] if ref else None
 
     async def fetch_nba_scoreboard_quality_report(
-        self, date_yyyymmdd: str,
+        self, date_yyyymmdd: str, observed_at_utc: int | None = None,
     ) -> Dict[str, Any]:
         """Return raw-data quality metrics and vetted events from one fetch.
 
@@ -155,11 +155,13 @@ class ESPNAdapter:
         if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
             raise RuntimeError("ESPN scoreboard unavailable or malformed")
         from providers.espn_quality_audit import audit_espn_events
-        report = audit_espn_events(payload["events"])
+        now = observed_at_utc if observed_at_utc is not None else int(datetime.now(timezone.utc).timestamp())
+        report = audit_espn_events(payload["events"], observed_at_utc=now)
+        observed = datetime.fromtimestamp(now, tz=timezone.utc)
         rows: Dict[str, Dict[str, Any]] = {}
         conflicts: set[str] = set()
         for raw in payload["events"]:
-            parsed = parse_completed_nba_event(raw)
+            parsed = parse_completed_nba_event(raw, observed)
             if parsed is None:
                 continue
             key = parsed["provider_fixture_id"]
@@ -172,6 +174,7 @@ class ESPNAdapter:
                 rows[key] = parsed
         return {
             "date_yyyymmdd": date_yyyymmdd,
+            "observed_at_utc": now,
             "quality": report,
             "completed_events": sorted(
                 rows.values(),
