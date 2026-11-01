@@ -166,6 +166,24 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         self.assertEqual(result["audit"]["provider_consistent_prematch_pairs"], 0)
         self.assertEqual(result["audit"]["primary_exclusion_reasons"]["prediction_result_scope_mismatch"], 1)
 
+    def test_overlapping_exclusions_count_one_primary_reason(self):
+        ledger = PredictionLedger(self.path)
+        ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 250, 110, 100, 0.7))
+        ledger.record_fixture_start("NBA", "fixture-1", 200)
+        ledger.record_fixture_provenance("NBA", "fixture-1", "ESPN", "espn-1", 201)
+        ledger.record_outcome(OutcomeRecord(
+            "fixture-1", "NBA", 300, 108, 104, scope="REGULATION_ONLY"
+        ))
+        result = report(self.path)
+        audit = result["audit"]
+        self.assertEqual(result["status"], "no_verified_pairs")
+        self.assertTrue(audit["exclusion_reason_counts_overlap"])
+        self.assertEqual(audit["excluded_matched_pairs"], 1)
+        self.assertEqual(audit["scope_mismatch_pairs"], 1)
+        self.assertEqual(audit["provider_start_conflicts"], 1)
+        self.assertEqual(audit["primary_exclusion_reasons"]["prediction_result_scope_mismatch"], 1)
+        self.assertEqual(sum(audit["primary_exclusion_reasons"].values()), 1)
+
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
         ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
