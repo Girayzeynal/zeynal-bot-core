@@ -26,6 +26,19 @@ async def check_scoreboard(date: str) -> dict:
             raise RuntimeError("ESPN quality conservation invariant failed")
         if quality["accepted_unique"] != len(report["completed_events"]):
             raise RuntimeError("ESPN accepted count does not match vetted events")
+        identity = quality.get("identity_audit")
+        if not isinstance(identity, dict):
+            raise RuntimeError("ESPN identity audit is missing")
+        for key in (
+            "eastern_date_mismatch_fixture_ids",
+            "duplicate_fixture_ids",
+            "teams_in_multiple_accepted_games",
+        ):
+            anomalies = identity.get(key)
+            if not isinstance(anomalies, list):
+                raise RuntimeError("ESPN identity audit is malformed")
+            if anomalies:
+                raise RuntimeError("ESPN identity anomaly detected")
         return {
             "status": "verified_response",
             "date_yyyymmdd": date,
