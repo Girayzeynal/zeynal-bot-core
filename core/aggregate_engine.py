@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import math
 from typing import Any, Dict, List, Optional
 
 
@@ -47,7 +48,9 @@ def aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         except Exception:
             continue
 
-        # hard validation (no silent defaults)
+        # Reject NaN/inf: ordered comparisons do not reject NaN.
+        if not all(math.isfinite(v) for v in (pf, pa, conf)):
+            continue
         if pf <= 0 or pa <= 0:
             continue
         if conf <= 0 or conf > 1:
@@ -64,7 +67,7 @@ def aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         pace = r.get("pace")
         try:
             pace = float(pace) if pace is not None else None
-            if pace is not None and not (40.0 <= pace <= 150.0):
+            if pace is not None and (not math.isfinite(pace) or not (40.0 <= pace <= 150.0)):
                 pace = None
         except Exception:
             pace = None
