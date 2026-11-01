@@ -44,6 +44,25 @@ class PrematchMonteCarloTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.engine.simulate(self.request(home_mean=float('nan')))
 
+    def test_score_correlation_matches_requested_parameter(self):
+        result = self.engine.simulate(self.request(score_correlation=0.40, simulations=30000))
+        self.assertIsNotNone(result.observed_score_correlation)
+        self.assertAlmostEqual(result.observed_score_correlation, 0.40, delta=0.025)
+
+    def test_score_standard_deviations_remain_calibrated(self):
+        result = self.engine.simulate(self.request(score_correlation=0.40, simulations=30000))
+        # Rounding introduces a small discretization effect.
+        self.assertAlmostEqual(result.expected_home_score, 112.0, delta=0.25)
+        self.assertAlmostEqual(result.expected_away_score, 108.0, delta=0.25)
+
+    def test_non_integer_seed_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self.engine.simulate(self.request(seed=7.5))
+
+    def test_non_integer_simulation_count_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self.engine.simulate(self.request(simulations=2000.5))
+
     def test_invalid_correlation_is_rejected(self):
         with self.assertRaises(ValueError):
             self.engine.simulate(self.request(score_correlation=1.0))
