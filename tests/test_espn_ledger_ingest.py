@@ -56,6 +56,20 @@ class ESPNIngestTests(unittest.TestCase):
             ).fetchone()
         self.assertEqual(row, (200, 115, 108))
 
+    def test_source_id_cannot_be_reassigned_to_second_fixture(self):
+        self.ledger.record_prediction(PredictionRecord(
+            fixture_id="game-2", league="NBA", prediction_ts_utc=100,
+            expected_home=100.0, expected_away=99.0, home_win_probability=0.5,
+        ))
+        self.ledger.record_fixture_start("NBA", "game-2", 150)
+        self.assertFalse(self.ledger.record_fixture_provenance(
+            "NBA", "game-2", "ESPN", "espn-1", 150
+        ))
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-2", self.event(), observed_at_utc=200
+        ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
     def test_unmatched_fixture_rejected(self):
         self.assertFalse(ingest_completed_espn_nba_event(
             self.ledger, "wrong", self.event(), observed_at_utc=200
