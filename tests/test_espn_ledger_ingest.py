@@ -422,6 +422,17 @@ class ESPNIngestTests(unittest.TestCase):
                 ))
                 self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
 
+    def test_first_second_after_tipoff_is_valid_observation_boundary(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=151,
+        ))
+        with self.ledger._connect() as db:
+            row = db.execute(
+                "SELECT result_ts_utc FROM outcomes "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(row, (151,))
+
     def test_unmatched_fixture_rejected(self):
         self.assertFalse(ingest_completed_espn_nba_event(
             self.ledger, "wrong", self.event(), observed_at_utc=200
