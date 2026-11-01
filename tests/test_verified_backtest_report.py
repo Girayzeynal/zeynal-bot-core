@@ -184,6 +184,27 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         self.assertEqual(audit["primary_exclusion_reasons"]["prediction_result_scope_mismatch"], 1)
         self.assertEqual(sum(audit["primary_exclusion_reasons"].values()), 1)
 
+    def test_multiple_fixtures_primary_exclusions_reconcile(self):
+        ledger = PredictionLedger(self.path)
+        for fixture, prediction_ts, result_scope in (
+            ("late", 210, "FINAL_WITH_OT"),
+            ("scope", 100, "REGULATION_ONLY"),
+            ("valid", 100, "FINAL_WITH_OT"),
+        ):
+            ledger.record_prediction(PredictionRecord(fixture, "NBA", prediction_ts, 110, 100, 0.7))
+            ledger.record_fixture_start("NBA", fixture, 200)
+            ledger.record_fixture_provenance("NBA", fixture, "ESPN", fixture, 200)
+            ledger.record_outcome(OutcomeRecord(fixture, "NBA", 300, 108, 104, scope=result_scope))
+        result = report(self.path)
+        audit = result["audit"]
+        self.assertEqual(result["status"], "evaluated")
+        self.assertEqual(result["metrics"]["n_games"], 1)
+        self.assertEqual(audit["matched"], 3)
+        self.assertEqual(audit["excluded_matched_pairs"], 2)
+        self.assertEqual(audit["primary_exclusion_reasons"]["prediction_not_before_tipoff"], 1)
+        self.assertEqual(audit["primary_exclusion_reasons"]["prediction_result_scope_mismatch"], 1)
+        self.assertEqual(sum(audit["primary_exclusion_reasons"].values()), 2)
+
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
         ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
