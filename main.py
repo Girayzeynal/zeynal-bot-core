@@ -18,6 +18,8 @@ from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 
 from aiohttp import web
+from dynamic_scheduler import scheduler_loop
+from faz17_engine import Faz17Engine
 
 # ============================
 # LOGGING
@@ -175,7 +177,21 @@ async def main_async():
     await app.bot.delete_webhook(drop_pending_updates=True)
     await app.updater.start_polling()
     logger.info("Bot polling started")
-    await asyncio.Event().wait()
+    engines = {
+        "faz13": app.bot_data["faz13"],
+        "faz17": Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE")),
+        "faz22": app.bot_data["faz22"],
+        "faz23": app.bot_data["faz23"],
+    }
+    scheduler_task = asyncio.create_task(scheduler_loop(engines), name="scheduler-loop")
+    try:
+        await scheduler_task
+    finally:
+        scheduler_task.cancel()
+        await asyncio.gather(scheduler_task, return_exceptions=True)
+        await app.updater.stop()
+        await app.stop()
+        await app.shutdown()
 
 def main():
     asyncio.run(main_async())
