@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Iterable
+from datetime import datetime
 
 
 async def collect_nba_daily_quality(adapter: Any, dates: Iterable[str]) -> dict:
@@ -10,11 +11,18 @@ async def collect_nba_daily_quality(adapter: Any, dates: Iterable[str]) -> dict:
     Failed dates are not treated as zero-game dates. The report is limited to
     the exact dates supplied; it is not a complete NBA season coverage metric.
     """
+    if isinstance(dates, (str, bytes)):
+        raise ValueError("dates must be an iterable of YYYYMMDD strings")
     rows = []
     seen: set[str] = set()
     for date in dates:
-        if not isinstance(date, str):
+        if (not isinstance(date, str) or len(date) != 8
+                or not date.isascii() or not date.isdigit()):
             raise ValueError("dates must be YYYYMMDD strings")
+        try:
+            datetime.strptime(date, "%Y%m%d")
+        except ValueError as exc:
+            raise ValueError("invalid calendar date") from exc
         if date in seen:
             continue
         seen.add(date)
