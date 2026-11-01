@@ -34,7 +34,7 @@ def ingest_completed_espn_nba_event(
             return False
         if type(start) is not int or start <= 0 or now <= start:
             return False
-        if type(home) is not int or type(away) is not int or min(home, away) < 0:
+        if type(home) is not int or type(away) is not int or min(home, away) < 0 or home == away:
             return False
         with ledger._connect() as db:
             db.execute("BEGIN IMMEDIATE")
