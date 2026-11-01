@@ -248,6 +248,16 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         self.assertEqual(audit["provider_consistent_prematch_pairs"], 0)
         self.assertEqual(audit["missing_provider_identity"], 1)
 
+    def test_mixed_espn_and_other_provider_refuses_entire_report(self):
+        ledger = PredictionLedger(self.path)
+        for fixture, provider in (("espn", "ESPN"), ("other", "OTHER")):
+            ledger.record_prediction(PredictionRecord(fixture, "NBA", 100, 110, 100, 0.7))
+            ledger.record_fixture_start("NBA", fixture, 200)
+            ledger.record_fixture_provenance("NBA", fixture, provider, fixture, 200)
+            ledger.record_outcome(OutcomeRecord(fixture, "NBA", 300, 108, 104))
+        with self.assertRaisesRegex(ValueError, "mixed-provider"):
+            report(self.path)
+
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
         ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
