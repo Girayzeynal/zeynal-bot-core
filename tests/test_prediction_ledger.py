@@ -122,6 +122,28 @@ class PredictionLedgerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.ledger.evaluate_prematch("NBA")
 
+    def test_provider_provenance_detects_tipoff_conflict(self):
+        self.ledger.record_prediction(self.prediction())
+        self.ledger.record_outcome(self.outcome())
+        self.ledger.record_fixture_start("NBA", "fixture-1", 150)
+        self.assertTrue(self.ledger.record_fixture_provenance(
+            "NBA", "fixture-1", "ESPN", "espn-123", 160
+        ))
+        self.assertFalse(self.ledger.record_fixture_provenance(
+            "NBA", "fixture-1", "ESPN", "espn-123", 150
+        ))
+        audit = self.ledger.audit_provenance("NBA")
+        self.assertEqual(audit["provider_start_conflicts"], 1)
+        self.assertEqual(audit["provider_consistent_prematch_pairs"], 0)
+
+    def test_provider_provenance_requires_unique_source_fixture(self):
+        self.assertTrue(self.ledger.record_fixture_provenance(
+            "NBA", "fixture-1", "ESPN", "espn-123", 150
+        ))
+        self.assertFalse(self.ledger.record_fixture_provenance(
+            "NBA", "fixture-2", "ESPN", "espn-123", 150
+        ))
+
     def test_invalid_probability_rejected(self):
         with self.assertRaises(ValueError):
             self.ledger.record_prediction(self.prediction(home_win_probability=float("nan")))
