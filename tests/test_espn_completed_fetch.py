@@ -31,6 +31,19 @@ class ESPNCompletedFetchTests(unittest.IsolatedAsyncioTestCase):
         result = await adapter.fetch_completed_nba_events("BOS")
         self.assertEqual([r["provider_fixture_id"] for r in result], ["a"])
 
+    async def test_conflicting_duplicate_is_excluded(self):
+        adapter = ESPNAdapter()
+        adapter.resolve_team = AsyncMock(return_value={"id": "1", "abbr": "BOS"})
+        changed = event("a", "2025-10-20T20:00:00Z")
+        changed["competitions"][0]["competitors"][0]["score"] = "111"
+        adapter._get_json = AsyncMock(return_value={"events": [
+            event("a", "2025-10-20T20:00:00Z"),
+            changed,
+            event("b", "2025-10-21T20:00:00Z"),
+        ]})
+        result = await adapter.fetch_completed_nba_events("BOS")
+        self.assertEqual([r["provider_fixture_id"] for r in result], ["b"])
+
     async def test_rejects_invalid_limit(self):
         with self.assertRaises(ValueError):
             await ESPNAdapter().fetch_completed_nba_events("BOS", 0)
