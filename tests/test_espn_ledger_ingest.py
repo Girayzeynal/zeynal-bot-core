@@ -117,6 +117,13 @@ class ESPNIngestTests(unittest.TestCase):
             ).fetchone()
         self.assertEqual(result, (200, 115, 108))
 
+    def test_tied_final_score_rejected_before_database_insert(self):
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(actual_home=108, actual_away=108),
+            observed_at_utc=200,
+        ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
     def test_unmatched_fixture_rejected(self):
         self.assertFalse(ingest_completed_espn_nba_event(
             self.ledger, "wrong", self.event(), observed_at_utc=200
