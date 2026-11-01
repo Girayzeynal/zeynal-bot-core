@@ -89,6 +89,20 @@ class ESPNIngestTests(unittest.TestCase):
             ))
         self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
 
+    def test_duplicate_result_rejected_if_new_observation_is_before_tipoff(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200
+        ))
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=150
+        ))
+        with self.ledger._connect() as db:
+            result = db.execute(
+                "SELECT result_ts_utc, actual_home, actual_away FROM outcomes "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(result, (200, 115, 108))
+
     def test_unmatched_fixture_rejected(self):
         self.assertFalse(ingest_completed_espn_nba_event(
             self.ledger, "wrong", self.event(), observed_at_utc=200
