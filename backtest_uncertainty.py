@@ -57,3 +57,25 @@ def moving_block_mean_interval(values: list[float], *, block_size: int = 5,
             "upper": estimates[hi], "confidence": confidence,
             "method": "circular_moving_block_bootstrap",
             "draws": draws, "n": n, "block_size": block_size}
+
+
+def block_length_sensitivity(values: list[float],
+                             block_sizes: tuple[int, ...] = (3, 5, 7, 10)) -> dict:
+    """Compare block lengths without silently choosing the narrowest interval."""
+    if not block_sizes or len(set(block_sizes)) != len(block_sizes):
+        raise ValueError("block sizes must be nonempty and unique")
+    if any(type(size) is not int or size < 2 for size in block_sizes):
+        raise ValueError("block sizes must be integers >= 2")
+    results = {
+        str(size): moving_block_mean_interval(values, block_size=size)
+        for size in block_sizes
+    }
+    available = [entry for entry in results.values() if entry is not None]
+    widths = [entry["upper"] - entry["lower"] for entry in available]
+    return {
+        "block_sizes": results,
+        "eligible_block_lengths": len(available),
+        "interval_width_min": min(widths) if widths else None,
+        "interval_width_max": max(widths) if widths else None,
+        "selection_policy": "descriptive_only_no_automatic_best_block",
+    }
