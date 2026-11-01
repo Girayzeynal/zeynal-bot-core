@@ -114,6 +114,19 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             report(self.path)
 
+    def test_corrupt_result_timestamp_before_tipoff_excluded(self):
+        ledger = PredictionLedger(self.path)
+        ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
+        ledger.record_fixture_start("NBA", "fixture-1", 200)
+        ledger.record_fixture_provenance("NBA", "fixture-1", "ESPN", "espn-1", 200)
+        ledger.record_outcome(OutcomeRecord("fixture-1", "NBA", 300, 108, 104))
+        with ledger._connect() as db:
+            db.execute("UPDATE outcomes SET result_ts_utc=200")
+        result = report(self.path)
+        self.assertEqual(result["status"], "no_verified_pairs")
+        self.assertEqual(result["audit"]["provider_consistent_prematch_pairs"], 0)
+        self.assertEqual(result["audit"]["primary_exclusion_reasons"]["fixture_start_not_before_result"], 1)
+
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
         ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
