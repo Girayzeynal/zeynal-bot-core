@@ -3,6 +3,7 @@ import unittest
 from dataclasses import dataclass
 
 from faz13_engine import Faz13Engine, PrematchRequest
+from league_profiles import get_league_profile
 
 
 @dataclass
@@ -54,6 +55,10 @@ class Faz13BaselineContractTests(unittest.TestCase):
             asyncio.run(engine.run_prematch(
                 PrematchRequest(2, "NBA", "2026-11-01", "BOS", "NYK")
             ))
+
+    def test_unregistered_league_does_not_inherit_euroleague_profile(self):
+        with self.assertRaisesRegex(ValueError, "No calibrated profile"):
+            get_league_profile("EuroCup")
 
 
 if __name__ == "__main__":
