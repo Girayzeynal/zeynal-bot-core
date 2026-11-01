@@ -1,7 +1,7 @@
 """Read-only report for verified prematch backtesting."""
 from dataclasses import asdict
 from prediction_ledger import PredictionLedger
-from backtest_uncertainty import bootstrap_mean_interval
+from backtest_uncertainty import bootstrap_mean_interval, moving_block_mean_interval
 
 
 def report(db_path: str, league: str = "NBA") -> dict:
@@ -88,12 +88,15 @@ def report(db_path: str, league: str = "NBA") -> dict:
                JOIN fixture_provenance v ON p.league=v.league AND p.fixture_id=v.fixture_id
                                     AND f.start_ts_utc=v.start_ts_utc
                WHERE p.league=? AND p.prediction_ts_utc < f.start_ts_utc
-                 AND f.start_ts_utc < o.result_ts_utc AND p.scope=o.scope""",
+                 AND f.start_ts_utc < o.result_ts_utc AND p.scope=o.scope
+               ORDER BY f.start_ts_utc, p.fixture_id""",
             (league,),
         ).fetchall()
     if len(rows) != count:
         raise RuntimeError("uncertainty sample count mismatch")
     errors = [abs(expected - actual) for expected, actual in rows]
     uncertainty = bootstrap_mean_interval(errors)
+    block_uncertainty = moving_block_mean_interval(errors)
     return {"status": "evaluated", "league": league, "audit": audit,
-            "metrics": asdict(metrics), "uncertainty": {"total_mae": uncertainty}}
+            "metrics": asdict(metrics), "uncertainty": {"total_mae": uncertainty,
+                            "total_mae_block_bootstrap": block_uncertainty}}
