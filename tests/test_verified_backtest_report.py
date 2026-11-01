@@ -16,6 +16,8 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         result = report(self.path)
         self.assertEqual(result["status"], "no_verified_pairs")
         self.assertIsNone(result["metrics"])
+        self.assertIsNone(result["audit"]["verified_pair_coverage"])
+        self.assertEqual(result["audit"]["excluded_matched_pairs"], 0)
 
     def test_verified_pair_produces_real_metrics(self):
         ledger = PredictionLedger(self.path)
@@ -26,6 +28,8 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         result = report(self.path)
         self.assertEqual(result["status"], "evaluated")
         self.assertEqual(result["metrics"]["n_games"], 1)
+        self.assertEqual(result["audit"]["verified_pair_coverage"], 1.0)
+        self.assertEqual(result["audit"]["excluded_matched_pairs"], 0)
         self.assertAlmostEqual(result["metrics"]["total_mae"], 2.0)
         self.assertAlmostEqual(result["metrics"]["home_win_brier"], 0.09)
 
@@ -44,6 +48,8 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         result = report(self.path)
         self.assertEqual(result["status"], "no_verified_pairs")
         self.assertEqual(result["audit"]["provider_start_conflicts"], 1)
+        self.assertEqual(result["audit"]["excluded_matched_pairs"], 1)
+        self.assertEqual(result["audit"]["verified_pair_coverage"], 0.0)
 
     def test_prediction_after_tipoff_excluded(self):
         ledger = PredictionLedger(self.path)
