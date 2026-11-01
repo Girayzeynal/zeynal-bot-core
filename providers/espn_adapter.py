@@ -191,15 +191,25 @@ class ESPNAdapter:
         if not isinstance(events, list):
             return []
         by_id: Dict[str, Dict[str, Any]] = {}
+        conflicts: set[str] = set()
         for event in events:
             parsed = parse_completed_nba_event(event)
             if parsed is None:
                 continue
             if ref["id"] not in (parsed["home_team_id"], parsed["away_team_id"]):
                 continue
-            by_id[parsed["provider_fixture_id"]] = parsed
+            source_id = parsed["provider_fixture_id"]
+            if source_id in conflicts:
+                continue
+            if source_id in by_id and by_id[source_id] != parsed:
+                conflicts.add(source_id)
+                by_id.pop(source_id, None)
+            else:
+                by_id[source_id] = parsed
         return sorted(
-            by_id.values(), key=lambda row: row["start_ts_utc"]
+            by_id.values(), key=lambda row: (
+                row["start_ts_utc"], row["provider_fixture_id"]
+            )
         )[-limit:]
 
     # -------------------------------------------------
