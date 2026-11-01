@@ -23,6 +23,23 @@ class HistoricalBacktestTests(unittest.TestCase):
         self.assertAlmostEqual(result.home_win_brier, 0.04)
         self.assertAlmostEqual(result.home_win_log_loss, 0.2231435513)
 
+    def test_signed_bias_identifies_over_and_under_prediction(self):
+        first = game(expected_home=120.0, expected_away=105.0)
+        second = game(
+            fixture_id="game-2", expected_home=100.0, expected_away=95.0,
+            actual_home=110, actual_away=100,
+        )
+        metrics = evaluate_predictions([first, second])
+        self.assertAlmostEqual(metrics.home_score_bias, -1.0)
+        self.assertAlmostEqual(metrics.away_score_bias, 1.0)
+        self.assertAlmostEqual(metrics.total_bias, 0.0)
+
+    def test_prediction_after_tipoff_rejected(self):
+        with self.assertRaises(ValueError):
+            evaluate_predictions([game(fixture_start_ts_utc=90)])
+        with self.assertRaises(ValueError):
+            evaluate_predictions([game(fixture_start_ts_utc=200)])
+
     def test_future_leakage_rejected(self):
         with self.assertRaises(ValueError):
             evaluate_predictions([game(prediction_ts_utc=200)])
