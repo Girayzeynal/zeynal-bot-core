@@ -135,6 +135,25 @@ class TeamBaselineStore:
             key=lambda r: r.ts_utc,
         )[-n_games:]
 
+    def compute_baseline_before(
+        self, league: str, team: str, cutoff_ts_utc: int,
+        n_games: int = 10, min_games: int = 6,
+    ) -> Optional[Dict[str, float]]:
+        """Compute a baseline exclusively from pre-fixture games."""
+        series = self.get_series_before(league, team, cutoff_ts_utc, n_games)
+        if len(series) < min_games:
+            return None
+        pf = [r.pts_for for r in series]
+        pa = [r.pts_against for r in series]
+        totals = [a + b for a, b in zip(pf, pa)]
+        return {
+            "n_games": len(series),
+            "pts_for": mean(pf),
+            "pts_against": mean(pa),
+            "pace": mean(r.pace for r in series),
+            "stdev_total": pstdev(totals) if len(totals) > 1 else 0.0,
+        }
+
     def compute_dynamic_baseline(
         self, league: str, team: str, n_games: int
     ) -> Optional[Dict[str, float]]:
