@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from providers.espn_completed_event import parse_completed_nba_event
+from providers.espn_rejection_diagnostics import rejected_event_reason
 
 
 def _is_unfinished_event(raw: Any) -> bool:
@@ -46,6 +47,7 @@ def audit_espn_events(events: Any, observed_at_utc: int | None = None) -> dict:
     observed = datetime.fromtimestamp(now, tz=timezone.utc)
     counts: Counter[str] = Counter()
     invalid_indices: list[int] = []
+    rejection_reasons: Counter[str] = Counter()
     by_id: dict[str, dict] = {}
     occurrences: Counter[str] = Counter()
     conflicts: set[str] = set()
@@ -53,6 +55,7 @@ def audit_espn_events(events: Any, observed_at_utc: int | None = None) -> dict:
         parsed = parse_completed_nba_event(raw, observed)
         if parsed is None:
             invalid_indices.append(index)
+            rejection_reasons[rejected_event_reason(raw, now)] += 1
             counts["invalid_or_incomplete"] += 1
             if _is_unfinished_event(raw):
                 counts["unfinished_events"] += 1
@@ -87,5 +90,6 @@ def audit_espn_events(events: Any, observed_at_utc: int | None = None) -> dict:
         "conflicting_records": counts["conflicting_records"],
         "conflicting_fixture_ids_detail": sorted(conflicts),
         "invalid_event_indices": invalid_indices,
+        "rejection_reasons": dict(sorted(rejection_reasons.items())),
         "coverage_rate": counts["accepted_unique"] / total if total else None,
     }
