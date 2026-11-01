@@ -9,6 +9,20 @@ def report(db_path: str, league: str = "NBA") -> dict:
     if not isinstance(league, str) or not league.strip():
         raise ValueError("league must be a nonempty string")
     ledger = PredictionLedger(db_path)
+    # ESPN-only report: never mix other provider observations into metrics.
+    with ledger._connect() as db:
+        foreign = db.execute(
+            """SELECT COUNT(*) FROM predictions p
+               JOIN outcomes o ON p.league=o.league AND p.fixture_id=o.fixture_id
+               JOIN fixture_starts f ON p.league=f.league AND p.fixture_id=f.fixture_id
+               JOIN fixture_provenance v ON p.league=v.league AND p.fixture_id=v.fixture_id
+               WHERE p.league=? AND p.prediction_ts_utc < f.start_ts_utc
+                 AND f.start_ts_utc < o.result_ts_utc AND p.scope=o.scope
+                 AND f.start_ts_utc=v.start_ts_utc AND v.provider != 'ESPN'""",
+            (league,),
+        ).fetchone()[0]
+    if foreign:
+        raise ValueError("non-ESPN verified fixtures present; mixed-provider report refused")
     audit = ledger.audit_provenance(league)
     count = audit["provider_consistent_prematch_pairs"]
     audit["excluded_matched_pairs"] = audit["matched"] - count
