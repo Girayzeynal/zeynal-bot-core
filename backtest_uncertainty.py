@@ -25,3 +25,35 @@ def bootstrap_mean_interval(values: list[float], *, draws: int = 2000,
     return {"estimate": fmean(values), "lower": samples[lower],
             "upper": samples[upper], "confidence": confidence,
             "method": "iid_percentile_bootstrap", "draws": draws, "n": n}
+
+
+def moving_block_mean_interval(values: list[float], *, block_size: int = 5,
+                               draws: int = 2000, seed: int = 2026,
+                               confidence: float = 0.95) -> dict | None:
+    """Circular moving-block bootstrap; input must be chronologically ordered."""
+    n = len(values)
+    if n < 2 or n < 2 * block_size:
+        return None
+    if type(block_size) is not int or block_size < 2:
+        raise ValueError("block_size must be >= 2")
+    if type(draws) is not int or draws < 100:
+        raise ValueError("draws must be >= 100")
+    if not 0 < confidence < 1:
+        raise ValueError("confidence must be between zero and one")
+    if any(not math.isfinite(v) for v in values):
+        raise ValueError("nonfinite error sample")
+    rng = random.Random(seed)
+    estimates = []
+    for _ in range(draws):
+        sample = []
+        while len(sample) < n:
+            start = rng.randrange(n)
+            sample.extend(values[(start + offset) % n] for offset in range(block_size))
+        estimates.append(fmean(sample[:n]))
+    estimates.sort()
+    lo = max(0, math.floor(draws * (1 - confidence) / 2))
+    hi = min(draws - 1, math.ceil(draws * (1 + confidence) / 2) - 1)
+    return {"estimate": fmean(values), "lower": estimates[lo],
+            "upper": estimates[hi], "confidence": confidence,
+            "method": "circular_moving_block_bootstrap",
+            "draws": draws, "n": n, "block_size": block_size}
