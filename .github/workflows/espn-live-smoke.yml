@@ -32,5 +32,5 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Verify ESPN scoreboard response (read-only)
         env:
-          ESPN_SMOKE_DATE: ${{ inputs.date_yyyymmdd || '20261031' }}
+          ESPN_SMOKE_DATE: ${{ inputs.date_yyyymmdd || '20251025' }}
         run: python -m providers.espn_live_smoke "$ESPN_SMOKE_DATE"
