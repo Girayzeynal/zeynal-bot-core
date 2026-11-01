@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Optional, Dict, Any, Tuple
 
 from league_profiles import get_league_profile
@@ -109,10 +110,28 @@ def faz16_live_recalibrate(
       where std_obs is derived from early-game volatility proxy
     """
 
+    # Reject malformed or unsupported live inputs before any projection.
+    get_league_profile(league)
     prematch_sim_mean = float(prematch_sim_mean)
-    prematch_sim_std = max(1e-6, float(prematch_sim_std))
+    prematch_sim_std = float(prematch_sim_std)
+    if not math.isfinite(prematch_sim_mean) or prematch_sim_mean <= 0:
+        raise ValueError("prematch_sim_mean must be finite and positive")
+    if not math.isfinite(prematch_sim_std) or prematch_sim_std <= 0:
+        raise ValueError("prematch_sim_std must be finite and positive")
+    if not isinstance(snapshot, LiveSnapshot):
+        raise TypeError("snapshot must be a LiveSnapshot instance")
+    if market_total is not None:
+        market_total = float(market_total)
+        if not math.isfinite(market_total) or market_total <= 0:
+            raise ValueError("market_total must be finite and positive")
 
     periods, period_sec = _game_clock(league)
+    if not 1 <= int(snapshot.period) <= periods:
+        raise ValueError(f"snapshot.period must be between 1 and {periods}")
+    if not 0 <= int(snapshot.sec_elapsed_in_period) <= period_sec:
+        raise ValueError(f"sec_elapsed_in_period must be between 0 and {period_sec}")
+    if int(snapshot.points_total_so_far) < 0:
+        raise ValueError("points_total_so_far cannot be negative")
     total_game_seconds = periods * period_sec
 
     sec_elapsed_total = _seconds_elapsed_total(snapshot.period, snapshot.sec_elapsed_in_period, period_sec)
