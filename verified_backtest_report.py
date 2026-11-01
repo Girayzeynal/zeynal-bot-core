@@ -1,5 +1,6 @@
 """Read-only report for verified prematch backtesting."""
 from dataclasses import asdict
+import math
 from prediction_ledger import PredictionLedger
 from backtest_uncertainty import bootstrap_mean_interval, moving_block_mean_interval, block_length_sensitivity
 
@@ -95,6 +96,8 @@ def report(db_path: str, league: str = "NBA") -> dict:
     if len(rows) != count:
         raise RuntimeError("uncertainty sample count mismatch")
     errors = [abs(expected - actual) for expected, actual in rows]
+    if not math.isclose(sum(errors) / count, metrics.total_mae, rel_tol=1e-10, abs_tol=1e-10):
+        raise RuntimeError("total MAE reconciliation failed")
     uncertainty = bootstrap_mean_interval(errors)
     block_uncertainty = moving_block_mean_interval(errors)
     sensitivity = block_length_sensitivity(errors)
