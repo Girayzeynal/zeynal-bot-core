@@ -12,8 +12,22 @@ from providers.espn_live_smoke import check_scoreboard
 
 async def check_dates(dates: list[str]) -> dict:
     results = []
+    seen_fixtures: set[str] = set()
     for date in dates:
-        results.append(await check_scoreboard(date))
+        result = await check_scoreboard(date)
+        fixture_ids = result.get("completed_fixture_ids")
+        if not isinstance(fixture_ids, list) or not all(
+            isinstance(value, str) and bool(value) for value in fixture_ids
+        ):
+            raise RuntimeError("ESPN multi-date fixture identities missing")
+        if len(fixture_ids) != result["completed_events_count"]:
+            raise RuntimeError("ESPN multi-date fixture count mismatch")
+        if len(set(fixture_ids)) != len(fixture_ids):
+            raise RuntimeError("ESPN duplicate fixture within a date")
+        if seen_fixtures.intersection(fixture_ids):
+            raise RuntimeError("ESPN duplicate fixture across dates")
+        seen_fixtures.update(fixture_ids)
+        results.append(result)
     return {
         "status": "verified_multi_date",
         "dates_checked": len(results),
