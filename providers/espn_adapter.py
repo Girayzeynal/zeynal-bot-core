@@ -133,6 +133,52 @@ class ESPNAdapter:
         ref = await self.resolve_team(team_input)
         return ref["abbr"] if ref else None
 
+    async def fetch_nba_scoreboard_quality_report(
+        self, date_yyyymmdd: str,
+    ) -> Dict[str, Any]:
+        """Return raw-data quality metrics and vetted events from one fetch.
+
+        A failed HTTP request is an explicit error, not an empty NBA game day.
+        """
+        if (not isinstance(date_yyyymmdd, str)
+                or len(date_yyyymmdd) != 8
+                or not date_yyyymmdd.isascii()
+                or not date_yyyymmdd.isdigit()):
+            raise ValueError("date must be YYYYMMDD")
+        try:
+            datetime.strptime(date_yyyymmdd, "%Y%m%d")
+        except ValueError as exc:
+            raise ValueError("invalid calendar date") from exc
+        payload = await self._get_json(
+            f"{ESPN_BASE}/scoreboard?dates={date_yyyymmdd}"
+        )
+        if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
+            raise RuntimeError("ESPN scoreboard unavailable or malformed")
+        from providers.espn_quality_audit import audit_espn_events
+        report = audit_espn_events(payload["events"])
+        rows: Dict[str, Dict[str, Any]] = {}
+        conflicts: set[str] = set()
+        for raw in payload["events"]:
+            parsed = parse_completed_nba_event(raw)
+            if parsed is None:
+                continue
+            key = parsed["provider_fixture_id"]
+            if key in conflicts:
+                continue
+            if key in rows and rows[key] != parsed:
+                conflicts.add(key)
+                rows.pop(key, None)
+            else:
+                rows[key] = parsed
+        return {
+            "date_yyyymmdd": date_yyyymmdd,
+            "quality": report,
+            "completed_events": sorted(
+                rows.values(),
+                key=lambda row: (row["start_ts_utc"], row["provider_fixture_id"]),
+            ),
+        }
+
     async def fetch_completed_nba_scoreboard_date(
         self, date_yyyymmdd: str,
     ) -> List[Dict[str, Any]]:
