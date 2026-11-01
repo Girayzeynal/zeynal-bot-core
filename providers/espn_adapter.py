@@ -174,14 +174,17 @@ class ESPNAdapter:
                 rows.pop(key, None)
             else:
                 rows[key] = parsed
+        from providers.espn_identity_audit import audit_scoreboard_identity
+        vetted_events = sorted(
+            rows.values(),
+            key=lambda row: (row["start_ts_utc"], row["provider_fixture_id"]),
+        )
+        report["identity_audit"] = audit_scoreboard_identity(vetted_events, date_yyyymmdd)
         return {
             "date_yyyymmdd": date_yyyymmdd,
             "observed_at_utc": now,
             "quality": report,
-            "completed_events": sorted(
-                rows.values(),
-                key=lambda row: (row["start_ts_utc"], row["provider_fixture_id"]),
-            ),
+            "completed_events": vetted_events,
         }
 
     async def fetch_completed_nba_scoreboard_date(
