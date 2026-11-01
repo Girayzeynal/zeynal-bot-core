@@ -6,6 +6,9 @@ on:
       - dev/elite-phase-hardening-2026
     paths:
       - .github/workflows/espn-live-smoke.yml
+      - providers/espn_rejection_diagnostics.py
+      - providers/espn_quality_audit.py
+      - providers/espn_live_smoke.py
   workflow_dispatch:
     inputs:
       date_yyyymmdd:
