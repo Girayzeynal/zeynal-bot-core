@@ -26,6 +26,30 @@ class ESPNSmokeCLITests(unittest.TestCase):
                 asyncio.run(check_scoreboard("20251025"))
         adapter.aclose.assert_awaited_once()
 
+    def test_identity_anomaly_fails_closed(self):
+        from unittest.mock import AsyncMock
+        import asyncio
+        adapter = type("Adapter", (), {})()
+        adapter.fetch_nba_scoreboard_quality_report = AsyncMock(return_value={
+            "observed_at_utc": 1761500000,
+            "quality": {
+                "total_raw": 1, "accepted_unique": 1,
+                "invalid_or_incomplete": 0, "duplicate_identical": 0,
+                "conflicting_records": 0,
+                "identity_audit": {
+                    "eastern_date_mismatch_fixture_ids": ["fixture-a"],
+                    "duplicate_fixture_ids": [],
+                    "teams_in_multiple_accepted_games": [],
+                },
+            },
+            "completed_events": [{"provider_fixture_id": "fixture-a"}],
+        })
+        adapter.aclose = AsyncMock()
+        with patch("providers.espn_live_smoke.ESPNAdapter", return_value=adapter):
+            with self.assertRaisesRegex(RuntimeError, "identity anomaly"):
+                asyncio.run(check_scoreboard("20251025"))
+        adapter.aclose.assert_awaited_once()
+
     def test_bad_date_rejected(self):
         with redirect_stderr(io.StringIO()):
             self.assertEqual(main(["20260230"]), 2)
