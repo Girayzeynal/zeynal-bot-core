@@ -1,6 +1,7 @@
 """Read-only report for verified prematch backtesting."""
 from dataclasses import asdict
 from prediction_ledger import PredictionLedger
+from backtest_uncertainty import bootstrap_mean_interval
 
 
 def report(db_path: str, league: str = "NBA") -> dict:
@@ -77,4 +78,22 @@ def report(db_path: str, league: str = "NBA") -> dict:
     metrics = ledger.evaluate_provenance_verified(league)
     if metrics.n_games != count:
         raise RuntimeError("verified sample count mismatch")
-    return {"status": "evaluated", "league": league, "audit": audit, "metrics": asdict(metrics)}
+    with ledger._connect() as db:
+        rows = db.execute(
+            """SELECT p.expected_home + p.expected_away,
+                      o.actual_home + o.actual_away
+               FROM predictions p
+               JOIN outcomes o ON p.league=o.league AND p.fixture_id=o.fixture_id
+               JOIN fixture_starts f ON p.league=f.league AND p.fixture_id=f.fixture_id
+               JOIN fixture_provenance v ON p.league=v.league AND p.fixture_id=v.fixture_id
+                                    AND f.start_ts_utc=v.start_ts_utc
+               WHERE p.league=? AND p.prediction_ts_utc < f.start_ts_utc
+                 AND f.start_ts_utc < o.result_ts_utc AND p.scope=o.scope""",
+            (league,),
+        ).fetchall()
+    if len(rows) != count:
+        raise RuntimeError("uncertainty sample count mismatch")
+    errors = [abs(expected - actual) for expected, actual in rows]
+    uncertainty = bootstrap_mean_interval(errors)
+    return {"status": "evaluated", "league": league, "audit": audit,
+            "metrics": asdict(metrics), "uncertainty": {"total_mae": uncertainty}}
