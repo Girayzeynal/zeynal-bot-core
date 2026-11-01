@@ -18,6 +18,7 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         self.assertIsNone(result["metrics"])
         self.assertIsNone(result["audit"]["verified_pair_coverage"])
         self.assertEqual(result["audit"]["excluded_matched_pairs"], 0)
+        self.assertEqual(result["audit"]["exclusion_reasons"]["missing_provider_identity"], 0)
 
     def test_verified_pair_produces_real_metrics(self):
         ledger = PredictionLedger(self.path)
@@ -48,6 +49,8 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         result = report(self.path)
         self.assertEqual(result["status"], "no_verified_pairs")
         self.assertEqual(result["audit"]["provider_start_conflicts"], 1)
+        self.assertEqual(result["audit"]["exclusion_reasons"]["provider_fixture_start_conflict"], 1)
+        self.assertTrue(result["audit"]["exclusion_reason_counts_overlap"])
         self.assertEqual(result["audit"]["excluded_matched_pairs"], 1)
         self.assertEqual(result["audit"]["verified_pair_coverage"], 0.0)
 
