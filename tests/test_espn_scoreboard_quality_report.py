@@ -23,13 +23,24 @@ class ESPNScoreboardQualityReportTests(unittest.IsolatedAsyncioTestCase):
         adapter._get_json = AsyncMock(return_value={"events": [
             event("a"), event("a", "116"), event("b"),
         ]})
-        result = await adapter.fetch_nba_scoreboard_quality_report("20251025")
+        result = await adapter.fetch_nba_scoreboard_quality_report("20251025", observed_at_utc=1761500000)
         adapter._get_json.assert_awaited_once()
+        self.assertEqual(result["observed_at_utc"], 1761500000)
         self.assertEqual(result["quality"]["conflicting_fixture_ids_detail"], ["a"])
         self.assertEqual(result["quality"]["accepted_unique"], 1)
         self.assertEqual(
             [e["provider_fixture_id"] for e in result["completed_events"]], ["b"]
         )
+
+    async def test_event_after_observation_is_excluded_consistently(self):
+        adapter = ESPNAdapter()
+        adapter._get_json = AsyncMock(return_value={"events": [event("a")]})
+        result = await adapter.fetch_nba_scoreboard_quality_report(
+            "20251025", observed_at_utc=1761300000
+        )
+        self.assertEqual(result["quality"]["accepted_unique"], 0)
+        self.assertEqual(result["quality"]["invalid_or_incomplete"], 1)
+        self.assertEqual(result["completed_events"], [])
 
     async def test_fetch_failure_not_reported_as_empty_game_day(self):
         adapter = ESPNAdapter()
