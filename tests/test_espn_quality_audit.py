@@ -32,6 +32,8 @@ class ESPNQualityAuditTests(unittest.TestCase):
         self.assertEqual(result["duplicate_identical"], 1)
         self.assertEqual(result["conflicting_fixture_ids"], 1)
         self.assertEqual(result["conflicting_records"], 2)
+        self.assertEqual(result["conflicting_fixture_ids_detail"], ["b"])
+        self.assertEqual(result["invalid_event_indices"], [5])
         self.assertEqual(result["invalid_or_incomplete"], 1)
         self.assertAlmostEqual(result["coverage_rate"], 2 / 6)
 
@@ -39,6 +41,8 @@ class ESPNQualityAuditTests(unittest.TestCase):
         result = audit_espn_events([], observed_at_utc=1761500000)
         self.assertEqual(result["total_raw"], 0)
         self.assertIsNone(result["coverage_rate"])
+        self.assertEqual(result["conflicting_fixture_ids_detail"], [])
+        self.assertEqual(result["invalid_event_indices"], [])
         with self.assertRaises(ValueError):
             audit_espn_events({}, observed_at_utc=1761500000)
         with self.assertRaises(ValueError):
