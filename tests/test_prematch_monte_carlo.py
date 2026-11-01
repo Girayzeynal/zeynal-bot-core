@@ -24,7 +24,17 @@ class PrematchMonteCarloTests(unittest.TestCase):
 
     def test_probabilities_sum_to_one_including_ties(self):
         result = self.engine.simulate(self.request())
-        self.assertAlmostEqual(result.home_win_probability + result.away_win_probability + result.tie_probability, 1.0)
+        self.assertAlmostEqual(result.home_regulation_win_probability + result.away_regulation_win_probability + result.regulation_tie_probability, 1.0)
+
+    def test_result_explicitly_declares_regulation_only_scope(self):
+        result = self.engine.simulate(self.request())
+        self.assertEqual(result.model_scope, 'REGULATION_ONLY')
+        self.assertGreaterEqual(result.observed_score_correlation, -1.0)
+        self.assertLessEqual(result.observed_score_correlation, 1.0)
+
+    def test_overtime_period_count_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self.engine.simulate(self.request(periods=5))
 
     def test_market_probabilities_partition_sample_space(self):
         result = self.engine.simulate(self.request())
