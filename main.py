@@ -173,8 +173,8 @@ async def main_async():
     app = build_app()
     await start_health(app)
     await app.initialize()
-    await app.start()
     await app.bot.delete_webhook(drop_pending_updates=True)
+    await app.start()
     await app.updater.start_polling()
     logger.info("Bot polling started")
     engines = {
