@@ -11,7 +11,6 @@ from typing import List
 # Düzeltilmiş paket importları
 from faz13_engine import Faz13Engine, PrematchRequest, Faz13CoreOutput
 from faz17_engine import Faz17Engine
-from faz16_engine import faz16_run_simulation
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 from baseline.team_baseline_store import TeamBaselineStore
@@ -135,11 +134,18 @@ async def scheduler_loop(engines):
                 continue
                 
             now = datetime.now(timezone.utc)
+            utc_dates = {now.date().isoformat(), (now.date() + timedelta(days=1)).isoformat()}
             for lg in leagues:
-                date_str = now.astimezone(TZ).date().isoformat()
-                games = await fetch_games(lg["api_sports_league_id"], date_str, session)
-                
-                for g in games:
+                league_id = lg.get("api_sports_league_id")
+                if not isinstance(league_id, int) or league_id <= 0:
+                    log.warning("Skipping league with invalid API-Sports league id: %s", lg.get("name"))
+                    continue
+                games_by_id = {}
+                for utc_date in sorted(utc_dates):
+                    day_games = await fetch_games(league_id, utc_date, session)
+                    for game in day_games:
+                        games_by_id[game["id"]] = game
+                for g in games_by_id.values():
                     for st in ANALYSIS_STAGES:
                         key = f"AN:{lg['name']}:{g['id']}:{st['offset']}"
                         if not job_done(key) and now >= g["start"] - st["offset"]:
