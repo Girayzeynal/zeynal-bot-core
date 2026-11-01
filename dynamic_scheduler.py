@@ -85,33 +85,43 @@ async def fetch_games(league_id, date, session):
         return []
 
 # --- CORE ANALYSIS PIPELINE ---
-async def run_analysis(engines, league, date, home, away, use_odds):
-    game_id = f"{league}:{home}-{away}"
-    req = PrematchRequest(0, league, date, home, away)
-    
-    # 1. FAZ-13 (Düzeltilmiş)
-    core = await engines['faz13'].run_prematch(req)
-    if not core.is_valid:
-        log.warning(f"Skipping {game_id}: No baseline data")
-        return
+async def run_analysis(engines, league, date, home, away, use_odds, fixture_id=None):
+    """Run verified PRE pipeline; FAZ-16 is LIVE-only and needs a real snapshot."""
+    game_id = str(fixture_id or f"{league}:{date}:{home}-{away}")
+    req = PrematchRequest(int(fixture_id or 0) if str(fixture_id or "0").isdigit() else 0, league, date, home, away)
 
-    # 2. Market Enrichment
-    if use_odds:
-        core = await engines['faz17'].enrich_with_market(core)
+    try:
+        core = await engines["faz13"].run_prematch(req)
+        if not isinstance(core, Faz13CoreOutput):
+            raise TypeError(f"FAZ-13 returned unexpected type: {type(core).__name__}")
+        if not isinstance(getattr(core, "meta", None), dict):
+            raise TypeError("FAZ-13 output has no valid metadata dictionary")
+        if not isinstance(getattr(core, "total_band", None), tuple):
+            raise TypeError("FAZ-13 output has no valid total band")
+        if not core.meta.get("data_quality"):
+            raise ValueError("FAZ-13 output is missing data-quality provenance")
 
-    # 3. Calibration & Simulation (FAZ-16)
-    base_total = float(getattr(core, "market_total", 180.0))
-    vol = float(getattr(core, "market_vol", 15.0))
-    vol_home = vol * get_vol_factor(home)
-    vol_away = vol * get_vol_factor(away)
-    
-    sim_h = faz16_run_simulation(base_total, vol_home)
-    sim_a = faz16_run_simulation(base_total, vol_away)
-    
-    # 4. Finalize & Save
-    core = engines['faz22'].score_and_finalize(core)
-    await engines['faz23'].record_snapshot(core)
-    log.info(f"[SCHEDULER] Analyzed: {game_id} | Confidence: {core.meta.get('confidence')}")
+        if use_odds:
+            try:
+                core = await engines["faz17"].enrich_with_market(core)
+            except Exception as exc:
+                core.meta["market_status"] = "MARKET_OPTIONAL"
+                core.meta["market_total"] = None
+                core.meta["market_reason"] = f"ENRICHMENT_ERROR:{type(exc).__name__}"
+
+        # FAZ-16 live recalibration is deliberately not called pregame.
+        core.meta["faz16_status"] = "NOT_APPLICABLE_PREMATCH"
+        core.meta["prematch_simulation_status"] = "NOT_RUN"
+
+        core = engines["faz22"].score_and_finalize(core)
+        await engines["faz23"].record_snapshot(core)
+        log.info("[SCHEDULER] Analyzed: %s | Confidence: %s | Quality: %s | Market: %s",
+                 game_id, core.meta.get("final_confidence", core.meta.get("confidence_pct")),
+                 core.meta.get("data_quality"), core.meta.get("market_status", "NOT_REQUESTED"))
+        return True
+    except Exception:
+        log.exception("[SCHEDULER] Analysis failed; job will remain retryable: %s", game_id)
+        return False
 
 # --- SCHEDULER LOOP ---
 async def scheduler_loop(engines):
@@ -133,8 +143,13 @@ async def scheduler_loop(engines):
                     for st in ANALYSIS_STAGES:
                         key = f"AN:{lg['name']}:{g['id']}:{st['offset']}"
                         if not job_done(key) and now >= g["start"] - st["offset"]:
-                            await run_analysis(engines, lg["name"], date_str, g["home"], g["away"], st["use_odds"])
-                            mark_job(key)
+                            succeeded = await run_analysis(
+                                engines, lg["name"],
+                                g["start"].astimezone(TZ).date().isoformat(),
+                                g["home"], g["away"], st["use_odds"], fixture_id=g["id"],
+                            )
+                            if succeeded:
+                                mark_job(key)
             await asyncio.sleep(60)
 
 # --- TELEGRAM COMMANDS ---
@@ -148,7 +163,10 @@ async def main():
     # Engine Setup
     baseline = TeamBaselineStore("data/baselines")
     engines = {
-        'faz13': Faz13Engine(os.getenv("API_SPORTS_KEY"), os.getenv("API_SPORTS_BASE"), baseline),
+        'faz13': Faz13Engine(
+            os.getenv("API_SPORTS_KEY"), os.getenv("API_SPORTS_BASE"),
+            baseline_store=baseline,
+        ),
         'faz17': Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE")),
         'faz22': Faz22Engine(),
         'faz23': Faz23Engine()
