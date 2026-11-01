@@ -155,10 +155,18 @@ class ESPNAdapter:
         if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
             return []
         rows: Dict[str, Dict[str, Any]] = {}
+        conflicts: set[str] = set()
         for event in payload["events"]:
             parsed = parse_completed_nba_event(event)
             if parsed is not None:
-                rows[parsed["provider_fixture_id"]] = parsed
+                source_id = parsed["provider_fixture_id"]
+                if source_id in conflicts:
+                    continue
+                if source_id in rows and rows[source_id] != parsed:
+                    conflicts.add(source_id)
+                    rows.pop(source_id, None)
+                else:
+                    rows[source_id] = parsed
         return sorted(rows.values(), key=lambda row: (
             row["start_ts_utc"], row["provider_fixture_id"]
         ))
