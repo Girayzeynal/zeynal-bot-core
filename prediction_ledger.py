@@ -261,7 +261,9 @@ class PredictionLedger:
                   ON p.league=f.league AND p.fixture_id=f.fixture_id
                 JOIN fixture_provenance v
                   ON p.league=v.league AND p.fixture_id=v.fixture_id
-                 AND f.start_ts_utc=v.start_ts_utc""" + where, args).fetchall()
+                 AND f.start_ts_utc=v.start_ts_utc
+                 AND trim(v.provider) != ''
+                 AND trim(v.provider_fixture_id) != ''""" + where, args).fetchall()
         valid = [
             HistoricalPrediction(*row)
             for row in rows
