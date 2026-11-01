@@ -331,6 +331,26 @@ class ESPNIngestTests(unittest.TestCase):
             ).fetchone()
         self.assertEqual(row, (200, 115, 108))
 
+    def test_duplicate_rejected_if_prediction_fixture_id_tampered(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200,
+        ))
+        with self.ledger._connect() as db:
+            db.execute(
+                "UPDATE predictions SET fixture_id=? "
+                "WHERE league='NBA' AND fixture_id='game-1'",
+                ("game-tampered",),
+            )
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=300,
+        ))
+        with self.ledger._connect() as db:
+            row = db.execute(
+                "SELECT result_ts_utc, actual_home, actual_away FROM outcomes "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(row, (200, 115, 108))
+
     def test_unmatched_fixture_rejected(self):
         self.assertFalse(ingest_completed_espn_nba_event(
             self.ledger, "wrong", self.event(), observed_at_utc=200
