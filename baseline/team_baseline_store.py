@@ -106,6 +106,8 @@ class TeamBaselineStore:
             except Exception:
                 series = []
 
+        # Re-fetching a game must not inflate the sample or its weight.
+        series = [r for r in series if int(r.get("ts_utc", -1)) != ts]
         series.append(asdict(rec))
         series = sorted(series, key=lambda x: x["ts_utc"])[-max_games:]
 
