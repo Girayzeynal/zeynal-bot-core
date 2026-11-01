@@ -9,6 +9,8 @@ on:
       - providers/espn_rejection_diagnostics.py
       - providers/espn_quality_audit.py
       - providers/espn_live_smoke.py
+      - providers/espn_status_shapes.py
+      - providers/espn_adapter.py
   workflow_dispatch:
     inputs:
       date_yyyymmdd:
