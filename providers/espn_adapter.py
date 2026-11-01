@@ -133,6 +133,36 @@ class ESPNAdapter:
         ref = await self.resolve_team(team_input)
         return ref["abbr"] if ref else None
 
+    async def fetch_completed_nba_scoreboard_date(
+        self, date_yyyymmdd: str,
+    ) -> List[Dict[str, Any]]:
+        """Read a date-scoped ESPN scoreboard without writing outcomes.
+
+        ESPN schedule dates may differ from UTC calendar dates.
+        """
+        if (not isinstance(date_yyyymmdd, str)
+                or len(date_yyyymmdd) != 8
+                or not date_yyyymmdd.isascii()
+                or not date_yyyymmdd.isdigit()):
+            raise ValueError("date must be YYYYMMDD")
+        try:
+            datetime.strptime(date_yyyymmdd, "%Y%m%d")
+        except ValueError as exc:
+            raise ValueError("invalid calendar date") from exc
+        payload = await self._get_json(
+            f"{ESPN_BASE}/scoreboard?dates={date_yyyymmdd}"
+        )
+        if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
+            return []
+        rows: Dict[str, Dict[str, Any]] = {}
+        for event in payload["events"]:
+            parsed = parse_completed_nba_event(event)
+            if parsed is not None:
+                rows[parsed["provider_fixture_id"]] = parsed
+        return sorted(rows.values(), key=lambda row: (
+            row["start_ts_utc"], row["provider_fixture_id"]
+        ))
+
     async def fetch_completed_nba_events(
         self, team_input: str, limit: int = 20
     ) -> List[Dict[str, Any]]:
