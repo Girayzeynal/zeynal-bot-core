@@ -22,6 +22,8 @@ class ESPNRejectionDiagnosticsTests(unittest.TestCase):
             "not_completed": 1,
         })
         self.assertEqual(sum(report["rejection_reasons"].values()), 3)
+        self.assertEqual(report["unfinished_events"], 1)
+        self.assertEqual(report["malformed_or_unverifiable_events"], 2)
         self.assertNotIn("competitions", report)
 
     def test_future_event_is_distinguished(self):
