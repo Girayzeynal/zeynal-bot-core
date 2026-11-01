@@ -45,6 +45,9 @@ async def check_scoreboard(date: str) -> dict:
             "observed_at_utc": report["observed_at_utc"],
             "quality": quality,
             "completed_events_count": len(report["completed_events"]),
+            "completed_fixture_ids": sorted(
+                event["provider_fixture_id"] for event in report["completed_events"]
+            ),
         }
     finally:
         await adapter.aclose()
