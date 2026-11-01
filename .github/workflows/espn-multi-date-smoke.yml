@@ -1,6 +1,13 @@
 name: ESPN NBA multi-date smoke (dev-only)
 
 on:
+  push:
+    branches:
+      - dev/elite-phase-hardening-2026
+    paths:
+      - .github/workflows/espn-multi-date-smoke.yml
+      - providers/espn_multi_date_smoke.py
+      - providers/espn_live_smoke.py
   workflow_dispatch:
 
 permissions:
