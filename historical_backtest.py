@@ -24,6 +24,7 @@ class HistoricalPrediction:
     # Regulation-only probabilities must not be scored against OT-inclusive results.
     result_scope: str = "FINAL_WITH_OT"
     prediction_scope: str = "FINAL_WITH_OT"
+    fixture_start_ts_utc: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,11 @@ def evaluate_predictions(records: Iterable[HistoricalPrediction]) -> BacktestMet
         keys.add(key)
         if not isinstance(row.prediction_ts_utc, int) or not isinstance(row.result_ts_utc, int):
             raise ValueError("timestamps must be integer UTC epoch seconds")
+        if row.fixture_start_ts_utc is not None:
+            if isinstance(row.fixture_start_ts_utc, bool) or not isinstance(row.fixture_start_ts_utc, int):
+                raise ValueError("fixture start must be integer UTC epoch seconds")
+            if not row.prediction_ts_utc < row.fixture_start_ts_utc < row.result_ts_utc:
+                raise ValueError("prematch prediction must precede fixture start, which must precede result")
         if row.prediction_ts_utc >= row.result_ts_utc:
             raise ValueError("prediction must precede the observed result")
         if row.prediction_scope != row.result_scope:
