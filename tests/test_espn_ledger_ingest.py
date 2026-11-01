@@ -165,6 +165,14 @@ class ESPNIngestTests(unittest.TestCase):
             ))
         self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
 
+    def test_invalid_start_timestamp_types_rejected(self):
+        for invalid_start in (True, 150.5, "150", None):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", self.event(start_ts_utc=invalid_start),
+                observed_at_utc=200,
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
     def test_unmatched_fixture_rejected(self):
         self.assertFalse(ingest_completed_espn_nba_event(
             self.ledger, "wrong", self.event(), observed_at_utc=200
