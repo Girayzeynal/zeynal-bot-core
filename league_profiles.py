@@ -41,5 +41,17 @@ LEAGUE_PROFILES = {
 }
 
 def get_league_profile(league: str) -> LeagueProfile:
-    key = (league or "").upper().strip()
-    return LEAGUE_PROFILES.get(key, LEAGUE_PROFILES["EUROLEAGUE"])
+    key = (league or "").upper().strip().replace(" ", "")
+    aliases = {
+        "NBA": "NBA",
+        "EUROLEAGUE": "EUROLEAGUE",
+        "EURO LEAGUE": "EUROLEAGUE",
+    }
+    canonical = aliases.get(key)
+    if canonical is None:
+        supported = ", ".join(sorted(LEAGUE_PROFILES))
+        raise ValueError(
+            f"Unsupported league profile: {league!r}. "
+            f"No calibrated profile is registered. Supported: {supported}"
+        )
+    return LEAGUE_PROFILES[canonical]
