@@ -15,6 +15,7 @@ class VerifiedBacktestReportTests(unittest.TestCase):
     def test_no_verified_pairs_does_not_invent_metrics(self):
         result = report(self.path)
         self.assertEqual(result["status"], "no_verified_pairs")
+        self.assertEqual(result["audit"]["sample_size_assessment"], "no_verified_sample")
         self.assertIsNone(result["metrics"])
         self.assertIsNone(result["audit"]["verified_pair_coverage"])
         self.assertEqual(result["audit"]["excluded_matched_pairs"], 0)
@@ -28,6 +29,7 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         ledger.record_outcome(OutcomeRecord("fixture-1", "NBA", 300, 108, 104))
         result = report(self.path)
         self.assertEqual(result["status"], "evaluated")
+        self.assertEqual(result["audit"]["sample_size_assessment"], "small_sample")
         self.assertEqual(result["metrics"]["n_games"], 1)
         self.assertEqual(result["audit"]["verified_pair_coverage"], 1.0)
         self.assertEqual(sum(result["audit"]["primary_exclusion_reasons"].values()), 0)
