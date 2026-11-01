@@ -170,6 +170,31 @@ class PredictionLedger:
             )
             return cursor.rowcount == 1
 
+    def evaluate_prematch(self, league: Optional[str] = None) -> BacktestMetrics:
+        """Evaluate only rows with an explicitly recorded valid tipoff."""
+        where = " WHERE p.league = ?" if league is not None else ""
+        args = (league,) if league is not None else ()
+        with self._connect() as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS fixture_starts (
+                league TEXT NOT NULL, fixture_id TEXT NOT NULL,
+                start_ts_utc INTEGER NOT NULL,
+                PRIMARY KEY (league, fixture_id)
+            )""")
+            rows = db.execute("""SELECT p.fixture_id, p.league, p.prediction_ts_utc,
+                    o.result_ts_utc, p.expected_home, p.expected_away,
+                    o.actual_home, o.actual_away, p.home_win_probability,
+                    o.scope, p.scope, f.start_ts_utc
+                FROM predictions p JOIN outcomes o
+                  ON p.league=o.league AND p.fixture_id=o.fixture_id
+                JOIN fixture_starts f
+                  ON p.league=f.league AND p.fixture_id=f.fixture_id""" + where, args).fetchall()
+        valid = [
+            HistoricalPrediction(*row)
+            for row in rows
+            if row[2] < row[11] < row[3] and row[9] == row[10]
+        ]
+        return evaluate_predictions(valid)
+
     def evaluate(self, league: Optional[str] = None) -> BacktestMetrics:
         sql = """SELECT p.fixture_id, p.league, p.prediction_ts_utc,
                     o.result_ts_utc, p.expected_home, p.expected_away,
