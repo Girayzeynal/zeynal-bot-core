@@ -34,7 +34,7 @@ def rejected_event_reason(raw: Any, observed_at_utc: int) -> str:
     if not isinstance(status, dict) or not isinstance(status.get("type"), dict):
         return "missing_competition_status"
     kind = status["type"]
-    if kind.get("state") != "completed" or kind.get("completed") is not True:
+    if kind.get("state") not in ("post", "completed") or kind.get("completed") is not True:
         return "not_completed"
     competitors = competition.get("competitors")
     if not isinstance(competitors, list) or len(competitors) != 2:
