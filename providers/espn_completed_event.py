@@ -28,7 +28,7 @@ def parse_completed_nba_event(event: Dict[str, Any], now_utc: Optional[datetime]
             return None
         competition = competitions[0]
         status = competition["status"]["type"]
-        if status.get("state") != "completed" or status.get("completed") is not True:
+        if status.get("state") not in ("post", "completed") or status.get("completed") is not True:
             return None
         competitors = competition["competitors"]
         if not isinstance(competitors, list) or len(competitors) != 2:
