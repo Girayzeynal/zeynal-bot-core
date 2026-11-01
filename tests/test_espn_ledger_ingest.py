@@ -42,6 +42,20 @@ class ESPNIngestTests(unittest.TestCase):
             self.ledger, "game-1", self.event(actual_home=116), observed_at_utc=201
         ))
 
+    def test_conflicting_replay_preserves_original_outcome(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200
+        ))
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(actual_away=109), observed_at_utc=300
+        ))
+        with self.ledger._connect() as db:
+            row = db.execute(
+                "SELECT result_ts_utc, actual_home, actual_away, scope "
+                "FROM outcomes WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(row, (200, 115, 108, "FINAL_WITH_OT"))
+
     def test_duplicate_preserves_original_result_timestamp(self):
         self.assertTrue(ingest_completed_espn_nba_event(
             self.ledger, "game-1", self.event(), observed_at_utc=200
