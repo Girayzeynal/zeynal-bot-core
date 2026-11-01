@@ -351,6 +351,16 @@ class ESPNIngestTests(unittest.TestCase):
             ).fetchone()
         self.assertEqual(row, (200, 115, 108))
 
+    def test_result_without_prediction_rejected_even_with_fixture_metadata(self):
+        with self.ledger._connect() as db:
+            db.execute(
+                "DELETE FROM predictions WHERE league='NBA' AND fixture_id='game-1'"
+            )
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200,
+        ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
     def test_unmatched_fixture_rejected(self):
         self.assertFalse(ingest_completed_espn_nba_event(
             self.ledger, "wrong", self.event(), observed_at_utc=200
