@@ -1,7 +1,7 @@
 """Read-only report for verified prematch backtesting."""
 from dataclasses import asdict
 from prediction_ledger import PredictionLedger
-from backtest_uncertainty import bootstrap_mean_interval, moving_block_mean_interval
+from backtest_uncertainty import bootstrap_mean_interval, moving_block_mean_interval, block_length_sensitivity
 
 
 def report(db_path: str, league: str = "NBA") -> dict:
@@ -97,6 +97,8 @@ def report(db_path: str, league: str = "NBA") -> dict:
     errors = [abs(expected - actual) for expected, actual in rows]
     uncertainty = bootstrap_mean_interval(errors)
     block_uncertainty = moving_block_mean_interval(errors)
+    sensitivity = block_length_sensitivity(errors)
     return {"status": "evaluated", "league": league, "audit": audit,
             "metrics": asdict(metrics), "uncertainty": {"total_mae": uncertainty,
-                            "total_mae_block_bootstrap": block_uncertainty}}
+                            "total_mae_block_bootstrap": block_uncertainty,
+                            "block_length_sensitivity": sensitivity}}
