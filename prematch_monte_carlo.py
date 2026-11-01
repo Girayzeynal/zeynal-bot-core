@@ -29,7 +29,7 @@ class PrematchSimulationResult:
     home_regulation_win_probability: float
     away_regulation_win_probability: float
     regulation_tie_probability: float
-    observed_score_correlation: float
+    observed_score_correlation: Optional[float]
     expected_home_score: float
     expected_away_score: float
     expected_total: float
@@ -77,18 +77,25 @@ class PrematchMonteCarloEngine:
         corr = float(request.score_correlation)
         if not math.isfinite(corr) or not -0.95 <= corr <= 0.95:
             raise ValueError('score_correlation must be finite and within [-0.95, 0.95]')
-        periods = int(request.periods)
+        if isinstance(request.periods, bool) or not isinstance(request.periods, int):
+            raise ValueError('periods must be an integer')
+        periods = request.periods
         if periods not in (2, 4):
             raise ValueError('periods must be 2 or 4; overtime is not modeled')
-        n = int(request.simulations)
+        if isinstance(request.simulations, bool) or not isinstance(request.simulations, int):
+            raise ValueError('simulations must be an integer')
+        n = request.simulations
         if not 1000 <= n <= 1000000:
             raise ValueError('simulations must be between 1000 and 1000000')
         market = request.market_total
         if market is not None:
             market = _finite_positive('market_total', market)
 
-        rng = random.Random(int(request.seed))
-        root = math.sqrt(max(0.0, 1.0 - corr * corr))
+        if isinstance(request.seed, bool) or not isinstance(request.seed, int):
+            raise ValueError('seed must be an integer')
+        rng = random.Random(request.seed)
+        # Construct a standard bivariate normal: both marginal variances remain 1.
+        root = math.sqrt(max(0.0, 1.0 - abs(corr)))
         home_scores, away_scores, totals, margins = [], [], [], []
         home_period_sums = [0] * periods
         away_period_sums = [0] * periods
@@ -135,11 +142,15 @@ class PrematchMonteCarloEngine:
             return round(totals_sorted[lo] * (1 - frac) + totals_sorted[hi] * frac, 2)
 
         return PrematchSimulationResult(
-            simulations=n, seed=int(request.seed), model_scope='REGULATION_ONLY',
+            simulations=n, seed=request.seed, model_scope='REGULATION_ONLY',
             home_regulation_win_probability=home_wins / n,
             away_regulation_win_probability=away_wins / n,
             regulation_tie_probability=ties / n,
-            observed_score_correlation=statistics.correlation(home_scores, away_scores),
+            observed_score_correlation=(
+                statistics.correlation(home_scores, away_scores)
+                if statistics.pstdev(home_scores) > 0 and statistics.pstdev(away_scores) > 0
+                else None
+            ),
             expected_home_score=statistics.fmean(home_scores), expected_away_score=statistics.fmean(away_scores),
             expected_total=statistics.fmean(totals), total_std=statistics.pstdev(totals),
             total_quantiles={'p05': quantile(0.05), 'p25': quantile(0.25), 'p50': quantile(0.50), 'p75': quantile(0.75), 'p95': quantile(0.95)},
