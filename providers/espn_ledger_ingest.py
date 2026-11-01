@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-from prediction_ledger import OutcomeRecord, PredictionLedger
+from prediction_ledger import PredictionLedger
 
 
 def ingest_completed_espn_nba_event(
@@ -37,6 +37,7 @@ def ingest_completed_espn_nba_event(
         if type(home) is not int or type(away) is not int or min(home, away) < 0:
             return False
         with ledger._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
             row = db.execute("""SELECT p.prediction_ts_utc, p.scope,
                     f.start_ts_utc, v.provider, v.provider_fixture_id, v.start_ts_utc
                 FROM predictions p
@@ -51,9 +52,10 @@ def ingest_completed_espn_nba_event(
                 FROM outcomes WHERE league='NBA' AND fixture_id=?""", (fixture_id,)).fetchone()
             if existing is not None:
                 return existing[1:] == (home, away, "FINAL_WITH_OT")
-        return ledger.record_outcome(OutcomeRecord(
-            fixture_id=fixture_id, league="NBA", result_ts_utc=now,
-            actual_home=home, actual_away=away,
-        ))
+            db.execute(
+                "INSERT INTO outcomes VALUES (?, ?, ?, ?, ?, ?)",
+                ("NBA", fixture_id, now, home, away, "FINAL_WITH_OT"),
+            )
+            return True
     except (KeyError, TypeError, ValueError):
         return False
