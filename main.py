@@ -4,7 +4,7 @@ import os
 import html
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Tuple
 
 from telegram import Update
@@ -77,6 +77,17 @@ def parse_analyze(text: str) -> Tuple[str, str, str, str]:
     return league, date_str, home, away
 
 # ============================
+# TELEGRAM COMMANDS
+# ============================
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_message:
+        await update.effective_message.reply_text(
+            "Zeynal Bot Core aktif. Analiz biçimi:\n"
+            "/analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman\n\n"
+            "Yeterli doğrulanabilir takım verisi yoksa tahmin üretilmez."
+        )
+
+# ============================
 # ANALYZE COMMAND
 # ============================
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -94,13 +105,35 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     faz13: Faz13Engine = context.application.bot_data["faz13"]
     bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
 
-    # --- AUTO BASELINE BOOTSTRAP (GERÇEK VERİ) ---
+    # Fail closed: never turn a missing team baseline into a league-average prediction.
     try:
-        await bootstrapper.ensure_async(league=league, team_input=home, min_games=6)
-        await bootstrapper.ensure_async(league=league, team_input=away, min_games=6)
-    except Exception as e:
-        logger.warning(f"Baseline bootstrap failed: {e}")
-    # --- /BOOTSTRAP ---
+        home_baseline = await bootstrapper.ensure_async(league=league, team_input=home, min_games=6)
+        away_baseline = await bootstrapper.ensure_async(league=league, team_input=away, min_games=6)
+    except Exception:
+        logger.exception("Baseline bootstrap error")
+        await update.message.reply_text("Veri sağlayıcısı hatası: analiz oluşturulmadı.")
+        return
+
+    now_ts = datetime.now(timezone.utc).timestamp()
+    def usable(baseline):
+        if baseline is None:
+            return False
+        try:
+            return (int(baseline.n_games) >= 6
+                    and 0 <= now_ts - float(baseline.updated_ts) <= 7 * 86400
+                    and float(baseline.pts_for) > 0
+                    and float(baseline.pts_against) > 0)
+        except (ValueError, TypeError, AttributeError):
+            return False
+
+    if not (usable(home_baseline) and usable(away_baseline)):
+        logger.warning("Insufficient verified baselines: league=%s home=%s away=%s", league, home, away)
+        await update.message.reply_text(
+            "Yetersiz veya güncelliğini yitirmiş takım verisi. "
+            "LEAGUE_AVG yedeğiyle tahmin üretilmedi. "
+            "Veri kaynağı ve fikstür doğrulanınca tekrar deneyin."
+        )
+        return
 
     try:
         req = PrematchRequest(
@@ -166,6 +199,7 @@ def build_app() -> Application:
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine()
 
+    app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
     return app
 
