@@ -64,8 +64,11 @@ async def fetch_games(league_id, date, session):
     params = {"league": league_id, "date": date, "timezone": "UTC"}
     
     try:
-        async with session.get(url, params=params, headers=headers, timeout=15) as resp:
+        async with session.get(url, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            resp.raise_for_status()
             js = await resp.json()
+            if not isinstance(js, dict) or not isinstance(js.get("response"), list):
+                raise ValueError("API-Sports response missing games list")
             out = []
             for g in js.get("response", []):
                 try:
@@ -77,7 +80,9 @@ async def fetch_games(league_id, date, session):
                         "status": g["status"]["short"],
                         "scores": g.get("scores", {})
                     })
-                except: continue
+                except (KeyError, TypeError, ValueError, AttributeError):
+                    log.warning("Skipping malformed API-Sports fixture", exc_info=True)
+                    continue
             return out
     except Exception as e:
         log.error(f"Games fetch failed: {e}")
@@ -148,6 +153,8 @@ async def scheduler_loop(engines):
                 for g in games_by_id.values():
                     for st in ANALYSIS_STAGES:
                         key = f"AN:{lg['name']}:{g['id']}:{st['offset']}"
+                        if g["status"] not in ("NS", "TBD") or now >= g["start"]:
+                            continue
                         if not job_done(key) and now >= g["start"] - st["offset"]:
                             succeeded = await run_analysis(
                                 engines, lg["name"],
