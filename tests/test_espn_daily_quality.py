@@ -42,6 +42,15 @@ class ESPNDailyQualityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(report["raw_events_successful_dates"], 0)
         self.assertEqual(report["daily"][0]["status"], "invalid_quality_report")
 
+    async def test_calendar_invalid_date_is_rejected_before_fetch(self):
+        adapter = type("Adapter", (), {})()
+        adapter.fetch_nba_scoreboard_quality_report = AsyncMock()
+        for dates in (["20250230"], "20251025", ["2025-10-25"]):
+            with self.subTest(dates=dates):
+                with self.assertRaises(ValueError):
+                    await collect_nba_daily_quality(adapter, dates)
+        adapter.fetch_nba_scoreboard_quality_report.assert_not_awaited()
+
     async def test_invalid_input_is_rejected(self):
         adapter = type("Adapter", (), {})()
         adapter.fetch_nba_scoreboard_quality_report = AsyncMock()
