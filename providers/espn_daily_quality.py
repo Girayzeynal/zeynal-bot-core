@@ -28,6 +28,32 @@ async def collect_nba_daily_quality(adapter: Any, dates: Iterable[str]) -> dict:
                 "quality": None,
             })
             continue
+        quality = result.get("quality") if isinstance(result, dict) else None
+        keys = (
+            "total_raw", "accepted_unique", "invalid_or_incomplete",
+            "unfinished_events", "malformed_or_unverifiable_events",
+            "duplicate_identical", "conflicting_records",
+        )
+        valid = (
+            isinstance(quality, dict)
+            and all(type(quality.get(key)) is int and quality[key] >= 0 for key in keys)
+        )
+        if valid:
+            valid = (
+                quality["invalid_or_incomplete"]
+                == quality["unfinished_events"] + quality["malformed_or_unverifiable_events"]
+                and quality["total_raw"]
+                == quality["invalid_or_incomplete"] + quality["accepted_unique"]
+                   + quality["duplicate_identical"] + quality["conflicting_records"]
+            )
+        if not valid:
+            rows.append({
+                "date_yyyymmdd": date,
+                "status": "invalid_quality_report",
+                "error_type": "QualityInvariantError",
+                "quality": None,
+            })
+            continue
         rows.append({
             "date_yyyymmdd": date,
             "status": "ok",
