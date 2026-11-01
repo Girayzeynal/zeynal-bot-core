@@ -57,7 +57,7 @@ def audit_espn_events(events: Any, observed_at_utc: int | None = None) -> dict:
             invalid_indices.append(index)
             rejection_reasons[rejected_event_reason(raw, now)] += 1
             counts["invalid_or_incomplete"] += 1
-            if _is_unfinished_event(raw):
+            if _is_unfinished_event(raw) or rejection_reasons and rejected_event_reason(raw, now) == "not_completed":
                 counts["unfinished_events"] += 1
             else:
                 counts["malformed_or_unverifiable_events"] += 1
