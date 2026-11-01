@@ -23,12 +23,14 @@ def audit_espn_events(events: Any, observed_at_utc: int | None = None) -> dict:
         raise ValueError("invalid observation timestamp")
     observed = datetime.fromtimestamp(now, tz=timezone.utc)
     counts: Counter[str] = Counter()
+    invalid_indices: list[int] = []
     by_id: dict[str, dict] = {}
     occurrences: Counter[str] = Counter()
     conflicts: set[str] = set()
-    for raw in events:
+    for index, raw in enumerate(events):
         parsed = parse_completed_nba_event(raw, observed)
         if parsed is None:
+            invalid_indices.append(index)
             counts["invalid_or_incomplete"] += 1
             continue
         key = parsed["provider_fixture_id"]
@@ -55,5 +57,7 @@ def audit_espn_events(events: Any, observed_at_utc: int | None = None) -> dict:
         "duplicate_identical": counts["duplicate_identical"],
         "conflicting_fixture_ids": counts["conflicting_fixture_ids"],
         "conflicting_records": counts["conflicting_records"],
+        "conflicting_fixture_ids_detail": sorted(conflicts),
+        "invalid_event_indices": invalid_indices,
         "coverage_rate": counts["accepted_unique"] / total if total else None,
     }
