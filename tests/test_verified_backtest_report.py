@@ -295,8 +295,8 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         ledger = PredictionLedger(self.path)
         for fixture, predicted_total, actual_home, actual_away, start in (
             ("valid-a", 210, 108, 104, 200),
-            ("valid-b", 230, 105, 105, 200),
-            ("invalid", 999, 105, 105, 201),
+            ("valid-b", 230, 106, 104, 200),
+            ("invalid", 999, 106, 104, 201),
         ):
             ledger.record_prediction(PredictionRecord(fixture, "NBA", 100, predicted_total / 2, predicted_total / 2, 0.7))
             ledger.record_fixture_start("NBA", fixture, 200)
