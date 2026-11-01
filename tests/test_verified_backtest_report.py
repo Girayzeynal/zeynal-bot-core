@@ -31,6 +31,7 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         self.assertEqual(result["status"], "evaluated")
         self.assertEqual(result["audit"]["sample_size_assessment"], "small_sample")
         self.assertEqual(result["metrics"]["n_games"], 1)
+        self.assertIsNone(result["uncertainty"]["total_mae"])
         self.assertEqual(result["audit"]["verified_pair_coverage"], 1.0)
         self.assertEqual(sum(result["audit"]["primary_exclusion_reasons"].values()), 0)
         self.assertEqual(result["audit"]["excluded_matched_pairs"], 0)
@@ -65,6 +66,20 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         ledger.record_fixture_provenance("NBA", "fixture-1", "ESPN", "espn-1", 200)
         ledger.record_outcome(OutcomeRecord("fixture-1", "NBA", 300, 108, 104))
         self.assertEqual(report(self.path)["status"], "no_verified_pairs")
+
+    def test_two_verified_games_produce_uncertainty(self):
+        ledger = PredictionLedger(self.path)
+        for i in range(2):
+            fixture = f"fixture-{i}"
+            ledger.record_prediction(PredictionRecord(fixture, "NBA", 100, 110, 100, 0.7))
+            ledger.record_fixture_start("NBA", fixture, 200)
+            ledger.record_fixture_provenance("NBA", fixture, "ESPN", f"espn-{i}", 200)
+            ledger.record_outcome(OutcomeRecord(fixture, "NBA", 300, 108 + i, 104))
+        result = report(self.path)
+        self.assertEqual(result["metrics"]["n_games"], 2)
+        self.assertEqual(result["uncertainty"]["total_mae"]["n"], 2)
+        self.assertAlmostEqual(result["uncertainty"]["total_mae"]["estimate"],
+                               result["metrics"]["total_mae"])
 
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
