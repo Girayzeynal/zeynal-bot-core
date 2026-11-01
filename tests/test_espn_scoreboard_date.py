@@ -31,6 +31,16 @@ class ESPNScoreboardDateTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([r["provider_fixture_id"] for r in result], ["123"])
         adapter._get_json.assert_awaited_once()
 
+    async def test_conflicting_duplicate_fixture_is_excluded(self):
+        adapter = ESPNAdapter()
+        changed = sample_event("123")
+        changed["competitions"][0]["competitors"][0]["score"] = "116"
+        adapter._get_json = AsyncMock(return_value={"events": [
+            sample_event("123"), changed, sample_event("125")
+        ]})
+        result = await adapter.fetch_completed_nba_scoreboard_date("20251025")
+        self.assertEqual([r["provider_fixture_id"] for r in result], ["125"])
+
     async def test_invalid_date_does_not_fetch(self):
         adapter = ESPNAdapter()
         adapter._get_json = AsyncMock()
