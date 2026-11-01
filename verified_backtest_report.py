@@ -72,7 +72,7 @@ def report(db_path: str, league: str = "NBA") -> dict:
             reason = "prediction_not_before_tipoff"
         elif start >= result:
             reason = "fixture_start_not_before_result"
-        elif provider_start is None or not provider or not provider_id or not provider_id.strip():
+        elif provider_start is None or not provider or not provider.strip() or not provider_id or not provider_id.strip():
             reason = "missing_provider_identity"
         elif start != provider_start:
             reason = "provider_fixture_start_conflict"
@@ -108,6 +108,7 @@ def report(db_path: str, league: str = "NBA") -> dict:
                                     AND f.start_ts_utc=v.start_ts_utc
                WHERE p.league=? AND p.prediction_ts_utc < f.start_ts_utc
                  AND f.start_ts_utc < o.result_ts_utc AND p.scope=o.scope
+                 AND trim(v.provider) != '' AND trim(v.provider_fixture_id) != ''
                ORDER BY f.start_ts_utc, p.fixture_id""",
             (league,),
         ).fetchall()
