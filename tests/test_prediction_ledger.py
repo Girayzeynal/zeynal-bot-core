@@ -83,6 +83,24 @@ class PredictionLedgerTests(unittest.TestCase):
         self.assertEqual(audit["invalid_time_pairs"], 1)
         self.assertEqual(audit["scope_mismatch_pairs"], 0)
 
+    def test_prematch_audit_requires_fixture_start(self):
+        self.ledger.record_prediction(self.prediction())
+        self.ledger.record_outcome(self.outcome())
+        missing = self.ledger.audit_prematch("NBA")
+        self.assertEqual(missing["missing_fixture_start"], 1)
+        self.assertEqual(missing["valid_prematch_pairs"], 0)
+        self.assertTrue(self.ledger.record_fixture_start("NBA", "fixture-1", 150))
+        self.assertFalse(self.ledger.record_fixture_start("NBA", "fixture-1", 160))
+        valid = self.ledger.audit_prematch("NBA")
+        self.assertEqual(valid["valid_prematch_pairs"], 1)
+        self.assertEqual(valid["missing_fixture_start"], 0)
+
+    def test_in_game_prediction_not_counted_as_prematch(self):
+        self.ledger.record_prediction(self.prediction(prediction_ts_utc=175))
+        self.ledger.record_outcome(self.outcome())
+        self.ledger.record_fixture_start("NBA", "fixture-1", 150)
+        self.assertEqual(self.ledger.audit_prematch("NBA")["valid_prematch_pairs"], 0)
+
     def test_invalid_probability_rejected(self):
         with self.assertRaises(ValueError):
             self.ledger.record_prediction(self.prediction(home_win_probability=float("nan")))
