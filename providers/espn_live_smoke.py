@@ -24,6 +24,8 @@ async def check_scoreboard(date: str) -> dict:
                + quality["duplicate_identical"] + quality["conflicting_records"]
         ):
             raise RuntimeError("ESPN quality conservation invariant failed")
+        if quality["accepted_unique"] != len(report["completed_events"]):
+            raise RuntimeError("ESPN accepted count does not match vetted events")
         return {
             "status": "verified_response",
             "date_yyyymmdd": date,
