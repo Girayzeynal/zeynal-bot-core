@@ -205,6 +205,20 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         self.assertEqual(audit["primary_exclusion_reasons"]["prediction_result_scope_mismatch"], 1)
         self.assertEqual(sum(audit["primary_exclusion_reasons"].values()), 2)
 
+    def test_missing_provider_fixture_excluded_without_affecting_valid_metrics(self):
+        ledger = PredictionLedger(self.path)
+        for fixture in ("valid", "missing"):
+            ledger.record_prediction(PredictionRecord(fixture, "NBA", 100, 110, 100, 0.7))
+            ledger.record_fixture_start("NBA", fixture, 200)
+            ledger.record_outcome(OutcomeRecord(fixture, "NBA", 300, 108, 104))
+        ledger.record_fixture_provenance("NBA", "valid", "ESPN", "espn-valid", 200)
+        result = report(self.path)
+        self.assertEqual(result["status"], "evaluated")
+        self.assertEqual(result["metrics"]["n_games"], 1)
+        self.assertAlmostEqual(result["metrics"]["total_mae"], 2.0)
+        self.assertEqual(result["audit"]["excluded_matched_pairs"], 1)
+        self.assertEqual(result["audit"]["primary_exclusion_reasons"]["missing_provider_identity"], 1)
+
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
         ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
