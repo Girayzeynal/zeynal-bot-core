@@ -125,6 +125,16 @@ class TeamBaselineStore:
         except Exception:
             return []
 
+    def get_series_before(self, league: str, team: str, cutoff_ts_utc: int, n_games: int) -> List[TeamGameRecord]:
+        """Select only records older than the requested fixture."""
+        if n_games <= 0:
+            return []
+        records = self.get_series(league, team, 100000)
+        return sorted(
+            (r for r in records if 0 < r.ts_utc < int(cutoff_ts_utc)),
+            key=lambda r: r.ts_utc,
+        )[-n_games:]
+
     def compute_dynamic_baseline(
         self, league: str, team: str, n_games: int
     ) -> Optional[Dict[str, float]]:
