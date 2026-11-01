@@ -30,6 +30,8 @@ class PrematchSimulationResult:
     away_regulation_win_probability: float
     regulation_tie_probability: float
     observed_score_correlation: Optional[float]
+    observed_home_std: float
+    observed_away_std: float
     expected_home_score: float
     expected_away_score: float
     expected_total: float
@@ -93,9 +95,19 @@ class PrematchMonteCarloEngine:
 
         if isinstance(request.seed, bool) or not isinstance(request.seed, int):
             raise ValueError('seed must be an integer')
+        # shared_pace_std is part of the requested marginal standard deviations,
+        # not extra variance. Solve for the remaining residual covariance.
+        if pace_std >= min(hs, aws):
+            raise ValueError('shared_pace_std must be smaller than both team standard deviations')
+        home_residual_std = math.sqrt(hs * hs - pace_std * pace_std)
+        away_residual_std = math.sqrt(aws * aws - pace_std * pace_std)
+        residual_corr = (corr * hs * aws - pace_std * pace_std) / (
+            home_residual_std * away_residual_std
+        )
+        if not -1.0 <= residual_corr <= 1.0:
+            raise ValueError('shared_pace_std and score_correlation imply an impossible covariance')
         rng = random.Random(request.seed)
-        # Construct a standard bivariate normal: both marginal variances remain 1.
-        root = math.sqrt(max(0.0, 1.0 - abs(corr)))
+        root = math.sqrt(max(0.0, 1.0 - residual_corr * residual_corr))
         home_scores, away_scores, totals, margins = [], [], [], []
         home_period_sums = [0] * periods
         away_period_sums = [0] * periods
@@ -103,11 +115,10 @@ class PrematchMonteCarloEngine:
 
         for _ in range(n):
             common = rng.gauss(0.0, 1.0)
-            h_ind = rng.gauss(0.0, 1.0)
             a_ind = rng.gauss(0.0, 1.0)
             shared = rng.gauss(0.0, pace_std) if pace_std else 0.0
-            h_score = max(0, int(round(hm + shared + hs * common * math.sqrt(abs(corr)) + hs * h_ind * root)))
-            a_score = max(0, int(round(am + shared + aws * common * math.sqrt(abs(corr)) * (1 if corr >= 0 else -1) + aws * a_ind * root)))
+            h_score = max(0, int(round(hm + shared + home_residual_std * common)))
+            a_score = max(0, int(round(am + shared + away_residual_std * (residual_corr * common + root * a_ind))))
             h_periods = _allocate_periods(h_score, periods, rng)
             a_periods = _allocate_periods(a_score, periods, rng)
             for i in range(periods):
@@ -151,6 +162,8 @@ class PrematchMonteCarloEngine:
                 if statistics.pstdev(home_scores) > 0 and statistics.pstdev(away_scores) > 0
                 else None
             ),
+            observed_home_std=statistics.pstdev(home_scores),
+            observed_away_std=statistics.pstdev(away_scores),
             expected_home_score=statistics.fmean(home_scores), expected_away_score=statistics.fmean(away_scores),
             expected_total=statistics.fmean(totals), total_std=statistics.pstdev(totals),
             total_quantiles={'p05': quantile(0.05), 'p25': quantile(0.25), 'p50': quantile(0.50), 'p75': quantile(0.75), 'p95': quantile(0.95)},
