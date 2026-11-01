@@ -65,6 +65,13 @@ def report(db_path: str, league: str = "NBA") -> dict:
     audit["verified_pair_coverage"] = (
         count / audit["matched"] if audit["matched"] else None
     )
+    # Sample adequacy is descriptive, never a claim of prediction accuracy.
+    audit["sample_size_assessment"] = (
+        "no_verified_sample" if count == 0 else
+        "small_sample" if count < 30 else
+        "moderate_sample" if count < 100 else
+        "larger_sample"
+    )
     if count == 0:
         return {"status": "no_verified_pairs", "league": league, "audit": audit, "metrics": None}
     metrics = ledger.evaluate_provenance_verified(league)
