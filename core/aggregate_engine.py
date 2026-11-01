@@ -61,6 +61,19 @@ def aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         except Exception:
             fetched_at = None
 
+        pace = r.get("pace")
+        try:
+            pace = float(pace) if pace is not None else None
+            if pace is not None and not (40.0 <= pace <= 150.0):
+                pace = None
+        except Exception:
+            pace = None
+
+        try:
+            n_games = max(0, int(r.get("n_games", 0) or 0))
+        except Exception:
+            n_games = 0
+
         clean.append(
             {
                 "pts_for": pf,
@@ -68,6 +81,8 @@ def aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
                 "confidence": conf,
                 "source": src,
                 "fetched_at": fetched_at,
+                "pace": pace,
+                "n_games": n_games,
             }
         )
 
@@ -92,10 +107,20 @@ def aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     fetched_times = [x["fetched_at"] for x in clean if isinstance(x["fetched_at"], int)]
     fetched_at_out = max(fetched_times) if fetched_times else int(time.time())
 
+    pace_rows = [x for x in clean if x["pace"] is not None]
+    pace_total_conf = sum(x["confidence"] for x in pace_rows)
+    pace_mean = (
+        sum(x["pace"] * x["confidence"] for x in pace_rows) / pace_total_conf
+        if pace_total_conf > 0 else None
+    )
+    n_games = max((x["n_games"] for x in clean), default=0)
+
     return {
         "pts_for": pts_for,
         "pts_against": pts_against,
         "confidence": confidence_norm,
         "sources": sources,
         "fetched_at": fetched_at_out,
+        "pace": pace_mean,
+        "n_games": n_games,
     } 
