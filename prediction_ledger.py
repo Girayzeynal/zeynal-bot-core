@@ -97,6 +97,38 @@ class PredictionLedger:
             )
             return cursor.rowcount == 1
 
+    def audit(self, league: Optional[str] = None) -> dict:
+        """Count paired, unpaired and invalid records before evaluation."""
+        where = " WHERE league = ?" if league is not None else ""
+        args = (league,) if league is not None else ()
+        with self._connect() as db:
+            predictions = db.execute(
+                "SELECT league, fixture_id, prediction_ts_utc, scope FROM predictions" + where,
+                args,
+            ).fetchall()
+            outcomes = db.execute(
+                "SELECT league, fixture_id, result_ts_utc, scope FROM outcomes" + where,
+                args,
+            ).fetchall()
+        pred = {(r[0], r[1]): r for r in predictions}
+        obs = {(r[0], r[1]): r for r in outcomes}
+        common = pred.keys() & obs.keys()
+        invalid_time = sum(pred[k][2] >= obs[k][2] for k in common)
+        invalid_scope = sum(pred[k][3] != obs[k][3] for k in common)
+        return {
+            "predictions": len(pred),
+            "outcomes": len(obs),
+            "matched": len(common),
+            "unmatched_predictions": len(pred.keys() - obs.keys()),
+            "unmatched_outcomes": len(obs.keys() - pred.keys()),
+            "invalid_time_pairs": invalid_time,
+            "scope_mismatch_pairs": invalid_scope,
+            "eligible_pairs": sum(
+                pred[k][2] < obs[k][2] and pred[k][3] == obs[k][3]
+                for k in common
+            ),
+        }
+
     def evaluate(self, league: Optional[str] = None) -> BacktestMetrics:
         sql = """SELECT p.fixture_id, p.league, p.prediction_ts_utc,
                     o.result_ts_utc, p.expected_home, p.expected_away,
