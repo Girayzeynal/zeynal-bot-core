@@ -308,6 +308,15 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         self.assertEqual(result["audit"]["excluded_matched_pairs"], 1)
         self.assertIsNotNone(result["uncertainty"]["total_mae"])
 
+    def test_tied_final_score_is_rejected_by_verified_metrics(self):
+        ledger = PredictionLedger(self.path)
+        ledger.record_prediction(PredictionRecord("tied-final", "NBA", 100, 110, 100, 0.7))
+        ledger.record_fixture_start("NBA", "tied-final", 200)
+        ledger.record_fixture_provenance("NBA", "tied-final", "ESPN", "espn-tied", 200)
+        ledger.record_outcome(OutcomeRecord("tied-final", "NBA", 300, 105, 105))
+        with self.assertRaisesRegex(ValueError, "decisive result"):
+            report(self.path)
+
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
         ledger.record_prediction(PredictionRecord("fixture-1", "NBA", 100, 110, 100, 0.7))
