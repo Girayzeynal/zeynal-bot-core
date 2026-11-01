@@ -55,9 +55,10 @@ def audit_espn_events(events: Any, observed_at_utc: int | None = None) -> dict:
         parsed = parse_completed_nba_event(raw, observed)
         if parsed is None:
             invalid_indices.append(index)
-            rejection_reasons[rejected_event_reason(raw, now)] += 1
+            reason = rejected_event_reason(raw, now)
+            rejection_reasons[reason] += 1
             counts["invalid_or_incomplete"] += 1
-            if _is_unfinished_event(raw) or rejection_reasons and rejected_event_reason(raw, now) == "not_completed":
+            if reason == "not_completed" or _is_unfinished_event(raw):
                 counts["unfinished_events"] += 1
             else:
                 counts["malformed_or_unverifiable_events"] += 1
