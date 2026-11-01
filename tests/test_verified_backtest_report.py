@@ -80,6 +80,7 @@ class VerifiedBacktestReportTests(unittest.TestCase):
         self.assertEqual(result["uncertainty"]["total_mae"]["n"], 2)
         self.assertAlmostEqual(result["uncertainty"]["total_mae"]["estimate"],
                                result["metrics"]["total_mae"])
+        self.assertEqual(result["uncertainty"]["block_length_sensitivity"]["eligible_block_lengths"], 0)
 
     def test_missing_provenance_excluded(self):
         ledger = PredictionLedger(self.path)
