@@ -62,10 +62,17 @@ def parse_analyze(text: str) -> Tuple[str, str, str, str]:
         raise ValueError("'vs' bulunamadi")
 
     i = lower.index("vs")
-    home = " ".join(rest[:i])
-    away = " ".join(rest[i + 1 :])
-
-    return league, date_str, home.strip(), away.strip()
+    home = " ".join(rest[:i]).strip()
+    away = " ".join(rest[i + 1 :]).strip()
+    if not home or not away:
+        raise ValueError("Ev sahibi ve deplasman takımı zorunludur")
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError as exc:
+        raise ValueError("Tarih YYYY-MM-DD biçiminde ve geçerli olmalıdır") from exc
+    if home.casefold() == away.casefold():
+        raise ValueError("Ev sahibi ve deplasman takımları farklı olmalıdır")
+    return league, date_str, home, away
 
 # ============================
 # ANALYZE COMMAND
@@ -165,7 +172,6 @@ async def main_async():
     await start_health(app)
     await app.initialize()
     await app.start()
-    await app.bot.initialize()
     await app.bot.delete_webhook(drop_pending_updates=True)
     await app.updater.start_polling()
     logger.info("Bot polling started")
