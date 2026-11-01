@@ -322,7 +322,13 @@ class Faz13Engine:
             meta={
                 "confidence": min(home_base["confidence"], away_base["confidence"]),
                 "confidence_pct": round(100.0 * min(home_base["confidence"], away_base["confidence"]), 1),
-                "data_quality": "VERIFIED_BASELINE",
+                "data_quality": (
+                    "MANUAL_BASELINE" if "MANUAL_BASELINE" in home_base.get("sources", [])
+                    or "MANUAL_BASELINE" in away_base.get("sources", [])
+                    else "VERIFIED_BASELINE"
+                ),
+                "home_sources": list(home_base.get("sources", [])),
+                "away_sources": list(away_base.get("sources", [])),
                 "home_baseline_games": int(home_base.get("n_games", 0)),
                 "away_baseline_games": int(away_base.get("n_games", 0)),
                 "expected_total": round(total_mu, 2),
