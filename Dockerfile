@@ -23,7 +23,8 @@ RUN pip install --upgrade pip && \
 COPY . .
 
 # 🔴 KRİTİK SATIR (BU YOKSA OLMAZ)
-COPY data/baselines /app/data/baselines
+# Baselines are populated at runtime; repository does not ship a data directory.
+RUN mkdir -p /app/data/baselines/series
 
 # Writable dirs
 RUN mkdir -p /app/logs
