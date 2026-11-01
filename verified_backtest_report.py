@@ -21,7 +21,8 @@ def report(db_path: str, league: str = "NBA") -> dict:
                JOIN fixture_provenance v ON p.league=v.league AND p.fixture_id=v.fixture_id
                WHERE p.league=? AND p.prediction_ts_utc < f.start_ts_utc
                  AND f.start_ts_utc < o.result_ts_utc AND p.scope=o.scope
-                 AND f.start_ts_utc=v.start_ts_utc AND v.provider != 'ESPN'""",
+                 AND f.start_ts_utc=v.start_ts_utc
+                 AND (v.provider != 'ESPN' OR trim(v.provider_fixture_id) = '')""",
             (league,),
         ).fetchone()[0]
     if foreign:
@@ -71,7 +72,7 @@ def report(db_path: str, league: str = "NBA") -> dict:
             reason = "prediction_not_before_tipoff"
         elif start >= result:
             reason = "fixture_start_not_before_result"
-        elif provider_start is None or not provider or not provider_id:
+        elif provider_start is None or not provider or not provider_id or not provider_id.strip():
             reason = "missing_provider_identity"
         elif start != provider_start:
             reason = "provider_fixture_start_conflict"
