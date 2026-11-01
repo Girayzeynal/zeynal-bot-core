@@ -170,6 +170,64 @@ class PredictionLedger:
             )
             return cursor.rowcount == 1
 
+    def record_fixture_provenance(
+        self, league: str, fixture_id: str, provider: str,
+        provider_fixture_id: str, start_ts_utc: int,
+    ) -> bool:
+        """Store immutable source identity and tipoff for a fixture."""
+        self._identity(league, fixture_id)
+        if not isinstance(provider, str) or not provider.strip():
+            raise ValueError("provider is required")
+        if not isinstance(provider_fixture_id, str) or not provider_fixture_id.strip():
+            raise ValueError("provider fixture ID is required")
+        if type(start_ts_utc) is not int or start_ts_utc <= 0:
+            raise ValueError("fixture start must be positive UTC epoch seconds")
+        with self._connect() as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS fixture_provenance (
+                league TEXT NOT NULL, fixture_id TEXT NOT NULL,
+                provider TEXT NOT NULL, provider_fixture_id TEXT NOT NULL,
+                start_ts_utc INTEGER NOT NULL,
+                PRIMARY KEY (league, fixture_id),
+                UNIQUE (league, provider, provider_fixture_id)
+            )""")
+            cursor = db.execute(
+                "INSERT OR IGNORE INTO fixture_provenance VALUES (?, ?, ?, ?, ?)",
+                (league, fixture_id, provider.strip(), provider_fixture_id.strip(), start_ts_utc),
+            )
+            return cursor.rowcount == 1
+
+    def audit_provenance(self, league: Optional[str] = None) -> dict:
+        """Count eligible pregame pairs that also have provider identity."""
+        base = self.audit_prematch(league)
+        where = " WHERE p.league = ?" if league is not None else ""
+        args = (league,) if league is not None else ()
+        with self._connect() as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS fixture_provenance (
+                league TEXT NOT NULL, fixture_id TEXT NOT NULL,
+                provider TEXT NOT NULL, provider_fixture_id TEXT NOT NULL,
+                start_ts_utc INTEGER NOT NULL,
+                PRIMARY KEY (league, fixture_id),
+                UNIQUE (league, provider, provider_fixture_id)
+            )""")
+            rows = db.execute("""SELECT p.prediction_ts_utc, o.result_ts_utc,
+                    p.scope, o.scope, f.start_ts_utc, v.start_ts_utc
+                FROM predictions p JOIN outcomes o
+                  ON p.league=o.league AND p.fixture_id=o.fixture_id
+                LEFT JOIN fixture_starts f
+                  ON p.league=f.league AND p.fixture_id=f.fixture_id
+                LEFT JOIN fixture_provenance v
+                  ON p.league=v.league AND p.fixture_id=v.fixture_id""" + where, args).fetchall()
+        base["missing_provider_identity"] = sum(r[5] is None for r in rows)
+        base["provider_start_conflicts"] = sum(
+            r[4] is not None and r[5] is not None and r[4] != r[5] for r in rows
+        )
+        base["provider_consistent_prematch_pairs"] = sum(
+            f is not None and v is not None and f == v
+            and prediction < f < result and p_scope == o_scope
+            for prediction, result, p_scope, o_scope, f, v in rows
+        )
+        return base
+
     def evaluate_prematch(self, league: Optional[str] = None) -> BacktestMetrics:
         """Evaluate only rows with an explicitly recorded valid tipoff."""
         where = " WHERE p.league = ?" if league is not None else ""
