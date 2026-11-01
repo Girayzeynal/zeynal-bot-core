@@ -70,6 +70,25 @@ class ESPNIngestTests(unittest.TestCase):
         ))
         self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
 
+    def test_result_observed_at_or_before_tipoff_rejected(self):
+        for observed_at in (149, 150):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", self.event(), observed_at_utc=observed_at
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_prediction_at_or_after_tipoff_rejected(self):
+        for prediction_ts in (150, 151):
+            with self.ledger._connect() as db:
+                db.execute(
+                    "UPDATE predictions SET prediction_ts_utc=? WHERE league='NBA' AND fixture_id='game-1'",
+                    (prediction_ts,),
+                )
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", self.event(), observed_at_utc=200
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
     def test_unmatched_fixture_rejected(self):
         self.assertFalse(ingest_completed_espn_nba_event(
             self.ledger, "wrong", self.event(), observed_at_utc=200
