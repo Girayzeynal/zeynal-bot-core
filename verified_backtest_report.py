@@ -9,6 +9,9 @@ def report(db_path: str, league: str = "NBA") -> dict:
     if not isinstance(league, str) or not league.strip():
         raise ValueError("league must be a nonempty string")
     ledger = PredictionLedger(db_path)
+    # Ensure optional provenance schema exists before checking provider identities.
+    # The ledger audit creates these tables for legacy or empty databases.
+    ledger.audit_provenance(league)
     # ESPN-only report: never mix other provider observations into metrics.
     with ledger._connect() as db:
         foreign = db.execute(
