@@ -28,6 +28,8 @@ def parse_completed_nba_event(event: Dict[str, Any], now_utc: Optional[datetime]
             return None
         competition = competitions[0]
         status = competition["status"]["type"]
+        if not isinstance(status, dict):
+            return None
         if status.get("state") not in ("post", "completed") or status.get("completed") is not True:
             return None
         competitors = competition["competitors"]
@@ -40,7 +42,7 @@ def parse_completed_nba_event(event: Dict[str, Any], now_utc: Optional[datetime]
             score = competitor.get("score")
             if side not in ("home", "away") or side in by_side or not team_id:
                 return None
-            if isinstance(score, bool):
+            if isinstance(score, bool) or not isinstance(score, (int, float, str)) or (isinstance(score, str) and not score.strip()):
                 return None
             value = float(score)
             if not math.isfinite(value) or value < 0 or not value.is_integer():
