@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import sqlite3
+import tempfile
 
 from verified_backtest_report import report
 
@@ -27,7 +28,13 @@ def main(argv: list[str] | None = None) -> int:
         if not required.issubset(tables):
             print(json.dumps({"status": "error", "reason": "missing_ledger_tables"}))
             return 2
-        result = report(args.database, args.league)
+        # Evaluate a snapshot; never write to the original ledger.
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = os.path.join(directory, "ledger_snapshot.sqlite")
+            with sqlite3.connect(uri, uri=True) as source:
+                with sqlite3.connect(snapshot) as target:
+                    source.backup(target)
+            result = report(snapshot, args.league)
     except (sqlite3.Error, OSError, ValueError, RuntimeError) as exc:
         print(json.dumps({"status": "error", "error_type": type(exc).__name__}))
         return 1
