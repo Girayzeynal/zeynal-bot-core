@@ -43,11 +43,37 @@ class PointInTimeBaselineTests(unittest.TestCase):
         self.assertAlmostEqual(baseline["pts_for"], 110.0)
 
     def test_repeated_fetch_does_not_inflate_sample(self):
+        # Repeated fetches are identical records, not different scores
+        # sharing an ambiguous timestamp.
+        for _ in range(2):
+            self.store.append_game(
+                "NBA", "BOS", 105, 100, 100.0, True,
+                ts_utc=100, game_id="game-100", source="test",
+                timestamp_precision="exact",
+            )
+        records = self.store.get_series("NBA", "BOS", 10)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].pts_for, 105)
+
+    def test_same_timestamp_without_identity_preserves_distinct_games(self):
         self.add(100, 105)
         self.add(100, 115)
         records = self.store.get_series("NBA", "BOS", 10)
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0].pts_for, 115)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(sorted(r.pts_for for r in records), [105, 115])
+
+    def test_same_provider_identity_conflicting_score_rejected(self):
+        self.store.append_game(
+            "NBA", "BOS", 105, 100, 100.0, True,
+            ts_utc=100, game_id="game-100", source="test",
+            timestamp_precision="exact",
+        )
+        with self.assertRaises(ValueError):
+            self.store.append_game(
+                "NBA", "BOS", 115, 100, 100.0, True,
+                ts_utc=100, game_id="game-100", source="test",
+                timestamp_precision="exact",
+            )
 
 
 if __name__ == "__main__":
