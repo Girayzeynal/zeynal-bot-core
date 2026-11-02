@@ -72,6 +72,21 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             with open(path, "r", encoding="utf-8") as handle:
                 self.assertEqual(handle.read(), corrupt)
 
+    def test_rejects_path_traversal_in_team_and_league(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            for league, team in [
+                ("NBA", "../escape"),
+                ("../escape", "BOS"),
+                ("NBA", "BOS/../../escape"),
+                ("NBA", "BOS\\\\escape"),
+                ("NBA", ""),
+            ]:
+                with self.subTest(league=league, team=team):
+                    with self.assertRaises(ValueError):
+                        store.get(league, team)
+            self.assertTrue(store._series_path("NBA", "BOS").startswith(folder))
+
     def test_valid_record_is_stored(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
