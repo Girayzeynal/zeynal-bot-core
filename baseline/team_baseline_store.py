@@ -94,7 +94,13 @@ class TeamBaselineStore:
         ts_utc: Optional[int] = None,
         max_games: int = 20,
     ) -> None:
-        ts = int(ts_utc or time.time())
+        # Reject malformed timestamps and statistics before touching persistent state.
+        if (type(ts_utc) is not int or ts_utc <= 0
+                or ts_utc > int(time.time())
+                or not all(math.isfinite(float(x)) for x in (pts_for, pts_against, pace))
+                or pts_for < 0 or pts_against < 0 or pace <= 0):
+            raise ValueError("invalid historical game record")
+        ts = ts_utc
         rec = TeamGameRecord(ts, pts_for, pts_against, pace, home)
 
         path = self._series_path(league, team)
