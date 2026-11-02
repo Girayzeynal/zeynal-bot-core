@@ -162,6 +162,8 @@ class TeamBaselineStore:
             raise ValueError("invalid source")
         if game_id is not None and source is None:
             raise ValueError("game_id requires source")
+        if (source == "nba_com" and timestamp_precision == "exact"):
+            raise ValueError("NBA.com game-date records cannot claim exact completion time")
         if (type(timestamp_precision) is not str
                 or timestamp_precision not in ("exact", "date_only", "unknown")):
             raise ValueError("invalid timestamp precision")
