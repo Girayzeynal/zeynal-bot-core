@@ -185,6 +185,13 @@ class TeamBaselineStore:
                 series = json.load(f)
             if not isinstance(series, list) or not all(isinstance(r, dict) for r in series):
                 raise ValueError("invalid persisted game series")
+            # Validate every persisted row before read-modify-write; otherwise
+            # a malformed record could be retained or silently evicted.
+            for existing in series:
+                try:
+                    TeamGameRecord(**existing)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError("invalid persisted game record") from exc
             seen_provider_ids = set()
             for existing in series:
                 existing_id = existing.get("game_id")
