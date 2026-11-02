@@ -8,7 +8,7 @@ import pathlib
 import types
 import unittest
 from unittest.mock import AsyncMock
-from typing import Any
+from typing import Any, Tuple
 
 
 def load_handler():
