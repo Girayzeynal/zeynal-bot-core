@@ -513,8 +513,14 @@ class TeamBaselineBootstrapper:
 
                 logger.info(f"[BASELINE-DIAG] appended adapter={ad.__class__.__name__} team={team} wrote={wrote} post_series={post_series_n}")
 
+                # Do not mark a stale baseline refreshed when the provider supplied
+                # no newly persisted records. Existing history is not new evidence.
+                if wrote == 0:
+                    logger.info("[BASELINE-DIAG] refresh_skipped adapter=%s reason=no_usable_records", ad.__class__.__name__)
+                    continue
+
                 agg = self.store.compute_dynamic_baseline(league, team, min_games)
-                if not agg:
+                if not agg or int(agg["n_games"]) < min_games:
                     logger.info(f"[BASELINE-DIAG] baseline_compute_failed adapter={ad.__class__.__name__} team={team} min_games={min_games}")
                     continue
 
