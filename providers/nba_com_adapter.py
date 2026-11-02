@@ -120,7 +120,7 @@ class NBAComAdapter:
                         record = {
                             "ts_utc": int(date.timestamp()),
                             "pts_for": pts, "pts_against": against,
-                            "pace": 100.0, "home": home,
+                            "pace": None, "home": home,  # Possessions not supplied by this endpoint.
                         }
                         if game_id in conflicting_ids:
                             continue
