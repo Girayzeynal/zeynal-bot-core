@@ -51,6 +51,21 @@ class IntegrityHardeningTests(unittest.TestCase):
             self.assertIsNone(result)
             self.assertEqual(store.get("NBA", "BOS").updated_ts, old_ts)
 
+    def test_recent_cache_does_not_skip_provider_check(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = TeamBaselineStore(directory)
+            ts = int(time.time()) - 86400 * 10
+            for i in range(6):
+                store.append_game("NBA", "BOS", 100 + i, 95, 98.0,
+                                  True, ts_utc=ts + i)
+            cached_ts = int(time.time()) - 3600
+            store.put(TeamBaseline("NBA", "BOS", 6, 102.5, 95.0, 98.0, 0.0, cached_ts))
+            result = asyncio.run(TeamBaselineBootstrapper(
+                store, [EmptyProvider()]
+            ).ensure_async("NBA", "BOS", min_games=6))
+            self.assertIsNone(result)
+            self.assertEqual(store.get("NBA", "BOS").updated_ts, cached_ts)
+
     def test_empty_provider_does_not_restamp_stale_baseline(self):
         with tempfile.TemporaryDirectory() as directory:
             store = TeamBaselineStore(directory)
