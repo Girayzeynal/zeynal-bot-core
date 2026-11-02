@@ -197,11 +197,14 @@ class TeamBaselineStore:
 
     def get_series_before(self, league: str, team: str, cutoff_ts_utc: int, n_games: int) -> List[TeamGameRecord]:
         """Select only records older than the requested fixture."""
-        if n_games <= 0:
+        if (type(n_games) is not int or n_games <= 0
+                or type(cutoff_ts_utc) is not int or cutoff_ts_utc <= 0):
             return []
         records = self.get_series(league, team, 100000)
+        # The source timestamp must represent a known completed-game time.
+        # Date-only records must not be treated as exact tipoff provenance.
         return sorted(
-            (r for r in records if 0 < r.ts_utc < int(cutoff_ts_utc)),
+            (r for r in records if 0 < r.ts_utc < cutoff_ts_utc),
             key=lambda r: r.ts_utc,
         )[-n_games:]
 
