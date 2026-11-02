@@ -162,7 +162,8 @@ class TeamBaselineStore:
             raise ValueError("invalid source")
         if game_id is not None and source is None:
             raise ValueError("game_id requires source")
-        if timestamp_precision not in ("exact", "date_only", "unknown"):
+        if (type(timestamp_precision) is not str
+                or timestamp_precision not in ("exact", "date_only", "unknown")):
             raise ValueError("invalid timestamp precision")
         ts = ts_utc
         rec = TeamGameRecord(ts, pts_for, pts_against, pace, home, game_id, source, timestamp_precision)
