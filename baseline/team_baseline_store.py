@@ -329,4 +329,5 @@ class TeamBaselineBootstrapper:
                 continue
 
         logger.info(f"[BASELINE-DIAG] BASELINE_FAIL league={league} team={team} (no adapter produced usable games)")
-        return existing
+        # A stale/undersampled baseline must not be reported as refreshed.
+        return None
