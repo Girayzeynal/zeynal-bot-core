@@ -34,6 +34,48 @@ class IntegrityHardeningTests(unittest.TestCase):
             )
             self.assertEqual(len(store.get_series("NBA", "BOS", 10)), 1)
 
+    def test_series_lock_serializes_independent_store_instances(self):
+        import threading
+        with tempfile.TemporaryDirectory() as directory:
+            entered = threading.Event()
+            release = threading.Event()
+            second_entered = threading.Event()
+            failures = []
+
+            def first():
+                try:
+                    with TeamBaselineStore(directory)._series_write_lock("NBA", "BOS"):
+                        entered.set()
+                        if not release.wait(5):
+                            raise TimeoutError("first lock timed out")
+                except Exception as exc:
+                    failures.append(exc)
+
+            def second():
+                try:
+                    if not entered.wait(5):
+                        raise TimeoutError("first lock not acquired")
+                    with TeamBaselineStore(directory)._series_write_lock("NBA", "BOS"):
+                        second_entered.set()
+                except Exception as exc:
+                    failures.append(exc)
+
+            a = threading.Thread(target=first)
+            b = threading.Thread(target=second)
+            a.start()
+            b.start()
+            try:
+                self.assertTrue(entered.wait(5))
+                self.assertFalse(second_entered.wait(0.2))
+            finally:
+                release.set()
+                a.join(5)
+                b.join(5)
+            self.assertFalse(a.is_alive())
+            self.assertFalse(b.is_alive())
+            self.assertEqual(failures, [])
+            self.assertTrue(second_entered.is_set())
+
     def test_anonymous_same_timestamp_distinct_games_preserved(self):
         with tempfile.TemporaryDirectory() as directory:
             store = TeamBaselineStore(directory)
