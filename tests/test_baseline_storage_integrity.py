@@ -37,6 +37,21 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0].ts_utc, ts)
 
+    def test_failed_atomic_write_removes_unique_temp_file(self):
+        import os
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400
+            store.append_game("NBA", "BOS", 110, 100, 98, True, ts_utc=ts)
+            before = set(os.listdir(store.series_dir))
+            with patch("baseline.team_baseline_store.os.replace",
+                       side_effect=OSError("replace failed")):
+                with self.assertRaises(OSError):
+                    store.append_game("NBA", "BOS", 115, 102, 99, True, ts_utc=ts + 60)
+            self.assertEqual(set(os.listdir(store.series_dir)), before)
+            self.assertEqual(len(store.get_series("NBA", "BOS", 20)), 1)
+
     def test_distinct_game_ids_at_same_timestamp_are_preserved(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
