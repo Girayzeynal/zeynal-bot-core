@@ -315,6 +315,24 @@ class TeamBaselineStore:
             key=lambda r: r.ts_utc,
         )[-n_games:]
 
+    def prefixture_quality_status(
+        self, league: str, team: str, cutoff_ts_utc: int,
+        n_games: int = 10, min_games: int = 6,
+    ) -> Dict[str, Any]:
+        """Explain whether historical records can support point-in-time analysis."""
+        if (type(cutoff_ts_utc) is not int or cutoff_ts_utc <= 0
+                or type(n_games) is not int or n_games <= 0
+                or type(min_games) is not int or min_games <= 0
+                or min_games > n_games):
+            return {"status": "invalid_request", "usable_games": 0}
+        quality = self.series_quality_status(league, team)
+        if quality["status"] != "valid":
+            return quality
+        records = self.get_series_before(league, team, cutoff_ts_utc, n_games)
+        count = len(records)
+        return {"status": "ready" if count >= min_games else "insufficient_history",
+                "usable_games": count, "required_games": min_games}
+
     def compute_baseline_before(
         self, league: str, team: str, cutoff_ts_utc: int,
         n_games: int = 10, min_games: int = 6,
