@@ -86,6 +86,23 @@ class IntegrityHardeningTests(unittest.TestCase):
             self.assertGreater(result.updated_ts, old_ts)
             self.assertEqual(len(store.get_series("NBA", "BOS", 20)), 7)
 
+    def test_undersampled_newer_game_does_not_publish_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = TeamBaselineStore(directory)
+            ts = int(time.time()) - 86400 * 10
+            for i in range(4):
+                store.append_game("NBA", "BOS", 100 + i, 95, 98.0,
+                                  True, ts_utc=ts + i)
+            game = {"pts_for": 120, "pts_against": 105, "pace": 99.0,
+                    "home": True, "ts_utc": ts + 86400, "game_id": "000003",
+                    "source": "test", "timestamp_precision": "exact"}
+            result = asyncio.run(TeamBaselineBootstrapper(
+                store, [DuplicateProvider(game)]
+            ).ensure_async("NBA", "BOS", min_games=6))
+            self.assertIsNone(result)
+            self.assertIsNone(store.get("NBA", "BOS"))
+            self.assertEqual(len(store.get_series("NBA", "BOS", 20)), 5)
+
     def test_empty_provider_does_not_restamp_stale_baseline(self):
         with tempfile.TemporaryDirectory() as directory:
             store = TeamBaselineStore(directory)
