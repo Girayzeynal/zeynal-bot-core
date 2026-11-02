@@ -112,6 +112,26 @@ def baseline_quality_reason(baseline: Any, now_ts: float) -> str:
 def baseline_is_usable(baseline: Any, now_ts: float) -> bool:
     return baseline_quality_reason(baseline, now_ts) == "usable"
 
+BASELINE_REASON_TR = {
+    "missing": "doğrulanmış takım geçmişi bulunamadı",
+    "insufficient_games": "en az 6 uygun maç kaydı gerekiyor",
+    "stale": "takım verisi güncel değil",
+    "invalid_scores": "skor ortalamaları geçersiz",
+    "invalid_stats": "tempo veya dağılım istatistikleri geçersiz",
+    "malformed": "takım veri yapısı veya sayısal değerler geçersiz",
+}
+
+
+def baseline_failure_message(home_reason: str, away_reason: str) -> str:
+    """Explain unavailable inputs without fabricating a prediction."""
+    return (
+        "Analiz oluşturulmadı: doğrulanabilir takım verisi yetersiz.\\n"
+        f"Ev sahibi: {BASELINE_REASON_TR.get(home_reason, 'bilinmeyen veri sorunu')}\\n"
+        f"Deplasman: {BASELINE_REASON_TR.get(away_reason, 'bilinmeyen veri sorunu')}\\n"
+        "Eksik veriler doğrulanmadan tahmin üretilmez."
+    )
+
+
 # ============================
 # TELEGRAM COMMANDS
 # ============================
@@ -170,9 +190,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             league, home_reason, away_reason,
         )
         await update.message.reply_text(
-            "Yetersiz veya güncelliğini yitirmiş takım verisi. "
-            "LEAGUE_AVG yedeğiyle tahmin üretilmedi. "
-            "Veri kaynağı ve fikstür doğrulanınca tekrar deneyin."
+            baseline_failure_message(home_reason, away_reason)
         )
         return
 
