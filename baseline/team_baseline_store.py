@@ -281,6 +281,25 @@ class TeamBaselineStore:
             logger.error("baseline series read rejected for %s/%s: %s", league, team, type(exc).__name__)
             return []
 
+    def series_quality_status(self, league: str, team: str) -> Dict[str, Any]:
+        """Report missing versus corrupt history without treating either as usable."""
+        path = self._series_path(league, team)
+        if not os.path.exists(path):
+            return {"status": "missing", "usable_games": 0}
+        # Reuse the same validated read path; distinguish empty valid history
+        # from a failed read by inspecting the raw container only after validation.
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                raw = json.load(handle)
+            if not isinstance(raw, list):
+                return {"status": "corrupt", "usable_games": 0}
+            games = self.get_series(league, team, max(1, len(raw)))
+            if len(games) != len(raw):
+                return {"status": "corrupt", "usable_games": 0}
+            return {"status": "valid" if games else "empty", "usable_games": len(games)}
+        except (OSError, ValueError, TypeError):
+            return {"status": "corrupt", "usable_games": 0}
+
     def get_series_before(self, league: str, team: str, cutoff_ts_utc: int, n_games: int) -> List[TeamGameRecord]:
         """Select only records older than the requested fixture."""
         if (type(n_games) is not int or n_games <= 0
