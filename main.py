@@ -191,6 +191,7 @@ async def start_health(app: Application):
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
+    return runner
 
 # ============================
 # BOOT
@@ -222,27 +223,45 @@ def build_app() -> Application:
 
 async def main_async():
     app = build_app()
-    await start_health(app)
-    await app.initialize()
-    await app.bot.delete_webhook(drop_pending_updates=True)
-    await app.start()
-    await app.updater.start_polling()
-    logger.info("Bot polling started")
-    engines = {
-        "faz13": app.bot_data["faz13"],
-        "faz17": Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE")),
-        "faz22": app.bot_data["faz22"],
-        "faz23": app.bot_data["faz23"],
-    }
-    scheduler_task = asyncio.create_task(scheduler_loop(engines), name="scheduler-loop")
+    runner = None
+    initialized = False
+    started = False
+    polling = False
+    scheduler_task = None
     try:
+        runner = await start_health(app)
+        await app.initialize()
+        initialized = True
+        await app.bot.delete_webhook(drop_pending_updates=True)
+        await app.start()
+        started = True
+        if app.updater is None:
+            raise RuntimeError("Telegram polling updater unavailable")
+        await app.updater.start_polling()
+        polling = True
+        logger.info("Bot polling started")
+        engines = {
+            "faz13": app.bot_data["faz13"],
+            "faz17": Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE")),
+            "faz22": app.bot_data["faz22"],
+            "faz23": app.bot_data["faz23"],
+        }
+        scheduler_task = asyncio.create_task(scheduler_loop(engines), name="scheduler-loop")
         await scheduler_task
     finally:
-        scheduler_task.cancel()
-        await asyncio.gather(scheduler_task, return_exceptions=True)
-        await app.updater.stop()
-        await app.stop()
-        await app.shutdown()
+        if scheduler_task is not None:
+            scheduler_task.cancel()
+            await asyncio.gather(scheduler_task, return_exceptions=True)
+        try:
+            if polling and app.updater is not None:
+                await app.updater.stop()
+            if started:
+                await app.stop()
+            if initialized:
+                await app.shutdown()
+        finally:
+            if runner is not None:
+                await runner.cleanup()
 
 def main():
     asyncio.run(main_async())
