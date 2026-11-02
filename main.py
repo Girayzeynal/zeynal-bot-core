@@ -263,7 +263,7 @@ def build_app() -> Application:
     app.bot_data["baseline_bootstrapper"] = bootstrapper
     app.bot_data["faz13"] = faz13
     app.bot_data["faz22"] = Faz22Engine()
-    app.bot_data["faz23"] = Faz23Engine()
+    app.bot_data["faz23"] = Faz23Engine(storage_path=os.getenv("FAZ23_STORAGE", "faz23_storage.sqlite"))
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
