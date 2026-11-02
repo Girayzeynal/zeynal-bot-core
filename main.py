@@ -176,10 +176,16 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start_health(app: Application):
     web_app = web.Application()
 
+    async def ready(_: web.Request):
+        updater = app.updater
+        running = bool(app.running and updater is not None and updater.running)
+        return web.json_response({"ready": running}, status=200 if running else 503)
+
     async def health(_: web.Request):
         return web.json_response({"ok": True})
 
     web_app.router.add_get("/health", health)
+    web_app.router.add_get("/ready", ready)
 
     runner = web.AppRunner(web_app)
     await runner.setup()
