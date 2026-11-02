@@ -15,6 +15,11 @@ class LifecycleContractTests(unittest.TestCase):
         self.assertIn("if initialized:", source)
         self.assertIn("if started:", source)
         self.assertIn("if polling", source)
+        # Shutdown failures must not skip later cleanup operations.
+        self.assertGreaterEqual(source.count("finally:"), 4)
+        self.assertLess(source.index("app.updater.stop()"), source.index("app.stop()"))
+        self.assertLess(source.index("app.stop()"), source.index("app.shutdown()"))
+        self.assertLess(source.index("app.shutdown()"), source.index("runner.cleanup()"))
 
     def test_start_health_returns_runner(self):
         tree = ast.parse((Path(__file__).resolve().parents[1] / "main.py").read_text(encoding="utf-8"))
