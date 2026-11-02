@@ -68,8 +68,11 @@ class TeamBaselineStore:
             if not isinstance(value, str) or not value.strip():
                 raise ValueError("invalid baseline identity")
             normalized = value.strip().upper().replace(" ", "_")
-            if not re.fullmatch(r"[A-Z0-9_-]{1,80}", normalized):
-                raise ValueError("unsafe baseline identity")
+            if (not re.fullmatch(r"[A-Z0-9_-]{1,80}", normalized)
+                    or "__" in normalized):
+                # Double underscores delimit league and team in persisted keys.
+                # Allowing them inside a component would alias distinct identities.
+                raise ValueError("unsafe or ambiguous baseline identity")
             parts.append(normalized)
         return "__".join(parts)
 
