@@ -262,7 +262,21 @@ class TeamBaselineStore:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 raw = json.load(f)
-            return [TeamGameRecord(**r) for r in raw][-n_games:]
+            if not isinstance(raw, list) or not all(isinstance(r, dict) for r in raw):
+                raise ValueError("invalid series container")
+            records = [TeamGameRecord(**r) for r in raw]
+            for record in records:
+                values = (record.pts_for, record.pts_against, record.pace)
+                if (type(record.ts_utc) is not int or record.ts_utc <= 0
+                        or record.ts_utc > int(time.time())
+                        or any(type(v) not in (int, float) for v in values)
+                        or not all(math.isfinite(v) for v in values)
+                        or record.pts_for < 0 or record.pts_against < 0
+                        or record.pace <= 0 or type(record.home) is not bool
+                        or record.timestamp_precision not in ("exact", "date_only", "unknown")
+                        or (record.source == "nba_com" and record.timestamp_precision == "exact")):
+                    raise ValueError("invalid series record")
+            return records[-n_games:]
         except (OSError, ValueError, TypeError, KeyError) as exc:
             logger.error("baseline series read rejected for %s/%s: %s", league, team, type(exc).__name__)
             return []
