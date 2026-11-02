@@ -53,5 +53,28 @@ class PersistentStoragePathTests(unittest.TestCase):
                     for call in mkdir_calls
                 ))
 
+    def test_faz23_creates_nested_database_and_can_reopen(self):
+        import tempfile
+        from faz23_engine.faz23_engine import Faz23Engine
+
+        with tempfile.TemporaryDirectory() as directory:
+            db_path = pathlib.Path(directory) / "nested" / "state" / "faz23.sqlite"
+            self.assertFalse(db_path.parent.exists())
+            Faz23Engine(storage_path=str(db_path))
+            self.assertTrue(db_path.is_file())
+            Faz23Engine(storage_path=str(db_path))
+
+    def test_scheduler_creates_nested_database(self):
+        import tempfile
+        from unittest.mock import patch
+        import dynamic_scheduler
+
+        with tempfile.TemporaryDirectory() as directory:
+            db_path = pathlib.Path(directory) / "nested" / "state" / "scheduler.sqlite"
+            self.assertFalse(db_path.parent.exists())
+            with patch.object(dynamic_scheduler, "DB_PATH", str(db_path)):
+                dynamic_scheduler.init_db()
+            self.assertTrue(db_path.is_file())
+
 if __name__ == "__main__":
     unittest.main()
