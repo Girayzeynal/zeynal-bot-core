@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import html
 import logging
+import math
 import asyncio
 from datetime import datetime, timezone
 from typing import Any, Dict, Tuple
@@ -81,6 +82,56 @@ def parse_analyze(text: str) -> Tuple[str, str, str, str]:
         raise ValueError("Ev sahibi ve deplasman takımları farklı olmalıdır")
     return league, date_str, home, away
 
+def baseline_quality_reason(baseline: Any, now_ts: float) -> str:
+    """Single source of truth for prematch baseline acceptance and diagnostics."""
+    if baseline is None:
+        return "missing"
+    try:
+        if type(baseline.n_games) is not int:
+            return "malformed"
+        if baseline.n_games < 6:
+            return "insufficient_games"
+        age = now_ts - float(baseline.updated_ts)
+        if not math.isfinite(age):
+            return "malformed"
+        if age < 0 or age > 7 * 86400:
+            return "stale"
+        stats = (float(baseline.pts_for), float(baseline.pts_against),
+                 float(baseline.pace), float(baseline.stdev_total))
+        if not all(math.isfinite(value) for value in stats):
+            return "malformed"
+        if stats[0] <= 0 or stats[1] <= 0:
+            return "invalid_scores"
+        if stats[2] <= 0 or stats[3] < 0:
+            return "invalid_stats"
+        return "usable"
+    except (ValueError, TypeError, AttributeError, OverflowError):
+        return "malformed"
+
+
+def baseline_is_usable(baseline: Any, now_ts: float) -> bool:
+    return baseline_quality_reason(baseline, now_ts) == "usable"
+
+BASELINE_REASON_TR = {
+    "missing": "doğrulanmış takım geçmişi bulunamadı",
+    "insufficient_games": "en az 6 uygun maç kaydı gerekiyor",
+    "stale": "takım verisi güncel değil",
+    "invalid_scores": "skor ortalamaları geçersiz",
+    "invalid_stats": "tempo veya dağılım istatistikleri geçersiz",
+    "malformed": "takım veri yapısı veya sayısal değerler geçersiz",
+}
+
+
+def baseline_failure_message(home_reason: str, away_reason: str) -> str:
+    """Explain unavailable inputs without fabricating a prediction."""
+    return (
+        "Analiz oluşturulmadı: doğrulanabilir takım verisi yetersiz.\n"
+        f"Ev sahibi: {BASELINE_REASON_TR.get(home_reason, 'bilinmeyen veri sorunu')}\n"
+        f"Deplasman: {BASELINE_REASON_TR.get(away_reason, 'bilinmeyen veri sorunu')}\n"
+        "Eksik veriler doğrulanmadan tahmin üretilmez."
+    )
+
+
 # ============================
 # TELEGRAM COMMANDS
 # ============================
@@ -131,40 +182,15 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     now_ts = datetime.now(timezone.utc).timestamp()
-    def usable(baseline):
-        if baseline is None:
-            return False
-        try:
-            return (int(baseline.n_games) >= 6
-                    and 0 <= now_ts - float(baseline.updated_ts) <= 7 * 86400
-                    and float(baseline.pts_for) > 0
-                    and float(baseline.pts_against) > 0)
-        except (ValueError, TypeError, AttributeError):
-            return False
-
-    if not (usable(home_baseline) and usable(away_baseline)):
-        def baseline_reason(baseline):
-            if baseline is None:
-                return "missing"
-            try:
-                age = now_ts - float(baseline.updated_ts)
-                if int(baseline.n_games) < 6:
-                    return "insufficient_games"
-                if age < 0 or age > 7 * 86400:
-                    return "stale"
-                if float(baseline.pts_for) <= 0 or float(baseline.pts_against) <= 0:
-                    return "invalid_scores"
-                return "usable"
-            except (ValueError, TypeError, AttributeError):
-                return "malformed"
+    home_reason = baseline_quality_reason(home_baseline, now_ts)
+    away_reason = baseline_quality_reason(away_baseline, now_ts)
+    if home_reason != "usable" or away_reason != "usable":
         logger.warning(
             "Insufficient verified baselines: league=%s home_reason=%s away_reason=%s",
-            league, baseline_reason(home_baseline), baseline_reason(away_baseline),
+            league, home_reason, away_reason,
         )
         await update.message.reply_text(
-            "Yetersiz veya güncelliğini yitirmiş takım verisi. "
-            "LEAGUE_AVG yedeğiyle tahmin üretilmedi. "
-            "Veri kaynağı ve fikstür doğrulanınca tekrar deneyin."
+            baseline_failure_message(home_reason, away_reason)
         )
         return
 

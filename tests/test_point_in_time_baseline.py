@@ -15,6 +15,7 @@ class PointInTimeBaselineTests(unittest.TestCase):
         self.store.append_game(
             "NBA", "BOS", points, 100, 100.0, True,
             ts_utc=timestamp,
+            timestamp_precision="exact",
         )
 
     def test_excludes_fixture_and_future_games(self):
