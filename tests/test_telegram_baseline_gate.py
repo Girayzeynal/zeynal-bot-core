@@ -40,7 +40,7 @@ class TelegramBaselineGateTests(unittest.TestCase):
         message = load_failure_message()("insufficient_games", "stale")
         self.assertIn("Ev sahibi: en az 6 uygun maç kaydı gerekiyor", message)
         self.assertIn("Deplasman: takım verisi güncel değil", message)
-        self.assertIn("\\n", message)
+        self.assertEqual(message.count(chr(10)), 3)
         self.assertIn("tahmin üretilmez", message)
         self.assertNotIn("bilinmeyen veri sorunu", message)
 
