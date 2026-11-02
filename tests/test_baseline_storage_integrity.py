@@ -99,9 +99,12 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             self.assertEqual([r.game_id for r in rows], ["c"])
             self.assertIsNone(store.compute_baseline_before(
                 "NBA", "BOS", ts + 100, n_games=3, min_games=2))
-            with self.assertRaises(ValueError):
-                store.append_game("NBA", "BOS", 104, 93, 98, True, ts_utc=ts + 3,
-                                  timestamp_precision="approximate")
+            for bad_precision in ("approximate", None, 1, False, []):
+                with self.subTest(bad_precision=bad_precision):
+                    with self.assertRaises(ValueError):
+                        store.append_game("NBA", "BOS", 104, 93, 98, True,
+                                          ts_utc=ts + 3,
+                                          timestamp_precision=bad_precision)
 
     def test_versioned_identity_keys_prevent_aliases_and_preserve_legacy(self):
         with tempfile.TemporaryDirectory() as folder:
