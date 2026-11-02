@@ -85,15 +85,23 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             self.assertEqual(store.compute_baseline_before(
                 "NBA", "BOS", ts + 60, n_games=6, min_games=6)["n_games"], 6)
 
-    def test_identity_delimiter_cannot_alias_distinct_league_and_team(self):
+    def test_versioned_identity_keys_prevent_aliases_and_preserve_legacy(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
-            for league, team in (("NBA__EAST", "BOS"), ("NBA", "EAST__BOS"),
-                                 ("NBA", "BOS__A")):
-                with self.subTest(league=league, team=team):
+            self.assertEqual(store._key("NBA", "BOS"), "NBA__BOS")
+            pairs = (("NBA__EAST", "BOS"), ("NBA", "EAST__BOS"),
+                     ("NBA", "BOS__A"), ("NBA", "A B"),
+                     ("NBA", "A_B"), ("EuroLeague", "Fenerbahçe"),
+                     ("EuroLeague", "FENERBAHCE"))
+            keys = [store._key(league, team) for league, team in pairs]
+            self.assertEqual(len(keys), len(set(keys)))
+            self.assertTrue(store._key("EuroLeague", "Fenerbahçe").startswith("V2_"))
+            self.assertEqual(store._key("EuroLeague", "fenerbahçe"),
+                             store._key("EuroLeague", "FENERBAHÇE"))
+            for bad in ("../BOS", "BOS/OTHER", "BOS\\\\OTHER", "BOS\\nOTHER"):
+                with self.subTest(bad=bad):
                     with self.assertRaises(ValueError):
-                        store.get_series(league, team, 5)
-            self.assertEqual(store.get_series("NBA", "BOS", 5), [])
+                        store._key("NBA", bad)
 
     def test_distinct_game_ids_at_same_timestamp_are_preserved(self):
         with tempfile.TemporaryDirectory() as folder:
