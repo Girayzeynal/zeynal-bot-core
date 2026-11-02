@@ -244,6 +244,7 @@ class TeamBaselineStore:
                 r.get(field) == getattr(rec, field)
                 for field in ("ts_utc", "pts_for", "pts_against", "pace", "home")
             ) and r.get("timestamp_precision", "unknown") == timestamp_precision
+              and r.get("source") == source
                 for r in series):
                 return
         series.append(asdict(rec))
