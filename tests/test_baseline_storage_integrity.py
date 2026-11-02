@@ -480,6 +480,31 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             self.assertEqual(store.prefixture_quality_status(
                 "NBA", "BOS", cutoff, n_games=0)["status"], "invalid_request")
 
+    def test_prefixture_baseline_respects_quality_gate(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400
+            cutoff = ts + 120
+            with self.assertLogs("zeynal-core.baseline", level="WARNING") as logs:
+                self.assertIsNone(store.compute_baseline_before(
+                    "NBA", "BOS", cutoff, n_games=1, min_games=1))
+            self.assertTrue(any("missing" in line for line in logs.output))
+            store.append_game("NBA", "BOS", 110, 100, 98, True,
+                              ts_utc=ts, game_id="d", source="fixture",
+                              timestamp_precision="date_only")
+            with self.assertLogs("zeynal-core.baseline", level="WARNING") as logs:
+                self.assertIsNone(store.compute_baseline_before(
+                    "NBA", "BOS", cutoff, n_games=1, min_games=1))
+            self.assertTrue(any("insufficient_history" in line for line in logs.output))
+            store.append_game("NBA", "BOS", 112, 101, 99, False,
+                              ts_utc=ts + 30, game_id="e", source="fixture",
+                              timestamp_precision="exact")
+            result = store.compute_baseline_before(
+                "NBA", "BOS", cutoff, n_games=2, min_games=1)
+            self.assertIsNotNone(result)
+            self.assertEqual(result["n_games"], 1)
+            self.assertEqual(result["pts_for"], 112)
+
     def test_valid_record_is_stored(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
