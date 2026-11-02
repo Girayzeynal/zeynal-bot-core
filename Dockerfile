@@ -22,8 +22,7 @@ RUN pip install --upgrade pip && \
 # App code
 COPY . .
 
-# 🔴 KRİTİK SATIR (BU YOKSA OLMAZ)
-# Baselines are populated at runtime; repository does not ship a data directory.
+# Create runtime baseline directories without requiring tracked data files.
 RUN mkdir -p /app/data/baselines/series
 
 # Writable dirs
