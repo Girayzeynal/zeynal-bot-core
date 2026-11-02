@@ -39,6 +39,8 @@ class TeamGameRecord:
     pts_against: float
     pace: float
     home: bool
+    game_id: Optional[str] = None
+    source: Optional[str] = None
 
 
 # ============================
@@ -93,6 +95,8 @@ class TeamBaselineStore:
         home: bool,
         ts_utc: Optional[int] = None,
         max_games: int = 20,
+        game_id: Optional[str] = None,
+        source: Optional[str] = None,
     ) -> None:
         # Reject malformed timestamps and statistics before touching persistent state.
         if (type(ts_utc) is not int or ts_utc <= 0
@@ -100,8 +104,14 @@ class TeamBaselineStore:
                 or not all(math.isfinite(float(x)) for x in (pts_for, pts_against, pace))
                 or pts_for < 0 or pts_against < 0 or pace <= 0):
             raise ValueError("invalid historical game record")
+        if game_id is not None and (not isinstance(game_id, str) or not game_id.strip()):
+            raise ValueError("invalid game_id")
+        if source is not None and (not isinstance(source, str) or not source.strip()):
+            raise ValueError("invalid source")
+        if game_id is not None and source is None:
+            raise ValueError("game_id requires source")
         ts = ts_utc
-        rec = TeamGameRecord(ts, pts_for, pts_against, pace, home)
+        rec = TeamGameRecord(ts, pts_for, pts_against, pace, home, game_id, source)
 
         path = self._series_path(league, team)
         series: List[Dict[str, Any]] = []
@@ -114,7 +124,15 @@ class TeamBaselineStore:
                 series = []
 
         # Re-fetching a game must not inflate the sample or its weight.
-        series = [r for r in series if int(r.get("ts_utc", -1)) != ts]
+        # Provider-scoped identity supersedes timestamp when available.
+        if game_id is not None:
+            series = [r for r in series if not (
+                r.get("game_id") == game_id and r.get("source") == source
+            )]
+        else:
+            series = [r for r in series if not (
+                r.get("game_id") is None and int(r.get("ts_utc", -1)) == ts
+            )]
         series.append(asdict(rec))
         series = sorted(series, key=lambda x: x["ts_utc"])[-max_games:]
 
