@@ -109,10 +109,14 @@ class TeamBaselineStore:
         source: Optional[str] = None,
     ) -> None:
         # Reject malformed timestamps and statistics before touching persistent state.
+        stats = (pts_for, pts_against, pace)
         if (type(ts_utc) is not int or ts_utc <= 0
                 or ts_utc > int(time.time())
-                or not all(math.isfinite(float(x)) for x in (pts_for, pts_against, pace))
-                or pts_for < 0 or pts_against < 0 or pace <= 0):
+                or any(type(x) not in (int, float) for x in stats)
+                or not all(math.isfinite(x) for x in stats)
+                or pts_for < 0 or pts_against < 0 or pace <= 0
+                or type(home) is not bool
+                or type(max_games) is not int or max_games <= 0):
             raise ValueError("invalid historical game record")
         if game_id is not None and (not isinstance(game_id, str) or not game_id.strip()):
             raise ValueError("invalid game_id")
@@ -161,6 +165,8 @@ class TeamBaselineStore:
         os.replace(tmp, path)
 
     def get_series(self, league: str, team: str, n_games: int) -> List[TeamGameRecord]:
+        if type(n_games) is not int or n_games <= 0:
+            return []
         path = self._series_path(league, team)
         if not os.path.exists(path):
             return []
