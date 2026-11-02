@@ -238,9 +238,14 @@ class TeamBaselineStore:
                     raise ValueError("conflicting game record for provider identity")
                 return  # Idempotent repeated fetch; do not rewrite the file.
         else:
-            series = [r for r in series if not (
-                r.get("game_id") is None and int(r.get("ts_utc", -1)) == ts
-            )]
+            # A timestamp is not a unique game identity. Preserve distinct
+            # anonymous games instead of silently deleting an older record.
+            if any(r.get("game_id") is None and all(
+                r.get(field) == getattr(rec, field)
+                for field in ("ts_utc", "pts_for", "pts_against", "pace", "home")
+            ) and r.get("timestamp_precision", "unknown") == timestamp_precision
+                for r in series):
+                return
         series.append(asdict(rec))
         series = sorted(series, key=lambda x: x["ts_utc"])[-max_games:]
 
