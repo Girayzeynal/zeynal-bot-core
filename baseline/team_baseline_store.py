@@ -220,9 +220,17 @@ class TeamBaselineBootstrapper:
         team = await self._canonical(league, team_input)
 
         existing = self.store.get(league, team)
-        if existing and existing.n_games >= min_games:
+        # A sufficient sample is not necessarily fresh. Refresh stale baselines
+        # rather than returning them and letting the caller reject them forever.
+        now_ts = int(time.time())
+        if existing and existing.n_games >= min_games and 0 <= now_ts - int(existing.updated_ts) <= 7 * 86400:
             logger.info(f"[BASELINE-DIAG] existing_ok league={league} team={team} n_games={existing.n_games}")
             return existing
+        if existing:
+            logger.info(
+                "[BASELINE-DIAG] refresh_required league=%s team=%s n_games=%s age_seconds=%s",
+                league, team, existing.n_games, now_ts - int(existing.updated_ts),
+            )
 
         # DIAG: başlangıç series sayısı
         try:

@@ -138,7 +138,24 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return False
 
     if not (usable(home_baseline) and usable(away_baseline)):
-        logger.warning("Insufficient verified baselines: league=%s home=%s away=%s", league, home, away)
+        def baseline_reason(baseline):
+            if baseline is None:
+                return "missing"
+            try:
+                age = now_ts - float(baseline.updated_ts)
+                if int(baseline.n_games) < 6:
+                    return "insufficient_games"
+                if age < 0 or age > 7 * 86400:
+                    return "stale"
+                if float(baseline.pts_for) <= 0 or float(baseline.pts_against) <= 0:
+                    return "invalid_scores"
+                return "usable"
+            except (ValueError, TypeError, AttributeError):
+                return "malformed"
+        logger.warning(
+            "Insufficient verified baselines: league=%s home_reason=%s away_reason=%s",
+            league, baseline_reason(home_baseline), baseline_reason(away_baseline),
+        )
         await update.message.reply_text(
             "Yetersiz veya güncelliğini yitirmiş takım verisi. "
             "LEAGUE_AVG yedeğiyle tahmin üretilmedi. "
