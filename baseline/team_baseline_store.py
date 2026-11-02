@@ -118,8 +118,11 @@ class TeamBaselineStore:
         series.append(asdict(rec))
         series = sorted(series, key=lambda x: x["ts_utc"])[-max_games:]
 
-        with open(path, "w", encoding="utf-8") as f:
+        # Atomic replacement prevents a crash from truncating the history file.
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(series, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
 
     def get_series(self, league: str, team: str, n_games: int) -> List[TeamGameRecord]:
         path = self._series_path(league, team)
