@@ -29,6 +29,29 @@ def _append_in_child_process(directory, game_id):
 
 
 class IntegrityHardeningTests(unittest.TestCase):
+    def test_main_uses_configured_baseline_directory(self):
+        import ast
+        from pathlib import Path
+
+        main_path = Path(__file__).resolve().parents[1] / "main.py"
+        tree = ast.parse(main_path.read_text(encoding="utf-8"))
+        constructors = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "TeamBaselineStore"
+        ]
+        self.assertEqual(len(constructors), 1)
+        base_dir = next(
+            (keyword.value for keyword in constructors[0].keywords
+             if keyword.arg == "base_dir"), None
+        )
+        self.assertIsNotNone(base_dir)
+        self.assertIsInstance(base_dir, ast.Call)
+        self.assertIsInstance(base_dir.func, ast.Attribute)
+        self.assertEqual(base_dir.func.attr, "getenv")
+        self.assertEqual(base_dir.args[0].value, "BASELINE_DIR")
+
     def test_series_lock_releases_after_exception(self):
         with tempfile.TemporaryDirectory() as directory:
             store = TeamBaselineStore(directory)
