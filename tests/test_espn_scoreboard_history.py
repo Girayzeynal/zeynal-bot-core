@@ -83,3 +83,29 @@ def test_event_level_nonfinal_is_rejected():
     payload["competitions"][0].pop("status")
     assert parse_completed_nba_event(
         payload, datetime(2026, 11, 2, tzinfo=timezone.utc)) is None
+
+
+def test_regular_season_classifier_requires_explicit_type():
+    from providers.espn_season_filter import is_explicit_regular_season
+    assert is_explicit_regular_season({"season": {"type": 2}}) is True
+    assert is_explicit_regular_season({"season": {"type": 1}}) is False
+    assert is_explicit_regular_season({"season": {"type": 3}}) is False
+    assert is_explicit_regular_season({}) is None
+    assert is_explicit_regular_season({"season": {"type": "unknown"}}) is None
+
+
+def test_regular_season_history_excludes_preseason():
+    adapter = ESPNScoreboardHistory()
+    async def fetch(day):
+        preseason = event("100", "2026-10-20")
+        preseason["season"] = {"type": 1}
+        regular = event("101", "2026-10-21")
+        regular["season"] = {"type": 2}
+        unknown = event("102", "2026-10-22")
+        return [preseason, regular, unknown]
+    adapter._fetch_day = fetch
+    result = asyncio.run(adapter.fetch_verified_games(
+        "24", as_of_utc=datetime(2026, 11, 2, tzinfo=timezone.utc),
+        days=2, minimum=1, regular_season_only=True))
+    assert result is not None
+    assert [r["provider_fixture_id"] for r in result] == ["101"]
