@@ -57,6 +57,8 @@ class NBAComAdapter:
         season = now.year if now.month >= 10 else now.year - 1
         rows: Dict[str, Dict[str, Any]] = {}
         conflicting_ids: set[str] = set()
+        diagnostics = {"http_error": 0, "request_error": 0,
+                       "schema_error": 0, "valid_response": 0, "candidate_rows": 0}
         for year in (season, season - 1):
             params = {
                 "LeagueID": "00", "PlayerOrTeam": "T",
@@ -72,14 +74,18 @@ class NBAComAdapter:
                     self._owns_session = True
                 async with self._session.get(NBA_STATS, params=params) as response:
                     if response.status != 200:
+                        diagnostics["http_error"] += 1
                         logger.info("[NBACOM-DIAG] season=%s status=%d", year, response.status)
                         continue
                     payload = await response.json(content_type=None)
             except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as exc:
+                diagnostics["request_error"] += 1
                 logger.info("[NBACOM-DIAG] season=%s request_failed=%s", year, type(exc).__name__)
                 continue
             if not isinstance(payload, dict):
+                diagnostics["schema_error"] += 1
                 continue
+            diagnostics["valid_response"] += 1
             result_sets = payload.get("resultSets") or []
             if isinstance(result_sets, dict):
                 result_sets = list(result_sets.values())
@@ -90,7 +96,8 @@ class NBAComAdapter:
                     continue
                 headers = result.get("headers") or []
                 needed = {"TEAM_ID", "GAME_ID", "GAME_DATE", "MATCHUP", "PTS", "PLUS_MINUS", "WL"}
-                if not needed.issubset(set(headers)):
+                if not isinstance(headers, list) or not needed.issubset(set(headers)):
+                    diagnostics["schema_error"] += 1
                     continue
                 idx = {key: headers.index(key) for key in needed}
                 for row in result.get("rowSet") or []:
@@ -130,10 +137,11 @@ class NBAComAdapter:
                             rows.pop(game_id, None)
                             continue
                         rows[game_id] = record
+                        diagnostics["candidate_rows"] += 1
                     except (IndexError, KeyError, TypeError, ValueError):
                         continue
             if len(rows) >= n_games:
                 break
         selected = sorted(rows.values(), key=lambda x: x["ts_utc"])[-n_games:]
-        logger.info("[NBACOM-DIAG] team=%s candidate_games=%d", team, len(selected))
+        logger.info("[NBACOM-DIAG] team=%s candidate_games=%d diagnostics=%s", team, len(selected), diagnostics)
         return selected or None
