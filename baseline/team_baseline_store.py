@@ -354,8 +354,10 @@ class TeamBaselineBootstrapper:
                         pts_for=float(g["pts_for"]),
                         pts_against=float(g["pts_against"]),
                         pace=measured_pace,
-                        home=bool(g.get("home", False)),
+                        home=g["home"],
                         ts_utc=g.get("ts_utc"),
+                        game_id=g.get("game_id"),
+                        source=g.get("source"),
                     )
                     wrote += 1
 
