@@ -47,6 +47,14 @@ class TeamGameRecord:
     timestamp_precision: str = "unknown"
 
 
+def _valid_provider_identity(value: Optional[str]) -> bool:
+    """Accept absent provenance or a nonempty, unpadded, control-free ID."""
+    return (value is None or
+            (type(value) is str and bool(value.strip()) and
+             value == value.strip() and
+             not any(ord(ch) < 32 or ord(ch) == 127 for ch in value)))
+
+
 # ============================
 # STORE
 # ============================
@@ -156,18 +164,12 @@ class TeamBaselineStore:
                 or type(home) is not bool
                 or type(max_games) is not int or max_games <= 0):
             raise ValueError("invalid historical game record")
-        if game_id is not None and (not isinstance(game_id, str) or not game_id.strip()):
+        if not _valid_provider_identity(game_id):
             raise ValueError("invalid game_id")
-        if source is not None and (not isinstance(source, str) or not source.strip()):
+        if not _valid_provider_identity(source):
             raise ValueError("invalid source")
         if game_id is not None and source is None:
             raise ValueError("game_id requires source")
-        if source is not None and (source != source.strip() or
-                any(ord(ch) < 32 or ord(ch) == 127 for ch in source)):
-            raise ValueError("unsafe source identity")
-        if game_id is not None and (game_id != game_id.strip() or
-                any(ord(ch) < 32 or ord(ch) == 127 for ch in game_id)):
-            raise ValueError("unsafe game identity")
         if (source == "nba_com" and timestamp_precision == "exact"):
             raise ValueError("NBA.com game-date records cannot claim exact completion time")
         if (type(timestamp_precision) is not str
