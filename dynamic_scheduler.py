@@ -174,7 +174,7 @@ async def main():
     app = Application.builder().token(token).build()
     
     # Engine Setup
-    baseline = TeamBaselineStore("data/baselines")
+    baseline = TeamBaselineStore(os.getenv("BASELINE_DIR", "data/baselines"))
     engines = {
         'faz13': Faz13Engine(
             os.getenv("API_SPORTS_KEY"), os.getenv("API_SPORTS_BASE"),
@@ -182,7 +182,7 @@ async def main():
         ),
         'faz17': Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE")),
         'faz22': Faz22Engine(),
-        'faz23': Faz23Engine()
+        'faz23': Faz23Engine(storage_path=os.getenv("FAZ23_STORAGE", "faz23_storage.sqlite"))
     }
     
     app.add_handler(CommandHandler("scheduler_status", scheduler_status))
