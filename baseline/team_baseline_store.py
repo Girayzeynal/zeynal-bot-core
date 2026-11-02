@@ -47,6 +47,17 @@ class TeamGameRecord:
     timestamp_precision: str = "unknown"
 
 
+def _valid_game_stats(ts_utc: Any, pts_for: Any, pts_against: Any,
+                      pace: Any, home: Any) -> bool:
+    """Require measured, finite, non-future historical statistics."""
+    stats = (pts_for, pts_against, pace)
+    return (type(ts_utc) is int and 0 < ts_utc <= int(time.time())
+            and all(type(value) in (int, float) for value in stats)
+            and all(math.isfinite(value) for value in stats)
+            and pts_for >= 0 and pts_against >= 0 and pace > 0
+            and type(home) is bool)
+
+
 def _valid_provider_identity(value: Optional[str]) -> bool:
     """Accept absent provenance or a nonempty, unpadded, control-free ID."""
     return (value is None or
@@ -155,13 +166,7 @@ class TeamBaselineStore:
         timestamp_precision: str = "unknown",
     ) -> None:
         # Reject malformed timestamps and statistics before touching persistent state.
-        stats = (pts_for, pts_against, pace)
-        if (type(ts_utc) is not int or ts_utc <= 0
-                or ts_utc > int(time.time())
-                or any(type(x) not in (int, float) for x in stats)
-                or not all(math.isfinite(x) for x in stats)
-                or pts_for < 0 or pts_against < 0 or pace <= 0
-                or type(home) is not bool
+        if (not _valid_game_stats(ts_utc, pts_for, pts_against, pace, home)
                 or type(max_games) is not int or max_games <= 0):
             raise ValueError("invalid historical game record")
         if not _valid_provider_identity(game_id):
