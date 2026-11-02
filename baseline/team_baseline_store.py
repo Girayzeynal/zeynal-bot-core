@@ -4,6 +4,7 @@ import json
 import math
 import os
 import re
+import tempfile
 import time
 import logging
 from dataclasses import dataclass, asdict
@@ -90,10 +91,30 @@ class TeamBaselineStore:
 
     def put(self, baseline: TeamBaseline) -> None:
         p = self._baseline_path(baseline.league, baseline.team)
-        tmp = p + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(asdict(baseline), f, ensure_ascii=False, indent=2)
-        os.replace(tmp, p)
+        self._atomic_json_write(p, asdict(baseline))
+
+    @staticmethod
+    def _atomic_json_write(path: str, payload: Any) -> None:
+        # Unique temporary files avoid collisions between independent writers.
+        # This protects file replacement, not read-modify-write concurrency.
+        tmp = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=os.path.dirname(path),
+                prefix=".baseline-", suffix=".tmp", delete=False,
+            ) as handle:
+                tmp = handle.name
+                json.dump(payload, handle, ensure_ascii=False, indent=2)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp, path)
+            tmp = None
+        finally:
+            if tmp is not None:
+                try:
+                    os.unlink(tmp)
+                except FileNotFoundError:
+                    pass
 
     def append_game(
         self,
@@ -159,10 +180,7 @@ class TeamBaselineStore:
         series = sorted(series, key=lambda x: x["ts_utc"])[-max_games:]
 
         # Atomic replacement prevents a crash from truncating the history file.
-        tmp = path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(series, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, path)
+        self._atomic_json_write(path, series)
 
     def get_series(self, league: str, team: str, n_games: int) -> List[TeamGameRecord]:
         if type(n_games) is not int or n_games <= 0:
