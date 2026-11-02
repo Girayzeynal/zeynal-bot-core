@@ -22,7 +22,7 @@ def load_handler():
     reasons = [node for node in tree.body if isinstance(node, ast.Assign)
                and any(isinstance(t, ast.Name) and t.id == "BASELINE_REASON_TR"
                        for t in node.targets)]
-    namespace = {"Any": Any, "math": __import__("math"), "html": html,
+    namespace = {"Any": Any, "Update": Any, "ContextTypes": types.SimpleNamespace(DEFAULT_TYPE=Any), "math": __import__("math"), "html": html,
                  "datetime": datetime.datetime, "timezone": datetime.timezone, "Tuple": Tuple,
                  "logger": logging.getLogger("telegram-test")}
     exec(compile(ast.fix_missing_locations(
