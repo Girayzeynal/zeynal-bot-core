@@ -54,3 +54,28 @@ def test_nba_com_rejects_unsupported_leagues_and_unknown_teams():
     assert asyncio.run(adapter.fetch_team_recent_games("EuroLeague", "SA", 10)) is None
     assert asyncio.run(adapter.fetch_team_recent_games("NBA", "UNKNOWN", 10)) is None
     assert asyncio.run(adapter.fetch_team_recent_games("NBA", "SA", 0)) is None
+
+
+class ConflictingResponse:
+    status = 200
+    async def __aenter__(self): return self
+    async def __aexit__(self, *args): return False
+    async def json(self, content_type=None):
+        return {"resultSets": [{"headers": ["TEAM_ID", "GAME_ID", "GAME_DATE", "MATCHUP", "PTS", "PLUS_MINUS", "WL"], "rowSet": [
+            [1610612759, "0022600099", "2026-10-20", "SAS vs. UTA", 110, 10, "W"],
+            [1610612759, "0022600099", "2026-10-20", "SAS vs. UTA", 120, 20, "W"],
+        ]}]}
+
+
+class ConflictingSession:
+    closed = False
+    def get(self, url, params=None): return ConflictingResponse()
+
+
+def test_nba_com_rejects_conflicting_duplicate_game_ids():
+    adapter = NBAComAdapter(session=ConflictingSession())
+    with patch("providers.nba_com_adapter.datetime") as mock_datetime:
+        mock_datetime.now.return_value = datetime(2026, 11, 2, tzinfo=timezone.utc)
+        mock_datetime.strptime.side_effect = datetime.strptime
+        games = asyncio.run(adapter.fetch_team_recent_games("NBA", "SA", 10))
+    assert games is None
