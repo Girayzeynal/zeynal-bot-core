@@ -103,6 +103,20 @@ class IntegrityHardeningTests(unittest.TestCase):
             self.assertIsNone(store.get("NBA", "BOS"))
             self.assertEqual(len(store.get_series("NBA", "BOS", 20)), 5)
 
+    def test_missing_measured_pace_does_not_publish_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = TeamBaselineStore(directory)
+            ts = int(time.time()) - 86400 * 10
+            game = {"pts_for": 120, "pts_against": 105, "pace": None,
+                    "home": True, "ts_utc": ts, "game_id": "000004",
+                    "source": "nba_com", "timestamp_precision": "date_only"}
+            result = asyncio.run(TeamBaselineBootstrapper(
+                store, [DuplicateProvider(game)]
+            ).ensure_async("NBA", "BOS", min_games=6))
+            self.assertIsNone(result)
+            self.assertEqual(store.get_series("NBA", "BOS", 20), [])
+            self.assertIsNone(store.get("NBA", "BOS"))
+
     def test_empty_provider_does_not_restamp_stale_baseline(self):
         with tempfile.TemporaryDirectory() as directory:
             store = TeamBaselineStore(directory)
