@@ -288,6 +288,13 @@ class TeamBaselineStore:
                             (record.game_id != record.game_id.strip() or
                              any(ord(ch) < 32 or ord(ch) == 127 for ch in record.game_id)))):
                     raise ValueError("invalid series record")
+            seen_provider_ids = set()
+            for record in records:
+                if record.game_id is not None:
+                    identity = (record.source, record.game_id)
+                    if identity in seen_provider_ids:
+                        raise ValueError("duplicate provider identity in series")
+                    seen_provider_ids.add(identity)
             return records[-n_games:]
         except (OSError, ValueError, TypeError, KeyError) as exc:
             logger.error("baseline series read rejected for %s/%s: %s", league, team, type(exc).__name__)
