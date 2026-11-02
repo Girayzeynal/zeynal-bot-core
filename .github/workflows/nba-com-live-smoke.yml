@@ -1,6 +1,13 @@
 name: NBA.com historical live smoke (manual, read-only)
 
 on:
+  push:
+    branches:
+      - feature/nba-com-baseline-provider-20261102
+    paths:
+      - .github/workflows/nba-com-live-smoke.yml
+      - providers/nba_com_adapter.py
+      - providers/nba_com_live_smoke.py
   workflow_dispatch:
     inputs:
       team:
@@ -29,5 +36,5 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Probe NBA.com historical games (no production writes)
         env:
-          NBA_SMOKE_TEAM: ${{ inputs.team }}
+          NBA_SMOKE_TEAM: ${{ inputs.team || 'SA' }}
         run: python -m providers.nba_com_live_smoke "$NBA_SMOKE_TEAM"
