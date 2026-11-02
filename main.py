@@ -166,7 +166,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error("ANALYZE ERROR", exc_info=True)
         await update.message.reply_text(
-            f"Analiz hatasi: {html.escape(str(e))}",
+            "Analiz sırasında dahili bir hata oluştu. İşlem tamamlanamadı.",
             disable_web_page_preview=True,
         )
 
