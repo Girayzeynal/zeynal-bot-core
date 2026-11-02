@@ -85,6 +85,16 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             self.assertEqual(store.compute_baseline_before(
                 "NBA", "BOS", ts + 60, n_games=6, min_games=6)["n_games"], 6)
 
+    def test_identity_delimiter_cannot_alias_distinct_league_and_team(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            for league, team in (("NBA__EAST", "BOS"), ("NBA", "EAST__BOS"),
+                                 ("NBA", "BOS__A")):
+                with self.subTest(league=league, team=team):
+                    with self.assertRaises(ValueError):
+                        store.get_series(league, team, 5)
+            self.assertEqual(store.get_series("NBA", "BOS", 5), [])
+
     def test_distinct_game_ids_at_same_timestamp_are_preserved(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
