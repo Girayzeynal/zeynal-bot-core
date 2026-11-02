@@ -20,7 +20,35 @@ def load_gate():
     return namespace["baseline_is_usable"]
 
 
+def load_failure_message():
+    path = pathlib.Path(__file__).resolve().parents[1] / "main.py"
+    module = ast.parse(path.read_text(encoding="utf-8"))
+    nodes = [item for item in module.body
+             if (isinstance(item, ast.Assign) and any(
+                 isinstance(target, ast.Name) and target.id == "BASELINE_REASON_TR"
+                 for target in item.targets))
+             or (isinstance(item, ast.FunctionDef)
+                 and item.name == "baseline_failure_message")]
+    namespace = {}
+    exec(compile(ast.fix_missing_locations(
+        ast.Module(body=nodes, type_ignores=[])), str(path), "exec"), namespace)
+    return namespace["baseline_failure_message"]
+
+
 class TelegramBaselineGateTests(unittest.TestCase):
+    def test_failure_message_distinguishes_home_and_away(self):
+        message = load_failure_message()("insufficient_games", "stale")
+        self.assertIn("Ev sahibi: en az 6 uygun maç kaydı gerekiyor", message)
+        self.assertIn("Deplasman: takım verisi güncel değil", message)
+        self.assertIn("\\n", message)
+        self.assertIn("tahmin üretilmez", message)
+        self.assertNotIn("bilinmeyen veri sorunu", message)
+
+    def test_failure_message_unknown_reason_fails_explanatorily(self):
+        message = load_failure_message()("unknown", "missing")
+        self.assertIn("Ev sahibi: bilinmeyen veri sorunu", message)
+        self.assertIn("Deplasman: doğrulanmış takım geçmişi bulunamadı", message)
+
     def test_reason_matches_prediction_gate(self):
         gate = load_gate()
         now = time.time()
