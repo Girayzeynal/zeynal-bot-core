@@ -23,7 +23,7 @@ async def main():
             games = await history.fetch_verified_games(
                 resolved["id"],
                 as_of_utc=datetime.now(timezone.utc),
-                days=20, minimum=6,
+                days=20, minimum=6, regular_season_only=True,
             )
             if games is None:
                 output.append({"team": name, "status": "insufficient_or_unavailable"})
@@ -40,7 +40,7 @@ async def main():
                     "opponent_id": game["away_team_id"] if home else game["home_team_id"],
                 })
             output.append({
-                "team": name, "status": "pass",
+                "team": name, "status": "pass", "season_filter": "regular_only",
                 "verified_game_count": len(entries),
                 "games": entries[-10:],
             })
