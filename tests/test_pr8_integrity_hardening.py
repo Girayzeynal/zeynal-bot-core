@@ -19,6 +19,15 @@ class DuplicateProvider:
         return [self.game]
 
 
+def _append_in_child_process(directory, game_id):
+    store = TeamBaselineStore(directory)
+    store.append_game(
+        "NBA", "BOS", 110 + int(game_id), 100, 98.0, True,
+        ts_utc=1700000000 + int(game_id),
+        game_id=game_id, source="multiprocess", timestamp_precision="exact",
+    )
+
+
 class IntegrityHardeningTests(unittest.TestCase):
     def test_series_lock_releases_after_exception(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -131,6 +140,28 @@ class IntegrityHardeningTests(unittest.TestCase):
             records = TeamBaselineStore(directory).get_series("NBA", "BOS", 10)
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0].game_id, "shared-game")
+
+    def test_independent_process_writers_preserve_both_games(self):
+        import multiprocessing
+        with tempfile.TemporaryDirectory() as directory:
+            ctx = multiprocessing.get_context("spawn")
+            workers = [
+                ctx.Process(target=_append_in_child_process, args=(directory, str(i)))
+                for i in range(2)
+            ]
+            for worker in workers:
+                worker.start()
+            try:
+                for worker in workers:
+                    worker.join(timeout=15)
+                self.assertTrue(all(worker.exitcode == 0 for worker in workers))
+                records = TeamBaselineStore(directory).get_series("NBA", "BOS", 10)
+                self.assertEqual({record.game_id for record in records}, {"0", "1"})
+            finally:
+                for worker in workers:
+                    if worker.is_alive():
+                        worker.terminate()
+                        worker.join(timeout=5)
 
     def test_anonymous_same_timestamp_distinct_games_preserved(self):
         with tempfile.TemporaryDirectory() as directory:
