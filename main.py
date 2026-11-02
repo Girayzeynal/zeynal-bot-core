@@ -82,22 +82,35 @@ def parse_analyze(text: str) -> Tuple[str, str, str, str]:
         raise ValueError("Ev sahibi ve deplasman takımları farklı olmalıdır")
     return league, date_str, home, away
 
-def baseline_is_usable(baseline: Any, now_ts: float) -> bool:
-    """Validate prematch baseline statistics before exposing a prediction."""
+def baseline_quality_reason(baseline: Any, now_ts: float) -> str:
+    """Single source of truth for prematch baseline acceptance and diagnostics."""
     if baseline is None:
-        return False
+        return "missing"
     try:
+        if type(baseline.n_games) is not int:
+            return "malformed"
+        if baseline.n_games < 6:
+            return "insufficient_games"
         age = now_ts - float(baseline.updated_ts)
+        if not math.isfinite(age):
+            return "malformed"
+        if age < 0 or age > 7 * 86400:
+            return "stale"
         stats = (float(baseline.pts_for), float(baseline.pts_against),
                  float(baseline.pace), float(baseline.stdev_total))
-        return (type(baseline.n_games) is int and baseline.n_games >= 6
-                and math.isfinite(age) and 0 <= age <= 7 * 86400
-                and all(math.isfinite(value) for value in stats)
-                and stats[0] > 0 and stats[1] > 0 and stats[2] > 0
-                and stats[3] >= 0)
+        if not all(math.isfinite(value) for value in stats):
+            return "malformed"
+        if stats[0] <= 0 or stats[1] <= 0:
+            return "invalid_scores"
+        if stats[2] <= 0 or stats[3] < 0:
+            return "invalid_stats"
+        return "usable"
     except (ValueError, TypeError, AttributeError, OverflowError):
-        return False
+        return "malformed"
 
+
+def baseline_is_usable(baseline: Any, now_ts: float) -> bool:
+    return baseline_quality_reason(baseline, now_ts) == "usable"
 
 # ============================
 # TELEGRAM COMMANDS
@@ -149,27 +162,12 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     now_ts = datetime.now(timezone.utc).timestamp()
-    def usable(baseline):
-        return baseline_is_usable(baseline, now_ts)
-
-    if not (usable(home_baseline) and usable(away_baseline)):
-        def baseline_reason(baseline):
-            if baseline is None:
-                return "missing"
-            try:
-                age = now_ts - float(baseline.updated_ts)
-                if int(baseline.n_games) < 6:
-                    return "insufficient_games"
-                if age < 0 or age > 7 * 86400:
-                    return "stale"
-                if float(baseline.pts_for) <= 0 or float(baseline.pts_against) <= 0:
-                    return "invalid_scores"
-                return "usable"
-            except (ValueError, TypeError, AttributeError):
-                return "malformed"
+    home_reason = baseline_quality_reason(home_baseline, now_ts)
+    away_reason = baseline_quality_reason(away_baseline, now_ts)
+    if home_reason != "usable" or away_reason != "usable":
         logger.warning(
             "Insufficient verified baselines: league=%s home_reason=%s away_reason=%s",
-            league, baseline_reason(home_baseline), baseline_reason(away_baseline),
+            league, home_reason, away_reason,
         )
         await update.message.reply_text(
             "Yetersiz veya güncelliğini yitirmiş takım verisi. "
