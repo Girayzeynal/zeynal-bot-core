@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import math
 import os
 import re
@@ -62,19 +63,28 @@ class TeamBaselineStore:
         os.makedirs(self.series_dir, exist_ok=True)
 
     def _key(self, league: str, team: str) -> str:
-        # Never allow untrusted team/league strings to escape the data directory.
-        parts = []
+        # Preserve existing canonical ASCII keys for deployed NBA records.
+        # Names containing whitespace or Unicode use a versioned digest so
+        # distinct names cannot alias through space-to-underscore conversion.
+        values = []
         for value in (league, team):
             if not isinstance(value, str) or not value.strip():
                 raise ValueError("invalid baseline identity")
-            normalized = value.strip().upper().replace(" ", "_")
-            if (not re.fullmatch(r"[A-Z0-9_-]{1,80}", normalized)
-                    or "__" in normalized):
-                # Double underscores delimit league and team in persisted keys.
-                # Allowing them inside a component would alias distinct identities.
-                raise ValueError("unsafe or ambiguous baseline identity")
-            parts.append(normalized)
-        return "__".join(parts)
+            normalized = value.strip().upper()
+            if (len(normalized) > 160 or any(ord(ch) < 32 or ord(ch) == 127 for ch in normalized)
+                    or "/" in normalized or "\\\\" in normalized):
+                raise ValueError("unsafe baseline identity")
+            values.append(normalized)
+        if all(re.fullmatch(r"[A-Z0-9_-]{1,80}", x) and "__" not in x
+               for x in values):
+            return "__".join(values)
+        # Domain-separated, length-delimited UTF-8 encoding; never use raw
+        # user input as a filename. Legacy keys remain untouched.
+        encoded = b"".join(
+            len(x.encode("utf-8")).to_bytes(4, "big") + x.encode("utf-8")
+            for x in values
+        )
+        return "V2_" + hashlib.sha256(b"baseline-key-v2\\0" + encoded).hexdigest()
 
     def _baseline_path(self, league: str, team: str) -> str:
         return os.path.join(self.base_dir, f"TEAM__{self._key(league, team)}.json")
