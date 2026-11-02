@@ -56,6 +56,20 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
                 store.append_game("NBA", "BOS", 110, 100, 98, True,
                                   ts_utc=int(time.time()) - 86400, game_id="001")
 
+    def test_corrupt_existing_history_is_not_overwritten(self):
+        import os
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            path = store._series_path("NBA", "BOS")
+            corrupt = "{broken json"
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(corrupt)
+            with self.assertRaises(ValueError):
+                store.append_game("NBA", "BOS", 110, 100, 98, True,
+                                  ts_utc=int(time.time()) - 86400)
+            with open(path, "r", encoding="utf-8") as handle:
+                self.assertEqual(handle.read(), corrupt)
+
     def test_valid_record_is_stored(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
