@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import fcntl
 import math
 import os
 import re
@@ -9,6 +10,7 @@ import tempfile
 import time
 import logging
 from dataclasses import dataclass, asdict
+from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
 from statistics import mean, pstdev
 
@@ -151,6 +153,17 @@ class TeamBaselineStore:
                 except FileNotFoundError:
                     pass
 
+    @contextmanager
+    def _series_write_lock(self, league: str, team: str):
+        """Serialize read-modify-write on a shared local filesystem."""
+        lock_path = self._series_path(league, team) + ".lock"
+        with open(lock_path, "a+b") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
     def append_game(
         self,
         league: str,
@@ -183,75 +196,76 @@ class TeamBaselineStore:
         ts = ts_utc
         rec = TeamGameRecord(ts, pts_for, pts_against, pace, home, game_id, source, timestamp_precision)
 
-        path = self._series_path(league, team)
-        series: List[Dict[str, Any]] = []
+        with self._series_write_lock(league, team):
+            path = self._series_path(league, team)
+            series: List[Dict[str, Any]] = []
 
-        if os.path.exists(path):
-            # Corrupt history must not be silently discarded and overwritten.
-            with open(path, "r", encoding="utf-8") as f:
-                series = json.load(f)
-            if not isinstance(series, list) or not all(isinstance(r, dict) for r in series):
-                raise ValueError("invalid persisted game series")
-            # Validate every persisted row before read-modify-write; otherwise
-            # a malformed record could be retained or silently evicted.
-            for existing in series:
-                try:
-                    stored = TeamGameRecord(**existing)
-                except (TypeError, ValueError) as exc:
-                    raise ValueError("invalid persisted game record") from exc
-                if (not _valid_game_stats(stored.ts_utc, stored.pts_for,
-                                          stored.pts_against, stored.pace, stored.home)
-                        or type(stored.timestamp_precision) is not str
-                        or stored.timestamp_precision not in ("exact", "date_only", "unknown")
-                        or not _valid_provider_identity(stored.game_id)
-                        or not _valid_provider_identity(stored.source)
-                        or (stored.game_id is not None and stored.source is None)
-                        or (stored.source == "nba_com" and stored.timestamp_precision == "exact")):
-                    raise ValueError("invalid persisted game record")
-            seen_provider_ids = set()
-            for existing in series:
-                existing_id = existing.get("game_id")
-                existing_source = existing.get("source")
-                if existing_id is not None:
-                    if not isinstance(existing_id, str) or not isinstance(existing_source, str):
-                        raise ValueError("invalid persisted provider identity")
-                    identity = (existing_source, existing_id)
-                    if identity in seen_provider_ids:
-                        raise ValueError("duplicate persisted provider identity")
-                    seen_provider_ids.add(identity)
+            if os.path.exists(path):
+                # Corrupt history must not be silently discarded and overwritten.
+                with open(path, "r", encoding="utf-8") as f:
+                    series = json.load(f)
+                if not isinstance(series, list) or not all(isinstance(r, dict) for r in series):
+                    raise ValueError("invalid persisted game series")
+                # Validate every persisted row before read-modify-write; otherwise
+                # a malformed record could be retained or silently evicted.
+                for existing in series:
+                    try:
+                        stored = TeamGameRecord(**existing)
+                    except (TypeError, ValueError) as exc:
+                        raise ValueError("invalid persisted game record") from exc
+                    if (not _valid_game_stats(stored.ts_utc, stored.pts_for,
+                                              stored.pts_against, stored.pace, stored.home)
+                            or type(stored.timestamp_precision) is not str
+                            or stored.timestamp_precision not in ("exact", "date_only", "unknown")
+                            or not _valid_provider_identity(stored.game_id)
+                            or not _valid_provider_identity(stored.source)
+                            or (stored.game_id is not None and stored.source is None)
+                            or (stored.source == "nba_com" and stored.timestamp_precision == "exact")):
+                        raise ValueError("invalid persisted game record")
+                seen_provider_ids = set()
+                for existing in series:
+                    existing_id = existing.get("game_id")
+                    existing_source = existing.get("source")
+                    if existing_id is not None:
+                        if not isinstance(existing_id, str) or not isinstance(existing_source, str):
+                            raise ValueError("invalid persisted provider identity")
+                        identity = (existing_source, existing_id)
+                        if identity in seen_provider_ids:
+                            raise ValueError("duplicate persisted provider identity")
+                        seen_provider_ids.add(identity)
 
-        # A provider identity must never silently change its game facts.
-        # Cross-provider reconciliation requires an independently verified mapping.
-        if game_id is not None:
-            matches = [r for r in series if (
-                r.get("game_id") == game_id and r.get("source") == source
-            )]
-            if matches:
-                if len(matches) != 1 or any(
-                    r.get(field) != getattr(rec, field)
-                    for r in matches
+            # A provider identity must never silently change its game facts.
+            # Cross-provider reconciliation requires an independently verified mapping.
+            if game_id is not None:
+                matches = [r for r in series if (
+                    r.get("game_id") == game_id and r.get("source") == source
+                )]
+                if matches:
+                    if len(matches) != 1 or any(
+                        r.get(field) != getattr(rec, field)
+                        for r in matches
+                        for field in ("ts_utc", "pts_for", "pts_against", "pace", "home")
+                    ) or any(
+                        r.get("timestamp_precision", "unknown") != timestamp_precision
+                        for r in matches
+                    ):
+                        raise ValueError("conflicting game record for provider identity")
+                    return  # Idempotent repeated fetch; do not rewrite the file.
+            else:
+                # A timestamp is not a unique game identity. Preserve distinct
+                # anonymous games instead of silently deleting an older record.
+                if any(r.get("game_id") is None and all(
+                    r.get(field) == getattr(rec, field)
                     for field in ("ts_utc", "pts_for", "pts_against", "pace", "home")
-                ) or any(
-                    r.get("timestamp_precision", "unknown") != timestamp_precision
-                    for r in matches
-                ):
-                    raise ValueError("conflicting game record for provider identity")
-                return  # Idempotent repeated fetch; do not rewrite the file.
-        else:
-            # A timestamp is not a unique game identity. Preserve distinct
-            # anonymous games instead of silently deleting an older record.
-            if any(r.get("game_id") is None and all(
-                r.get(field) == getattr(rec, field)
-                for field in ("ts_utc", "pts_for", "pts_against", "pace", "home")
-            ) and r.get("timestamp_precision", "unknown") == timestamp_precision
-              and r.get("source") == source
-                for r in series):
-                return
-        series.append(asdict(rec))
-        series = sorted(series, key=lambda x: x["ts_utc"])[-max_games:]
+                ) and r.get("timestamp_precision", "unknown") == timestamp_precision
+                  and r.get("source") == source
+                    for r in series):
+                    return
+            series.append(asdict(rec))
+            series = sorted(series, key=lambda x: x["ts_utc"])[-max_games:]
 
-        # Atomic replacement prevents a crash from truncating the history file.
-        self._atomic_json_write(path, series)
+            # Atomic replacement prevents a crash from truncating the history file.
+            self._atomic_json_write(path, series)
 
     def get_series(self, league: str, team: str, n_games: int) -> List[TeamGameRecord]:
         if type(n_games) is not int or n_games <= 0:
