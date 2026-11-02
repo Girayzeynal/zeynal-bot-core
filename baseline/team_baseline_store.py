@@ -306,6 +306,22 @@ class TeamBaselineStore:
         except (OSError, ValueError, TypeError):
             return {"status": "corrupt", "usable_games": 0}
 
+    @staticmethod
+    def _ambiguous_cross_provider_games(records: List[TeamGameRecord]) -> bool:
+        # An identical observation from another source may be the same game.
+        # Without a verified mapping, do not count it twice.
+        signatures: Dict[Any, str] = {}
+        for record in records:
+            if record.source is None:
+                continue
+            signature = (record.ts_utc, record.pts_for, record.pts_against,
+                         record.pace, record.home, record.timestamp_precision)
+            prior_source = signatures.get(signature)
+            if prior_source is not None and prior_source != record.source:
+                return True
+            signatures[signature] = record.source
+        return False
+
     def get_series_before(self, league: str, team: str, cutoff_ts_utc: int, n_games: int) -> List[TeamGameRecord]:
         """Select only records older than the requested fixture."""
         if (type(n_games) is not int or n_games <= 0
@@ -336,6 +352,9 @@ class TeamBaselineStore:
             return quality
         records = self.get_series_before(league, team, cutoff_ts_utc, n_games)
         count = len(records)
+        if self._ambiguous_cross_provider_games(records):
+            return {"status": "ambiguous_cross_provider", "usable_games": 0,
+                    "required_games": min_games}
         return {"status": "ready" if count >= min_games else "insufficient_history",
                 "usable_games": count, "required_games": min_games}
 
@@ -377,7 +396,7 @@ class TeamBaselineStore:
         if type(n_games) is not int or n_games <= 0:
             return None
         series = self.get_series(league, team, n_games)
-        if len(series) < max(3, n_games // 2):
+        if len(series) < max(3, n_games // 2) or self._ambiguous_cross_provider_games(series):
             return None
 
         pts_for = [r.pts_for for r in series]
