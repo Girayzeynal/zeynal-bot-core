@@ -47,6 +47,39 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
             self.assertIn("Analiz oluşturulmadı", update.message.reply_text.await_args.args[0])
         asyncio.run(scenario())
 
+    def test_past_fixture_never_calls_provider_or_engine(self):
+        async def scenario():
+            handler = load_handler()
+            yesterday = (datetime.datetime.now(datetime.timezone.utc).date()
+                         - datetime.timedelta(days=1)).isoformat()
+            update = types.SimpleNamespace(message=types.SimpleNamespace(
+                text=f"/analyze NBA {yesterday} Home vs Away",
+                reply_text=AsyncMock()))
+            bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock())
+            engine = types.SimpleNamespace(run_prematch=AsyncMock())
+            context = types.SimpleNamespace(application=types.SimpleNamespace(
+                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper}))
+            await handler(update, context)
+            bootstrapper.ensure_async.assert_not_awaited()
+            engine.run_prematch.assert_not_awaited()
+            self.assertIn("Tarihsel veri kesiti", update.message.reply_text.await_args.args[0])
+        asyncio.run(scenario())
+
+    def test_invalid_command_never_calls_provider_or_engine(self):
+        async def scenario():
+            handler = load_handler()
+            update = types.SimpleNamespace(message=types.SimpleNamespace(
+                text="/analyze NBA invalid Home vs Away", reply_text=AsyncMock()))
+            bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock())
+            engine = types.SimpleNamespace(run_prematch=AsyncMock())
+            context = types.SimpleNamespace(application=types.SimpleNamespace(
+                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper}))
+            await handler(update, context)
+            bootstrapper.ensure_async.assert_not_awaited()
+            engine.run_prematch.assert_not_awaited()
+            self.assertIn("Parametre hatasi", update.message.reply_text.await_args.args[0])
+        asyncio.run(scenario())
+
     def test_provider_exception_never_calls_engine(self):
         async def scenario():
             handler = load_handler()
