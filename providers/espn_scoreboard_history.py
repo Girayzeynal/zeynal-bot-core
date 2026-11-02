@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 
 from providers.espn_completed_event import parse_completed_nba_event
+from providers.espn_season_filter import is_explicit_regular_season
 
 BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
 
@@ -46,6 +47,7 @@ class ESPNScoreboardHistory:
     async def fetch_verified_games(
         self, team_id: str, *, as_of_utc: datetime,
         days: int = 21, minimum: int = 6,
+        regular_season_only: bool = False,
     ) -> Optional[List[Dict[str, Any]]]:
         """Return verified final games before as_of_utc, or None on any uncertainty.
 
@@ -57,7 +59,8 @@ class ESPNScoreboardHistory:
                 or not team_id.isdigit() or not team_id
                 or not isinstance(as_of_utc, datetime) or as_of_utc.tzinfo is None
                 or type(days) is not int or not 1 <= days <= 45
-                or type(minimum) is not int or not 1 <= minimum <= 30):
+                or type(minimum) is not int or not 1 <= minimum <= 30
+                or type(regular_season_only) is not bool):
             return None
         cutoff = as_of_utc.astimezone(timezone.utc)
         rows: Dict[str, Dict[str, Any]] = {}
@@ -70,6 +73,8 @@ class ESPNScoreboardHistory:
             if events is None:
                 return None
             for raw in events:
+                if regular_season_only and is_explicit_regular_season(raw) is not True:
+                    continue
                 parsed = parse_completed_nba_event(raw, cutoff)
                 if parsed is None or parsed["start_ts_utc"] >= cutoff.timestamp():
                     continue
