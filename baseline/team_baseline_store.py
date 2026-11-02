@@ -273,8 +273,20 @@ class TeamBaselineStore:
                         or not all(math.isfinite(v) for v in values)
                         or record.pts_for < 0 or record.pts_against < 0
                         or record.pace <= 0 or type(record.home) is not bool
+                        or type(record.timestamp_precision) is not str
                         or record.timestamp_precision not in ("exact", "date_only", "unknown")
-                        or (record.source == "nba_com" and record.timestamp_precision == "exact")):
+                        or (record.source is not None and
+                            (type(record.source) is not str or not record.source.strip()))
+                        or (record.game_id is not None and
+                            (type(record.game_id) is not str or not record.game_id.strip()))
+                        or (record.game_id is not None and record.source is None)
+                        or (record.source == "nba_com" and record.timestamp_precision == "exact")
+                        or (record.source is not None and
+                            (record.source != record.source.strip() or
+                             any(ord(ch) < 32 or ord(ch) == 127 for ch in record.source)))
+                        or (record.game_id is not None and
+                            (record.game_id != record.game_id.strip() or
+                             any(ord(ch) < 32 or ord(ch) == 127 for ch in record.game_id)))):
                     raise ValueError("invalid series record")
             return records[-n_games:]
         except (OSError, ValueError, TypeError, KeyError) as exc:
