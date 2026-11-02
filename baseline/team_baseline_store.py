@@ -450,6 +450,11 @@ class TeamBaselineBootstrapper:
                 league, team, existing.n_games, now_ts - int(existing.updated_ts),
             )
 
+        # A successful refresh must advance the newest verified game timestamp.
+        # Re-fetching old/duplicate records must not restamp an old baseline.
+        prior_series = self.store.get_series(league, team, 100000)
+        prior_latest_ts = max((record.ts_utc for record in prior_series), default=0)
+
         # DIAG: başlangıç series sayısı
         try:
             pre_series_n = len(self.store.get_series(league, team, 50))
@@ -520,8 +525,10 @@ class TeamBaselineBootstrapper:
 
                 # Do not mark a stale baseline refreshed when the provider supplied
                 # no newly persisted records. Existing history is not new evidence.
-                if wrote == 0:
-                    logger.info("[BASELINE-DIAG] refresh_skipped adapter=%s reason=no_usable_records", ad.__class__.__name__)
+                current_series = self.store.get_series(league, team, 100000)
+                current_latest_ts = max((record.ts_utc for record in current_series), default=0)
+                if wrote == 0 or current_latest_ts <= prior_latest_ts:
+                    logger.info("[BASELINE-DIAG] refresh_skipped adapter=%s reason=no_newer_verified_game", ad.__class__.__name__)
                     continue
 
                 agg = self.store.compute_dynamic_baseline(league, team, min_games)
