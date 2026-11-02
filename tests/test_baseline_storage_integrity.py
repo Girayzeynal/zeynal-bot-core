@@ -37,6 +37,25 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0].ts_utc, ts)
 
+    def test_distinct_game_ids_at_same_timestamp_are_preserved(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400
+            store.append_game("NBA", "BOS", 110, 100, 98, True, ts_utc=ts, game_id="001", source="provider_a")
+            store.append_game("NBA", "BOS", 115, 105, 99, False, ts_utc=ts, game_id="002", source="provider_a")
+            self.assertEqual(len(store.get_series("NBA", "BOS", 20)), 2)
+            store.append_game("NBA", "BOS", 112, 101, 98, True, ts_utc=ts, game_id="001", source="provider_a")
+            records = store.get_series("NBA", "BOS", 20)
+            self.assertEqual(len(records), 2)
+            self.assertEqual(next(r.pts_for for r in records if r.game_id == "001"), 112)
+
+    def test_game_id_requires_source(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            with self.assertRaises(ValueError):
+                store.append_game("NBA", "BOS", 110, 100, 98, True,
+                                  ts_utc=int(time.time()) - 86400, game_id="001")
+
     def test_valid_record_is_stored(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
