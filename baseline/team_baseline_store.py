@@ -213,6 +213,10 @@ class TeamBaselineStore:
         n_games: int = 10, min_games: int = 6,
     ) -> Optional[Dict[str, float]]:
         """Compute a baseline exclusively from pre-fixture games."""
+        if (type(n_games) is not int or n_games <= 0
+                or type(min_games) is not int or min_games <= 0
+                or min_games > n_games):
+            return None
         series = self.get_series_before(league, team, cutoff_ts_utc, n_games)
         if len(series) < min_games:
             return None
@@ -230,6 +234,8 @@ class TeamBaselineStore:
     def compute_dynamic_baseline(
         self, league: str, team: str, n_games: int
     ) -> Optional[Dict[str, float]]:
+        if type(n_games) is not int or n_games <= 0:
+            return None
         series = self.get_series(league, team, n_games)
         if len(series) < max(3, n_games // 2):
             return None
