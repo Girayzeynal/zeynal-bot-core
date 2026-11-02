@@ -20,8 +20,11 @@ async def check(team: str) -> dict:
         now = datetime.now(timezone.utc).timestamp()
         valid = (
             len(games) >= 6
-            and len({int(g["ts_utc"]) for g in games}) >= 6
-            and all(0 < g["ts_utc"] < now
+            and len({(g.get("source"), g.get("game_id")) for g in games}) == len(games)
+            and all(g.get("source") == "nba_com"
+                    and isinstance(g.get("game_id"), str)
+                    and g["game_id"].isdigit()
+                    and 0 < g["ts_utc"] < now
                     and g["pts_for"] >= 0 and g["pts_against"] >= 0
                     and g["pts_for"] != g["pts_against"] for g in games)
         )
