@@ -39,5 +39,19 @@ class PersistentStoragePathTests(unittest.TestCase):
                              "BASELINE_DIR" if call.func.id == "TeamBaselineStore" else "FAZ23_STORAGE")
 
 
+    def test_sqlite_writers_create_parent_directories(self):
+        for filename in ("dynamic_scheduler.py", "faz23_engine/faz23_engine.py"):
+            with self.subTest(filename=filename):
+                tree = self._tree(filename)
+                mkdir_calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)
+                               and isinstance(n.func, ast.Attribute)
+                               and n.func.attr == "mkdir"]
+                self.assertTrue(mkdir_calls, "Missing SQLite parent directory creation")
+                self.assertTrue(any(
+                    any(kw.arg == "parents" and isinstance(kw.value, ast.Constant)
+                        and kw.value.value is True for kw in call.keywords)
+                    for call in mkdir_calls
+                ))
+
 if __name__ == "__main__":
     unittest.main()
