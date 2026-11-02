@@ -206,7 +206,13 @@ class TeamBaselineStore:
                         or (stored.source is not None and
                             (type(stored.source) is not str or not stored.source.strip()))
                         or (stored.game_id is not None and stored.source is None)
-                        or (stored.source == "nba_com" and stored.timestamp_precision == "exact")):
+                        or (stored.source == "nba_com" and stored.timestamp_precision == "exact")
+                        or (stored.source is not None and
+                            (stored.source != stored.source.strip() or
+                             any(ord(ch) < 32 or ord(ch) == 127 for ch in stored.source)))
+                        or (stored.game_id is not None and
+                            (stored.game_id != stored.game_id.strip() or
+                             any(ord(ch) < 32 or ord(ch) == 127 for ch in stored.game_id)))):
                     raise ValueError("invalid persisted game record")
             seen_provider_ids = set()
             for existing in series:
