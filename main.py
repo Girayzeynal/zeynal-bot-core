@@ -30,6 +30,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("zeynal-core")
 
+# HTTPX logs can contain the Telegram bot token in request URLs.
+# Disable third-party request logging before the first Telegram request.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 # ============================
 # ENV
 # ============================
