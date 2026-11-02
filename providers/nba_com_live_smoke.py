@@ -6,6 +6,7 @@ No secrets, scores, or team-specific game identifiers are printed.
 """
 import asyncio
 import json
+import logging
 import sys
 from datetime import datetime, timezone
 
@@ -13,6 +14,7 @@ from providers.nba_com_adapter import NBAComAdapter
 
 
 async def check(team: str) -> dict:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
     adapter = NBAComAdapter()
     try:
         games = await adapter.fetch_team_recent_games("NBA", team, 10)
