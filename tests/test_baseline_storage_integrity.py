@@ -408,6 +408,32 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             self.assertIsNone(store.compute_baseline_before(
                 "NBA", "BOS", ts + 100, n_games=1, min_games=1))
 
+    def test_shared_numeric_validation_rejects_nonfinite_and_boolean_values(self):
+        import json
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400
+            for field, bad in (("pts_for", True), ("pts_against", float("inf")),
+                               ("pace", float("nan")), ("ts_utc", True)):
+                with self.subTest(field=field):
+                    values = dict(pts_for=110, pts_against=100, pace=98,
+                                  home=True, ts_utc=ts)
+                    values[field] = bad
+                    with self.assertRaises(ValueError):
+                        store.append_game("NBA", "BOS", **values)
+            store.append_game("NBA", "BOS", 110, 100, 98, True,
+                              ts_utc=ts, timestamp_precision="exact")
+            path = store._series_path("NBA", "BOS")
+            with open(path, "r", encoding="utf-8") as handle:
+                original = json.load(handle)
+            for field, bad in (("pts_for", True), ("pts_against", float("inf")),
+                               ("pace", float("nan")), ("ts_utc", True)):
+                with self.subTest(read_field=field):
+                    with open(path, "w", encoding="utf-8") as handle:
+                        json.dump([dict(original[0], **{field: bad})], handle)
+                    with self.assertLogs("zeynal-core.baseline", level="ERROR"):
+                        self.assertEqual(store.get_series("NBA", "BOS", 10), [])
+
     def test_valid_record_is_stored(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
