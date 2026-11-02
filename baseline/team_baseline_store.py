@@ -185,6 +185,17 @@ class TeamBaselineStore:
                 series = json.load(f)
             if not isinstance(series, list) or not all(isinstance(r, dict) for r in series):
                 raise ValueError("invalid persisted game series")
+            seen_provider_ids = set()
+            for existing in series:
+                existing_id = existing.get("game_id")
+                existing_source = existing.get("source")
+                if existing_id is not None:
+                    if not isinstance(existing_id, str) or not isinstance(existing_source, str):
+                        raise ValueError("invalid persisted provider identity")
+                    identity = (existing_source, existing_id)
+                    if identity in seen_provider_ids:
+                        raise ValueError("duplicate persisted provider identity")
+                    seen_provider_ids.add(identity)
 
         # A provider identity must never silently change its game facts.
         # Cross-provider reconciliation requires an independently verified mapping.
