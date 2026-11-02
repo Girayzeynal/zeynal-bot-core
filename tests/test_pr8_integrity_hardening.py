@@ -104,6 +104,34 @@ class IntegrityHardeningTests(unittest.TestCase):
             records = TeamBaselineStore(directory).get_series("NBA", "BOS", 10)
             self.assertEqual({record.game_id for record in records}, {"0", "1"})
 
+    def test_parallel_duplicate_writers_are_idempotent(self):
+        import threading
+        with tempfile.TemporaryDirectory() as directory:
+            gate = threading.Barrier(2)
+            errors = []
+
+            def write():
+                try:
+                    gate.wait(timeout=5)
+                    TeamBaselineStore(directory).append_game(
+                        "NBA", "BOS", 110, 100, 98.0, True,
+                        ts_utc=1700000000, game_id="shared-game",
+                        source="parallel", timestamp_precision="exact",
+                    )
+                except Exception as exc:
+                    errors.append(exc)
+
+            workers = [threading.Thread(target=write) for _ in range(2)]
+            for worker in workers:
+                worker.start()
+            for worker in workers:
+                worker.join(timeout=10)
+            self.assertFalse(any(worker.is_alive() for worker in workers))
+            self.assertEqual(errors, [])
+            records = TeamBaselineStore(directory).get_series("NBA", "BOS", 10)
+            self.assertEqual(len(records), 1)
+            self.assertEqual(records[0].game_id, "shared-game")
+
     def test_anonymous_same_timestamp_distinct_games_preserved(self):
         with tempfile.TemporaryDirectory() as directory:
             store = TeamBaselineStore(directory)
