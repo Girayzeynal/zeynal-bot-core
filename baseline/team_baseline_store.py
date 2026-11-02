@@ -342,6 +342,15 @@ class TeamBaselineStore:
                 or type(min_games) is not int or min_games <= 0
                 or min_games > n_games):
             return None
+        readiness = self.prefixture_quality_status(
+            league, team, cutoff_ts_utc, n_games=n_games, min_games=min_games
+        )
+        if readiness["status"] != "ready":
+            logger.warning(
+                "prefixture baseline unavailable for %s/%s: %s",
+                league, team, readiness["status"],
+            )
+            return None
         series = self.get_series_before(league, team, cutoff_ts_utc, n_games)
         if len(series) < min_games:
             return None
