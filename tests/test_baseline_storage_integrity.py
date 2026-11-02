@@ -87,6 +87,34 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
                         store.get(league, team)
             self.assertTrue(store._series_path("NBA", "BOS").startswith(folder))
 
+    def test_rejects_coerced_statistics_and_invalid_limits(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400
+            for pf, pa, pace, home, limit in [
+                ("110", 100, 98, True, 20),
+                (True, 100, 98, True, 20),
+                (110, "100", 98, True, 20),
+                (110, 100, "98", True, 20),
+                (110, 100, 98, 1, 20),
+                (110, 100, 98, True, 0),
+                (110, 100, 98, True, -1),
+            ]:
+                with self.subTest(pf=pf, pa=pa, pace=pace, home=home, limit=limit):
+                    with self.assertRaises(ValueError):
+                        store.append_game("NBA", "BOS", pf, pa, pace, home,
+                                          ts_utc=ts, max_games=limit)
+            self.assertEqual(store.get_series("NBA", "BOS", 20), [])
+
+    def test_zero_and_negative_requested_games_never_return_full_history(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            store.append_game("NBA", "BOS", 110, 100, 98, True,
+                              ts_utc=int(time.time()) - 86400)
+            self.assertEqual(store.get_series("NBA", "BOS", 0), [])
+            self.assertEqual(store.get_series("NBA", "BOS", -1), [])
+            self.assertEqual(len(store.get_series("NBA", "BOS", 1)), 1)
+
     def test_valid_record_is_stored(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
