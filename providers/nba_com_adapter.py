@@ -133,6 +133,7 @@ class NBAComAdapter:
                             "pts_for": pts, "pts_against": against,
                             "pace": None, "home": home,  # Possessions not supplied by this endpoint.
                             "game_id": game_id, "source": "nba_com",
+                            "timestamp_precision": "date_only",
                         }
                         if game_id in conflicting_ids:
                             continue
