@@ -48,7 +48,7 @@ class NBAComAdapter:
     async def fetch_team_recent_games(
         self, league: str, team: str, n_games: int
     ) -> Optional[List[Dict[str, Any]]]:
-        if league.strip().upper() != "NBA" or not 1 <= n_games <= 20:
+        if not isinstance(league, str) or not isinstance(team, str) or type(n_games) is not int or league.strip().upper() != "NBA" or not 1 <= n_games <= 20:
             return None
         team_id = NBA_TEAMS.get(team.strip().upper())
         if team_id is None:
@@ -77,7 +77,16 @@ class NBAComAdapter:
             except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as exc:
                 logger.info("[NBACOM-DIAG] season=%s request_failed=%s", year, type(exc).__name__)
                 continue
-            for result in payload.get("resultSets", []):
+            if not isinstance(payload, dict):
+                continue
+            result_sets = payload.get("resultSets") or []
+            if isinstance(result_sets, dict):
+                result_sets = list(result_sets.values())
+            if not isinstance(result_sets, list):
+                continue
+            for result in result_sets:
+                if not isinstance(result, dict):
+                    continue
                 headers = result.get("headers") or []
                 needed = {"TEAM_ID", "GAME_ID", "GAME_DATE", "MATCHUP", "PTS", "PLUS_MINUS", "WL"}
                 if not needed.issubset(set(headers)):
@@ -98,7 +107,7 @@ class NBAComAdapter:
                         against = pts - margin
                         if not all(map(math.isfinite, (pts, margin, against))):
                             continue
-                        if pts < 0 or against < 0 or pts == against or row[idx["WL"]] not in ("W", "L"):
+                        if pts < 0 or against < 0 or pts == against or row[idx["WL"]] not in ("W", "L") or (pts > against) != (row[idx["WL"]] == "W"):
                             continue
                         matchup = str(row[idx["MATCHUP"]])
                         if " vs. " in matchup:
