@@ -52,6 +52,21 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             self.assertEqual(set(os.listdir(store.series_dir)), before)
             self.assertEqual(len(store.get_series("NBA", "BOS", 20)), 1)
 
+    def test_historical_cutoff_rejects_invalid_types_and_excludes_future(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400
+            store.append_game("NBA", "BOS", 110, 100, 98, True, ts_utc=ts)
+            store.append_game("NBA", "BOS", 115, 105, 99, False, ts_utc=ts + 60)
+            for cutoff in (None, 0, -1, True, float(ts), str(ts)):
+                with self.subTest(cutoff=cutoff):
+                    self.assertEqual(store.get_series_before("NBA", "BOS", cutoff, 10), [])
+            for count in (0, -1, True, 2.0, "2"):
+                with self.subTest(count=count):
+                    self.assertEqual(store.get_series_before("NBA", "BOS", ts + 120, count), [])
+            records = store.get_series_before("NBA", "BOS", ts + 60, 10)
+            self.assertEqual([r.ts_utc for r in records], [ts])
+
     def test_distinct_game_ids_at_same_timestamp_are_preserved(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
