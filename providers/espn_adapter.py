@@ -303,83 +303,37 @@ class ESPNAdapter:
             return None
         logger.info("[ESPN-DIAG] stage=schedule team=%s raw_events=%d", ref["abbr"], len(events))
 
-        # ---- ÖN ANALİZ DOĞRUSU ----
-        # Tarihe bakmadan, sadece COMPLETED maçları topla,
-        # en son oynanan N maçı al.
+        # Use the shared strict completed-event parser. ESPN finals typically
+        # use state=post with completed=true; never accept scheduled/live games.
         completed: List[Dict[str, Any]] = []
         for ev in events:
-            comps = ev.get("competitions") or []
-            if not comps:
+            parsed = parse_completed_nba_event(ev)
+            if parsed is None:
                 continue
-            comp = comps[0]
-            if comp.get("status", {}).get("type", {}).get("state") != "completed":
+            if team_id not in (parsed["home_team_id"], parsed["away_team_id"]):
                 continue
-            try:
-                event_time = datetime.fromisoformat(str(ev["date"]).replace("Z", "+00:00"))
-                if event_time.tzinfo is None or event_time >= datetime.now(timezone.utc):
-                    continue
-            except (KeyError, TypeError, ValueError):
-                continue
-            completed.append(ev)
+            completed.append(parsed)
 
         logger.info("[ESPN-DIAG] stage=completed team=%s completed_events=%d", ref["abbr"], len(completed))
         if not completed:
             return None
 
-        completed.sort(key=lambda ev: str(ev.get('date') or ''))
+        completed.sort(key=lambda ev: (ev["start_ts_utc"], ev["provider_fixture_id"]))
         completed = completed[-int(n_games):]
 
         out: List[Dict[str, Any]] = []
         for ev in completed:
-            comps = ev.get("competitions") or []
-            if not comps:
-                continue
-
-            comp = comps[0]
-            competitors = comp.get("competitors") or []
-            if len(competitors) != 2:
-                continue
-
-            team_row = None
-            opp_row = None
-            for c in competitors:
-                ab = c.get("team", {}).get("abbreviation", "").upper()
-                if ab == ref["abbr"]:
-                    team_row = c
-                else:
-                    opp_row = c
-
-            if not team_row or not opp_row:
-                continue
-
-            try:
-                pf = float(team_row.get("score"))
-                pa = float(opp_row.get("score"))
-            except Exception:
-                continue
-
-            # ---- TARİH PARSE (saniyeli / saniyesiz) ----
-            ts_raw = ev.get("date")
-            try:
-                ts = ts_raw.replace("Z", "")
-                try:
-                    t = time.strptime(ts, "%Y-%m-%dT%H:%M:%S")
-                except ValueError:
-                    t = time.strptime(ts, "%Y-%m-%dT%H:%M")
-                ts_utc = int(calendar.timegm(t))
-            except Exception:
-                continue
-            # --------------------------------------------
-
+            is_home = ev["home_team_id"] == team_id
+            pf = ev["actual_home"] if is_home else ev["actual_away"]
+            pa = ev["actual_away"] if is_home else ev["actual_home"]
             # Neutral placeholder; scores do not measure possessions.
             pace = 100.0
-
             out.append({
-                "ts_utc": ts_utc,
-                "pts_for": pf,
-                "pts_against": pa,
+                "ts_utc": ev["start_ts_utc"],
+                "pts_for": float(pf),
+                "pts_against": float(pa),
                 "pace": pace,
-                "home": team_row.get("homeAway") == "home",
+                "home": is_home,
             })
 
         logger.info("[ESPN-DIAG] stage=parsed team=%s usable_games=%d selected_completed=%d", ref["abbr"], len(out), len(completed))
