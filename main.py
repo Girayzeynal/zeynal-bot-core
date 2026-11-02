@@ -247,7 +247,7 @@ async def start_health(app: Application):
 def build_app() -> Application:
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    baseline_store = TeamBaselineStore()
+    baseline_store = TeamBaselineStore(base_dir=os.getenv("BASELINE_DIR", "data/baselines"))
     bootstrapper = TeamBaselineBootstrapper(
         store=baseline_store,
         adapters=[ESPNAdapter()],
