@@ -200,7 +200,13 @@ class TeamBaselineStore:
                         or stored.pts_for < 0 or stored.pts_against < 0
                         or stored.pace <= 0 or type(stored.home) is not bool
                         or type(stored.timestamp_precision) is not str
-                        or stored.timestamp_precision not in ("exact", "date_only", "unknown")):
+                        or stored.timestamp_precision not in ("exact", "date_only", "unknown")
+                        or (stored.game_id is not None and
+                            (type(stored.game_id) is not str or not stored.game_id.strip()))
+                        or (stored.source is not None and
+                            (type(stored.source) is not str or not stored.source.strip()))
+                        or (stored.game_id is not None and stored.source is None)
+                        or (stored.source == "nba_com" and stored.timestamp_precision == "exact")):
                     raise ValueError("invalid persisted game record")
             seen_provider_ids = set()
             for existing in series:
