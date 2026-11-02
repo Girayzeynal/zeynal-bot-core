@@ -216,6 +216,28 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
                     with open(path, "r", encoding="utf-8") as handle:
                         self.assertEqual(json.load(handle), malformed)
 
+    def test_padded_stored_provider_identity_blocks_mutation(self):
+        import json
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400
+            store.append_game("NBA", "BOS", 110, 100, 98, True,
+                              ts_utc=ts, game_id="123", source="fixture")
+            path = store._series_path("NBA", "BOS")
+            with open(path, "r", encoding="utf-8") as handle:
+                original = json.load(handle)
+            for field, bad in (("source", "fixture "), ("game_id", " 123"),
+                               ("source", "fixture" + chr(10))):
+                with self.subTest(field=field):
+                    malformed = [dict(original[0], **{field: bad})]
+                    with open(path, "w", encoding="utf-8") as handle:
+                        json.dump(malformed, handle)
+                    with self.assertRaisesRegex(ValueError, "invalid persisted game record"):
+                        store.append_game("NBA", "BOS", 115, 102, 99, False,
+                                          ts_utc=ts + 60, game_id="456", source="fixture")
+                    with open(path, "r", encoding="utf-8") as handle:
+                        self.assertEqual(json.load(handle), malformed)
+
     def test_versioned_identity_keys_prevent_aliases_and_preserve_legacy(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
