@@ -454,6 +454,32 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             self.assertEqual(store.series_quality_status("NBA", "BOS"),
                              {"status": "empty", "usable_games": 0})
 
+    def test_prefixture_quality_requires_exact_prior_history(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400
+            cutoff = ts + 120
+            self.assertEqual(store.prefixture_quality_status(
+                "NBA", "BOS", cutoff, n_games=2, min_games=1)["status"], "missing")
+            store.append_game("NBA", "BOS", 110, 100, 98, True,
+                              ts_utc=ts, game_id="a", source="fixture",
+                              timestamp_precision="date_only")
+            self.assertEqual(store.prefixture_quality_status(
+                "NBA", "BOS", cutoff, n_games=2, min_games=1)["status"],
+                "insufficient_history")
+            store.append_game("NBA", "BOS", 112, 101, 99, False,
+                              ts_utc=ts + 30, game_id="b", source="fixture",
+                              timestamp_precision="exact")
+            status = store.prefixture_quality_status(
+                "NBA", "BOS", cutoff, n_games=2, min_games=1)
+            self.assertEqual(status["status"], "ready")
+            self.assertEqual(status["usable_games"], 1)
+            self.assertEqual(store.prefixture_quality_status(
+                "NBA", "BOS", cutoff, n_games=2, min_games=2)["status"],
+                "insufficient_history")
+            self.assertEqual(store.prefixture_quality_status(
+                "NBA", "BOS", cutoff, n_games=0)["status"], "invalid_request")
+
     def test_valid_record_is_stored(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
