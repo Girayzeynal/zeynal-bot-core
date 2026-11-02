@@ -98,7 +98,7 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             self.assertTrue(store._key("EuroLeague", "Fenerbahçe").startswith("V2_"))
             self.assertEqual(store._key("EuroLeague", "fenerbahçe"),
                              store._key("EuroLeague", "FENERBAHÇE"))
-            for bad in ("../BOS", "BOS/OTHER", "BOS\\\\OTHER", "BOS" + chr(10) + "OTHER"):
+            for bad in ("../BOS", "BOS/OTHER", "BOS\\\\OTHER", "BOS" + chr(10) + "OTHER", "BOS" + chr(0xD800)):
                 with self.subTest(bad=bad):
                     with self.assertRaises(ValueError):
                         store._key("NBA", bad)
