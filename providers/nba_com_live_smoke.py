@@ -1,7 +1,7 @@
 """Read-only NBA.com historical-games smoke check.
 
 Run: python -m providers.nba_com_live_smoke SA
-Exit 0 only if six or more verified past games were returned.
+Exit 0 only if six or more structurally valid past games were returned.\nThis does not independently verify official scores or measured possessions.
 No secrets, scores, or team-specific game identifiers are printed.
 """
 import asyncio
@@ -27,7 +27,7 @@ async def check(team: str) -> dict:
         )
         return {
             "provider": "nba_com", "team": team,
-            "verified_game_count": len(games),
+            "candidate_game_count": len(games),
             "oldest_game_date_utc": datetime.fromtimestamp(min(g["ts_utc"] for g in games), timezone.utc).date().isoformat() if games else None,
             "newest_game_date_utc": datetime.fromtimestamp(max(g["ts_utc"] for g in games), timezone.utc).date().isoformat() if games else None,
             "status": "pass" if valid else "insufficient_or_invalid",
