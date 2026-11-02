@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import calendar
+import logging
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -12,6 +13,7 @@ from providers.espn_completed_event import parse_completed_nba_event
 
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba"
+logger = logging.getLogger("zeynal-core.espn")
 
 
 class ESPNAdapter:
@@ -284,6 +286,7 @@ class ESPNAdapter:
 
         ref = await self.resolve_team(team)
         if not ref:
+            logger.info("[ESPN-DIAG] stage=resolve league=NBA team=%s outcome=unresolved", team)
             return None
 
         team_id = ref["id"]
@@ -291,11 +294,14 @@ class ESPNAdapter:
 
         js = await self._get_json(url)
         if not js:
+            logger.info("[ESPN-DIAG] stage=schedule team=%s outcome=empty_or_http_error", ref["abbr"])
             return None
 
         events = js.get("events")
         if not isinstance(events, list):
+            logger.info("[ESPN-DIAG] stage=schedule team=%s outcome=events_not_list", ref["abbr"])
             return None
+        logger.info("[ESPN-DIAG] stage=schedule team=%s raw_events=%d", ref["abbr"], len(events))
 
         # ---- ÖN ANALİZ DOĞRUSU ----
         # Tarihe bakmadan, sadece COMPLETED maçları topla,
@@ -316,6 +322,7 @@ class ESPNAdapter:
                 continue
             completed.append(ev)
 
+        logger.info("[ESPN-DIAG] stage=completed team=%s completed_events=%d", ref["abbr"], len(completed))
         if not completed:
             return None
 
@@ -375,4 +382,5 @@ class ESPNAdapter:
                 "home": team_row.get("homeAway") == "home",
             })
 
+        logger.info("[ESPN-DIAG] stage=parsed team=%s usable_games=%d selected_completed=%d", ref["abbr"], len(out), len(completed))
         return out if out else None 
