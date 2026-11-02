@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import time
 import logging
@@ -269,12 +270,21 @@ class TeamBaselineBootstrapper:
 
                 wrote = 0
                 for g in games:
+                    # Missing measured pace must not become a synthetic baseline.
+                    raw_pace = g.get("pace") if isinstance(g, dict) else None
+                    try:
+                        measured_pace = float(raw_pace) if raw_pace is not None else None
+                    except (TypeError, ValueError):
+                        measured_pace = None
+                    if measured_pace is None or not math.isfinite(measured_pace) or measured_pace <= 0:
+                        logger.info("[BASELINE-DIAG] skip game adapter=%s reason=pace_unavailable", ad.__class__.__name__)
+                        continue
                     self.store.append_game(
                         league=league,
                         team=team,
                         pts_for=float(g["pts_for"]),
                         pts_against=float(g["pts_against"]),
-                        pace=float(g.get("pace") or 100.0),
+                        pace=measured_pace,
                         home=bool(g.get("home", False)),
                         ts_utc=g.get("ts_utc"),
                     )
