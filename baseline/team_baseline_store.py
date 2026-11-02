@@ -44,6 +44,7 @@ class TeamGameRecord:
     home: bool
     game_id: Optional[str] = None
     source: Optional[str] = None
+    timestamp_precision: str = "unknown"
 
 
 # ============================
@@ -143,6 +144,7 @@ class TeamBaselineStore:
         max_games: int = 20,
         game_id: Optional[str] = None,
         source: Optional[str] = None,
+        timestamp_precision: str = "unknown",
     ) -> None:
         # Reject malformed timestamps and statistics before touching persistent state.
         stats = (pts_for, pts_against, pace)
@@ -160,8 +162,10 @@ class TeamBaselineStore:
             raise ValueError("invalid source")
         if game_id is not None and source is None:
             raise ValueError("game_id requires source")
+        if timestamp_precision not in ("exact", "date_only", "unknown"):
+            raise ValueError("invalid timestamp precision")
         ts = ts_utc
-        rec = TeamGameRecord(ts, pts_for, pts_against, pace, home, game_id, source)
+        rec = TeamGameRecord(ts, pts_for, pts_against, pace, home, game_id, source, timestamp_precision)
 
         path = self._series_path(league, team)
         series: List[Dict[str, Any]] = []
@@ -184,6 +188,9 @@ class TeamBaselineStore:
                     r.get(field) != getattr(rec, field)
                     for r in matches
                     for field in ("ts_utc", "pts_for", "pts_against", "pace", "home")
+                ) or any(
+                    r.get("timestamp_precision", "unknown") != timestamp_precision
+                    for r in matches
                 ):
                     raise ValueError("conflicting game record for provider identity")
                 return  # Idempotent repeated fetch; do not rewrite the file.
@@ -219,7 +226,8 @@ class TeamBaselineStore:
         # The source timestamp must represent a known completed-game time.
         # Date-only records must not be treated as exact tipoff provenance.
         return sorted(
-            (r for r in records if 0 < r.ts_utc < cutoff_ts_utc),
+            (r for r in records if r.timestamp_precision == "exact"
+             and 0 < r.ts_utc < cutoff_ts_utc),
             key=lambda r: r.ts_utc,
         )[-n_games:]
 
@@ -382,6 +390,7 @@ class TeamBaselineBootstrapper:
                         ts_utc=g.get("ts_utc"),
                         game_id=g.get("game_id"),
                         source=g.get("source"),
+                        timestamp_precision=g.get("timestamp_precision", "unknown"),
                     )
                     wrote += 1
 
