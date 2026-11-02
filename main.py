@@ -253,12 +253,16 @@ async def main_async():
             scheduler_task.cancel()
             await asyncio.gather(scheduler_task, return_exceptions=True)
         try:
-            if polling and app.updater is not None:
-                await app.updater.stop()
-            if started:
-                await app.stop()
-            if initialized:
-                await app.shutdown()
+            try:
+                if polling and app.updater is not None:
+                    await app.updater.stop()
+            finally:
+                try:
+                    if started:
+                        await app.stop()
+                finally:
+                    if initialized:
+                        await app.shutdown()
         finally:
             if runner is not None:
                 await runner.cleanup()
