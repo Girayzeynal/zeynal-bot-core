@@ -80,7 +80,11 @@ class NBAComAdapter:
                     payload = await response.json(content_type=None)
             except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as exc:
                 diagnostics["request_error"] += 1
-                logger.info("[NBACOM-DIAG] season=%s request_failed=%s", year, type(exc).__name__)
+                category = "timeout" if isinstance(exc, asyncio.TimeoutError) else (
+                    "transport" if isinstance(exc, aiohttp.ClientError) else "response_parse"
+                )
+                diagnostics[category] = diagnostics.get(category, 0) + 1
+                logger.info("[NBACOM-DIAG] season=%s request_failed=%s", year, category)
                 continue
             if not isinstance(payload, dict):
                 diagnostics["schema_error"] += 1
