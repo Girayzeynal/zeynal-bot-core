@@ -57,6 +57,26 @@ class IntegrityHardeningTests(unittest.TestCase):
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0].pts_for, 110)
 
+    @unittest.expectedFailure
+    def test_cross_provider_duplicate_must_not_inflate_baseline(self):
+        # Known safety gap: identical observations from different providers
+        # are retained, but cannot count as two independently verified games.
+        with tempfile.TemporaryDirectory() as directory:
+            store = TeamBaselineStore(directory)
+            ts = int(time.time()) - 86400 * 10
+            for i in range(5):
+                store.append_game("NBA", "BOS", 100 + i, 95, 98.0,
+                                  True, ts_utc=ts + i, game_id=str(i),
+                                  source="provider_a", timestamp_precision="exact")
+            store.append_game("NBA", "BOS", 104, 95, 98.0, True,
+                              ts_utc=ts + 4, game_id="other-provider-id",
+                              source="provider_b", timestamp_precision="exact")
+            self.assertIsNone(
+                store.compute_baseline_before(
+                    "NBA", "BOS", ts + 86400, n_games=6, min_games=6
+                )
+            )
+
     def test_duplicate_provider_does_not_restamp_stale_baseline(self):
         with tempfile.TemporaryDirectory() as directory:
             store = TeamBaselineStore(directory)
