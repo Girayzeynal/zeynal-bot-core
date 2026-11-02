@@ -369,6 +369,27 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
                     self.assertIsNone(store.compute_baseline_before(
                         "NBA", "BOS", ts + 100, n_games=1, min_games=1))
 
+    def test_corrupt_provider_identity_read_fails_closed(self):
+        import json
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400
+            store.append_game("NBA", "BOS", 110, 100, 98, True,
+                              ts_utc=ts, game_id="123", source="fixture",
+                              timestamp_precision="exact")
+            path = store._series_path("NBA", "BOS")
+            with open(path, "r", encoding="utf-8") as handle:
+                original = json.load(handle)
+            for field, bad in (("source", None), ("source", "fixture "),
+                               ("game_id", " 123"), ("source", "fixture" + chr(10))):
+                with self.subTest(field=field):
+                    with open(path, "w", encoding="utf-8") as handle:
+                        json.dump([dict(original[0], **{field: bad})], handle)
+                    with self.assertLogs("zeynal-core.baseline", level="ERROR"):
+                        self.assertEqual(store.get_series("NBA", "BOS", 10), [])
+                    self.assertIsNone(store.compute_baseline_before(
+                        "NBA", "BOS", ts + 100, n_games=1, min_games=1))
+
     def test_valid_record_is_stored(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
