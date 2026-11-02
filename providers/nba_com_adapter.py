@@ -56,6 +56,7 @@ class NBAComAdapter:
         now = datetime.now(timezone.utc)
         season = now.year if now.month >= 10 else now.year - 1
         rows: Dict[str, Dict[str, Any]] = {}
+        conflicting_ids: set[str] = set()
         for year in (season, season - 1):
             params = {
                 "LeagueID": "00", "PlayerOrTeam": "T",
@@ -116,11 +117,18 @@ class NBAComAdapter:
                             home = False
                         else:
                             continue
-                        rows[game_id] = {
+                        record = {
                             "ts_utc": int(date.timestamp()),
                             "pts_for": pts, "pts_against": against,
                             "pace": 100.0, "home": home,
                         }
+                        if game_id in conflicting_ids:
+                            continue
+                        if game_id in rows and rows[game_id] != record:
+                            conflicting_ids.add(game_id)
+                            rows.pop(game_id, None)
+                            continue
+                        rows[game_id] = record
                     except (IndexError, KeyError, TypeError, ValueError):
                         continue
             if len(rows) >= n_games:
