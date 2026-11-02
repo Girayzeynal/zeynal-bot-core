@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import time
 import logging
 from dataclasses import dataclass, asdict
@@ -60,7 +61,16 @@ class TeamBaselineStore:
         os.makedirs(self.series_dir, exist_ok=True)
 
     def _key(self, league: str, team: str) -> str:
-        return f"{league.strip().upper().replace(' ', '_')}__{team.strip().upper().replace(' ', '_')}"
+        # Never allow untrusted team/league strings to escape the data directory.
+        parts = []
+        for value in (league, team):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError("invalid baseline identity")
+            normalized = value.strip().upper().replace(" ", "_")
+            if not re.fullmatch(r"[A-Z0-9_\\-]{1,80}", normalized):
+                raise ValueError("unsafe baseline identity")
+            parts.append(normalized)
+        return "__".join(parts)
 
     def _baseline_path(self, league: str, team: str) -> str:
         return os.path.join(self.base_dir, f"TEAM__{self._key(league, team)}.json")
