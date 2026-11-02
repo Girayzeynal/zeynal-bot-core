@@ -44,6 +44,19 @@ class IntegrityHardeningTests(unittest.TestCase):
             self.assertEqual({record.source for record in records},
                              {"provider_a", "provider_b"})
 
+    def test_conflicting_provider_identity_preserves_original_record(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = TeamBaselineStore(directory)
+            ts = int(time.time()) - 86400
+            kwargs = {"ts_utc": ts, "game_id": "same-game",
+                      "source": "verified", "timestamp_precision": "exact"}
+            store.append_game("NBA", "BOS", 110, 100, 98.0, True, **kwargs)
+            with self.assertRaises(ValueError):
+                store.append_game("NBA", "BOS", 120, 100, 98.0, True, **kwargs)
+            records = store.get_series("NBA", "BOS", 20)
+            self.assertEqual(len(records), 1)
+            self.assertEqual(records[0].pts_for, 110)
+
     def test_duplicate_provider_does_not_restamp_stale_baseline(self):
         with tempfile.TemporaryDirectory() as directory:
             store = TeamBaselineStore(directory)
