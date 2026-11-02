@@ -189,9 +189,19 @@ class TeamBaselineStore:
             # a malformed record could be retained or silently evicted.
             for existing in series:
                 try:
-                    TeamGameRecord(**existing)
+                    stored = TeamGameRecord(**existing)
                 except (TypeError, ValueError) as exc:
                     raise ValueError("invalid persisted game record") from exc
+                values = (stored.pts_for, stored.pts_against, stored.pace)
+                if (type(stored.ts_utc) is not int or stored.ts_utc <= 0
+                        or stored.ts_utc > int(time.time())
+                        or any(type(value) not in (int, float) for value in values)
+                        or not all(math.isfinite(value) for value in values)
+                        or stored.pts_for < 0 or stored.pts_against < 0
+                        or stored.pace <= 0 or type(stored.home) is not bool
+                        or type(stored.timestamp_precision) is not str
+                        or stored.timestamp_precision not in ("exact", "date_only", "unknown")):
+                    raise ValueError("invalid persisted game record")
             seen_provider_ids = set()
             for existing in series:
                 existing_id = existing.get("game_id")
