@@ -23,7 +23,7 @@ def load_handler():
                and any(isinstance(t, ast.Name) and t.id == "BASELINE_REASON_TR"
                        for t in node.targets)]
     namespace = {"Any": Any, "math": __import__("math"), "html": html,
-                 "datetime": datetime.datetime, "timezone": datetime.timezone,
+                 "datetime": datetime.datetime, "timezone": datetime.timezone, "Tuple": Tuple,
                  "logger": logging.getLogger("telegram-test")}
     exec(compile(ast.fix_missing_locations(
         ast.Module(body=reasons + functions, type_ignores=[])), str(path), "exec"),
