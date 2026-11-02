@@ -11,15 +11,35 @@ from typing import Any
 def load_gate():
     path = pathlib.Path(__file__).resolve().parents[1] / "main.py"
     module = ast.parse(path.read_text(encoding="utf-8"))
-    node = next(item for item in module.body
-                if isinstance(item, ast.FunctionDef) and item.name == "baseline_is_usable")
-    isolated = ast.Module(body=[node], type_ignores=[])
+    nodes = [item for item in module.body
+             if isinstance(item, ast.FunctionDef)
+             and item.name in ("baseline_quality_reason", "baseline_is_usable")]
+    isolated = ast.Module(body=nodes, type_ignores=[])
     namespace = {"Any": Any, "math": math}
     exec(compile(ast.fix_missing_locations(isolated), str(path), "exec"), namespace)
     return namespace["baseline_is_usable"]
 
 
 class TelegramBaselineGateTests(unittest.TestCase):
+    def test_reason_matches_prediction_gate(self):
+        gate = load_gate()
+        now = time.time()
+        valid = dict(n_games=6, updated_ts=now - 60, pts_for=110,
+                     pts_against=105, pace=99, stdev_total=12)
+        for field, bad, expected in (
+            ("n_games", 5, "insufficient_games"),
+            ("n_games", True, "malformed"),
+            ("updated_ts", now - 9 * 86400, "stale"),
+            ("pts_for", 0, "invalid_scores"),
+            ("pace", 0, "invalid_stats"),
+            ("stdev_total", float("nan"), "malformed"),
+        ):
+            with self.subTest(field=field):
+                baseline = types.SimpleNamespace(**dict(valid, **{field: bad}))
+                self.assertFalse(gate(baseline, now))
+                self.assertEqual(gate.__globals__["baseline_quality_reason"](
+                    baseline, now), expected)
+
     def test_valid_baseline_and_invalid_statistics(self):
         gate = load_gate()
         now = time.time()
