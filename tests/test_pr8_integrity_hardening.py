@@ -30,6 +30,20 @@ class IntegrityHardeningTests(unittest.TestCase):
             store.append_game("NBA", "BOS", 110, 100, 98.0, True, ts_utc=ts)
             self.assertEqual(len(store.get_series("NBA", "BOS", 20)), 2)
 
+    def test_anonymous_records_from_distinct_sources_are_not_collapsed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = TeamBaselineStore(directory)
+            ts = int(time.time()) - 86400
+            for source in ("provider_a", "provider_b"):
+                store.append_game(
+                    "NBA", "BOS", 110, 100, 98.0, True,
+                    ts_utc=ts, source=source, timestamp_precision="date_only",
+                )
+            records = store.get_series("NBA", "BOS", 20)
+            self.assertEqual(len(records), 2)
+            self.assertEqual({record.source for record in records},
+                             {"provider_a", "provider_b"})
+
     def test_duplicate_provider_does_not_restamp_stale_baseline(self):
         with tempfile.TemporaryDirectory() as directory:
             store = TeamBaselineStore(directory)
