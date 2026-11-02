@@ -63,3 +63,23 @@ def test_minimum_history_is_enforced():
         return [event("100", "2026-10-20")]
     adapter._fetch_day = fetch
     assert check(adapter, minimum=6) is None
+
+
+def test_event_level_final_status_is_supported():
+    from providers.espn_completed_event import parse_completed_nba_event
+    payload = event("101", "2026-10-20")
+    payload["status"] = payload["competitions"][0].pop("status")
+    result = parse_completed_nba_event(
+        payload, datetime(2026, 11, 2, tzinfo=timezone.utc))
+    assert result is not None
+    assert result["actual_home"] == 110
+    assert result["actual_away"] == 100
+
+
+def test_event_level_nonfinal_is_rejected():
+    from providers.espn_completed_event import parse_completed_nba_event
+    payload = event("101", "2026-10-20")
+    payload["status"] = {"type": {"state": "in", "completed": False}}
+    payload["competitions"][0].pop("status")
+    assert parse_completed_nba_event(
+        payload, datetime(2026, 11, 2, tzinfo=timezone.utc)) is None
