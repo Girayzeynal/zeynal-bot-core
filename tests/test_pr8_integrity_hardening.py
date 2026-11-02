@@ -20,6 +20,20 @@ class DuplicateProvider:
 
 
 class IntegrityHardeningTests(unittest.TestCase):
+    def test_series_lock_releases_after_exception(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = TeamBaselineStore(directory)
+            with self.assertRaises(RuntimeError):
+                with store._series_write_lock("NBA", "BOS"):
+                    raise RuntimeError("injected failure")
+            store.append_game(
+                "NBA", "BOS", 110, 100, 98.0, True,
+                ts_utc=int(time.time()) - 86400,
+                game_id="after-failure", source="test",
+                timestamp_precision="exact",
+            )
+            self.assertEqual(len(store.get_series("NBA", "BOS", 10)), 1)
+
     def test_anonymous_same_timestamp_distinct_games_preserved(self):
         with tempfile.TemporaryDirectory() as directory:
             store = TeamBaselineStore(directory)
