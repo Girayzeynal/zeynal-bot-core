@@ -67,7 +67,7 @@ class TeamBaselineStore:
             if not isinstance(value, str) or not value.strip():
                 raise ValueError("invalid baseline identity")
             normalized = value.strip().upper().replace(" ", "_")
-            if not re.fullmatch(r"[A-Z0-9_\\-]{1,80}", normalized):
+            if not re.fullmatch(r"[A-Z0-9_-]{1,80}", normalized):
                 raise ValueError("unsafe baseline identity")
             parts.append(normalized)
         return "__".join(parts)
