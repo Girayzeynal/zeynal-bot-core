@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import html
 import logging
+import math
 import asyncio
 from datetime import datetime, timezone
 from typing import Any, Dict, Tuple
@@ -135,10 +136,14 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if baseline is None:
             return False
         try:
-            return (int(baseline.n_games) >= 6
-                    and 0 <= now_ts - float(baseline.updated_ts) <= 7 * 86400
-                    and float(baseline.pts_for) > 0
-                    and float(baseline.pts_against) > 0)
+            age = now_ts - float(baseline.updated_ts)
+            stats = (float(baseline.pts_for), float(baseline.pts_against),
+                     float(baseline.pace), float(baseline.stdev_total))
+            return (type(baseline.n_games) is int and baseline.n_games >= 6
+                    and math.isfinite(age) and 0 <= age <= 7 * 86400
+                    and all(math.isfinite(value) for value in stats)
+                    and stats[0] > 0 and stats[1] > 0 and stats[2] > 0
+                    and stats[3] >= 0)
         except (ValueError, TypeError, AttributeError):
             return False
 
