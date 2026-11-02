@@ -67,6 +67,24 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             records = store.get_series_before("NBA", "BOS", ts + 60, 10)
             self.assertEqual([r.ts_utc for r in records], [ts])
 
+    def test_invalid_baseline_sample_sizes_fail_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400
+            for i in range(6):
+                store.append_game("NBA", "BOS", 110 + i, 100 + i, 98,
+                                  i % 2 == 0, ts_utc=ts - i * 86400)
+            for count, minimum in ((0, 0), (6, 0), (6, -1), (2, 3),
+                                   (6, True), (6, 2.0), ("6", 3)):
+                with self.subTest(count=count, minimum=minimum):
+                    self.assertIsNone(store.compute_baseline_before(
+                        "NBA", "BOS", ts + 60, n_games=count, min_games=minimum))
+            for count in (0, -1, True, "6", 6.0):
+                with self.subTest(dynamic_count=count):
+                    self.assertIsNone(store.compute_dynamic_baseline("NBA", "BOS", count))
+            self.assertEqual(store.compute_baseline_before(
+                "NBA", "BOS", ts + 60, n_games=6, min_games=6)["n_games"], 6)
+
     def test_distinct_game_ids_at_same_timestamp_are_preserved(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
