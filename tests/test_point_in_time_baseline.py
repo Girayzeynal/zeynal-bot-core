@@ -42,6 +42,21 @@ class PointInTimeBaselineTests(unittest.TestCase):
         self.assertEqual(baseline["n_games"], 6)
         self.assertAlmostEqual(baseline["pts_for"], 110.0)
 
+    def test_date_only_and_unknown_timestamps_excluded_from_backtest(self):
+        for i, precision in enumerate(("date_only", "unknown", "exact")):
+            self.store.append_game(
+                "NBA", "BOS", 110, 100, 100.0, True,
+                ts_utc=100 + i, timestamp_precision=precision,
+            )
+        records = self.store.get_series_before("NBA", "BOS", 200, 10)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].timestamp_precision, "exact")
+        self.assertIsNone(
+            self.store.compute_baseline_before(
+                "NBA", "BOS", 200, n_games=10, min_games=6
+            )
+        )
+
     def test_repeated_fetch_does_not_inflate_sample(self):
         # Repeated fetches are identical records, not different scores
         # sharing an ambiguous timestamp.
