@@ -47,6 +47,8 @@ def test_nba_com_filters_invalid_and_future_rows():
     assert games[1]["pts_for"] == 99
     assert games[1]["pts_against"] == 107
     assert games[1]["home"] is False
+    # leaguegamefinder exposes scores and margins, not measured possessions.
+    assert all(game["pace"] is None for game in games)
 
 
 def test_nba_com_rejects_unsupported_leagues_and_unknown_teams():
