@@ -224,8 +224,9 @@ class TeamBaselineStore:
                 or type(cutoff_ts_utc) is not int or cutoff_ts_utc <= 0):
             return []
         records = self.get_series(league, team, 100000)
-        # The source timestamp must represent a known completed-game time.
-        # Date-only records must not be treated as exact tipoff provenance.
+        # "exact" is a provider-declared completed-game timestamp, not proof
+        # of the actual final buzzer; callers must validate provider semantics.
+        # Legacy/unknown and date-only records fail closed for backtesting.
         return sorted(
             (r for r in records if r.timestamp_precision == "exact"
              and 0 < r.ts_utc < cutoff_ts_utc),
