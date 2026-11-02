@@ -434,6 +434,26 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
                     with self.assertLogs("zeynal-core.baseline", level="ERROR"):
                         self.assertEqual(store.get_series("NBA", "BOS", 10), [])
 
+    def test_series_quality_distinguishes_missing_valid_and_corrupt(self):
+        import json
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            self.assertEqual(store.series_quality_status("NBA", "BOS"),
+                             {"status": "missing", "usable_games": 0})
+            ts = int(time.time()) - 86400
+            store.append_game("NBA", "BOS", 110, 100, 98, True, ts_utc=ts)
+            self.assertEqual(store.series_quality_status("NBA", "BOS"),
+                             {"status": "valid", "usable_games": 1})
+            path = store._series_path("NBA", "BOS")
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump([{"invalid": True}], handle)
+            self.assertEqual(store.series_quality_status("NBA", "BOS"),
+                             {"status": "corrupt", "usable_games": 0})
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump([], handle)
+            self.assertEqual(store.series_quality_status("NBA", "BOS"),
+                             {"status": "empty", "usable_games": 0})
+
     def test_valid_record_is_stored(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
