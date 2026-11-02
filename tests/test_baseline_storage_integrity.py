@@ -106,6 +106,20 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
                                           ts_utc=ts + 3,
                                           timestamp_precision=bad_precision)
 
+    def test_nba_com_date_only_cannot_be_upgraded_to_exact(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400 * 5
+            with self.assertRaises(ValueError):
+                store.append_game("NBA", "BOS", 110, 100, 98, True,
+                                  ts_utc=ts, game_id="123", source="nba_com",
+                                  timestamp_precision="exact")
+            store.append_game("NBA", "BOS", 110, 100, 98, True,
+                              ts_utc=ts, game_id="123", source="nba_com",
+                              timestamp_precision="date_only")
+            self.assertEqual(store.get_series_before("NBA", "BOS", ts + 86400, 10), [])
+            self.assertEqual(len(store.get_series("NBA", "BOS", 10)), 1)
+
     def test_versioned_identity_keys_prevent_aliases_and_preserve_legacy(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
