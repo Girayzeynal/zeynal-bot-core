@@ -123,12 +123,20 @@ class TeamBaselineStore:
             if not isinstance(series, list) or not all(isinstance(r, dict) for r in series):
                 raise ValueError("invalid persisted game series")
 
-        # Re-fetching a game must not inflate the sample or its weight.
-        # Provider-scoped identity supersedes timestamp when available.
+        # A provider identity must never silently change its game facts.
+        # Cross-provider reconciliation requires an independently verified mapping.
         if game_id is not None:
-            series = [r for r in series if not (
+            matches = [r for r in series if (
                 r.get("game_id") == game_id and r.get("source") == source
             )]
+            if matches:
+                if len(matches) != 1 or any(
+                    r.get(field) != getattr(rec, field)
+                    for r in matches
+                    for field in ("ts_utc", "pts_for", "pts_against", "pace", "home")
+                ):
+                    raise ValueError("conflicting game record for provider identity")
+                return  # Idempotent repeated fetch; do not rewrite the file.
         else:
             series = [r for r in series if not (
                 r.get("game_id") is None and int(r.get("ts_utc", -1)) == ts
