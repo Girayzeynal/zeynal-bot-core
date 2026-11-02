@@ -11,6 +11,13 @@ class EmptyProvider:
     async def fetch_team_recent_games(self, league, team, n_games):
         return []
 
+class DuplicateProvider:
+    def __init__(self, game):
+        self.game = game
+
+    async def fetch_team_recent_games(self, league, team, n_games):
+        return [self.game]
+
 
 class IntegrityHardeningTests(unittest.TestCase):
     def test_anonymous_same_timestamp_distinct_games_preserved(self):
@@ -22,6 +29,27 @@ class IntegrityHardeningTests(unittest.TestCase):
             self.assertEqual(len(store.get_series("NBA", "BOS", 20)), 2)
             store.append_game("NBA", "BOS", 110, 100, 98.0, True, ts_utc=ts)
             self.assertEqual(len(store.get_series("NBA", "BOS", 20)), 2)
+
+    def test_duplicate_provider_does_not_restamp_stale_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = TeamBaselineStore(directory)
+            ts = int(time.time()) - 86400 * 10
+            game = {"pts_for": 110, "pts_against": 100, "pace": 98.0,
+                    "home": True, "ts_utc": ts, "game_id": "000001",
+                    "source": "test", "timestamp_precision": "exact"}
+            store.append_game("NBA", "BOS", 110, 100, 98.0, True,
+                              ts_utc=ts, game_id="000001", source="test",
+                              timestamp_precision="exact")
+            for i in range(1, 6):
+                store.append_game("NBA", "BOS", 100 + i, 95, 98.0,
+                                  True, ts_utc=ts + i)
+            old_ts = int(time.time()) - 86400 * 9
+            store.put(TeamBaseline("NBA", "BOS", 6, 102.5, 95.0, 98.0, 0.0, old_ts))
+            result = asyncio.run(TeamBaselineBootstrapper(
+                store, [DuplicateProvider(game)]
+            ).ensure_async("NBA", "BOS", min_games=6))
+            self.assertIsNone(result)
+            self.assertEqual(store.get("NBA", "BOS").updated_ts, old_ts)
 
     def test_empty_provider_does_not_restamp_stale_baseline(self):
         with tempfile.TemporaryDirectory() as directory:
