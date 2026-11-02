@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import sqlite3
+from pathlib import Path
 import aiohttp
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
@@ -34,6 +35,7 @@ log = logging.getLogger("scheduler")
 
 # --- DATABASE & CALIBRATION HELPERS ---
 def db():
+    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
     return sqlite3.connect(DB_PATH)
 
 def init_db():
