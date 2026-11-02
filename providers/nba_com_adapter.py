@@ -121,6 +121,7 @@ class NBAComAdapter:
                             "ts_utc": int(date.timestamp()),
                             "pts_for": pts, "pts_against": against,
                             "pace": None, "home": home,  # Possessions not supplied by this endpoint.
+                            "game_id": game_id, "source": "nba_com",
                         }
                         if game_id in conflicting_ids:
                             continue
@@ -134,5 +135,5 @@ class NBAComAdapter:
             if len(rows) >= n_games:
                 break
         selected = sorted(rows.values(), key=lambda x: x["ts_utc"])[-n_games:]
-        logger.info("[NBACOM-DIAG] team=%s verified_games=%d", team, len(selected))
+        logger.info("[NBACOM-DIAG] team=%s candidate_games=%d", team, len(selected))
         return selected or None
