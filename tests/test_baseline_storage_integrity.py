@@ -44,10 +44,12 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             store.append_game("NBA", "BOS", 110, 100, 98, True, ts_utc=ts, game_id="001", source="provider_a")
             store.append_game("NBA", "BOS", 115, 105, 99, False, ts_utc=ts, game_id="002", source="provider_a")
             self.assertEqual(len(store.get_series("NBA", "BOS", 20)), 2)
-            store.append_game("NBA", "BOS", 112, 101, 98, True, ts_utc=ts, game_id="001", source="provider_a")
+            store.append_game("NBA", "BOS", 110, 100, 98, True, ts_utc=ts, game_id="001", source="provider_a")
+            with self.assertRaises(ValueError):
+                store.append_game("NBA", "BOS", 112, 101, 98, True, ts_utc=ts, game_id="001", source="provider_a")
             records = store.get_series("NBA", "BOS", 20)
             self.assertEqual(len(records), 2)
-            self.assertEqual(next(r.pts_for for r in records if r.game_id == "001"), 112)
+            self.assertEqual(next(r.pts_for for r in records if r.game_id == "001"), 110)
 
     def test_game_id_requires_source(self):
         with tempfile.TemporaryDirectory() as folder:
