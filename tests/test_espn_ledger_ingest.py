@@ -1,0 +1,451 @@
+import os
+import tempfile
+import unittest
+
+from prediction_ledger import PredictionLedger, PredictionRecord
+from providers.espn_ledger_ingest import ingest_completed_espn_nba_event
+
+
+class ESPNIngestTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.ledger = PredictionLedger(os.path.join(self.temp.name, "ledger.sqlite"))
+        self.ledger.record_prediction(PredictionRecord(
+            fixture_id="game-1", league="NBA", prediction_ts_utc=100,
+            expected_home=110.0, expected_away=105.0, home_win_probability=0.6,
+        ))
+        self.ledger.record_fixture_start("NBA", "game-1", 150)
+        self.ledger.record_fixture_provenance("NBA", "game-1", "ESPN", "espn-1", 150)
+
+    def event(self, **changes):
+        result = dict(provider="ESPN", provider_fixture_id="espn-1",
+                      start_ts_utc=150, actual_home=115, actual_away=108,
+                      scope="FINAL_WITH_OT")
+        result.update(changes)
+        return result
+
+    def test_valid_result_idempotent(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200
+        ))
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=201
+        ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 1)
+
+    def test_conflicting_score_rejected(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200
+        ))
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(actual_home=116), observed_at_utc=201
+        ))
+
+    def test_conflicting_replay_preserves_original_outcome(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200
+        ))
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(actual_away=109), observed_at_utc=300
+        ))
+        with self.ledger._connect() as db:
+            row = db.execute(
+                "SELECT result_ts_utc, actual_home, actual_away, scope "
+                "FROM outcomes WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(row, (200, 115, 108, "FINAL_WITH_OT"))
+
+    def test_duplicate_preserves_original_result_timestamp(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200
+        ))
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=300
+        ))
+        with self.ledger._connect() as db:
+            row = db.execute(
+                "SELECT result_ts_utc, actual_home, actual_away FROM outcomes "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(row, (200, 115, 108))
+
+    def test_source_id_cannot_be_reassigned_to_second_fixture(self):
+        self.ledger.record_prediction(PredictionRecord(
+            fixture_id="game-2", league="NBA", prediction_ts_utc=100,
+            expected_home=100.0, expected_away=99.0, home_win_probability=0.5,
+        ))
+        self.ledger.record_fixture_start("NBA", "game-2", 150)
+        self.assertFalse(self.ledger.record_fixture_provenance(
+            "NBA", "game-2", "ESPN", "espn-1", 150
+        ))
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-2", self.event(), observed_at_utc=200
+        ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_result_observed_at_or_before_tipoff_rejected(self):
+        for observed_at in (149, 150):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", self.event(), observed_at_utc=observed_at
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_prediction_at_or_after_tipoff_rejected(self):
+        for prediction_ts in (150, 151):
+            with self.ledger._connect() as db:
+                db.execute(
+                    "UPDATE predictions SET prediction_ts_utc=? WHERE league='NBA' AND fixture_id='game-1'",
+                    (prediction_ts,),
+                )
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", self.event(), observed_at_utc=200
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_duplicate_result_rejected_if_new_observation_is_before_tipoff(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200
+        ))
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=150
+        ))
+        with self.ledger._connect() as db:
+            result = db.execute(
+                "SELECT result_ts_utc, actual_home, actual_away FROM outcomes "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(result, (200, 115, 108))
+
+    def test_tied_final_score_rejected_before_database_insert(self):
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(actual_home=108, actual_away=108),
+            observed_at_utc=200,
+        ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_tied_replay_rejected_without_mutating_existing_outcome(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200,
+        ))
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(actual_home=108, actual_away=108),
+            observed_at_utc=300,
+        ))
+        with self.ledger._connect() as db:
+            row = db.execute(
+                "SELECT result_ts_utc, actual_home, actual_away FROM outcomes "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(row, (200, 115, 108))
+
+    def test_boolean_scores_rejected_without_insertion(self):
+        for changes in ({"actual_home": True}, {"actual_away": False}):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", self.event(**changes), observed_at_utc=200,
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_fractional_scores_rejected_without_insertion(self):
+        for changes in ({"actual_home": 115.5}, {"actual_away": 108.25}):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", self.event(**changes), observed_at_utc=200,
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_negative_and_string_scores_rejected_without_insertion(self):
+        for changes in (
+            {"actual_home": -1},
+            {"actual_away": -5},
+            {"actual_home": "115"},
+            {"actual_away": "108"},
+        ):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", self.event(**changes), observed_at_utc=200,
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_invalid_start_timestamp_types_rejected(self):
+        for invalid_start in (True, 150.5, "150", None):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", self.event(start_ts_utc=invalid_start),
+                observed_at_utc=200,
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_invalid_observation_timestamp_types_rejected(self):
+        for invalid_observed in (True, 200.5, "200", 0, -1):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", self.event(),
+                observed_at_utc=invalid_observed,
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_invalid_provider_fixture_ids_rejected(self):
+        for invalid_id in ("", "   ", None, 123, True):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1",
+                self.event(provider_fixture_id=invalid_id),
+                observed_at_utc=200,
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_invalid_internal_fixture_ids_rejected(self):
+        for invalid_id in ("", "   ", None, 123, True):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, invalid_id, self.event(), observed_at_utc=200,
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_invalid_provider_and_scope_rejected(self):
+        for changes in (
+            {"provider": "espn"},
+            {"provider": "OTHER"},
+            {"provider": None},
+            {"scope": "REGULATION"},
+            {"scope": "FINAL"},
+            {"scope": None},
+        ):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", self.event(**changes),
+                observed_at_utc=200,
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_non_mapping_event_payloads_rejected(self):
+        for payload in (None, [], (), "not-an-event", 123, True):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", payload, observed_at_utc=200,
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_missing_required_event_fields_rejected(self):
+        for missing in (
+            "provider", "scope", "provider_fixture_id",
+            "start_ts_utc", "actual_home", "actual_away",
+        ):
+            payload = self.event()
+            del payload[missing]
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", payload, observed_at_utc=200,
+            ), msg=f"accepted event missing {missing}")
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_duplicate_rejected_if_provenance_changes_after_original(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200,
+        ))
+        with self.ledger._connect() as db:
+            db.execute(
+                "UPDATE fixture_provenance SET provider_fixture_id=? "
+                "WHERE league='NBA' AND fixture_id='game-1'",
+                ("tampered-source-id",),
+            )
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=300,
+        ))
+        with self.ledger._connect() as db:
+            row = db.execute(
+                "SELECT result_ts_utc, actual_home, actual_away FROM outcomes "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(row, (200, 115, 108))
+
+    def test_duplicate_rejected_if_tipoff_changes_after_original(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200,
+        ))
+        with self.ledger._connect() as db:
+            db.execute(
+                "UPDATE fixture_starts SET start_ts_utc=? "
+                "WHERE league='NBA' AND fixture_id='game-1'",
+                (151,),
+            )
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=300,
+        ))
+        with self.ledger._connect() as db:
+            row = db.execute(
+                "SELECT result_ts_utc, actual_home, actual_away FROM outcomes "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(row, (200, 115, 108))
+
+    def test_duplicate_rejected_if_prediction_timestamp_tampered(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200,
+        ))
+        with self.ledger._connect() as db:
+            db.execute(
+                "UPDATE predictions SET prediction_ts_utc=? "
+                "WHERE league='NBA' AND fixture_id='game-1'",
+                (150,),
+            )
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=300,
+        ))
+        with self.ledger._connect() as db:
+            row = db.execute(
+                "SELECT result_ts_utc, actual_home, actual_away FROM outcomes "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(row, (200, 115, 108))
+
+    def test_duplicate_rejected_if_prediction_scope_tampered(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200,
+        ))
+        with self.ledger._connect() as db:
+            db.execute(
+                "UPDATE predictions SET scope=? "
+                "WHERE league='NBA' AND fixture_id='game-1'",
+                ("REGULATION",),
+            )
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=300,
+        ))
+        with self.ledger._connect() as db:
+            row = db.execute(
+                "SELECT result_ts_utc, actual_home, actual_away, scope FROM outcomes "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(row, (200, 115, 108, "FINAL_WITH_OT"))
+
+    def test_duplicate_rejected_if_prediction_league_tampered(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200,
+        ))
+        with self.ledger._connect() as db:
+            db.execute(
+                "UPDATE predictions SET league=? "
+                "WHERE league='NBA' AND fixture_id='game-1'",
+                ("EuroLeague",),
+            )
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=300,
+        ))
+        with self.ledger._connect() as db:
+            row = db.execute(
+                "SELECT result_ts_utc, actual_home, actual_away FROM outcomes "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(row, (200, 115, 108))
+
+    def test_duplicate_rejected_if_prediction_fixture_id_tampered(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200,
+        ))
+        with self.ledger._connect() as db:
+            db.execute(
+                "UPDATE predictions SET fixture_id=? "
+                "WHERE league='NBA' AND fixture_id='game-1'",
+                ("game-tampered",),
+            )
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=300,
+        ))
+        with self.ledger._connect() as db:
+            row = db.execute(
+                "SELECT result_ts_utc, actual_home, actual_away FROM outcomes "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(row, (200, 115, 108))
+
+    def test_result_without_prediction_rejected_even_with_fixture_metadata(self):
+        with self.ledger._connect() as db:
+            db.execute(
+                "DELETE FROM predictions WHERE league='NBA' AND fixture_id='game-1'"
+            )
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200,
+        ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_result_without_fixture_start_rejected_even_with_prediction(self):
+        with self.ledger._connect() as db:
+            db.execute(
+                "DELETE FROM fixture_starts WHERE league='NBA' AND fixture_id='game-1'"
+            )
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200,
+        ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_result_without_fixture_provenance_rejected(self):
+        with self.ledger._connect() as db:
+            db.execute(
+                "DELETE FROM fixture_provenance "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            )
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200,
+        ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_result_rejected_if_provider_identity_corrupted(self):
+        for invalid_provider in ("OTHER", "", "   "):
+            with self.subTest(provider=invalid_provider):
+                with self.ledger._connect() as db:
+                    db.execute(
+                        "UPDATE fixture_provenance SET provider=? "
+                        "WHERE league='NBA' AND fixture_id='game-1'",
+                        (invalid_provider,),
+                    )
+                self.assertFalse(ingest_completed_espn_nba_event(
+                    self.ledger, "game-1", self.event(), observed_at_utc=200,
+                ))
+                self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_result_rejected_if_provider_tipoff_conflicts(self):
+        with self.ledger._connect() as db:
+            db.execute(
+                "UPDATE fixture_provenance SET start_ts_utc=? "
+                "WHERE league='NBA' AND fixture_id='game-1'",
+                (151,),
+            )
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=200,
+        ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_result_rejected_if_provider_source_id_corrupted(self):
+        for invalid_id in ("", "   ", "different-source"):
+            with self.subTest(provider_fixture_id=invalid_id):
+                with self.ledger._connect() as db:
+                    db.execute(
+                        "UPDATE fixture_provenance SET provider_fixture_id=? "
+                        "WHERE league='NBA' AND fixture_id='game-1'",
+                        (invalid_id,),
+                    )
+                self.assertFalse(ingest_completed_espn_nba_event(
+                    self.ledger, "game-1", self.event(), observed_at_utc=200,
+                ))
+                self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+    def test_first_second_after_tipoff_is_valid_observation_boundary(self):
+        self.assertTrue(ingest_completed_espn_nba_event(
+            self.ledger, "game-1", self.event(), observed_at_utc=151,
+        ))
+        with self.ledger._connect() as db:
+            row = db.execute(
+                "SELECT result_ts_utc FROM outcomes "
+                "WHERE league='NBA' AND fixture_id='game-1'"
+            ).fetchone()
+        self.assertEqual(row, (151,))
+
+    def test_unmatched_fixture_rejected(self):
+        self.assertFalse(ingest_completed_espn_nba_event(
+            self.ledger, "wrong", self.event(), observed_at_utc=200
+        ))
+
+    def test_mismatched_source_and_start_rejected(self):
+        for payload in (self.event(provider_fixture_id="wrong"),
+                        self.event(start_ts_utc=151)):
+            self.assertFalse(ingest_completed_espn_nba_event(
+                self.ledger, "game-1", payload, observed_at_utc=200
+            ))
+        self.assertEqual(self.ledger.audit("NBA")["outcomes"], 0)
+
+
+if __name__ == "__main__":
+    unittest.main()

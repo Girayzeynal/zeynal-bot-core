@@ -1,0 +1,38 @@
+name: ESPN NBA live smoke (dev-only)
+
+on:
+  push:
+    branches:
+      - dev/elite-phase-hardening-2026
+    paths:
+      - .github/workflows/espn-live-smoke.yml
+      - providers/espn_rejection_diagnostics.py
+      - providers/espn_quality_audit.py
+      - providers/espn_live_smoke.py
+      - providers/espn_status_shapes.py
+      - providers/espn_adapter.py
+  workflow_dispatch:
+    inputs:
+      date_yyyymmdd:
+        description: "NBA scoreboard date in YYYYMMDD format"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  espn-live-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install runtime dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Verify ESPN scoreboard response (read-only)
+        env:
+          ESPN_SMOKE_DATE: ${{ inputs.date_yyyymmdd || '20251025' }}
+        run: python -m providers.espn_live_smoke "$ESPN_SMOKE_DATE"

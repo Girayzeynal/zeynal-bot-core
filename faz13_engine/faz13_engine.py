@@ -97,8 +97,9 @@ class Faz13Engine:
         self.api_key = api_sports_key
         self.api_base = api_sports_base
         self.espn = ESPNAdapter() if ESPNAdapter else None
+        self.baseline_store = kwargs.get("baseline_store")
 
-        # ✅ PROJE KÖKÜ (KESİN)
+        # Manual baselines remain optional; the canonical store is the primary source.
         self.project_root = Path(__file__).resolve().parents[1]
 
     # ---------------------
@@ -154,10 +155,53 @@ class Faz13Engine:
                     "pts_for": float(j["pts_for"]),
                     "pts_against": float(j["pts_against"]),
                     "pace": float(j.get("pace", 99.5)),
-                    "confidence": 0.95,
-                    "sources": ["MANUAL_BASELINE"],
+                    "confidence": 0.80,
+                    "source": "MANUAL_BASELINE",
                 }
 
+        return None
+
+    # ---------------------
+
+    async def _load_store_baseline(self, league: str, team: str) -> Optional[Dict[str, Any]]:
+        """Load a canonical TeamBaselineStore record without guessing file paths."""
+        store = self.baseline_store
+        if store is None:
+            return None
+
+        candidates = [team]
+        if self.espn and league.upper().strip() == "NBA":
+            try:
+                abbr = await asyncio.wait_for(
+                    self.espn.resolve_team_abbr(league, team),
+                    timeout=2.0,
+                )
+                if abbr:
+                    candidates.insert(0, str(abbr).upper().strip())
+            except Exception:
+                pass
+
+        for candidate in dict.fromkeys(candidates):
+            try:
+                baseline = store.get(league, candidate)
+            except Exception:
+                continue
+            if baseline is None:
+                continue
+
+            n_games = max(0, int(getattr(baseline, "n_games", 0)))
+            if n_games < 1:
+                continue
+            confidence = min(0.90, 0.50 + 0.025 * min(n_games, 16))
+            return {
+                "pts_for": float(baseline.pts_for),
+                "pts_against": float(baseline.pts_against),
+                "pace": float(baseline.pace),
+                "confidence": confidence,
+                "source": "TEAM_BASELINE_STORE",
+                "n_games": n_games,
+                "fetched_at": int(getattr(baseline, "updated_ts", 0) or 0),
+            }
         return None
 
     # ---------------------
@@ -195,41 +239,43 @@ class Faz13Engine:
         home_rows: List[Dict[str, Any]] = []
         away_rows: List[Dict[str, Any]] = []
 
-        # 1️⃣ MANUAL BASELINE (PRIMARY)
-        h_manual = self._load_manual_baseline(req.league, req.home)
-        a_manual = self._load_manual_baseline(req.league, req.away)
+        # 1) Canonical persisted baselines (written by TeamBaselineBootstrapper)
+        h_store = await self._load_store_baseline(req.league, req.home)
+        a_store = await self._load_store_baseline(req.league, req.away)
+        if h_store:
+            home_rows.append(h_store)
+        if a_store:
+            away_rows.append(a_store)
 
-        if h_manual:
-            home_rows.append(h_manual)
-        if a_manual:
-            away_rows.append(a_manual)
+        # 2) Manual baselines are an explicitly lower-priority secondary source.
+        if not h_store:
+            h_manual = self._load_manual_baseline(req.league, req.home)
+            if h_manual:
+                home_rows.append(h_manual)
+        if not a_store:
+            a_manual = self._load_manual_baseline(req.league, req.away)
+            if a_manual:
+                away_rows.append(a_manual)
 
-        # 2️⃣ ESPN (SECONDARY)
-        home_rows += await self._espn_rows(req.league, req.home)
-        away_rows += await self._espn_rows(req.league, req.away)
+        # 3) ESPN recent games are used only when no persisted/manual baseline exists.
+        if not home_rows:
+            home_rows += await self._espn_rows(req.league, req.home)
+        if not away_rows:
+            away_rows += await self._espn_rows(req.league, req.away)
 
-        # 3️⃣ AGGREGATE
+        # 4) Strict aggregation: never manufacture league-average team data.
         home_base = aggregate_baseline(home_rows)
         away_base = aggregate_baseline(away_rows)
-
-        # 4️⃣ SON ÇARE (ARTIK NADİR)
-        if not home_base or not away_base:
-            pf = pa = 113.5
-            pace = 99.5
-            home_base = home_base or {
-                "pts_for": pf,
-                "pts_against": pa,
-                "pace": pace,
-                "confidence": 0.2,
-                "sources": ["LEAGUE_AVG"],
-            }
-            away_base = away_base or {
-                "pts_for": pf,
-                "pts_against": pa,
-                "pace": pace,
-                "confidence": 0.2,
-                "sources": ["LEAGUE_AVG"],
-            }
+        missing = []
+        if not home_base:
+            missing.append(f"home={req.home}")
+        if not away_base:
+            missing.append(f"away={req.away}")
+        if missing:
+            raise ValueError(
+                "Güvenilir baseline bulunamadı (" + ", ".join(missing) +
+                "). Tahmin üretilmedi; önce gerçek maç verisi yüklenmeli."
+            )
 
         h_pf = home_base["pts_for"]
         h_pa = home_base["pts_against"]
@@ -275,6 +321,16 @@ class Faz13Engine:
             ],
             meta={
                 "confidence": min(home_base["confidence"], away_base["confidence"]),
+                "confidence_pct": round(100.0 * min(home_base["confidence"], away_base["confidence"]), 1),
+                "data_quality": (
+                    "MANUAL_BASELINE" if "MANUAL_BASELINE" in home_base.get("sources", [])
+                    or "MANUAL_BASELINE" in away_base.get("sources", [])
+                    else "VERIFIED_BASELINE"
+                ),
+                "home_sources": list(home_base.get("sources", [])),
+                "away_sources": list(away_base.get("sources", [])),
+                "home_baseline_games": int(home_base.get("n_games", 0)),
+                "away_baseline_games": int(away_base.get("n_games", 0)),
                 "expected_total": round(total_mu, 2),
                 "pace_mean": round(pace_mean, 2),
                 "engine": "FAZ-13 FINAL (ABSOLUTE PATH + NORMALIZER)",

@@ -4,7 +4,7 @@ import os
 import html
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Tuple
 
 from telegram import Update
@@ -18,6 +18,8 @@ from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 
 from aiohttp import web
+from dynamic_scheduler import scheduler_loop
+from faz17_engine import Faz17Engine
 
 # ============================
 # LOGGING
@@ -62,10 +64,28 @@ def parse_analyze(text: str) -> Tuple[str, str, str, str]:
         raise ValueError("'vs' bulunamadi")
 
     i = lower.index("vs")
-    home = " ".join(rest[:i])
-    away = " ".join(rest[i + 1 :])
+    home = " ".join(rest[:i]).strip()
+    away = " ".join(rest[i + 1 :]).strip()
+    if not home or not away:
+        raise ValueError("Ev sahibi ve deplasman takımı zorunludur")
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError as exc:
+        raise ValueError("Tarih YYYY-MM-DD biçiminde ve geçerli olmalıdır") from exc
+    if home.casefold() == away.casefold():
+        raise ValueError("Ev sahibi ve deplasman takımları farklı olmalıdır")
+    return league, date_str, home, away
 
-    return league, date_str, home.strip(), away.strip()
+# ============================
+# TELEGRAM COMMANDS
+# ============================
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_message:
+        await update.effective_message.reply_text(
+            "Zeynal Bot Core aktif. Analiz biçimi:\n"
+            "/analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman\n\n"
+            "Yeterli doğrulanabilir takım verisi yoksa tahmin üretilmez."
+        )
 
 # ============================
 # ANALYZE COMMAND
@@ -82,16 +102,49 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Historical requests require point-in-time snapshots. Current baselines
+    # would leak post-game information into a retrospective prediction.
+    requested_day = datetime.strptime(date_str, "%Y-%m-%d").date()
+    utc_today = datetime.now(timezone.utc).date()
+    if requested_day < utc_today:
+        await update.message.reply_text(
+            "Geçmiş maç için güncel takım verisi kullanılamaz. "
+            "Tarihsel veri kesiti doğrulanmadan backtest tahmini üretilmedi."
+        )
+        return
+
     faz13: Faz13Engine = context.application.bot_data["faz13"]
     bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
 
-    # --- AUTO BASELINE BOOTSTRAP (GERÇEK VERİ) ---
+    # Fail closed: never turn a missing team baseline into a league-average prediction.
     try:
-        await bootstrapper.ensure_async(league=league, team_input=home, min_games=6)
-        await bootstrapper.ensure_async(league=league, team_input=away, min_games=6)
-    except Exception as e:
-        logger.warning(f"Baseline bootstrap failed: {e}")
-    # --- /BOOTSTRAP ---
+        home_baseline = await bootstrapper.ensure_async(league=league, team_input=home, min_games=6)
+        away_baseline = await bootstrapper.ensure_async(league=league, team_input=away, min_games=6)
+    except Exception:
+        logger.exception("Baseline bootstrap error")
+        await update.message.reply_text("Veri sağlayıcısı hatası: analiz oluşturulmadı.")
+        return
+
+    now_ts = datetime.now(timezone.utc).timestamp()
+    def usable(baseline):
+        if baseline is None:
+            return False
+        try:
+            return (int(baseline.n_games) >= 6
+                    and 0 <= now_ts - float(baseline.updated_ts) <= 7 * 86400
+                    and float(baseline.pts_for) > 0
+                    and float(baseline.pts_against) > 0)
+        except (ValueError, TypeError, AttributeError):
+            return False
+
+    if not (usable(home_baseline) and usable(away_baseline)):
+        logger.warning("Insufficient verified baselines: league=%s home=%s away=%s", league, home, away)
+        await update.message.reply_text(
+            "Yetersiz veya güncelliğini yitirmiş takım verisi. "
+            "LEAGUE_AVG yedeğiyle tahmin üretilmedi. "
+            "Veri kaynağı ve fikstür doğrulanınca tekrar deneyin."
+        )
+        return
 
     try:
         req = PrematchRequest(
@@ -113,7 +166,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error("ANALYZE ERROR", exc_info=True)
         await update.message.reply_text(
-            f"Analiz hatasi: {html.escape(str(e))}",
+            "Analiz sırasında dahili bir hata oluştu. İşlem tamamlanamadı.",
             disable_web_page_preview=True,
         )
 
@@ -123,15 +176,22 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start_health(app: Application):
     web_app = web.Application()
 
+    async def ready(_: web.Request):
+        updater = app.updater
+        running = bool(app.running and updater is not None and updater.running)
+        return web.json_response({"ready": running}, status=200 if running else 503)
+
     async def health(_: web.Request):
         return web.json_response({"ok": True})
 
     web_app.router.add_get("/health", health)
+    web_app.router.add_get("/ready", ready)
 
     runner = web.AppRunner(web_app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
+    return runner
 
 # ============================
 # BOOT
@@ -157,19 +217,55 @@ def build_app() -> Application:
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine()
 
+    app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
     return app
 
 async def main_async():
     app = build_app()
-    await start_health(app)
-    await app.initialize()
-    await app.start()
-    await app.bot.initialize()
-    await app.bot.delete_webhook(drop_pending_updates=True)
-    await app.updater.start_polling()
-    logger.info("Bot polling started")
-    await asyncio.Event().wait()
+    runner = None
+    initialized = False
+    started = False
+    polling = False
+    scheduler_task = None
+    try:
+        runner = await start_health(app)
+        await app.initialize()
+        initialized = True
+        await app.bot.delete_webhook(drop_pending_updates=True)
+        await app.start()
+        started = True
+        if app.updater is None:
+            raise RuntimeError("Telegram polling updater unavailable")
+        await app.updater.start_polling()
+        polling = True
+        logger.info("Bot polling started")
+        engines = {
+            "faz13": app.bot_data["faz13"],
+            "faz17": Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE")),
+            "faz22": app.bot_data["faz22"],
+            "faz23": app.bot_data["faz23"],
+        }
+        scheduler_task = asyncio.create_task(scheduler_loop(engines), name="scheduler-loop")
+        await scheduler_task
+    finally:
+        if scheduler_task is not None:
+            scheduler_task.cancel()
+            await asyncio.gather(scheduler_task, return_exceptions=True)
+        try:
+            try:
+                if polling and app.updater is not None:
+                    await app.updater.stop()
+            finally:
+                try:
+                    if started:
+                        await app.stop()
+                finally:
+                    if initialized:
+                        await app.shutdown()
+        finally:
+            if runner is not None:
+                await runner.cleanup()
 
 def main():
     asyncio.run(main_async())

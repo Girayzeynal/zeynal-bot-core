@@ -3,9 +3,12 @@ from __future__ import annotations
 import asyncio
 import calendar
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import aiohttp
+
+from providers.espn_completed_event import parse_completed_nba_event
 
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba"
@@ -112,7 +115,6 @@ class ESPNAdapter:
                 key == abbr.lower()
                 or key == name
                 or key == short
-                or key in name
             ):
                 if tid:
                     return {
@@ -125,8 +127,144 @@ class ESPNAdapter:
 
     # Bootstrapper uyumu için
     async def resolve_team_abbr(self, league: str, team_input: str) -> Optional[str]:
+        # ESPN adapter is NBA-only; never resolve a non-NBA team to an NBA franchise.
+        if (league or "").upper().strip() != "NBA":
+            return None
         ref = await self.resolve_team(team_input)
         return ref["abbr"] if ref else None
+
+    async def fetch_nba_scoreboard_quality_report(
+        self, date_yyyymmdd: str, observed_at_utc: int | None = None,
+    ) -> Dict[str, Any]:
+        """Return raw-data quality metrics and vetted events from one fetch.
+
+        A failed HTTP request is an explicit error, not an empty NBA game day.
+        """
+        if (not isinstance(date_yyyymmdd, str)
+                or len(date_yyyymmdd) != 8
+                or not date_yyyymmdd.isascii()
+                or not date_yyyymmdd.isdigit()):
+            raise ValueError("date must be YYYYMMDD")
+        try:
+            datetime.strptime(date_yyyymmdd, "%Y%m%d")
+        except ValueError as exc:
+            raise ValueError("invalid calendar date") from exc
+        payload = await self._get_json(
+            f"{ESPN_BASE}/scoreboard?dates={date_yyyymmdd}"
+        )
+        if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
+            raise RuntimeError("ESPN scoreboard unavailable or malformed")
+        from providers.espn_quality_audit import audit_espn_events
+        now = observed_at_utc if observed_at_utc is not None else int(datetime.now(timezone.utc).timestamp())
+        report = audit_espn_events(payload["events"], observed_at_utc=now)
+        from providers.espn_status_shapes import summarize_espn_status_shapes
+        report["status_shapes"] = summarize_espn_status_shapes(payload["events"])
+        observed = datetime.fromtimestamp(now, tz=timezone.utc)
+        rows: Dict[str, Dict[str, Any]] = {}
+        conflicts: set[str] = set()
+        for raw in payload["events"]:
+            parsed = parse_completed_nba_event(raw, observed)
+            if parsed is None:
+                continue
+            key = parsed["provider_fixture_id"]
+            if key in conflicts:
+                continue
+            if key in rows and rows[key] != parsed:
+                conflicts.add(key)
+                rows.pop(key, None)
+            else:
+                rows[key] = parsed
+        from providers.espn_identity_audit import audit_scoreboard_identity
+        vetted_events = sorted(
+            rows.values(),
+            key=lambda row: (row["start_ts_utc"], row["provider_fixture_id"]),
+        )
+        report["identity_audit"] = audit_scoreboard_identity(vetted_events, date_yyyymmdd)
+        return {
+            "date_yyyymmdd": date_yyyymmdd,
+            "observed_at_utc": now,
+            "quality": report,
+            "completed_events": vetted_events,
+        }
+
+    async def fetch_completed_nba_scoreboard_date(
+        self, date_yyyymmdd: str,
+    ) -> List[Dict[str, Any]]:
+        """Read a date-scoped ESPN scoreboard without writing outcomes.
+
+        ESPN schedule dates may differ from UTC calendar dates.
+        """
+        if (not isinstance(date_yyyymmdd, str)
+                or len(date_yyyymmdd) != 8
+                or not date_yyyymmdd.isascii()
+                or not date_yyyymmdd.isdigit()):
+            raise ValueError("date must be YYYYMMDD")
+        try:
+            datetime.strptime(date_yyyymmdd, "%Y%m%d")
+        except ValueError as exc:
+            raise ValueError("invalid calendar date") from exc
+        payload = await self._get_json(
+            f"{ESPN_BASE}/scoreboard?dates={date_yyyymmdd}"
+        )
+        if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
+            return []
+        rows: Dict[str, Dict[str, Any]] = {}
+        conflicts: set[str] = set()
+        for event in payload["events"]:
+            parsed = parse_completed_nba_event(event)
+            if parsed is not None:
+                source_id = parsed["provider_fixture_id"]
+                if source_id in conflicts:
+                    continue
+                if source_id in rows and rows[source_id] != parsed:
+                    conflicts.add(source_id)
+                    rows.pop(source_id, None)
+                else:
+                    rows[source_id] = parsed
+        return sorted(rows.values(), key=lambda row: (
+            row["start_ts_utc"], row["provider_fixture_id"]
+        ))
+
+    async def fetch_completed_nba_events(
+        self, team_input: str, limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """Fetch and strictly parse completed NBA events for a resolved team.
+
+        No results are persisted here. The caller must match provider IDs
+        and independently validate prediction provenance before evaluation.
+        """
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError("limit must be an integer from 1 to 100")
+        ref = await self.resolve_team(team_input)
+        if not ref:
+            return []
+        payload = await self._get_json(f"{ESPN_BASE}/teams/{ref['id']}/schedule")
+        if not isinstance(payload, dict):
+            return []
+        events = payload.get("events")
+        if not isinstance(events, list):
+            return []
+        by_id: Dict[str, Dict[str, Any]] = {}
+        conflicts: set[str] = set()
+        for event in events:
+            parsed = parse_completed_nba_event(event)
+            if parsed is None:
+                continue
+            if ref["id"] not in (parsed["home_team_id"], parsed["away_team_id"]):
+                continue
+            source_id = parsed["provider_fixture_id"]
+            if source_id in conflicts:
+                continue
+            if source_id in by_id and by_id[source_id] != parsed:
+                conflicts.add(source_id)
+                by_id.pop(source_id, None)
+            else:
+                by_id[source_id] = parsed
+        return sorted(
+            by_id.values(), key=lambda row: (
+                row["start_ts_utc"], row["provider_fixture_id"]
+            )
+        )[-limit:]
 
     # -------------------------------------------------
     # FETCH RECENT GAMES (PROD SAFE)
@@ -140,6 +278,9 @@ class ESPNAdapter:
             ts_utc, pts_for, pts_against, pace, home
         }
         """
+
+        if (league or "").upper().strip() != "NBA":
+            return None
 
         ref = await self.resolve_team(team)
         if not ref:
@@ -167,11 +308,18 @@ class ESPNAdapter:
             comp = comps[0]
             if comp.get("status", {}).get("type", {}).get("state") != "completed":
                 continue
+            try:
+                event_time = datetime.fromisoformat(str(ev["date"]).replace("Z", "+00:00"))
+                if event_time.tzinfo is None or event_time >= datetime.now(timezone.utc):
+                    continue
+            except (KeyError, TypeError, ValueError):
+                continue
             completed.append(ev)
 
         if not completed:
             return None
 
+        completed.sort(key=lambda ev: str(ev.get('date') or ''))
         completed = completed[-int(n_games):]
 
         out: List[Dict[str, Any]] = []
@@ -216,8 +364,8 @@ class ESPNAdapter:
                 continue
             # --------------------------------------------
 
-            total = pf + pa
-            pace = max(94.0, min(106.0, 99.5 + (total - 220.0) * 0.06))
+            # Neutral placeholder; scores do not measure possessions.
+            pace = 100.0
 
             out.append({
                 "ts_utc": ts_utc,

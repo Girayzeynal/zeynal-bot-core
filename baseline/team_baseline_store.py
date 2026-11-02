@@ -106,6 +106,8 @@ class TeamBaselineStore:
             except Exception:
                 series = []
 
+        # Re-fetching a game must not inflate the sample or its weight.
+        series = [r for r in series if int(r.get("ts_utc", -1)) != ts]
         series.append(asdict(rec))
         series = sorted(series, key=lambda x: x["ts_utc"])[-max_games:]
 
@@ -122,6 +124,35 @@ class TeamBaselineStore:
             return [TeamGameRecord(**r) for r in raw][-n_games:]
         except Exception:
             return []
+
+    def get_series_before(self, league: str, team: str, cutoff_ts_utc: int, n_games: int) -> List[TeamGameRecord]:
+        """Select only records older than the requested fixture."""
+        if n_games <= 0:
+            return []
+        records = self.get_series(league, team, 100000)
+        return sorted(
+            (r for r in records if 0 < r.ts_utc < int(cutoff_ts_utc)),
+            key=lambda r: r.ts_utc,
+        )[-n_games:]
+
+    def compute_baseline_before(
+        self, league: str, team: str, cutoff_ts_utc: int,
+        n_games: int = 10, min_games: int = 6,
+    ) -> Optional[Dict[str, float]]:
+        """Compute a baseline exclusively from pre-fixture games."""
+        series = self.get_series_before(league, team, cutoff_ts_utc, n_games)
+        if len(series) < min_games:
+            return None
+        pf = [r.pts_for for r in series]
+        pa = [r.pts_against for r in series]
+        totals = [a + b for a, b in zip(pf, pa)]
+        return {
+            "n_games": len(series),
+            "pts_for": mean(pf),
+            "pts_against": mean(pa),
+            "pace": mean(r.pace for r in series),
+            "stdev_total": pstdev(totals) if len(totals) > 1 else 0.0,
+        }
 
     def compute_dynamic_baseline(
         self, league: str, team: str, n_games: int
