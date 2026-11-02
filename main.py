@@ -125,9 +125,9 @@ BASELINE_REASON_TR = {
 def baseline_failure_message(home_reason: str, away_reason: str) -> str:
     """Explain unavailable inputs without fabricating a prediction."""
     return (
-        "Analiz oluşturulmadı: doğrulanabilir takım verisi yetersiz.\\n"
-        f"Ev sahibi: {BASELINE_REASON_TR.get(home_reason, 'bilinmeyen veri sorunu')}\\n"
-        f"Deplasman: {BASELINE_REASON_TR.get(away_reason, 'bilinmeyen veri sorunu')}\\n"
+        "Analiz oluşturulmadı: doğrulanabilir takım verisi yetersiz.\n"
+        f"Ev sahibi: {BASELINE_REASON_TR.get(home_reason, 'bilinmeyen veri sorunu')}\n"
+        f"Deplasman: {BASELINE_REASON_TR.get(away_reason, 'bilinmeyen veri sorunu')}\n"
         "Eksik veriler doğrulanmadan tahmin üretilmez."
     )
 
