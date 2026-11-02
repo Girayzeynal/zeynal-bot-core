@@ -82,6 +82,23 @@ def parse_analyze(text: str) -> Tuple[str, str, str, str]:
         raise ValueError("Ev sahibi ve deplasman takımları farklı olmalıdır")
     return league, date_str, home, away
 
+def baseline_is_usable(baseline: Any, now_ts: float) -> bool:
+    """Validate prematch baseline statistics before exposing a prediction."""
+    if baseline is None:
+        return False
+    try:
+        age = now_ts - float(baseline.updated_ts)
+        stats = (float(baseline.pts_for), float(baseline.pts_against),
+                 float(baseline.pace), float(baseline.stdev_total))
+        return (type(baseline.n_games) is int and baseline.n_games >= 6
+                and math.isfinite(age) and 0 <= age <= 7 * 86400
+                and all(math.isfinite(value) for value in stats)
+                and stats[0] > 0 and stats[1] > 0 and stats[2] > 0
+                and stats[3] >= 0)
+    except (ValueError, TypeError, AttributeError, OverflowError):
+        return False
+
+
 # ============================
 # TELEGRAM COMMANDS
 # ============================
@@ -133,19 +150,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     now_ts = datetime.now(timezone.utc).timestamp()
     def usable(baseline):
-        if baseline is None:
-            return False
-        try:
-            age = now_ts - float(baseline.updated_ts)
-            stats = (float(baseline.pts_for), float(baseline.pts_against),
-                     float(baseline.pace), float(baseline.stdev_total))
-            return (type(baseline.n_games) is int and baseline.n_games >= 6
-                    and math.isfinite(age) and 0 <= age <= 7 * 86400
-                    and all(math.isfinite(value) for value in stats)
-                    and stats[0] > 0 and stats[1] > 0 and stats[2] > 0
-                    and stats[3] >= 0)
-        except (ValueError, TypeError, AttributeError):
-            return False
+        return baseline_is_usable(baseline, now_ts)
 
     if not (usable(home_baseline) and usable(away_baseline)):
         def baseline_reason(baseline):
