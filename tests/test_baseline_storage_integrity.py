@@ -120,6 +120,19 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             self.assertEqual(store.get_series_before("NBA", "BOS", ts + 86400, 10), [])
             self.assertEqual(len(store.get_series("NBA", "BOS", 10)), 1)
 
+    def test_provider_identity_rejects_control_and_padding(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400
+            for source, game_id in (("nba_com ", "123"), ("nba_com", " 123"),
+                                    ("nba_com", "123" + chr(10)),
+                                    ("nba" + chr(0) + "_com", "123")):
+                with self.subTest(source=source, game_id=game_id):
+                    with self.assertRaises(ValueError):
+                        store.append_game("NBA", "BOS", 110, 100, 98, True,
+                                          ts_utc=ts, game_id=game_id, source=source)
+            self.assertEqual(store.get_series("NBA", "BOS", 10), [])
+
     def test_versioned_identity_keys_prevent_aliases_and_preserve_legacy(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
