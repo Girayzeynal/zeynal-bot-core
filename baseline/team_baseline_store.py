@@ -263,7 +263,8 @@ class TeamBaselineStore:
             with open(path, "r", encoding="utf-8") as f:
                 raw = json.load(f)
             return [TeamGameRecord(**r) for r in raw][-n_games:]
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            logger.error("baseline series read rejected for %s/%s: %s", league, team, type(exc).__name__)
             return []
 
     def get_series_before(self, league: str, team: str, cutoff_ts_utc: int, n_games: int) -> List[TeamGameRecord]:
