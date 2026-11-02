@@ -72,7 +72,7 @@ class TeamBaselineStore:
                 raise ValueError("invalid baseline identity")
             normalized = value.strip().upper()
             if (len(normalized) > 160 or any(ord(ch) < 32 or ord(ch) == 127 for ch in normalized)
-                    or "/" in normalized or "\\\\" in normalized):
+                    or "/" in normalized or "\\" in normalized):
                 raise ValueError("unsafe baseline identity")
             values.append(normalized)
         if all(re.fullmatch(r"[A-Z0-9_-]{1,80}", x) and "__" not in x
