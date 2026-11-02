@@ -334,6 +334,20 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             self.assertEqual(store.get_series("NBA", "BOS", -1), [])
             self.assertEqual(len(store.get_series("NBA", "BOS", 1)), 1)
 
+    def test_corrupt_series_read_is_logged_and_fails_closed(self):
+        import json
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400
+            store.append_game("NBA", "BOS", 110, 100, 98, True, ts_utc=ts)
+            path = store._series_path("NBA", "BOS")
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump([{"bad": "schema"}], handle)
+            with self.assertLogs("zeynal-core.baseline", level="ERROR") as captured:
+                self.assertEqual(store.get_series("NBA", "BOS", 10), [])
+            self.assertTrue(any("baseline series read rejected" in line
+                                for line in captured.output))
+
     def test_valid_record_is_stored(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
