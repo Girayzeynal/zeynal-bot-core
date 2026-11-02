@@ -117,11 +117,11 @@ class TeamBaselineStore:
         series: List[Dict[str, Any]] = []
 
         if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    series = json.load(f)
-            except Exception:
-                series = []
+            # Corrupt history must not be silently discarded and overwritten.
+            with open(path, "r", encoding="utf-8") as f:
+                series = json.load(f)
+            if not isinstance(series, list) or not all(isinstance(r, dict) for r in series):
+                raise ValueError("invalid persisted game series")
 
         # Re-fetching a game must not inflate the sample or its weight.
         # Provider-scoped identity supersedes timestamp when available.
