@@ -260,13 +260,8 @@ class TeamBaselineStore:
                 raise ValueError("invalid series container")
             records = [TeamGameRecord(**r) for r in raw]
             for record in records:
-                values = (record.pts_for, record.pts_against, record.pace)
-                if (type(record.ts_utc) is not int or record.ts_utc <= 0
-                        or record.ts_utc > int(time.time())
-                        or any(type(v) not in (int, float) for v in values)
-                        or not all(math.isfinite(v) for v in values)
-                        or record.pts_for < 0 or record.pts_against < 0
-                        or record.pace <= 0 or type(record.home) is not bool
+                if (not _valid_game_stats(record.ts_utc, record.pts_for,
+                                          record.pts_against, record.pace, record.home)
                         or type(record.timestamp_precision) is not str
                         or record.timestamp_precision not in ("exact", "date_only", "unknown")
                         or not _valid_provider_identity(record.source)
