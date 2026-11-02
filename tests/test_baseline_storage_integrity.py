@@ -56,8 +56,8 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             store = TeamBaselineStore(folder)
             ts = int(time.time()) - 86400
-            store.append_game("NBA", "BOS", 110, 100, 98, True, ts_utc=ts)
-            store.append_game("NBA", "BOS", 115, 105, 99, False, ts_utc=ts + 60)
+            store.append_game("NBA", "BOS", 110, 100, 98, True, ts_utc=ts, timestamp_precision="exact")
+            store.append_game("NBA", "BOS", 115, 105, 99, False, ts_utc=ts + 60, timestamp_precision="exact")
             for cutoff in (None, 0, -1, True, float(ts), str(ts)):
                 with self.subTest(cutoff=cutoff):
                     self.assertEqual(store.get_series_before("NBA", "BOS", cutoff, 10), [])
@@ -73,7 +73,7 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
             ts = int(time.time()) - 86400
             for i in range(6):
                 store.append_game("NBA", "BOS", 110 + i, 100 + i, 98,
-                                  i % 2 == 0, ts_utc=ts - i * 86400)
+                                  i % 2 == 0, ts_utc=ts - i * 86400, timestamp_precision="exact")
             for count, minimum in ((0, 0), (6, 0), (6, -1), (2, 3),
                                    (6, True), (6, 2.0), ("6", 3)):
                 with self.subTest(count=count, minimum=minimum):
@@ -84,6 +84,24 @@ class BaselineStorageIntegrityTests(unittest.TestCase):
                     self.assertIsNone(store.compute_dynamic_baseline("NBA", "BOS", count))
             self.assertEqual(store.compute_baseline_before(
                 "NBA", "BOS", ts + 60, n_games=6, min_games=6)["n_games"], 6)
+
+    def test_historical_backtest_excludes_unknown_and_date_only(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TeamBaselineStore(folder)
+            ts = int(time.time()) - 86400 * 5
+            store.append_game("NBA", "BOS", 101, 90, 98, True, ts_utc=ts,
+                              game_id="a", source="fixture", timestamp_precision="date_only")
+            store.append_game("NBA", "BOS", 102, 91, 98, True, ts_utc=ts + 1,
+                              game_id="b", source="fixture")
+            store.append_game("NBA", "BOS", 103, 92, 98, True, ts_utc=ts + 2,
+                              game_id="c", source="fixture", timestamp_precision="exact")
+            rows = store.get_series_before("NBA", "BOS", ts + 100, 10)
+            self.assertEqual([r.game_id for r in rows], ["c"])
+            self.assertIsNone(store.compute_baseline_before(
+                "NBA", "BOS", ts + 100, n_games=3, min_games=2))
+            with self.assertRaises(ValueError):
+                store.append_game("NBA", "BOS", 104, 93, 98, True, ts_utc=ts + 3,
+                                  timestamp_precision="approximate")
 
     def test_versioned_identity_keys_prevent_aliases_and_preserve_legacy(self):
         with tempfile.TemporaryDirectory() as folder:
