@@ -82,6 +82,29 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
             self.assertIn("Parametre hatasi", update.message.reply_text.await_args.args[0])
         asyncio.run(scenario())
 
+    def test_success_renders_telegram_html(self):
+        async def scenario():
+            handler = load_handler()
+            tomorrow = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
+                        + datetime.timedelta(days=1)).isoformat()
+            update = types.SimpleNamespace(message=types.SimpleNamespace(
+                text=f"/analyze NBA {tomorrow} Home vs Away", reply_text=AsyncMock()))
+            baseline = types.SimpleNamespace(
+                games_played=10, updated_at=datetime.datetime.now(datetime.timezone.utc).timestamp(),
+                source="verified")
+            bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock(return_value=baseline))
+            result = types.SimpleNamespace(render_html=lambda: "<b>Verified</b>")
+            engine = types.SimpleNamespace(run_prematch=AsyncMock(return_value=result))
+            context = types.SimpleNamespace(application=types.SimpleNamespace(
+                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper}))
+            # Isolate the presentation contract from baseline quality policy.
+            handler.__globals__["baseline_quality_reason"] = lambda *_args: "usable"
+            await handler(update, context)
+            engine.run_prematch.assert_awaited_once()
+            self.assertEqual(update.message.reply_text.await_args.args[0], "<b>Verified</b>")
+            self.assertEqual(update.message.reply_text.await_args.kwargs["parse_mode"], "HTML")
+        asyncio.run(scenario())
+
     def test_provider_exception_never_calls_engine(self):
         async def scenario():
             handler = load_handler()
