@@ -20,6 +20,7 @@ from faz23_engine import Faz23Engine
 
 from aiohttp import web
 from dynamic_scheduler import scheduler_loop
+from nba_command import nba_command
 from faz17_engine import Faz17Engine
 
 # ============================
@@ -267,6 +268,7 @@ def build_app() -> Application:
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
+    app.add_handler(CommandHandler("nba", nba_command))
     return app
 
 async def main_async():
