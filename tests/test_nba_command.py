@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 
-from nba_command import parse_nba_date, select_local_games, validate_provider_payload
+from nba_command import parse_nba_date, select_local_games, utc_dates_for_turkey_day, validate_provider_payload
 
 
 class NbaCommandTests(unittest.TestCase):
@@ -33,6 +33,22 @@ class NbaCommandTests(unittest.TestCase):
         }
         rows = [{**template, "id": value} for value in (None, "", True, [], {})]
         self.assertEqual(select_local_games(rows, "2026-11-04"), [])
+
+    def test_turkey_day_uses_two_utc_dates(self):
+        self.assertEqual(utc_dates_for_turkey_day("2026-11-04"), ["2026-11-03", "2026-11-04"])
+
+    def test_utc_day_boundary_at_both_ends(self):
+        template = {
+            "teams": {"home": {"name": "Home"}, "away": {"name": "Away"}},
+            "status": {"short": "NS"},
+        }
+        rows = [
+            {**template, "id": 1, "date": "2026-11-03T20:59:59Z"},
+            {**template, "id": 2, "date": "2026-11-03T21:00:00Z"},
+            {**template, "id": 3, "date": "2026-11-04T20:59:59Z"},
+            {**template, "id": 4, "date": "2026-11-04T21:00:00Z"},
+        ]
+        self.assertEqual(len(select_local_games(rows, "2026-11-04")), 2)
 
     def test_provider_payload_rejects_errors(self):
         for errors in ({"token": "invalid"}, ["quota exceeded"], "error"):
