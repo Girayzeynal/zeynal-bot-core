@@ -6,6 +6,7 @@ import logging
 import math
 import asyncio
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Any, Dict, Tuple
 
 from telegram import Update
@@ -139,7 +140,8 @@ def baseline_failure_message(home_reason: str, away_reason: str) -> str:
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_message:
         await update.effective_message.reply_text(
-            "Zeynal Bot Core aktif. Analiz biçimi:\n"
+            "Zeynal Bot Core aktif. NBA fikstürü: /nba veya /nba YYYY-MM-DD\n"
+            "Analiz biçimi:\n"
             "/analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman\n\n"
             "Yeterli doğrulanabilir takım verisi yoksa tahmin üretilmez."
         )
@@ -162,8 +164,8 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Historical requests require point-in-time snapshots. Current baselines
     # would leak post-game information into a retrospective prediction.
     requested_day = datetime.strptime(date_str, "%Y-%m-%d").date()
-    utc_today = datetime.now(timezone.utc).date()
-    if requested_day < utc_today:
+    turkey_today = datetime.now(ZoneInfo("Europe/Istanbul")).date()
+    if requested_day < turkey_today:
         await update.message.reply_text(
             "Geçmiş maç için güncel takım verisi kullanılamaz. "
             "Tarihsel veri kesiti doğrulanmadan backtest tahmini üretilmedi."
