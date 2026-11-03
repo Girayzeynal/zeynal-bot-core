@@ -54,8 +54,9 @@ async def load_nba_games(day: str) -> list[dict]:
         raise RuntimeError("API-Sports anahtarı yapılandırılmamış.")
     base = os.getenv("API_SPORTS_BASE", "https://v1.basketball.api-sports.io").rstrip("/")
     local_day = datetime.strptime(day, "%Y-%m-%d").date()
-    # Fetch neighboring UTC dates so Istanbul midnight games are not missed.
-    utc_days = [local_day - timedelta(days=1), local_day, local_day + timedelta(days=1)]
+    # A Türkiye calendar day (UTC+03:00) spans only the previous and current UTC dates.
+    # Avoid an unnecessary third API request per /nba invocation.
+    utc_days = [local_day - timedelta(days=1), local_day]
     rows = []
     timeout = aiohttp.ClientTimeout(total=15)
     async with aiohttp.ClientSession(timeout=timeout) as session:
