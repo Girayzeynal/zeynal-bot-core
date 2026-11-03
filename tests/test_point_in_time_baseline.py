@@ -42,12 +42,53 @@ class PointInTimeBaselineTests(unittest.TestCase):
         self.assertEqual(baseline["n_games"], 6)
         self.assertAlmostEqual(baseline["pts_for"], 110.0)
 
+    def test_date_only_and_unknown_timestamps_excluded_from_backtest(self):
+        for i, precision in enumerate(("date_only", "unknown", "exact")):
+            self.store.append_game(
+                "NBA", "BOS", 110, 100, 100.0, True,
+                ts_utc=100 + i, timestamp_precision=precision,
+            )
+        records = self.store.get_series_before("NBA", "BOS", 200, 10)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].timestamp_precision, "exact")
+        self.assertIsNone(
+            self.store.compute_baseline_before(
+                "NBA", "BOS", 200, n_games=10, min_games=6
+            )
+        )
+
     def test_repeated_fetch_does_not_inflate_sample(self):
+        # Repeated fetches are identical records, not different scores
+        # sharing an ambiguous timestamp.
+        for _ in range(2):
+            self.store.append_game(
+                "NBA", "BOS", 105, 100, 100.0, True,
+                ts_utc=100, game_id="game-100", source="test",
+                timestamp_precision="exact",
+            )
+        records = self.store.get_series("NBA", "BOS", 10)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].pts_for, 105)
+
+    def test_same_timestamp_without_identity_preserves_distinct_games(self):
         self.add(100, 105)
         self.add(100, 115)
         records = self.store.get_series("NBA", "BOS", 10)
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0].pts_for, 115)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(sorted(r.pts_for for r in records), [105, 115])
+
+    def test_same_provider_identity_conflicting_score_rejected(self):
+        self.store.append_game(
+            "NBA", "BOS", 105, 100, 100.0, True,
+            ts_utc=100, game_id="game-100", source="test",
+            timestamp_precision="exact",
+        )
+        with self.assertRaises(ValueError):
+            self.store.append_game(
+                "NBA", "BOS", 115, 100, 100.0, True,
+                ts_utc=100, game_id="game-100", source="test",
+                timestamp_precision="exact",
+            )
 
 
 if __name__ == "__main__":

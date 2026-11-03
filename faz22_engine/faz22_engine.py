@@ -59,7 +59,8 @@ class Faz22Engine:
         try:
             if v is None:
                 return None
-            return float(v)
+            x = float(v)
+            return x if __import__("math").isfinite(x) else None
         except Exception:
             return None
 
@@ -122,20 +123,48 @@ class Faz22Engine:
     # =================================================
     @staticmethod
     def _get_force(core: Any) -> Optional[Dict[str, Any]]:
-        try:
-            f = getattr(core, "force", None)
-            if isinstance(f, dict):
-                return f
-        except Exception:
-            pass
+        import math
 
-        try:
-            meta = getattr(core, "meta", {}) or {}
-            f2 = meta.get("force")
-            if isinstance(f2, dict):
-                return f2
-        except Exception:
-            pass
+        def valid(f):
+            if not isinstance(f, dict):
+                return False
+
+            direction = f.get("direction")
+            if not isinstance(direction, str):
+                return False
+
+            if direction.strip().upper() not in (
+                "OVER", "UST", "ÜST", "UNDER", "ALT"
+            ):
+                return False
+
+            for key in ("total", "confidence"):
+                value = f.get(key)
+                if isinstance(value, bool):
+                    return False
+                try:
+                    number = float(value)
+                except (TypeError, ValueError, OverflowError):
+                    return False
+                if not math.isfinite(number):
+                    return False
+
+                if key == "total" and number <= 0:
+                    return False
+                if key == "confidence" and not 0 <= number <= 100:
+                    return False
+
+            return True
+
+        f = getattr(core, "force", None)
+        if valid(f):
+            return f
+
+        meta = getattr(core, "meta", None)
+        if isinstance(meta, dict):
+            f = meta.get("force")
+            if valid(f):
+                return f
 
         return None
 
@@ -146,7 +175,7 @@ class Faz22Engine:
             return "ÜST"
         if d in ("UNDER", "ALT"):
             return "ALT"
-        return "ÜST"
+        return None
 
     # =================================================
     # PUBLIC API

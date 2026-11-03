@@ -1,4 +1,5 @@
 from __future__ import annotations
+from pathlib import Path
 
 import json
 import sqlite3
@@ -22,6 +23,9 @@ class Faz23Engine:
 
     def __init__(self, storage_path: str = "faz23_storage.sqlite") -> None:
         self.path = storage_path
+        Path(self.path).parent.mkdir(
+            parents=True, exist_ok=True
+        )
         self._init_db()
 
         # sayısal eşikler

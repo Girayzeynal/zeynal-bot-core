@@ -247,7 +247,7 @@ async def start_health(app: Application):
 def build_app() -> Application:
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    baseline_store = TeamBaselineStore()
+    baseline_store = TeamBaselineStore(base_dir=os.getenv("BASELINE_DIR", "data/baselines"))
     bootstrapper = TeamBaselineBootstrapper(
         store=baseline_store,
         adapters=[ESPNAdapter()],
@@ -263,7 +263,7 @@ def build_app() -> Application:
     app.bot_data["baseline_bootstrapper"] = bootstrapper
     app.bot_data["faz13"] = faz13
     app.bot_data["faz22"] = Faz22Engine()
-    app.bot_data["faz23"] = Faz23Engine()
+    app.bot_data["faz23"] = Faz23Engine(storage_path=os.getenv("FAZ23_STORAGE", "faz23_storage.sqlite"))
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
