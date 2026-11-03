@@ -32,6 +32,24 @@ class LeagueScheduleConfigTests(unittest.TestCase):
         self.assertTrue(all(isinstance(name, str) and name.strip() for name in names))
         self.assertEqual(len(names), len(set(names)))
 
+    def test_scheduler_skips_disabled_leagues_before_id_validation(self):
+        import ast
+        scheduler_path = Path(__file__).resolve().parents[1] / "dynamic_scheduler.py"
+        tree = ast.parse(scheduler_path.read_text(encoding="utf-8"))
+        loops = [node for node in ast.walk(tree)
+                 if isinstance(node, ast.For)
+                 and isinstance(node.target, ast.Name)
+                 and node.target.id == "lg"
+                 and isinstance(node.iter, ast.Name)
+                 and node.iter.id == "leagues"]
+        self.assertEqual(len(loops), 1)
+        first = loops[0].body[0]
+        self.assertIsInstance(first, ast.If)
+        self.assertEqual(ast.unparse(first.test),
+                         "lg.get('enabled_schedule') is not True")
+        self.assertEqual(len(first.body), 1)
+        self.assertIsInstance(first.body[0], ast.Continue)
+
     def test_bcl_remains_disabled_until_verified_id_is_configured(self):
         path = Path(__file__).resolve().parents[1] / "leagues.json"
         leagues = json.loads(path.read_text(encoding="utf-8"))
