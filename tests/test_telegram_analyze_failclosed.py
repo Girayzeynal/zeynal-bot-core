@@ -86,6 +86,7 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
         async def scenario():
             handler = load_handler()
             handler.__globals__["PrematchRequest"] = lambda **kwargs: types.SimpleNamespace(**kwargs)
+            handler.__globals__["Faz13CoreOutput"] = types.SimpleNamespace
             tomorrow = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
                         + datetime.timedelta(days=1)).isoformat()
             update = types.SimpleNamespace(message=types.SimpleNamespace(
@@ -94,14 +95,18 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
                 games_played=10, updated_at=datetime.datetime.now(datetime.timezone.utc).timestamp(),
                 source="verified")
             bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock(return_value=baseline))
-            result = types.SimpleNamespace(render_html=lambda: "<b>Verified</b>")
+            result = types.SimpleNamespace(meta={"data_quality": "VERIFIED"}, render_html=lambda: "<b>Verified</b>")
+            faz22 = types.SimpleNamespace(score_and_finalize=lambda core: core)
+            faz23 = types.SimpleNamespace(apply_decision=lambda core: core, record_snapshot=AsyncMock())
             engine = types.SimpleNamespace(run_prematch=AsyncMock(return_value=result))
             context = types.SimpleNamespace(application=types.SimpleNamespace(
-                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper}))
+                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper,
+                          "faz22": faz22, "faz23": faz23}))
             # Isolate the presentation contract from baseline quality policy.
             handler.__globals__["baseline_quality_reason"] = lambda *_args: "usable"
             await handler(update, context)
             engine.run_prematch.assert_awaited_once()
+            faz23.record_snapshot.assert_awaited_once_with(result)
             self.assertEqual(update.message.reply_text.await_args.args[0], "<b>Verified</b>")
             self.assertEqual(update.message.reply_text.await_args.kwargs["parse_mode"], "HTML")
         asyncio.run(scenario())
