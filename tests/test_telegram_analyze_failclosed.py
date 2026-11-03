@@ -137,6 +137,31 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
             self.assertIn("dahili bir hata", update.message.reply_text.await_args.args[0])
         asyncio.run(scenario())
 
+    def test_invalid_faz22_output_blocks_snapshot_and_reply(self):
+        async def scenario():
+            handler = load_handler()
+            handler.__globals__["PrematchRequest"] = lambda **kwargs: types.SimpleNamespace(**kwargs)
+            handler.__globals__["Faz13CoreOutput"] = types.SimpleNamespace
+            handler.__globals__["baseline_quality_reason"] = lambda *_args: "usable"
+            tomorrow = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
+                        + datetime.timedelta(days=1)).isoformat()
+            update = types.SimpleNamespace(message=types.SimpleNamespace(
+                text=f"/analyze NBA {tomorrow} Home vs Away", reply_text=AsyncMock()))
+            core = types.SimpleNamespace(meta={"data_quality": "VERIFIED"})
+            engine = types.SimpleNamespace(run_prematch=AsyncMock(return_value=core))
+            faz22 = types.SimpleNamespace(score_and_finalize=lambda _core: None)
+            faz23 = types.SimpleNamespace(apply_decision=unittest.mock.Mock(), record_snapshot=AsyncMock())
+            context = types.SimpleNamespace(application=types.SimpleNamespace(bot_data={
+                "faz13": engine,
+                "baseline_bootstrapper": types.SimpleNamespace(ensure_async=AsyncMock(return_value=object())),
+                "faz22": faz22, "faz23": faz23,
+            }))
+            await handler(update, context)
+            faz23.apply_decision.assert_not_called()
+            faz23.record_snapshot.assert_not_awaited()
+            self.assertIn("dahili bir hata", update.message.reply_text.await_args.args[0])
+        asyncio.run(scenario())
+
     def test_provider_exception_never_calls_engine(self):
         async def scenario():
             handler = load_handler()
