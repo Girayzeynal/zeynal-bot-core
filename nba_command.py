@@ -26,6 +26,12 @@ def parse_nba_date(args: list[str], now: datetime) -> str:
     return day.isoformat()
 
 
+def utc_dates_for_turkey_day(day: str) -> list[str]:
+    """UTC date partitions intersecting one Europe/Istanbul calendar day."""
+    local_day = datetime.strptime(day, "%Y-%m-%d").date()
+    return [(local_day - timedelta(days=1)).isoformat(), local_day.isoformat()]
+
+
 def validate_provider_payload(payload: object) -> list[dict]:
     """Reject incomplete or error-bearing API responses before selecting games."""
     if not isinstance(payload, dict):
@@ -67,10 +73,8 @@ async def load_nba_games(day: str) -> list[dict]:
     if not key:
         raise RuntimeError("API-Sports anahtarı yapılandırılmamış.")
     base = os.getenv("API_SPORTS_BASE", "https://v1.basketball.api-sports.io").rstrip("/")
-    local_day = datetime.strptime(day, "%Y-%m-%d").date()
-    # A Türkiye calendar day (UTC+03:00) spans only the previous and current UTC dates.
-    # Avoid an unnecessary third API request per /nba invocation.
-    utc_days = [local_day - timedelta(days=1), local_day]
+    # Türkiye (UTC+03:00) spans exactly two UTC calendar dates.
+    utc_days = utc_dates_for_turkey_day(day)
     rows = []
     timeout = aiohttp.ClientTimeout(total=15)
     async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -78,7 +82,7 @@ async def load_nba_games(day: str) -> list[dict]:
             async with session.get(
                 base + "/games",
                 headers={"x-apisports-key": key},
-                params={"league": NBA_LEAGUE_ID, "date": utc_day.isoformat(), "timezone": "UTC"},
+                params={"league": NBA_LEAGUE_ID, "date": utc_day, "timezone": "UTC"},
             ) as response:
                 response.raise_for_status()
                 try:
