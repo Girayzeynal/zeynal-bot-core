@@ -1,7 +1,9 @@
+import os
 import unittest
+from unittest.mock import patch
 from datetime import datetime, timezone
 
-from nba_command import parse_nba_date, select_local_games, utc_dates_for_turkey_day, validate_provider_payload
+from nba_command import load_nba_games, parse_nba_date, select_local_games, utc_dates_for_turkey_day, validate_provider_payload
 
 
 class NbaCommandTests(unittest.TestCase):
@@ -65,6 +67,70 @@ class NbaCommandTests(unittest.TestCase):
 
     def test_invalid_rows_skipped(self):
         self.assertEqual(select_local_games([None, [], "invalid"], "2026-11-04"), [])
+
+
+class FakeResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return False
+
+    def raise_for_status(self):
+        return None
+
+    async def json(self):
+        return self.payload
+
+
+class FakeSession:
+    requests = []
+    payloads = []
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return False
+
+    def get(self, url, *, headers, params):
+        self.requests.append((url, headers, params))
+        return FakeResponse(self.payloads[len(self.requests) - 1])
+
+
+class NbaHttpContractTests(unittest.IsolatedAsyncioTestCase):
+    async def test_exact_two_dates_and_headers(self):
+        FakeSession.requests = []
+        FakeSession.payloads = [
+            {"errors": [], "response": []},
+            {"errors": [], "response": []},
+        ]
+        with patch.dict(os.environ, {"API_SPORTS_KEY": "test-key", "API_SPORTS_BASE": "https://example.test"}), patch("nba_command.aiohttp.ClientSession", FakeSession):
+            games = await load_nba_games("2026-11-04")
+        self.assertEqual(games, [])
+        self.assertEqual(len(FakeSession.requests), 2)
+        self.assertEqual([r[2]["date"] for r in FakeSession.requests], ["2026-11-03", "2026-11-04"])
+        self.assertTrue(all(r[2]["league"] == 12 and r[2]["timezone"] == "UTC" for r in FakeSession.requests))
+        self.assertTrue(all(r[1] == {"x-apisports-key": "test-key"} for r in FakeSession.requests))
+
+    async def test_provider_error_fails_closed(self):
+        FakeSession.requests = []
+        FakeSession.payloads = [{"errors": {"token": "invalid"}, "response": []}]
+        with patch.dict(os.environ, {"API_SPORTS_KEY": "test-key"}), patch("nba_command.aiohttp.ClientSession", FakeSession):
+            with self.assertRaises(ValueError):
+                await load_nba_games("2026-11-04")
+        self.assertEqual(len(FakeSession.requests), 1)
+
+    async def test_missing_api_key_fails_closed(self):
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(RuntimeError):
+                await load_nba_games("2026-11-04")
 
 
 if __name__ == "__main__":
