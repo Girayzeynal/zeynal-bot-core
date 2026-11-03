@@ -7,6 +7,7 @@ import logging
 import pathlib
 import types
 import unittest
+from zoneinfo import ZoneInfo
 from unittest.mock import AsyncMock
 from typing import Any, Tuple
 
@@ -23,7 +24,7 @@ def load_handler():
                and any(isinstance(t, ast.Name) and t.id == "BASELINE_REASON_TR"
                        for t in node.targets)]
     namespace = {"Any": Any, "Update": Any, "ContextTypes": types.SimpleNamespace(DEFAULT_TYPE=Any), "math": __import__("math"), "html": html,
-                 "datetime": datetime.datetime, "timezone": datetime.timezone, "Tuple": Tuple,
+                 "datetime": datetime.datetime, "timezone": datetime.timezone, "ZoneInfo": ZoneInfo, "Tuple": Tuple,
                  "logger": logging.getLogger("telegram-test")}
     exec(compile(ast.fix_missing_locations(
         ast.Module(body=reasons + functions, type_ignores=[])), str(path), "exec"),
@@ -35,7 +36,7 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
     def test_missing_baseline_never_calls_engine(self):
         async def scenario():
             handler = load_handler()
-            today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+            today = datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date().isoformat()
             update = types.SimpleNamespace(message=types.SimpleNamespace(
                 text=f"/analyze NBA {today} Home vs Away", reply_text=AsyncMock()))
             bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock(return_value=None))
@@ -50,7 +51,7 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
     def test_past_fixture_never_calls_provider_or_engine(self):
         async def scenario():
             handler = load_handler()
-            yesterday = (datetime.datetime.now(datetime.timezone.utc).date()
+            yesterday = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
                          - datetime.timedelta(days=1)).isoformat()
             update = types.SimpleNamespace(message=types.SimpleNamespace(
                 text=f"/analyze NBA {yesterday} Home vs Away",
