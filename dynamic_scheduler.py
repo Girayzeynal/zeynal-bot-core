@@ -141,6 +141,8 @@ async def scheduler_loop(engines):
             now = datetime.now(timezone.utc)
             utc_dates = {now.date().isoformat(), (now.date() + timedelta(days=1)).isoformat()}
             for lg in leagues:
+                if lg.get("enabled_schedule") is not True:
+                    continue
                 league_id = lg.get("api_sports_league_id")
                 if not isinstance(league_id, int) or league_id <= 0:
                     log.warning("Skipping league with invalid API-Sports league id: %s", lg.get("name"))
