@@ -36,7 +36,8 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
     def test_missing_baseline_never_calls_engine(self):
         async def scenario():
             handler = load_handler()
-            today = datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date().isoformat()
+            today = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
+                     + datetime.timedelta(days=1)).isoformat()
             update = types.SimpleNamespace(message=types.SimpleNamespace(
                 text=f"/analyze NBA {today} Home vs Away", reply_text=AsyncMock()))
             bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock(return_value=None))
