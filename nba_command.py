@@ -30,6 +30,8 @@ def select_local_games(rows: list[dict], day: str) -> list[dict]:
     selected = {}
     for item in rows:
         try:
+            if not isinstance(item, dict) or isinstance(item.get("id"), bool) or not isinstance(item.get("id"), (int, str)) or not str(item["id"]).strip():
+                continue
             game_id = str(item["id"])
             start = datetime.fromisoformat(item["date"].replace("Z", "+00:00"))
             if start.tzinfo is None:
@@ -67,12 +69,17 @@ async def load_nba_games(day: str) -> list[dict]:
                 params={"league": NBA_LEAGUE_ID, "date": utc_day.isoformat(), "timezone": "UTC"},
             ) as response:
                 response.raise_for_status()
-                payload = await response.json()
+                try:
+                    payload = await response.json()
+                except (ValueError, aiohttp.ContentTypeError) as exc:
+                    raise ValueError("Fikstür sağlayıcısı geçerli JSON döndürmedi.") from exc
                 if not isinstance(payload, dict) or not isinstance(payload.get("response"), list):
                     raise ValueError("Fikstür sağlayıcısı geçersiz yanıt döndürdü.")
                 errors = payload.get("errors")
                 if errors and errors != [] and errors != {}:
                     raise ValueError("Fikstür sağlayıcısı API hatası bildirdi.")
+                if not all(isinstance(item, dict) for item in payload["response"]):
+                    raise ValueError("Fikstür sağlayıcısı bozuk maç kaydı döndürdü.")
                 rows.extend(payload["response"])
     return select_local_games(rows, day)
 
