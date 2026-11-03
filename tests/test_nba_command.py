@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 
-from nba_command import parse_nba_date, select_local_games
+from nba_command import parse_nba_date, select_local_games, validate_provider_payload
 
 
 class NbaCommandTests(unittest.TestCase):
@@ -33,6 +33,19 @@ class NbaCommandTests(unittest.TestCase):
         }
         rows = [{**template, "id": value} for value in (None, "", True, [], {})]
         self.assertEqual(select_local_games(rows, "2026-11-04"), [])
+
+    def test_provider_payload_rejects_errors(self):
+        for errors in ({"token": "invalid"}, ["quota exceeded"], "error"):
+            with self.subTest(errors=errors), self.assertRaises(ValueError):
+                validate_provider_payload({"errors": errors, "response": []})
+
+    def test_provider_payload_rejects_invalid_shapes(self):
+        for payload in (None, [], {}, {"response": None}, {"response": [None]}):
+            with self.subTest(payload=payload), self.assertRaises(ValueError):
+                validate_provider_payload(payload)
+
+    def test_provider_payload_accepts_empty_valid_response(self):
+        self.assertEqual(validate_provider_payload({"errors": [], "response": []}), [])
 
     def test_invalid_rows_skipped(self):
         self.assertEqual(select_local_games([None, [], "invalid"], "2026-11-04"), [])
