@@ -215,7 +215,11 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # PRE pipeline: FAZ22 risk filter, then FAZ23 signal filter and snapshot.
         result = context.application.bot_data["faz22"].score_and_finalize(result)
+        if not isinstance(result, Faz13CoreOutput) or not isinstance(result.meta, dict):
+            raise TypeError("FAZ22 returned an invalid analysis payload")
         result = context.application.bot_data["faz23"].apply_decision(result)
+        if not isinstance(result, Faz13CoreOutput) or not isinstance(result.meta, dict):
+            raise TypeError("FAZ23 returned an invalid analysis payload")
         await context.application.bot_data["faz23"].record_snapshot(result)
 
         await update.message.reply_text(
