@@ -26,6 +26,18 @@ def parse_nba_date(args: list[str], now: datetime) -> str:
     return day.isoformat()
 
 
+def validate_provider_payload(payload: object) -> list[dict]:
+    """Reject incomplete or error-bearing API responses before selecting games."""
+    if not isinstance(payload, dict):
+        raise ValueError("Fikstür sağlayıcısı geçersiz yanıt döndürdü.")
+    if payload.get("errors") not in (None, [], {}):
+        raise ValueError("Fikstür sağlayıcısı API hatası bildirdi.")
+    rows = payload.get("response")
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise ValueError("Fikstür sağlayıcısı bozuk maç kaydı döndürdü.")
+    return rows
+
+
 def select_local_games(rows: list[dict], day: str) -> list[dict]:
     selected = {}
     for item in rows:
@@ -73,14 +85,7 @@ async def load_nba_games(day: str) -> list[dict]:
                     payload = await response.json()
                 except (ValueError, aiohttp.ContentTypeError) as exc:
                     raise ValueError("Fikstür sağlayıcısı geçerli JSON döndürmedi.") from exc
-                if not isinstance(payload, dict) or not isinstance(payload.get("response"), list):
-                    raise ValueError("Fikstür sağlayıcısı geçersiz yanıt döndürdü.")
-                errors = payload.get("errors")
-                if errors and errors != [] and errors != {}:
-                    raise ValueError("Fikstür sağlayıcısı API hatası bildirdi.")
-                if not all(isinstance(item, dict) for item in payload["response"]):
-                    raise ValueError("Fikstür sağlayıcısı bozuk maç kaydı döndürdü.")
-                rows.extend(payload["response"])
+                rows.extend(validate_provider_payload(payload))
     return select_local_games(rows, day)
 
 
