@@ -85,6 +85,7 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
     def test_success_renders_telegram_html(self):
         async def scenario():
             handler = load_handler()
+            handler.__globals__["PrematchRequest"] = lambda **kwargs: types.SimpleNamespace(**kwargs)
             tomorrow = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
                         + datetime.timedelta(days=1)).isoformat()
             update = types.SimpleNamespace(message=types.SimpleNamespace(
