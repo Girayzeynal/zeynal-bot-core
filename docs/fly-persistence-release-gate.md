@@ -36,5 +36,7 @@ Confirm the actual machine count, attached volumes, region, and intended writer 
 
 - Latest verified CI before this document: GitHub Actions #389, commit `e536f59e`, unit-tests and docker-build successful (user screenshots).
 - Subsequent commits require fresh CI evidence.
-- No Fly.io machine/volume inventory has been verified in this review.
+- Earlier operator CLI output showed two started machines: an older bot-serving machine without a `/data` mount, and a newer volume-attached machine running `sleep 86400` rather than the bot. Re-check this inventory immediately before any release; it is historical evidence, not a current live verification.
+- The operator's local UserLAnd `fly.toml` included a `/data` mount and absolute storage paths, but this GitHub branch's `fly.toml` does not. Deployment from this branch must not assume that local configuration is present in GitHub or in the deployed machine.
+- Before release, reconcile the configuration files, establish a single bot polling/writer owner, and confirm all SQLite paths and baseline storage reside on its mounted persistent volume.
 - **Do not merge or deploy** until the above release gates are explicitly satisfied.
