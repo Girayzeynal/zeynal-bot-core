@@ -32,7 +32,7 @@
     "api_sports_league_id": 0,
     "odds_sport_key": null,
     "enabled_odds": false,
-    "enabled_schedule": true
+    "enabled_schedule": false
   },
   {
     "name": "Spain ACB",
