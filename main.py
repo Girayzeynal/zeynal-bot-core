@@ -211,6 +211,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(
             result.render_html(),
+            parse_mode="HTML",
             disable_web_page_preview=True,
         )
 
