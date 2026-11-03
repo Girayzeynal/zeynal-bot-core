@@ -17,6 +17,21 @@ class LeagueScheduleConfigTests(unittest.TestCase):
                     self.assertIs(type(league_id), int)
                     self.assertGreater(league_id, 0)
 
+    def test_enabled_schedule_ids_are_unique(self):
+        path = Path(__file__).resolve().parents[1] / "leagues.json"
+        leagues = json.loads(path.read_text(encoding="utf-8"))
+        enabled = [item for item in leagues if item.get("enabled_schedule") is True]
+        ids = [item.get("api_sports_league_id") for item in enabled]
+        self.assertEqual(len(ids), len(set(ids)),
+                         "enabled leagues must not share an API-Sports league ID")
+
+    def test_league_names_are_unique(self):
+        path = Path(__file__).resolve().parents[1] / "leagues.json"
+        leagues = json.loads(path.read_text(encoding="utf-8"))
+        names = [item.get("name") for item in leagues]
+        self.assertTrue(all(isinstance(name, str) and name.strip() for name in names))
+        self.assertEqual(len(names), len(set(names)))
+
     def test_bcl_remains_disabled_until_verified_id_is_configured(self):
         path = Path(__file__).resolve().parents[1] / "leagues.json"
         leagues = json.loads(path.read_text(encoding="utf-8"))
