@@ -208,6 +208,15 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # 🔥 DOĞRU ÇAĞRI
         result = await faz13.run_prematch(req)
+        if not isinstance(result, Faz13CoreOutput) or not isinstance(result.meta, dict):
+            raise TypeError("FAZ13 returned an invalid analysis payload")
+        if not result.meta.get("data_quality"):
+            raise ValueError("FAZ13 analysis lacks data-quality provenance")
+
+        # PRE pipeline: FAZ22 risk filter, then FAZ23 signal filter and snapshot.
+        result = context.application.bot_data["faz22"].score_and_finalize(result)
+        result = context.application.bot_data["faz23"].apply_decision(result)
+        await context.application.bot_data["faz23"].record_snapshot(result)
 
         await update.message.reply_text(
             result.render_html(),
