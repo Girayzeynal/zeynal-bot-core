@@ -25,6 +25,18 @@ class NbaCommandTests(unittest.TestCase):
     def test_malformed_game_skipped(self):
         self.assertEqual(select_local_games([{"id": 1}], "2026-11-04"), [])
 
+    def test_invalid_game_identifiers_skipped(self):
+        template = {
+            "date": "2026-11-03T22:30:00Z",
+            "teams": {"home": {"name": "Home"}, "away": {"name": "Away"}},
+            "status": {"short": "NS"},
+        }
+        rows = [{**template, "id": value} for value in (None, "", True, [], {})]
+        self.assertEqual(select_local_games(rows, "2026-11-04"), [])
+
+    def test_invalid_rows_skipped(self):
+        self.assertEqual(select_local_games([None, [], "invalid"], "2026-11-04"), [])
+
 
 if __name__ == "__main__":
     unittest.main()
