@@ -340,9 +340,7 @@ class Faz13Engine:
                 "data_quality": (
                     "MANUAL_BASELINE" if "MANUAL_BASELINE" in home_base.get("sources", [])
                     or "MANUAL_BASELINE" in away_base.get("sources", [])
-                    else "UNVERIFIED_BASELINE" if not home_base.get("sources")
-                    or not away_base.get("sources")
-                    else "VERIFIED_BASELINE"
+                    else "UNVERIFIED_BASELINE"
                 ),
                 "home_baseline_key": h_store.get("baseline_key") if h_store else None,
                 "away_baseline_key": a_store.get("baseline_key") if a_store else None,
@@ -364,6 +362,9 @@ class Faz13Engine:
                 output.meta["input_snapshot"] = seal_prediction_inputs(
                     output, h_store["input_records"], a_store["input_records"])
                 output.meta["input_snapshot_status"] = "CAPTURED"
+                # Source labels and persisted averages alone do not verify the
+                # exact historical rows used by this projection.
+                output.meta["data_quality"] = "VERIFIED_BASELINE"
             except ValueError:
                 pass
         return output

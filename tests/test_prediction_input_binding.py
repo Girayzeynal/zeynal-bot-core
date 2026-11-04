@@ -60,6 +60,7 @@ class PredictionInputBindingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_actual_engine_captures_inputs_and_ledger_reopens_them(self):
         self.assertEqual(self.core.meta["input_snapshot_status"], "CAPTURED")
+        self.assertEqual(self.core.meta["data_quality"], "VERIFIED_BASELINE")
         self.assertTrue((await self.persist())["inserted"])
         reopened = PredictionLedger(self.ledger.db_path)
         stored = reopened.load_prediction_inputs("NBA", "synthetic-target")
@@ -83,6 +84,7 @@ class PredictionInputBindingTests(unittest.IsolatedAsyncioTestCase):
         self.store.put(baseline)
         self.core = await self.engine.run_prematch(self.request)
         self.assertEqual(self.core.meta["input_snapshot_status"], "UNAVAILABLE")
+        self.assertEqual(self.core.meta["data_quality"], "UNVERIFIED_BASELINE")
         with self.assertRaisesRegex(ValueError, "original input snapshot"):
             await self.persist()
         self.assert_no_prediction()
@@ -96,6 +98,7 @@ class PredictionInputBindingTests(unittest.IsolatedAsyncioTestCase):
                     source="SYNTHETIC_TEST_PROVIDER", timestamp_precision="exact")
         self.core = await self.engine.run_prematch(self.request)
         self.assertEqual(self.core.meta["input_snapshot_status"], "CAPTURED")
+        self.assertEqual(self.core.meta["data_quality"], "VERIFIED_BASELINE")
         await self.persist()
         stored = self.ledger.load_prediction_inputs("NBA", "synthetic-target")
         for team in stored["payload"]["teams"].values():
