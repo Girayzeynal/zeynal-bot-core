@@ -6,6 +6,7 @@ This module never fetches or guesses identity, schedule, scores, or probabilitie
 from __future__ import annotations
 
 import math
+import time
 from prediction_ledger import PredictionLedger, PredictionRecord
 from prediction_inputs import canonical_json, validate_prediction_inputs
 
@@ -16,6 +17,7 @@ def record_verified_prematch_projection(
     prediction_utc: int, expected_home: float, expected_away: float,
     scope: str = "FINAL_WITH_OT",
     input_snapshot: dict | None = None,
+    fixture_evidence: dict | None = None,
 ) -> bool:
     """Record one immutable pre-tipoff projection; reject incomplete provenance."""
     if not isinstance(ledger, PredictionLedger):
@@ -23,8 +25,13 @@ def record_verified_prematch_projection(
     for value in (league, fixture_id, provider, provider_fixture_id):
         if not isinstance(value, str) or not value.strip():
             raise ValueError("Nonempty fixture and provider identity required")
-    if provider != "ESPN":
-        raise ValueError("Canonical verified report currently supports ESPN only")
+    if provider not in ("ESPN", "EUROLEAGUE_LIVE"):
+        raise ValueError("Unsupported canonical projection provider")
+    if provider == "EUROLEAGUE_LIVE" and (league != "EUROLEAGUE" or scope != "FINAL_WITH_OT"
+            or input_snapshot is None or fixture_evidence is None or fixture_id != provider_fixture_id):
+        raise ValueError("EuroLeague projections require original inputs and fixture evidence")
+    if provider == "ESPN" and fixture_evidence is not None:
+        raise ValueError("EuroLeague fixture observations cannot be assigned to ESPN")
     if type(tipoff_utc) is not int or type(prediction_utc) is not int:
         raise ValueError("UTC timestamps must be integer epoch seconds")
     if not 0 < prediction_utc < tipoff_utc:
@@ -39,10 +46,18 @@ def record_verified_prematch_projection(
         validate_prediction_inputs(input_snapshot, league=league, prediction_utc=prediction_utc,
             expected_home=expected_home, expected_away=expected_away, scope=scope)
         serialized_inputs = canonical_json(input_snapshot)
+    serialized_fixture = None
+    if fixture_evidence is not None:
+        from providers.euroleague_fixture_evidence import validate_fixture_evidence
+        validate_fixture_evidence(fixture_evidence, fixture_id=fixture_id, tipoff_utc=tipoff_utc,
+                                  prediction_utc=prediction_utc, input_snapshot=input_snapshot)
+        serialized_fixture = canonical_json(fixture_evidence)
     # Prevent partially inserted records on provenance conflict.
     # A single transaction inserts provenance, projection and inputs or none.
     with ledger._connect() as db:
         db.execute("BEGIN IMMEDIATE")
+        if provider == "EUROLEAGUE_LIVE" and int(time.time()) >= tipoff_utc:
+            raise ValueError("EuroLeague fixture has already started; no historical backfill")
         db.execute("""CREATE TABLE IF NOT EXISTS fixture_starts (
             league TEXT NOT NULL, fixture_id TEXT NOT NULL,
             start_ts_utc INTEGER NOT NULL, PRIMARY KEY (league, fixture_id)
@@ -89,6 +104,22 @@ def record_verified_prematch_projection(
                 raise ValueError("Cannot backfill inputs onto an existing prediction")
             if prior_inputs and not prior_prediction:
                 raise ValueError("Orphan prediction input snapshot")
+        if serialized_fixture is not None:
+            prior_fixture = db.execute("SELECT observation_json, observation_sha256 FROM fixture_observations WHERE league=? AND fixture_id=?",
+                                       (league, fixture_id)).fetchone()
+            if prior_prediction and not prior_fixture:
+                raise ValueError("Cannot backfill fixture evidence onto an existing prediction")
+            if prior_fixture:
+                import json
+                previous = json.loads(prior_fixture[0])
+                if not isinstance(previous, dict) or previous.get("sha256") != prior_fixture[1]:
+                    raise ValueError("Stored EuroLeague fixture digest mismatch")
+                validate_fixture_evidence(previous, fixture_id=fixture_id, tipoff_utc=tipoff_utc,
+                                          prediction_utc=prediction_utc, input_snapshot=input_snapshot)
+                old, new = dict(previous["payload"]), dict(fixture_evidence["payload"])
+                old_time, new_time = old.pop("observed_at_utc"), new.pop("observed_at_utc")
+                if not prior_prediction or old != new or new_time < old_time:
+                    raise ValueError("Immutable fixture observation already differs")
         db.execute("INSERT OR IGNORE INTO fixture_starts VALUES (?,?,?)", (league, fixture_id, tipoff_utc))
         db.execute(
             "INSERT OR IGNORE INTO fixture_provenance VALUES (?,?,?,?,?)",
@@ -102,6 +133,9 @@ def record_verified_prematch_projection(
         if serialized_inputs is not None:
             db.execute("INSERT OR IGNORE INTO prediction_inputs VALUES (?,?,?,?)",
                        (league, fixture_id, serialized_inputs, input_snapshot["sha256"]))
+        if serialized_fixture is not None:
+            db.execute("INSERT OR IGNORE INTO fixture_observations VALUES (?,?,?,?)",
+                       (league, fixture_id, serialized_fixture, fixture_evidence["sha256"]))
         return inserted
 
 

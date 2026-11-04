@@ -93,8 +93,10 @@ and `euroleague-rate-limit-20261104.json` in `docs/evidence/`.
 
 ## Remaining work
 
-Recheck ZAL persistence after provider access is available. EuroLeague still
-needs its provider-specific prospective fixture/prediction/result binding;
+Recheck ZAL persistence after provider access is available. EuroLeague
+prospective fixture/prediction binding is now implemented and exercised on a
+separate real upcoming OLY/RED research case; see `euroleague-prediction-binding.md`.
+Provider-specific completed-result binding and evaluation remain outstanding;
 canonical name resolution into the analysis entry point is not enabled by
 this research adapter. Independent possession/source reconciliation and
 empirical calibration remain open. Production registration, deployment,

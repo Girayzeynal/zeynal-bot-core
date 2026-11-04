@@ -1,0 +1,1 @@
+{"status": "accessible_response", "observed_at_utc": 1793814424, "request_diagnostics": [{"endpoint": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games", "outcome": "ok", "http_status": 200, "observed_at_utc": 1793814424}], "interpretation": "transport probe only; not a completed prediction validation"}

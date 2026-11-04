@@ -63,6 +63,11 @@ class PredictionLedger:
                 evidence_json TEXT NOT NULL, evidence_sha256 TEXT NOT NULL,
                 PRIMARY KEY (league, fixture_id)
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS fixture_observations (
+                league TEXT NOT NULL, fixture_id TEXT NOT NULL,
+                observation_json TEXT NOT NULL, observation_sha256 TEXT NOT NULL,
+                PRIMARY KEY (league, fixture_id)
+            )""")
 
     def _connect(self):
         return sqlite3.connect(self.db_path, timeout=10)
@@ -106,6 +111,32 @@ class PredictionLedger:
             else:
                 counts["missing" if snapshot is None else "bound"] += 1
         return counts
+
+    def load_fixture_observation(self, league: str, fixture_id: str):
+        """Replay the original EuroLeague fixture without current provider data."""
+        from providers.euroleague_fixture_evidence import validate_fixture_evidence
+        self._identity(league, fixture_id)
+        with self._connect() as db:
+            observation = db.execute("SELECT observation_json, observation_sha256 FROM fixture_observations WHERE league=? AND fixture_id=?",
+                                     (league, fixture_id)).fetchone()
+            if observation is None:
+                return None
+            row = db.execute("""SELECT p.prediction_ts_utc, p.scope, v.provider,
+                        v.provider_fixture_id, v.start_ts_utc, f.start_ts_utc
+                FROM predictions p JOIN fixture_provenance v ON p.league=v.league AND p.fixture_id=v.fixture_id
+                JOIN fixture_starts f ON p.league=f.league AND p.fixture_id=f.fixture_id
+                WHERE p.league=? AND p.fixture_id=?""", (league, fixture_id)).fetchone()
+        inputs = self.load_prediction_inputs(league, fixture_id)
+        if (league != "EUROLEAGUE" or row is None or inputs is None
+                or row[1] != "FINAL_WITH_OT" or row[2] != "EUROLEAGUE_LIVE"
+                or row[3] != fixture_id or row[4] != row[5]):
+            raise ValueError("Unbound or conflicting EuroLeague fixture observation")
+        result = json.loads(observation[0])
+        if not isinstance(result, dict) or result.get("sha256") != observation[1]:
+            raise ValueError("Stored EuroLeague fixture digest mismatch")
+        validate_fixture_evidence(result, fixture_id=fixture_id, tipoff_utc=row[4],
+                                  prediction_utc=row[0], input_snapshot=inputs)
+        return result
 
     def load_outcome_evidence(self, league: str, fixture_id: str):
         """Replay final-score evidence and bind it to the original prediction inputs."""
