@@ -81,3 +81,37 @@ def record_verified_prematch_projection(
             (league, fixture_id, prediction_utc, float(expected_home), float(expected_away), None, scope),
         )
         return cursor.rowcount == 1
+
+
+def record_faz13_verified_projection(
+    ledger: PredictionLedger, core, *, fixture_id: str,
+    provider_fixture_id: str, tipoff_utc: int,
+    scope: str = "FINAL_WITH_OT",
+) -> bool:
+    """Bridge a verified FAZ13 output without inferring missing score fields.
+
+    Provider fixture identity and tipoff must be independently authenticated.
+    This function is not wired into Telegram handlers until that is available.
+    """
+    meta = getattr(core, "meta", None)
+    ctx = getattr(core, "ctx", None)
+    if not isinstance(meta, dict) or meta.get("data_quality") != "VERIFIED_BASELINE":
+        raise ValueError("FAZ13 baseline provenance is not verified")
+    if ctx is None or not isinstance(getattr(ctx, "league", None), str):
+        raise ValueError("Missing FAZ13 fixture context")
+    generated = meta.get("generated_at")
+    if type(generated) is not int or generated <= 0:
+        raise ValueError("Missing original prediction timestamp")
+    home = meta.get("expected_home")
+    away = meta.get("expected_away")
+    total = meta.get("expected_total")
+    if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in (home, away, total)):
+        raise ValueError("Missing explicit finite FAZ13 score projections")
+    if abs((home + away) - total) > 0.02:
+        raise ValueError("Inconsistent FAZ13 team and total projections")
+    return record_verified_prematch_projection(
+        ledger, league=ctx.league, fixture_id=fixture_id, provider="ESPN",
+        provider_fixture_id=provider_fixture_id, tipoff_utc=tipoff_utc,
+        prediction_utc=generated, expected_home=home, expected_away=away,
+        scope=scope,
+    )
