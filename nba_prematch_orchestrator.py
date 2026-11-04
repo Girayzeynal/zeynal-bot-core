@@ -59,9 +59,17 @@ async def persist_resolved_nba_prematch(
 
     if baseline_store is None:
         raise ValueError("Canonical NBA persistence requires historical game series")
-    for team in (ctx.home, ctx.away):
+    # A point-in-time audit of arbitrary rows does not prove FAZ13 used
+    # those rows. Require an explicit, source-specific binding before writing.
+    for side, team in (("home", ctx.home), ("away", ctx.away)):
+        sources = meta[f"{side}_sources"]
+        if sources != ["TEAM_BASELINE_STORE"]:
+            raise ValueError(f"Unbound {side} baseline source cannot enter canonical ledger")
+        key = meta.get(f"{side}_baseline_key")
+        if not isinstance(key, str) or not key.strip() or key != team:
+            raise ValueError(f"Missing exact {side} baseline key binding")
         audit_prematch_series(
-            baseline_store, league="NBA", team=team,
+            baseline_store, league="NBA", team=key,
             prediction_utc=meta["generated_at"], min_games=6,
         )
     inserted = record_faz13_for_espn_fixture(
