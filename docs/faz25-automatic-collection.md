@@ -112,3 +112,36 @@ the existing date-scoped ESPNScoreboardHistory, with a shared successful-day
 cache per tick and explicit regular-season/final/box-score checks. No provider
 failure becomes an assumed value. A new regression covers missing verified
 finals and missing pace evidence preventing baseline publication.
+
+## Real isolated tick and restore exercise
+
+Clean implementation 9bd8ab4 was exercised against actual ESPN schedule/history.
+The initial date-history tick collected historical evidence but returned KeyError
+for its two collection attempts, without forecasts. A subsequent diagnostic tick
+in a new isolated ledger, reusing the actual preserved baseline evidence, collected
+both real future fixtures 401909922 and 401909923. The diagnostic wrapper only
+printed exceptions and did not alter forecast logic. The earlier KeyError did not
+reproduce; its precise root cause is not established and is not claimed fixed.
+Both incomplete attempts are retained in the evidence report. A regression now
+explicitly confirms missing source fields become retry_pending without forecasts.
+
+Both tipoffs are 1793836800 (2026-11-05 00:00 UTC). Atomic writes occurred at
+1793827475 and 1793827477 respectively, before tipoff. The final research ledger
+contains exactly two predictions, two original input copies and two three-stage
+bundles. A repeat CLI tick did not generate either again and returned
+awaiting_tipoff for both. This does not demonstrate post-final ingestion of
+these future games; zero completed outcomes and null accuracy metrics remain.
+
+The implemented online backup was reopened in a separate SQLite file and the
+FAZ24 evidence-bound report replayed successfully: exactly two prospective
+predictions, zero evaluated outcomes, metrics null. Hash and backup evidence
+are retained in docs/evidence/faz25-live-and-restore-20261104.json. No file was
+uploaded to an external service; this tests local snapshot/restore, not external
+transfer or off-machine disaster recovery. The earlier incomplete research
+ledgers are preserved and must not be summed as independent match samples.
+
+Final validation: all 568 local tests passed (23.010 seconds), compilation and
+diff checks passed. This includes 15 FAZ25 fault/concurrency/backup tests and the
+existing FAZ24 identity, atomicity and chronology cases. Continuous scheduling,
+independent provider redundancy, externally stored backups, post-final real
+collection and measured calibration remain unverified operational gates.

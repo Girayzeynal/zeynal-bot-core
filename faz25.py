@@ -179,7 +179,7 @@ async def run(args):
     if subprocess.check_output(['git','status','--porcelain','--untracked-files=no'],cwd=repo,text=True):
         raise ValueError('clean source checkout required')
     from providers.espn_adapter import ESPNAdapter
-    from baseline.team_baseline_store import TeamBaselineStore,TeamBaselineBootstrapper
+    from baseline.team_baseline_store import TeamBaselineStore
     from faz13_engine import Faz13Engine,PrematchRequest
     from faz23_engine import Faz23Engine
     from faz24 import collect

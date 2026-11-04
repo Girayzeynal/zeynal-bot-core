@@ -131,3 +131,11 @@ class Faz25Tests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(BaselineUnavailable):
             await refresh_baseline(adapter,history,store,'BOS','2')
         store.put.assert_not_called()
+
+    async def test_missing_source_field_is_retryable_without_prediction(self):
+        self.collect.side_effect=KeyError('status')
+        result=await self.tick()
+        self.assertEqual(result['actions'][0]['error_type'],'KeyError')
+        self.assertEqual(result['actions'][0]['status'],'retry_pending')
+        with self.poller.ledger._connect() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM predictions').fetchone()[0],0)
