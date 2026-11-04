@@ -37,8 +37,27 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
                       generated_at=self.tipoff - 120,
                       expected_home=110.0, expected_away=105.0,
                       expected_total=215.0,
-                      home_sources=["ESPN"], away_sources=["ESPN"],
+                      home_sources=["TEAM_BASELINE_STORE"], away_sources=["TEAM_BASELINE_STORE"],
+                      home_baseline_key="Home", away_baseline_key="Away",
                       home_baseline_games=10, away_baseline_games=10))
+
+    async def test_wrong_baseline_binding_rejected_without_write(self):
+        self.core.meta["home_baseline_key"] = "Other"
+        with self.assertRaisesRegex(ValueError, "baseline key binding"):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                baseline_store=self.series_store,
+                observed_at_utc=self.tipoff - 60)
+        with self.ledger._connect() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM predictions").fetchone()[0], 0)
+
+    async def test_unbound_source_rejected(self):
+        self.core.meta["away_sources"] = ["ESPN_LAST5"]
+        with self.assertRaisesRegex(ValueError, "Unbound away"):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                baseline_store=self.series_store,
+                observed_at_utc=self.tipoff - 60)
 
     async def test_missing_series_store_rejected(self):
         with self.assertRaisesRegex(ValueError, "historical game series"):
