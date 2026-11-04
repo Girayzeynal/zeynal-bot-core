@@ -6,11 +6,13 @@ fixture identity are checked before the immutable ledger is touched.
 from datetime import datetime, timezone
 
 from prematch_ledger_bridge import record_faz13_for_espn_fixture
+from prematch_series_audit import audit_prematch_series
 from providers.espn_turkey_fixture_lookup import resolve_named_nba_fixture_for_turkey_date
 
 
 async def persist_resolved_nba_prematch(
-    *, adapter, ledger, core, observed_at_utc: int | None = None,
+    *, adapter, ledger, core, baseline_store=None,
+    observed_at_utc: int | None = None,
 ) -> dict:
     """Resolve ESPN identity and persist only a genuine pre-tipoff FAZ13 output.
 
@@ -55,6 +57,13 @@ async def persist_resolved_nba_prematch(
                 or type(games) is not int or games < 6):
             raise ValueError(f"Missing auditable {side} baseline source/sample metadata")
 
+    if baseline_store is None:
+        raise ValueError("Canonical NBA persistence requires historical game series")
+    for team in (ctx.home, ctx.away):
+        audit_prematch_series(
+            baseline_store, league="NBA", team=team,
+            prediction_utc=meta["generated_at"], min_games=6,
+        )
     inserted = record_faz13_for_espn_fixture(
         ledger, core, fixture, resolved_home_team_id=home_id,
         resolved_away_team_id=away_id)
