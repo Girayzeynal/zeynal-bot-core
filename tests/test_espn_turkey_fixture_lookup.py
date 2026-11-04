@@ -77,6 +77,16 @@ class TurkeyFixtureLookupTests(unittest.IsolatedAsyncioTestCase):
             await resolve_named_nba_fixture_for_turkey_date(
                 self.adapter, "2026-11-04", home="Away", away="Home")
 
+    async def test_cross_date_duplicate_id_with_other_teams_fails_closed(self):
+        tipoff = int(datetime(2026, 11, 4, 1, 30, tzinfo=timezone.utc).timestamp())
+        self.adapter.fetch_scheduled_nba_scoreboard_date.side_effect = [
+            [fixture("espn-1", tipoff, "1", "2")],
+            [fixture("espn-1", tipoff, "3", "4")],
+        ]
+        with self.assertRaisesRegex(ValueError, "Conflicting ESPN fixture identity"):
+            await resolve_nba_fixture_for_turkey_date(
+                self.adapter, "2026-11-04", home_team_id="1", away_team_id="2")
+
     async def test_provider_failure_propagates(self):
         self.adapter.fetch_scheduled_nba_scoreboard_date.side_effect = RuntimeError("offline")
         with self.assertRaises(RuntimeError):
