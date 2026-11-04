@@ -2,6 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import json
+import math
 import sqlite3
 import time
 from typing import Any, Dict, List, Optional
@@ -144,15 +145,22 @@ class Faz23Engine:
         meta = core.meta
         notes: List[str] = []
 
-        confidence = float(meta.get("confidence_pct", 0.0))
+        # FAZ22 owns confidence adjustment, locks and segment thresholds. Reading
+        # raw FAZ13 confidence here would silently undo those decisions.
+        confidence = self._positive_number(meta.get("final_confidence"))
         risk = meta.get("risk")
-        uncertainty = meta.get("uncertainty_level", "YÜKSEK")
+        uncertainty = meta.get("uncertainty_level")
+        upstream = meta.get("strong_signals")
 
         # Global filtre
         if (
-            confidence < self.MIN_CONFIDENCE
-            or risk == "HIGH"
-            or uncertainty == "YÜKSEK"
+            confidence is None or not self.MIN_CONFIDENCE <= confidence <= 100
+            or meta.get("confidence_lock") is not False
+            or meta.get("analysis_status") != "STRONG_SIGNAL"
+            or meta.get("force_enabled") is True
+            or risk not in ("LOW", "MEDIUM")
+            or uncertainty not in ("DÜŞÜK", "ORTA")
+            or not isinstance(upstream, list)
         ):
             notes.append("📉 Güçlü bir istatistiksel sinyal oluşmadı.")
             notes.append("Bu karşılaşma analiz kapsamında izleme listesindedir.")
@@ -163,6 +171,23 @@ class Faz23Engine:
 
         strong_signals: List[str] = []
 
+        # A lower FAZ23 edge threshold must never resurrect a segment rejected
+        # by FAZ22's simulation-dependent threshold. Reconcile its numeric input
+        # too, so stale segment approvals cannot authorize changed projections.
+        def approved(segment, expected_key, market_key):
+            expected = self._positive_number(meta.get(expected_key))
+            market = self._positive_number(meta.get(market_key))
+            if expected is None or market is None:
+                return False
+            return any(
+                isinstance(signal, dict) and signal.get("segment") == segment
+                and self._positive_number(signal.get("expected")) is not None
+                and self._positive_number(signal.get("market")) is not None
+                and abs(signal["expected"] - expected) <= 0.011
+                and abs(signal["market"] - market) <= 0.011
+                for signal in upstream
+            )
+
         # -------------------------
         # 1. İLK YARI
         # -------------------------
@@ -171,7 +196,7 @@ class Faz23Engine:
             market=meta.get("market_1h"),
             label="İLK YARI",
             notes=notes,
-        )
+        ) if approved("1Y", "expected_1h", "market_1h") else None
         if strong_1h:
             strong_signals.append(strong_1h)
 
@@ -183,7 +208,7 @@ class Faz23Engine:
             market=meta.get("market_2h"),
             label="İKİNCİ YARI",
             notes=notes,
-        )
+        ) if approved("2Y", "expected_2h", "market_2h") else None
         if strong_2h:
             strong_signals.append(strong_2h)
 
@@ -195,7 +220,7 @@ class Faz23Engine:
             market=meta.get("market_total"),
             label="MAÇ SONU",
             notes=notes,
-        )
+        ) if approved("MS", "expected_total", "market_total") else None
         if strong_ms:
             strong_signals.append(strong_ms)
 
@@ -218,6 +243,15 @@ class Faz23Engine:
     # -------------------------------------------------
     # SIDE CHECK
     # -------------------------------------------------
+    @staticmethod
+    def _positive_number(value: Any) -> Optional[float]:
+        if type(value) not in (int, float):
+            return None
+        try:
+            return float(value) if math.isfinite(value) and value > 0 else None
+        except OverflowError:
+            return None
+
     def _check_side(
         self,
         expected: Optional[float],
@@ -225,10 +259,14 @@ class Faz23Engine:
         label: str,
         notes: List[str],
     ) -> Optional[str]:
+        expected = self._positive_number(expected)
+        market = self._positive_number(market)
         if expected is None or market is None:
             return None
 
         diff = expected - market
+        if not math.isfinite(diff):
+            return None
 
         if diff >= self.MIN_EDGE:
             notes.append(f"{label}: İstatistik {expected:.1f}, Market {market:.1f} → ÜST yönü güçlü.")
