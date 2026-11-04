@@ -325,6 +325,8 @@ class Faz13Engine:
                 "data_quality": (
                     "MANUAL_BASELINE" if "MANUAL_BASELINE" in home_base.get("sources", [])
                     or "MANUAL_BASELINE" in away_base.get("sources", [])
+                    else "UNVERIFIED_BASELINE" if not home_base.get("sources")
+                    or not away_base.get("sources")
                     else "VERIFIED_BASELINE"
                 ),
                 "home_sources": list(home_base.get("sources", [])),
