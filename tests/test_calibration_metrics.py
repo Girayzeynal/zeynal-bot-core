@@ -14,7 +14,7 @@ def snap(key, ts, expected, quality="VERIFIED_BASELINE"):
 
 def final(start, home, away):
     return {"start_utc": start, "home_score": home, "away_score": away,
-            "status": "FINAL", "2026-11-04:verified:Away:NBA": True}
+            "status": "FINAL", "verified": True}
 
 
 class CalibrationMetricsTests(unittest.TestCase):
@@ -38,7 +38,7 @@ class CalibrationMetricsTests(unittest.TestCase):
         ]
         results = {
             "2026-11-04:a:Away:NBA": final(200, 100, 100),
-            "2026-11-04:b:Away:NBA": {**final(200, 100, 100), "2026-11-04:verified:Away:NBA": False},
+            "2026-11-04:b:Away:NBA": {**final(200, 100, 100), "verified": False},
             "2026-11-04:c:Away:NBA": final(200, 100, 100),
             "2026-11-04:d:Away:NBA": final(200, -1, 100),
             "2026-11-04:e:Away:NBA": final(200, 100, 100),
