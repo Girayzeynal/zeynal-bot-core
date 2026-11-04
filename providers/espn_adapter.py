@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 
 from providers.espn_completed_event import parse_completed_nba_event
+from providers.espn_boxscore_pace import estimate_pace_from_summary
 
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba"
@@ -310,6 +311,14 @@ class ESPNAdapter:
     # -------------------------------------------------
     # FETCH RECENT GAMES (PROD SAFE)
     # -------------------------------------------------
+    async def fetch_pace_evidence(self, game: dict, now_utc=None) -> Optional[dict]:
+        """Fetch actual team totals and derive a labeled, auditable estimate."""
+        fixture_id = game.get("provider_fixture_id") if isinstance(game, dict) else None
+        if not isinstance(fixture_id, str) or not fixture_id.isascii() or not fixture_id.isdigit():
+            return None
+        payload = await self._get_json(f"{ESPN_BASE}/summary?event={fixture_id}")
+        return estimate_pace_from_summary(payload, game, now_utc)
+
     async def fetch_team_recent_games(
         self, league: str, team: str, n_games: int
     ) -> Optional[List[Dict[str, Any]]]:
