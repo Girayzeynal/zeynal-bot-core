@@ -8,6 +8,7 @@ from dataclasses import asdict
 from historical_backtest import HistoricalPrediction, evaluate_predictions
 from prediction_ledger import PredictionLedger
 from walk_forward_calibration import evaluate_walk_forward
+from bound_error_uncertainty import describe_error_uncertainty
 
 
 def report_bound(db_path, league="NBA"):
@@ -74,4 +75,5 @@ def report_bound(db_path, league="NBA"):
                 sample_size_assessment=("no_verified_sample" if not records else
                                         "small_sample" if len(records) < 30 else "descriptive_sample_only"),
                 calibration_status="NOT_ESTABLISHED",
-                walk_forward=evaluate_walk_forward(records))
+                walk_forward=evaluate_walk_forward(records),
+                error_uncertainty=describe_error_uncertainty(records))
