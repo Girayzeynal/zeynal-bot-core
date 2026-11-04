@@ -63,6 +63,27 @@ class PrematchSeriesAuditTests(unittest.TestCase):
                 Store([game(i, source="MANUAL_BASELINE") for i in range(1, 7)]),
                 league="NBA", team="ABC", prediction_utc=10)
 
+    def test_same_start_with_distinct_provider_ids_rejected(self):
+        rows = [game(i) for i in range(1,7)]
+        rows[-1].ts_utc = rows[0].ts_utc
+        with self.assertRaisesRegex(ValueError, "same-team fixture start"):
+            audit_prematch_series(Store(rows), league="NBA", team="ABC", prediction_utc=10)
+
+    def test_cross_provider_start_collision_does_not_need_store_checker(self):
+        class PlainStore:
+            def get_series(self, league, team, n_games):
+                return rows
+        rows = [game(i) for i in range(1,7)]
+        rows[-1].source = "OTHER_LEGACY_SOURCE"
+        rows[-1].ts_utc = rows[0].ts_utc
+        with self.assertRaisesRegex(ValueError, "same-team fixture start"):
+            audit_prematch_series(PlainStore(), league="NBA", team="ABC", prediction_utc=10)
+
+    def test_ineligible_future_start_does_not_inflate_count(self):
+        rows = [game(i) for i in range(1,7)] + [game(7, ts=10), game(8, ts=10)]
+        report = audit_prematch_series(Store(rows), league="NBA", team="ABC", prediction_utc=10)
+        self.assertEqual(report["eligible_games"], 6)
+
 
 if __name__ == "__main__":
     unittest.main()

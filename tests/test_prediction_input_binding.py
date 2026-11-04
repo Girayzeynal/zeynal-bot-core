@@ -171,6 +171,15 @@ class PredictionInputBindingTests(unittest.IsolatedAsyncioTestCase):
             self.ledger.load_prediction_inputs("NBA", "synthetic-target")
         self.assertEqual(self.ledger.audit_prediction_inputs("NBA")["invalid"], 1)
 
+    async def test_rehashed_same_start_collision_cannot_enter_ledger(self):
+        snapshot = self.core.meta["input_snapshot"]
+        rows = snapshot["payload"]["teams"]["home"]["records"]
+        rows[-1]["ts_utc"] = rows[0]["ts_utc"]
+        snapshot["sha256"] = digest(snapshot["payload"])
+        with self.assertRaisesRegex(ValueError, "same-team fixture start"):
+            await self.persist()
+        self.assert_no_prediction()
+
 
 if __name__ == "__main__":
     unittest.main()

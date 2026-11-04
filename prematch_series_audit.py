@@ -30,6 +30,7 @@ def audit_prematch_series(
         raise ValueError("Insufficient recorded game evidence")
     validate_series_scope(records)
     identities = set()
+    starts = set()
     eligible = []
     for row in records:
         ts = getattr(row, "ts_utc", None)
@@ -48,6 +49,12 @@ def audit_prematch_series(
         if identity in identities:
             raise ValueError("Duplicate provider game identity")
         identities.add(identity)
+        # One team cannot play two distinct games at the same exact instant.
+        # Enforce this for all stores, including frozen input-copy replay;
+        # provider IDs alone cannot disambiguate such conflicting observations.
+        if ts in starts:
+            raise ValueError("Ambiguous same-team fixture start")
+        starts.add(ts)
         eligible.append(row)
     if len(eligible) < min_games:
         raise ValueError("Insufficient pre-prediction exact-time game evidence")
