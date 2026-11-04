@@ -103,6 +103,40 @@ class Faz23Engine:
             for row in rows
         ]
 
+    def prematch_snapshots_for_calibration(
+        self, fixture_start_utc: Dict[str, int]
+    ) -> List[Dict[str, Any]]:
+        """One latest strictly pre-tipoff snapshot per fixture, fail closed.
+
+        Caller must supply verified UTC Unix tipoff seconds keyed by fixture_key.
+        Unknown fixtures and snapshots at/after tipoff are excluded. This method
+        does not validate actual scores or calculate calibration metrics.
+        """
+        if not isinstance(fixture_start_utc, dict):
+            raise TypeError("Verified fixture start times must be a dictionary")
+        for key, start in fixture_start_utc.items():
+            if not isinstance(key, str) or not key or type(start) is not int or start <= 0:
+                raise ValueError("Invalid fixture key or UTC start timestamp")
+        if not fixture_start_utc:
+            return []
+        con = sqlite3.connect(self.path)
+        try:
+            rows = con.execute(
+                "SELECT id, ts, fixture_key, payload FROM snapshots ORDER BY id"
+            ).fetchall()
+        finally:
+            con.close()
+        selected: Dict[str, Dict[str, Any]] = {}
+        for snapshot_id, ts, fixture_key, payload in rows:
+            start = fixture_start_utc.get(fixture_key)
+            if start is None or ts >= start:
+                continue
+            selected[fixture_key] = {
+                "id": snapshot_id, "ts": ts, "fixture_key": fixture_key,
+                "payload": json.loads(payload),
+            }
+        return sorted(selected.values(), key=lambda item: item["id"])
+
     # -------------------------------------------------
     # CORE DECISION
     # -------------------------------------------------
