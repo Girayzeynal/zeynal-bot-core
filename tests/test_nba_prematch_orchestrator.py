@@ -1,0 +1,63 @@
+import os
+import tempfile
+import unittest
+from datetime import datetime, timezone
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+from prediction_ledger import PredictionLedger
+from providers.espn_adapter import ESPNAdapter
+from nba_prematch_orchestrator import persist_resolved_nba_prematch
+
+
+class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.ledger = PredictionLedger(os.path.join(tmp.name, "ledger.sqlite"))
+        self.adapter = ESPNAdapter()
+        self.adapter.resolve_team = AsyncMock(side_effect=[
+            {"id": "1"}, {"id": "2"}])
+        self.tipoff = int(datetime(2026, 11, 4, 1, 30, tzinfo=timezone.utc).timestamp())
+        self.adapter.fetch_scheduled_nba_scoreboard_date = AsyncMock(
+            return_value=[dict(provider="ESPN", provider_fixture_id="espn-1",
+                               home_team_id="1", away_team_id="2",
+                               start_ts_utc=self.tipoff)])
+        self.core = SimpleNamespace(
+            ctx=SimpleNamespace(league="NBA", date="2026-11-04",
+                                home="Home", away="Away"),
+            meta=dict(data_quality="VERIFIED_BASELINE",
+                      generated_at=self.tipoff - 120,
+                      expected_home=110.0, expected_away=105.0,
+                      expected_total=215.0))
+
+    async def test_valid_identity_persists(self):
+        result = await persist_resolved_nba_prematch(
+            adapter=self.adapter, ledger=self.ledger, core=self.core,
+            observed_at_utc=self.tipoff - 60)
+        self.assertTrue(result["inserted"])
+        self.assertEqual(result["fixture"]["provider_fixture_id"], "espn-1")
+
+    async def test_post_tipoff_observation_rejected(self):
+        with self.assertRaises(ValueError):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                observed_at_utc=self.tipoff)
+
+    async def test_future_dated_prediction_rejected(self):
+        self.core.meta["generated_at"] = self.tipoff - 30
+        with self.assertRaises(ValueError):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                observed_at_utc=self.tipoff - 60)
+
+    async def test_manual_baseline_rejected(self):
+        self.core.meta["data_quality"] = "MANUAL_BASELINE"
+        with self.assertRaises(ValueError):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                observed_at_utc=self.tipoff - 60)
+
+
+if __name__ == "__main__":
+    unittest.main()
