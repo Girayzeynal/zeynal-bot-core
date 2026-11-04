@@ -4,7 +4,7 @@ import unittest
 from types import SimpleNamespace
 
 from prediction_ledger import PredictionLedger
-from prematch_ledger_bridge import record_verified_prematch_projection, record_faz13_verified_projection
+from prematch_ledger_bridge import record_verified_prematch_projection, record_faz13_verified_projection, record_faz13_for_espn_fixture
 
 
 class PrematchLedgerBridgeTests(unittest.TestCase):
@@ -76,6 +76,37 @@ class PrematchLedgerBridgeTests(unittest.TestCase):
             record_faz13_verified_projection(self.ledger, core, **args)
         with self.ledger._connect() as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM predictions").fetchone()[0], 0)
+
+    def test_espn_fixture_bridge_rejects_swapped_teams(self):
+        core = SimpleNamespace(ctx=SimpleNamespace(league="NBA"), meta={
+            "data_quality": "VERIFIED_BASELINE", "generated_at": 100,
+            "expected_home": 110.0, "expected_away": 105.0,
+            "expected_total": 215.0,
+        })
+        fixture = dict(provider="ESPN", provider_fixture_id="espn-1",
+                       start_ts_utc=200, home_team_id="1", away_team_id="2")
+        with self.assertRaises(ValueError):
+            record_faz13_for_espn_fixture(
+                self.ledger, core, fixture,
+                resolved_home_team_id="2", resolved_away_team_id="1")
+        with self.ledger._connect() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM predictions").fetchone()[0], 0)
+        self.assertTrue(record_faz13_for_espn_fixture(
+            self.ledger, core, fixture,
+            resolved_home_team_id="1", resolved_away_team_id="2"))
+
+    def test_espn_fixture_bridge_rejects_non_nba_context(self):
+        core = SimpleNamespace(ctx=SimpleNamespace(league="EuroLeague"), meta={
+            "data_quality": "VERIFIED_BASELINE", "generated_at": 100,
+            "expected_home": 80.0, "expected_away": 79.0,
+            "expected_total": 159.0,
+        })
+        fixture = dict(provider="ESPN", provider_fixture_id="espn-1",
+                       start_ts_utc=200, home_team_id="1", away_team_id="2")
+        with self.assertRaises(ValueError):
+            record_faz13_for_espn_fixture(
+                self.ledger, core, fixture,
+                resolved_home_team_id="1", resolved_away_team_id="2")
 
     def test_rejects_unverified_provider(self):
         with self.assertRaises(ValueError):
