@@ -28,7 +28,11 @@ class ESPNAdapter:
     - TeamBaselineBootstrapper sözleşmesine %100 uyum
     """
 
-    def __init__(self, session: Optional[aiohttp.ClientSession] = None) -> None:
+    def __init__(self, session: Optional[aiohttp.ClientSession] = None, *,
+                 allow_estimated_pace: bool = False) -> None:
+        if type(allow_estimated_pace) is not bool:
+            raise ValueError("allow_estimated_pace must be an explicit boolean")
+        self.allow_estimated_pace = allow_estimated_pace
         self._session = session
         self._owns_session = session is None
         self._teams_cache: Optional[List[Dict[str, Any]]] = None
@@ -322,67 +326,37 @@ class ESPNAdapter:
     async def fetch_team_recent_games(
         self, league: str, team: str, n_games: int
     ) -> Optional[List[Dict[str, Any]]]:
-        """
-        Dönen format TeamBaselineBootstrapper ile uyumlu:
-        {
-            ts_utc, pts_for, pts_against, pace, home
-        }
-        """
+        """Return score history; estimated pace requires an explicit opt-in.
 
+        Score-only records have pace=None, so the baseline bootstrapper rejects
+        them. Derived rows retain fixture identity and the estimation method.
+        There is no constant/league-average fallback.
+        """
         if (league or "").upper().strip() != "NBA":
             return None
-
+        if type(n_games) is not int or not 1 <= n_games <= 100:
+            raise ValueError("n_games must be an integer from 1 to 100")
         ref = await self.resolve_team(team)
         if not ref:
-            logger.info("[ESPN-DIAG] stage=resolve league=NBA team=%s outcome=unresolved", team)
             return None
-
         team_id = ref["id"]
-        url = f"{ESPN_BASE}/teams/{team_id}/schedule"
-
-        js = await self._get_json(url)
-        if not js:
-            logger.info("[ESPN-DIAG] stage=schedule team=%s outcome=empty_or_http_error", ref["abbr"])
-            return None
-
-        events = js.get("events")
-        if not isinstance(events, list):
-            logger.info("[ESPN-DIAG] stage=schedule team=%s outcome=events_not_list", ref["abbr"])
-            return None
-        logger.info("[ESPN-DIAG] stage=schedule team=%s raw_events=%d", ref["abbr"], len(events))
-
-        # Use the shared strict completed-event parser. ESPN finals typically
-        # use state=post with completed=true; never accept scheduled/live games.
-        completed: List[Dict[str, Any]] = []
-        for ev in events:
-            parsed = parse_completed_nba_event(ev)
-            if parsed is None:
-                continue
-            if team_id not in (parsed["home_team_id"], parsed["away_team_id"]):
-                continue
-            completed.append(parsed)
-
-        logger.info("[ESPN-DIAG] stage=completed team=%s completed_events=%d", ref["abbr"], len(completed))
-        if not completed:
-            return None
-
-        completed.sort(key=lambda ev: (ev["start_ts_utc"], ev["provider_fixture_id"]))
-        completed = completed[-int(n_games):]
-
+        completed = await self.fetch_completed_nba_events(team, n_games)
         out: List[Dict[str, Any]] = []
         for ev in completed:
             is_home = ev["home_team_id"] == team_id
             pf = ev["actual_home"] if is_home else ev["actual_away"]
             pa = ev["actual_away"] if is_home else ev["actual_home"]
-            # Neutral placeholder; scores do not measure possessions.
-            pace = 100.0
+            evidence = await self.fetch_pace_evidence(ev) if self.allow_estimated_pace else None
             out.append({
                 "ts_utc": ev["start_ts_utc"],
                 "pts_for": float(pf),
                 "pts_against": float(pa),
-                "pace": pace,
+                "pace": evidence["pace"] if evidence else None,
+                "pace_kind": evidence["kind"] if evidence else "UNAVAILABLE",
+                "pace_evidence": evidence,
                 "home": is_home,
+                "game_id": ev["provider_fixture_id"],
+                "source": evidence["method"] if evidence else "ESPN_SCOREBOARD",
+                "timestamp_precision": "exact",
             })
-
-        logger.info("[ESPN-DIAG] stage=parsed team=%s usable_games=%d selected_completed=%d", ref["abbr"], len(out), len(completed))
-        return out if out else None 
+        return out if out else None

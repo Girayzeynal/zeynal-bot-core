@@ -57,3 +57,27 @@ accuracy and walk-forward calibration remain unestablished.
 
 GitHub CI for prior commit `0b9ca4f`, run 41863468012, was still queued for both
 `unit-tests` and `docker-build` when checked before this work.
+
+## Subsequent module: baseline adapter
+
+The old `fetch_team_recent_games` path supplied a constant `100.0` even when
+no possession data existed. It now returns `pace=None` by default; an integration
+test confirms that the real baseline bootstrapper writes no such score-only
+records. It also uses the shared completed-event reader to exclude conflicting
+duplicates and preserves source fixture ID and exact timestamp precision.
+
+Research callers may explicitly construct
+`ESPNAdapter(allow_estimated_pace=True)`. Each accepted summary then supplies
+the derived pace, `BOX_SCORE_ESTIMATE` kind, raw calculation inputs and method
+as its source. Missing summaries still return no pace. Production construction
+does not enable this option. Five additional regressions verify default gating,
+explicit adoption, missing evidence, invalid options and baseline-store refusal.
+Full local suite after this integration: **373 passing tests**, compilation and
+`git diff --check` clean.
+
+The next unresolved gate is durable point-in-time evidence retention: the
+baseline store retains a source/method and fixture ID, but does not yet persist
+the full box-score evidence alongside every game. Enabling estimated pace for
+production or verified calibration requires that evidence binding, a comparison
+against independently counted possessions, and a prospective prediction sample.
+No existing baseline files were rewritten or silently relabeled.
