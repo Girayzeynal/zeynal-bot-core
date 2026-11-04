@@ -74,6 +74,8 @@ Source authentication still relies on the trusted adapter endpoint and caller;
 timestamps/digests are local assertions, not third-party signatures. This work
 does not establish independent possession accuracy. The prospective research
 record needs an authentic completed result with matching fixture ID, timing and
-scoring scope before it may enter evaluation. One evaluated match would still
-be insufficient to establish calibration. Multi-league provider integration and
-empirical model calibration remain open.
+scoring scope before it may enter evaluation. The collection and strict
+evaluation path is now implemented in `bound-result-evaluation.md`; the real
+fixture was still awaiting tipoff during its first check. One evaluated match
+would still be insufficient to establish calibration. Multi-league provider
+integration and empirical model calibration remain open.

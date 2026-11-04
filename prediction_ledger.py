@@ -58,6 +58,11 @@ class PredictionLedger:
                 snapshot_json TEXT NOT NULL, snapshot_sha256 TEXT NOT NULL,
                 PRIMARY KEY (league, fixture_id)
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS outcome_evidence (
+                league TEXT NOT NULL, fixture_id TEXT NOT NULL,
+                evidence_json TEXT NOT NULL, evidence_sha256 TEXT NOT NULL,
+                PRIMARY KEY (league, fixture_id)
+            )""")
 
     def _connect(self):
         return sqlite3.connect(self.db_path, timeout=10)
@@ -101,6 +106,39 @@ class PredictionLedger:
             else:
                 counts["missing" if snapshot is None else "bound"] += 1
         return counts
+
+    def load_outcome_evidence(self, league: str, fixture_id: str):
+        """Replay final-score evidence and bind it to the original prediction inputs."""
+        from providers.espn_result_evidence import validate_result_evidence
+        self._identity(league, fixture_id)
+        with self._connect() as db:
+            evidence = db.execute("SELECT evidence_json, evidence_sha256 FROM outcome_evidence WHERE league=? AND fixture_id=?",
+                                  (league, fixture_id)).fetchone()
+            if evidence is None:
+                return None
+            outcome = db.execute("SELECT result_ts_utc, actual_home, actual_away, scope FROM outcomes WHERE league=? AND fixture_id=?",
+                                 (league, fixture_id)).fetchone()
+            source = db.execute("""SELECT v.provider, v.provider_fixture_id, v.start_ts_utc, f.start_ts_utc
+                FROM fixture_provenance v JOIN fixture_starts f
+                ON v.league=f.league AND v.fixture_id=f.fixture_id
+                WHERE v.league=? AND v.fixture_id=?""", (league, fixture_id)).fetchone()
+        inputs = self.load_prediction_inputs(league, fixture_id)
+        if outcome is None or inputs is None or source is None or league != "NBA":
+            raise ValueError("Orphan or unbound result evidence")
+        result = json.loads(evidence[0])
+        if not isinstance(result, dict) or result.get("sha256") != evidence[1]:
+            raise ValueError("Stored result evidence digest mismatch")
+        try:
+            event = result["snapshot"]["event"]
+            if (inputs["payload"]["scope"] != "FINAL_WITH_OT"
+                    or outcome[1:] != (event["actual_home"], event["actual_away"], "FINAL_WITH_OT")
+                    or source != ("ESPN", event["provider_fixture_id"], event["start_ts_utc"], event["start_ts_utc"])
+                    or not inputs["payload"]["prediction_ts_utc"] < event["start_ts_utc"] < outcome[0]):
+                raise ValueError("Stored result conflicts with fixture or prediction")
+        except (KeyError, TypeError, AttributeError) as exc:
+            raise ValueError("Malformed stored result observation") from exc
+        validate_result_evidence(result, event, outcome[0], inputs["sha256"])
+        return result
 
     @staticmethod
     def _identity(league: str, fixture_id: str):

@@ -8,12 +8,15 @@ import sqlite3
 import tempfile
 
 from verified_backtest_report import report
+from bound_backtest_report import report_bound
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("database", help="Existing SQLite prediction ledger (never created)")
     parser.add_argument("--league", default="NBA")
+    parser.add_argument("--require-bound-evidence", action="store_true",
+                        help="Require original input copies and replayable final-score observations")
     args = parser.parse_args(argv)
     if not os.path.isfile(args.database):
         print(json.dumps({"status": "error", "reason": "database_not_found"}))
@@ -34,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
             with sqlite3.connect(uri, uri=True) as source:
                 with sqlite3.connect(snapshot) as target:
                     source.backup(target)
-            result = report(snapshot, args.league)
+            result = (report_bound if args.require_bound_evidence else report)(snapshot, args.league)
     except (sqlite3.Error, OSError, ValueError, RuntimeError) as exc:
         print(json.dumps({"status": "error", "error_type": type(exc).__name__}))
         return 1
