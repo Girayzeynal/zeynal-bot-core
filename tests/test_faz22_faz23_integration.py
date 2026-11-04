@@ -16,7 +16,7 @@ class DecisionIntegrationTests(unittest.TestCase):
         self.engine = Faz23Engine(str(Path(self.folder.name) / "snapshots.sqlite"))
 
     def core(self, **overrides):
-        meta = dict(confidence_pct=90.0, risk="LOW", uncertainty_level="DÜŞÜK",
+        meta = dict(data_quality="VERIFIED_BASELINE", confidence_pct=90.0, risk="LOW", uncertainty_level="DÜŞÜK",
                     expected_total=230.0, market_total=210.0,
                     edge_flag="STRONG_EDGE", sim_std=12.0)
         meta.update(overrides)
@@ -71,6 +71,30 @@ class DecisionIntegrationTests(unittest.TestCase):
         self.assertEqual([s["segment"] for s in core.meta["strong_signals"]], ["MS"])
         self.assertEqual(self.engine.apply_decision(core).meta["strong_signals"],
                          ["MAÇ SONU ÜST"])
+
+    def test_unverified_baseline_cannot_generate_signals_even_with_overrides(self):
+        for quality in (None, "", "MANUAL_BASELINE", "UNVERIFIED_BASELINE", True):
+            for overrides in ({}, {"live_edge_flag": "LIVE_EDGE"},
+                              {"force": dict(direction="OVER", total=250, confidence=100)}):
+                with self.subTest(quality=quality, overrides=overrides):
+                    core = Faz22Engine().score_and_finalize(self.core(data_quality=quality, **overrides))
+                    self.assertEqual(core.meta["lock_reason"], "BASELINE_NOT_VERIFIED")
+                    self.assertTrue(core.meta["confidence_lock"])
+                    self.assertEqual(core.meta["strong_signals"], [])
+                    self.assertEqual(core.meta["expected_total"], 230)
+                    self.assert_blocked(core)
+
+    def test_faz23_rechecks_quality_after_upstream_approval(self):
+        for quality in (None, "MANUAL_BASELINE", "UNVERIFIED_BASELINE"):
+            core = Faz22Engine().score_and_finalize(self.core())
+            core.meta["data_quality"] = quality
+            self.assert_blocked(core)
+
+    def test_confidence_label_is_preserved_without_calibration_claim(self):
+        core = Faz22Engine().score_and_finalize(self.core(calibration_status="CALIBRATED"))
+        result = self.engine.apply_decision(core)
+        self.assertEqual(result.meta["calibration_status"], "NOT_ESTABLISHED")
+        self.assertEqual(result.meta["confidence_interpretation"], "HEURISTIC_SCORE_NOT_WIN_PROBABILITY")
 
 
 if __name__ == "__main__":

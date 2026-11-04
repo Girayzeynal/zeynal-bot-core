@@ -195,6 +195,18 @@ class Faz22Engine:
 
         profile = get_league_profile(str(league or meta.get("league") or "EUROLEAGUE"))
         meta["league_profile"] = profile.name
+        meta["calibration_status"] = "NOT_ESTABLISHED"
+        meta["confidence_interpretation"] = "HEURISTIC_SCORE_NOT_WIN_PROBABILITY"
+        # Manual/unknown baseline quality cannot be promoted by live or force
+        # overrides. Calculated projections remain available for exploration.
+        if meta.get("data_quality") != "VERIFIED_BASELINE":
+            meta.update(analysis_status="NO_STRONG_SIGNAL", confidence_lock=True,
+                        lock_reason="BASELINE_NOT_VERIFIED", final_confidence=0.0,
+                        strong_signals=[], force_enabled=False,
+                        decision_phase="LIVE" if meta.get("live_edge_flag") else "PRE")
+            core.meta = meta
+            core.notes = ["⚠️ Temel veri doğrulanmadı; güçlü sinyal üretimi kilitli."]
+            return core
 
         # -------------------------
         # INPUTS (FAZ-13 çıktıları)

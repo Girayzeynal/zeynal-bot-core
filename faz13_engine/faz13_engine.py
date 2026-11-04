@@ -335,6 +335,8 @@ class Faz13Engine:
             meta={
                 "confidence": min(home_base["confidence"], away_base["confidence"]),
                 "confidence_pct": round(100.0 * min(home_base["confidence"], away_base["confidence"]), 1),
+                "calibration_status": "NOT_ESTABLISHED",
+                "confidence_interpretation": "HEURISTIC_SCORE_NOT_WIN_PROBABILITY",
                 "data_quality": (
                     "MANUAL_BASELINE" if "MANUAL_BASELINE" in home_base.get("sources", [])
                     or "MANUAL_BASELINE" in away_base.get("sources", [])

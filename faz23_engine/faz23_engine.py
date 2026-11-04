@@ -145,6 +145,9 @@ class Faz23Engine:
         meta = core.meta
         notes: List[str] = []
 
+        meta["calibration_status"] = "NOT_ESTABLISHED"
+        meta["confidence_interpretation"] = "HEURISTIC_SCORE_NOT_WIN_PROBABILITY"
+
         # FAZ22 owns confidence adjustment, locks and segment thresholds. Reading
         # raw FAZ13 confidence here would silently undo those decisions.
         confidence = self._positive_number(meta.get("final_confidence"))
@@ -154,7 +157,8 @@ class Faz23Engine:
 
         # Global filtre
         if (
-            confidence is None or not self.MIN_CONFIDENCE <= confidence <= 100
+            meta.get("data_quality") != "VERIFIED_BASELINE"
+            or confidence is None or not self.MIN_CONFIDENCE <= confidence <= 100
             or meta.get("confidence_lock") is not False
             or meta.get("analysis_status") != "STRONG_SIGNAL"
             or meta.get("force_enabled") is True
