@@ -115,3 +115,39 @@ def record_faz13_verified_projection(
         prediction_utc=generated, expected_home=home, expected_away=away,
         scope=scope,
     )
+
+
+def record_faz13_for_espn_fixture(
+    ledger: PredictionLedger, core, fixture: dict, *,
+    resolved_home_team_id: str, resolved_away_team_id: str,
+    scope: str = "FINAL_WITH_OT",
+) -> bool:
+    """Persist only when independently resolved FAZ13 teams match ESPN fixture IDs.
+
+    `fixture` must come from parse_scheduled_nba_fixture. The caller remains
+    responsible for authenticating the ESPN source and team resolution.
+    """
+    if not isinstance(fixture, dict) or fixture.get("provider") != "ESPN":
+        raise ValueError("ESPN scheduled fixture required")
+    for field in ("provider_fixture_id", "home_team_id", "away_team_id"):
+        value = fixture.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("Missing ESPN fixture identity")
+    if not isinstance(resolved_home_team_id, str) or not resolved_home_team_id.strip():
+        raise ValueError("Missing resolved home team ID")
+    if not isinstance(resolved_away_team_id, str) or not resolved_away_team_id.strip():
+        raise ValueError("Missing resolved away team ID")
+    if (fixture["home_team_id"] != resolved_home_team_id
+            or fixture["away_team_id"] != resolved_away_team_id):
+        raise ValueError("FAZ13 home/away identity conflicts with ESPN fixture")
+    tipoff = fixture.get("start_ts_utc")
+    if type(tipoff) is not int or tipoff <= 0:
+        raise ValueError("Invalid ESPN tipoff timestamp")
+    ctx = getattr(core, "ctx", None)
+    if ctx is None or getattr(ctx, "league", None) != "NBA":
+        raise ValueError("ESPN NBA fixture cannot be assigned to another league")
+    return record_faz13_verified_projection(
+        ledger, core, fixture_id=fixture["provider_fixture_id"],
+        provider_fixture_id=fixture["provider_fixture_id"],
+        tipoff_utc=tipoff, scope=scope,
+    )
