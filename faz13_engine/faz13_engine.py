@@ -152,10 +152,12 @@ class Faz13Engine:
                 except Exception:
                     continue
 
+                if not isinstance(j, dict):
+                    continue
                 return {
-                    "pts_for": float(j["pts_for"]),
-                    "pts_against": float(j["pts_against"]),
-                    "pace": float(j.get("pace", 99.5)),
+                    "pts_for": j.get("pts_for"),
+                    "pts_against": j.get("pts_against"),
+                    "pace": j.get("pace"),
                     "confidence": 0.80,
                     "source": "MANUAL_BASELINE",
                 }
@@ -190,14 +192,14 @@ class Faz13Engine:
             if baseline is None:
                 continue
 
-            n_games = max(0, int(getattr(baseline, "n_games", 0)))
-            if n_games < 1:
+            n_games = getattr(baseline, "n_games", 0)
+            if type(n_games) is not int or n_games < 1:
                 continue
             confidence = min(0.90, 0.50 + 0.025 * min(n_games, 16))
             loaded = {
-                "pts_for": float(baseline.pts_for),
-                "pts_against": float(baseline.pts_against),
-                "pace": float(baseline.pace),
+                "pts_for": baseline.pts_for,
+                "pts_against": baseline.pts_against,
+                "pace": baseline.pace,
                 "confidence": confidence,
                 "source": "TEAM_BASELINE_STORE",
                 "baseline_key": candidate,
@@ -312,15 +314,17 @@ class Faz13Engine:
             int(away_mu + profile.band_hw_team),
         )
 
-        pace_mean = (home_base.get("pace", 99.5) + away_base.get("pace", 99.5)) / 2
+        if home_base["pace"] is None or away_base["pace"] is None:
+            raise ValueError("Tempo verisi eksik veya geçersiz. Tahmin üretilmedi; varsayılan tempo kullanılmadı.")
+        pace_mean = (home_base["pace"] + away_base["pace"]) / 2
         tempo_flag = self._tempo_flag(pace_mean)
 
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
 
         output = Faz13CoreOutput(
             ctx=ctx,
-            home_avg=TeamAverages(h_pf, h_pa, home_base.get("pace", 99.5), 10.0),
-            away_avg=TeamAverages(a_pf, a_pa, away_base.get("pace", 99.5), 10.0),
+            home_avg=TeamAverages(h_pf, h_pa, home_base["pace"], 10.0),
+            away_avg=TeamAverages(a_pf, a_pa, away_base["pace"], 10.0),
             total_band=total_band,
             home_band=home_band,
             away_band=away_band,

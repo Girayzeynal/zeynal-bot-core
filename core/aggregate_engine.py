@@ -40,6 +40,12 @@ def aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
 
     clean: List[Dict[str, Any]] = []
     for r in rows:
+        if not isinstance(r, dict):
+            continue
+        if any(isinstance(r.get(k), bool) for k in ("pts_for", "pts_against", "confidence")):
+            continue
+        if not isinstance(r.get("source"), str):
+            continue
         try:
             pf = float(r.get("pts_for"))
             pa = float(r.get("pts_against"))
@@ -66,7 +72,7 @@ def aggregate_baseline(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
 
         pace = r.get("pace")
         try:
-            pace = float(pace) if pace is not None else None
+            pace = float(pace) if pace is not None and not isinstance(pace, bool) else None
             if pace is not None and (not math.isfinite(pace) or not (40.0 <= pace <= 150.0)):
                 pace = None
         except Exception:
