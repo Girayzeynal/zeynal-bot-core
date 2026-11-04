@@ -24,7 +24,7 @@ def evaluate_verified_totals(
     errors = []
     seen = set()
     excluded = {"duplicate": 0, "unverified_result": 0, "invalid_prediction": 0,
-                "invalid_score": 0, "not_prematch": 0}
+                "invalid_score": 0, "not_prematch": 0, "unverified_baseline": 0}
     for item in snapshots:
         if not isinstance(item, dict):
             raise TypeError("Invalid snapshot record")
@@ -41,11 +41,15 @@ def evaluate_verified_totals(
             continue
         start = result.get("start_utc")
         ts = item.get("ts")
-        if type(start) is not int or start <= 0 or type(ts) is not int or ts >= start:
+        if type(start) is not int or start <= 0 or type(ts) is not int or ts <= 0 or ts >= start:
             excluded["not_prematch"] += 1
             continue
         meta = item.get("payload", {}).get("meta") if isinstance(item.get("payload"), dict) else None
-        pred = meta.get("expected_total") if isinstance(meta, dict) else None
+        # Manual baselines are permitted for exploratory analysis, not verified calibration.
+        if not isinstance(meta, dict) or meta.get("data_quality") != "VERIFIED_BASELINE":
+            excluded["unverified_baseline"] += 1
+            continue
+        pred = meta.get("expected_total")
         if isinstance(pred, bool) or not isinstance(pred, (int, float)) or not math.isfinite(pred) or pred < 0:
             excluded["invalid_prediction"] += 1
             continue
