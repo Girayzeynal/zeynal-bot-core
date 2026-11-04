@@ -331,6 +331,8 @@ class Faz13Engine:
                 "away_sources": list(away_base.get("sources", [])),
                 "home_baseline_games": int(home_base.get("n_games", 0)),
                 "away_baseline_games": int(away_base.get("n_games", 0)),
+                "expected_home": round(home_mu, 2),
+                "expected_away": round(away_mu, 2),
                 "expected_total": round(total_mu, 2),
                 "pace_mean": round(pace_mean, 2),
                 "engine": "FAZ-13 FINAL (ABSOLUTE PATH + NORMALIZER)",
