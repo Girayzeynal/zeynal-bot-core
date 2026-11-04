@@ -82,12 +82,14 @@ def insert_stages(db, bundle, *, fixture_id, tipoff, prediction_utc, input_snaps
                (fixture_id,ctx['home'],ctx['away'],tipoff,now,payload,sha))
 
 
-async def collect(*, engine, request, adapter, ledger, model_version, finalizer):
+async def collect(*, engine, request, adapter, ledger, model_version, finalizer, expected_fixture=None):
     # Fresh generation on each explicit invocation. Duplicates fail closed rather
     # than replacing the original immutable forecast with a newer run.
     from faz22_engine import Faz22Engine
     from providers.espn_turkey_fixture_lookup import resolve_named_nba_fixture_for_turkey_date
     fixture=await resolve_named_nba_fixture_for_turkey_date(adapter,request.date_str,home=request.home,away=request.away)
+    if expected_fixture is not None and fixture != expected_fixture:
+        raise ValueError('polled fixture changed before generation')
     if int(time.time()) >= fixture['start_ts_utc']:
         raise ValueError('fixture already started before generation')
     core=await engine.run_prematch(request)
@@ -97,7 +99,7 @@ async def collect(*, engine, request, adapter, ledger, model_version, finalizer)
     bundle=build_bundle(cores,model_version)
     bundle["stages"]=stages
     result=await persist_resolved_nba_prematch(adapter=adapter,ledger=ledger,core=cores[0],
-                                               stage_bundle=bundle)
+                                               stage_bundle=bundle, expected_fixture=expected_fixture)
     return dict(result, stage_sha256=digest(bundle))
 
 

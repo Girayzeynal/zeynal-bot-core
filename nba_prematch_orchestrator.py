@@ -17,6 +17,7 @@ async def persist_resolved_nba_prematch(
     *, adapter, ledger, core, baseline_store=None,
     observed_at_utc: int | None = None,
     stage_bundle: dict | None = None,
+    expected_fixture: dict | None = None,
 ) -> dict:
     """Resolve ESPN identity and persist only a genuine pre-tipoff FAZ13 output.
 
@@ -45,6 +46,8 @@ async def persist_resolved_nba_prematch(
     from providers.espn_turkey_fixture_lookup import resolve_nba_fixture_for_turkey_date
     fixture = await resolve_nba_fixture_for_turkey_date(
         adapter, ctx.date, home_team_id=home_id, away_team_id=away_id)
+    if expected_fixture is not None and fixture != expected_fixture:
+        raise ValueError("Polled fixture changed before persistence")
     if observed >= fixture["start_ts_utc"]:
         raise ValueError("ESPN fixture has already started")
     meta = getattr(core, "meta", None)

@@ -107,3 +107,13 @@ class Faz24Tests(unittest.IsolatedAsyncioTestCase):
         bundle=build_bundle([core,deepcopy(core),deepcopy(core)],'c'*40)
         self.assertEqual(bundle['freshness']['latest_source_observation_utc'],123)
         self.assertEqual(bundle['freshness']['missing_observation_times'],6)
+
+    async def test_changed_polled_identity_refused_before_generation(self):
+        from unittest.mock import AsyncMock
+        engine=type('Engine',(),{})();engine.run_prematch=AsyncMock()
+        changed={**self.fixture.fixture,'start_ts_utc':self.fixture.tipoff+3600}
+        with self.assertRaisesRegex(ValueError,'polled fixture changed'):
+            await collect(engine=engine,request=self.fixture.request,adapter=self.fixture.adapter,
+                ledger=self.ledger,model_version='d'*40,finalizer=None,expected_fixture=changed)
+        engine.run_prematch.assert_not_awaited()
+        self.fixture.assert_no_prediction()
