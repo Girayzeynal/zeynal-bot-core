@@ -79,3 +79,8 @@ posthoc refusal, update/delete triggers, corruption and read-only reporting.
 Compilation and diff checks passed. A local Docker daemon probe failed with
 permission denied on /var/run/docker.sock; Docker build must be validated by
 GitHub's dedicated docker-build job, not claimed as a successful local build.
+
+The first actual ESPN-based collection attempt rejected before prediction insertion:
+its freshness extraction used a root observation field, whereas ESPN retains
+that timestamp in pace_evidence.snapshot. This was corrected and covered by an
+additional schema regression. All 552 tests then passed (21.757 seconds).

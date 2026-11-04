@@ -25,7 +25,7 @@ def build_bundle(cores, model_version):
         raise ValueError('three stage outputs required')
     snapshot=cores[0].meta['input_snapshot']
     rows=[r for team in snapshot['payload']['teams'].values() for r in team['records']]
-    observations=[r['pace_evidence']['observed_at_utc'] for r in rows if r.get('pace_evidence')]
+    observations=[r['pace_evidence']['snapshot']['observed_at_utc'] for r in rows if r.get('pace_evidence')]
     return dict(schema_version=1, model_version=model_version,
                 input_sha256=snapshot['sha256'], generated_at=cores[0].meta['generated_at'],
                 context=snapshot['payload']['context'], source='ESPN',

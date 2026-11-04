@@ -98,3 +98,12 @@ class Faz24Tests(unittest.IsolatedAsyncioTestCase):
             tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             if 'faz24_stages' in tables:
                 self.assertEqual(db.execute('SELECT COUNT(*) FROM faz24_stages').fetchone()[0],0)
+
+    async def test_espn_observation_time_uses_nested_source_snapshot(self):
+        core=deepcopy(self.fixture.core)
+        rows=core.meta['input_snapshot']['payload']['teams']['home']['records']
+        for row in rows:
+            row['pace_evidence']={'snapshot':{'observed_at_utc':123}}
+        bundle=build_bundle([core,deepcopy(core),deepcopy(core)],'c'*40)
+        self.assertEqual(bundle['freshness']['latest_source_observation_utc'],123)
+        self.assertEqual(bundle['freshness']['missing_observation_times'],6)
