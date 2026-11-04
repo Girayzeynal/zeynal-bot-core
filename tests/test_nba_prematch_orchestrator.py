@@ -20,7 +20,8 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
             get_series=lambda league, team, count: [
                 SimpleNamespace(ts_utc=self.tipoff - 1000 - i,
                                 game_id=f"game-{i}", source="ESPN",
-                                timestamp_precision="exact")
+                                timestamp_precision="exact",
+                                pts_for=110.0, pts_against=105.0, pace=99.0)
                 for i in range(6)
             ])
         self.adapter.resolve_team = AsyncMock(side_effect=[
@@ -39,7 +40,27 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
                       expected_total=215.0,
                       home_sources=["TEAM_BASELINE_STORE"], away_sources=["TEAM_BASELINE_STORE"],
                       home_baseline_key="Home", away_baseline_key="Away",
-                      home_baseline_games=10, away_baseline_games=10))
+                      home_baseline_games=6, away_baseline_games=6),
+            home_avg=SimpleNamespace(points_for=110.0, points_against=105.0, pace=99.0),
+            away_avg=SimpleNamespace(points_for=110.0, points_against=105.0, pace=99.0))
+
+    async def test_numerical_mismatch_rejected_without_write(self):
+        self.core.home_avg.points_for = 112.0
+        with self.assertRaisesRegex(ValueError, "points_for"):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                baseline_store=self.series_store,
+                observed_at_utc=self.tipoff - 60)
+        with self.ledger._connect() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM predictions").fetchone()[0], 0)
+
+    async def test_baseline_sample_count_mismatch_rejected(self):
+        self.core.meta["home_baseline_games"] = 7
+        with self.assertRaisesRegex(ValueError, "sample count"):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                baseline_store=self.series_store,
+                observed_at_utc=self.tipoff - 60)
 
     async def test_wrong_baseline_binding_rejected_without_write(self):
         self.core.meta["home_baseline_key"] = "Other"
