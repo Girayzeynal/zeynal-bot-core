@@ -5,6 +5,7 @@ model when it originally ran. A separate immutable input snapshot is needed.
 """
 import math
 from statistics import mean
+from providers.espn_pace_evidence import pace_available_before
 
 
 def reconcile_team_average(core_average, records, *, prediction_utc, tolerance=0.01):
@@ -19,6 +20,9 @@ def reconcile_team_average(core_average, records, *, prediction_utc, tolerance=0
            or getattr(row, "timestamp_precision", None) != "exact"
            for row in records):
         raise ValueError("Historical rows are not point-in-time exact")
+    if any(not pace_available_before(row, league="NBA", prediction_utc=prediction_utc)
+           for row in records):
+        raise ValueError("Historical pace evidence was unavailable before prediction")
     fields = (("points_for", "pts_for"), ("points_against", "pts_against"), ("pace", "pace"))
     for target_field, record_field in fields:
         target = getattr(core_average, target_field, None)

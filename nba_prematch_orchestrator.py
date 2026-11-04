@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from prematch_ledger_bridge import record_faz13_for_espn_fixture
 from prematch_series_audit import audit_prematch_series
 from baseline_numeric_reconciliation import reconcile_team_average
+from providers.espn_pace_evidence import pace_available_before
 from providers.espn_turkey_fixture_lookup import resolve_named_nba_fixture_for_turkey_date
 
 
@@ -87,6 +88,7 @@ async def persist_resolved_nba_prematch(
             and isinstance(getattr(row, "source", None), str)
             and bool(row.source.strip())
             and row.source != "MANUAL_BASELINE"
+            and pace_available_before(row, league="NBA", prediction_utc=meta["generated_at"])
         ]
         average = getattr(core, f"{side}_avg", None)
         if average is None:

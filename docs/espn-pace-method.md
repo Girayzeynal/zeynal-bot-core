@@ -75,9 +75,9 @@ explicit adoption, missing evidence, invalid options and baseline-store refusal.
 Full local suite after this integration: **373 passing tests**, compilation and
 `git diff --check` clean.
 
-The next unresolved gate is durable point-in-time evidence retention: the
-baseline store retains a source/method and fixture ID, but does not yet persist
-the full box-score evidence alongside every game. Enabling estimated pace for
-production or verified calibration requires that evidence binding, a comparison
-against independently counted possessions, and a prospective prediction sample.
-No existing baseline files were rewritten or silently relabeled.
+Durable point-in-time evidence for retained game rows has subsequently been
+implemented; see `pace-evidence-storage.md`. Binding those inputs immutably to
+each prediction, comparing estimates against independently counted possessions,
+and collecting a prospective prediction sample remain required before production
+or verified calibration. No existing baseline files were rewritten or silently
+relabeled.

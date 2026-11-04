@@ -7,6 +7,7 @@ It does not assert independent authenticity of the provider response.
 from __future__ import annotations
 
 from typing import Any
+from providers.espn_pace_evidence import pace_available_before
 
 
 def audit_prematch_series(
@@ -38,7 +39,8 @@ def audit_prematch_series(
                 or precision != "exact"
                 or not isinstance(game_id, str) or not game_id.strip()
                 or not isinstance(source, str) or not source.strip()
-                or source == "MANUAL_BASELINE"):
+                or source == "MANUAL_BASELINE"
+                or not pace_available_before(row, league=league, prediction_utc=prediction_utc)):
             # A retained game dated after prediction is excluded, not used.
             continue
         identity = (source, game_id)

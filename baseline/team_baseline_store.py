@@ -13,6 +13,10 @@ from dataclasses import dataclass, asdict
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
 from statistics import mean, pstdev
+from copy import deepcopy
+from providers.espn_pace_evidence import (
+    validate_pace_evidence, same_pace_observation, pace_available_before,
+)
 
 
 # ============================
@@ -47,11 +51,12 @@ class TeamGameRecord:
     game_id: Optional[str] = None
     source: Optional[str] = None
     timestamp_precision: str = "unknown"
+    pace_evidence: Optional[Dict[str, Any]] = None
 
 
 def _valid_game_stats(ts_utc: Any, pts_for: Any, pts_against: Any,
                       pace: Any, home: Any) -> bool:
-    """Require measured, finite, non-future historical statistics."""
+    """Require finite, non-future statistics; source-specific evidence is checked separately."""
     stats = (pts_for, pts_against, pace)
     return (type(ts_utc) is int and 0 < ts_utc <= int(time.time())
             and all(type(value) in (int, float) for value in stats)
@@ -177,6 +182,7 @@ class TeamBaselineStore:
         game_id: Optional[str] = None,
         source: Optional[str] = None,
         timestamp_precision: str = "unknown",
+        pace_evidence: Optional[Dict[str, Any]] = None,
     ) -> None:
         # Reject malformed timestamps and statistics before touching persistent state.
         if (not _valid_game_stats(ts_utc, pts_for, pts_against, pace, home)
@@ -194,7 +200,9 @@ class TeamBaselineStore:
                 or timestamp_precision not in ("exact", "date_only", "unknown")):
             raise ValueError("invalid timestamp precision")
         ts = ts_utc
-        rec = TeamGameRecord(ts, pts_for, pts_against, pace, home, game_id, source, timestamp_precision)
+        rec = TeamGameRecord(ts, pts_for, pts_against, pace, home, game_id, source,
+                             timestamp_precision, deepcopy(pace_evidence))
+        validate_pace_evidence(rec, league=league)
 
         with self._series_write_lock(league, team):
             path = self._series_path(league, team)
@@ -222,6 +230,7 @@ class TeamBaselineStore:
                             or (stored.game_id is not None and stored.source is None)
                             or (stored.source == "nba_com" and stored.timestamp_precision == "exact")):
                         raise ValueError("invalid persisted game record")
+                    validate_pace_evidence(stored, league=league)
                 seen_provider_ids = set()
                 for existing in series:
                     existing_id = existing.get("game_id")
@@ -250,6 +259,8 @@ class TeamBaselineStore:
                         for r in matches
                     ):
                         raise ValueError("conflicting game record for provider identity")
+                    if not same_pace_observation(matches[0].get("pace_evidence"), rec.pace_evidence):
+                        raise ValueError("conflicting pace observation for provider identity")
                     return  # Idempotent repeated fetch; do not rewrite the file.
             else:
                 # A timestamp is not a unique game identity. Preserve distinct
@@ -289,6 +300,7 @@ class TeamBaselineStore:
                         or (record.game_id is not None and record.source is None)
                         or (record.source == "nba_com" and record.timestamp_precision == "exact")):
                     raise ValueError("invalid series record")
+                validate_pace_evidence(record, league=league)
             seen_provider_ids = set()
             for record in records:
                 if record.game_id is not None:
@@ -347,7 +359,8 @@ class TeamBaselineStore:
         # Legacy/unknown and date-only records fail closed for backtesting.
         return sorted(
             (r for r in records if r.timestamp_precision == "exact"
-             and 0 < r.ts_utc < cutoff_ts_utc),
+             and 0 < r.ts_utc < cutoff_ts_utc
+             and pace_available_before(r, league=league, prediction_utc=cutoff_ts_utc)),
             key=lambda r: r.ts_utc,
         )[-n_games:]
 
@@ -545,6 +558,7 @@ class TeamBaselineBootstrapper:
                         game_id=g.get("game_id"),
                         source=g.get("source"),
                         timestamp_precision=g.get("timestamp_precision", "unknown"),
+                        pace_evidence=g.get("pace_evidence"),
                     )
                     wrote += 1
 
