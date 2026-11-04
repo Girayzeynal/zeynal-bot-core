@@ -199,6 +199,7 @@ class Faz13Engine:
                 "pace": float(baseline.pace),
                 "confidence": confidence,
                 "source": "TEAM_BASELINE_STORE",
+                "baseline_key": candidate,
                 "n_games": n_games,
                 "fetched_at": int(getattr(baseline, "updated_ts", 0) or 0),
             }
@@ -329,6 +330,8 @@ class Faz13Engine:
                     or not away_base.get("sources")
                     else "VERIFIED_BASELINE"
                 ),
+                "home_baseline_key": h_store.get("baseline_key") if h_store else None,
+                "away_baseline_key": a_store.get("baseline_key") if a_store else None,
                 "home_sources": list(home_base.get("sources", [])),
                 "away_sources": list(away_base.get("sources", [])),
                 "home_baseline_games": int(home_base.get("n_games", 0)),
