@@ -106,26 +106,24 @@ class ESPNAdapter:
         if not teams:
             return None
 
+        matches: Dict[str, Dict[str, str]] = {}
         for t in teams:
+            if not isinstance(t, dict):
+                continue
             team = t.get("team", {})
+            if not isinstance(team, dict):
+                continue
             tid = team.get("id")
             abbr = str(team.get("abbreviation", "")).upper()
             name = str(team.get("displayName", "")).lower()
             short = str(team.get("shortDisplayName", "")).lower()
-
-            if (
-                key == abbr.lower()
-                or key == name
-                or key == short
-            ):
-                if tid:
-                    return {
-                        "id": str(tid),
-                        "abbr": abbr,
-                        "name": team.get("displayName"),
-                    }
-
-        return None
+            if key in (abbr.lower(), name, short) and tid is not None and str(tid).strip():
+                matches[str(tid)] = {
+                    "id": str(tid), "abbr": abbr,
+                    "name": team.get("displayName"),
+                }
+        # Never select the first of two teams sharing an alias.
+        return next(iter(matches.values())) if len(matches) == 1 else None
 
     # Bootstrapper uyumu için
     async def resolve_team_abbr(self, league: str, team_input: str) -> Optional[str]:
