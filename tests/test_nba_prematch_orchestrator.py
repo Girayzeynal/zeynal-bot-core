@@ -36,13 +36,23 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
                                 home="Home", away="Away"),
             meta=dict(data_quality="VERIFIED_BASELINE",
                       generated_at=self.tipoff - 120,
-                      expected_home=110.0, expected_away=105.0,
+                      expected_home=107.5, expected_away=107.5,
                       expected_total=215.0,
                       home_sources=["TEAM_BASELINE_STORE"], away_sources=["TEAM_BASELINE_STORE"],
                       home_baseline_key="Home", away_baseline_key="Away",
                       home_baseline_games=6, away_baseline_games=6),
             home_avg=SimpleNamespace(points_for=110.0, points_against=105.0, pace=99.0),
             away_avg=SimpleNamespace(points_for=110.0, points_against=105.0, pace=99.0))
+
+    async def test_projection_tampering_rejected_without_write(self):
+        self.core.meta["expected_home"] = 112.0
+        with self.assertRaisesRegex(ValueError, "expected_home"):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                baseline_store=self.series_store,
+                observed_at_utc=self.tipoff - 60)
+        with self.ledger._connect() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM predictions").fetchone()[0], 0)
 
     async def test_numerical_mismatch_rejected_without_write(self):
         self.core.home_avg.points_for = 112.0
