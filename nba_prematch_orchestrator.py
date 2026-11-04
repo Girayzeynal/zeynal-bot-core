@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from prematch_ledger_bridge import record_faz13_for_espn_fixture
 from prematch_series_audit import audit_prematch_series
+from baseline_numeric_reconciliation import reconcile_team_average
 from providers.espn_turkey_fixture_lookup import resolve_named_nba_fixture_for_turkey_date
 
 
@@ -68,9 +69,30 @@ async def persist_resolved_nba_prematch(
         key = meta.get(f"{side}_baseline_key")
         if not isinstance(key, str) or not key.strip() or key != team:
             raise ValueError(f"Missing exact {side} baseline key binding")
-        audit_prematch_series(
+        evidence = audit_prematch_series(
             baseline_store, league="NBA", team=key,
             prediction_utc=meta["generated_at"], min_games=6,
+        )
+        declared_count = meta[f"{side}_baseline_games"]
+        if declared_count != evidence["eligible_games"]:
+            raise ValueError(f"{side} baseline sample count differs from audited series")
+        rows = baseline_store.get_series("NBA", key, 100000)
+        eligible_rows = [
+            row for row in rows
+            if type(getattr(row, "ts_utc", None)) is int
+            and 0 < row.ts_utc < meta["generated_at"]
+            and getattr(row, "timestamp_precision", None) == "exact"
+            and isinstance(getattr(row, "game_id", None), str)
+            and bool(row.game_id.strip())
+            and isinstance(getattr(row, "source", None), str)
+            and bool(row.source.strip())
+            and row.source != "MANUAL_BASELINE"
+        ]
+        average = getattr(core, f"{side}_avg", None)
+        if average is None:
+            raise ValueError(f"Missing FAZ13 {side} numerical averages")
+        reconcile_team_average(
+            average, eligible_rows, prediction_utc=meta["generated_at"]
         )
     inserted = record_faz13_for_espn_fixture(
         ledger, core, fixture, resolved_home_team_id=home_id,
