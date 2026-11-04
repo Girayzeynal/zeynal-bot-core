@@ -79,8 +79,11 @@ class EuroleaguePrematchBindingTests(unittest.IsolatedAsyncioTestCase):
         with self.ledger._connect() as db:
             self.assertEqual(db.execute("SELECT provider, provider_fixture_id FROM fixture_provenance").fetchone(),
                              ("EUROLEAGUE_LIVE", "E2026_9001"))
-        with self.assertRaises(ValueError):
-            report_bound(self.ledger.db_path, "EUROLEAGUE")  # NBA evaluator is not silently reused.
+        self.assertEqual(report_bound(self.ledger.db_path)["predictions"], 0)
+        euro_report = report_bound(self.ledger.db_path, "EUROLEAGUE")
+        self.assertEqual(euro_report["provider"], "EUROLEAGUE_LIVE")
+        self.assertEqual(euro_report["sample_size"], 0)
+        self.assertEqual(euro_report["excluded"]["awaiting_result"], 1)
 
     async def test_pruned_baselines_and_post_tipoff_reads_replay_original_evidence(self):
         await self.persist()

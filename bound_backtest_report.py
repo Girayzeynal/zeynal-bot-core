@@ -10,8 +10,8 @@ from prediction_ledger import PredictionLedger
 
 
 def report_bound(db_path, league="NBA"):
-    if league != "NBA":
-        raise ValueError("Bound ESPN result evaluation currently supports NBA only")
+    if league not in ("NBA", "EUROLEAGUE"):
+        raise ValueError("Bound result evaluation supports NBA and EuroLeague only")
     ledger = PredictionLedger(db_path)
     ledger.audit_provenance(league)
     with ledger._connect() as db:
@@ -20,6 +20,8 @@ def report_bound(db_path, league="NBA"):
                     ORDER BY prediction_ts_utc, fixture_id""", (league,)).fetchall()
     excluded = dict(missing_inputs=0, invalid_inputs=0, awaiting_result=0,
                     scope_mismatch=0, missing_result_evidence=0, invalid_result_evidence=0)
+    if league == "EUROLEAGUE":
+        excluded.update(missing_fixture_observation=0, invalid_fixture_observation=0)
     records = []
     for fixture, predicted, home, away, scope in predictions:
         try:
@@ -30,6 +32,15 @@ def report_bound(db_path, league="NBA"):
         if inputs is None:
             excluded["missing_inputs"] += 1
             continue
+        if league == "EUROLEAGUE":
+            try:
+                observed_fixture = ledger.load_fixture_observation(league, fixture)
+            except (ValueError, TypeError, KeyError, AttributeError):
+                excluded["invalid_fixture_observation"] += 1
+                continue
+            if observed_fixture is None:
+                excluded["missing_fixture_observation"] += 1
+                continue
         with ledger._connect() as db:
             outcome = db.execute("""SELECT result_ts_utc, actual_home, actual_away, scope
                     FROM outcomes WHERE league=? AND fixture_id=?""", (league, fixture)).fetchone()
@@ -54,7 +65,9 @@ def report_bound(db_path, league="NBA"):
     if len(records) + sum(excluded.values()) != len(predictions):
         raise RuntimeError("Bound-result coverage reconciliation failed")
     return dict(status="evaluated" if records else "no_bound_results", league=league,
-                verification_scope="original_inputs_and_observed_provider_final",
+                provider="ESPN" if league == "NBA" else "EUROLEAGUE_LIVE",
+                verification_scope=("original_inputs_and_observed_provider_final" if league == "NBA" else
+                                    "original_inputs_fixture_and_observed_provider_final"),
                 predictions=len(predictions), sample_size=len(records), excluded=excluded,
                 metrics=asdict(evaluate_predictions(records)) if records else None,
                 sample_size_assessment=("no_verified_sample" if not records else

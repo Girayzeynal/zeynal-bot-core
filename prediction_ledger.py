@@ -140,6 +140,10 @@ class PredictionLedger:
 
     def load_outcome_evidence(self, league: str, fixture_id: str):
         """Replay final-score evidence and bind it to the original prediction inputs."""
+        if league == "EUROLEAGUE":
+            from providers.euroleague_results import load_bound_outcome
+            self._identity(league, fixture_id)
+            return load_bound_outcome(self, fixture_id)
         from providers.espn_result_evidence import validate_result_evidence
         self._identity(league, fixture_id)
         with self._connect() as db:

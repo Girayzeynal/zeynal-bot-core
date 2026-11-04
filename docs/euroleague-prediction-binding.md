@@ -91,9 +91,10 @@ artifacts were not rewritten or promoted to successful status.
 
 ## Remaining gates
 
-EuroLeague completed-result evidence binding and its own strict evaluator are
-still outstanding. A real completed result has not been collected for this
-future fixture. Independent source/possession validation, empirical model
+EuroLeague completed-result evidence binding and its explicit strict evaluator
+are now implemented and tested; see `euroleague-result-evaluation.md`. A real
+completed result has not been collected for this future fixture, and the live
+check still reports a pending result. Independent source/possession validation, empirical model
 calibration and the missing EuroCup profile remain open. Production bootstrap,
 Telegram entry points and deployment settings were not enabled or changed.
 No merge, deployment, paid service or secret change occurred.
