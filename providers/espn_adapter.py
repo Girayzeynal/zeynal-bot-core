@@ -135,6 +135,45 @@ class ESPNAdapter:
         ref = await self.resolve_team(team_input)
         return ref["abbr"] if ref else None
 
+    async def fetch_scheduled_nba_scoreboard_date(
+        self, date_yyyymmdd: str,
+    ) -> List[Dict[str, Any]]:
+        """Fetch vetted pregame fixture identities; never write predictions.
+
+        A malformed or unavailable response is an error, not an empty schedule.
+        Conflicting duplicate provider IDs are excluded rather than guessed.
+        """
+        if (not isinstance(date_yyyymmdd, str) or len(date_yyyymmdd) != 8
+                or not date_yyyymmdd.isascii() or not date_yyyymmdd.isdigit()):
+            raise ValueError("date must be YYYYMMDD")
+        try:
+            datetime.strptime(date_yyyymmdd, "%Y%m%d")
+        except ValueError as exc:
+            raise ValueError("invalid calendar date") from exc
+        payload = await self._get_json(
+            f"{ESPN_BASE}/scoreboard?dates={date_yyyymmdd}"
+        )
+        if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
+            raise RuntimeError("ESPN pregame scoreboard unavailable or malformed")
+        from providers.espn_scheduled_fixture import parse_scheduled_nba_fixture
+        by_id: Dict[str, Dict[str, Any]] = {}
+        conflicts: set[str] = set()
+        for raw in payload["events"]:
+            parsed = parse_scheduled_nba_fixture(raw)
+            if parsed is None:
+                continue
+            key = parsed["provider_fixture_id"]
+            if key in conflicts:
+                continue
+            if key in by_id and by_id[key] != parsed:
+                conflicts.add(key)
+                by_id.pop(key, None)
+            else:
+                by_id[key] = parsed
+        return sorted(by_id.values(), key=lambda row: (
+            row["start_ts_utc"], row["provider_fixture_id"]
+        ))
+
     async def fetch_nba_scoreboard_quality_report(
         self, date_yyyymmdd: str, observed_at_utc: int | None = None,
     ) -> Dict[str, Any]:
