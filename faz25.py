@@ -248,7 +248,7 @@ async def run(args):
         with tempfile.TemporaryDirectory() as folder:
             finalizer=Faz23Engine(str(Path(folder)/'decisions.sqlite'))
             result=await collect(engine=engine,request=PrematchRequest(0,'NBA',date,names['home'],names['away']),
-                adapter=adapter,ledger=poller.ledger,model_version=version,finalizer=finalizer,expected_fixture=row)
+                adapter=adapter,ledger=poller.ledger,model_version=version,finalizer=finalizer,expected_fixture=row,multilayer_config={} if args.multilayer else None)
             if result['fixture'] != row: raise ValueError('resolved schedule changed')
             return result
     failed=False
@@ -270,7 +270,7 @@ def main(argv=None):
     p=argparse.ArgumentParser(description=__doc__)
     sub=p.add_subparsers(dest='command',required=True)
     q=sub.add_parser('poll');q.add_argument('database');q.add_argument('baselines')
-    q.add_argument('--dry-run',action='store_true');q.add_argument('--cycles',type=int,default=1);q.add_argument('--interval',type=int,default=300)
+    q.add_argument('--multilayer',action='store_true');q.add_argument('--dry-run',action='store_true');q.add_argument('--cycles',type=int,default=1);q.add_argument('--interval',type=int,default=300)
     q=sub.add_parser('backup');q.add_argument('database');q.add_argument('destination')
     args=p.parse_args(argv)
     try:
