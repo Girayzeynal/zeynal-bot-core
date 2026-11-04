@@ -56,3 +56,25 @@ async def resolve_nba_fixture_for_turkey_date(
     if len(matching) != 1:
         raise ValueError("No unique pregame ESPN fixture matched the Türkiye date and teams")
     return next(iter(matching.values()))
+
+
+async def resolve_named_nba_fixture_for_turkey_date(
+    adapter: ESPNAdapter, date_str: str, *, home: str, away: str,
+) -> dict:
+    """Resolve both team names independently, then enforce ESPN fixture identity.
+
+    No fuzzy matching or hardcoded team aliases; ambiguous/unresolved names
+    are rejected by ESPNAdapter.resolve_team.
+    """
+    if any(not isinstance(name, str) or not name.strip() for name in (home, away)):
+        raise ValueError("Both NBA team names are required")
+    home_ref = await adapter.resolve_team(home)
+    away_ref = await adapter.resolve_team(away)
+    if not isinstance(home_ref, dict) or not isinstance(away_ref, dict):
+        raise ValueError("Could not resolve both NBA teams from ESPN")
+    home_id, away_id = home_ref.get("id"), away_ref.get("id")
+    if any(not isinstance(tid, str) or not tid.strip() for tid in (home_id, away_id)):
+        raise ValueError("ESPN team resolution lacks stable team IDs")
+    return await resolve_nba_fixture_for_turkey_date(
+        adapter, date_str, home_team_id=home_id, away_team_id=away_id,
+    )
