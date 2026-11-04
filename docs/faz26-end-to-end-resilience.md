@@ -92,3 +92,11 @@ eight new FAZ26 cases for the controlled schema exception, HTTP cooldowns,
 Retry-After formats, network retry bounds, persistent delay, dry-run byte
 preservation and the full synthetic schedule-to-score chain. Compilation and
 diff checks passed. Synthetic scored cases are excluded from real sample counts.
+
+An actual CLI dry run using clean implementation b339536 returned
+schedule_unavailable / ProviderCooldown with no collection/result actions. This
+is retained as an unsuccessful provider-access observation, not successful live
+schedule validation. The output does not identify which HTTP cooldown status
+was returned, so neither 403 nor 429 is asserted for this specific observation.
+The restored database's SHA256 still equals its original backup hash after the
+attempt. No predictions, outcomes or retry state were written by this dry run.
