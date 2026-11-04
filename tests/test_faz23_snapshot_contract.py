@@ -45,6 +45,28 @@ class Faz23SnapshotContractTests(unittest.TestCase):
             with sqlite3.connect(engine.path) as con:
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM snapshots").fetchone()[0], 3)
 
+    def test_prematch_selection_excludes_post_tipoff_and_unknown_fixtures(self):
+        with tempfile.TemporaryDirectory() as folder:
+            engine = Faz23Engine(storage_path=str(Path(folder) / "snapshots.sqlite"))
+            key = "2026-11-04:Home:Away:NBA"
+            with sqlite3.connect(engine.path) as con:
+                for ts, fixture_key, expected in (
+                    (100, key, 200), (150, key, 202), (200, key, 204),
+                    (250, key, 206), (120, "2026-11-04:Other:Away:NBA", 190),
+                ):
+                    con.execute(
+                        "INSERT INTO snapshots(ts, fixture_key, payload) VALUES(?,?,?)",
+                        (ts, fixture_key, json.dumps({"meta": {"expected_total": expected}})),
+                    )
+                con.commit()
+            chosen = engine.prematch_snapshots_for_calibration({key: 200})
+            self.assertEqual(len(chosen), 1)
+            self.assertEqual(chosen[0]["ts"], 150)
+            self.assertEqual(chosen[0]["payload"]["meta"]["expected_total"], 202)
+            self.assertEqual(engine.prematch_snapshots_for_calibration({}), [])
+            with self.assertRaises(ValueError):
+                engine.prematch_snapshots_for_calibration({key: True})
+
     def test_verified_snapshot_round_trip(self):
         with tempfile.TemporaryDirectory() as folder:
             path = str(Path(folder) / "snapshots.sqlite")
