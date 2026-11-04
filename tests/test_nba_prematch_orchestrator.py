@@ -29,7 +29,9 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
             meta=dict(data_quality="VERIFIED_BASELINE",
                       generated_at=self.tipoff - 120,
                       expected_home=110.0, expected_away=105.0,
-                      expected_total=215.0))
+                      expected_total=215.0,
+                      home_sources=["ESPN"], away_sources=["ESPN"],
+                      home_baseline_games=10, away_baseline_games=10))
 
     async def test_valid_identity_persists(self):
         result = await persist_resolved_nba_prematch(
@@ -47,6 +49,20 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
     async def test_future_dated_prediction_rejected(self):
         self.core.meta["generated_at"] = self.tipoff - 30
         with self.assertRaises(ValueError):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                observed_at_utc=self.tipoff - 60)
+
+    async def test_missing_source_metadata_rejected(self):
+        self.core.meta.pop("home_sources")
+        with self.assertRaisesRegex(ValueError, "home baseline"):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                observed_at_utc=self.tipoff - 60)
+
+    async def test_insufficient_baseline_sample_rejected(self):
+        self.core.meta["away_baseline_games"] = 5
+        with self.assertRaisesRegex(ValueError, "away baseline"):
             await persist_resolved_nba_prematch(
                 adapter=self.adapter, ledger=self.ledger, core=self.core,
                 observed_at_utc=self.tipoff - 60)
