@@ -94,6 +94,22 @@ async def persist_resolved_nba_prematch(
         reconcile_team_average(
             average, eligible_rows, prediction_utc=meta["generated_at"]
         )
+    # The bridge validates finite metadata, but must not trust score fields
+    # that disagree with the two independently reconciled team averages.
+    home_avg = core.home_avg
+    away_avg = core.away_avg
+    expected = {
+        "expected_home": (home_avg.points_for + away_avg.points_against) / 2,
+        "expected_away": (away_avg.points_for + home_avg.points_against) / 2,
+    }
+    expected["expected_total"] = expected["expected_home"] + expected["expected_away"]
+    import math
+    for field, calculated in expected.items():
+        stated = meta.get(field)
+        if (type(stated) not in (int, float)
+                or not math.isfinite(stated)
+                or abs(stated - calculated) > 0.011):
+            raise ValueError(f"FAZ13 {field} disagrees with reconciled baseline")
     inserted = record_faz13_for_espn_fixture(
         ledger, core, fixture, resolved_home_team_id=home_id,
         resolved_away_team_id=away_id)
