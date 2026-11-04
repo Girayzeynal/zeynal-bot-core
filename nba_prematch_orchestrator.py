@@ -44,6 +44,17 @@ async def persist_resolved_nba_prematch(
         raise ValueError("Original FAZ13 timestamp missing")
     if meta["generated_at"] > observed:
         raise ValueError("FAZ13 prediction timestamp is in the future")
+    # A quality label without evidence is insufficient for canonical records.
+    # The source labels below are metadata, not independent authentication.
+    for side in ("home", "away"):
+        sources = meta.get(f"{side}_sources")
+        games = meta.get(f"{side}_baseline_games")
+        if (not isinstance(sources, list) or not sources
+                or any(not isinstance(src, str) or not src.strip()
+                       or src == "MANUAL_BASELINE" for src in sources)
+                or type(games) is not int or games < 6):
+            raise ValueError(f"Missing auditable {side} baseline source/sample metadata")
+
     inserted = record_faz13_for_espn_fixture(
         ledger, core, fixture, resolved_home_team_id=home_id,
         resolved_away_team_id=away_id)
