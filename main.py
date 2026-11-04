@@ -14,6 +14,8 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstrapper
 from providers.espn_adapter import ESPNAdapter
+from prediction_ledger import PredictionLedger
+from ledger_storage_config import resolve_prediction_ledger_path
 
 from faz13_engine import Faz13Engine, PrematchRequest
 from faz22_engine import Faz22Engine
@@ -281,6 +283,18 @@ def build_app() -> Application:
     app.bot_data["faz13"] = faz13
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine(storage_path=os.getenv("FAZ23_STORAGE", "faz23_storage.sqlite"))
+
+    # Explicit opt-in. No ledger writes or provider lookups are activated here.
+    ledger_enabled = os.getenv("NBA_LEDGER_ENABLED", "false").strip().lower() == "true"
+    ledger_path = resolve_prediction_ledger_path(
+        enabled=ledger_enabled,
+        configured_path=os.getenv("NBA_LEDGER_PATH"),
+    )
+    if ledger_path is not None:
+        app.bot_data["nba_prediction_ledger"] = PredictionLedger(ledger_path)
+        app.bot_data["nba_espn_adapter"] = ESPNAdapter()
+        logger.info("NBA prediction ledger configured on persistent volume (writes inactive)")
+
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
