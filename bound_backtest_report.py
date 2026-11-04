@@ -7,6 +7,7 @@ from dataclasses import asdict
 
 from historical_backtest import HistoricalPrediction, evaluate_predictions
 from prediction_ledger import PredictionLedger
+from walk_forward_calibration import evaluate_walk_forward
 
 
 def report_bound(db_path, league="NBA"):
@@ -72,4 +73,5 @@ def report_bound(db_path, league="NBA"):
                 metrics=asdict(evaluate_predictions(records)) if records else None,
                 sample_size_assessment=("no_verified_sample" if not records else
                                         "small_sample" if len(records) < 30 else "descriptive_sample_only"),
-                calibration_status="NOT_ESTABLISHED")
+                calibration_status="NOT_ESTABLISHED",
+                walk_forward=evaluate_walk_forward(records))
