@@ -25,6 +25,26 @@ class Faz23SnapshotContractTests(unittest.TestCase):
             with sqlite3.connect(path) as con:
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM snapshots").fetchone()[0], 0)
 
+    def test_latest_snapshot_per_fixture_deduplicates_calibration_inputs(self):
+        with tempfile.TemporaryDirectory() as folder:
+            engine = Faz23Engine(storage_path=str(Path(folder) / "snapshots.sqlite"))
+            core = SimpleNamespace(
+                meta={"data_quality": "VERIFIED_BASELINE", "expected_total": 200},
+                ctx=SimpleNamespace(date="2026-11-04", home="Home", away="Away", league="NBA"),
+                market={}, notes=[],
+            )
+            asyncio.run(engine.record_snapshot(core))
+            core.meta = {"data_quality": "VERIFIED_BASELINE", "expected_total": 205}
+            asyncio.run(engine.record_snapshot(core))
+            core.ctx = SimpleNamespace(date="2026-11-04", home="Other", away="Away", league="NBA")
+            asyncio.run(engine.record_snapshot(core))
+            latest = engine.latest_snapshots_by_fixture()
+            self.assertEqual(len(latest), 2)
+            first = next(item for item in latest if ":Home:Away:" in item["fixture_key"])
+            self.assertEqual(first["payload"]["meta"]["expected_total"], 205)
+            with sqlite3.connect(engine.path) as con:
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM snapshots").fetchone()[0], 3)
+
     def test_verified_snapshot_round_trip(self):
         with tempfile.TemporaryDirectory() as folder:
             path = str(Path(folder) / "snapshots.sqlite")
