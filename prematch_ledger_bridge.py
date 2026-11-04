@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 from prediction_ledger import PredictionLedger, PredictionRecord
+from prediction_inputs import canonical_json, validate_prediction_inputs
 
 
 def record_verified_prematch_projection(
@@ -14,6 +15,7 @@ def record_verified_prematch_projection(
     provider: str, provider_fixture_id: str, tipoff_utc: int,
     prediction_utc: int, expected_home: float, expected_away: float,
     scope: str = "FINAL_WITH_OT",
+    input_snapshot: dict | None = None,
 ) -> bool:
     """Record one immutable pre-tipoff projection; reject incomplete provenance."""
     if not isinstance(ledger, PredictionLedger):
@@ -32,9 +34,15 @@ def record_verified_prematch_projection(
     for value in (expected_home, expected_away):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
             raise ValueError("Finite nonnegative expected scores required")
+    serialized_inputs = None
+    if input_snapshot is not None:
+        validate_prediction_inputs(input_snapshot, league=league, prediction_utc=prediction_utc,
+            expected_home=expected_home, expected_away=expected_away, scope=scope)
+        serialized_inputs = canonical_json(input_snapshot)
     # Prevent partially inserted records on provenance conflict.
-    # A single transaction inserts all three records or none.
+    # A single transaction inserts provenance, projection and inputs or none.
     with ledger._connect() as db:
+        db.execute("BEGIN IMMEDIATE")
         db.execute("""CREATE TABLE IF NOT EXISTS fixture_starts (
             league TEXT NOT NULL, fixture_id TEXT NOT NULL,
             start_ts_utc INTEGER NOT NULL, PRIMARY KEY (league, fixture_id)
@@ -71,6 +79,16 @@ def record_verified_prematch_projection(
         prediction = (prediction_utc, float(expected_home), float(expected_away), None, scope)
         if prior_prediction and prior_prediction != prediction:
             raise ValueError("Immutable prediction already exists with different values")
+        prior_inputs = db.execute(
+            "SELECT snapshot_json FROM prediction_inputs WHERE league=? AND fixture_id=?",
+            (league, fixture_id)).fetchone()
+        if serialized_inputs is not None:
+            if prior_inputs and prior_inputs[0] != serialized_inputs:
+                raise ValueError("Immutable prediction input snapshot already differs")
+            if prior_prediction and not prior_inputs:
+                raise ValueError("Cannot backfill inputs onto an existing prediction")
+            if prior_inputs and not prior_prediction:
+                raise ValueError("Orphan prediction input snapshot")
         db.execute("INSERT OR IGNORE INTO fixture_starts VALUES (?,?,?)", (league, fixture_id, tipoff_utc))
         db.execute(
             "INSERT OR IGNORE INTO fixture_provenance VALUES (?,?,?,?,?)",
@@ -80,7 +98,11 @@ def record_verified_prematch_projection(
             "INSERT OR IGNORE INTO predictions VALUES (?,?,?,?,?,?,?)",
             (league, fixture_id, prediction_utc, float(expected_home), float(expected_away), None, scope),
         )
-        return cursor.rowcount == 1
+        inserted = cursor.rowcount == 1
+        if serialized_inputs is not None:
+            db.execute("INSERT OR IGNORE INTO prediction_inputs VALUES (?,?,?,?)",
+                       (league, fixture_id, serialized_inputs, input_snapshot["sha256"]))
+        return inserted
 
 
 def record_faz13_verified_projection(
@@ -114,6 +136,7 @@ def record_faz13_verified_projection(
         provider_fixture_id=provider_fixture_id, tipoff_utc=tipoff_utc,
         prediction_utc=generated, expected_home=home, expected_away=away,
         scope=scope,
+        input_snapshot=meta.get("input_snapshot"),
     )
 
 

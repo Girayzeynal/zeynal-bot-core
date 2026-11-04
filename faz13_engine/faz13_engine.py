@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from core.aggregate_engine import aggregate_baseline
 from league_profiles import get_league_profile
+from prediction_inputs import capture_team_inputs, seal_prediction_inputs
 
 try:
     from providers.espn_adapter import ESPNAdapter
@@ -193,7 +194,7 @@ class Faz13Engine:
             if n_games < 1:
                 continue
             confidence = min(0.90, 0.50 + 0.025 * min(n_games, 16))
-            return {
+            loaded = {
                 "pts_for": float(baseline.pts_for),
                 "pts_against": float(baseline.pts_against),
                 "pace": float(baseline.pace),
@@ -203,6 +204,17 @@ class Faz13Engine:
                 "n_games": n_games,
                 "fetched_at": int(getattr(baseline, "updated_ts", 0) or 0),
             }
+            if callable(getattr(store, "get_series", None)):
+                try:
+                    loaded["input_records"] = capture_team_inputs(
+                        store, league=league, key=candidate, n_games=n_games,
+                        average=TeamAverages(loaded["pts_for"], loaded["pts_against"], loaded["pace"], 0),
+                    )
+                except (ValueError, TypeError, AttributeError):
+                    # Exploratory outputs remain available; canonical persistence
+                    # requires an original, fully reconciled input snapshot.
+                    pass
+            return loaded
         return None
 
     # ---------------------
@@ -305,7 +317,7 @@ class Faz13Engine:
 
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
 
-        return Faz13CoreOutput(
+        output = Faz13CoreOutput(
             ctx=ctx,
             home_avg=TeamAverages(h_pf, h_pa, home_base.get("pace", 99.5), 10.0),
             away_avg=TeamAverages(a_pf, a_pa, away_base.get("pace", 99.5), 10.0),
@@ -344,3 +356,12 @@ class Faz13Engine:
                 "generated_at": int(time.time()),
             },
         )
+        output.meta["input_snapshot_status"] = "UNAVAILABLE"
+        if h_store and a_store and "input_records" in h_store and "input_records" in a_store:
+            try:
+                output.meta["input_snapshot"] = seal_prediction_inputs(
+                    output, h_store["input_records"], a_store["input_records"])
+                output.meta["input_snapshot_status"] = "CAPTURED"
+            except ValueError:
+                pass
+        return output

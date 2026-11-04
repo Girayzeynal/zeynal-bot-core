@@ -11,7 +11,10 @@ This repository contains **two separate paths**, which must not be conflated.
 
 - Verify the actual provider fixture ID and league/season mapping, rather than relying on team names.
 - Validate source timestamps, actual final status, home/away orientation and scoring scope.
-- Link an immutable pre-tipoff FAZ13 prediction to a ledger fixture ID without backfilling after the result.
+- The explicit NBA orchestrator now links original FAZ13 input copies and
+  pre-tipoff projections to an ESPN fixture ID in one transaction, refusing
+  posthoc input attachment. See `prediction-input-binding.md`. Prospective
+  results and empirical calibration remain outstanding.
 - Reconcile snapshot selection and ledger reports to avoid counting a fixture twice.
 - Perform real-data walk-forward validation; publish sample size, coverage, error metrics and exclusions.
 - Keep the PR draft and production unchanged until authenticated provider integration and CI are confirmed.

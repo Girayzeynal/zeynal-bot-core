@@ -9,6 +9,7 @@ from prematch_ledger_bridge import record_faz13_for_espn_fixture
 from prematch_series_audit import audit_prematch_series
 from baseline_numeric_reconciliation import reconcile_team_average
 from providers.espn_pace_evidence import pace_available_before
+from prediction_inputs import validate_prediction_inputs
 from providers.espn_turkey_fixture_lookup import resolve_named_nba_fixture_for_turkey_date
 
 
@@ -20,7 +21,9 @@ async def persist_resolved_nba_prematch(
 
     Returns the matched fixture and whether a new immutable row was inserted.
     Callers must ensure the adapter uses an authentic ESPN endpoint and that
-    FAZ13 baseline provenance is independently validated.
+    FAZ13 baseline provenance is independently validated. Original input copies
+    are mandatory. baseline_store is retained for caller compatibility; its
+    current files are never used to reconstruct a prediction's historical inputs.
     """
     ctx = getattr(core, "ctx", None)
     if ctx is None or getattr(ctx, "league", None) != "NBA":
@@ -59,10 +62,16 @@ async def persist_resolved_nba_prematch(
                 or type(games) is not int or games < 6):
             raise ValueError(f"Missing auditable {side} baseline source/sample metadata")
 
-    if baseline_store is None:
-        raise ValueError("Canonical NBA persistence requires historical game series")
+    snapshot = meta.get("input_snapshot")
+    if snapshot is None:
+        raise ValueError("Canonical NBA persistence requires original input snapshot")
+    baseline_store = validate_prediction_inputs(
+        snapshot, league="NBA", prediction_utc=meta["generated_at"],
+        expected_home=meta.get("expected_home"), expected_away=meta.get("expected_away"))
+    if snapshot["payload"]["context"] != {k: getattr(ctx, k) for k in ("date", "home", "away")}:
+        raise ValueError("Original input snapshot fixture context mismatch")
     # A point-in-time audit of arbitrary rows does not prove FAZ13 used
-    # those rows. Require an explicit, source-specific binding before writing.
+    # those rows. Audit the input copy captured by FAZ13, never current files.
     for side, team in (("home", ctx.home), ("away", ctx.away)):
         sources = meta[f"{side}_sources"]
         if sources != ["TEAM_BASELINE_STORE"]:

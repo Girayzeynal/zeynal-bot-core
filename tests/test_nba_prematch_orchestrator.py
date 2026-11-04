@@ -3,11 +3,12 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from prediction_ledger import PredictionLedger
 from providers.espn_adapter import ESPNAdapter
 from nba_prematch_orchestrator import persist_resolved_nba_prematch
+from prediction_inputs import capture_team_inputs, seal_prediction_inputs, digest
 
 
 class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
@@ -21,7 +22,7 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
                 SimpleNamespace(ts_utc=self.tipoff - 1000 - i,
                                 game_id=f"game-{i}", source="ESPN",
                                 timestamp_precision="exact",
-                                pts_for=110.0, pts_against=105.0, pace=99.0)
+                                pts_for=110.0, pts_against=105.0, pace=99.0, home=True)
                 for i in range(6)
             ])
         self.adapter.resolve_team = AsyncMock(side_effect=[
@@ -43,6 +44,15 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
                       home_baseline_games=6, away_baseline_games=6),
             home_avg=SimpleNamespace(points_for=110.0, points_against=105.0, pace=99.0),
             away_avg=SimpleNamespace(points_for=110.0, points_against=105.0, pace=99.0))
+        # Synthetic clocks/records for the offline contract; no historical
+        # prediction or observation is written to an external service.
+        with patch("prediction_inputs.time.time", return_value=self.tipoff - 121):
+            inputs = {side: capture_team_inputs(
+                self.series_store, league="NBA", key=getattr(self.core.ctx, side),
+                average=getattr(self.core, f"{side}_avg"), n_games=6)
+                for side in ("home", "away")}
+        self.core.meta["input_snapshot"] = seal_prediction_inputs(
+            self.core, inputs["home"], inputs["away"])
 
     async def test_projection_tampering_rejected_without_write(self):
         self.core.meta["expected_home"] = 112.0
@@ -90,19 +100,18 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
                 baseline_store=self.series_store,
                 observed_at_utc=self.tipoff - 60)
 
-    async def test_missing_series_store_rejected(self):
-        with self.assertRaisesRegex(ValueError, "historical game series"):
+    async def test_missing_original_snapshot_rejected(self):
+        self.core.meta.pop("input_snapshot")
+        with self.assertRaisesRegex(ValueError, "original input snapshot"):
             await persist_resolved_nba_prematch(
                 adapter=self.adapter, ledger=self.ledger, core=self.core,
                 observed_at_utc=self.tipoff - 60)
 
     async def test_post_prediction_series_rejected_without_write(self):
-        self.series_store.get_series = lambda league, team, count: [
-            SimpleNamespace(ts_utc=self.tipoff - 10 + i,
-                            game_id=f"late-{i}", source="ESPN",
-                            timestamp_precision="exact")
-            for i in range(6)
-        ]
+        snapshot = self.core.meta["input_snapshot"]
+        for i, row in enumerate(snapshot["payload"]["teams"]["home"]["records"]):
+            row["ts_utc"] = self.tipoff - 10 + i
+        snapshot["sha256"] = digest(snapshot["payload"])
         with self.assertRaisesRegex(ValueError, "Insufficient pre-prediction"):
             await persist_resolved_nba_prematch(
                 adapter=self.adapter, ledger=self.ledger, core=self.core,

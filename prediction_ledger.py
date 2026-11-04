@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 import sqlite3
+import json
 from typing import Optional
 
 from historical_backtest import HistoricalPrediction, BacktestMetrics, evaluate_predictions
@@ -52,9 +53,54 @@ class PredictionLedger:
                 scope TEXT NOT NULL,
                 PRIMARY KEY (league, fixture_id)
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS prediction_inputs (
+                league TEXT NOT NULL, fixture_id TEXT NOT NULL,
+                snapshot_json TEXT NOT NULL, snapshot_sha256 TEXT NOT NULL,
+                PRIMARY KEY (league, fixture_id)
+            )""")
 
     def _connect(self):
         return sqlite3.connect(self.db_path, timeout=10)
+
+    def load_prediction_inputs(self, league: str, fixture_id: str):
+        """Replay persisted inputs without consulting mutable baseline files."""
+        from prediction_inputs import validate_prediction_inputs
+        self._identity(league, fixture_id)
+        with self._connect() as db:
+            snapshot = db.execute(
+                "SELECT snapshot_json, snapshot_sha256 FROM prediction_inputs WHERE league=? AND fixture_id=?",
+                (league, fixture_id)).fetchone()
+            prediction = db.execute(
+                "SELECT prediction_ts_utc, expected_home, expected_away, scope FROM predictions WHERE league=? AND fixture_id=?",
+                (league, fixture_id)).fetchone()
+        if snapshot is None:
+            return None
+        if prediction is None:
+            raise ValueError("Orphan prediction input snapshot")
+        result = json.loads(snapshot[0])
+        if not isinstance(result, dict) or result.get("sha256") != snapshot[1]:
+            raise ValueError("Stored prediction input digest mismatch")
+        validate_prediction_inputs(result, league=league, prediction_utc=prediction[0],
+            expected_home=prediction[1], expected_away=prediction[2], scope=prediction[3])
+        return result
+
+    def audit_prediction_inputs(self, league: str):
+        """Describe input binding separately from provider-identity verification."""
+        self._identity(league, "audit")
+        with self._connect() as db:
+            predictions = db.execute("SELECT fixture_id FROM predictions WHERE league=?", (league,)).fetchall()
+            orphaned = db.execute("""SELECT COUNT(*) FROM prediction_inputs i
+                LEFT JOIN predictions p ON i.league=p.league AND i.fixture_id=p.fixture_id
+                WHERE i.league=? AND p.fixture_id IS NULL""", (league,)).fetchone()[0]
+        counts = dict(predictions=len(predictions), bound=0, missing=0, invalid=0, orphaned=orphaned)
+        for (fixture_id,) in predictions:
+            try:
+                snapshot = self.load_prediction_inputs(league, fixture_id)
+            except (ValueError, TypeError):
+                counts["invalid"] += 1
+            else:
+                counts["missing" if snapshot is None else "bound"] += 1
+        return counts
 
     @staticmethod
     def _identity(league: str, fixture_id: str):

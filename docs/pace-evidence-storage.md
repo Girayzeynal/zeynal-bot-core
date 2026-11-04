@@ -61,7 +61,8 @@ The observation proves internal consistency and records when this process
 received the data; a writable local timestamp/hash is not independent provider
 attestation. Team-key resolution remains the adapter/caller's responsibility.
 The series keeps its existing rolling retention limit, so evidence is pruned
-with its game. The next module must bind a retained immutable set of input
-observations to each prediction, independent of rolling history, and verify
-that FAZ13 actually used those inputs. Independent possession validation,
+with its game. Retained input copies have subsequently been bound to each new
+canonical FAZ13 projection independently of rolling history; see
+`prediction-input-binding.md` for replay and transaction validation.
+Independent possession validation,
 prospective calibration and non-NBA provider integration also remain open.
