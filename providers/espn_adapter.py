@@ -41,7 +41,9 @@ class ESPNAdapter:
         if self._session and not self._session.closed:
             return self._session
         timeout = aiohttp.ClientTimeout(total=20)
-        self._session = aiohttp.ClientSession(timeout=timeout)
+        # Managed and corporate runtimes may require HTTPS_PROXY. aiohttp
+        # ignores environment proxies unless explicitly enabled.
+        self._session = aiohttp.ClientSession(timeout=timeout, trust_env=True)
         self._owns_session = True
         return self._session
 
