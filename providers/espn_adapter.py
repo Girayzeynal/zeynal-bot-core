@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import calendar
+import math
+from email.utils import parsedate_to_datetime
 import logging
 import time
 from datetime import datetime, timezone
@@ -37,6 +39,8 @@ class ESPNAdapter:
         self._owns_session = session is None
         self._teams_cache: Optional[List[Dict[str, Any]]] = None
         self._teams_cache_ts: float = 0.0
+        self._blocked_until = 0.0
+        self.last_http_status = None
         self._teams_ttl = 6 * 3600  # 6 saat
 
     # -------------------------------------------------
@@ -60,14 +64,29 @@ class ESPNAdapter:
     # HTTP (retry + backoff)
     # -------------------------------------------------
     async def _get_json(self, url: str) -> Optional[Dict[str, Any]]:
+        if time.time() < self._blocked_until:
+            return None
         backoff = 0.6
         for _ in range(3):
             try:
                 s = await self._get_session()
                 async with s.get(url) as resp:
+                    self.last_http_status = resp.status
                     if resp.status == 200:
                         return await resp.json()
-                    if resp.status in (429, 500, 502, 503):
+                    if resp.status in (403, 429):
+                        delay = 300.0 if resp.status == 403 else 60.0
+                        raw = resp.headers.get('Retry-After')
+                        if isinstance(raw, str):
+                            try:
+                                seconds = float(raw)
+                            except ValueError:
+                                try: seconds = parsedate_to_datetime(raw).timestamp() - time.time()
+                                except (ValueError, TypeError, OverflowError): seconds = delay
+                            if math.isfinite(seconds): delay = max(delay, seconds)
+                        self._blocked_until = time.time() + delay
+                        return None
+                    if resp.status in (500, 502, 503):
                         await asyncio.sleep(backoff)
                         backoff *= 1.6
                         continue

@@ -65,12 +65,13 @@ class Poller:
             row=db.execute('SELECT next_utc FROM faz25_attempts WHERE task=?',(task,)).fetchone()
         return row is None or row[0] <= int(time.time())
 
-    def record(self, task, status, error=None):
+    def record(self, task, status, error=None, retry_after=0):
         now=int(time.time())
         with self.ledger._connect() as db:
             row=db.execute('SELECT attempts FROM faz25_attempts WHERE task=?',(task,)).fetchone()
             attempts=(row[0] if row else 0)+1
             delay=min(3600,60*2**min(attempts-1,6)) if error else 300
+            delay=max(delay,retry_after)
             db.execute('INSERT OR REPLACE INTO faz25_attempts VALUES (?,?,?,?,?,?)',
                        (task,attempts,now+delay,status,error,now))
 
@@ -82,13 +83,21 @@ class Poller:
             self.record(task,status,error)
             return dict(task=task,status=status)
         except (ValueError,TypeError,KeyError,RuntimeError,OSError,sqlite3.Error,asyncio.TimeoutError) as exc:
-            self.record(task,'retry_pending',type(exc).__name__)
+            self.record(task,'retry_pending',type(exc).__name__,getattr(exc,'retry_after',0))
             return dict(task=task,status='retry_pending',error_type=type(exc).__name__)
 
-    async def tick(self, *, schedule, collect, reconcile):
+    async def tick(self, *, schedule, collect, reconcile, dry_run=False):
         with exclusive(self.ledger.db_path) as acquired:
             if not acquired: return dict(status='busy',actions=[])
             actions=[]
+            if dry_run:
+                try:
+                    rows=validate_schedule(await asyncio.wait_for(schedule(),timeout=self.timeout))
+                    now=int(time.time())
+                    return dict(status='dry_run',actions=[],eligible_fixture_ids=[r['provider_fixture_id'] for r in rows
+                        if now < r['start_ts_utc'] <= now+self.lead],predictions_written=0)
+                except (ValueError,RuntimeError,OSError,asyncio.TimeoutError) as exc:
+                    return dict(status='schedule_unavailable',actions=[],error_type=type(exc).__name__)
             with self.ledger._connect() as db:
                 exists=db.execute("SELECT 1 FROM sqlite_master WHERE name='faz24_stages'").fetchone()
                 known=db.execute('SELECT fixture_id FROM faz24_stages').fetchall() if exists else []
@@ -109,7 +118,7 @@ class Poller:
                 rows=validate_schedule(await asyncio.wait_for(schedule(),timeout=self.timeout))
                 self.record('schedule','available')
             except (ValueError,TypeError,RuntimeError,OSError,asyncio.TimeoutError) as exc:
-                self.record('schedule','retry_pending',type(exc).__name__)
+                self.record('schedule','retry_pending',type(exc).__name__,getattr(exc,'retry_after',0))
                 return dict(status='schedule_unavailable',error_type=type(exc).__name__,actions=actions)
             processed=0
             for row in rows:
@@ -145,6 +154,24 @@ def backup(database, destination):
 
 class BaselineUnavailable(ValueError):
     pass
+
+
+class ProviderCooldown(RuntimeError):
+    def __init__(self, retry_after):
+        super().__init__('provider requires cooldown')
+        self.retry_after=max(0,int(retry_after)+1)
+
+
+def directory_codes(teams,row):
+    names={}
+    for side in ('home','away'):
+        matches=[item.get('team') for item in (teams or []) if isinstance(item,dict)
+                 and isinstance(item.get('team'),dict)
+                 and str(item['team'].get('id'))==row[side+'_team_id']]
+        if len(matches)!=1 or not isinstance(matches[0].get('abbreviation'),str) or not matches[0]['abbreviation'].strip():
+            raise BaselineUnavailable('team directory identity/abbreviation missing or ambiguous')
+        names[side]=matches[0]['abbreviation']
+    return names
 
 
 async def refresh_baseline(adapter, history, store, team, team_id):
@@ -201,16 +228,15 @@ async def run(args):
     history._fetch_day=cached_day
     async def schedule():
         day=datetime.now(timezone.utc).date()
-        return [await adapter._get_json(f'{ESPN_BASE}/scoreboard?dates={(day+timedelta(days=i)):%Y%m%d}')
+        payloads=[await adapter._get_json(f'{ESPN_BASE}/scoreboard?dates={(day+timedelta(days=i)):%Y%m%d}')
                 for i in (-1,0,1)]
+        if any(p is None for p in payloads) and adapter._blocked_until > time.time():
+            raise ProviderCooldown(adapter._blocked_until-time.time())
+        return payloads
     async def collect_one(row):
         teams=await adapter._load_teams()
-        names={}
+        names=directory_codes(teams,row)
         for side in ('home','away'):
-            matches=[t['team']['abbreviation'] for t in (teams or [])
-                     if str(t.get('team',{}).get('id'))==row[side+'_team_id']]
-            if len(matches)!=1: raise ValueError('source team directory unavailable or ambiguous')
-            names[side]=matches[0]
             baseline=await refresh_baseline(adapter,history,store,names[side],row[side+'_team_id'])
             if baseline is None: raise ValueError('verified baseline unavailable')
             series=store.get_series('NBA',names[side],baseline.n_games)
@@ -230,7 +256,7 @@ async def run(args):
         for cycle in range(args.cycles):
             day_cache.clear()
             result=await poller.tick(schedule=schedule,collect=collect_one,
-                reconcile=lambda fixture:reconcile_bound_result(adapter=adapter,ledger=poller.ledger,fixture_id=fixture))
+                reconcile=lambda fixture:reconcile_bound_result(adapter=adapter,ledger=poller.ledger,fixture_id=fixture),dry_run=args.dry_run)
             failed = failed or result['status']=='schedule_unavailable' or any(a['status']=='retry_pending' for a in result['actions'])
             print(json.dumps(result,sort_keys=True),flush=True)
             if cycle+1<args.cycles: await asyncio.sleep(args.interval)
@@ -244,7 +270,7 @@ def main(argv=None):
     p=argparse.ArgumentParser(description=__doc__)
     sub=p.add_subparsers(dest='command',required=True)
     q=sub.add_parser('poll');q.add_argument('database');q.add_argument('baselines')
-    q.add_argument('--cycles',type=int,default=1);q.add_argument('--interval',type=int,default=300)
+    q.add_argument('--dry-run',action='store_true');q.add_argument('--cycles',type=int,default=1);q.add_argument('--interval',type=int,default=300)
     q=sub.add_parser('backup');q.add_argument('database');q.add_argument('destination')
     args=p.parse_args(argv)
     try:
