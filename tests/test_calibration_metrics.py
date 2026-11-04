@@ -5,8 +5,9 @@ import unittest
 from calibration_metrics import evaluate_verified_totals
 
 
-def snap(key, ts, expected):
-    return {"fixture_key": key, "ts": ts, "payload": {"meta": {"expected_total": expected}}}
+def snap(key, ts, expected, quality="VERIFIED_BASELINE"):
+    return {"fixture_key": key, "ts": ts, "payload": {"meta": {
+        "expected_total": expected, "data_quality": quality}}}
 
 
 def final(start, home, away):
@@ -45,8 +46,18 @@ class CalibrationMetricsTests(unittest.TestCase):
         self.assertEqual(report["mae"], 0)
         self.assertEqual(report["excluded"], {
             "duplicate": 1, "unverified_result": 1, "invalid_prediction": 1,
-            "invalid_score": 1, "not_prematch": 1,
+            "invalid_score": 1, "not_prematch": 1, "unverified_baseline": 0,
         })
+
+    def test_manual_baseline_is_excluded_from_verified_accuracy(self):
+        snapshots = [snap("manual", 100, 200, "MANUAL_BASELINE"),
+                     snap("verified", 100, 205)]
+        results = {"manual": final(200, 100, 100),
+                   "verified": final(200, 100, 100)}
+        report = evaluate_verified_totals(snapshots, results)
+        self.assertEqual(report["sample_size"], 1)
+        self.assertEqual(report["mae"], 5)
+        self.assertEqual(report["excluded"]["unverified_baseline"], 1)
 
     def test_no_verified_data_does_not_claim_accuracy(self):
         report = evaluate_verified_totals([], {})
