@@ -67,6 +67,24 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
                 adapter=self.adapter, ledger=self.ledger, core=self.core,
                 observed_at_utc=self.tipoff - 60)
 
+    async def test_manual_source_inside_verified_label_rejected(self):
+        self.core.meta["home_sources"] = ["ESPN", "MANUAL_BASELINE"]
+        with self.assertRaisesRegex(ValueError, "home baseline"):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                observed_at_utc=self.tipoff - 60)
+        with self.ledger._connect() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM predictions").fetchone()[0], 0)
+
+    async def test_empty_source_label_rejected_without_write(self):
+        self.core.meta["away_sources"] = [""]
+        with self.assertRaisesRegex(ValueError, "away baseline"):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                observed_at_utc=self.tipoff - 60)
+        with self.ledger._connect() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM predictions").fetchone()[0], 0)
+
     async def test_manual_baseline_rejected(self):
         self.core.meta["data_quality"] = "MANUAL_BASELINE"
         with self.assertRaises(ValueError):
