@@ -18,8 +18,10 @@ class Faz23SnapshotContractTests(unittest.TestCase):
             core = SimpleNamespace(meta={}, ctx=SimpleNamespace(
                 date="2026-11-04", home="Home", away="Away", league="NBA"
             ), market={}, notes=[])
-            with self.assertRaises(ValueError):
-                asyncio.run(engine.record_snapshot(core))
+            for invalid_quality in (None, "", "   ", 123, [], {}):
+                core.meta = {} if invalid_quality is None else {"data_quality": invalid_quality}
+                with self.subTest(quality=invalid_quality), self.assertRaises(ValueError):
+                    asyncio.run(engine.record_snapshot(core))
             with sqlite3.connect(path) as con:
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM snapshots").fetchone()[0], 0)
 
