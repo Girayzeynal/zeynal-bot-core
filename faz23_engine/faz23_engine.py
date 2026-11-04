@@ -76,6 +76,33 @@ class Faz23Engine:
         finally:
             con.close()
 
+    def latest_snapshots_by_fixture(self) -> List[Dict[str, Any]]:
+        """Return one latest inserted snapshot per fixture for calibration inputs.
+
+        This is a read-only selection; all historical snapshots remain stored.
+        Ordering by insertion id resolves equal-second timestamps deterministically.
+        It does not match snapshots with actual results or validate prediction timing.
+        """
+        con = sqlite3.connect(self.path)
+        try:
+            rows = con.execute(
+                """
+                SELECT id, ts, fixture_key, payload
+                FROM snapshots
+                WHERE id IN (
+                    SELECT MAX(id) FROM snapshots GROUP BY fixture_key
+                )
+                ORDER BY id
+                """
+            ).fetchall()
+        finally:
+            con.close()
+        return [
+            {"id": row[0], "ts": row[1], "fixture_key": row[2],
+             "payload": json.loads(row[3])}
+            for row in rows
+        ]
+
     # -------------------------------------------------
     # CORE DECISION
     # -------------------------------------------------
