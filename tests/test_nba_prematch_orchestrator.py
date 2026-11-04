@@ -16,6 +16,13 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(tmp.cleanup)
         self.ledger = PredictionLedger(os.path.join(tmp.name, "ledger.sqlite"))
         self.adapter = ESPNAdapter()
+        self.series_store = SimpleNamespace(
+            get_series=lambda league, team, count: [
+                SimpleNamespace(ts_utc=self.tipoff - 1000 - i,
+                                game_id=f"game-{i}", source="ESPN",
+                                timestamp_precision="exact")
+                for i in range(6)
+            ])
         self.adapter.resolve_team = AsyncMock(side_effect=[
             {"id": "1"}, {"id": "2"}])
         self.tipoff = int(datetime(2026, 11, 4, 1, 30, tzinfo=timezone.utc).timestamp())
@@ -33,10 +40,32 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
                       home_sources=["ESPN"], away_sources=["ESPN"],
                       home_baseline_games=10, away_baseline_games=10))
 
+    async def test_missing_series_store_rejected(self):
+        with self.assertRaisesRegex(ValueError, "historical game series"):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                observed_at_utc=self.tipoff - 60)
+
+    async def test_post_prediction_series_rejected_without_write(self):
+        self.series_store.get_series = lambda league, team, count: [
+            SimpleNamespace(ts_utc=self.tipoff - 10 + i,
+                            game_id=f"late-{i}", source="ESPN",
+                            timestamp_precision="exact")
+            for i in range(6)
+        ]
+        with self.assertRaisesRegex(ValueError, "Insufficient pre-prediction"):
+            await persist_resolved_nba_prematch(
+                adapter=self.adapter, ledger=self.ledger, core=self.core,
+                baseline_store=self.series_store,
+                observed_at_utc=self.tipoff - 60)
+        with self.ledger._connect() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM predictions").fetchone()[0], 0)
+
     async def test_valid_identity_persists(self):
         result = await persist_resolved_nba_prematch(
             adapter=self.adapter, ledger=self.ledger, core=self.core,
-            observed_at_utc=self.tipoff - 60)
+            baseline_store=self.series_store,
+                observed_at_utc=self.tipoff - 60)
         self.assertTrue(result["inserted"])
         self.assertEqual(result["fixture"]["provider_fixture_id"], "espn-1")
 
@@ -44,6 +73,7 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await persist_resolved_nba_prematch(
                 adapter=self.adapter, ledger=self.ledger, core=self.core,
+                baseline_store=self.series_store,
                 observed_at_utc=self.tipoff)
 
     async def test_future_dated_prediction_rejected(self):
@@ -51,6 +81,7 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await persist_resolved_nba_prematch(
                 adapter=self.adapter, ledger=self.ledger, core=self.core,
+                baseline_store=self.series_store,
                 observed_at_utc=self.tipoff - 60)
 
     async def test_missing_source_metadata_rejected(self):
@@ -58,6 +89,7 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "home baseline"):
             await persist_resolved_nba_prematch(
                 adapter=self.adapter, ledger=self.ledger, core=self.core,
+                baseline_store=self.series_store,
                 observed_at_utc=self.tipoff - 60)
 
     async def test_insufficient_baseline_sample_rejected(self):
@@ -65,6 +97,7 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "away baseline"):
             await persist_resolved_nba_prematch(
                 adapter=self.adapter, ledger=self.ledger, core=self.core,
+                baseline_store=self.series_store,
                 observed_at_utc=self.tipoff - 60)
 
     async def test_manual_source_inside_verified_label_rejected(self):
@@ -72,6 +105,7 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "home baseline"):
             await persist_resolved_nba_prematch(
                 adapter=self.adapter, ledger=self.ledger, core=self.core,
+                baseline_store=self.series_store,
                 observed_at_utc=self.tipoff - 60)
         with self.ledger._connect() as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM predictions").fetchone()[0], 0)
@@ -81,6 +115,7 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "away baseline"):
             await persist_resolved_nba_prematch(
                 adapter=self.adapter, ledger=self.ledger, core=self.core,
+                baseline_store=self.series_store,
                 observed_at_utc=self.tipoff - 60)
         with self.ledger._connect() as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM predictions").fetchone()[0], 0)
@@ -90,6 +125,7 @@ class NbaPrematchOrchestratorTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await persist_resolved_nba_prematch(
                 adapter=self.adapter, ledger=self.ledger, core=self.core,
+                baseline_store=self.series_store,
                 observed_at_utc=self.tipoff - 60)
 
 
