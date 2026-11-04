@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock
 
 from providers.espn_adapter import ESPNAdapter
-from providers.espn_turkey_fixture_lookup import resolve_nba_fixture_for_turkey_date
+from providers.espn_turkey_fixture_lookup import resolve_nba_fixture_for_turkey_date, resolve_named_nba_fixture_for_turkey_date
 
 
 def fixture(id_, timestamp, home="1", away="2"):
@@ -48,6 +48,34 @@ class TurkeyFixtureLookupTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await resolve_nba_fixture_for_turkey_date(
                 self.adapter, "2026-11-04", home_team_id="1", away_team_id="2")
+
+    async def test_named_team_resolution_uses_espn_ids(self):
+        tipoff = int(datetime(2026, 11, 4, 1, 30, tzinfo=timezone.utc).timestamp())
+        self.adapter.resolve_team = AsyncMock(side_effect=[
+            {"id": "1", "name": "Home"}, {"id": "2", "name": "Away"},
+        ])
+        self.adapter.fetch_scheduled_nba_scoreboard_date.return_value = [
+            fixture("espn-1", tipoff)]
+        row = await resolve_named_nba_fixture_for_turkey_date(
+            self.adapter, "2026-11-04", home="Home", away="Away")
+        self.assertEqual(row["provider_fixture_id"], "espn-1")
+        self.assertEqual(self.adapter.resolve_team.await_count, 2)
+
+    async def test_unresolved_team_rejects_before_scoreboard_fetch(self):
+        self.adapter.resolve_team = AsyncMock(side_effect=[{"id": "1"}, None])
+        with self.assertRaises(ValueError):
+            await resolve_named_nba_fixture_for_turkey_date(
+                self.adapter, "2026-11-04", home="Home", away="Unknown")
+        self.adapter.fetch_scheduled_nba_scoreboard_date.assert_not_awaited()
+
+    async def test_swapped_team_ids_do_not_match(self):
+        tipoff = int(datetime(2026, 11, 4, 1, 30, tzinfo=timezone.utc).timestamp())
+        self.adapter.resolve_team = AsyncMock(side_effect=[{"id": "2"}, {"id": "1"}])
+        self.adapter.fetch_scheduled_nba_scoreboard_date.return_value = [
+            fixture("espn-1", tipoff)]
+        with self.assertRaises(ValueError):
+            await resolve_named_nba_fixture_for_turkey_date(
+                self.adapter, "2026-11-04", home="Away", away="Home")
 
     async def test_provider_failure_propagates(self):
         self.adapter.fetch_scheduled_nba_scoreboard_date.side_effect = RuntimeError("offline")
