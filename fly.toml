@@ -18,6 +18,8 @@ ODDS_FORMAT = "decimal"
 BASELINE_DIR = "/data/baselines"
 FAZ23_STORAGE = "/data/faz23_storage.sqlite"
 SCHEDULER_DB = "/data/scheduler_cache.sqlite"
+NBA_LEDGER_ENABLED = "false"
+NBA_LEDGER_PATH = "/data/nba_prediction_ledger.sqlite"
 
 [http_service]
 internal_port = 8080
