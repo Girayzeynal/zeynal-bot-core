@@ -70,6 +70,24 @@ class CalibrationMetricsTests(unittest.TestCase):
         self.assertEqual(report["sample_size"], 0)
         self.assertEqual(report["excluded"]["identity_mismatch"], 1)
 
+    def test_missing_context_cannot_be_calibrated(self):
+        key = "2026-11-04:Home:Away:NBA"
+        record = snap(key, 100, 200)
+        del record["payload"]["ctx"]
+        result = evaluate_verified_totals([record], {key: final(200, 100, 100)})
+        self.assertEqual(result["sample_size"], 0)
+        self.assertEqual(result["excluded"]["identity_mismatch"], 1)
+
+    def test_different_league_or_date_never_matches(self):
+        key = "2026-11-04:Home:Away:NBA"
+        for field, value in (("league", "EuroLeague"), ("date", "2026-11-05")):
+            with self.subTest(field=field):
+                record = snap(key, 100, 200)
+                record["payload"]["ctx"][field] = value
+                result = evaluate_verified_totals([record], {key: final(200, 100, 100)})
+                self.assertEqual(result["sample_size"], 0)
+                self.assertEqual(result["excluded"]["identity_mismatch"], 1)
+
     def test_no_verified_data_does_not_claim_accuracy(self):
         report = evaluate_verified_totals([], {})
         self.assertEqual(report["status"], "INSUFFICIENT_VERIFIED_DATA")
