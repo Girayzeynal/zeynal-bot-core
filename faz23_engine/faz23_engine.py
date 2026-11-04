@@ -55,6 +55,8 @@ class Faz23Engine:
             con.close()
 
     async def record_snapshot(self, out: Faz13CoreOutput) -> None:
+        if not isinstance(getattr(out, "meta", None), dict) or not out.meta.get("data_quality"):
+            raise ValueError("Cannot record analysis without data-quality provenance")
         fixture_key = f"{out.ctx.date}:{out.ctx.home}:{out.ctx.away}:{out.ctx.league}"
         payload = {
             "ctx": out.ctx.__dict__,
