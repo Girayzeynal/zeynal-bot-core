@@ -38,8 +38,18 @@ async def resolve_nba_fixture_for_turkey_date(
     rows = []
     for utc_day in utc_dates:
         rows.extend(await adapter.fetch_scheduled_nba_scoreboard_date(utc_day.strftime("%Y%m%d")))
-    matching = {}
+    # Detect identity conflicts BEFORE team filtering. Otherwise a conflicting
+    # duplicate with different teams could be silently ignored.
+    by_provider_id = {}
     for row in rows:
+        key = row.get("provider_fixture_id")
+        if not isinstance(key, str) or not key.strip():
+            continue
+        if key in by_provider_id and by_provider_id[key] != row:
+            raise ValueError("Conflicting ESPN fixture identity across schedule dates")
+        by_provider_id[key] = row
+    matching = {}
+    for key, row in by_provider_id.items():
         if row.get("home_team_id") != home_team_id or row.get("away_team_id") != away_team_id:
             continue
         tipoff = row.get("start_ts_utc")
@@ -47,11 +57,6 @@ async def resolve_nba_fixture_for_turkey_date(
             continue
         if datetime.fromtimestamp(tipoff, tz=ISTANBUL).date() != local_day:
             continue
-        key = row.get("provider_fixture_id")
-        if not isinstance(key, str) or not key:
-            continue
-        if key in matching and matching[key] != row:
-            raise ValueError("Conflicting ESPN fixture identity across schedule dates")
         matching[key] = row
     if len(matching) != 1:
         raise ValueError("No unique pregame ESPN fixture matched the Türkiye date and teams")
