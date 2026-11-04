@@ -143,6 +143,35 @@ def backup(database, destination):
     return dict(status='backed_up',sha256=hashlib.sha256(destination.read_bytes()).hexdigest(),external_uploaded=False)
 
 
+class BaselineUnavailable(ValueError):
+    pass
+
+
+async def refresh_baseline(adapter, history, store, team, team_id):
+    """Reuse date-scoped verified history; team schedule endpoints may omit finals."""
+    from baseline.team_baseline_store import TeamBaseline
+    games=await history.fetch_verified_games(team_id,as_of_utc=datetime.now(timezone.utc),
+        days=21,minimum=6,regular_season_only=True)
+    if games is None: raise BaselineUnavailable('insufficient verified finals')
+    selected=games[-10:]
+    for game in selected:
+        evidence=await adapter.fetch_pace_evidence(game)
+        if evidence is None: raise BaselineUnavailable('box-score evidence unavailable')
+        home=game['home_team_id']==team_id
+        if not home and game['away_team_id']!=team_id: raise BaselineUnavailable('wrong team')
+        store.append_game('NBA',team,
+            game['actual_home'] if home else game['actual_away'],
+            game['actual_away'] if home else game['actual_home'],evidence['pace'],home,
+            ts_utc=game['start_ts_utc'],game_id=game['provider_fixture_id'],
+            source=evidence['method'],timestamp_precision='exact',pace_evidence=evidence)
+    data=store.compute_dynamic_baseline('NBA',team,len(selected))
+    if data is None: raise BaselineUnavailable('historical aggregate unavailable')
+    baseline=TeamBaseline('NBA',team,data['n_games'],data['pts_for'],data['pts_against'],
+                          data['pace'],data['stdev_total'],int(time.time()))
+    store.put(baseline)
+    return baseline
+
+
 async def run(args):
     import subprocess
     repo=Path(__file__).resolve().parent
@@ -159,7 +188,17 @@ async def run(args):
     adapter=ESPNAdapter(allow_estimated_pace=True)
     store=TeamBaselineStore(args.baselines);poller=Poller(args.database)
     engine=Faz13Engine('','',baseline_store=store);engine.espn=adapter
-    bootstrap=TeamBaselineBootstrapper(store,[adapter])
+    from providers.espn_scoreboard_history import ESPNScoreboardHistory
+    history=ESPNScoreboardHistory()
+    day_cache={}
+    fetch_day=history._fetch_day
+    async def cached_day(day):
+        if day not in day_cache:
+            events=await fetch_day(day)
+            if events is not None: day_cache[day]=events
+            return events
+        return day_cache[day]
+    history._fetch_day=cached_day
     async def schedule():
         day=datetime.now(timezone.utc).date()
         return [await adapter._get_json(f'{ESPN_BASE}/scoreboard?dates={(day+timedelta(days=i)):%Y%m%d}')
@@ -172,7 +211,7 @@ async def run(args):
                      if str(t.get('team',{}).get('id'))==row[side+'_team_id']]
             if len(matches)!=1: raise ValueError('source team directory unavailable or ambiguous')
             names[side]=matches[0]
-            baseline=await bootstrap.ensure_async('NBA',names[side],min_games=6)
+            baseline=await refresh_baseline(adapter,history,store,names[side],row[side+'_team_id'])
             if baseline is None: raise ValueError('verified baseline unavailable')
             series=store.get_series('NBA',names[side],baseline.n_games)
             for record in series:
@@ -189,12 +228,15 @@ async def run(args):
     failed=False
     try:
         for cycle in range(args.cycles):
+            day_cache.clear()
             result=await poller.tick(schedule=schedule,collect=collect_one,
                 reconcile=lambda fixture:reconcile_bound_result(adapter=adapter,ledger=poller.ledger,fixture_id=fixture))
             failed = failed or result['status']=='schedule_unavailable' or any(a['status']=='retry_pending' for a in result['actions'])
             print(json.dumps(result,sort_keys=True),flush=True)
             if cycle+1<args.cycles: await asyncio.sleep(args.interval)
-    finally: await adapter.aclose()
+    finally:
+        await adapter.aclose()
+        await history.aclose()
     return int(failed)
 
 

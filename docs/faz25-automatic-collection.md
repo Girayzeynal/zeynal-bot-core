@@ -104,3 +104,11 @@ failures, so monitoring cannot mistake a failed run for healthy collection.
 Compilation and diff checks passed. No local Docker success is claimed; the
 managed environment previously denied Docker socket access. Dedicated GitHub
 Docker/unit jobs are the authoritative build checks for the new commit.
+
+The first real isolated tick fetched 16 scheduled fixtures, attempted two and
+recorded retry_pending for both with zero predictions. The team-schedule baseline
+path supplied no usable historical series. Refresh was therefore connected to
+the existing date-scoped ESPNScoreboardHistory, with a shared successful-day
+cache per tick and explicit regular-season/final/box-score checks. No provider
+failure becomes an assumed value. A new regression covers missing verified
+finals and missing pace evidence preventing baseline publication.

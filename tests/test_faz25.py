@@ -8,7 +8,7 @@ import sqlite3
 import tempfile
 import time
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 from faz25 import Poller,validate_schedule,exclusive,backup
 
 
@@ -118,3 +118,16 @@ class Faz25Tests(unittest.IsolatedAsyncioTestCase):
             db.executemany('INSERT INTO faz24_stages VALUES (?)',[('a',),('b',),('c',)])
         await self.tick();await self.tick()
         self.assertIn('c',[call.args[0] for call in self.reconcile.await_args_list])
+
+    async def test_history_refresh_missing_finals_or_pace_never_publishes_baseline(self):
+        from faz25 import refresh_baseline,BaselineUnavailable
+        history=type('History',(),{})();adapter=type('Adapter',(),{})()
+        store=type('Store',(),{})();store.put=Mock()
+        history.fetch_verified_games=AsyncMock(return_value=None)
+        adapter.fetch_pace_evidence=AsyncMock(return_value=None)
+        with self.assertRaises(BaselineUnavailable):
+            await refresh_baseline(adapter,history,store,'BOS','2')
+        history.fetch_verified_games.return_value=[{'home_team_id':'2','away_team_id':'15'}]*6
+        with self.assertRaises(BaselineUnavailable):
+            await refresh_baseline(adapter,history,store,'BOS','2')
+        store.put.assert_not_called()
