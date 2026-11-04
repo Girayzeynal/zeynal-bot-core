@@ -16,6 +16,7 @@ from providers.espn_turkey_fixture_lookup import resolve_named_nba_fixture_for_t
 async def persist_resolved_nba_prematch(
     *, adapter, ledger, core, baseline_store=None,
     observed_at_utc: int | None = None,
+    stage_bundle: dict | None = None,
 ) -> dict:
     """Resolve ESPN identity and persist only a genuine pre-tipoff FAZ13 output.
 
@@ -123,5 +124,5 @@ async def persist_resolved_nba_prematch(
             raise ValueError(f"FAZ13 {field} disagrees with reconciled baseline")
     inserted = record_faz13_for_espn_fixture(
         ledger, core, fixture, resolved_home_team_id=home_id,
-        resolved_away_team_id=away_id)
+        resolved_away_team_id=away_id, stage_bundle=stage_bundle)
     return {"fixture": fixture, "inserted": inserted}

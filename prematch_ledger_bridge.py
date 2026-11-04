@@ -18,6 +18,7 @@ def record_verified_prematch_projection(
     scope: str = "FINAL_WITH_OT",
     input_snapshot: dict | None = None,
     fixture_evidence: dict | None = None,
+    stage_bundle: dict | None = None,
 ) -> bool:
     """Record one immutable pre-tipoff projection; reject incomplete provenance."""
     if not isinstance(ledger, PredictionLedger):
@@ -56,6 +57,12 @@ def record_verified_prematch_projection(
     # A single transaction inserts provenance, projection and inputs or none.
     with ledger._connect() as db:
         db.execute("BEGIN IMMEDIATE")
+        if stage_bundle is not None:
+            if league != 'NBA' or provider != 'ESPN' or scope != 'FINAL_WITH_OT':
+                raise ValueError('FAZ24 requires NBA ESPN final-with-OT inputs')
+            from faz24 import insert_stages
+            insert_stages(db, stage_bundle, fixture_id=fixture_id, tipoff=tipoff_utc,
+                          prediction_utc=prediction_utc, input_snapshot=input_snapshot)
         if provider == "EUROLEAGUE_LIVE" and int(time.time()) >= tipoff_utc:
             raise ValueError("EuroLeague fixture has already started; no historical backfill")
         db.execute("""CREATE TABLE IF NOT EXISTS fixture_starts (
@@ -143,6 +150,7 @@ def record_faz13_verified_projection(
     ledger: PredictionLedger, core, *, fixture_id: str,
     provider_fixture_id: str, tipoff_utc: int,
     scope: str = "FINAL_WITH_OT",
+    stage_bundle: dict | None = None,
 ) -> bool:
     """Bridge a verified FAZ13 output without inferring missing score fields.
 
@@ -170,7 +178,7 @@ def record_faz13_verified_projection(
         provider_fixture_id=provider_fixture_id, tipoff_utc=tipoff_utc,
         prediction_utc=generated, expected_home=home, expected_away=away,
         scope=scope,
-        input_snapshot=meta.get("input_snapshot"),
+        input_snapshot=meta.get("input_snapshot"), stage_bundle=stage_bundle,
     )
 
 
@@ -178,6 +186,7 @@ def record_faz13_for_espn_fixture(
     ledger: PredictionLedger, core, fixture: dict, *,
     resolved_home_team_id: str, resolved_away_team_id: str,
     scope: str = "FINAL_WITH_OT",
+    stage_bundle: dict | None = None,
 ) -> bool:
     """Persist only when independently resolved FAZ13 teams match ESPN fixture IDs.
 
@@ -206,5 +215,5 @@ def record_faz13_for_espn_fixture(
     return record_faz13_verified_projection(
         ledger, core, fixture_id=fixture["provider_fixture_id"],
         provider_fixture_id=fixture["provider_fixture_id"],
-        tipoff_utc=tipoff, scope=scope,
+        tipoff_utc=tipoff, scope=scope, stage_bundle=stage_bundle,
     )
