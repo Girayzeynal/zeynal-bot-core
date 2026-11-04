@@ -1,0 +1,18 @@
+{
+  "status": "live_verification_blocked_by_rate_limit",
+  "observed_at_utc": 1793813039,
+  "source_error_type": "RuntimeError",
+  "origin": "Recorded adapter diagnostics from the 2026-11-04T17:23:59+00:00 live command",
+  "baseline_diagnostics": {
+    "status": "catalog_unavailable_or_invalid",
+    "team": "ZAL",
+    "request_failures": [
+      {"endpoint": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games", "outcome": "http_error", "http_status": 429, "observed_at_utc": 1793813039},
+      {"endpoint": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026", "outcome": "http_error", "http_status": 429, "observed_at_utc": 1793813039}
+    ]
+  },
+  "first_attempt_cause_confirmed": false,
+  "zal_baseline_persistence_verified": false,
+  "additional_live_requests_stopped": true,
+  "production_written": false
+}

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from prematch_ledger_bridge import record_faz13_for_espn_fixture
 from prematch_series_audit import audit_prematch_series
 from baseline_numeric_reconciliation import reconcile_team_average
-from providers.espn_pace_evidence import pace_available_before
+from providers.pace_evidence import pace_available_before
 from prediction_inputs import validate_prediction_inputs
 from providers.espn_turkey_fixture_lookup import resolve_named_nba_fixture_for_turkey_date
 

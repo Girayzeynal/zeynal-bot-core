@@ -1,5 +1,6 @@
 """Real trimmed source fixtures and synthetic rejection/duration cases."""
 from copy import deepcopy
+from email.utils import formatdate
 import json
 from pathlib import Path
 import time
@@ -207,6 +208,7 @@ class EuroAdapterTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(factory.call_args.kwargs["timeout"].total, 15)
             response.json.side_effect = ValueError("HTTP 200 HTML response")
             self.assertIsNone(await adapter._get_json(f"{BASE}/E"))
+            self.assertEqual(adapter.request_diagnostics[-1]["outcome"], "invalid_json")
             await adapter.aclose()
             session.close.assert_awaited_once()
 
@@ -216,6 +218,46 @@ class EuroAdapterTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await adapter.fetch_catalog("FIBA EuroCup", 2026)
         adapter._get_json.assert_not_awaited()
+
+    async def test_http_429_cooldown_prevents_immediate_repeated_requests(self):
+        with patch("providers.euroleague_live.aiohttp.ClientSession") as factory:
+            session = factory.return_value
+            session.closed = False
+            session.close = AsyncMock()
+            response = MagicMock(status=429, headers={"Retry-After": "120"})
+            session.get.return_value.__aenter__ = AsyncMock(return_value=response)
+            adapter = EuroleagueLiveAdapter()
+            self.assertIsNone(await adapter._get_json(f"{BASE}/E"))
+            self.assertIsNone(await adapter._get_json(f"{BASE}/E"))
+            session.get.assert_called_once()
+            self.assertEqual(adapter.request_diagnostics[0]["http_status"], 429)
+            self.assertEqual(adapter.request_diagnostics[-1]["outcome"], "rate_limit_cooldown")
+            await adapter.aclose()
+
+    async def test_cached_baseline_observation_is_not_restamped_or_mutable_by_caller(self):
+        fixture = source()
+        adapter = EuroleagueLiveAdapter(baseline_season_year=2026, allow_estimated_pace=True)
+        adapter._get_json = AsyncMock(side_effect=lambda url: fixture["stats"] if url.endswith("/stats") else fixture["game"])
+        first = await adapter.fetch_pace_evidence(fixture["game"], league="EUROLEAGUE", year=2026)
+        observed = first["observed_at_utc"]
+        first["inputs"]["home"]["fga"] = -1
+        second = await adapter.fetch_pace_evidence(fixture["game"], league="EUROLEAGUE", year=2026)
+        self.assertEqual(second["observed_at_utc"], observed)
+        self.assertEqual(second["inputs"]["home"]["fga"], 73)
+        self.assertEqual(adapter._get_json.await_count, 2)
+
+    async def test_retry_after_http_date_is_respected(self):
+        with patch("providers.euroleague_live.aiohttp.ClientSession") as factory:
+            session = factory.return_value
+            session.closed = False
+            session.close = AsyncMock()
+            response = MagicMock(status=429, headers={"Retry-After": formatdate(time.time()+180, usegmt=True)})
+            session.get.return_value.__aenter__ = AsyncMock(return_value=response)
+            adapter = EuroleagueLiveAdapter()
+            before = time.monotonic()
+            await adapter._get_json(f"{BASE}/E")
+            self.assertGreaterEqual(adapter._request_not_before, before+170)
+            await adapter.aclose()
 
 
 if __name__ == "__main__":

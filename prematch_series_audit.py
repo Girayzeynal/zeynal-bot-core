@@ -7,7 +7,7 @@ It does not assert independent authenticity of the provider response.
 from __future__ import annotations
 
 from typing import Any
-from providers.espn_pace_evidence import pace_available_before
+from providers.pace_evidence import pace_available_before, validate_series_scope
 
 
 def audit_prematch_series(
@@ -28,6 +28,7 @@ def audit_prematch_series(
     records = store.get_series(league, team, 100000)
     if not isinstance(records, list) or len(records) < min_games:
         raise ValueError("Insufficient recorded game evidence")
+    validate_series_scope(records)
     identities = set()
     eligible = []
     for row in records:
@@ -40,7 +41,7 @@ def audit_prematch_series(
                 or not isinstance(game_id, str) or not game_id.strip()
                 or not isinstance(source, str) or not source.strip()
                 or source == "MANUAL_BASELINE"
-                or not pace_available_before(row, league=league, prediction_utc=prediction_utc)):
+                or not pace_available_before(row, league=league, team=team, prediction_utc=prediction_utc)):
             # A retained game dated after prediction is excluded, not used.
             continue
         identity = (source, game_id)

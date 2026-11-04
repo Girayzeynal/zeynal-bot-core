@@ -77,7 +77,7 @@ def capture_team_inputs(store, *, league, key, average, n_games):
     _validate_team(item, league=league, prediction_utc=captured)
     if len(rows) != n_games:
         raise ValueError("Input sample differs from loaded aggregate")
-    reconcile_team_average(average, records, prediction_utc=captured)
+    reconcile_team_average(average, records, prediction_utc=captured, league=league, team=key)
     return item
 
 

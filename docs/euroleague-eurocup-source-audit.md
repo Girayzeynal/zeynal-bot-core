@@ -99,9 +99,11 @@ providers/leagues. EuroCup still has no analysis profile; none was fabricated.
 The existing EuroLeague profile remains registered but is not empirically
 validated by this source audit.
 
-Next gates are source-specific baseline evidence validation and persistence,
-per-team sample/availability checks, league-specific fixture/prediction binding,
-and prospective calibration. Independent possession/source reconciliation also
-remains open. No verified accuracy or production readiness is claimed. No
+Source-specific baseline storage and per-team availability checks are now
+implemented; see `euroleague-baseline-binding.md` for passing and incomplete
+live cases, including the HTTP 429 limitation. League-specific
+fixture/prediction binding, prospective calibration and independent
+possession/source reconciliation remain open. No verified accuracy or
+production readiness is claimed. No
 merge, deployment, paid service or secret change occurred. The existing NBA
 research fixture was separately checked and still returned `awaiting_tipoff`.

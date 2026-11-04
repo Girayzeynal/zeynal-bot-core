@@ -2,6 +2,7 @@
 from copy import deepcopy
 import asyncio
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import hashlib
 import json
 import math
@@ -14,6 +15,7 @@ import aiohttp
 BASE = "https://api-live.euroleague.net/v2/competitions"
 COMPETITIONS = {"EUROLEAGUE": ("E", "EuroLeague"), "EUROCUP": ("U", "EuroCup")}
 PACE_METHOD = "EUROLEAGUE_LIVE_BOXSCORE_044_40_V1"
+BASELINE_CACHE_SECONDS = 60
 STAT_FIELDS = ("points", "fieldGoalsMade2", "fieldGoalsAttempted2", "fieldGoalsMade3",
                "fieldGoalsAttempted3", "fieldGoalsMadeTotal", "fieldGoalsAttemptedTotal",
                "freeThrowsMade", "freeThrowsAttempted", "offensiveRebounds", "turnovers")
@@ -237,21 +239,63 @@ def replay_pace_evidence(evidence):
 
 
 class EuroleagueLiveAdapter:
-    def __init__(self, session=None):
+    def __init__(self, session=None, *, baseline_season_year=None, allow_estimated_pace=False):
+        if type(allow_estimated_pace) is not bool:
+            raise ValueError("Estimated-pace adoption requires an explicit boolean")
+        if baseline_season_year is not None:
+            identity("EUROLEAGUE", baseline_season_year)
+        if allow_estimated_pace and baseline_season_year is None:
+            raise ValueError("Estimated baselines require an explicit season year")
         self._session = session
         self._owns_session = session is None
+        self.baseline_season_year = baseline_season_year
+        self.allow_estimated_pace = allow_estimated_pace
+        self.request_diagnostics = []
+        self.baseline_diagnostics = {"status": "not_requested"}
+        self._request_not_before = 0.0
+        self._baseline_catalogs = {}
+        self._baseline_evidence = {}
+
+    def _request_diagnostic(self, url, outcome, http_status=None):
+        self.request_diagnostics.append(dict(endpoint=url.split("?")[0], outcome=outcome,
+            http_status=http_status, observed_at_utc=int(time.time())))
+        del self.request_diagnostics[:-128]
 
     async def _get_json(self, url):
+        if time.monotonic() < self._request_not_before:
+            self._request_diagnostic(url, "rate_limit_cooldown")
+            return None
         try:
             if self._session is None or self._session.closed:
                 self._session = aiohttp.ClientSession(trust_env=True, timeout=aiohttp.ClientTimeout(total=15))
                 self._owns_session = True
             async with self._session.get(url) as response:
                 if response.status != 200:
+                    self._request_diagnostic(url, "http_error", response.status)
+                    if response.status == 429:
+                        retry_after = response.headers.get("Retry-After", "")
+                        # This is a local minimum policy, not a fabricated server hint.
+                        delay = 60
+                        try:
+                            if isinstance(retry_after, str) and retry_after.isascii() and retry_after.isdigit():
+                                delay = max(delay, int(retry_after))
+                            elif isinstance(retry_after, str) and retry_after:
+                                deadline = parsedate_to_datetime(retry_after)
+                                if deadline.tzinfo is not None:
+                                    delay = max(delay, math.ceil(deadline.timestamp()-time.time()))
+                        except (ValueError, TypeError, OverflowError):
+                            pass
+                        self._request_not_before = max(self._request_not_before, time.monotonic()+delay)
                     return None
-                result = await response.json()
+                try:
+                    result = await response.json()
+                except (aiohttp.ContentTypeError, ValueError, TypeError):
+                    self._request_diagnostic(url, "invalid_json", response.status)
+                    return None
+                self._request_diagnostic(url, "ok" if isinstance(result, dict) else "invalid_payload", response.status)
                 return result if isinstance(result, dict) else None
-        except (aiohttp.ClientError, TimeoutError, ValueError, TypeError):
+        except (aiohttp.ClientError, TimeoutError):
+            self._request_diagnostic(url, "transport_error")
             return None
 
     async def aclose(self):
@@ -272,9 +316,101 @@ class EuroleagueLiveAdapter:
         parsed = parse_game(raw_game, league=league, year=year, observed_at_utc=int(time.time()))
         if parsed is None or parsed["status"] != "PLAYED":
             return None
+        key = (parsed["season_code"], parsed["provider_fixture_id"])
+        cached = self._baseline_evidence.get(key)
+        if (self.allow_estimated_pace and cached and time.monotonic()-cached[0] < BASELINE_CACHE_SECONDS
+                and cached[1]["game"] == parsed):
+            return deepcopy(cached[1])  # Preserve original observation time.
         url = f"{BASE}/{parsed['competition_code']}/seasons/{parsed['season_code']}/games/{parsed['game_code']}"
         game, stats = await asyncio.gather(self._get_json(url), self._get_json(url+"/stats"))
         observed = int(time.time())
         if parse_game(game, league=league, year=year, observed_at_utc=observed) != parsed or stats is None:
             return None
-        return estimate_pace(game, stats, league=league, year=year, observed_at_utc=observed)
+        evidence = estimate_pace(game, stats, league=league, year=year, observed_at_utc=observed)
+        if self.allow_estimated_pace and evidence is not None:
+            self._baseline_evidence[key] = (time.monotonic(), deepcopy(evidence))
+        return evidence
+
+    async def _baseline_catalog(self, league):
+        canonical, _, _, season = identity(league, self.baseline_season_year)
+        cached = self._baseline_catalogs.get(season)
+        if cached and time.monotonic()-cached[0] < BASELINE_CACHE_SECONDS:
+            return cached[1]
+        catalog = await self.fetch_catalog(canonical, self.baseline_season_year)
+        self._baseline_catalogs[season] = (time.monotonic(), catalog)
+        return catalog
+
+    @staticmethod
+    def _resolve_catalog_team(catalog, team_input):
+        if not isinstance(team_input, str) or not team_input.strip():
+            return None
+        text = team_input.strip().casefold()
+        matches = set()
+        for raw in catalog["raw_games"].values():
+            for side in ("local", "road"):
+                club = raw[side]["club"]
+                if text in (club["code"].casefold(), club["name"].strip().casefold()):
+                    matches.add(club["code"])
+        return next(iter(matches)) if len(matches) == 1 else None
+
+    async def resolve_team_abbr(self, league, team_input):
+        if not self.allow_estimated_pace:
+            return None
+        try:
+            identity(league, self.baseline_season_year)
+        except ValueError:
+            return None
+        catalog = await self._baseline_catalog(league)
+        if catalog["invalid_records"] or catalog["conflicting_fixture_ids"]:
+            return None
+        return self._resolve_catalog_team(catalog, team_input)
+
+    async def fetch_team_recent_games(self, league, team, n_games):
+        """Explicit research opt-in; no guessed season, names, pace or incomplete sample."""
+        if not self.allow_estimated_pace:
+            self.baseline_diagnostics = {"status": "estimated_pace_disabled"}
+            return None
+        if type(n_games) is not int or not 1 <= n_games <= 20:
+            raise ValueError("n_games must be an integer from one to twenty")
+        try:
+            canonical, _, _, _ = identity(league, self.baseline_season_year)
+        except ValueError:
+            return None
+        self.request_diagnostics.clear()
+        self.baseline_diagnostics = {"status": "catalog_requested", "team": team}
+        try:
+            catalog = await self._baseline_catalog(canonical)
+        except (RuntimeError, ValueError):
+            self.baseline_diagnostics = dict(status="catalog_unavailable_or_invalid", team=team,
+                request_failures=[dict(item) for item in self.request_diagnostics if item["outcome"] != "ok"])
+            raise
+        if catalog["invalid_records"] or catalog["conflicting_fixture_ids"]:
+            self.baseline_diagnostics = {"status": "catalog_rejected", "team": team}
+            return None
+        team_id = self._resolve_catalog_team(catalog, team)
+        if team_id is None:
+            self.baseline_diagnostics = {"status": "unresolved_or_ambiguous_team", "team": team}
+            return None
+        selected = [game for game in catalog["games"]
+                    if game["status"] == "PLAYED" and game["phase"] == "RS"
+                    and team_id in (game["home_team_id"], game["away_team_id"])][-n_games:]
+        rows = []
+        for game in selected:
+            evidence = await self.fetch_pace_evidence(catalog["raw_games"][game["provider_fixture_id"]],
+                                                      league=canonical, year=self.baseline_season_year)
+            if evidence is None:
+                self.baseline_diagnostics = dict(status="selected_game_unavailable_or_rejected", team=team_id,
+                    fixture_id=game["provider_fixture_id"], selected_games=len(selected),
+                    collected_before_failure=len(rows),
+                    request_failures=[dict(item) for item in self.request_diagnostics if item["outcome"] != "ok"])
+                return None  # Never silently drop a selected game to improve coverage.
+            home = game["home_team_id"] == team_id
+            rows.append(dict(ts_utc=game["start_ts_utc"], home=home,
+                pts_for=game["actual_home"] if home else game["actual_away"],
+                pts_against=game["actual_away"] if home else game["actual_home"],
+                pace=evidence["pace"], pace_kind="BOX_SCORE_ESTIMATE", pace_evidence=evidence,
+                game_id=game["provider_fixture_id"], source=PACE_METHOD,
+                timestamp_precision="exact", season_code=game["season_code"]))
+        self.baseline_diagnostics = dict(status="records_returned" if rows else "no_completed_regular_season_history",
+                                         team=team_id, selected_games=len(selected), returned_games=len(rows))
+        return rows or None

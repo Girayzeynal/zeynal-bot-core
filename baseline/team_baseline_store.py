@@ -14,8 +14,8 @@ from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
 from statistics import mean, pstdev
 from copy import deepcopy
-from providers.espn_pace_evidence import (
-    validate_pace_evidence, same_pace_observation, pace_available_before,
+from providers.pace_evidence import (
+    validate_pace_evidence, same_pace_observation, pace_available_before, validate_series_scope,
 )
 
 
@@ -202,7 +202,7 @@ class TeamBaselineStore:
         ts = ts_utc
         rec = TeamGameRecord(ts, pts_for, pts_against, pace, home, game_id, source,
                              timestamp_precision, deepcopy(pace_evidence))
-        validate_pace_evidence(rec, league=league)
+        validate_pace_evidence(rec, league=league, team=team)
 
         with self._series_write_lock(league, team):
             path = self._series_path(league, team)
@@ -230,7 +230,7 @@ class TeamBaselineStore:
                             or (stored.game_id is not None and stored.source is None)
                             or (stored.source == "nba_com" and stored.timestamp_precision == "exact")):
                         raise ValueError("invalid persisted game record")
-                    validate_pace_evidence(stored, league=league)
+                    validate_pace_evidence(stored, league=league, team=team)
                 seen_provider_ids = set()
                 for existing in series:
                     existing_id = existing.get("game_id")
@@ -243,6 +243,7 @@ class TeamBaselineStore:
                             raise ValueError("duplicate persisted provider identity")
                         seen_provider_ids.add(identity)
 
+            validate_series_scope([TeamGameRecord(**row) for row in series] + [rec])
             # A provider identity must never silently change its game facts.
             # Cross-provider reconciliation requires an independently verified mapping.
             if game_id is not None:
@@ -300,7 +301,8 @@ class TeamBaselineStore:
                         or (record.game_id is not None and record.source is None)
                         or (record.source == "nba_com" and record.timestamp_precision == "exact")):
                     raise ValueError("invalid series record")
-                validate_pace_evidence(record, league=league)
+                validate_pace_evidence(record, league=league, team=team)
+            validate_series_scope(records)
             seen_provider_ids = set()
             for record in records:
                 if record.game_id is not None:
@@ -360,7 +362,7 @@ class TeamBaselineStore:
         return sorted(
             (r for r in records if r.timestamp_precision == "exact"
              and 0 < r.ts_utc < cutoff_ts_utc
-             and pace_available_before(r, league=league, prediction_utc=cutoff_ts_utc)),
+             and pace_available_before(r, league=league, team=team, prediction_utc=cutoff_ts_utc)),
             key=lambda r: r.ts_utc,
         )[-n_games:]
 
