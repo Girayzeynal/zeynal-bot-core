@@ -24,7 +24,7 @@ def evaluate_verified_totals(
     errors = []
     seen = set()
     excluded = {"duplicate": 0, "unverified_result": 0, "invalid_prediction": 0,
-                "invalid_score": 0, "not_prematch": 0, "unverified_baseline": 0}
+                "invalid_score": 0, "not_prematch": 0, "unverified_baseline": 0, "identity_mismatch": 0}
     for item in snapshots:
         if not isinstance(item, dict):
             raise TypeError("Invalid snapshot record")
@@ -38,6 +38,16 @@ def evaluate_verified_totals(
         result = verified_results.get(key)
         if not isinstance(result, dict) or result.get("verified") is not True or result.get("status") != "FINAL":
             excluded["unverified_result"] += 1
+            continue
+        # Match stored snapshot context against the keyed result identity.
+        # Legacy records lacking context cannot establish a verified match.
+        payload = item.get("payload")
+        ctx = payload.get("ctx") if isinstance(payload, dict) else None
+        if not isinstance(ctx, dict) or any(
+            not isinstance(ctx.get(field), str) or not ctx[field]
+            for field in ("date", "home", "away", "league")
+        ) or f'{ctx["date"]}:{ctx["home"]}:{ctx["away"]}:{ctx["league"]}' != key:
+            excluded["identity_mismatch"] += 1
             continue
         start = result.get("start_utc")
         ts = item.get("ts")
