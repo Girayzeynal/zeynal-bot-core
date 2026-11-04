@@ -43,9 +43,25 @@ class PrematchSimulationResult:
     over_probability: Optional[float]
     under_probability: Optional[float]
     push_probability: Optional[float]
+    sampling_diagnostics: Dict[str, object]
+    calibration_status: str = "NOT_ESTABLISHED"
+
+
+def _binomial_diagnostic(count: int, trials: int) -> Dict[str, object]:
+    """Marginal 95% Wilson interval for Monte Carlo draws, not model accuracy."""
+    p = count / trials
+    z = statistics.NormalDist().inv_cdf(0.975)
+    denom = 1 + z * z / trials
+    center = (p + z * z / (2 * trials)) / denom
+    half = z * math.sqrt(p * (1 - p) / trials + z * z / (4 * trials * trials)) / denom
+    return dict(count=count, trials=trials, probability=p,
+                standard_error=math.sqrt(p * (1 - p) / trials),
+                wilson95_lo=max(0.0, center - half), wilson95_hi=min(1.0, center + half))
 
 
 def _finite_positive(name: str, value: float, allow_zero: bool = False) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be a numeric magnitude, not boolean")
     value = float(value)
     if not math.isfinite(value) or (value < 0 if allow_zero else value <= 0):
         op = 'non-negative' if allow_zero else 'positive'
@@ -76,6 +92,8 @@ class PrematchMonteCarloEngine:
         hs = _finite_positive('home_std', request.home_std)
         aws = _finite_positive('away_std', request.away_std)
         pace_std = _finite_positive('shared_pace_std', request.shared_pace_std, allow_zero=True)
+        if isinstance(request.score_correlation, bool):
+            raise ValueError("score_correlation must not be boolean")
         corr = float(request.score_correlation)
         if not math.isfinite(corr) or not -0.95 <= corr <= 0.95:
             raise ValueError('score_correlation must be finite and within [-0.95, 0.95]')
@@ -153,6 +171,18 @@ class PrematchMonteCarloEngine:
             return round(totals_sorted[lo] * (1 - frac) + totals_sorted[hi] * frac, 2)
 
         return PrematchSimulationResult(
+            sampling_diagnostics=dict(
+                interpretation="monte_carlo_sampling_error_only",
+                interval_method="marginal_wilson_95",
+                expected_total_standard_error=statistics.stdev(totals) / math.sqrt(n),
+                outcomes={
+                    "home_regulation_win": _binomial_diagnostic(home_wins, n),
+                    "away_regulation_win": _binomial_diagnostic(away_wins, n),
+                    "regulation_tie": _binomial_diagnostic(ties, n),
+                    **({"over": _binomial_diagnostic(over, n),
+                        "under": _binomial_diagnostic(under, n),
+                        "push": _binomial_diagnostic(pushes, n)} if market is not None else {}),
+                }),
             simulations=n, seed=request.seed, model_scope='REGULATION_ONLY',
             home_regulation_win_probability=home_wins / n,
             away_regulation_win_probability=away_wins / n,
