@@ -94,3 +94,27 @@ süreci ve dizin deneyi bunların yerine geçirilmez. İşletim sisteminin gerç
 saatini değiştirme, gerçek sağlayıcıya 403/429 ürettirme ve mobil dosya sistemi
 deneyi yapılmadı; bu hatalar regresyonlarda enjekte edildi. Gerçek yeni tahmin
 sayısı **0**. Üretime hazır olma iddiası yoktur.
+
+## Yedek kopyasıyla raporun eşleştirilmesi
+
+`f0961ec` sonrasındaki denetimde `snapshot()` raporunun, kopyalama öncesi canlı
+veritabanı özetinden oluşturulduğu görüldü. Eşzamanlı ekleme olduğunda yedek iki
+receipt içerirken rapor bir receipt gösterebiliyordu. Ayrıca yakalanmış kopya,
+FAZ39 bağları tekrar denetlenmeden tamamlanmış yedek adıyla yayımlanabiliyordu.
+İki sentetik regresyon eski kodda bu hataları yeniden üretti.
+
+Snapshot artık önce özel geçici dizine alınır. Aynı SHA ile geri açılan kopyanın
+SQLite/receipt/ledger/tahmin bağları doğrulanır ve rapor bu dondurulmuş kopyadan
+oluşturulur. Yalnızca başarılı denetimden sonra hedefe atomik hard-link ve dizin
+fsync uygulanır; var olan hedefin üzerine yazılmaz. Canlı kaynak üzerinde yeni
+kayıt eklenmesi raporu bayatlatmaz. Bozuk kopya hedefe yayımlanmaz. Kaynak gerçek
+kayıtlar değiştirilmez, harici yükleme yapılmaz.
+
+Saat sapması sınır testi de 2 saniye sonrasında monotonik saati ileri hareket
+ettirir; böylece 2.0001 saniyelik sapma, geri sıçrama kontrolü yerine gerçekten
+sapma sınırı nedeniyle reddedilir. Ayrı Cloud ortamı ve üretim zamanlayıcısı
+hakkındaki yukarıdaki doğrulanmayan koşullar devam eder.
+
+Bu ek düzeltmede iki yeni regresyon vardır: FAZ39 toplamı **58**, son tam
+regresyon koşusu **783 başarılı, 0 hata**. Yukarıdaki 781 test ve 26 ek test
+sayısı önceki inceleme güncellemesine aittir.

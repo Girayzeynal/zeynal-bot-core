@@ -1,0 +1,205 @@
+{
+  "schema_version": 1,
+  "phase": "FAZ39_SNAPSHOT_CAPTURE_AUDIT",
+  "base_sha": "f0961ecca0b27ad06935cfcda14291944d46987c",
+  "requested_reference_sha": "19555088a86b249829e43aa8f3bb1b060fb02d61",
+  "branch": "feature/faz39-time-guarded-prospective",
+  "pr": 14,
+  "created_utc": "2026-11-05T21:24:27.342997+00:00",
+  "bug": "Snapshot report audited the live source before backup and could disagree with captured SQLite contents; captured image was not phase-audited before publication",
+  "fix": "Capture privately, restore and FAZ39-audit the exact pinned image, report that image and atomically link only the validated bundle",
+  "regression_reproduction": {
+    "tests": 2,
+    "failures_before_fix": 2,
+    "log_sha256": "66c1f26edb67e247d90ed416a1e597d1f2006b346bb56371eca26cc37093a78c"
+  },
+  "tests": {
+    "all": 783,
+    "final_failures": 0,
+    "faz39_focused": 58,
+    "new_since_base": 2,
+    "total_new_since_requested_reference": 28,
+    "full_log_sha256": "0cb61e065da94e75f64d8e12c856a103a49b2129145bdde17759a822a3719f87",
+    "focused_log_sha256": "10b02f122bececc775bb419a68c25530886b3e2507104ad29665e16659ca3b8d",
+    "compileall": "PASSED",
+    "synthetic_clock_cleanup": "PASSED"
+  },
+  "baseline_measurements": {
+    "source": {
+      "branch": "feature/faz39-time-guarded-prospective",
+      "sha": "f0961ecca0b27ad06935cfcda14291944d46987c"
+    },
+    "scope": "CURRENT_CLOUD_RUNTIME_ONLY_SYNTHETIC_CLOCK_AND_DATA",
+    "samples": 128,
+    "timings": {
+      "git_source_check": {
+        "count": 137,
+        "errors": 0,
+        "dropped": 0,
+        "max_ms": 27.099913,
+        "p50_ms": 14.714656,
+        "p95_ms": 20.41296,
+        "p99_ms": 25.273997
+      },
+      "git_source_standalone": {
+        "count": 128,
+        "errors": 0,
+        "dropped": 0,
+        "max_ms": 31.77083,
+        "p50_ms": 14.874247,
+        "p95_ms": 21.88651,
+        "p99_ms": 26.302292
+      },
+      "cut_proofs_empty": {
+        "count": 128,
+        "errors": 0,
+        "dropped": 0,
+        "max_ms": 0.930823,
+        "p50_ms": 0.306221,
+        "p95_ms": 0.525081,
+        "p99_ms": 0.640174
+      },
+      "sqlite_connect": {
+        "count": 259,
+        "errors": 0,
+        "dropped": 0,
+        "max_ms": 0.392656,
+        "p50_ms": 0.032028,
+        "p95_ms": 0.098378,
+        "p99_ms": 0.17286
+      },
+      "ledger_has_empty": {
+        "count": 128,
+        "errors": 0,
+        "dropped": 0,
+        "max_ms": 0.752734,
+        "p50_ms": 0.184418,
+        "p95_ms": 0.435336,
+        "p99_ms": 0.6076
+      },
+      "sqlite_begin_immediate": {
+        "count": 129,
+        "errors": 0,
+        "dropped": 0,
+        "max_ms": 2.2439,
+        "p50_ms": 0.006089,
+        "p95_ms": 0.012008,
+        "p99_ms": 1.957919
+      },
+      "sqlite_final_gate": {
+        "count": 129,
+        "errors": 0,
+        "dropped": 0,
+        "max_ms": 27.645305,
+        "p50_ms": 15.323884,
+        "p95_ms": 21.551996,
+        "p99_ms": 25.836375
+      },
+      "application_lock": {
+        "count": 1,
+        "errors": 0,
+        "dropped": 0,
+        "max_ms": 0.080732,
+        "p50_ms": 0.080732,
+        "p95_ms": 0.080732,
+        "p99_ms": 0.080732
+      },
+      "cut_proofs": {
+        "count": 2,
+        "errors": 0,
+        "dropped": 0,
+        "max_ms": 4.054147,
+        "p50_ms": 0.239581,
+        "p95_ms": 4.054147,
+        "p99_ms": 4.054147
+      },
+      "ledger_has": {
+        "count": 1,
+        "errors": 0,
+        "dropped": 0,
+        "max_ms": 0.165119,
+        "p50_ms": 0.165119,
+        "p95_ms": 0.165119,
+        "p99_ms": 0.165119
+      },
+      "sqlite_cut_insert": {
+        "count": 1,
+        "errors": 0,
+        "dropped": 0,
+        "max_ms": 14.466242,
+        "p50_ms": 14.466242,
+        "p95_ms": 14.466242,
+        "p99_ms": 14.466242
+      }
+    }
+  },
+  "live_sources": {
+    "usage": "READ_ONLY_PROVIDER_CHECK_NO_PREDICTION",
+    "sources": {
+      "utc": {
+        "status": "HTTP_200",
+        "sha256": "09b229499274c50020b043b5fbe474c7ecc621535f628c21f86b9d14728af499",
+        "observed_utc": 1793913787.338926,
+        "elapsed_seconds": 0.6665617610124173
+      },
+      "directory": {
+        "status": "HTTP_200",
+        "sha256": "9133e21f5de866c269df1d9e6e49bf20cf84b9e856313cabfbdb4e1845895e99",
+        "observed_utc": 1793913787.478331,
+        "elapsed_seconds": 0.1388461769965943
+      },
+      "schedule": {
+        "status": "HTTP_200",
+        "sha256": "ae3a6aed99f96099f120b95344543045b411e3d1c9ae97f53e5dd9301f72534e",
+        "observed_utc": 1793913787.624634,
+        "elapsed_seconds": 0.14553925600193907
+      },
+      "official": {
+        "status": "HTTP_200",
+        "sha256": "e3d62684caf873b841644c67c84987b698d57d6404ffce2ee7261e439d30b514",
+        "observed_utc": 1793913788.2836556,
+        "elapsed_seconds": 0.658260498996242
+      }
+    },
+    "new_real_records": 0,
+    "verified_utc_epoch": 1793913787.276782,
+    "official_crosscheck": {
+      "status": "VERIFIED",
+      "fixture": {
+        "provider": "ESPN",
+        "provider_fixture_id": "401909936",
+        "start_ts_utc": 1793930400,
+        "home_team_id": "21",
+        "away_team_id": "19"
+      },
+      "nba_id": "0022600187",
+      "start_utc": "2026-11-06T02:00:00Z"
+    },
+    "mutated_real_response": {
+      "status": "SAFELY_REFUSED",
+      "reason": "OFFICIAL_SCHEDULE_UNAVAILABLE",
+      "usage": "SYNTHETIC_FAULT_INJECTION"
+    }
+  },
+  "preservation": {
+    "original_files": {
+      "checked": 7,
+      "mismatches": []
+    },
+    "model_sources": {
+      "checked": 4,
+      "mismatches": []
+    },
+    "prior_faz29_to_faz36_tracked_files": {
+      "checked": 36,
+      "mismatches": []
+    }
+  },
+  "real_new_prospective_records": 0,
+  "separate_codex_cloud_runtime_verified": false,
+  "external_upload_performed": false,
+  "production_scheduler_enabled": false,
+  "deploy_or_main_merge": false,
+  "final_commit_ci": "VERIFY_EXACT_SHA_AFTER_PUSH",
+  "postcommit_reproduction": "python -m faz39_probe NEW_LOCAL_DIRECTORY --samples 128"
+}

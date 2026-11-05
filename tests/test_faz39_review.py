@@ -250,6 +250,38 @@ class ReviewTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError,'checksum'):
             restore(corrupted,self.fx.root/'corrupt-result',bundle['sha256'])
 
+    async def test_snapshot_report_describes_captured_image_after_concurrent_append(self):
+        from research_recovery import make_bundle
+        self.portable();self.store.put(self.p)
+        other=deepcopy(self.p);other['ready_utc']-=.1
+        def append_before_backup(databases,destination,source_sha):
+            self.store.put(other)
+            return make_bundle(databases,destination,source_sha)
+        with patch('faz39_recovery.make_bundle',side_effect=append_before_backup):
+            result=snapshot(self.fx.ledger.path,self.fx.root/'concurrent.tar.gz','a'*40)
+        bundle=result['bundle']
+        recovered=restore(bundle['path'],self.fx.root/'concurrent-restored',bundle['sha256'])
+        self.assertEqual(recovered['audit']['faz39_ready_receipts'],2)
+        self.assertEqual(result['audit'],recovered['audit'])
+
+    async def test_snapshot_rejects_bad_captured_image_before_publication(self):
+        from research_recovery import make_bundle
+        self.portable();self.store.put(self.p)
+        copy=self.fx.root/'bad-snapshot.sqlite'
+        with self.fx.ledger.connect() as source,sqlite3.connect(copy) as target:source.backup(target)
+        with sqlite3.connect(copy) as db:
+            db.execute('DROP TRIGGER faz39_identity_no_UPDATE')
+            db.execute('UPDATE faz39_identity SET ledger_id=?',('b'*32,))
+        original=hashlib.sha256(Path(self.fx.ledger.path).read_bytes()).hexdigest()
+        def wrong_image(databases,destination,source_sha):
+            return make_bundle({'faz39.sqlite':copy},destination,source_sha)
+        destination=self.fx.root/'must-not-publish.tar.gz'
+        with patch('faz39_recovery.make_bundle',side_effect=wrong_image):
+            with self.assertRaisesRegex(faz39.Refused,'READY_LEDGER_ID_MISMATCH'):
+                snapshot(self.fx.ledger.path,destination,'a'*40)
+        self.assertFalse(destination.exists())
+        self.assertEqual(hashlib.sha256(Path(self.fx.ledger.path).read_bytes()).hexdigest(),original)
+
     async def test_semantically_corrupt_ready_is_rejected_before_restore_publication(self):
         from research_recovery import make_bundle
         self.portable();self.store.put(self.p)
@@ -290,6 +322,8 @@ class ReviewTests(unittest.IsolatedAsyncioTestCase):
         gate=self.b.gate();self.fx.clock.now=base.fixtures.BASE-3
         gate.guard.monotonic=lambda:self.fx.clock.now+100000-2
         gate.guard.check()
+        # Keep monotonic time moving forward: isolate drift, not a clock rollback.
+        self.fx.clock.now+=.1
         gate.guard.monotonic=lambda:self.fx.clock.now+100000-2.0001
         with self.assertRaises(ClockDiscontinuity):gate.guard.check()
 

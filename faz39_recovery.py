@@ -10,10 +10,28 @@ from research_recovery import make_bundle, restore_bundle
 
 
 def snapshot(database, destination, source_sha):
-    # audit is read-only and validates unconsumed readiness receipts too.
-    before = audit(database)
-    bundle = make_bundle({'faz39.sqlite': str(database)}, destination, source_sha)
-    return dict(bundle=bundle, audit=before, external_uploaded=False,
+    destination = Path(destination)
+    if destination.exists():
+        raise FileExistsError(destination)
+    # Audit the exact frozen SQLite backup, not the live source before copying.
+    # An append during backup must not make the published report stale, and an
+    # invalid captured image must never appear as a completed checkpoint.
+    with tempfile.TemporaryDirectory(dir=destination.parent) as folder:
+        root = Path(folder)
+        bundle = make_bundle({'faz39.sqlite': str(database)}, root/'candidate.tar.gz', source_sha)
+        checked = root/'checked'
+        restore_bundle(bundle['path'], checked, bundle['sha256'])
+        require({p.name for p in checked.glob('*.sqlite')} == {'faz39.sqlite'},
+                'UNEXPECTED_FAZ39_RECOVERY_DATABASES')
+        captured = audit(checked/'faz39.sqlite')
+        # make_bundle has fsynced these bytes; publish without overwriting a
+        # competing destination, then persist the directory entry.
+        os.link(bundle['path'], destination)
+        fd = os.open(destination.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:os.fsync(fd)
+        finally:os.close(fd)
+    published = dict(bundle, path=str(destination))
+    return dict(bundle=published, audit=captured, external_uploaded=False,
                 separate_cloud_runtime_verified=False)
 
 
