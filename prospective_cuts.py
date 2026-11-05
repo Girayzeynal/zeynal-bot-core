@@ -84,9 +84,9 @@ def validate_packet(p,recorded,mode):
 
 
 class CutLedger:
-    def __init__(self,path,mode='PROSPECTIVE'):
+    def __init__(self,path,mode='PROSPECTIVE',*,clock_check=None):
         if mode not in ('PROSPECTIVE','SYNTHETIC_TEST'):raise ValueError('invalid ledger mode')
-        self.path=str(path);self.mode=mode
+        self.path=str(path);self.mode=mode;self.clock_check=clock_check
         with sqlite3.connect(self.path,timeout=1) as db:
             db.execute('CREATE TABLE IF NOT EXISTS faz33_meta (mode TEXT NOT NULL)')
             old=db.execute('SELECT mode FROM faz33_meta').fetchall()
@@ -116,6 +116,8 @@ class CutLedger:
         with self.connect() as db:db.execute('INSERT INTO faz33_attempts(status,fixture_id,horizon,observed_utc,details) VALUES (?,?,?,?,?)',(status,fixture,horizon,int(time.time()),canonical_json(details or {})))
 
     def insert(self,p):
+        check=getattr(self,'clock_check',None)
+        if check:check()
         now=int(time.time());validate_packet(p,now,self.mode);e=p['fixture'];fixture=e['provider_fixture_id'];sha=digest(p)
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
@@ -129,7 +131,7 @@ class CutLedger:
             for other,home,away,start in db.execute('SELECT * FROM faz33_fixtures WHERE start_utc=?',(e['start_ts_utc'],)):
                 if other!=fixture and set(identity[:2]).intersection((home,away)):raise ValueError('SAME_TEAM_START_ALIAS')
             if existing is None:db.execute('INSERT INTO faz33_fixtures VALUES (?,?,?,?)',(fixture,*identity))
-            recorded=int(time.time())
+            recorded=check() if check else int(time.time())
             if recorded>=e['start_ts_utc'] or due(e,p['horizon'],recorded)!='DUE':raise ValueError('cut expired during validation')
             if any(recorded-p[k]['source_observed_utc']>GRACE for k in ('schedule','precommit_schedule')):raise ValueError('schedule expired during validation')
             db.execute('INSERT INTO faz33_cuts VALUES (?,?,?,?,?,?)',(fixture,p['horizon'],p['cutoff_utc'],recorded,canonical_json(p),sha))

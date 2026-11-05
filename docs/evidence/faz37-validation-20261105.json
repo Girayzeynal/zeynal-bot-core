@@ -1,0 +1,50 @@
+{
+  "durable_storage_ready": false,
+  "external_upload_performed": false,
+  "fixture": {
+    "away_team_id": "19",
+    "home_team_id": "21",
+    "provider": "ESPN",
+    "provider_fixture_id": "401909936",
+    "start_ts_utc": 1793930400
+  },
+  "isolated_recovery": {
+    "expected_head_sha256": "b6b28ddf29483d834e1063e1a752bad897dcdd30e2175c01db5e840352cd0259",
+    "implementation_state": "FAZ37 working tree preflight",
+    "new_cloud_runtime_tested": false,
+    "new_process": true,
+    "new_source_directory": true,
+    "reopened_sqlite_databases": 6,
+    "source_bundle_version": "b61b1ad3bbf12fab856e1939e06db81e58481fef",
+    "status": "ISOLATED_PROCESS_RECOVERY_VERIFIED",
+    "verified_generations": 1
+  },
+  "local_test_seconds": 43.71,
+  "local_tests_passed": 725,
+  "new_prediction_sha256": null,
+  "new_real_prospective_records": 0,
+  "new_tests": 13,
+  "planned_t6_utc": 1793908800,
+  "prior_ci": [
+    {
+      "docker_build": "success",
+      "event": "push",
+      "run_id": 42013972658,
+      "unit_tests": "success"
+    },
+    {
+      "docker_build": "success",
+      "event": "pull_request",
+      "run_id": 42013982217,
+      "unit_tests": "success"
+    }
+  ],
+  "scheduler_activated": false,
+  "source_http_status": 200,
+  "source_observed_utc": 1793876938,
+  "source_response_sha256": "2f2574c9ed0738ff4985674e3accee4b67638879a56b7739db4e8710e8bcc36e",
+  "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909936",
+  "starting_sha": "b61b1ad3bbf12fab856e1939e06db81e58481fef",
+  "target_cut_status": "NOT_DUE",
+  "unexpected_failures": 0
+}
