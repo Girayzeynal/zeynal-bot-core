@@ -205,33 +205,37 @@ class Runner:
     async def tick(self,*,dry_run=False,max_cuts=4):
         with exclusive(self.ledger.path) as acquired:
             if not acquired:return dict(status='BUSY',actions=[])
-            with self.ledger.connect() as db:attempts=db.execute('SELECT details FROM faz33_attempts WHERE status IN (\'HTTP_403\',\'HTTP_429\',\'TIMEOUT\',\'NETWORK_UNAVAILABLE\',\'NETWORK_OR_PROVIDER_UNAVAILABLE\') ORDER BY id DESC LIMIT 1').fetchone()
-            if attempts and json.loads(attempts[0]).get('retry_after_utc',0)>int(time.time()):return dict(status='PROVIDER_COOLDOWN',actions=[])
-            actions=[]
-            try:
-                self.check_source()
-                if not dry_run:actions.extend(await self.reconcile())
-                fixtures,rejected=await self.discover();plan=[]
-                for item in fixtures:
-                    fixture=item['fixture']
-                    for horizon in HORIZONS:
-                        status='ALREADY_RECORDED' if self.ledger.has(fixture['provider_fixture_id'],horizon) else due(fixture,horizon,int(time.time()))
-                        plan.append(dict(fixture=fixture,horizon=horizon,status=status,scheduled_cutoff_utc=fixture['start_ts_utc']-HORIZONS[horizon]))
-                if not dry_run:
-                    for entry in [r for r in plan if r['status']=='DUE'][:max_cuts]:
-                        item=next(i for i in fixtures if i['fixture']==entry['fixture'])
-                        try:actions.append(await self.capture(item,entry['horizon']))
-                        except ProviderUnavailable:raise
-                        except (ValueError,KeyError,TypeError,sqlite3.Error) as exc:
-                            status=str(exc) if isinstance(exc,ValueError) else 'INVALID_DATA:'+type(exc).__name__
-                            self.ledger.log(status,entry['fixture']['provider_fixture_id'],entry['horizon']);actions.append(dict(status=status,fixture_id=entry['fixture']['provider_fixture_id'],horizon=entry['horizon']))
-                return dict(status='DRY_RUN' if dry_run else 'TICK_COMPLETE',actions=actions,plan=plan,fixtures_observations=fixtures,rejected_schedule=rejected,predictions_written=sum(x['status']=='RECORDED' for x in actions),observed_utc=int(time.time()))
-            except ProviderUnavailable as exc:
-                if not dry_run:self.ledger.log(exc.status,details=dict(retry_after_utc=exc.retry_after_utc))
-                return dict(status=exc.status,retry_after_utc=exc.retry_after_utc,actions=actions)
-            except (ValueError,KeyError,TypeError) as exc:
-                if not dry_run:self.ledger.log('INVALID_SCHEDULE_OR_DATA',details=dict(error=str(exc)))
-                return dict(status='INVALID_SCHEDULE_OR_DATA',error=str(exc),actions=actions)
+            return await self._tick_locked(dry_run=dry_run,max_cuts=max_cuts)
+
+    async def _tick_locked(self,*,dry_run=False,max_cuts=4):
+        # Private: caller must hold the same FAZ25/33 advisory lock.
+        with self.ledger.connect() as db:attempts=db.execute('SELECT details FROM faz33_attempts WHERE status IN (\'HTTP_403\',\'HTTP_429\',\'TIMEOUT\',\'NETWORK_UNAVAILABLE\',\'NETWORK_OR_PROVIDER_UNAVAILABLE\') ORDER BY id DESC LIMIT 1').fetchone()
+        if attempts and json.loads(attempts[0]).get('retry_after_utc',0)>int(time.time()):return dict(status='PROVIDER_COOLDOWN',actions=[])
+        actions=[]
+        try:
+            self.check_source()
+            if not dry_run:actions.extend(await self.reconcile())
+            fixtures,rejected=await self.discover();plan=[]
+            for item in fixtures:
+                fixture=item['fixture']
+                for horizon in HORIZONS:
+                    status='ALREADY_RECORDED' if self.ledger.has(fixture['provider_fixture_id'],horizon) else due(fixture,horizon,int(time.time()))
+                    plan.append(dict(fixture=fixture,horizon=horizon,status=status,scheduled_cutoff_utc=fixture['start_ts_utc']-HORIZONS[horizon]))
+            if not dry_run:
+                for entry in [r for r in plan if r['status']=='DUE'][:max_cuts]:
+                    item=next(i for i in fixtures if i['fixture']==entry['fixture'])
+                    try:actions.append(await self.capture(item,entry['horizon']))
+                    except ProviderUnavailable:raise
+                    except (ValueError,KeyError,TypeError,sqlite3.Error) as exc:
+                        status=str(exc) if isinstance(exc,ValueError) else 'INVALID_DATA:'+type(exc).__name__
+                        self.ledger.log(status,entry['fixture']['provider_fixture_id'],entry['horizon']);actions.append(dict(status=status,fixture_id=entry['fixture']['provider_fixture_id'],horizon=entry['horizon']))
+            return dict(status='DRY_RUN' if dry_run else 'TICK_COMPLETE',actions=actions,plan=plan,fixtures_observations=fixtures,rejected_schedule=rejected,predictions_written=sum(x['status']=='RECORDED' for x in actions),observed_utc=int(time.time()))
+        except ProviderUnavailable as exc:
+            if not dry_run:self.ledger.log(exc.status,details=dict(retry_after_utc=exc.retry_after_utc))
+            return dict(status=exc.status,retry_after_utc=exc.retry_after_utc,actions=actions)
+        except (ValueError,KeyError,TypeError) as exc:
+            if not dry_run:self.ledger.log('INVALID_SCHEDULE_OR_DATA',details=dict(error=str(exc)))
+            return dict(status='INVALID_SCHEDULE_OR_DATA',error=str(exc),actions=actions)
 
 
 async def development_ticks(runner,*,ticks=1,interval=60,dry_run=False):

@@ -134,18 +134,30 @@ class Poller:
                         observed_utc=int(time.time()),provider='ESPN')
 
 
-def backup(database, destination):
+def backup(database, destination, *, timeout_seconds=5):
     """Consistent, owner-only, no-clobber local snapshot for explicit external transfer."""
     import os
     import tempfile
     import hashlib
+    import math
+    from contextlib import closing
+    if type(timeout_seconds) not in (int,float) or not math.isfinite(timeout_seconds) or timeout_seconds<=0:raise ValueError('positive backup timeout required')
+    deadline=time.monotonic()+timeout_seconds
+    def progress(status,remaining,total):
+        if time.monotonic()>=deadline:raise TimeoutError('SQLite backup deadline exceeded')
     destination=Path(destination)
     with tempfile.TemporaryDirectory(dir=destination.parent) as folder:
         temporary=Path(folder)/'ledger.sqlite'
-        with sqlite3.connect('file:'+str(Path(database).resolve())+'?mode=ro',uri=True) as source:
-            with sqlite3.connect(temporary) as target:
-                source.backup(target)
-                if target.execute('PRAGMA integrity_check').fetchone() != ('ok',): raise ValueError('backup integrity failure')
+        with closing(sqlite3.connect('file:'+str(Path(database).resolve())+'?mode=ro',uri=True,timeout=min(1,timeout_seconds))) as source:
+            with closing(sqlite3.connect(temporary,timeout=min(1,timeout_seconds))) as target:
+                source.backup(target,pages=128,progress=progress,sleep=.05)
+                target.set_progress_handler(lambda:int(time.monotonic()>=deadline),1000)
+                try:
+                    if target.execute('PRAGMA integrity_check').fetchone() != ('ok',): raise ValueError('backup integrity failure')
+                except sqlite3.OperationalError as exc:
+                    if time.monotonic()>=deadline:raise TimeoutError('SQLite backup deadline exceeded') from exc
+                    raise
+        if time.monotonic()>=deadline:raise TimeoutError('SQLite backup deadline exceeded')
         os.chmod(temporary,0o600)
         # Hard-link publication is atomic and refuses an existing destination.
         os.link(temporary,destination)

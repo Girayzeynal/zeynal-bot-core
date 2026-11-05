@@ -87,7 +87,7 @@ class CutLedger:
     def __init__(self,path,mode='PROSPECTIVE'):
         if mode not in ('PROSPECTIVE','SYNTHETIC_TEST'):raise ValueError('invalid ledger mode')
         self.path=str(path);self.mode=mode
-        with sqlite3.connect(self.path) as db:
+        with sqlite3.connect(self.path,timeout=1) as db:
             db.execute('CREATE TABLE IF NOT EXISTS faz33_meta (mode TEXT NOT NULL)')
             old=db.execute('SELECT mode FROM faz33_meta').fetchall()
             if old and old!=[(mode,)]:raise ValueError('ledger mode cannot change')
@@ -107,7 +107,7 @@ class CutLedger:
                 db.execute(f"CREATE TRIGGER IF NOT EXISTS {table}_no_replace BEFORE INSERT ON {table} WHEN {condition} BEGIN SELECT RAISE(ABORT,'immutable FAZ33 replacement'); END")
         os.chmod(self.path,0o600)
 
-    def connect(self):return sqlite3.connect(self.path)
+    def connect(self):return sqlite3.connect(self.path,timeout=1)
 
     def has(self,fixture,horizon):
         with self.connect() as db:return db.execute('SELECT 1 FROM faz33_cuts WHERE fixture_id=? AND horizon=?',(fixture,horizon)).fetchone() is not None

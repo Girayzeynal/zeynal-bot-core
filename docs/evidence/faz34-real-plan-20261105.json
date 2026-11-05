@@ -1,0 +1,2023 @@
+{
+  "audit": {
+    "cuts_by_horizon": {},
+    "distinct_games": 0,
+    "eligible_training_examples": 0,
+    "integrity": "ok",
+    "missing_data": {},
+    "mode": "PROSPECTIVE",
+    "original_predictions_modified": false,
+    "prospective_cuts": 0,
+    "ready_unique_feature_label_games": 0,
+    "shadow_statuses": {},
+    "synthetic_cuts": 0,
+    "synthetic_eligible_examples": 0,
+    "training_horizon": "T60M",
+    "verified_final_games": 0
+  },
+  "checkpoint": null,
+  "cross_codex_cloud_restore": "NOT_VERIFIED",
+  "dry_run": true,
+  "external_persistence": "NOT_CONFIGURED",
+  "mode": "PROSPECTIVE",
+  "model_sha": "66e14bb349c0ff408da1ef9ce6e69fabac06f4e3",
+  "new_cut_proofs": [],
+  "new_prospective_cuts": 0,
+  "new_synthetic_cuts": 0,
+  "next_cut_utc": 1793908800,
+  "original_cuts_unchanged": true,
+  "recovered_run_ids": [],
+  "run_id": "299be1eb7ac14665abe0db3da98ab0c1",
+  "status": "DRY_RUN",
+  "tick": {
+    "actions": [],
+    "fixtures_observations": [
+      {
+        "fixture": {
+          "away_team_id": "19",
+          "home_team_id": "21",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909936",
+          "start_ts_utc": 1793930400
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "21"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "19"
+                    }
+                  }
+                ],
+                "date": "2026-11-06T02:00Z",
+                "id": "401909936",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Thu, November 5th at 9:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/5 - 9:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-06T02:00Z",
+            "id": "401909936",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Thu, November 5th at 9:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/5 - 9:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "7e9556e3142af21ab62074c1bb11e7152f12b5872558c9a66bfd6c2e356ee963",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "c4bca720d926ce162552ad2948b2c8e38ce7836bb1e902f349a7c30c5d3d481c",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261105"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "14",
+          "home_team_id": "9",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909937",
+          "start_ts_utc": 1793934000
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "9"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "14"
+                    }
+                  }
+                ],
+                "date": "2026-11-06T03:00Z",
+                "id": "401909937",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Thu, November 5th at 10:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/5 - 10:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-06T03:00Z",
+            "id": "401909937",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Thu, November 5th at 10:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/5 - 10:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "4637925c4fd9f8b1bcbda06dd0fd7d0f8eb502f81bd93bfe35d45a4410a099da",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "c4bca720d926ce162552ad2948b2c8e38ce7836bb1e902f349a7c30c5d3d481c",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261105"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "27",
+          "home_team_id": "1",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909287",
+          "start_ts_utc": 1794009600
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "1"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "27"
+                    }
+                  }
+                ],
+                "date": "2026-11-07T00:00Z",
+                "id": "401909287",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Fri, November 6th at 7:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/6 - 7:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-07T00:00Z",
+            "id": "401909287",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Fri, November 6th at 7:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/6 - 7:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "d949386964eeec2088b66e45ad4089178acbbe22310323198da7bb6232f87ae9",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "0c7a6c233836d0aa5e2e8122c4cd32745a878b61797304bf4866a80fa2d5dae6",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261106"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "2",
+          "home_team_id": "30",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909288",
+          "start_ts_utc": 1794009600
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "30"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "2"
+                    }
+                  }
+                ],
+                "date": "2026-11-07T00:00Z",
+                "id": "401909288",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Fri, November 6th at 7:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/6 - 7:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-07T00:00Z",
+            "id": "401909288",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Fri, November 6th at 7:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/6 - 7:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "07327bddf48c0f83e0f28b865661afcc26002557983547b3faa4d06e430467d0",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "0c7a6c233836d0aa5e2e8122c4cd32745a878b61797304bf4866a80fa2d5dae6",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261106"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "20",
+          "home_team_id": "5",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909289",
+          "start_ts_utc": 1794011400
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "5"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "20"
+                    }
+                  }
+                ],
+                "date": "2026-11-07T00:30Z",
+                "id": "401909289",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Fri, November 6th at 7:30 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/6 - 7:30 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-07T00:30Z",
+            "id": "401909289",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Fri, November 6th at 7:30 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/6 - 7:30 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "6c14a3c1d97b31deaeff577d9ac117adb935c701c8eb41686df4db4e923ecaf6",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "0c7a6c233836d0aa5e2e8122c4cd32745a878b61797304bf4866a80fa2d5dae6",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261106"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "26",
+          "home_team_id": "6",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909290",
+          "start_ts_utc": 1794013200
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "6"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "26"
+                    }
+                  }
+                ],
+                "date": "2026-11-07T01:00Z",
+                "id": "401909290",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Fri, November 6th at 8:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/6 - 8:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-07T01:00Z",
+            "id": "401909290",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Fri, November 6th at 8:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/6 - 8:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "a77b741acb53e40388a95a2b65c908d16ccb284dcab0df8ee657b2b68800aef5",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "0c7a6c233836d0aa5e2e8122c4cd32745a878b61797304bf4866a80fa2d5dae6",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261106"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "25",
+          "home_team_id": "29",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909291",
+          "start_ts_utc": 1794013200
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "29"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "25"
+                    }
+                  }
+                ],
+                "date": "2026-11-07T01:00Z",
+                "id": "401909291",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Fri, November 6th at 8:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/6 - 8:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-07T01:00Z",
+            "id": "401909291",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Fri, November 6th at 8:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/6 - 8:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "1ffa04b3f6aa8fc4d622d97aa299be40f589e869ad711d287abe5433b17483aa",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "0c7a6c233836d0aa5e2e8122c4cd32745a878b61797304bf4866a80fa2d5dae6",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261106"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "28",
+          "home_team_id": "15",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909292",
+          "start_ts_utc": 1794013200
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "15"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "28"
+                    }
+                  }
+                ],
+                "date": "2026-11-07T01:00Z",
+                "id": "401909292",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Fri, November 6th at 8:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/6 - 8:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-07T01:00Z",
+            "id": "401909292",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Fri, November 6th at 8:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/6 - 8:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "669109108207bba32c7a909facfc2f1a7b3a8723f7e4cf97184c6d06dbb61528",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "0c7a6c233836d0aa5e2e8122c4cd32745a878b61797304bf4866a80fa2d5dae6",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261106"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "16",
+          "home_team_id": "3",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909293",
+          "start_ts_utc": 1794013200
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "3"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "16"
+                    }
+                  }
+                ],
+                "date": "2026-11-07T01:00Z",
+                "id": "401909293",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Fri, November 6th at 8:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/6 - 8:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-07T01:00Z",
+            "id": "401909293",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Fri, November 6th at 8:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/6 - 8:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "90c7dc941ef592d0b6fd041fecec143aff9ecf02b3ff5c8399aee3a6f11c2b28",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "0c7a6c233836d0aa5e2e8122c4cd32745a878b61797304bf4866a80fa2d5dae6",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261106"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "22",
+          "home_team_id": "13",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909294",
+          "start_ts_utc": 1794020400
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "13"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "22"
+                    }
+                  }
+                ],
+                "date": "2026-11-07T03:00Z",
+                "id": "401909294",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Fri, November 6th at 10:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/6 - 10:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-07T03:00Z",
+            "id": "401909294",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Fri, November 6th at 10:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/6 - 10:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "7776b482ddf1c8fb1913f2dc05dbd036ebdf5dadff741c0065bbfd8a8e791703",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "0c7a6c233836d0aa5e2e8122c4cd32745a878b61797304bf4866a80fa2d5dae6",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261106"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "24",
+          "home_team_id": "23",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909295",
+          "start_ts_utc": 1794020400
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "23"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "24"
+                    }
+                  }
+                ],
+                "date": "2026-11-07T03:00Z",
+                "id": "401909295",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Fri, November 6th at 10:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/6 - 10:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-07T03:00Z",
+            "id": "401909295",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Fri, November 6th at 10:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/6 - 10:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "ec6cb7ff7be30ce25e7a08e41fb647c6f0bf6294e3b22207d8ed210d6a585489",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "0c7a6c233836d0aa5e2e8122c4cd32745a878b61797304bf4866a80fa2d5dae6",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261106"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "7",
+          "home_team_id": "11",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909938",
+          "start_ts_utc": 1794088800
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "11"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "7"
+                    }
+                  }
+                ],
+                "date": "2026-11-07T22:00Z",
+                "id": "401909938",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sat, November 7th at 5:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/7 - 5:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-07T22:00Z",
+            "id": "401909938",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Sat, November 7th at 5:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/7 - 5:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "27d0b7bba15f1f67dd44405cf45b268b67234ce0421520319265e65f15f55172",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "d6fafa9516628b5f094d3749c39a1f70b8e64bc40a768f40ee0b5c961ba614f2",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261107"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "17",
+          "home_team_id": "1",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909939",
+          "start_ts_utc": 1794097800
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "1"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "17"
+                    }
+                  }
+                ],
+                "date": "2026-11-08T00:30Z",
+                "id": "401909939",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sat, November 7th at 7:30 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/7 - 7:30 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-08T00:30Z",
+            "id": "401909939",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Sat, November 7th at 7:30 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/7 - 7:30 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "44304a673a520e554512a38bc695dd609a843e888dfdd4df416ebae863632107",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "d6fafa9516628b5f094d3749c39a1f70b8e64bc40a768f40ee0b5c961ba614f2",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261107"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "18",
+          "home_team_id": "5",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909940",
+          "start_ts_utc": 1794099600
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "5"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "18"
+                    }
+                  }
+                ],
+                "date": "2026-11-08T01:00Z",
+                "id": "401909940",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sat, November 7th at 8:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/7 - 8:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-08T01:00Z",
+            "id": "401909940",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Sat, November 7th at 8:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/7 - 8:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "97c06049f2ae06a9eb400731cb85f5bdfb76a7448d20662515540fdd241fec47",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "d6fafa9516628b5f094d3749c39a1f70b8e64bc40a768f40ee0b5c961ba614f2",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261107"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "27",
+          "home_team_id": "25",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909941",
+          "start_ts_utc": 1794099600
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "25"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "27"
+                    }
+                  }
+                ],
+                "date": "2026-11-08T01:00Z",
+                "id": "401909941",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sat, November 7th at 8:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/7 - 8:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-08T01:00Z",
+            "id": "401909941",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Sat, November 7th at 8:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/7 - 8:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "1c5efa556425d00b14c45b4cdb86217e3481f0bcfc899388f563f63f805d534e",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "d6fafa9516628b5f094d3749c39a1f70b8e64bc40a768f40ee0b5c961ba614f2",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261107"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "19",
+          "home_team_id": "9",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909942",
+          "start_ts_utc": 1794101400
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "9"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "19"
+                    }
+                  }
+                ],
+                "date": "2026-11-08T01:30Z",
+                "id": "401909942",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sat, November 7th at 8:30 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/7 - 8:30 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-08T01:30Z",
+            "id": "401909942",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Sat, November 7th at 8:30 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/7 - 8:30 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "67a600f91390c752cc8cb4d6a4c30b9b0f7540c355168684813fc2117851f2fe",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "d6fafa9516628b5f094d3749c39a1f70b8e64bc40a768f40ee0b5c961ba614f2",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261107"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "10",
+          "home_team_id": "21",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909943",
+          "start_ts_utc": 1794103200
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "21"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "10"
+                    }
+                  }
+                ],
+                "date": "2026-11-08T02:00Z",
+                "id": "401909943",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sat, November 7th at 9:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/7 - 9:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-08T02:00Z",
+            "id": "401909943",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Sat, November 7th at 9:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/7 - 9:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "49d3ec22b2993d39ad9cca350186736a716314327f11d3444611989240727450",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "d6fafa9516628b5f094d3749c39a1f70b8e64bc40a768f40ee0b5c961ba614f2",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261107"
+        }
+      },
+      {
+        "fixture": {
+          "away_team_id": "24",
+          "home_team_id": "22",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909944",
+          "start_ts_utc": 1794106800
+        },
+        "schedule": {
+          "event": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "team": {
+                      "id": "22"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "team": {
+                      "id": "24"
+                    }
+                  }
+                ],
+                "date": "2026-11-08T03:00Z",
+                "id": "401909944",
+                "status": {
+                  "clock": 0.0,
+                  "displayClock": "0.0",
+                  "period": 0,
+                  "type": {
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sat, November 7th at 10:00 PM EST",
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "shortDetail": "11/7 - 10:00 PM EST",
+                    "state": "pre"
+                  }
+                },
+                "timeValid": true
+              }
+            ],
+            "date": "2026-11-08T03:00Z",
+            "id": "401909944",
+            "season": {
+              "slug": "regular-season",
+              "type": 2,
+              "year": 2027
+            },
+            "status": {
+              "clock": 0.0,
+              "displayClock": "0.0",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Sat, November 7th at 10:00 PM EST",
+                "id": "1",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "11/7 - 10:00 PM EST",
+                "state": "pre"
+              }
+            }
+          },
+          "ingested_utc": 1793869509,
+          "sha256": "771f79d25774b44e3fa19dcb201d6ef6900e4f25e34c8c2d189ac7f6fddc00c8",
+          "source_observed_utc": 1793869509,
+          "source_response_sha256": "d6fafa9516628b5f094d3749c39a1f70b8e64bc40a768f40ee0b5c961ba614f2",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261107"
+        }
+      }
+    ],
+    "observed_utc": 1793869509,
+    "plan": [
+      {
+        "fixture": {
+          "away_team_id": "19",
+          "home_team_id": "21",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909936",
+          "start_ts_utc": 1793930400
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1793844000,
+        "status": "MISSED_CUT"
+      },
+      {
+        "fixture": {
+          "away_team_id": "19",
+          "home_team_id": "21",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909936",
+          "start_ts_utc": 1793930400
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1793908800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "19",
+          "home_team_id": "21",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909936",
+          "start_ts_utc": 1793930400
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1793926800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "14",
+          "home_team_id": "9",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909937",
+          "start_ts_utc": 1793934000
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1793847600,
+        "status": "MISSED_CUT"
+      },
+      {
+        "fixture": {
+          "away_team_id": "14",
+          "home_team_id": "9",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909937",
+          "start_ts_utc": 1793934000
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1793912400,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "14",
+          "home_team_id": "9",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909937",
+          "start_ts_utc": 1793934000
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1793930400,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "27",
+          "home_team_id": "1",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909287",
+          "start_ts_utc": 1794009600
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1793923200,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "27",
+          "home_team_id": "1",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909287",
+          "start_ts_utc": 1794009600
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1793988000,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "27",
+          "home_team_id": "1",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909287",
+          "start_ts_utc": 1794009600
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794006000,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "2",
+          "home_team_id": "30",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909288",
+          "start_ts_utc": 1794009600
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1793923200,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "2",
+          "home_team_id": "30",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909288",
+          "start_ts_utc": 1794009600
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1793988000,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "2",
+          "home_team_id": "30",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909288",
+          "start_ts_utc": 1794009600
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794006000,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "20",
+          "home_team_id": "5",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909289",
+          "start_ts_utc": 1794011400
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1793925000,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "20",
+          "home_team_id": "5",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909289",
+          "start_ts_utc": 1794011400
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1793989800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "20",
+          "home_team_id": "5",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909289",
+          "start_ts_utc": 1794011400
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794007800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "26",
+          "home_team_id": "6",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909290",
+          "start_ts_utc": 1794013200
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1793926800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "26",
+          "home_team_id": "6",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909290",
+          "start_ts_utc": 1794013200
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1793991600,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "26",
+          "home_team_id": "6",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909290",
+          "start_ts_utc": 1794013200
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794009600,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "25",
+          "home_team_id": "29",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909291",
+          "start_ts_utc": 1794013200
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1793926800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "25",
+          "home_team_id": "29",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909291",
+          "start_ts_utc": 1794013200
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1793991600,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "25",
+          "home_team_id": "29",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909291",
+          "start_ts_utc": 1794013200
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794009600,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "28",
+          "home_team_id": "15",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909292",
+          "start_ts_utc": 1794013200
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1793926800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "28",
+          "home_team_id": "15",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909292",
+          "start_ts_utc": 1794013200
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1793991600,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "28",
+          "home_team_id": "15",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909292",
+          "start_ts_utc": 1794013200
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794009600,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "16",
+          "home_team_id": "3",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909293",
+          "start_ts_utc": 1794013200
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1793926800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "16",
+          "home_team_id": "3",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909293",
+          "start_ts_utc": 1794013200
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1793991600,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "16",
+          "home_team_id": "3",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909293",
+          "start_ts_utc": 1794013200
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794009600,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "22",
+          "home_team_id": "13",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909294",
+          "start_ts_utc": 1794020400
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1793934000,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "22",
+          "home_team_id": "13",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909294",
+          "start_ts_utc": 1794020400
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1793998800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "22",
+          "home_team_id": "13",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909294",
+          "start_ts_utc": 1794020400
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794016800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "24",
+          "home_team_id": "23",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909295",
+          "start_ts_utc": 1794020400
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1793934000,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "24",
+          "home_team_id": "23",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909295",
+          "start_ts_utc": 1794020400
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1793998800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "24",
+          "home_team_id": "23",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909295",
+          "start_ts_utc": 1794020400
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794016800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "7",
+          "home_team_id": "11",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909938",
+          "start_ts_utc": 1794088800
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1794002400,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "7",
+          "home_team_id": "11",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909938",
+          "start_ts_utc": 1794088800
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1794067200,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "7",
+          "home_team_id": "11",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909938",
+          "start_ts_utc": 1794088800
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794085200,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "17",
+          "home_team_id": "1",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909939",
+          "start_ts_utc": 1794097800
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1794011400,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "17",
+          "home_team_id": "1",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909939",
+          "start_ts_utc": 1794097800
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1794076200,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "17",
+          "home_team_id": "1",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909939",
+          "start_ts_utc": 1794097800
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794094200,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "18",
+          "home_team_id": "5",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909940",
+          "start_ts_utc": 1794099600
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1794013200,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "18",
+          "home_team_id": "5",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909940",
+          "start_ts_utc": 1794099600
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1794078000,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "18",
+          "home_team_id": "5",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909940",
+          "start_ts_utc": 1794099600
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794096000,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "27",
+          "home_team_id": "25",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909941",
+          "start_ts_utc": 1794099600
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1794013200,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "27",
+          "home_team_id": "25",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909941",
+          "start_ts_utc": 1794099600
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1794078000,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "27",
+          "home_team_id": "25",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909941",
+          "start_ts_utc": 1794099600
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794096000,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "19",
+          "home_team_id": "9",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909942",
+          "start_ts_utc": 1794101400
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1794015000,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "19",
+          "home_team_id": "9",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909942",
+          "start_ts_utc": 1794101400
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1794079800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "19",
+          "home_team_id": "9",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909942",
+          "start_ts_utc": 1794101400
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794097800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "10",
+          "home_team_id": "21",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909943",
+          "start_ts_utc": 1794103200
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1794016800,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "10",
+          "home_team_id": "21",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909943",
+          "start_ts_utc": 1794103200
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1794081600,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "10",
+          "home_team_id": "21",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909943",
+          "start_ts_utc": 1794103200
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794099600,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "24",
+          "home_team_id": "22",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909944",
+          "start_ts_utc": 1794106800
+        },
+        "horizon": "T24H",
+        "scheduled_cutoff_utc": 1794020400,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "24",
+          "home_team_id": "22",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909944",
+          "start_ts_utc": 1794106800
+        },
+        "horizon": "T6H",
+        "scheduled_cutoff_utc": 1794085200,
+        "status": "NOT_DUE"
+      },
+      {
+        "fixture": {
+          "away_team_id": "24",
+          "home_team_id": "22",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909944",
+          "start_ts_utc": 1794106800
+        },
+        "horizon": "T60M",
+        "scheduled_cutoff_utc": 1794103200,
+        "status": "NOT_DUE"
+      }
+    ],
+    "predictions_written": 0,
+    "rejected_schedule": [],
+    "status": "DRY_RUN"
+  }
+}
