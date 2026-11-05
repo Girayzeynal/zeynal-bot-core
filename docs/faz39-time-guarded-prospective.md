@@ -1,5 +1,8 @@
 # FAZ39: pencere öncesi hazırlık ve korumalı kayıt
 
+PR #14 için güncel gecikme ölçümleri, schema v2 taşınabilir receipt ve kurtarma
+kuralları: [inceleme düzeltmeleri](faz39-pr14-review.md).
+
 FAZ38'de ilk saat kontrolü 2026-11-05 20:04:44 UTC, çalıştırma kapısı
 20:05:12.151697 UTC idi. 20:00–20:05 kesiti kaçırıldı; gerçek tahmin sayısı
 sıfırdı. Koruma doğru biçimde yazmayı reddetti, ancak uzak kontrollerin

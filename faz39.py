@@ -5,6 +5,7 @@ FAZ33's score engines, packet validator, transaction and immutable tables are re
 """
 import argparse
 import asyncio
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
@@ -15,6 +16,7 @@ import re
 import sqlite3
 import subprocess
 import time
+import uuid
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
@@ -40,6 +42,41 @@ MAX_LEAD = 120
 MIN_ARM_LEAD = 5
 MAX_RTT = 2
 MAX_CLOCK_ERROR = 2
+SOURCE_BUDGET_SECONDS = 1
+
+
+class Timings:
+    """Bounded descriptive measurements, including failed operations; never an SLA."""
+    def __init__(self):
+        self.samples = {}; self.errors = {}; self.dropped = {}
+
+    @contextmanager
+    def measure(self, name):
+        began = time.perf_counter_ns()
+        try:
+            yield
+        except BaseException:
+            self.errors[name] = self.errors.get(name, 0) + 1
+            raise
+        finally:
+            self.record(name, max(0, time.perf_counter_ns() - began) / 1e6)
+
+    def record(self, name, elapsed_ms):
+        values = self.samples.setdefault(name, [])
+        if len(values) < 4096:
+            values.append(elapsed_ms)
+        else:
+            self.dropped[name] = self.dropped.get(name, 0) + 1
+
+    def summary(self):
+        result = {}
+        for name, samples in self.samples.items():
+            values = sorted(samples)
+            result[name] = dict(count=len(values), errors=self.errors.get(name, 0),
+                dropped=self.dropped.get(name, 0), max_ms=values[-1],
+                **{'p' + str(p) + '_ms': values[math.ceil(len(values) * p / 100) - 1]
+                   for p in (50, 95, 99)})
+        return result
 
 
 class Refused(ValueError):
@@ -51,11 +88,26 @@ def require(condition, reason):
         raise Refused(reason)
 
 
-def local_source():
+def local_source(*, budget_seconds=SOURCE_BUDGET_SECONDS):
     """No remote calls. Refuse dirty or untracked Python code and pin this branch."""
     repo = Path(__file__).resolve().parent
-    def git(*args):
-        return subprocess.check_output(['git', *args], cwd=repo, text=True).strip()
+    require(type(budget_seconds) in (int, float) and math.isfinite(budget_seconds)
+            and 0 < budget_seconds <= SOURCE_BUDGET_SECONDS, 'INVALID_SOURCE_TIME_BUDGET')
+    deadline = time.perf_counter() + budget_seconds
+    def remaining():
+        seconds = deadline - time.perf_counter()
+        require(seconds > 0, 'SOURCE_VERIFICATION_TIMEOUT')
+        return seconds
+    def git(*args, binary=False):
+        try:
+            value = subprocess.check_output(['git', *args], cwd=repo,
+                text=not binary, timeout=remaining())
+        except subprocess.TimeoutExpired as exc:
+            raise Refused('SOURCE_VERIFICATION_TIMEOUT') from exc
+        except subprocess.CalledProcessError as exc:
+            raise Refused('SOURCE_GIT_FAILED') from exc
+        remaining()
+        return value if binary else value.strip()
     branch, sha = git('branch', '--show-current'), git('rev-parse', 'HEAD')
     require(branch.startswith('feature/faz39-'), 'FAZ39_DEVELOPMENT_BRANCH_REQUIRED')
     require(not git('status', '--porcelain', '--untracked-files=no'), 'SOURCE_DIRTY')
@@ -63,8 +115,9 @@ def local_source():
     require(not any(p.endswith('.py') for p in untracked), 'UNTRACKED_PYTHON_SOURCE')
     # Imported files must also equal the committed source, even with skip-worktree.
     for name in ('faz39.py', 'faz33.py', 'prospective_cuts.py', 'faz37.py'):
-        expected = subprocess.check_output(['git', 'show', 'HEAD:' + name], cwd=repo)
+        expected = git('show', 'HEAD:' + name, binary=True)
         require((repo / name).read_bytes() == expected, 'EXECUTED_SOURCE_DIFFERS')
+        remaining()
     return dict(branch=branch, sha=sha)
 
 
@@ -120,9 +173,16 @@ def source_json(proof, url):
 
 
 def utc_anchor(proof):
-    raw = source_json(proof, UTC_URL)
+    try:
+        raw = source_json(proof, UTC_URL)
+    except json.JSONDecodeError as exc:
+        raise Refused('UTC_SCHEMA_CHANGED') from exc
+    require(isinstance(raw, dict) and isinstance(raw.get('dateTime'), str), 'UTC_SCHEMA_CHANGED')
     require(raw.get('timeZone') == 'UTC', 'UTC_ZONE_UNVERIFIED')
-    stamp = datetime.fromisoformat(raw['dateTime'].replace('Z', '+00:00'))
+    try:
+        stamp = datetime.fromisoformat(raw['dateTime'].replace('Z', '+00:00'))
+    except ValueError as exc:
+        raise Refused('UTC_SCHEMA_CHANGED') from exc
     if stamp.tzinfo is None:
         stamp = stamp.replace(tzinfo=timezone.utc)
     require(stamp.utcoffset().total_seconds() == 0, 'UTC_OFFSET_UNVERIFIED')
@@ -150,12 +210,19 @@ def official_game(proof, fixture, directory):
     html = source_body(proof, 'https://www.nba.com/games?date=' + day.isoformat())
     match = re.search(r'<script[^>]*id=[\"\']__NEXT_DATA__[\"\'][^>]*>(.*?)</script>', html, re.S)
     require(match is not None, 'OFFICIAL_SCHEDULE_UNAVAILABLE')
-    data = json.loads(match.group(1))['props']['pageProps']
+    try:
+        data = json.loads(match.group(1))['props']['pageProps']
+        require(isinstance(data, dict), 'OFFICIAL_SCHEDULE_SCHEMA_CHANGED')
+    except (ValueError, KeyError, TypeError) as exc:
+        raise Refused('OFFICIAL_SCHEDULE_SCHEMA_CHANGED') from exc
+    require(data.get('selectedDate', day.isoformat()) == day.isoformat(), 'OFFICIAL_DAY_CONFLICT')
     found = []
     def walk(value):
         if isinstance(value, dict):
-            if (value.get('homeTeam', {}).get('teamTricode') == directory[fixture['home_team_id']]['abbr']
-                    and value.get('awayTeam', {}).get('teamTricode') == directory[fixture['away_team_id']]['abbr']
+            home, away = value.get('homeTeam'), value.get('awayTeam')
+            if (isinstance(home, dict) and isinstance(away, dict)
+                    and home.get('teamTricode') == directory[fixture['home_team_id']]['abbr']
+                    and away.get('teamTricode') == directory[fixture['away_team_id']]['abbr']
                     and 'gameId' in value):
                 found.append(value)
             for item in value.values():
@@ -166,10 +233,17 @@ def official_game(proof, fixture, directory):
     walk(data)
     require(len(found) == 1, 'OFFICIAL_FIXTURE_AMBIGUOUS_OR_MISSING')
     game = found[0]
-    require(game['gameStatus'] == 1 and game['seasonYear'] == '2026-27' and
-            game['seasonType'] == 'Regular Season' and
-            datetime.fromisoformat(game['gameTimeUtc'].replace('Z', '+00:00')).timestamp()
-            == fixture['start_ts_utc'], 'OFFICIAL_START_OR_STATUS_CONFLICT')
+    try:
+        stamp = datetime.fromisoformat(game['gameTimeUtc'].replace('Z', '+00:00'))
+        require(stamp.tzinfo is not None and stamp.utcoffset().total_seconds() == 0,
+                'OFFICIAL_START_TIMEZONE_UNVERIFIED')
+        require(type(game['gameStatus']) is int and game['gameStatus'] == 1 and
+                game['seasonYear'] == '2026-27' and game['seasonType'] == 'Regular Season' and
+                stamp.timestamp() == fixture['start_ts_utc'], 'OFFICIAL_START_OR_STATUS_CONFLICT')
+    except Refused:
+        raise
+    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise Refused('OFFICIAL_SCHEDULE_SCHEMA_CHANGED') from exc
     return game
 
 
@@ -193,7 +267,9 @@ def verify_ci(proofs, source):
 
 
 def validate_ready(p, at):
-    require(p['schema_version'] == 1 and p['mode'] in ('PROSPECTIVE', 'SYNTHETIC_TEST'), 'READY_SCHEMA')
+    require(p['schema_version'] in (1, 2) and p['mode'] in ('PROSPECTIVE', 'SYNTHETIC_TEST'), 'READY_SCHEMA')
+    if p['schema_version'] == 2:
+        require(re.fullmatch('[0-9a-f]{32}', p['ledger_id']) is not None, 'READY_LEDGER_ID_INVALID')
     require(re.fullmatch('[0-9a-f]{40}', p['source']['sha']) is not None and
             p['source']['branch'].startswith('feature/faz39-'), 'READY_SOURCE_INVALID')
     fixture = p['fixture']
@@ -244,10 +320,35 @@ class ReadyStore:
             for op in ('UPDATE', 'DELETE'):
                 db.execute(f"CREATE TRIGGER IF NOT EXISTS faz39_ready_no_{op} BEFORE {op} ON faz39_ready BEGIN SELECT RAISE(ABORT,'immutable FAZ39'); END")
             db.execute("CREATE TRIGGER IF NOT EXISTS faz39_ready_no_replace BEFORE INSERT ON faz39_ready WHEN EXISTS (SELECT 1 FROM faz39_ready WHERE sha256=NEW.sha256) BEGIN SELECT RAISE(ABORT,'immutable FAZ39 replacement'); END")
+            db.execute('CREATE TABLE IF NOT EXISTS faz39_identity '
+                       '(singleton INTEGER PRIMARY KEY CHECK(singleton=1), ledger_id TEXT NOT NULL UNIQUE)')
+            for op in ('UPDATE', 'DELETE'):
+                db.execute(f"CREATE TRIGGER IF NOT EXISTS faz39_identity_no_{op} BEFORE {op} ON faz39_identity BEGIN SELECT RAISE(ABORT,'immutable FAZ39 identity'); END")
+            db.execute("CREATE TRIGGER IF NOT EXISTS faz39_identity_no_replace BEFORE INSERT ON faz39_identity WHEN EXISTS (SELECT 1 FROM faz39_identity) BEGIN SELECT RAISE(ABORT,'immutable FAZ39 identity replacement'); END")
+            db.execute('BEGIN IMMEDIATE')
+            identity = db.execute('SELECT ledger_id FROM faz39_identity WHERE singleton=1').fetchone()
+            if identity is None:
+                identity = (uuid.uuid4().hex,)
+                db.execute('INSERT INTO faz39_identity VALUES (1,?)', identity)
+            self.ledger_id = identity[0]
+            require(re.fullmatch('[0-9a-f]{32}', self.ledger_id) is not None, 'LEDGER_ID_CORRUPT')
+
+    def config_hash(self, config, version=2):
+        if version == 1:
+            return digest(config)
+        return digest(dict(schema_version=2, ledger_id=self.ledger_id,
+                           storage=validate_config(config)['storage']))
+
+    def check_config(self, config, p):
+        require(p['config_sha256'] == self.config_hash(config, p['schema_version']) and
+                p['mode'] == self.ledger.mode and
+                (p['schema_version'] == 1 or p['ledger_id'] == self.ledger_id), 'READY_CONFIG_MISMATCH')
 
     def put(self, p):
         validate_ready(p, time.time())
         require(p['mode'] == self.ledger.mode, 'READY_LEDGER_MODE_MISMATCH')
+        if p['schema_version'] == 2:
+            require(p['ledger_id'] == self.ledger_id, 'READY_LEDGER_ID_MISMATCH')
         sha, raw = digest(p), canonical_json(p)
         with self.ledger.connect() as db:
             db.execute('BEGIN IMMEDIATE')
@@ -274,6 +375,7 @@ async def prepare(config, fixture_id, horizon, sources):
     ledger = CutLedger(c['database']); store = read_store(c['research_database'])
     with exclusive(ledger.path) as acquired:
         require(acquired, 'BUSY')
+        ready_store = ReadyStore(ledger)
         proofs = {'schedule': await sources.fetch(ESPN_BASE + '/summary?event=' + fixture_id)}
         fixture, _ = schedule_evidence(proofs['schedule'], fixture_id, store.team_ids)
         cut = fixture['start_ts_utc'] - HORIZONS[horizon]
@@ -307,10 +409,11 @@ async def prepare(config, fixture_id, horizon, sources):
         now = time.time()
         rows = [r for r in store.select(int(now), 'PROSPECTIVE', 2027)
                 if now - 45 * 86400 < r['payload']['facts']['event']['start_ts_utc'] < now]
-        p = dict(schema_version=1, mode='PROSPECTIVE', config_sha256=digest(config), source=source,
+        p = dict(schema_version=2, mode='PROSPECTIVE', ledger_id=ready_store.ledger_id,
+                 config_sha256=ready_store.config_hash(config), original_config_sha256=digest(config), source=source,
                  fixture=fixture, horizon=horizon, ready_utc=now, proofs=proofs, directory=directory,
                  team_ids=sorted(store.team_ids), history_rows=rows, history_sha256=digest(rows))
-        sha = ReadyStore(ledger).put(p)
+        sha = ready_store.put(p)
         return dict(status='READY_BEFORE_CUT', receipt_sha256=sha, model_sha=source['sha'],
                     scheduled_cutoff_utc=cut, new_prospective_cuts=0)
 
@@ -326,6 +429,7 @@ class FrozenHistory:
 class CaptureGate:
     def __init__(self, ready, receipt_sha, utc_proof, source_check=None, *, clock_guard=None):
         self.ready = deepcopy(ready); self.receipt_sha = receipt_sha
+        self.timings = Timings()
         self.utc_proof = deepcopy(utc_proof); self.source_check = source_check or local_source
         self.guard = clock_guard or ClockGuard()
         self.trusted_utc = utc_anchor(utc_proof)
@@ -336,7 +440,8 @@ class CaptureGate:
         validate_ready(ready, time.time())
         require(utc_proof['observed_utc'] < self.cut and
                 0 <= time.time() - utc_proof['observed_utc'] <= MAX_RTT, 'ARM_UTC_NOT_FRESH')
-        require(self.source_check() == ready['source'], 'SOURCE_CHANGED_SINCE_PREPARE')
+        with self.timings.measure('git_source_check'):
+            require(self.source_check() == ready['source'], 'SOURCE_CHANGED_SINCE_PREPARE')
         require(digest(ready) == receipt_sha, 'READINESS_HASH_MISMATCH')
 
     def utc_bounds(self):
@@ -356,7 +461,8 @@ class CaptureGate:
         # Pure timestamp checks on already-validated evidence: no HTTP/CI/parsing here.
         require(all(0 <= now - p['observed_utc'] <= GRACE for p in self.ready['proofs'].values()),
                 'READINESS_SOURCE_EXPIRED')
-        require(self.source_check() == self.ready['source'], 'SOURCE_CHANGED_AFTER_ARM')
+        with self.timings.measure('git_source_check'):
+            require(self.source_check() == self.ready['source'], 'SOURCE_CHANGED_AFTER_ARM')
         # Source checks/digesting can themselves be delayed: never return their OLD time.
         self.guard.check(); now = self.guard.last_wall
         require(now <= self.cut + GRACE, 'MISSED_CUT')
@@ -367,6 +473,17 @@ class CaptureGate:
         return int(now)
 
 
+class TimedConnection(sqlite3.Connection):
+    def execute(self, sql, *args, **kwargs):
+        statement = sql.strip().upper()
+        label = ('sqlite_begin_immediate' if statement.startswith('BEGIN IMMEDIATE') else
+                 'sqlite_cut_insert' if statement.startswith('INSERT INTO FAZ33_CUTS') else None)
+        if label is None:
+            return super().execute(sql, *args, **kwargs)
+        with self.timings.measure(label):
+            return super().execute(sql, *args, **kwargs)
+
+
 class EvidenceLedger(CutLedger):
     def __init__(self, path, mode, gate):
         self.gate = gate
@@ -374,12 +491,15 @@ class EvidenceLedger(CutLedger):
         super().__init__(path, mode, clock_check=gate.check)
 
     def connect(self):
-        db = super().connect()
+        with self.gate.timings.measure('sqlite_connect'):
+            db = sqlite3.connect(self.path, timeout=1, factory=TimedConnection)
+        db.timings = self.gate.timings
         def final_gate(recorded):
             try:
-                now = self.gate.check()
-                require(recorded == now, 'RECORDING_SECOND_CHANGED_BEFORE_INSERT')
-                return now
+                with self.gate.timings.measure('sqlite_final_gate'):
+                    now = self.gate.check()
+                    require(recorded == now, 'RECORDING_SECOND_CHANGED_BEFORE_INSERT')
+                    return now
             except (ValueError, OSError) as exc:
                 self.insert_gate_error = exc
                 raise
@@ -429,46 +549,79 @@ class ArmedRunner(Runner):
         return schedule
 
 
+def existing_cut(ledger, ready, receipt_sha):
+    """Read-only duplicate comparison; an unrelated prior record is NOT success."""
+    fid, horizon = ready['fixture']['provider_fixture_id'], ready['horizon']
+    with sqlite3.connect(Path(ledger.path).resolve().as_uri() + '?mode=ro', uri=True, timeout=1) as db:
+        row = db.execute('SELECT cutoff_utc,recorded_utc,payload,sha256 FROM faz33_cuts '
+                         'WHERE fixture_id=? AND horizon=?', (fid, horizon)).fetchone()
+        if row is None:
+            return None
+        cutoff, recorded, raw, sha = row
+        p = json.loads(raw); binding = p.get('faz39', {})
+        require(digest(p) == sha, 'EXISTING_CUT_HASH_MISMATCH')
+        require(p['fixture'] == ready['fixture'] and p['horizon'] == horizon and
+                p['model_sha'] == ready['source']['sha'] and p['usage'] == ready['mode'] and
+                p['cutoff_utc'] == cutoff and binding.get('receipt_sha256') == receipt_sha and
+                binding.get('readiness') == ready and digest(ready) == receipt_sha,
+                'EXISTING_CUT_BINDING_CONFLICT')
+        stored = db.execute('SELECT payload FROM faz39_ready WHERE sha256=?', (receipt_sha,)).fetchone()
+        require(stored == (canonical_json(ready),), 'EXISTING_CUT_RECEIPT_CONFLICT')
+    return dict(fixture_id=fid, horizon=horizon, cutoff_utc=cutoff, recorded_utc=recorded,
+                model_sha=p['model_sha'], prediction_sha256=sha, receipt_sha256=receipt_sha)
+
+
 async def capture_armed(runner):
     """One target, one transaction, no network, no history refresh or CI lookup."""
     p = runner.gate.ready; fid = p['fixture']['provider_fixture_id']; horizon = p['horizon']
+    timings = runner.gate.timings
+    def measured_proofs():
+        with timings.measure('cut_proofs'):
+            return cut_proofs(runner.ledger.path)
+    began = time.perf_counter_ns()
     with exclusive(runner.ledger.path) as acquired:
+        timings.record('application_lock', (time.perf_counter_ns() - began) / 1e6)
         if not acquired:
-            return dict(status='BUSY', new_prospective_cuts=0)
-        before = cut_proofs(runner.ledger.path)
-        if runner.ledger.has(fid, horizon):
-            return dict(status='ALREADY_RECORDED', new_prospective_cuts=0,
-                        existing_proof=before[fid + ':' + horizon])
+            return dict(status='BUSY', new_prospective_cuts=0, timings=timings.summary())
+        before = measured_proofs()
         try:
+            with timings.measure('ledger_has'):
+                has = runner.ledger.has(fid, horizon)
+            if has:
+                with timings.measure('existing_cut_comparison'):
+                    proof = existing_cut(runner.ledger, p, runner.gate.receipt_sha)
+                require(proof is not None, 'EXISTING_CUT_DISAPPEARED')
+                return dict(status='ALREADY_RECORDED', new_prospective_cuts=0,
+                            existing_proof=proof, timings=timings.summary())
             runner.gate.check()
             result = await runner.capture(dict(fixture=p['fixture']), horizon, refresh=False)
         except (ValueError, KeyError, TypeError, sqlite3.Error) as exc:
             # Do not infer zero writes after a failure: inspect the actual committed rows.
-            after = cut_proofs(runner.ledger.path)
+            after = measured_proofs()
             require(all(after.get(k) == v for k, v in before.items()), 'ORIGINAL_CUT_CHANGED')
             count = len(set(after) - set(before))
             return dict(status='REFUSED', reason=str(exc),
                         new_prospective_cuts=count if runner.ledger.mode == 'PROSPECTIVE' else 0,
-                        new_synthetic_cuts=count if runner.ledger.mode == 'SYNTHETIC_TEST' else 0)
-        after = cut_proofs(runner.ledger.path)
+                        new_synthetic_cuts=count if runner.ledger.mode == 'SYNTHETIC_TEST' else 0,
+                        timings=timings.summary())
+        after = measured_proofs()
         require(all(after.get(k) == v for k, v in before.items()), 'ORIGINAL_CUT_CHANGED')
         count = len(set(after) - set(before))
         return dict(result, new_prospective_cuts=count if runner.ledger.mode == 'PROSPECTIVE' else 0,
                     new_synthetic_cuts=count if runner.ledger.mode == 'SYNTHETIC_TEST' else 0,
                     new_cut_proofs=[v for k, v in after.items() if k not in before],
-                    original_cuts_unchanged=True, network_calls_in_capture=0)
+                    original_cuts_unchanged=True, network_calls_in_capture=0, timings=timings.summary())
 
 
 async def arm(config, receipt_sha, sources, *, wait_seconds=120):
     """Start BEFORE the cut. Clock/receipt/source checks are never deferred to it."""
     require(type(wait_seconds) is int and 0 <= wait_seconds <= MAX_LEAD, 'INVALID_WAIT_BUDGET')
     c = validate_config(config)['collection']
-    ledger = CutLedger(c['database']); ready = ReadyStore(ledger).get(receipt_sha)
-    require(ready['config_sha256'] == digest(config) and ready['mode'] == ledger.mode, 'READY_CONFIG_MISMATCH')
-    key = ready['fixture']['provider_fixture_id'] + ':' + ready['horizon']
-    existing = cut_proofs(c['database'])
-    if key in existing:
-        return dict(status='ALREADY_RECORDED', new_prospective_cuts=0, existing_proof=existing[key])
+    ledger = CutLedger(c['database']); store = ReadyStore(ledger); ready = store.get(receipt_sha)
+    store.check_config(config, ready)
+    existing = existing_cut(ledger, ready, receipt_sha)
+    if existing is not None:
+        return dict(status='ALREADY_RECORDED', new_prospective_cuts=0, existing_proof=existing)
     cut = ready['fixture']['start_ts_utc'] - HORIZONS[ready['horizon']]
     # This check must precede ALL network work, even when invoked at 20:04:44.
     require(time.time() < cut - MIN_ARM_LEAD, 'ARM_MUST_START_BEFORE_WINDOW')
@@ -489,6 +642,19 @@ def audit(database):
     """Read-only replay of readiness/clock bindings at each original recording time."""
     result = inspect(database); result.pop('examples', None)
     with sqlite3.connect(Path(database).resolve().as_uri() + '?mode=ro', uri=True) as db:
+        ready_count = 0
+        for sha, raw in db.execute('SELECT sha256,payload FROM faz39_ready'):
+            ready = json.loads(raw)
+            require(digest(ready) == sha, 'READINESS_HASH_MISMATCH')
+            validate_ready(ready, ready['ready_utc'])
+            require(ready['mode'] == result['mode'], 'READY_LEDGER_MODE_MISMATCH')
+            if ready['schema_version'] == 2:
+                identity = db.execute('SELECT ledger_id FROM faz39_identity WHERE singleton=1').fetchall()
+                require(identity == [(ready['ledger_id'],)], 'READY_LEDGER_ID_MISMATCH')
+                expected = digest(dict(schema_version=2, ledger_id=ready['ledger_id'],
+                    storage=dict(mode='LOCAL_ONLY', external_target=None, upload_enabled=False)))
+                require(ready['config_sha256'] == expected, 'READY_CONFIG_MISMATCH')
+            ready_count += 1
         rows = db.execute('SELECT recorded_utc,payload FROM faz33_cuts').fetchall()
         count = 0
         for recorded, raw in rows:
@@ -509,6 +675,7 @@ def audit(database):
                     0 <= recorded - anchor['observed_utc'] <= GRACE, 'ARM_CLOCK_BINDING')
             count += 1
     result['faz39_bound_cuts'] = count
+    result['faz39_ready_receipts'] = ready_count
     return result
 
 
