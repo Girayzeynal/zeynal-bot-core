@@ -1,0 +1,46 @@
+{
+  "actual_status": "WAITING_FOR_CUT",
+  "base_commit": "a1fd5171109f563251f9cc8a71ee6fe273a3586e",
+  "cut_status_counts": {
+    "MISSED_CUT": 2,
+    "NOT_DUE": 52
+  },
+  "durable_storage_ready": false,
+  "external_upload_performed": false,
+  "fixture_count": 18,
+  "local_publication": {
+    "external_committed": false,
+    "generation": 1,
+    "immutable_inventory_rows": 148,
+    "implementation_state": "FAZ36 working tree preflight",
+    "inventory_sha256": "7dd0540d653bdda455f21f48262e17cf0e0037628a76af53fd9df59075a35d1d",
+    "manifest_sha256": "be9940a61d26ad4aeb4256052bab62697770a3a31614c90695c4b217e3f55522",
+    "scope": "LOCAL_STAGING_ONLY",
+    "source_bundle_commit": "a1fd5171109f563251f9cc8a71ee6fe273a3586e",
+    "status": "STAGED_LOCALLY"
+  },
+  "local_test_seconds": 43.296,
+  "local_tests_passed": 712,
+  "new_real_cuts": 0,
+  "new_tests": 13,
+  "next_cut_utc": 1793908800,
+  "observation_utc": 1793874963,
+  "prior_ci": [
+    {
+      "docker_build": "success",
+      "event": "push",
+      "run_id": 42008008558,
+      "unit_tests": "success"
+    },
+    {
+      "docker_build": "success",
+      "event": "pull_request",
+      "run_id": 42008019840,
+      "unit_tests": "success"
+    }
+  ],
+  "prospective_training_examples": 0,
+  "punctuality_guaranteed": false,
+  "scheduler_enabled": false,
+  "unexpected_test_failures": 0
+}
