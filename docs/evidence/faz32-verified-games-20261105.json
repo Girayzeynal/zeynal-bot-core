@@ -1,0 +1,4057 @@
+{
+  "distinct_games": 75,
+  "games": [
+    {
+      "away": {
+        "final": 113,
+        "name": "Boston Celtics",
+        "overtime": [],
+        "quarters": [
+          28,
+          30,
+          30,
+          25
+        ],
+        "team_id": "2"
+      },
+      "fixture_id": "401909088",
+      "home": {
+        "final": 121,
+        "name": "Detroit Pistons",
+        "overtime": [],
+        "quarters": [
+          27,
+          18,
+          37,
+          39
+        ],
+        "team_id": "8"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "38ce0d352a1eadfd4355d1c449bda7248253a2ce8a0896bba7da1002f472b005",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "c4ea6ba6fb4c4af4226b6e45141a462e166ef2173d336c3ad56f6636a5c86f21",
+          "source_observed_utc": 1793810383,
+          "summary_sha256": "55e7845d02ed8054423a1bd9f20bc18a521595860484d7e10db2c6b6bbd2f62d"
+        },
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "cb0201ed436696547ba8cf8da2ca13cde42f60498422dcef58ea9973489cd416",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "7a33556442287b48ef16f3eb55f378f1ba393b3f8c9baaebce6d9324e35fc5c6",
+          "source_observed_utc": 1793827394,
+          "summary_sha256": "55e7845d02ed8054423a1bd9f20bc18a521595860484d7e10db2c6b6bbd2f62d"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909088",
+      "start_iso_utc": "2026-10-20T19:00:00+00:00",
+      "start_utc": 1792522800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 106,
+        "name": "Philadelphia 76ers",
+        "overtime": [],
+        "quarters": [
+          23,
+          31,
+          29,
+          23
+        ],
+        "team_id": "20"
+      },
+      "fixture_id": "401909089",
+      "home": {
+        "final": 100,
+        "name": "New York Knicks",
+        "overtime": [],
+        "quarters": [
+          25,
+          33,
+          18,
+          24
+        ],
+        "team_id": "18"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "23ffbe8253023556256e23c918b0e323378241c4393825ca10ebd9272b6cc703",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "de4fffa0b0eeb7d2dbd21470a06d5e5cfcd21d3fd6a7e314c03767e551821e02",
+          "source_observed_utc": 1793827394,
+          "summary_sha256": "1ad094759333ac124e6c593a10ffd8349869be9f70c0ff8951c6e8ac69301541"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909089",
+      "start_iso_utc": "2026-10-20T23:00:00+00:00",
+      "start_utc": 1792537200,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 132,
+        "name": "Atlanta Hawks",
+        "overtime": [],
+        "quarters": [
+          28,
+          44,
+          27,
+          33
+        ],
+        "team_id": "1"
+      },
+      "fixture_id": "401909834",
+      "home": {
+        "final": 125,
+        "name": "Orlando Magic",
+        "overtime": [],
+        "quarters": [
+          33,
+          29,
+          38,
+          25
+        ],
+        "team_id": "19"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "e55f0f48e76ce98d7a71baf5b0b75f21fb9ddde10e6f8cfd9fda4d080751cae0",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "3957523bfeed0aa498af91ad28eeeb3d86bd721c114850fd2a9e050f52a18b5e",
+          "source_observed_utc": 1793827396,
+          "summary_sha256": "70a4ca58f2f840393ad9fae87aa2a9ccf708d7068f7db98b18ebaa45ed39b632"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909834",
+      "start_iso_utc": "2026-10-21T23:00:00+00:00",
+      "start_utc": 1792623600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 116,
+        "name": "Milwaukee Bucks",
+        "overtime": [],
+        "quarters": [
+          23,
+          33,
+          37,
+          23
+        ],
+        "team_id": "15"
+      },
+      "fixture_id": "401909835",
+      "home": {
+        "final": 128,
+        "name": "Washington Wizards",
+        "overtime": [],
+        "quarters": [
+          25,
+          26,
+          39,
+          38
+        ],
+        "team_id": "27"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "330ed599bb5e5edc1288b7d1f760638c94f8228ec7b8864a75858e44df974380",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "53a21e87edd277b2ecbb15a42400762e34a7b04409e900a1d6cdf19e9236aaa7",
+          "source_observed_utc": 1793810386,
+          "summary_sha256": "711f4aa936300d65ca1a647929ae09ba80cb8241d0f9ef5e8ee9f6adf616bcdf"
+        },
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "6cc6d63c0bb7ac7d8dbe2f4c4ec33fdae79e726fba964853f9fb39c79cb715c8",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "d61161596bab9981960de77da4929fc08881ba03de024fd8791eb1ac2b19fe09",
+          "source_observed_utc": 1793827396,
+          "summary_sha256": "711f4aa936300d65ca1a647929ae09ba80cb8241d0f9ef5e8ee9f6adf616bcdf"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909835",
+      "start_iso_utc": "2026-10-21T23:00:00+00:00",
+      "start_utc": 1792623600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 110,
+        "name": "Charlotte Hornets",
+        "overtime": [],
+        "quarters": [
+          27,
+          27,
+          32,
+          24
+        ],
+        "team_id": "30"
+      },
+      "fixture_id": "401909836",
+      "home": {
+        "final": 103,
+        "name": "Brooklyn Nets",
+        "overtime": [],
+        "quarters": [
+          23,
+          25,
+          33,
+          22
+        ],
+        "team_id": "17"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "cf6f8c29092eed95457932a9f5cdacb324af73928e9012779e40e5bdaf4fc7a8",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "3acbc5331fa47c8d1e074787d61ab94a8d2ed963f497f0de4fdb852330d67b0e",
+          "source_observed_utc": 1793833434,
+          "summary_sha256": "2724b909a34e6db0e4e94b4f9874b8ae780a06ed32679c8ed5be8861a000e3e4"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909836",
+      "start_iso_utc": "2026-10-21T23:30:00+00:00",
+      "start_utc": 1792625400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 106,
+        "name": "Cleveland Cavaliers",
+        "overtime": [],
+        "quarters": [
+          35,
+          34,
+          21,
+          16
+        ],
+        "team_id": "5"
+      },
+      "fixture_id": "401909093",
+      "home": {
+        "final": 114,
+        "name": "Philadelphia 76ers",
+        "overtime": [],
+        "quarters": [
+          18,
+          27,
+          37,
+          32
+        ],
+        "team_id": "20"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "60904678600d448a2d6c112f5242865b2bdff727e055bda9f1375c4236fd31bc",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "93d4af152e523f12d5f3bfd8f319530b2d0036beff87cdaef5769cbe2aa12f2d",
+          "source_observed_utc": 1793827395,
+          "summary_sha256": "d759e3e13e640207da8503ca71db7056db1d6cefb6c3793e6c39e545418171d8"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909093",
+      "start_iso_utc": "2026-10-22T23:00:00+00:00",
+      "start_utc": 1792710000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 132,
+        "name": "Chicago Bulls",
+        "overtime": [],
+        "quarters": [
+          17,
+          44,
+          41,
+          30
+        ],
+        "team_id": "4"
+      },
+      "fixture_id": "401909848",
+      "home": {
+        "final": 125,
+        "name": "Milwaukee Bucks",
+        "overtime": [],
+        "quarters": [
+          32,
+          30,
+          42,
+          21
+        ],
+        "team_id": "15"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "120598cf155ae40f098dbe4a46824bc38883fe3ad8b72cfca2e3b2b37a2c8287",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "9010730f1c10526e1ed7fd111b2301e7dda6b9d1b40deb12e2d7e56d2e9f3bde",
+          "source_observed_utc": 1793810386,
+          "summary_sha256": "6c409a8dbe8a81da27da2b3f285ef10d83b8b51792fc260735361bdaae243b72"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909848",
+      "start_iso_utc": "2026-10-23T20:00:00+00:00",
+      "start_utc": 1792785600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 103,
+        "name": "New York Knicks",
+        "overtime": [],
+        "quarters": [
+          27,
+          22,
+          24,
+          30
+        ],
+        "team_id": "18"
+      },
+      "fixture_id": "401909095",
+      "home": {
+        "final": 107,
+        "name": "Boston Celtics",
+        "overtime": [],
+        "quarters": [
+          26,
+          24,
+          33,
+          24
+        ],
+        "team_id": "2"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "29eda7facf3558bfc5c793b19d2e5f5fcbb82bfaaf3c265fd02211e10333ab58",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "ccdb25e82528461c7f4bd94037c7ee089bca8bed2f9592aac2dbb0b8bb170103",
+          "source_observed_utc": 1793810383,
+          "summary_sha256": "508956464b1a3287839a951d87a5306a0687fdfbff5f39e407768a2b8bf0ba5b"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909095",
+      "start_iso_utc": "2026-10-23T23:00:00+00:00",
+      "start_utc": 1792796400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 128,
+        "name": "Atlanta Hawks",
+        "overtime": [],
+        "quarters": [
+          33,
+          35,
+          29,
+          31
+        ],
+        "team_id": "1"
+      },
+      "fixture_id": "401909843",
+      "home": {
+        "final": 81,
+        "name": "Charlotte Hornets",
+        "overtime": [],
+        "quarters": [
+          20,
+          23,
+          19,
+          19
+        ],
+        "team_id": "30"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "3da6376c2f987565638e5d37cb7c4a28f7c361d87043f685402dc044f6838f45",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "8513de2822be8b4de72e3e919c1626c9e8e1bf731b812c19daa5817719d348f6",
+          "source_observed_utc": 1793827396,
+          "summary_sha256": "1dc217905b94f86c5b7b35ebabe839fdb6af8f1856813b7f5eab4fa941cb2a04"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909843",
+      "start_iso_utc": "2026-10-23T23:00:00+00:00",
+      "start_utc": 1792796400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 112,
+        "name": "Toronto Raptors",
+        "overtime": [],
+        "quarters": [
+          34,
+          26,
+          21,
+          31
+        ],
+        "team_id": "28"
+      },
+      "fixture_id": "401909846",
+      "home": {
+        "final": 102,
+        "name": "Washington Wizards",
+        "overtime": [],
+        "quarters": [
+          21,
+          31,
+          25,
+          25
+        ],
+        "team_id": "27"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "90c21f3751b70332f915c9a28cab7d9e38c2b7d78c5304522d9a8fda2fe34449",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "5347b4f41b85d70e64ae32a476b5a51df274144f0effa60d75c9a644de3a011d",
+          "source_observed_utc": 1793827396,
+          "summary_sha256": "db6accd556f251556f59357945ae38eb6639207eae185ba18859f04cc464e8bc"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909846",
+      "start_iso_utc": "2026-10-23T23:00:00+00:00",
+      "start_utc": 1792796400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 128,
+        "name": "Detroit Pistons",
+        "overtime": [],
+        "quarters": [
+          41,
+          24,
+          38,
+          25
+        ],
+        "team_id": "8"
+      },
+      "fixture_id": "401909847",
+      "home": {
+        "final": 111,
+        "name": "Miami Heat",
+        "overtime": [],
+        "quarters": [
+          26,
+          27,
+          27,
+          31
+        ],
+        "team_id": "14"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "30a6c0af85ea5dd7e1004884d8a16eeb26582957fdb7f398d5993fd0c5ba0c76",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "5a6589785825cf6544856e9c41baff8e7c165af5176644e928c6c470abce83bf",
+          "source_observed_utc": 1793827394,
+          "summary_sha256": "929a6731358b674a00990bfa82cb78aa58fb0b2abb4ac5924f4d9668c9c49931"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909847",
+      "start_iso_utc": "2026-10-24T00:00:00+00:00",
+      "start_utc": 1792800000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 110,
+        "name": "Miami Heat",
+        "overtime": [],
+        "quarters": [
+          31,
+          27,
+          17,
+          35
+        ],
+        "team_id": "14"
+      },
+      "fixture_id": "401909853",
+      "home": {
+        "final": 115,
+        "name": "Charlotte Hornets",
+        "overtime": [],
+        "quarters": [
+          31,
+          35,
+          30,
+          19
+        ],
+        "team_id": "30"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "774a2eb48eef1a1a9744e5d4448f8dde2dcc25f437f6abcf78d0413c60b2b260",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "85a0fae696632c611804520feeb229274ec46d78260a94d1fca1523b23b3de76",
+          "source_observed_utc": 1793833434,
+          "summary_sha256": "be0987a93c505d5c7102356b7cd68ab766175d877b7c8deb926ee426fff88b52"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909853",
+      "start_iso_utc": "2026-10-24T22:00:00+00:00",
+      "start_utc": 1792879200,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 121,
+        "name": "Brooklyn Nets",
+        "overtime": [],
+        "quarters": [
+          30,
+          24,
+          26,
+          41
+        ],
+        "team_id": "17"
+      },
+      "fixture_id": "401909854",
+      "home": {
+        "final": 125,
+        "name": "Cleveland Cavaliers",
+        "overtime": [],
+        "quarters": [
+          35,
+          33,
+          28,
+          29
+        ],
+        "team_id": "5"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "5dfc2e2c4498434a5f24cf7a19950b209197d13e0908dd16200312dcc6696236",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "eba52e93f8987e795b47bb286bd1ea20c0761472eede9a4b1c135323b0bcef63",
+          "source_observed_utc": 1793833433,
+          "summary_sha256": "1c79f58dbcfc483efec6ab5283140dda6f4ce1bc44f65848272aa1b64a097f10"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909854",
+      "start_iso_utc": "2026-10-24T23:30:00+00:00",
+      "start_utc": 1792884600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 116,
+        "name": "Milwaukee Bucks",
+        "overtime": [],
+        "quarters": [
+          25,
+          35,
+          27,
+          29
+        ],
+        "team_id": "15"
+      },
+      "fixture_id": "401909855",
+      "home": {
+        "final": 127,
+        "name": "Philadelphia 76ers",
+        "overtime": [],
+        "quarters": [
+          34,
+          30,
+          33,
+          30
+        ],
+        "team_id": "20"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "52bc00298794fca5e3f772b881b1f4d3cd2cddd3e88bc56de833eb2ee27cca88",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "d61367fd71ecb547a9a1296082dfa1e8a04511de5da80a9dad34f95735788a3a",
+          "source_observed_utc": 1793810386,
+          "summary_sha256": "bbdd9eb416590549754ed371c29c639f5cd32bcb8296117a324b502f552c230e"
+        },
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "99ee9bf66db8e9d2177dfdb9c3a41347e5976983a3c41223b6da2e147e647350",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "c154b8e7b7612270d54e411bc49bc998831064049f8e0c7bb320000ee4a71c83",
+          "source_observed_utc": 1793827395,
+          "summary_sha256": "bbdd9eb416590549754ed371c29c639f5cd32bcb8296117a324b502f552c230e"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909855",
+      "start_iso_utc": "2026-10-24T23:30:00+00:00",
+      "start_utc": 1792884600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 124,
+        "name": "Washington Wizards",
+        "overtime": [],
+        "quarters": [
+          28,
+          29,
+          40,
+          27
+        ],
+        "team_id": "27"
+      },
+      "fixture_id": "401909857",
+      "home": {
+        "final": 120,
+        "name": "Chicago Bulls",
+        "overtime": [],
+        "quarters": [
+          27,
+          35,
+          20,
+          38
+        ],
+        "team_id": "4"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "7387686ccba6ace9b4e70fb7d42f446000f0b006e45bb7f4a89b937935d1f4f9",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "d34747adb177320ace39556a92a1f5ef18b520a4351fcb933c777f8869bd020b",
+          "source_observed_utc": 1793827396,
+          "summary_sha256": "9ebca890d9cff30dc6c82be490f02c48b3c13cb473c517bc9626a9ea817d2846"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909857",
+      "start_iso_utc": "2026-10-25T00:00:00+00:00",
+      "start_utc": 1792886400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 121,
+        "name": "Houston Rockets",
+        "overtime": [],
+        "quarters": [
+          30,
+          29,
+          33,
+          29
+        ],
+        "team_id": "10"
+      },
+      "fixture_id": "401909856",
+      "home": {
+        "final": 114,
+        "name": "Atlanta Hawks",
+        "overtime": [],
+        "quarters": [
+          26,
+          22,
+          33,
+          33
+        ],
+        "team_id": "1"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "50367efc1b2ab70ac7d0aefcb445ddd3de5d304898a330258252496918b8fe6a",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "50043261fef7512596124a8328fa93e1a267dc7fed1c840eb414d7711858cc56",
+          "source_observed_utc": 1793827397,
+          "summary_sha256": "25f9d89f8e09b3b3b20fe7cab7297e4a6cbc0ad615ae6fc60b4a854d380897cd"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909856",
+      "start_iso_utc": "2026-10-25T00:30:00+00:00",
+      "start_utc": 1792888200,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 136,
+        "name": "Indiana Pacers",
+        "overtime": [],
+        "quarters": [
+          24,
+          41,
+          37,
+          34
+        ],
+        "team_id": "11"
+      },
+      "fixture_id": "401909862",
+      "home": {
+        "final": 109,
+        "name": "Brooklyn Nets",
+        "overtime": [],
+        "quarters": [
+          26,
+          30,
+          24,
+          29
+        ],
+        "team_id": "17"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "018505230e5b9e05beb3af80d7a423fb7e727d7e10e29dd8cec3a5c8169e4574",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "89cb4dad48e5dab237bb1529054c67c8006a97ae5442cb861319a818907a44ac",
+          "source_observed_utc": 1793833433,
+          "summary_sha256": "773de37cde6082d53fea9a6bb9772ac8a32d8222dde16ec9eaf7fdc294b99f34"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909862",
+      "start_iso_utc": "2026-10-25T22:00:00+00:00",
+      "start_utc": 1792965600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 106,
+        "name": "Detroit Pistons",
+        "overtime": [],
+        "quarters": [
+          34,
+          22,
+          23,
+          27
+        ],
+        "team_id": "8"
+      },
+      "fixture_id": "401909866",
+      "home": {
+        "final": 93,
+        "name": "Philadelphia 76ers",
+        "overtime": [],
+        "quarters": [
+          22,
+          22,
+          25,
+          24
+        ],
+        "team_id": "20"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "d3a277ffa63ac41f808bcc69ef935b7f71d70657281ea326eedcb0ca9f881b1d",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "937d374dc7bf09d14736a2fd2f7f76791db59432756d94ca33e7e3b29eb64828",
+          "source_observed_utc": 1793827395,
+          "summary_sha256": "c78fa5254410e32a7bb5a609cd1fd581b3aead9316a1ce9ecca37c2f4c65d22f"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909866",
+      "start_iso_utc": "2026-10-25T23:30:00+00:00",
+      "start_utc": 1792971000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 103,
+        "name": "Washington Wizards",
+        "overtime": [],
+        "quarters": [
+          21,
+          23,
+          24,
+          35
+        ],
+        "team_id": "27"
+      },
+      "fixture_id": "401909868",
+      "home": {
+        "final": 110,
+        "name": "Charlotte Hornets",
+        "overtime": [],
+        "quarters": [
+          19,
+          35,
+          26,
+          30
+        ],
+        "team_id": "30"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "c15155a670ece732c43b0bfde652e1ab49885cfc31b568cda228b0c9c78ab1f9",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "9c18174ff5ea5e66c59cd11ebd627ce533cc88623a7e0b723dbccc35c7e7b7b7",
+          "source_observed_utc": 1793827396,
+          "summary_sha256": "62470e6a6645b0fcac2e455ce6870b6bba9b7aeec6d951081f6caa81e800426d"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909868",
+      "start_iso_utc": "2026-10-26T23:00:00+00:00",
+      "start_utc": 1793055600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 99,
+        "name": "Chicago Bulls",
+        "overtime": [],
+        "quarters": [
+          21,
+          33,
+          21,
+          24
+        ],
+        "team_id": "4"
+      },
+      "fixture_id": "401909870",
+      "home": {
+        "final": 134,
+        "name": "Boston Celtics",
+        "overtime": [],
+        "quarters": [
+          33,
+          33,
+          39,
+          29
+        ],
+        "team_id": "2"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "e8f166169f32ac0392f2a69c07634b666cb4bee60d3209ac9264452a9cf7e12e",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "bb790956ba4f8eedd291d039d6767e2d825177439c23bd67521c6768fe01349d",
+          "source_observed_utc": 1793810383,
+          "summary_sha256": "ce11a3c92264b586c1db897d07a76ae0488d75c1455e06a15e05023f1c419cda"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909870",
+      "start_iso_utc": "2026-10-26T23:30:00+00:00",
+      "start_utc": 1793057400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 102,
+        "name": "Indiana Pacers",
+        "overtime": [],
+        "quarters": [
+          29,
+          32,
+          24,
+          17
+        ],
+        "team_id": "11"
+      },
+      "fixture_id": "401909872",
+      "home": {
+        "final": 110,
+        "name": "Milwaukee Bucks",
+        "overtime": [],
+        "quarters": [
+          31,
+          19,
+          34,
+          26
+        ],
+        "team_id": "15"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "60e8741460e3ff4e542c0f8b81a69e85247230cf05ff4209013677e84f25b037",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "52eca34bc311a529e0897dad17c83346fe5f79cabb264acc0956863faac2b0ab",
+          "source_observed_utc": 1793810386,
+          "summary_sha256": "d2df671484a707451eecdb3373ee8a2dd2c4158882ca09c78eaee110fd5b9555"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909872",
+      "start_iso_utc": "2026-10-27T00:00:00+00:00",
+      "start_utc": 1793059200,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 110,
+        "name": "Atlanta Hawks",
+        "overtime": [],
+        "quarters": [
+          35,
+          31,
+          19,
+          25
+        ],
+        "team_id": "1"
+      },
+      "fixture_id": "401909874",
+      "home": {
+        "final": 120,
+        "name": "Houston Rockets",
+        "overtime": [],
+        "quarters": [
+          32,
+          31,
+          28,
+          29
+        ],
+        "team_id": "10"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "f6468351994af9d9f9feb8e8b958e3bdb2cb19dec7f906b2525699a454892143",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "265b03ddfccebba7140163ecfdf2831f512d744075f56cfae7b0bf30c31097d5",
+          "source_observed_utc": 1793827397,
+          "summary_sha256": "d0d894b4354db3d59f9955bf74fd1abf44eb77709b139fba2e772c76430bd6bc"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909874",
+      "start_iso_utc": "2026-10-27T00:30:00+00:00",
+      "start_utc": 1793061000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 124,
+        "name": "Brooklyn Nets",
+        "overtime": [
+          7
+        ],
+        "quarters": [
+          31,
+          30,
+          21,
+          35
+        ],
+        "team_id": "17"
+      },
+      "fixture_id": "401909877",
+      "home": {
+        "final": 125,
+        "name": "Boston Celtics",
+        "overtime": [
+          8
+        ],
+        "quarters": [
+          26,
+          30,
+          30,
+          31
+        ],
+        "team_id": "2"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "0a106db9652288ccb68f7befde45ff7e87b808339c8945a911d99dac28965bc2",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "b48f4f836a2ae3d230efbf7b29330ef395cf402d94156f23374029c918a15db6",
+          "source_observed_utc": 1793810383,
+          "summary_sha256": "a285329efce70958e1a64283762d0ed04303c551d3951241bc2ba135bba81a69"
+        },
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "47a5ba780af41ac0fe849b9a96369990ec1ca71f55cdb746790d2e2fd6d9ec7e",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "9ed84a281f3bf5a1d0c63961efbc1c983ae1f884aac0cb02a4f86387de5547d2",
+          "source_observed_utc": 1793833433,
+          "summary_sha256": "a285329efce70958e1a64283762d0ed04303c551d3951241bc2ba135bba81a69"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909877",
+      "start_iso_utc": "2026-10-27T23:30:00+00:00",
+      "start_utc": 1793143800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 97,
+        "name": "Detroit Pistons",
+        "overtime": [],
+        "quarters": [
+          38,
+          12,
+          13,
+          34
+        ],
+        "team_id": "8"
+      },
+      "fixture_id": "401909878",
+      "home": {
+        "final": 111,
+        "name": "New York Knicks",
+        "overtime": [],
+        "quarters": [
+          25,
+          26,
+          37,
+          23
+        ],
+        "team_id": "18"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "7d990a76d766ec6808d3bef65e320c238388efa793a2ad8b042cf1f391021641",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "0e25fffbbc6baff04861d9cad780efde4bb91859eefc868214c4b5c3d30a67e1",
+          "source_observed_utc": 1793827394,
+          "summary_sha256": "4d37aa512f05b047cccf52896f9d6de786913449060ba2f36e4dcb3d5e6b88a1"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909878",
+      "start_iso_utc": "2026-10-28T00:00:00+00:00",
+      "start_utc": 1793145600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 129,
+        "name": "Miami Heat",
+        "overtime": [],
+        "quarters": [
+          34,
+          35,
+          28,
+          32
+        ],
+        "team_id": "14"
+      },
+      "fixture_id": "401909881",
+      "home": {
+        "final": 117,
+        "name": "Atlanta Hawks",
+        "overtime": [],
+        "quarters": [
+          25,
+          31,
+          29,
+          32
+        ],
+        "team_id": "1"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "680ef9253326c19c9e3809f92f202d7ede86bcbeed02cea232208e97ea20d9fa",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "79c750f386aae9b130ff4c40be8a3a65c27c0b6f4fedf7107936db68bc35f030",
+          "source_observed_utc": 1793827397,
+          "summary_sha256": "baa256d2c6e7cc4472d4d7a3ee954f7b71c6a277194731d1f34d62a965ad4b42"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909881",
+      "start_iso_utc": "2026-10-28T23:00:00+00:00",
+      "start_utc": 1793228400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 111,
+        "name": "Washington Wizards",
+        "overtime": [],
+        "quarters": [
+          42,
+          27,
+          23,
+          19
+        ],
+        "team_id": "27"
+      },
+      "fixture_id": "401909882",
+      "home": {
+        "final": 121,
+        "name": "Cleveland Cavaliers",
+        "overtime": [],
+        "quarters": [
+          34,
+          25,
+          33,
+          29
+        ],
+        "team_id": "5"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "d09cec32ecc80baf6d8fa84d21e818653e674eeece969359bf0c92d760663c81",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "0cd2c8ceb8025c345ff80ca3a3dbf67d0e729c731885be418d0a9e476f7fca98",
+          "source_observed_utc": 1793827396,
+          "summary_sha256": "d09351d3993cbd7ee3db4cb4c34f77c4a7644df8d24a72b80edbaa1c70a934b0"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909882",
+      "start_iso_utc": "2026-10-28T23:00:00+00:00",
+      "start_utc": 1793228400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 89,
+        "name": "Charlotte Hornets",
+        "overtime": [],
+        "quarters": [
+          22,
+          29,
+          19,
+          19
+        ],
+        "team_id": "30"
+      },
+      "fixture_id": "401909883",
+      "home": {
+        "final": 97,
+        "name": "Detroit Pistons",
+        "overtime": [],
+        "quarters": [
+          21,
+          23,
+          32,
+          21
+        ],
+        "team_id": "8"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "14efa8544b4a6e1ceb1d62f1531cdc1c68fff4e7d7e162284cd4b67e401e2341",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "951d8ce3558b316be87b338507105101aaecdf31fea97317c33c569a9744eb18",
+          "source_observed_utc": 1793827394,
+          "summary_sha256": "380ec25a6b561f1d6fbd84edf35271346d0ddf14602a4f9ce54d946486775ba8"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909883",
+      "start_iso_utc": "2026-10-28T23:00:00+00:00",
+      "start_utc": 1793228400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 114,
+        "name": "Philadelphia 76ers",
+        "overtime": [],
+        "quarters": [
+          25,
+          37,
+          13,
+          39
+        ],
+        "team_id": "20"
+      },
+      "fixture_id": "401909884",
+      "home": {
+        "final": 109,
+        "name": "Indiana Pacers",
+        "overtime": [],
+        "quarters": [
+          25,
+          27,
+          36,
+          21
+        ],
+        "team_id": "11"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "32f2a2cad864b515182e0bf1673050f33651634d7e5bad5db5b638485c5d3229",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "84f1161b17a2d68ae855b0d431c356243343bbd708036183cf1c25a9990aaa90",
+          "source_observed_utc": 1793827395,
+          "summary_sha256": "bf4aeec09dbb23d2b139ca22b2dc2f02fdb5de584a58d0b4bd03a5ad28b82a1f"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909884",
+      "start_iso_utc": "2026-10-28T23:00:00+00:00",
+      "start_utc": 1793228400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 132,
+        "name": "Houston Rockets",
+        "overtime": [],
+        "quarters": [
+          23,
+          34,
+          38,
+          37
+        ],
+        "team_id": "10"
+      },
+      "fixture_id": "401909887",
+      "home": {
+        "final": 100,
+        "name": "Milwaukee Bucks",
+        "overtime": [],
+        "quarters": [
+          21,
+          14,
+          34,
+          31
+        ],
+        "team_id": "15"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "050130ad7fd979fb467fc974d8b0601a7f3537ef2a3086307ab23abd2c38920c",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "e71f7c27b3ed2cb791ef3d9ce72faa67f1ee15ed1017eb6e7db445a0fa47af01",
+          "source_observed_utc": 1793810386,
+          "summary_sha256": "d228fb220db44ae303ae5cfc691b33c798cae227d7c84dc87989fa756bb0761e"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909887",
+      "start_iso_utc": "2026-10-29T00:00:00+00:00",
+      "start_utc": 1793232000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 111,
+        "name": "Cleveland Cavaliers",
+        "overtime": [],
+        "quarters": [
+          28,
+          16,
+          38,
+          29
+        ],
+        "team_id": "5"
+      },
+      "fixture_id": "401909893",
+      "home": {
+        "final": 114,
+        "name": "Atlanta Hawks",
+        "overtime": [],
+        "quarters": [
+          16,
+          30,
+          43,
+          25
+        ],
+        "team_id": "1"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "be34c57360793ecda4243d6e2e4aec376b285818bae988139282a15f95a55e7e",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "45723484dda615a177e0c9928dd0e696f2e7bc520beb8c11f5be28e43bbd33c9",
+          "source_observed_utc": 1793827397,
+          "summary_sha256": "787856b11ed5ab4e1f85f745c7d431879367e2b9babb677b950343ec4a5e282f"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909893",
+      "start_iso_utc": "2026-10-30T00:00:00+00:00",
+      "start_utc": 1793318400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 79,
+        "name": "Charlotte Hornets",
+        "overtime": [],
+        "quarters": [
+          26,
+          20,
+          13,
+          20
+        ],
+        "team_id": "30"
+      },
+      "fixture_id": "401909277",
+      "home": {
+        "final": 95,
+        "name": "Washington Wizards",
+        "overtime": [],
+        "quarters": [
+          22,
+          29,
+          28,
+          16
+        ],
+        "team_id": "27"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "c656976387089f4ed7367085ff4d5cc00d3825f8d8e530a3d6f4ce55629e40d5",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "7aa8c7138de94a5140aff49a14bdb7e26739bf058beb2f1a16290ebf44d85b3b",
+          "source_observed_utc": 1793827396,
+          "summary_sha256": "2df0faccadb0a738918fd8c6beaa8af354b2b62c4c9d01893fa5a1e1ece56082"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "62b980503c6c87bd018e09adbe9e7fc177069345da9f57682c117119bac1530e",
+            "path": "/workspace/scratch/faz32-staging/401909277.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "97d2f77a9162749deab272f702e1356d808cfb53a5c804f76bd9e22ec87c38f4",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "a3d717e715d0550ed45ffdbaade8eff0d45145157518b1c0f0a3834b2e909f4c",
+          "source_observed_utc": 1793859777,
+          "summary_sha256": "2df0faccadb0a738918fd8c6beaa8af354b2b62c4c9d01893fa5a1e1ece56082"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909277",
+      "start_iso_utc": "2026-10-30T23:00:00+00:00",
+      "start_utc": 1793401200,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 111,
+        "name": "Chicago Bulls",
+        "overtime": [],
+        "quarters": [
+          25,
+          24,
+          25,
+          37
+        ],
+        "team_id": "4"
+      },
+      "fixture_id": "401909278",
+      "home": {
+        "final": 125,
+        "name": "Boston Celtics",
+        "overtime": [],
+        "quarters": [
+          44,
+          34,
+          21,
+          26
+        ],
+        "team_id": "2"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "baa150d79a2f73e51bdd7136a2bfb01a998af53f698197fabfd66a55f8abbc25",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "d39defbd8e5cdec3c0ca58ea8ff443ec9a36b50f9cb5cb03dddf47512608b633",
+          "source_observed_utc": 1793810383,
+          "summary_sha256": "6b1de4dd868c373440d8775501c34ff441bba505d3e5bc11111f680e8b876980"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "8828ae6905fce26e33ead16b001c240effec538a8f93139c36adb3724bc641eb",
+            "path": "/workspace/scratch/faz32-staging/401909278.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "4abbfbad0f9fa1c9ed8d99ef895e5de70906cd1e0077e48ae032a7b43773157c",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "cd55c3618b3764d4614346b712d16f3231675a19cd3159c84b8887ddf15520a9",
+          "source_observed_utc": 1793859777,
+          "summary_sha256": "6b1de4dd868c373440d8775501c34ff441bba505d3e5bc11111f680e8b876980"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909278",
+      "start_iso_utc": "2026-10-30T23:30:00+00:00",
+      "start_utc": 1793403000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 110,
+        "name": "Detroit Pistons",
+        "overtime": [],
+        "quarters": [
+          21,
+          35,
+          36,
+          18
+        ],
+        "team_id": "8"
+      },
+      "fixture_id": "401909279",
+      "home": {
+        "final": 94,
+        "name": "Brooklyn Nets",
+        "overtime": [],
+        "quarters": [
+          28,
+          21,
+          17,
+          28
+        ],
+        "team_id": "17"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "94c2adad98a7882988c0ec22d096ed1cc7b8977895869c13c2128311ee3ea9fb",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "837a08fc8cd812aa49d42cd91f3b7fd95718677a8e9bb7c4a462d4392315bbd5",
+          "source_observed_utc": 1793827394,
+          "summary_sha256": "5ad6819512d6a9b34979dda17fe236f84abddfbf432d49ee9bde048c55f04f34"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "90fcf53513d1bbe794a96562d94411071869e1bd9cb324fdb69cebb5b17f3e47",
+            "path": "/workspace/scratch/faz32-staging/401909279.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "abd0753dd626cef4cc2e924c48c4faf74dcfa7df584d69717c664bf796d3970b",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "b5fe58f6fac28e64006048f9c5b2a277f2aac4db71ab5315f2a8c179993d79cb",
+          "source_observed_utc": 1793859777,
+          "summary_sha256": "5ad6819512d6a9b34979dda17fe236f84abddfbf432d49ee9bde048c55f04f34"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909279",
+      "start_iso_utc": "2026-10-30T23:30:00+00:00",
+      "start_utc": 1793403000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 93,
+        "name": "New York Knicks",
+        "overtime": [],
+        "quarters": [
+          21,
+          23,
+          24,
+          25
+        ],
+        "team_id": "18"
+      },
+      "fixture_id": "401909280",
+      "home": {
+        "final": 98,
+        "name": "Philadelphia 76ers",
+        "overtime": [],
+        "quarters": [
+          29,
+          24,
+          24,
+          21
+        ],
+        "team_id": "20"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "c0d3b332a5555f25df63de01e7c03a9bac89b8915f0833fe2df6b26ff5d06bae",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "30a54450d1e61c1f299b54e7b0d33372530297f6e7938f58ef4a7aed4a396496",
+          "source_observed_utc": 1793827395,
+          "summary_sha256": "4cbc9431c3663c4a682348e328c7d416afb0e927fe36f402290956043a59b1cc"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "fdaffe848343295434e56e08e5905ba11655a050ca8d7090c4196f68e5178b82",
+            "path": "/workspace/scratch/faz32-staging/401909280.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "c3e506783277daa1dc64457efeca17c8d884d4cebaea6ba14e53bfeac5ae3e0a",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "46ba6bcdeb7a8e21e475eaa6f4d3885cb62288de515eb5edf966fdab71c19c0a",
+          "source_observed_utc": 1793859777,
+          "summary_sha256": "4cbc9431c3663c4a682348e328c7d416afb0e927fe36f402290956043a59b1cc"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909280",
+      "start_iso_utc": "2026-10-30T23:30:00+00:00",
+      "start_utc": 1793403000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 121,
+        "name": "Orlando Magic",
+        "overtime": [],
+        "quarters": [
+          31,
+          33,
+          31,
+          26
+        ],
+        "team_id": "19"
+      },
+      "fixture_id": "401909281",
+      "home": {
+        "final": 114,
+        "name": "Toronto Raptors",
+        "overtime": [],
+        "quarters": [
+          27,
+          28,
+          33,
+          26
+        ],
+        "team_id": "28"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "e59c7b963b562a64d49f9209cb3545d3283713c5204aaca3df6ca6c47cc9703a",
+            "path": "/workspace/scratch/faz32-staging/401909281.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "b4bcd6a3afc649c95254404fd6fc87ddf448472d9cd59af7e4c8a4863a948208",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "42acac848060b5489e94e633ec7c11d815298ed9eb58e163c7a3dc3fa4f57f35",
+          "source_observed_utc": 1793859777,
+          "summary_sha256": "2bb33cb10a1ef141d3a9b0a33d5d8c4528c38abe3fd4fe6519515bb2bcb036dd"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909281",
+      "start_iso_utc": "2026-10-30T23:30:00+00:00",
+      "start_utc": 1793403000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 125,
+        "name": "Indiana Pacers",
+        "overtime": [],
+        "quarters": [
+          42,
+          19,
+          27,
+          37
+        ],
+        "team_id": "11"
+      },
+      "fixture_id": "401909282",
+      "home": {
+        "final": 145,
+        "name": "Miami Heat",
+        "overtime": [],
+        "quarters": [
+          36,
+          32,
+          35,
+          42
+        ],
+        "team_id": "14"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "c413308192dfbad7fb628fef68328067804668e2790060a5adbf08dcf70fd603",
+            "path": "/workspace/scratch/faz32-staging/401909282.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "9f3ee96eb469647e9d10eebf996621629415722b8b4dbe3a31273730190a2167",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "c8cfee1c064a3bf67ca599bcf85555a09909bbaf4b234c422c84597626d0186a",
+          "source_observed_utc": 1793859777,
+          "summary_sha256": "e5254287b91588a19242e88528a3c17ae086fb0677a6e54a211a42e00e36f481"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909282",
+      "start_iso_utc": "2026-10-31T00:00:00+00:00",
+      "start_utc": 1793404800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 111,
+        "name": "Houston Rockets",
+        "overtime": [],
+        "quarters": [
+          20,
+          31,
+          33,
+          27
+        ],
+        "team_id": "10"
+      },
+      "fixture_id": "401909283",
+      "home": {
+        "final": 116,
+        "name": "Dallas Mavericks",
+        "overtime": [],
+        "quarters": [
+          27,
+          17,
+          32,
+          40
+        ],
+        "team_id": "6"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "69f2b0cd40ff5252edb10a9314ec9add91eee23bc859f2a5c3cf1dcf4c09f4e2",
+            "path": "/workspace/scratch/faz32-staging/401909283.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "803e2aa320cdb34495fbc8fee38a07eef7ff22d97654e0a01c2e64d68237df8e",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "06a14fc4d50416bc5b7bac10a49a793e09e1e5690a6af49376893f1d66c9b490",
+          "source_observed_utc": 1793859778,
+          "summary_sha256": "975560f420d22ae7dc5e99ffe0bc352080571e81fbb6ef8ed9011ccab9600e88"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909283",
+      "start_iso_utc": "2026-10-31T00:00:00+00:00",
+      "start_utc": 1793404800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 101,
+        "name": "LA Clippers",
+        "overtime": [],
+        "quarters": [
+          24,
+          32,
+          25,
+          20
+        ],
+        "team_id": "12"
+      },
+      "fixture_id": "401909284",
+      "home": {
+        "final": 127,
+        "name": "Minnesota Timberwolves",
+        "overtime": [],
+        "quarters": [
+          34,
+          35,
+          29,
+          29
+        ],
+        "team_id": "16"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "422bf852d17ca7855d8f6d5e7f55a2f534a476f8f05a17f6b46625db1b2f0972",
+            "path": "/workspace/scratch/faz32-staging/401909284.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "824ec7670e01ad51f73895fa6af69cf551808a19693431d406fd7d00daa21ced",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "350952b7b1e2aaf8843b0ae5e884b96fa3cc95b5462953f38563b22a4087d32b",
+          "source_observed_utc": 1793859778,
+          "summary_sha256": "69988ab0f77920a640684ab70b849ffeb3bedc4324e9a1845792e8fcdf159d0d"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909284",
+      "start_iso_utc": "2026-10-31T00:00:00+00:00",
+      "start_utc": 1793404800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 95,
+        "name": "Los Angeles Lakers",
+        "overtime": [],
+        "quarters": [
+          38,
+          15,
+          27,
+          15
+        ],
+        "team_id": "13"
+      },
+      "fixture_id": "401909285",
+      "home": {
+        "final": 112,
+        "name": "Golden State Warriors",
+        "overtime": [],
+        "quarters": [
+          15,
+          38,
+          32,
+          27
+        ],
+        "team_id": "9"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "efb48cc6ede94eb37478348cbe1cec94ced8bafc6a4c4068e096e3116d5fdaff",
+            "path": "/workspace/scratch/faz32-staging/401909285.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "dadeea63c74c4202c802f41a50869e51f1f71524410f7147595ef5f35f36ec39",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "5d49f0788dfcde6aa45d55e3694926323efa7b3af9809032485d4a5bbe33d398",
+          "source_observed_utc": 1793859778,
+          "summary_sha256": "dddf3a179d04492187223087fbec3f0b176707d70803b2fd8093bfdc5e84d3a7"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909285",
+      "start_iso_utc": "2026-10-31T02:00:00+00:00",
+      "start_utc": 1793412000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 127,
+        "name": "Denver Nuggets",
+        "overtime": [],
+        "quarters": [
+          32,
+          39,
+          32,
+          24
+        ],
+        "team_id": "7"
+      },
+      "fixture_id": "401909286",
+      "home": {
+        "final": 120,
+        "name": "Phoenix Suns",
+        "overtime": [],
+        "quarters": [
+          37,
+          30,
+          26,
+          27
+        ],
+        "team_id": "21"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "fa14e30bf3e977b64126ce85f8eab696cba35c33b876370b616a83e4891d91e1",
+            "path": "/workspace/scratch/faz32-staging/401909286.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "ce82d20ceafd1a5d734458d472d8b760d8216421fc4a669eb8f36cceb01d54c6",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "992b41560d65ecc8a39eaf82938814c83abb863d4cce9543aaf5ea9e9027c45b",
+          "source_observed_utc": 1793859778,
+          "summary_sha256": "e1d8e9aa29eb07cfbcf127c0165f0c68691406994e4ed1411a244d896bd697f1"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909286",
+      "start_iso_utc": "2026-10-31T02:00:00+00:00",
+      "start_utc": 1793412000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 109,
+        "name": "Philadelphia 76ers",
+        "overtime": [],
+        "quarters": [
+          27,
+          30,
+          20,
+          32
+        ],
+        "team_id": "20"
+      },
+      "fixture_id": "401909897",
+      "home": {
+        "final": 104,
+        "name": "Charlotte Hornets",
+        "overtime": [],
+        "quarters": [
+          37,
+          17,
+          29,
+          21
+        ],
+        "team_id": "30"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "83e64c545d57903a45a9b4008d6fd986fbc3bb2f972f97423e46d01ff5c372d9",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "63f4322af586dc47468c5c715b535844089d7b48fb2cffe86abb2647591d32c5",
+          "source_observed_utc": 1793827395,
+          "summary_sha256": "646e0dd9aa6d1e2e77574de424d8c0fb86a1d556157509b93f6a1a1f7bb67b8c"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909897",
+      "start_iso_utc": "2026-10-31T22:00:00+00:00",
+      "start_utc": 1793484000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 99,
+        "name": "Atlanta Hawks",
+        "overtime": [],
+        "quarters": [
+          18,
+          30,
+          26,
+          25
+        ],
+        "team_id": "1"
+      },
+      "fixture_id": "401909898",
+      "home": {
+        "final": 121,
+        "name": "New Orleans Pelicans",
+        "overtime": [],
+        "quarters": [
+          35,
+          28,
+          29,
+          29
+        ],
+        "team_id": "3"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "bc42fef76586c5f68cff36484ed2a30225b302214039edb6668f354f297572a6",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "9812f4837c9a45ea1c6b0b316d93135581f29fdee239a56d37f315daabbfb196",
+          "source_observed_utc": 1793827397,
+          "summary_sha256": "7fd06de9a4b56a09dcbd666894cdda1c004eb6df259366b8035f5f320993f651"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909898",
+      "start_iso_utc": "2026-10-31T23:00:00+00:00",
+      "start_utc": 1793487600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 136,
+        "name": "Cleveland Cavaliers",
+        "overtime": [],
+        "quarters": [
+          24,
+          48,
+          37,
+          27
+        ],
+        "team_id": "5"
+      },
+      "fixture_id": "401909900",
+      "home": {
+        "final": 111,
+        "name": "Milwaukee Bucks",
+        "overtime": [],
+        "quarters": [
+          25,
+          21,
+          30,
+          35
+        ],
+        "team_id": "15"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "be3fe8eac79af061327d71b75e602c7466d6a7c32c7693e44dff26c9c981665a",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "0d7ebb687bee7d902f87b8b7427511a7512102bec24f5dc2ad9d2fb421a2fa53",
+          "source_observed_utc": 1793810386,
+          "summary_sha256": "b92a8e34e28d31cc41fe5ebebbbfcca1392514bc9d3bdc7a504b5bd3cbd3f10e"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909900",
+      "start_iso_utc": "2026-11-01T00:00:00+00:00",
+      "start_utc": 1793491200,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 108,
+        "name": "Boston Celtics",
+        "overtime": [],
+        "quarters": [
+          24,
+          31,
+          22,
+          31
+        ],
+        "team_id": "2"
+      },
+      "fixture_id": "401909903",
+      "home": {
+        "final": 97,
+        "name": "Orlando Magic",
+        "overtime": [],
+        "quarters": [
+          23,
+          27,
+          24,
+          23
+        ],
+        "team_id": "19"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "0fd5c84295adb5ae0a04f0f9057f9e5c710314519b5e7f55e99a0a4e0a8e0938",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "6c5e9d8e2415076a77ca528d90aa2b6839767dffad80431f04c3269ed96a60da",
+          "source_observed_utc": 1793810384,
+          "summary_sha256": "6ec259ce4fa2f7be2d0b700a0d09424d85457ea795c19a02bb7add934f79d38d"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "0344a7566ee57d2977866706d46a6c4208738a56c9ce85e7421f625762b42cd1",
+            "path": "/workspace/scratch/faz32-staging/401909903.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "6c49f16460ac3953c0ebd526005bfc6cfd90862927bddafa66c0e844a258c09a",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "c00cc79b5c5d0cf1cdd776fa9f67181d5a00b89e48c420fd13b5a8380f9610d5",
+          "source_observed_utc": 1793859778,
+          "summary_sha256": "6ec259ce4fa2f7be2d0b700a0d09424d85457ea795c19a02bb7add934f79d38d"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909903",
+      "start_iso_utc": "2026-11-01T20:30:00+00:00",
+      "start_utc": 1793565000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 98,
+        "name": "Brooklyn Nets",
+        "overtime": [],
+        "quarters": [
+          20,
+          23,
+          28,
+          27
+        ],
+        "team_id": "17"
+      },
+      "fixture_id": "401909904",
+      "home": {
+        "final": 90,
+        "name": "Indiana Pacers",
+        "overtime": [],
+        "quarters": [
+          19,
+          21,
+          22,
+          28
+        ],
+        "team_id": "11"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "a1447b3fa16b4bd0280b2152306b665236f3a4a66d001b8fe45a7e96f0ec2479",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "ce3c8ced1bc4a20b5148671499a8ede0e67ab3001b9d13f84f600414afe1e0f6",
+          "source_observed_utc": 1793833434,
+          "summary_sha256": "294501d594f919b5fa7cb169ccb11dff45610011099d09cfad77df1bcfbec20b"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "fd3dcd6ed616deedfdcc3f50b937669dc159b7c15f1ec96a34a1afd693f5fa43",
+            "path": "/workspace/scratch/faz32-staging/401909904.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "f2f1a0087fd6392d72b47adbeb9100b3ed66fa4a1f5a31a1fff9f7920d1b9211",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "e9a165aa2ad16c19fe72a8e3c6bb2ca7960f3d433a6dbb535b428a55f8624f95",
+          "source_observed_utc": 1793859778,
+          "summary_sha256": "294501d594f919b5fa7cb169ccb11dff45610011099d09cfad77df1bcfbec20b"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909904",
+      "start_iso_utc": "2026-11-01T22:00:00+00:00",
+      "start_utc": 1793570400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 112,
+        "name": "LA Clippers",
+        "overtime": [],
+        "quarters": [
+          37,
+          20,
+          28,
+          27
+        ],
+        "team_id": "12"
+      },
+      "fixture_id": "401909905",
+      "home": {
+        "final": 124,
+        "name": "Golden State Warriors",
+        "overtime": [],
+        "quarters": [
+          29,
+          34,
+          29,
+          32
+        ],
+        "team_id": "9"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "db892a897df3ed1199bae3fc1f26b350e099ac87815e08f1b3ee0069d6015c84",
+            "path": "/workspace/scratch/faz32-staging/401909905.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "7668fd71546ea0175bf6f5d1c9347960b858cb4ff20cbd9f02c8a7b0bfb1019e",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "490d96938a7fba573714d4982b3435323b6e40ef2429facbb168269fd43519c9",
+          "source_observed_utc": 1793859778,
+          "summary_sha256": "4ac9089edc40de8f8d81265bfbcaeb5572d1e741d1f9097a9faeecfa26e6068d"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909905",
+      "start_iso_utc": "2026-11-02T01:30:00+00:00",
+      "start_utc": 1793583000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 125,
+        "name": "Toronto Raptors",
+        "overtime": [],
+        "quarters": [
+          23,
+          31,
+          28,
+          43
+        ],
+        "team_id": "28"
+      },
+      "fixture_id": "401909906",
+      "home": {
+        "final": 131,
+        "name": "Los Angeles Lakers",
+        "overtime": [],
+        "quarters": [
+          36,
+          30,
+          38,
+          27
+        ],
+        "team_id": "13"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "fa4caf5b90d5a5ae737bb5355193352489939f31c1e3b4e405c4d52a8820b95a",
+            "path": "/workspace/scratch/faz32-staging/401909906.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "9648ac3a130d16c5ca5f66c2fc0c8bb0941cd7cf901a05598387badb1b33e48c",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "1f85340db47d01e91714ef2bad9e0388b4e97f0ae956e0b4bba07a617de126d1",
+          "source_observed_utc": 1793859778,
+          "summary_sha256": "eac40032e8d6bdd3ea8d96da01679e5aa83f4f6d6d44050e6b710867132329dc"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909906",
+      "start_iso_utc": "2026-11-02T02:00:00+00:00",
+      "start_utc": 1793584800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 117,
+        "name": "Oklahoma City Thunder",
+        "overtime": [],
+        "quarters": [
+          26,
+          33,
+          31,
+          27
+        ],
+        "team_id": "25"
+      },
+      "fixture_id": "401909907",
+      "home": {
+        "final": 112,
+        "name": "Cleveland Cavaliers",
+        "overtime": [],
+        "quarters": [
+          30,
+          18,
+          36,
+          28
+        ],
+        "team_id": "5"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "260682f28aa94945a4bb9960d2a6a09225a24c525ccf76c5afc7d57b4c883ffd",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909907.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "d12fb5fd731426819c795f1c9771440c57253507eea8f08de0c212625c7c443a",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "8629f901804c504f8bc83623ec898021f8f5808fd9ff9be20314df55d5c3b79d",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "0788256b2ba822e92575a1e090a5599ee5e6eb8972e3a89f02ba4ad13285cf82"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "5eef3423b7b9ee84d2c9cda8fd261ff1ea7050e28f45aafe341178ab3bb4ac94",
+            "path": "/workspace/scratch/faz32-staging/401909907.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "e6d4bc2be567078b93a791250b9f0a7b073a8c68d134f0aeb0f21a93fa2982a8",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "f3aada48b63a206ca4a2301c2d2aad0149d3ed0dd249fafe1a0a422f563f271c",
+          "source_observed_utc": 1793859778,
+          "summary_sha256": "0788256b2ba822e92575a1e090a5599ee5e6eb8972e3a89f02ba4ad13285cf82"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909907",
+      "start_iso_utc": "2026-11-03T00:00:00+00:00",
+      "start_utc": 1793664000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 124,
+        "name": "Detroit Pistons",
+        "overtime": [],
+        "quarters": [
+          27,
+          38,
+          33,
+          26
+        ],
+        "team_id": "8"
+      },
+      "fixture_id": "401909908",
+      "home": {
+        "final": 91,
+        "name": "Charlotte Hornets",
+        "overtime": [],
+        "quarters": [
+          24,
+          30,
+          21,
+          16
+        ],
+        "team_id": "30"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "251b5eca9d0fffc0aa585561bec114d4406f5d515680a18a1fb580b15794c570",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909908.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "4e893755412b655d7d3a30a2434dd425c974eb58dbe43dff298be600568253eb",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "306125b2dd5c66f2cb554cd7decab93417a97383615fc16a7c4447297b46d59d",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "7ce32a75536a72b7d085586a0b03420c1975111d7aef25c3996129445d0d6395"
+        },
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "c24c8fbe35863c7433af218f555c68ba5aeb960e8674199dad54288c2e831252",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "c9988ba1df85c7a521750d6d9eaee017348997f83deb72b07448b4a1a03bafac",
+          "source_observed_utc": 1793827394,
+          "summary_sha256": "7ce32a75536a72b7d085586a0b03420c1975111d7aef25c3996129445d0d6395"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "68503db242945bacd8e03155e560208d7ee9392dcffb9d78980e83f52397019f",
+            "path": "/workspace/scratch/faz32-staging/401909908.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "8163c1e792ac9615b1c232b50babbd02d6408ebe58a59d8f509e7ae39798aeb6",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "70fb656fdb79686532ae77294758c1f71a370b60d7c3536fd15a6782b2150dd4",
+          "source_observed_utc": 1793859778,
+          "summary_sha256": "7ce32a75536a72b7d085586a0b03420c1975111d7aef25c3996129445d0d6395"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909908",
+      "start_iso_utc": "2026-11-03T00:30:00+00:00",
+      "start_utc": 1793665800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 108,
+        "name": "Atlanta Hawks",
+        "overtime": [],
+        "quarters": [
+          37,
+          31,
+          19,
+          21
+        ],
+        "team_id": "1"
+      },
+      "fixture_id": "401909909",
+      "home": {
+        "final": 104,
+        "name": "Indiana Pacers",
+        "overtime": [],
+        "quarters": [
+          29,
+          27,
+          23,
+          25
+        ],
+        "team_id": "11"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "e61f8e5e7027a441ac77e157b516fa5f2c14c4f763cceac33e03a8679a35d26f",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909909.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "8a36355de68cfcdbd0df8ea93b023585f94e5d73b56a6a1e5f1ef7d765d362f8",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "f95f711a94dac7ebdc1030cb3fdf78e2563311d8501a87e472a990f464eac829",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "9c40a4c0cfea1b40a32e865eac274a56989609d852f0b300e82c7fe66fd296a8"
+        },
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "207e993431b7e0a58fd31554bf81a0e95077826881a921747e218aca01b0b68d",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "212cb8d7fd7e6daf3cd069e8c958b300a7da685a819981a488083ede9e7762cf",
+          "source_observed_utc": 1793827397,
+          "summary_sha256": "9c40a4c0cfea1b40a32e865eac274a56989609d852f0b300e82c7fe66fd296a8"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "58b91cf10601a479d87e385c91b32eb0de8c7448111c3b57b931ebe78468d985",
+            "path": "/workspace/scratch/faz32-staging/401909909.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "ada390a4bc95ac2e9375a57f03f743db62293230af13ab659d1514ec5617d922",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "1ce5310674e407919e60537fee7b4e9019c44b26e702b4630b2f5fca396a1c3a",
+          "source_observed_utc": 1793859778,
+          "summary_sha256": "9c40a4c0cfea1b40a32e865eac274a56989609d852f0b300e82c7fe66fd296a8"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909909",
+      "start_iso_utc": "2026-11-03T00:30:00+00:00",
+      "start_utc": 1793665800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 90,
+        "name": "Brooklyn Nets",
+        "overtime": [],
+        "quarters": [
+          21,
+          23,
+          35,
+          11
+        ],
+        "team_id": "17"
+      },
+      "fixture_id": "401909910",
+      "home": {
+        "final": 103,
+        "name": "New York Knicks",
+        "overtime": [],
+        "quarters": [
+          27,
+          24,
+          24,
+          28
+        ],
+        "team_id": "18"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "75ed2bcd30c8d529f19ddde87541cc6aaf52e06144d933a26a3fc8eab3d4b651",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909910.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "d9167e18e297a5bcf2bcdefee579307865dcaee28a0142ce36ad1e6d1eb1c88b",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "5d7d1098c4ba1edbe92be8e96ef0927657798c28ebf442e03513a899a7de875b",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "8094b55eeefb8130a5927d6292cedcdf64b554c5da3c40b2d6cd70259b7b4e94"
+        },
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "75765aead32c1401c6f0d854d766d7f589f7a2e3584120981f09b1d5003804ba",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "294e596dd9a2557566ed08c7e3cb81bfa81fab8d08d1b802dda3e0567b2fa4d1",
+          "source_observed_utc": 1793833434,
+          "summary_sha256": "8094b55eeefb8130a5927d6292cedcdf64b554c5da3c40b2d6cd70259b7b4e94"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "a5b3098c6d46746bef213f9bcd846d1fdfb78a4b78770c52259de3f691e67483",
+            "path": "/workspace/scratch/faz32-staging/401909910.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "4491d36e350899c825a0d2f5e87aa75f77cab33387e573551c95145d29ccecd8",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "4b414e97dc9863d071e186880fe3e3d3c8c03f0432740d96a4222f4e0f82a3b0",
+          "source_observed_utc": 1793859778,
+          "summary_sha256": "8094b55eeefb8130a5927d6292cedcdf64b554c5da3c40b2d6cd70259b7b4e94"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909910",
+      "start_iso_utc": "2026-11-03T00:30:00+00:00",
+      "start_utc": 1793665800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 103,
+        "name": "Washington Wizards",
+        "overtime": [],
+        "quarters": [
+          28,
+          32,
+          19,
+          24
+        ],
+        "team_id": "27"
+      },
+      "fixture_id": "401909911",
+      "home": {
+        "final": 94,
+        "name": "Orlando Magic",
+        "overtime": [],
+        "quarters": [
+          33,
+          26,
+          9,
+          26
+        ],
+        "team_id": "19"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "f1f0e9e1c709b0a474a48d554edc1fd4e4d49fb3848124e9cb772cb243fb2b3c",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909911.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "52874a34d5fb966b5073c0eaff55385121b645fb79a9a4db7decc2bde644fb8b",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "c6822cd5224ad5d3bd0048f7b19c0e02ba5f65db82442361a6f2d3b11e607f38",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "0d6bb6428948bb615d1fc2d70dece24e67f36484b529402def4cbb0636cf228a"
+        },
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "afc3133599b2c1b05c13fa2e1b21024fcf23e6b7adeee335aaa3c6c8ea298997",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "400984946b3a56cec44ff7b3a600b0c19b4db0f23effe60d4223157b2ae4887d",
+          "source_observed_utc": 1793827396,
+          "summary_sha256": "0d6bb6428948bb615d1fc2d70dece24e67f36484b529402def4cbb0636cf228a"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "169abd27058b570602c94fb51c87b5bddeaa13e7d37edebe8d42cae0534c6e7a",
+            "path": "/workspace/scratch/faz32-staging/401909911.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "c18d2cd77fcb792df09bed2dc52f482346d69c1926393d4c50dac64d08822a86",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "3899662fc9f13af5611219b40c0c17021e1d307a3adc140e56d05679bdf4683c",
+          "source_observed_utc": 1793859778,
+          "summary_sha256": "0d6bb6428948bb615d1fc2d70dece24e67f36484b529402def4cbb0636cf228a"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909911",
+      "start_iso_utc": "2026-11-03T00:30:00+00:00",
+      "start_utc": 1793665800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 107,
+        "name": "Chicago Bulls",
+        "overtime": [],
+        "quarters": [
+          23,
+          36,
+          20,
+          28
+        ],
+        "team_id": "4"
+      },
+      "fixture_id": "401909912",
+      "home": {
+        "final": 126,
+        "name": "Philadelphia 76ers",
+        "overtime": [],
+        "quarters": [
+          30,
+          34,
+          26,
+          36
+        ],
+        "team_id": "20"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "6816bb9bcceeee2f3a20929a8fbd7758f71323126469115de7a4143f98b2c962",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909912.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "2e730e94df3d28fbd0ab243495d26f2b4b2ada86a29ce96bab78d6c878cbfbae",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "ad30f7dad8f36205158e18e35ff375222e62014c53901aa7f630fde66bef7c56",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "d9a28042301842deba7497b76a67f6d9a5fd4acecbe1b8b335d16a668df178cf"
+        },
+        {
+          "archive_ref": {
+            "file_sha256": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/faz30-diagnostic-report-20261105.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "70cac5464f07772c1338f91a576b5b4b7dc3aecb22200ef96e0fbb29bfe97860",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "98d0a123b0ee00426604ab7960b1afb66b0d48a23b2026939bbd758e9f91ddcd",
+          "source_observed_utc": 1793827395,
+          "summary_sha256": "d9a28042301842deba7497b76a67f6d9a5fd4acecbe1b8b335d16a668df178cf"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "5013c1a66003cdf2cbea80e8560f517df51210deeb0737e17af241bd2e5afeca",
+            "path": "/workspace/scratch/faz32-staging/401909912.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "dfba81d31841d82aa3fc8c7684b97f0c5affe09ff7f810232471b1ef0b943734",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "776229e14929a8b9f95a9ed62e61fa77bda01d3d7ae89c6c3154fb7b0f9d3cde",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "d9a28042301842deba7497b76a67f6d9a5fd4acecbe1b8b335d16a668df178cf"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909912",
+      "start_iso_utc": "2026-11-03T00:30:00+00:00",
+      "start_utc": 1793665800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 115,
+        "name": "Sacramento Kings",
+        "overtime": [],
+        "quarters": [
+          19,
+          35,
+          27,
+          34
+        ],
+        "team_id": "23"
+      },
+      "fixture_id": "401909913",
+      "home": {
+        "final": 100,
+        "name": "Dallas Mavericks",
+        "overtime": [],
+        "quarters": [
+          18,
+          35,
+          21,
+          26
+        ],
+        "team_id": "6"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "face846865aeba100e24b0fae04824271503237d8882f31f900f6a4efe1174af",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909913.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "e649c986aa5e4cfeb64677444f62273008dc0fea1fe8009b34e1879e8cc246ec",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "f9394950674c695b026f697c8a5320ced0e5bb13e707e5a01f1d882d0a59a1bb",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "273115a807998f0153edac82c341a035a5d1cc066b1decd63d1102e7d1c7b017"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "a41c6e7ae5c3a5e993e29b57bbd46843116c7b9cb514cdc23039dee05a67b444",
+            "path": "/workspace/scratch/faz32-staging/401909913.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "e2cc370de6f54de756994c855989b27fd06e03bac73d8d97c6233d3c264aa464",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "a1c178292d2ee73d95267e667a245c3d516a63cf50b8d5ca3e80ecec394b2a5a",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "273115a807998f0153edac82c341a035a5d1cc066b1decd63d1102e7d1c7b017"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909913",
+      "start_iso_utc": "2026-11-03T01:00:00+00:00",
+      "start_utc": 1793667600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 135,
+        "name": "New Orleans Pelicans",
+        "overtime": [
+          11
+        ],
+        "quarters": [
+          34,
+          25,
+          41,
+          24
+        ],
+        "team_id": "3"
+      },
+      "fixture_id": "401909914",
+      "home": {
+        "final": 134,
+        "name": "Memphis Grizzlies",
+        "overtime": [
+          10
+        ],
+        "quarters": [
+          31,
+          31,
+          33,
+          29
+        ],
+        "team_id": "29"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "d860e11ad52a419e53d03bb124e958c068c22e5f33a1c3000504af3eadc71af0",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909914.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "4eb0d94530a948978a7736800663aaad9e287828ddd3bfaf1d4e3109904b37e8",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "eb78aac5b292757154e8a3048eed2f696097cafc192579ec5ff18088273889a3",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "d677b4fa67763f579d2abe5baa9090d7aa29168d070d2f534a8cceec975e3885"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "a592b5a5a3590d788a195cb6e1164da650de94de43c0e9fa75cabd51ac08d557",
+            "path": "/workspace/scratch/faz32-staging/401909914.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "5800e72b4f5470591e94bc3ffae693fd010ca67837ca85ed2d38d55ddd43cc6f",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "9be05f0a95cd34ec3c9ac9601bf488314d3d4002c696a292cf6dd7cb156a4747",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "d677b4fa67763f579d2abe5baa9090d7aa29168d070d2f534a8cceec975e3885"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909914",
+      "start_iso_utc": "2026-11-03T01:00:00+00:00",
+      "start_utc": 1793667600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 100,
+        "name": "Milwaukee Bucks",
+        "overtime": [],
+        "quarters": [
+          18,
+          29,
+          29,
+          24
+        ],
+        "team_id": "15"
+      },
+      "fixture_id": "401909915",
+      "home": {
+        "final": 112,
+        "name": "Minnesota Timberwolves",
+        "overtime": [],
+        "quarters": [
+          29,
+          19,
+          32,
+          32
+        ],
+        "team_id": "16"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "066e20c4058f30a405a847208865a794f545ca99a88121db75598551e0d22fe4",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "e82c8160b15226bb8715634ec33c82e813c156be1d63a1474bf9d55e4fedb8a1",
+          "source_observed_utc": 1793810386,
+          "summary_sha256": "ae61ed219d85cb13582711c9850cc3d08338fbb5b55e67f029f477d666ca3f90"
+        },
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "cec8bbe50a6e987d0931382b3d169582b814223c8deedbca8880eb259dea28bb",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909915.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "8336eec36178c9913714c1b1130487225da42e80e18731ebdc57c77ffcb25092",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "f3eca211790a0dae496afee56c265693b5624e6fadff9e82897956d85f6a90d5",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "ae61ed219d85cb13582711c9850cc3d08338fbb5b55e67f029f477d666ca3f90"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "6e4160c9b373701c87bc0555f681d81f77d1a5e9096571eaadf33d94ba257592",
+            "path": "/workspace/scratch/faz32-staging/401909915.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "0e0c2efc05db3dac94553665e2c38c6865eb23c73b9435389c5ab08fde0949e8",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "47f4b1183aa53e39fd8a2186fd8e4f4623493c2340f4864b337b0f6b8f7d5ad9",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "ae61ed219d85cb13582711c9850cc3d08338fbb5b55e67f029f477d666ca3f90"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909915",
+      "start_iso_utc": "2026-11-03T01:00:00+00:00",
+      "start_utc": 1793667600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 93,
+        "name": "Boston Celtics",
+        "overtime": [],
+        "quarters": [
+          29,
+          21,
+          23,
+          20
+        ],
+        "team_id": "2"
+      },
+      "fixture_id": "401909916",
+      "home": {
+        "final": 109,
+        "name": "Houston Rockets",
+        "overtime": [],
+        "quarters": [
+          29,
+          28,
+          25,
+          27
+        ],
+        "team_id": "10"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+            "input_snapshot_sha256": "f2e0d327a812ba22637cc1c8e45630d80816b2513421eabb86a9c521e6af8a45",
+            "path": "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "762bcf4e0f77632bb4d770c823a86f11bd30ed9c1dd11dea5decdaebde76a159",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "89035ce1b295ec2285b9923bf53063732c91386d1dbc8d0784af4ff89fbd9920",
+          "source_observed_utc": 1793810384,
+          "summary_sha256": "2b67d6c80397b12309058d238f1517f18612da667245825fd2ed502665c1dc1a"
+        },
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "39514649f379d24c86224813c979839086e52b9f2b70a1d770a1ca997c1b03bc",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909916.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "f323db12f22692d341c0cae5fe06915238c9083ecd219bf77d372b718fc54391",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "eccff93b22db9b443416f2824c0ee9802eb3fb5f0ace88e7eeb8d0627b36dda4",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "2b67d6c80397b12309058d238f1517f18612da667245825fd2ed502665c1dc1a"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "f385d66809fc328bfefba8d799ced8e6ec96075c729de17a8dc695f116157a90",
+            "path": "/workspace/scratch/faz32-staging/401909916.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "a04b6e142208ba1184a5c555c5aff0178de1a88c593cb9ab461c215f70ac12c3",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "be22d4e5ada628ae6fd5838d53201996a50d236e140f7be4ef09d94a69b000ac",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "2b67d6c80397b12309058d238f1517f18612da667245825fd2ed502665c1dc1a"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909916",
+      "start_iso_utc": "2026-11-03T01:30:00+00:00",
+      "start_utc": 1793669400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 97,
+        "name": "Utah Jazz",
+        "overtime": [],
+        "quarters": [
+          16,
+          33,
+          20,
+          28
+        ],
+        "team_id": "26"
+      },
+      "fixture_id": "401909917",
+      "home": {
+        "final": 119,
+        "name": "San Antonio Spurs",
+        "overtime": [],
+        "quarters": [
+          27,
+          32,
+          35,
+          25
+        ],
+        "team_id": "24"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "d15357851906311c6cd3a5f3662687190021428391526f5f30ac6c355480ff36",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909917.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "4caa7364ccf10164324ee1c0016f03f6b92e6a6e1ba98d748f497d0e2cb637bb",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "157dd07969d3373c2c2e9fb1f267bd064c00300eee1c52b701e13427d2233f5d",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "4d05355a38db5eaea78859b4bbff6ea5874595eb63cb4c5610f93d9dc1a3f71e"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "b8a8c828aa637657dbb1c274e2b84e58fb614f7d3e44a1189b4e301f159c3e36",
+            "path": "/workspace/scratch/faz32-staging/401909917.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "77bced8cc6da86a34b7b22f5160295328f341ddc28a44e8c3b8d3f2dccd9f90b",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "27e342973859b6e5c1bcdb44e52352610a357ee0d64083c9e381b2a03360ef3a",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "4d05355a38db5eaea78859b4bbff6ea5874595eb63cb4c5610f93d9dc1a3f71e"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909917",
+      "start_iso_utc": "2026-11-03T01:30:00+00:00",
+      "start_utc": 1793669400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 118,
+        "name": "Portland Trail Blazers",
+        "overtime": [],
+        "quarters": [
+          19,
+          39,
+          27,
+          33
+        ],
+        "team_id": "22"
+      },
+      "fixture_id": "401909918",
+      "home": {
+        "final": 110,
+        "name": "Denver Nuggets",
+        "overtime": [],
+        "quarters": [
+          31,
+          35,
+          21,
+          23
+        ],
+        "team_id": "7"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "e12a3f835d211d6770303005d6f585e2fca5ec0c5ac15e97e3ccf5c52dfef4e0",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909918.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "2536518abefe31e43a2f7fc77fa67cd3c635a781c93d50d43d614e6f64ffc8eb",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "eb0ef56ad82dae9ee6ef095ac0c526ee6e44515cdd66800dbade52b07c6aff6a",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "ec822c2c7c7ccaafa37e67a6188c18b6f978df1b19de2ec25356dc4335ae9051"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "f0fbf346999536abfa36223d5bdbe0a379be43625c1eef6dbeee8a629c227349",
+            "path": "/workspace/scratch/faz32-staging/401909918.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "b4215711ae182b5af591cb5b4c870829b36f3bef64fc7849242dd5f43c76a5fa",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "466b9fa0a6e6257801e7828369e3ebbb45d069df86c914093c8c5756fac8e3af",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "ec822c2c7c7ccaafa37e67a6188c18b6f978df1b19de2ec25356dc4335ae9051"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909918",
+      "start_iso_utc": "2026-11-03T02:00:00+00:00",
+      "start_utc": 1793671200,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 113,
+        "name": "Phoenix Suns",
+        "overtime": [],
+        "quarters": [
+          31,
+          26,
+          36,
+          20
+        ],
+        "team_id": "21"
+      },
+      "fixture_id": "401909919",
+      "home": {
+        "final": 116,
+        "name": "Golden State Warriors",
+        "overtime": [],
+        "quarters": [
+          19,
+          32,
+          42,
+          23
+        ],
+        "team_id": "9"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "f68e8899b523124c377511c8ba565d430963aa21663d600381abb015a56fe363",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909919.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "b40528864ba41f343b29f7bd27ba1677f567c7948e759eeec8b989b56daead24",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "ee6f45e821c4d5f70062356cc80f7eb81a4a47d05605d5acd7ac2ff0c5da7ba2",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "147ade20ee051660d336dc8fad978a042adeb9956119e4edcd3c34f5d9f20c3a"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "a90c5c52fb6ea152c57ebad9562d3859ee274b90f12e9141502873cbef29f490",
+            "path": "/workspace/scratch/faz32-staging/401909919.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "c269f7e426f9c80ae029532aa830047fb772e276f7f9eeea1e38028756e2f3bf",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "f27a7af496077afd6960b07c358d62bc06f7a216dc8a201966694423a3baa032",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "147ade20ee051660d336dc8fad978a042adeb9956119e4edcd3c34f5d9f20c3a"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909919",
+      "start_iso_utc": "2026-11-03T03:00:00+00:00",
+      "start_utc": 1793674800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 125,
+        "name": "Toronto Raptors",
+        "overtime": [],
+        "quarters": [
+          22,
+          30,
+          26,
+          47
+        ],
+        "team_id": "28"
+      },
+      "fixture_id": "401909920",
+      "home": {
+        "final": 118,
+        "name": "LA Clippers",
+        "overtime": [],
+        "quarters": [
+          33,
+          30,
+          28,
+          27
+        ],
+        "team_id": "12"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "2f0611f0caaae88b449c57b693b06928be1ef1f3e9956edd2403dc831beb0e7e",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909920.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "1406a853e01190901340163bae9c08bf2de63454df534a04378180015af265c1",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "d488d8a813648c97c3da9f4fda92865468c48b31537361d45c0fc0fd0d65c0eb",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "eccd5cd605966252c67e9745f80ece9835e63d4aee53847b4600977664d6a1fc"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "a6033258a95890026a995aef26e6de6cd2bbcc6125d93dd6a0e3b7b03136c994",
+            "path": "/workspace/scratch/faz32-staging/401909920.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "b826b4ac0c06e3c3992b3605a4a85f1059df90c77559268479d4a3e12b35ae6c",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "935400b7d8d2b0027983515204de92f7cb28c291e024b2fdacac123e2ea164d8",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "eccd5cd605966252c67e9745f80ece9835e63d4aee53847b4600977664d6a1fc"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909920",
+      "start_iso_utc": "2026-11-03T03:00:00+00:00",
+      "start_utc": 1793674800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 117,
+        "name": "Miami Heat",
+        "overtime": [],
+        "quarters": [
+          30,
+          42,
+          21,
+          24
+        ],
+        "team_id": "14"
+      },
+      "fixture_id": "401909921",
+      "home": {
+        "final": 138,
+        "name": "Los Angeles Lakers",
+        "overtime": [],
+        "quarters": [
+          37,
+          42,
+          32,
+          27
+        ],
+        "team_id": "13"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "file_sha256": "f36c42ad78d47bce2032adccaeae41d1ba60756e443f957c3ddd352daf3b5bca",
+            "path": "/workspace/zeynal-bot-core/docs/evidence/nba-real-validation-20261104.json",
+            "raw_file_sha256": "dc9b58b4cdaf9e03b1e345084e9342179180b3b3efa839994ce778b167f81a9d",
+            "raw_path": "/workspace/scratch/nba-validation-20261104/401909921.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "9e609cb1f9c98d6ea7aa1246162735eb982936e733889566d3ee9fc1b2a5c3ff",
+          "origin": "ARCHIVED_SOURCE",
+          "payload_sha256": "db8118408229345bdfed1754e364624c2dd4b2486cdb4f8055ee0de614606853",
+          "source_observed_utc": 1793825795,
+          "summary_sha256": "509c56d7af1498cab6143104768e64ec83f527691e6703665bcaa662e8a3d4f2"
+        },
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "12e9dbc6ee6dc61bcf21ce1a0f87c06333f38cdc322abe5f471484cceb75cdc5",
+            "path": "/workspace/scratch/faz32-staging/401909921.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "4e1d7e822d54e6441ce852e69c627c33466e9931ef6fb039a084e9cc9b2eacf2",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "98385ccba9d2114d3179857f4eab77abfc3fcb926deb98085ecb32846c1c5403",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "509c56d7af1498cab6143104768e64ec83f527691e6703665bcaa662e8a3d4f2"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909921",
+      "start_iso_utc": "2026-11-03T03:00:00+00:00",
+      "start_utc": 1793674800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 112,
+        "name": "Philadelphia 76ers",
+        "overtime": [],
+        "quarters": [
+          29,
+          27,
+          35,
+          21
+        ],
+        "team_id": "20"
+      },
+      "fixture_id": "401909922",
+      "home": {
+        "final": 106,
+        "name": "Detroit Pistons",
+        "overtime": [],
+        "quarters": [
+          21,
+          21,
+          33,
+          31
+        ],
+        "team_id": "8"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "910315098fefe60d93e00028ecd3df0ce6b8554ed218dd7eba98c48eadaf2a00",
+            "path": "/workspace/scratch/faz32-staging/401909922.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "1a95efcfe33f6d7c90ce5d3377d81e3f13708deb3439af6d249fdb67dabe3ec0",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "07f442c7ffe8e9ad954273d71ce69d8cd3554808b463adca2a032d2fb2f0ba11",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "b58f4e11437b7519976dae4d001b3c125457570e5d6c1429c3436550f8fbf956"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909922",
+      "start_iso_utc": "2026-11-05T00:00:00+00:00",
+      "start_utc": 1793836800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 120,
+        "name": "Atlanta Hawks",
+        "overtime": [],
+        "quarters": [
+          37,
+          31,
+          25,
+          27
+        ],
+        "team_id": "1"
+      },
+      "fixture_id": "401909923",
+      "home": {
+        "final": 105,
+        "name": "Washington Wizards",
+        "overtime": [],
+        "quarters": [
+          32,
+          29,
+          24,
+          20
+        ],
+        "team_id": "27"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "8854fd7a337326fea6657a2975e6e449ca109ad20efa08c58cffac086788bf6b",
+            "path": "/workspace/scratch/faz32-staging/401909923.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "0e816a65bb288eb0d6f32d4cb08f6542519499ee1346e7c2606e3ff1fe824377",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "13e055d0c66bc27e2ce0e3f953c8874640aa16fa874b5881c51b8fb9639aea0b",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "af136a145d87f2a1d2e99a4faf7a2741cf233f0eb415c8a7a251ec783085dece"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909923",
+      "start_iso_utc": "2026-11-05T00:00:00+00:00",
+      "start_utc": 1793836800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 102,
+        "name": "Milwaukee Bucks",
+        "overtime": [],
+        "quarters": [
+          14,
+          27,
+          38,
+          23
+        ],
+        "team_id": "15"
+      },
+      "fixture_id": "401909924",
+      "home": {
+        "final": 109,
+        "name": "Boston Celtics",
+        "overtime": [],
+        "quarters": [
+          28,
+          34,
+          25,
+          22
+        ],
+        "team_id": "2"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "609a0469c47ef5af5ac732d07400db3c2a25f279873ae95a9d80f4ec6631c8e4",
+            "path": "/workspace/scratch/faz32-staging/401909924.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "63d4ef542b61f4a2ac1813693e4b8d7503d16cd0061d707e2cf12ca74098208c",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "a2e2b8c8ba1930724ee4e7f0e26f1740b705ad2ae7b1b8d77dd902ec073cdbcf",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "83e5adf2f539dc8ece916fdb267248a8582aaecb4bb6441b0410ef06f791f46c"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909924",
+      "start_iso_utc": "2026-11-05T00:30:00+00:00",
+      "start_utc": 1793838600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 104,
+        "name": "Charlotte Hornets",
+        "overtime": [],
+        "quarters": [
+          24,
+          33,
+          23,
+          24
+        ],
+        "team_id": "30"
+      },
+      "fixture_id": "401909925",
+      "home": {
+        "final": 114,
+        "name": "Brooklyn Nets",
+        "overtime": [],
+        "quarters": [
+          21,
+          29,
+          30,
+          34
+        ],
+        "team_id": "17"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "a47743b00295a96e02be32e44647d4c97910584e0c3671eaa0465070ba5c3796",
+            "path": "/workspace/scratch/faz32-staging/401909925.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "7fb71c2a183b70ad7556ba1ff12d8effc1d720c568e2f1596d33fe5047509a49",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "d85221ae7843dbba66b355c684d39b5f9affd2c7f4ecf99348a18f22c458c7dd",
+          "source_observed_utc": 1793859779,
+          "summary_sha256": "f0083f7114c1d8144e89f7423b234d8296341bad7960453bb660581da4411ce4"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909925",
+      "start_iso_utc": "2026-11-05T00:30:00+00:00",
+      "start_utc": 1793838600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 105,
+        "name": "Chicago Bulls",
+        "overtime": [],
+        "quarters": [
+          21,
+          31,
+          27,
+          26
+        ],
+        "team_id": "4"
+      },
+      "fixture_id": "401909926",
+      "home": {
+        "final": 135,
+        "name": "New York Knicks",
+        "overtime": [],
+        "quarters": [
+          43,
+          41,
+          29,
+          22
+        ],
+        "team_id": "18"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "870f491edd6b86c24565ba5945c4e59429163bc58bec6a20ecc429cfec1fb19a",
+            "path": "/workspace/scratch/faz32-staging/401909926.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "26f66fd763ea9253559150d2735c6271ab0bd5d45a68c4d97aa699e304e944fd",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "2b9d55d54668e08bdcb8d20d1bcf8fadf9d8256487001cd1b14e96b0e6574a86",
+          "source_observed_utc": 1793859780,
+          "summary_sha256": "ae328efe72c6b01b397a5dc10801a2f7bf5196a58d619f171479de87a913a3c4"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909926",
+      "start_iso_utc": "2026-11-05T00:30:00+00:00",
+      "start_utc": 1793838600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 107,
+        "name": "Indiana Pacers",
+        "overtime": [],
+        "quarters": [
+          32,
+          22,
+          26,
+          27
+        ],
+        "team_id": "11"
+      },
+      "fixture_id": "401909927",
+      "home": {
+        "final": 103,
+        "name": "Memphis Grizzlies",
+        "overtime": [],
+        "quarters": [
+          24,
+          28,
+          30,
+          21
+        ],
+        "team_id": "29"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "192e580248e9957e3c59c63d374bbaeb0b57cc30cf2e235da14e515c5b89cda6",
+            "path": "/workspace/scratch/faz32-staging/401909927.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "af34ffbeceb7cb02a040bab7b009cb0dbede42dd255f7e6fb5ba3908d319947b",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "860b7c2f86a0c2327fbb39e324d5074645cdfe9b9c82758b21ce1ccb2694df0e",
+          "source_observed_utc": 1793859780,
+          "summary_sha256": "e7f7c88143575c73508d69d58cae78761c25c280a6c5f0bcb4a714e05dc1f539"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909927",
+      "start_iso_utc": "2026-11-05T01:00:00+00:00",
+      "start_utc": 1793840400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 113,
+        "name": "Utah Jazz",
+        "overtime": [
+          9
+        ],
+        "quarters": [
+          24,
+          13,
+          43,
+          24
+        ],
+        "team_id": "26"
+      },
+      "fixture_id": "401909928",
+      "home": {
+        "final": 120,
+        "name": "New Orleans Pelicans",
+        "overtime": [
+          16
+        ],
+        "quarters": [
+          24,
+          18,
+          28,
+          34
+        ],
+        "team_id": "3"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "ede6f4cdd951bf863cd6d199001baceea9b6ac6ff32e3b333001876efe5035a9",
+            "path": "/workspace/scratch/faz32-staging/401909928.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "ccad0154bf57b9eb4f47b79f29545a5013ce501fc79c58ff26df3c0d1b809a20",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "950e15d289ff229b61ac6a7df8cc890fbec016fbad44e79878a8ac8e35d04644",
+          "source_observed_utc": 1793859780,
+          "summary_sha256": "31ba8f79103156b8f99f1641472349594f6f4a24957b760df0f086aebe59fbf8"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909928",
+      "start_iso_utc": "2026-11-05T01:00:00+00:00",
+      "start_utc": 1793840400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 116,
+        "name": "Cleveland Cavaliers",
+        "overtime": [],
+        "quarters": [
+          20,
+          24,
+          30,
+          42
+        ],
+        "team_id": "5"
+      },
+      "fixture_id": "401909929",
+      "home": {
+        "final": 124,
+        "name": "Oklahoma City Thunder",
+        "overtime": [],
+        "quarters": [
+          37,
+          23,
+          28,
+          36
+        ],
+        "team_id": "25"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "0f1fdea19f4c93de6604f0e139c863ff87af690c09d22e322f926aaf7364cf46",
+            "path": "/workspace/scratch/faz32-staging/401909929.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "e5eae3796bcf10bba8ef4ff4287e11863c4bb895643af3dc34361bf050b1a200",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "62a2371aaca41fcf967adcf316db36510e5ee8afcc10e3f103a1ab9c1a9491ba",
+          "source_observed_utc": 1793859780,
+          "summary_sha256": "8c4d5af59bb36dbf2e501aede519a2474dc11667cfce8fcb0b1bb6f71549fda3"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909929",
+      "start_iso_utc": "2026-11-05T01:00:00+00:00",
+      "start_utc": 1793840400,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 117,
+        "name": "Minnesota Timberwolves",
+        "overtime": [],
+        "quarters": [
+          33,
+          24,
+          25,
+          35
+        ],
+        "team_id": "16"
+      },
+      "fixture_id": "401909930",
+      "home": {
+        "final": 107,
+        "name": "Houston Rockets",
+        "overtime": [],
+        "quarters": [
+          30,
+          27,
+          27,
+          23
+        ],
+        "team_id": "10"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "30de7b0d655b632fc37d5af6ada72c316aae41b81450b62b32b52d98a48821c3",
+            "path": "/workspace/scratch/faz32-staging/401909930.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "8d8c04dbaf5742061fe346f2267de1ecc9d8278d77d122ba0583cf3e6654606a",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "92a10d7cdd6424883aadcf8449774d81ca922c218b370467424349209da63be6",
+          "source_observed_utc": 1793859780,
+          "summary_sha256": "1dcffd89257d39c626b47589fbdfacbea11659694cb724c6348d1a9ef44cc27e"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909930",
+      "start_iso_utc": "2026-11-05T01:30:00+00:00",
+      "start_utc": 1793842200,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 109,
+        "name": "Toronto Raptors",
+        "overtime": [],
+        "quarters": [
+          35,
+          32,
+          15,
+          27
+        ],
+        "team_id": "28"
+      },
+      "fixture_id": "401909931",
+      "home": {
+        "final": 128,
+        "name": "Denver Nuggets",
+        "overtime": [],
+        "quarters": [
+          33,
+          31,
+          41,
+          23
+        ],
+        "team_id": "7"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "d778ccf2ee3505ee5eb80f522334821de6c3740777f65b29ac292576be4ade3b",
+            "path": "/workspace/scratch/faz32-staging/401909931.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "23bcfc6631ae660c96c7b4db9b9d8b081e6ba9af232208704ae62178903fd816",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "2046f2931ba08981486bd6a4ea015f9205ae9a4db56e33c9409cfd761527a807",
+          "source_observed_utc": 1793859780,
+          "summary_sha256": "95d0da5a84b8774c7c039dbff80de9e14567c592c3ec43f57d8e38973f145a1d"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909931",
+      "start_iso_utc": "2026-11-05T02:00:00+00:00",
+      "start_utc": 1793844000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 132,
+        "name": "Portland Trail Blazers",
+        "overtime": [],
+        "quarters": [
+          29,
+          43,
+          32,
+          28
+        ],
+        "team_id": "22"
+      },
+      "fixture_id": "401909932",
+      "home": {
+        "final": 119,
+        "name": "Phoenix Suns",
+        "overtime": [],
+        "quarters": [
+          34,
+          25,
+          26,
+          34
+        ],
+        "team_id": "21"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "5f3882942843f5e208f67c581016e57640f93a191c8791f90eb0844b06f63a3b",
+            "path": "/workspace/scratch/faz32-staging/401909932.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "35dba3a0ae6bd18cdde3a060ac129eccceb0b1d61392ac96792e706b692884ae",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "1fa11706a1aee14399f4ba15114732ff9582de0ac00b816849a8cbeef6b222c8",
+          "source_observed_utc": 1793859780,
+          "summary_sha256": "bfb8df3a0c6f625a813e3eef85aeee2b803037a5da785e2d31d811d027b73c16"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909932",
+      "start_iso_utc": "2026-11-05T02:00:00+00:00",
+      "start_utc": 1793844000,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 111,
+        "name": "Dallas Mavericks",
+        "overtime": [],
+        "quarters": [
+          26,
+          25,
+          29,
+          31
+        ],
+        "team_id": "6"
+      },
+      "fixture_id": "401909933",
+      "home": {
+        "final": 112,
+        "name": "San Antonio Spurs",
+        "overtime": [],
+        "quarters": [
+          32,
+          36,
+          22,
+          22
+        ],
+        "team_id": "24"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "5b36d1f7e50ddf9577d83a66a3c4f3a5182da6a3d789390b66c2b8492c8de040",
+            "path": "/workspace/scratch/faz32-staging/401909933.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "692249f7292fcaa0f6cfe10642982b8a6a5ac9e85a5f886c2ee6746abcfa6d48",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "c9454884c99112acbea23c3d7d8d53b733a9ba746f0a5dc49a2045ae7dbf0f3e",
+          "source_observed_utc": 1793859780,
+          "summary_sha256": "cc1603c6288428a4bb341b4c2925fbf9da2f183fc0f19361d782b579d7f047e8"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909933",
+      "start_iso_utc": "2026-11-05T02:30:00+00:00",
+      "start_utc": 1793845800,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    },
+    {
+      "away": {
+        "final": 116,
+        "name": "Los Angeles Lakers",
+        "overtime": [],
+        "quarters": [
+          28,
+          33,
+          26,
+          29
+        ],
+        "team_id": "13"
+      },
+      "fixture_id": "401909934",
+      "home": {
+        "final": 103,
+        "name": "Sacramento Kings",
+        "overtime": [],
+        "quarters": [
+          28,
+          26,
+          20,
+          29
+        ],
+        "team_id": "23"
+      },
+      "observations": [
+        {
+          "archive_ref": {
+            "collection_started_utc": 1793859777,
+            "fetch_manifest_sha256": "855bb8967923be1692568017d4cceb58dcde4c4a0c2af61fe66c027ad159e8d2",
+            "file_sha256": "8d8e0bbd50d8523208fbc991f4287bb29688d5e893c0232a0f66ebbdd74002bb",
+            "path": "/workspace/scratch/faz32-staging/401909934.json"
+          },
+          "ingested_utc": 1793859932,
+          "observation_id": "07adf3c7d3323f9399ec51367292b97056137f2e1f793834a5fc2665ff579477",
+          "origin": "NEW_DOWNLOAD",
+          "payload_sha256": "371799d199322d4088b2e5d23c3da282cbefcefdb6a68dfb89748b2a89343185",
+          "source_observed_utc": 1793859780,
+          "summary_sha256": "f578054bb518020375a9d037de346e64f984d350a9227cd90bba6b7848fc3c80"
+        }
+      ],
+      "season": 2027,
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909934",
+      "start_iso_utc": "2026-11-05T03:00:00+00:00",
+      "start_utc": 1793847600,
+      "status": "VERIFIED_FINAL_ESPN",
+      "usage": "RETROSPECTIVE_OBSERVATION_NOT_LIVE_FORECAST"
+    }
+  ],
+  "hash_warning": "Local integrity hashes are not provider signatures",
+  "independent_provider_crosscheck": "NOT_PERFORMED_IN_FAZ32",
+  "provider": "ESPN"
+}

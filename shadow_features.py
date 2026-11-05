@@ -13,10 +13,9 @@ FEATURES=('home_offense','away_offense','home_defense','away_defense',
           'home_pace','away_pace','home_home_away_effect','away_home_away_effect')
 
 
-def _compute_features(records,target,cutoff,now):
+def _calculate_selected(selected,target,cutoff,now):
     if target.get('provider')!='ESPN' or target['home_team_id']==target['away_team_id']:
         raise ValueError('resolved ESPN fixture required')
-    selected=select_available(records,cutoff)
     facts=[]
     for record in selected:
         p=record['payload'];raw=p['original_summary']
@@ -61,6 +60,10 @@ def _compute_features(records,target,cutoff,now):
           'home-away difference is noisy observational association, not causal home advantage'],
         unavailable_optional=['VERIFIED_INJURIES','VERIFIED_ROSTERS','VERIFIED_MARKET','VERIFIED_RECOVERY'])
     return dict(payload=payload,sha256=digest(payload))
+
+
+def _compute_features(records,target,cutoff,now):
+    return _calculate_selected(select_available(records,cutoff),target,cutoff,now)
 
 
 def make_features(records,target,cutoff):

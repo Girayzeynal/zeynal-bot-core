@@ -1,0 +1,70 @@
+{
+  "bundle": {
+    "external_uploaded": false,
+    "path": "/workspace/scratch/faz32-data-d5qmmqex/recovery-precommit.tar.gz",
+    "sha256": "5f3f5728c0f2973391a3d8b326af2a4d6475daa998b71efe16f382eb3f80260a"
+  },
+  "implementation_sha256": {
+    "faz25.py": "34048da663524c4eeadd57817524dfc6f970f7958de6269acb796c7c27d7dfe3",
+    "nba_research_store.py": "221c3c6cabad0e1ab65d68e27d3f5c53912a96ab255901a1938da141141243e8",
+    "prospective_error_audit.py": "c2e2ffd877ca4b9913bbc8d09d77bbab6db9c2921594fe06517e52314e5dc76d",
+    "research_recovery.py": "8bfe346ae9e3050a50b444adad3d1e04c8260b6932582948818767a6f6f1613b"
+  },
+  "source_files_unchanged": true,
+  "source_hashes": {
+    "faz24-bos-mil.sqlite": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+    "faz24-brooklyn.sqlite": "8cf5c98cc124a7144401a52ace34725d9a3d4545f86259552b45d4c16ff23ba9",
+    "faz24-detroit-washington.sqlite": "fab04031283455f2a6034e33417f169d68f0a02f732bbd3fe819444eb8d84fab",
+    "faz32-research.sqlite": "43adc6de12bc065e38b666dad8ba2cd9a48c5786c1185b396de5a37ebe4dd002"
+  },
+  "verification": {
+    "cloud_session_replacement_tested": false,
+    "external_uploaded": false,
+    "files": [
+      {
+        "integrity": "ok",
+        "name": "faz24-bos-mil.sqlite",
+        "tables": [
+          "fixture_observations",
+          "fixture_provenance",
+          "fixture_starts",
+          "outcome_evidence",
+          "outcomes",
+          "prediction_inputs",
+          "predictions"
+        ]
+      },
+      {
+        "integrity": "ok",
+        "name": "faz24-brooklyn.sqlite",
+        "original_predictions": 1,
+        "verified_cohorts": 2
+      },
+      {
+        "integrity": "ok",
+        "name": "faz24-detroit-washington.sqlite",
+        "original_predictions": 2,
+        "verified_cohorts": 1
+      },
+      {
+        "integrity": "ok",
+        "name": "faz32-research.sqlite",
+        "research_coverage": {
+          "distinct_games": 75,
+          "earliest_source_observed_utc": 1793810383,
+          "latest_ingested_utc": 1793859932,
+          "observations": 107,
+          "original_prospective_forecasts_created": 0,
+          "pace_supported_observations": 107,
+          "seasons": [
+            2027
+          ],
+          "source_after_own_tipoff_games": 75
+        }
+      }
+    ],
+    "source_version": "7f747ff378a5f7ccb56e763c25d0108bc8441289",
+    "status": "RESTORE_VERIFIED_LOCALLY"
+  },
+  "verification_source_state": "FAZ32 working tree before commit"
+}

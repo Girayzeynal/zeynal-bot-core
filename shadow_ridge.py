@@ -46,13 +46,17 @@ def _score(head,x):
     return (total+margin)/2,(total-margin)/2
 
 
-def train(examples,source_version,split_boundaries=None):
+def train(examples,source_version,split_boundaries=None,research=False):
     if not isinstance(source_version,str) or not re.fullmatch('[0-9a-f]{40}',source_version):raise ValueError('exact training source SHA required')
     examples=list(examples)
     if len(examples)<MIN_TRAIN+MIN_VALIDATION+MIN_TEST:
         return dict(status='NOT_TRAINED',reason='MIN_100_TIMESTAMPED_EXAMPLES',examples=len(examples),
                     required=dict(train=MIN_TRAIN,validation=MIN_VALIDATION,test=MIN_TEST))
-    validated=[(e,*validate_example(e)) for e in examples]
+    validator=validate_example
+    if research:
+        from historical_research import validate_research_example
+        validator=validate_research_example
+    validated=[(e,*validator(e)) for e in examples]
     validated.sort(key=lambda v:(v[1]['cutoff_utc'],v[1]['target']['provider_fixture_id']))
     ids=[v[1]['target']['provider_fixture_id'] for v in validated]
     if len(set(ids))!=len(ids):raise ValueError('duplicate training fixture')
@@ -119,12 +123,13 @@ def train(examples,source_version,split_boundaries=None):
         last_validation_label_utc=max(v[0]['label']['observed_utc'] for v in validation),
         validation_metrics=metrics(validation),untouched_test_metrics=metrics(test),
         validation_probability_diagnostics=probability_diagnostics(validation),untouched_test_probability_diagnostics=probability_diagnostics(test),
-        dataset_digest=digest(examples),calibration_status='NOT_ESTABLISHED',usage='EXPERIMENTAL_OFFLINE_NOT_PROMOTED')
+        dataset_digest=digest(examples),calibration_status='NOT_ESTABLISHED',usage='RETROSPECTIVE_RESEARCH_ONLY' if research else 'EXPERIMENTAL_OFFLINE_NOT_PROMOTED',research_only=research)
     return dict(status='TRAINED_EXPERIMENTAL',artifact=dict(payload=payload,sha256=digest(payload)))
 
 
 def predict(artifact,features):
     p=artifact['payload'];f=replay_features(features)
+    if p.get('research_only') is True:raise ValueError('research artifact cannot be used as a prospective model')
     if digest(p)!=artifact['sha256'] or p['model_id']!=MODEL:raise ValueError('invalid model artifact')
     cutoff=f['cutoff_utc']
     if (f['status']!='READY' or not 0<p['trained_at_utc']<=p['usable_after_utc']<cutoff<=int(time.time())
@@ -156,13 +161,13 @@ def predict(artifact,features):
         coefficients_promoted=False)
 
 
-def walk_forward(examples,source_version):
+def walk_forward(examples,source_version,research=False):
     examples=list(examples)
     if len(examples)<100:return dict(status='INSUFFICIENT_DATA',folds=[],models_promoted=False)
     ordered=sorted(examples,key=lambda e:(e['features']['payload']['cutoff_utc'],e['features']['payload']['target']['provider_fixture_id']))
     folds=[]
     for end in range(100,len(ordered)+1,20):
-        result=train(ordered[:end],source_version,split_boundaries=(end-40,end-20))
+        result=train(ordered[:end],source_version,split_boundaries=(end-40,end-20),research=research)
         if result['status']!='TRAINED_EXPERIMENTAL':
             folds.append(dict(status=result['status'],reason=result['reason']));continue
         p=result['artifact']['payload']
