@@ -1,0 +1,18 @@
+{
+  "model_source_sha256": {
+    "faz13_engine/faz13_engine.py": "279f67bfa30f2cef286c2811f95de4a218f4e4de5e2495af9eab1877ebdda7cf",
+    "faz28.py": "1f9952c96955dc976af540ba48badb44f7320f8471ae5a2569ab30e47b1160c4",
+    "prematch_monte_carlo.py": "fbd5728cc9a515b4411f519281983306250e92c538f4c23e8a325cb9a9743a02",
+    "shadow_ridge.py": "473240e6a9fcccc59ad254f41d7f1bc6e02cd1fd163ac1f7228180cf67b0b1ce"
+  },
+  "original_files_unchanged": true,
+  "protected_original_hashes": {
+    "/workspace/scratch/faz25-history-poll/diagnostic-ledger.sqlite": "fab04031283455f2a6034e33417f169d68f0a02f732bbd3fe819444eb8d84fab",
+    "/workspace/scratch/faz28-real-v1udwyw4/ledger.sqlite": "8cf5c98cc124a7144401a52ace34725d9a3d4545f86259552b45d4c16ff23ba9",
+    "/workspace/scratch/faz32-data-d5qmmqex/research.sqlite": "43adc6de12bc065e38b666dad8ba2cd9a48c5786c1185b396de5a37ebe4dd002",
+    "/workspace/scratch/zeynal-prospective-sy39s8y2/research-ledger.sqlite": "d79d2081ce5b223b22a75fda1b053bdac52c2512a6604532fec6760c3bea0001",
+    "docs/evidence/faz29-source-and-immutability-20261105.json": "fc6a1be377c53b0645679ea4a3aa0760d3a7b0ef1312addf19616264551aa2d0",
+    "docs/evidence/faz29-versioned-error-report-20261105.json": "db2e48f746865acbd5a1a56db84c1e68892c484a121681f6abab5d89530f9328",
+    "docs/evidence/faz30-diagnostic-report-20261105.json": "eff549f2d9749f223f1e2c58f5bda9d0dbe41570af7fb2aece3f25740719adc0"
+  }
+}
