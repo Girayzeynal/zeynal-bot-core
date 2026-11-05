@@ -18,7 +18,7 @@ def capture_stage(core, stage):
     return dict(stage=stage, captured_at_utc=int(time.time()), output=payload)
 
 
-def build_bundle(cores, model_version, multilayer_config=None):
+def build_bundle(cores, model_version, multilayer_config=None, shadow_config=None):
     if not isinstance(model_version,str) or not re.fullmatch(r'[0-9a-f]{40}',model_version):
         raise ValueError('exact source commit SHA required')
     if len(cores) != 3:
@@ -42,6 +42,10 @@ def build_bundle(cores, model_version, multilayer_config=None):
         bundle['multilayer']=build_multilayer(snapshot,model_version=model_version,config=multilayer_config)
         bundle['multilayer_captured_at_utc']=int(time.time())
         for stage in bundle['stages']:stage['multilayer_sha256']=digest(bundle['multilayer'])
+    if shadow_config is not None:
+        if 'multilayer' not in bundle:raise ValueError('shadow comparison requires FAZ28 reference')
+        from shadow_pairs import build_attempt
+        bundle['shadow_pair']=build_attempt(bundle,snapshot,shadow_config)
     return bundle
 
 
@@ -77,6 +81,9 @@ def insert_stages(db, bundle, *, fixture_id, tipoff, prediction_utc, input_snaps
         validate_multilayer(bundle['multilayer'],input_snapshot,bundle['model_version'])
         if any(s.get('multilayer_sha256')!=digest(bundle['multilayer']) for s in stages):
             raise ValueError('stage multilayer binding mismatch')
+    if 'shadow_pair' in bundle:
+        from shadow_pairs import validate_attempt
+        validate_attempt(bundle['shadow_pair'],bundle,input_snapshot,fixture_id,tipoff,int(time.time()))
     now=int(time.time())
     if now >= tipoff:raise ValueError('fixture started during stage replay')
     payload=canonical_json(bundle); sha=digest(bundle)
@@ -98,7 +105,7 @@ def insert_stages(db, bundle, *, fixture_id, tipoff, prediction_utc, input_snaps
                (fixture_id,ctx['home'],ctx['away'],tipoff,now,payload,sha))
 
 
-async def collect(*, engine, request, adapter, ledger, model_version, finalizer, expected_fixture=None, multilayer_config=None):
+async def collect(*, engine, request, adapter, ledger, model_version, finalizer, expected_fixture=None, multilayer_config=None, shadow_config=None):
     # Fresh generation on each explicit invocation. Duplicates fail closed rather
     # than replacing the original immutable forecast with a newer run.
     from faz22_engine import Faz22Engine
@@ -112,7 +119,8 @@ async def collect(*, engine, request, adapter, ledger, model_version, finalizer,
     cores=[deepcopy(core)]; stages=[capture_stage(core,"FAZ13")]
     core=Faz22Engine().score_and_finalize(core);cores.append(deepcopy(core));stages.append(capture_stage(core,"FAZ22"))
     core=finalizer.apply_decision(core);cores.append(deepcopy(core));stages.append(capture_stage(core,"FAZ23"))
-    bundle=build_bundle(cores,model_version,multilayer_config)
+    if shadow_config is not None:shadow_config=dict(shadow_config,target=fixture)
+    bundle=build_bundle(cores,model_version,multilayer_config,shadow_config)
     bundle["stages"]=stages
     if 'multilayer' in bundle:
         for stage in stages:stage['multilayer_sha256']=digest(bundle['multilayer'])
@@ -186,7 +194,7 @@ def main(argv=None):
     sub=p.add_subparsers(dest='command',required=True)
     q=sub.add_parser('report');q.add_argument('database')
     q=sub.add_parser('collect');q.add_argument('database');q.add_argument('baselines')
-    q.add_argument('date');q.add_argument('home');q.add_argument('away');q.add_argument('--model-version',required=True);q.add_argument('--multilayer',action='store_true')
+    q.add_argument('date');q.add_argument('home');q.add_argument('away');q.add_argument('--model-version',required=True);q.add_argument('--multilayer',action='store_true');q.add_argument('--shadow-periods');q.add_argument('--shadow-model')
     args=p.parse_args(argv)
     try:
         if args.command=='report': result=report(args.database)
@@ -202,6 +210,13 @@ def main(argv=None):
             from faz13_engine import Faz13Engine, PrematchRequest
             from faz23_engine import Faz23Engine
             from providers.espn_adapter import ESPNAdapter
+            shadow_config=None
+            if args.shadow_model and not args.shadow_periods:raise ValueError('shadow period data required')
+            if args.shadow_periods:
+                if not args.multilayer:raise ValueError('shadow requires explicit multilayer reference')
+                data=json.loads(Path(args.shadow_periods).read_text())
+                records=data['period_feature_layer']['records'] if isinstance(data,dict) else data
+                shadow_config=dict(period_records=records,artifact=json.loads(Path(args.shadow_model).read_text()) if args.shadow_model else None)
             async def run():
                 adapter=ESPNAdapter()
                 engine=Faz13Engine('', '',baseline_store=TeamBaselineStore(args.baselines))
@@ -213,7 +228,7 @@ def main(argv=None):
                         finalizer=Faz23Engine(str(Path(folder)/'decisions.sqlite'))
                         return await collect(engine=engine,request=PrematchRequest(0,'NBA',args.date,args.home,args.away),
                             adapter=adapter,ledger=PredictionLedger(args.database),model_version=args.model_version,finalizer=finalizer,
-                            multilayer_config={} if args.multilayer else None)
+                            multilayer_config={} if args.multilayer else None,shadow_config=shadow_config)
                 finally: await adapter.aclose()
             result=asyncio.run(run())
         print(json.dumps(result,sort_keys=True,allow_nan=False));return 0
