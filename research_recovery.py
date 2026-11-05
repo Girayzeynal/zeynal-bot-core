@@ -43,7 +43,11 @@ def verify_bundle(path):
                 with sqlite3.connect(restored.as_uri()+'?mode=ro',uri=True) as db:
                     if db.execute('PRAGMA integrity_check').fetchone()!=('ok',):raise ValueError('SQLite restore integrity failure')
                     tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-                if 'observations' in tables and 'metadata' in tables:
+                if 'faz33_cuts' in tables:
+                    from prospective_cuts import inspect
+                    audited=inspect(restored);audited.pop('examples',None)
+                    reports.append(dict(name=name,integrity='ok',prospective_cut_audit=audited))
+                elif 'observations' in tables and 'metadata' in tables:
                     from nba_research_store import ResearchStore
                     store=object.__new__(ResearchStore);store.path=str(restored)
                     with sqlite3.connect(restored.as_uri()+'?mode=ro',uri=True) as db:

@@ -49,8 +49,9 @@ def build_bundle(cores, model_version, multilayer_config=None, shadow_config=Non
     return bundle
 
 
-def insert_stages(db, bundle, *, fixture_id, tipoff, prediction_utc, input_snapshot):
-    now=int(time.time())
+def validate_stage_bundle(bundle, *, fixture_id, tipoff, prediction_utc, input_snapshot, asof_utc=None):
+    now=int(time.time()) if asof_utc is None else asof_utc
+    if type(now) is not int or not 0<now<=int(time.time()):raise ValueError('invalid bundle replay clock')
     if not 0 < prediction_utc <= now < tipoff:
         raise ValueError('FAZ24 requires actual pre-tipoff recording')
     if (input_snapshot is None or bundle.get('input_sha256') != input_snapshot['sha256']
@@ -83,10 +84,17 @@ def insert_stages(db, bundle, *, fixture_id, tipoff, prediction_utc, input_snaps
             raise ValueError('stage multilayer binding mismatch')
     if 'shadow_pair' in bundle:
         from shadow_pairs import validate_attempt
-        validate_attempt(bundle['shadow_pair'],bundle,input_snapshot,fixture_id,tipoff,int(time.time()))
-    now=int(time.time())
+        validate_attempt(bundle['shadow_pair'],bundle,input_snapshot,fixture_id,tipoff,now)
+    now=int(time.time()) if asof_utc is None else asof_utc
     if now >= tipoff:raise ValueError('fixture started during stage replay')
     payload=canonical_json(bundle); sha=digest(bundle)
+    return payload,sha
+
+
+def insert_stages(db, bundle, *, fixture_id, tipoff, prediction_utc, input_snapshot):
+    payload,sha=validate_stage_bundle(bundle,fixture_id=fixture_id,tipoff=tipoff,prediction_utc=prediction_utc,input_snapshot=input_snapshot)
+    now=int(time.time())
+    if now>=tipoff:raise ValueError('fixture started before stage insertion')
     db.execute('''CREATE TABLE IF NOT EXISTS faz24_stages (
         fixture_id TEXT PRIMARY KEY, home TEXT NOT NULL, away TEXT NOT NULL,
         start_utc INTEGER NOT NULL, recorded_utc INTEGER NOT NULL,
