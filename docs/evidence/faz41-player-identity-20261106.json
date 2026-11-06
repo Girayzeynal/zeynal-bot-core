@@ -1,0 +1,42 @@
+{
+  "ci": "Verify exact new SHA in draft PR #19 after push",
+  "created_utc": "2026-11-06T12:49:52.275768+00:00",
+  "files": {
+    "faz41_adapters.py": "1e0e671fdd967345625c51888784a16df3267062055d04dbc946203cdc150e6a",
+    "faz41_faz40.py": "2a77768067194f632d59fd9c66371dd8a5665c70661cf69d82fbac5a81abffd1",
+    "tests/test_faz41_adapters.py": "35f0dcfe3c4d64807626cf7aed09b0bb643f786d756c3b284b78c67e1adc2a38",
+    "tests/test_faz41_faz40.py": "33009b1b1b5adce3e9796b7e759eac0d0bd174bdc6bc5dba51efb8926689a38b"
+  },
+  "new_live_requests": 0,
+  "parent_commit": "17ebdb364dfba5a85fdf508605984af1a484571d",
+  "previous_stage_ci": [
+    {
+      "docker_build": "success",
+      "event": "push",
+      "run_id": 42220166517,
+      "tests": 851,
+      "unit_tests": "success"
+    },
+    {
+      "docker_build": "success",
+      "event": "pull_request",
+      "run_id": 42220176472,
+      "tests": 851,
+      "unit_tests": "success"
+    }
+  ],
+  "production_coefficients_changed": false,
+  "prospective_records_created": 0,
+  "stage": "FAZ41_PLAYER_ID_BOUNDARY",
+  "tests": {
+    "all": 853,
+    "failures": 0,
+    "focused": 65,
+    "focused_log_sha256": "9f1a33b490b6effd8c2f0f90d2db51910232419b093a0e2f09340a7c1757a68e",
+    "full_log_sha256": "13daa12fc4815a40907e109da837ee053f8afd1039d07d2317c0213d4bf04a04",
+    "new_since_parent": 2,
+    "new_since_pr18": 53,
+    "red_failures": 2,
+    "red_log_sha256": "8b395d1406bce3129f60912e43f51245e254e0f1f9e8e555227f181be728501a"
+  }
+}

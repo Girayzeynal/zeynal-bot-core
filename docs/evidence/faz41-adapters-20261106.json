@@ -1,0 +1,468 @@
+{
+  "ci": "Verify exact new SHA after push in draft PR #19",
+  "created_utc": "2026-11-06T12:45:46.196138+00:00",
+  "default_permissions": "UNKNOWN",
+  "files": {
+    "faz41_adapters.py": "93a658752168ca5d61ecadf6bc6e6949b278a91354a396da8625018942d0ba77",
+    "faz41_evidence.py": "041f3189ef4a664173c1c1752955b67d98a0036e983ed14473080065c44f505c",
+    "faz41_faz40.py": "379007743f28723b48d108c544aaab6ce7e22f2a708d3d6040b36a7f0089b545",
+    "faz41_news.py": "8ac359624b0e465a9f7d5344670abc17baf4827dd0aa812c027b900cd4f694d9",
+    "faz41_source_smoke.py": "2b9b93793b5a9984bafe75fadd20f98527275726d34dc5c00245940a9909e044",
+    "faz41_transport.py": "06e5fd10a41eb841ea294c24bffcdf81d29582a3def76f637c3d8b7b3682cc1b",
+    "tests/test_faz41_adapters.py": "e52d379a9624dd7dfb3269973e6f824fd09384927983775f64783d29097c2880",
+    "tests/test_faz41_evidence.py": "14075409fd311300810ed94f0aa0e0e2648c9e68b3ef888eeb37e81b001fc249",
+    "tests/test_faz41_faz40.py": "0670414f978c57318ed0e3633c87985e588ccd57fc4e05c1214fc03c6a6d777a",
+    "tests/test_faz41_news.py": "aa914814c74530a2bd348e6944701ba446a4404ae3bc9985acdd7fc8af8e04c6",
+    "tests/test_faz41_source_smoke.py": "cbfd15f028f3e57078b2e58ca0fc394e024afed22c67d3fc2d1293b2042264e2",
+    "tests/test_faz41_transport.py": "65e75fe8fb77929780b8bb266aaa105cc8164beb1591c5860e8dc3dec08311bb"
+  },
+  "full_local_report_sha256": "ad81654b78d8617a7b63dfc521406b5cbe6007cf6a3c37eef20b14c081519567",
+  "independent_cloud_restore_verified": false,
+  "live_source_audit": {
+    "independent_source_time_attestation": false,
+    "nba_espn_cross_check": "NOT_PERFORMED",
+    "network_requests": 6,
+    "news_sources": "NO_PERMISSIONED_FEED_CONFIGURED",
+    "observations": [
+      {
+        "component_observed_at_utc": [
+          1793968951
+        ],
+        "data_type": "OFFICIAL_STAT",
+        "evidence_sha256": "0533197f5c66c8579673c1a84231943920601a886a2fc3c08e66f46fce65b227",
+        "fixture": {
+          "away_team_id": "20",
+          "canonical_id": "ddc99a07ceccb452715eb2e643d5b27ea10fe56099f6ad8ee679d4985a398344",
+          "home_team_id": "8",
+          "league": "NBA",
+          "season_end_year": 2027,
+          "start_utc": 1793836800
+        },
+        "ingested_at_utc": 1793968951,
+        "league": "NBA",
+        "materialized_at_utc": 1793968951,
+        "model_eligible": false,
+        "observed_at_utc": 1793968951,
+        "provider": "ESPN",
+        "provider_fixture_id": "401909922",
+        "published_at_utc": null,
+        "source_json_sha256": "be78c58d2ecc4ce24d20df1b18b7331af2b08aa15207ac109a774229e8fc12a1",
+        "source_urls": [
+          "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909922"
+        ],
+        "status": "STRUCTURAL_CAPTURE_NOT_MODEL_ELIGIBLE",
+        "usage_status": "UNKNOWN",
+        "verified_structural_facts_not_independent_truth": {
+          "final_away": 112,
+          "final_home": 106,
+          "overtime_away": [],
+          "overtime_home": [],
+          "quarters_away": [
+            29,
+            27,
+            35,
+            21
+          ],
+          "quarters_home": [
+            21,
+            21,
+            33,
+            31
+          ],
+          "regulation_away": 112,
+          "regulation_home": 106
+        }
+      },
+      {
+        "component_observed_at_utc": [
+          1793968951
+        ],
+        "coverage": {
+          "20": {
+            "minutes_precision": [
+              "WHOLE_MINUTE_DISPLAY"
+            ],
+            "player_entries": 12,
+            "reported_minutes": 9
+          },
+          "8": {
+            "minutes_precision": [
+              "WHOLE_MINUTE_DISPLAY"
+            ],
+            "player_entries": 14,
+            "reported_minutes": 10
+          }
+        },
+        "data_type": "PLAYER_MINUTES",
+        "evidence_sha256": "0007250efc348c4cf8ff89e0a8ef3fb9757ac4a99f1c00e1afe7fd593b52e534",
+        "fixture": {
+          "away_team_id": "20",
+          "canonical_id": "ddc99a07ceccb452715eb2e643d5b27ea10fe56099f6ad8ee679d4985a398344",
+          "home_team_id": "8",
+          "league": "NBA",
+          "season_end_year": 2027,
+          "start_utc": 1793836800
+        },
+        "ingested_at_utc": 1793968951,
+        "league": "NBA",
+        "materialized_at_utc": 1793968951,
+        "missing": [
+          "INDEPENDENT_ROSTER_MEMBERSHIP",
+          "ROTATION_STINTS",
+          "LINEUP_COMBINATIONS",
+          "PLAYER_ID_CROSSWALK"
+        ],
+        "model_eligible": false,
+        "observed_at_utc": 1793968951,
+        "provider": "ESPN",
+        "provider_fixture_id": "401909922",
+        "published_at_utc": null,
+        "source_json_sha256": "be78c58d2ecc4ce24d20df1b18b7331af2b08aa15207ac109a774229e8fc12a1",
+        "source_urls": [
+          "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909922"
+        ],
+        "status": "STRUCTURAL_CAPTURE_NOT_MODEL_ELIGIBLE",
+        "usage_status": "UNKNOWN"
+      },
+      {
+        "component_observed_at_utc": [
+          1793968951
+        ],
+        "data_type": "OFFICIAL_STAT",
+        "evidence_sha256": "84324af9527cb4df934b5c6019404db8ba7239873a7acecb26fd5940339e2f30",
+        "fixture": {
+          "away_team_id": "PAM",
+          "canonical_id": "b108c3927e9afd2dcd78c8eacb7569e0992381e4541df0b518f5fc377ba4cb47",
+          "home_team_id": "BAR",
+          "league": "EUROLEAGUE",
+          "season_end_year": 2027,
+          "start_utc": 1793388600
+        },
+        "ingested_at_utc": 1793968951,
+        "league": "EUROLEAGUE",
+        "materialized_at_utc": 1793968951,
+        "model_eligible": false,
+        "observed_at_utc": 1793968951,
+        "provider": "EUROLEAGUE_LIVE",
+        "provider_fixture_id": "E2026_87",
+        "published_at_utc": null,
+        "source_json_sha256": "2270cf2fa6110d5b587bfcd44fdd43070f5c9196cd1582b92471a33f010e70d4",
+        "source_urls": [
+          "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games/87"
+        ],
+        "status": "STRUCTURAL_CAPTURE_NOT_MODEL_ELIGIBLE",
+        "usage_status": "UNKNOWN",
+        "verified_structural_facts_not_independent_truth": {
+          "final_away": 94,
+          "final_home": 98,
+          "overtime_away": [],
+          "overtime_home": [],
+          "quarters_away": [
+            25,
+            17,
+            26,
+            26
+          ],
+          "quarters_home": [
+            30,
+            14,
+            25,
+            29
+          ],
+          "regulation_away": 94,
+          "regulation_home": 98
+        }
+      },
+      {
+        "component_observed_at_utc": [
+          1793968951,
+          1793968951
+        ],
+        "coverage": {
+          "BAR": {
+            "minutes_precision": [
+              "SOURCE_SECONDS"
+            ],
+            "player_entries": 12,
+            "reported_minutes": 12
+          },
+          "PAM": {
+            "minutes_precision": [
+              "SOURCE_SECONDS"
+            ],
+            "player_entries": 12,
+            "reported_minutes": 12
+          }
+        },
+        "data_type": "PLAYER_MINUTES",
+        "evidence_sha256": "48d4d9d442d8a1328b3b5b70c8f838fd6a26f924adc39fbb2e9aeaf05c9b28fa",
+        "fixture": {
+          "away_team_id": "PAM",
+          "canonical_id": "b108c3927e9afd2dcd78c8eacb7569e0992381e4541df0b518f5fc377ba4cb47",
+          "home_team_id": "BAR",
+          "league": "EUROLEAGUE",
+          "season_end_year": 2027,
+          "start_utc": 1793388600
+        },
+        "ingested_at_utc": 1793968951,
+        "league": "EUROLEAGUE",
+        "materialized_at_utc": 1793968951,
+        "missing": [
+          "INDEPENDENT_ROSTER_MEMBERSHIP",
+          "ROTATION_STINTS",
+          "LINEUP_COMBINATIONS",
+          "PLAYER_ID_CROSSWALK"
+        ],
+        "model_eligible": false,
+        "observed_at_utc": 1793968951,
+        "provider": "EUROLEAGUE_LIVE",
+        "provider_fixture_id": "E2026_87",
+        "published_at_utc": null,
+        "source_json_sha256": "f6c2cdeccb5087127b2f1504e73a6f44c391a44293c8a633827da4320d42d9e7",
+        "source_urls": [
+          "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games/87",
+          "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games/87/stats"
+        ],
+        "status": "STRUCTURAL_CAPTURE_NOT_MODEL_ELIGIBLE",
+        "usage_status": "UNKNOWN"
+      },
+      {
+        "component_observed_at_utc": [
+          1793968951
+        ],
+        "data_type": "OFFICIAL_STAT",
+        "evidence_sha256": "0d93861316a18a0cb0a41a4637ac6020a314d5c786f05445ea6bbd123a33d60d",
+        "fixture": {
+          "away_team_id": "TRN",
+          "canonical_id": "5c92a366380e912a909ae9b594eec0511c862f6646f21ac399f31a0d73fbb3fe",
+          "home_team_id": "NAP",
+          "league": "EUROCUP",
+          "season_end_year": 2027,
+          "start_utc": 1793732400
+        },
+        "ingested_at_utc": 1793968951,
+        "league": "EUROCUP",
+        "materialized_at_utc": 1793968951,
+        "model_eligible": false,
+        "observed_at_utc": 1793968951,
+        "provider": "EUROLEAGUE_LIVE",
+        "provider_fixture_id": "U2026_91",
+        "published_at_utc": null,
+        "source_json_sha256": "c71be0dbedab2ebc03a9427f032bb5bca3a474c5f9007d53e4d45cdbc62c1086",
+        "source_urls": [
+          "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026/games/91"
+        ],
+        "status": "STRUCTURAL_CAPTURE_NOT_MODEL_ELIGIBLE",
+        "usage_status": "UNKNOWN",
+        "verified_structural_facts_not_independent_truth": {
+          "final_away": 79,
+          "final_home": 90,
+          "overtime_away": [],
+          "overtime_home": [],
+          "quarters_away": [
+            21,
+            18,
+            15,
+            25
+          ],
+          "quarters_home": [
+            24,
+            13,
+            28,
+            25
+          ],
+          "regulation_away": 79,
+          "regulation_home": 90
+        }
+      },
+      {
+        "component_observed_at_utc": [
+          1793968951,
+          1793968951
+        ],
+        "coverage": {
+          "NAP": {
+            "minutes_precision": [
+              "SOURCE_SECONDS"
+            ],
+            "player_entries": 10,
+            "reported_minutes": 10
+          },
+          "TRN": {
+            "minutes_precision": [
+              "SOURCE_SECONDS"
+            ],
+            "player_entries": 11,
+            "reported_minutes": 11
+          }
+        },
+        "data_type": "PLAYER_MINUTES",
+        "evidence_sha256": "b7fb31628cd1b3719c28262e739652da41e736fe2d9f27a5a6c1a1f774456e84",
+        "fixture": {
+          "away_team_id": "TRN",
+          "canonical_id": "5c92a366380e912a909ae9b594eec0511c862f6646f21ac399f31a0d73fbb3fe",
+          "home_team_id": "NAP",
+          "league": "EUROCUP",
+          "season_end_year": 2027,
+          "start_utc": 1793732400
+        },
+        "ingested_at_utc": 1793968951,
+        "league": "EUROCUP",
+        "materialized_at_utc": 1793968951,
+        "missing": [
+          "INDEPENDENT_ROSTER_MEMBERSHIP",
+          "ROTATION_STINTS",
+          "LINEUP_COMBINATIONS",
+          "PLAYER_ID_CROSSWALK"
+        ],
+        "model_eligible": false,
+        "observed_at_utc": 1793968951,
+        "provider": "EUROLEAGUE_LIVE",
+        "provider_fixture_id": "U2026_91",
+        "published_at_utc": null,
+        "source_json_sha256": "9ca2ca0af522dfcb9f95d7ed6122e6e7962530d9b1cf74685cc61715ea0ecbf3",
+        "source_urls": [
+          "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026/games/91",
+          "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026/games/91/stats"
+        ],
+        "status": "STRUCTURAL_CAPTURE_NOT_MODEL_ELIGIBLE",
+        "usage_status": "UNKNOWN"
+      }
+    ],
+    "official_prematch_lineups": 0,
+    "production_coefficients_changed": false,
+    "prospective_records_created": 0,
+    "rotation_stints": 0,
+    "sources": {
+      "ec_game": {
+        "automatic_retry": false,
+        "document_json_sha256": "c71be0dbedab2ebc03a9427f032bb5bca3a474c5f9007d53e4d45cdbc62c1086",
+        "elapsed_seconds": 0.323049,
+        "finished_at_utc": 1793968951,
+        "http_status": 200,
+        "observed_at_utc": 1793968951,
+        "provider": "EUROLEAGUE_LIVE",
+        "server_clock_delta_seconds": 0,
+        "server_date": "Fri, 06 Nov 2026 12:42:31 GMT",
+        "source_url": "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026/games/91",
+        "started_at_utc": 1793968951,
+        "status": "DOCUMENT_RECEIVED",
+        "usage_status": "UNKNOWN"
+      },
+      "ec_stats": {
+        "automatic_retry": false,
+        "document_json_sha256": "2d43327c9599b96321242ab71db15085cd8d15d6b0a57ca10145e191027762c4",
+        "elapsed_seconds": 0.516152,
+        "finished_at_utc": 1793968951,
+        "http_status": 200,
+        "observed_at_utc": 1793968951,
+        "provider": "EUROLEAGUE_LIVE",
+        "server_clock_delta_seconds": 0,
+        "server_date": "Fri, 06 Nov 2026 12:42:31 GMT",
+        "source_url": "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026/games/91/stats",
+        "started_at_utc": 1793968951,
+        "status": "DOCUMENT_RECEIVED",
+        "usage_status": "UNKNOWN"
+      },
+      "el_game": {
+        "automatic_retry": false,
+        "document_json_sha256": "2270cf2fa6110d5b587bfcd44fdd43070f5c9196cd1582b92471a33f010e70d4",
+        "elapsed_seconds": 0.363361,
+        "finished_at_utc": 1793968951,
+        "http_status": 200,
+        "observed_at_utc": 1793968951,
+        "provider": "EUROLEAGUE_LIVE",
+        "server_clock_delta_seconds": 0,
+        "server_date": "Fri, 06 Nov 2026 12:42:31 GMT",
+        "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games/87",
+        "started_at_utc": 1793968950,
+        "status": "DOCUMENT_RECEIVED",
+        "usage_status": "UNKNOWN"
+      },
+      "el_stats": {
+        "automatic_retry": false,
+        "document_json_sha256": "24acd2e6a2c0b6ac79b38d1e0c42be295c287210ed5e6d9302cbefc260f5327d",
+        "elapsed_seconds": 0.647031,
+        "finished_at_utc": 1793968951,
+        "http_status": 200,
+        "observed_at_utc": 1793968951,
+        "provider": "EUROLEAGUE_LIVE",
+        "server_clock_delta_seconds": 0,
+        "server_date": "Fri, 06 Nov 2026 12:42:31 GMT",
+        "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games/87/stats",
+        "started_at_utc": 1793968951,
+        "status": "DOCUMENT_RECEIVED",
+        "usage_status": "UNKNOWN"
+      },
+      "espn": {
+        "automatic_retry": false,
+        "document_json_sha256": "be78c58d2ecc4ce24d20df1b18b7331af2b08aa15207ac109a774229e8fc12a1",
+        "elapsed_seconds": 0.445879,
+        "finished_at_utc": 1793968951,
+        "http_status": 200,
+        "observed_at_utc": 1793968951,
+        "provider": "ESPN",
+        "server_clock_delta_seconds": 0,
+        "server_date": "Fri, 06 Nov 2026 12:42:31 GMT",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909922",
+        "started_at_utc": 1793968950,
+        "status": "DOCUMENT_RECEIVED",
+        "usage_status": "UNKNOWN"
+      },
+      "nba_schedule": {
+        "automatic_retry": false,
+        "elapsed_seconds": 0.282731,
+        "finished_at_utc": 1793968951,
+        "http_status": 403,
+        "provider": "NBA",
+        "retry_after": null,
+        "source_url": "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json",
+        "started_at_utc": 1793968950,
+        "status": "HTTP_403",
+        "usage_status": "UNKNOWN"
+      }
+    },
+    "status": "READ_ONLY_SOURCE_AUDIT"
+  },
+  "parent_commit": "df8abe47f0ea1e56f7bba70b410089d28be111cc",
+  "production_coefficients_changed": false,
+  "prospective_records_created": 0,
+  "raw_responses_uploaded": false,
+  "reproduced_and_fixed": {
+    "euro_integral_float_seconds": {
+      "log_sha256": "155fe8409cf6d773f9a643ceeb3dd74b797c095a18878b0766d506883490cae5"
+    },
+    "poststart_prospective_label": {
+      "log_sha256": "a556282fa7b60adc8638cec2708482c08c83fd6c2210978279aebbf665d97cb4"
+    },
+    "poststart_replay_of_original_prematch_evidence": {
+      "log_sha256": "f1e2508ab573b8394d2bff8ce3fee8e3d91aa73fc5c3d8446a4e4d9e8df4c7a5"
+    }
+  },
+  "source_research_sqlite_sha256": "43adc6de12bc065e38b666dad8ba2cd9a48c5786c1185b396de5a37ebe4dd002",
+  "source_research_sqlite_unchanged_from_previous_audit": true,
+  "stage": "FAZ41_PROVIDER_REPLAY_AND_FAZ40_CONTEXT",
+  "stage1_ci": [
+    {
+      "docker_build": "success",
+      "event": "push",
+      "run_id": 42218340679,
+      "unit_tests": "success"
+    },
+    {
+      "docker_build": "success",
+      "event": "pull_request",
+      "run_id": 42218397532,
+      "unit_tests": "success"
+    }
+  ],
+  "tests": {
+    "all": 851,
+    "failures": 0,
+    "focused": 63,
+    "focused_log_sha256": "3d4a9eb9eeaf624a118708fee84f76c8ffae86357460c6959c0dc110ac3a47a5",
+    "full_log_sha256": "ad9eb7905142b56e439f8bbb1edc7aaaa132f3f9929db5be3c072856ac427645",
+    "new_since_pr18": 51,
+    "new_since_stage1": 37
+  }
+}

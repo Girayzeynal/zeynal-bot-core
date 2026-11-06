@@ -1,0 +1,22 @@
+{
+  "stage": "FAZ41_V2_METADATA",
+  "created_utc": "2026-11-06T12:31:28.764859+00:00",
+  "base_pr": 18,
+  "base_sha": "eb471b8d176e180ca48a6d9febea38c7ea546aad",
+  "tests": {
+    "baseline": 800,
+    "all": 814,
+    "new": 14,
+    "focused": 26,
+    "failures": 0,
+    "log_sha256": "78d105d036b01c0baf32abfb768e4d064a9191cb0eca202b8e02dde46f1147f6"
+  },
+  "files": {
+    "faz41_evidence.py": "859895fa5c7ea02c9c15315580e44608ffd3c344f07bfd1bd383029444cc56fb",
+    "tests/test_faz41_evidence.py": "b5a6f40e17d444bee7beff3b7d8fd6c01bb5db97ff19d81a5dab042bb2b15832"
+  },
+  "source_authenticity": "NOT_INDEPENDENTLY_ATTESTED",
+  "default_permissions": "UNKNOWN",
+  "prospective_records_created": 0,
+  "ci": "Verify exact new SHA after push"
+}
