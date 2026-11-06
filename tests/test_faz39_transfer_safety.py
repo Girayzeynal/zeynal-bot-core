@@ -11,6 +11,7 @@ import stat
 import subprocess
 import sys
 import threading
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -126,6 +127,15 @@ class TransferSafetyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(raised.exception.errno,errno.ENOSPC)
         self.assert_unpublished();self.assertEqual(self.contents(),{})
         self.assertEqual(self.export()['status'],'EXPORTED')
+
+    async def test_temporary_name_collision_preserves_other_writer_file(self):
+        folder=self.store.root/'objects';folder.mkdir(mode=0o700)
+        pending=folder/'.pending-collision';pending.write_bytes(b'other active writer bytes')
+        key='objects/'+'a'*64+'.tar.gz'
+        with patch('faz39_transfer.uuid.uuid4',return_value=SimpleNamespace(hex='collision')):
+            with self.assertRaises(FileExistsError):self.store.put_if_absent(key,b'new bytes')
+        self.assertEqual(pending.read_bytes(),b'other active writer bytes')
+        self.assertFalse((self.store.root/key).exists())
 
     async def test_permission_error_linking_manifest_does_not_publish_commit(self):
         original=os.link

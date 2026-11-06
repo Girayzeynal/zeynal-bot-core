@@ -112,11 +112,13 @@ Sentetik kayıtlar gerçek prospektif örnek değildir. Üretim zamanlayıcısı
 
 ## Güvenli hata ve tekrar deneme denetimi
 
-`tests/test_faz39_transfer_safety.py`, 16 ek regresyonla önceki kapsamı genişletir.
+`tests/test_faz39_transfer_safety.py`, 17 ek regresyonla önceki kapsamı genişletir.
 Tamamlama kaydı görünür olduktan sonra dizin fsync'i başarısız olabilir. Önceki
 kod, aynı nesneyi tekrar gördüğünde bu bariyeri atlayabiliyordu. Yerel adaptör
 artık mevcut nesne için de dizin fsync'ini tekrarlar. Hata devam ediyorsa
 `ALREADY_EXPORTED` başarısı bildirilmez; önceden görünür olan nesne silinmez.
+Geçici dosya adı çakışmasında temizleme yalnızca bu çağrının başarıyla oluşturduğu
+dosyayı siler; `O_EXCL` ile reddedilen başka yazıcıya ait dosyaya dokunulmaz.
 
 | Senaryo | Güvenli davranış |
 |---|---|

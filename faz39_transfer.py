@@ -275,8 +275,10 @@ class DirectoryStore:
         require(type(value) is bytes, 'OBJECT_BYTES_REQUIRED')
         with self._folder(key, create=True) as (folder, name):
             temporary = '.pending-'+uuid.uuid4().hex
+            owns_temporary = False
             try:
                 fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=folder)
+                owns_temporary = True
                 with os.fdopen(fd, 'wb') as stream:
                     stream.write(value); stream.flush(); os.fsync(stream.fileno())
                 try:os.link(temporary, name, src_dir_fd=folder, dst_dir_fd=folder, follow_symlinks=False)
@@ -288,8 +290,9 @@ class DirectoryStore:
                 os.fsync(folder)
                 return True
             finally:
-                try:os.unlink(temporary, dir_fd=folder)
-                except FileNotFoundError:pass
+                if owns_temporary:
+                    try:os.unlink(temporary, dir_fd=folder)
+                    except FileNotFoundError:pass
 
 
 def main():
