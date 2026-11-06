@@ -110,5 +110,10 @@ class ArchiveTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'MODE'):self.select([r],mode='LIVE')
         with self.assertRaises(ValueError):self.select([r],cutoff_utc=True)
 
+    def test_nba_2027_regular_season_flag_cannot_override_official_date_boundary(self):
+        raw=nba.summary(900010001,1790812800)  # 2026-10-01, before official Oct20.
+        with self.assertRaisesRegex(ValueError,'OUTSIDE_OFFICIAL_REGULAR_SEASON'):
+            self.seal(raw)
+
 
 if __name__=='__main__':unittest.main()

@@ -7,6 +7,7 @@ from copy import deepcopy
 import time
 
 from nba_research_store import validate_summary
+from nba_season_2027 import require_regular
 from prediction_inputs import digest
 from providers.euroleague_live import BASE, parse_game
 
@@ -26,6 +27,7 @@ def _facts(raw,league,season_end_year,observed,team_ids):
     if league=='NBA':
         parsed=validate_summary(raw,observed,set(team_ids));event=parsed['event']
         require(raw['header']['season']['year']==season_end_year,'SEASON_MISMATCH')
+        if season_end_year==2027:require_regular(raw['header'],event['start_ts_utc'])
         home,away=parsed['periods']['home'],parsed['periods']['away']
         provider='ESPN';url='https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event='+event['provider_fixture_id']
     else:
