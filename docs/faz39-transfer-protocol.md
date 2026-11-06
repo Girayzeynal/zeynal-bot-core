@@ -10,6 +10,12 @@ kullanır. Yerel yedekleme API'si ve örnek collector konfigürasyonu değişmez
 Zamanlayıcıya veya Telegram/Fly.io akışına entegrasyon yoktur. Gerçek bir uzak
 sağlayıcı adaptörü, kimlik bilgisi veya harici hedef yapılandırılmadı.
 
+PR #14'ün sonraki harici sözleşme/trusted-pin/bağımsız kanıt hazırlığı,
+[`faz39-independent-recovery-runbook.md`](faz39-independent-recovery-runbook.md)
+ve `faz39_checkpoint_contract.py` içindedir. Bu ayrı, varsayılan kapalı katman
+yerel protokolü değiştirmez; gerçek harici kalıcılık veya ikinci Cloud kurtarması
+doğrulaması sağlamaz.
+
 ## Protokol
 
 `ObjectStore` adaptör sözleşmesi iki işlem ister: boyutu sınırlandırılmış
