@@ -66,3 +66,31 @@ python -m faz43_development --request '/analyze NBA YYYY-MM-DD HOME vs AWAY' \
 ```
 
 Bu komutlar Telegram botunu çalıştırmaz. Üretimde legacy /analyze yerine yeni akış etkinleştirilmedi; bu adım ayrıca review/onay/deploy gerektirir. Kanıt: docs/evidence/master-development-20261106.json.
+
+## Aşama 4 — sınırlı NBA arşiv yenilemesi ve eski gerçek kayıtların yeniden denetimi
+
+`faz43_nba_refresh.py`, en fazla üç ABD takvim günü ve 12 eksik summary isteğiyle sınırlıdır; varsayılan ağ kapalıdır. Bu oturumdaki iki scoreboard + iki summary GET'i iki eksik tamamlanmış maç buldu: ESPN 401909936 ve 401909937. Summary/scoreboard kimlik, UTC başlangıcı, ev/deplasman, final skorları ve periyotlar uzlaştırıldı. Eski arşiv 75, yeni özgün maç 2, birleşik normalleştirilmiş periyot kapsamı **77**. Bu, bütün NBA sezonunun tamamlandığı iddiası değildir. Yeni iki maç için oyuncu satırı sayısı 28/25, dakika alanı sayısı 27/25; dakika alanı bulunması oyuncunun kesin oynadığı veya resmi kadro üyeliğinin bağımsız doğrulandığı anlamına gelmez.
+
+Eski SQLite'a yazılmadı; SHA `43adc6de12bc065e38b666dad8ba2cd9a48c5786c1185b396de5a37ebe4dd002` aynı. Yeni kayıtlar ayrı, bugünün observed/ingested/materialized zamanlarıyla RETROSPECTIVE_RESEARCH kanıtıdır. Ham makale/odds/PBP gövdeleri yayımlanmaz; minimal kaynak skor/periyot projeksiyonu, yanıt digest'i ve kaynak URL'si tutulur. İzinler UNKNOWN, yeni modele uygun örnek/prospektif kayıt 0. Kimlik alias'ları, aynı takım/başlangıç, değiştirilmiş kaynak/forecast etiketleri ve çelişkili dönemler reddedilir. Aynı final/çeyrek skoruna rağmen farklı uzatma sayısını kabul eden açık önce regresyonla yeniden üretildi, sonra kapatıldı.
+
+FAZ29'un iki özgün yerel veritabanı ayrıca mevcut read-only audit ile yeniden denetlendi: üç farklı maç (401909922/401909923/401909925), üç FAZ13 çıktı çifti ve bir FAZ28 Monte Carlo çıktı çifti. Aynı maçın iki modeli dört farklı maç diye sayılmadı. Dosya SHA'ları önce/sonra aynı; özgün tahmin veya simülasyon yeniden üretilmedi. Bu, yeni modelin kalibrasyonu veya bugünkü kaynak izinlerinin tarihsel onayı değildir; yerel orijinal kayıt/sonuç kanıt zinciri denetimidir, bağımsız NBA.com teyidi değildir.
+
+| Eski model/sürüm | Kapsam | N | Takım skor MAE / RMSE | Toplam MAE | Fark MAE |
+|---|---|---:|---:|---:|---:|
+| FAZ13 / 9bd8ab49… | FINAL_WITH_OT | 2 | 6.0700 / 6.4699 | 2.9400 | 12.1400 |
+| FAZ13 / 2bbe3c39… | FINAL_WITH_OT | 1 | 4.3300 / 5.0353 | 5.1400 | 8.6600 |
+| FAZ28_NORMAL_V1/MC / 2bbe3c39… | REGULATION_ONLY | 1 | 4.2469 / 4.9738 | 5.1779 | 8.4937 |
+
+Bu sayılar yalnızca küçük örneklem betimlemesidir; modeller/sürümler tek performans havuzuna karıştırılmaz, üstünlük veya güvenilir doğruluk oranı ilan edilmez. FAZ13 olasılık çıktısı yoktur; kalibrasyon NOT_ESTABLISHED. Yeni motorun izinli/PIT uygun değerlendirme sayısı hâlâ 0, MAE/RMSE/Brier/log-loss null'dır. Eski üç maçın varlığı yeni üretilmiş prospektif örnek anlamına gelmez.
+
+Yerel tam regresyon **946/946**, bu aşamada **10 yeni test**. Önceki geliştirme checkpoint'i `7eb0f014b7d02b620c3ddf880837004f9b0626d8` push 42244346157 / PR 42244358970 CI başarılı. Yeni canlı ve eski read-only denetim kanıtları: docs/evidence/master-nba-refresh-20261106.json ve docs/evidence/master-legacy-audit-20261106.json.
+
+## Devam planı ve dürüst tamamlanma sınırı
+
+- Kaynakta doğrulanan periyot kapsamı: NBA 77 normalleştirilmiş araştırma maçı; EL 96 ve EC 96 resmî katalog maçı. Oyuncu/PBP kapsamı bunlarla aynı değildir. TBL/CBA/JAPAN/LEGA için doğrulanmış kaynak adaptörü ve sezon/takım dizini eksiktir.
+- Yeni gerçek prospektif kayıt 0; yeniden denetlenen eski gerçek maç 3. Gerçek günlük scheduler/storage ve üretim Telegram bağlantısı kapalıdır. Yeni Cloud oturumunda gerçek harici kalıcılık/kurtarma doğrulanmadı.
+- İzinli haber/yorum feed'i ve hukuki kullanım politikası kanıtı yok. NBA resmi CDN 403; bağımsız cross-provider sonuç teyidi eksik. PBP skor düzeltmelerinin kaynakta çözülmesi ve açık substitution rolleri/ilk beş/stint kanıtları gerekir.
+- Mevcut FAZ13/FAZ28 katsayıları korunur. FAZ31 gerçek eğitim modeli bu geliştirme akışına bağlanmadı; yeterli izinli/PIT örnek ve bağımsız holdout olmadan eğitim veya kalibrasyon zorlanmaz.
+- Sonraki güvenli teknik işlem: izin/kaynak manifesti doğrulandıktan sonra yeni tarihsel gözlemleri yalnızca ileri kesitlere bağlamak; izinli PBP/roster adaptörünü doğrulamak; geliştirme input bundle backend'ini yapılandırıp pozitif gerçek dry-run yapmak. Gerçek kayıt saklama/scheduler ve production ayrı onay gerektirir.
+
+Master görev bütün kapsamıyla tamamlandı denmez. Bu checkpoint, geçen kod/test/CI aşamalarını ve gerçek erişim/veri/izin blokajlarını devralınabilir şekilde bırakır. Son commit SHA ve exact-head CI durumları taslak PR #22 üzerinde raporlanır.

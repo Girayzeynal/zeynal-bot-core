@@ -1,0 +1,342 @@
+{
+  "audit_context": {
+    "interpretation": "LEGACY_SMALL_SAMPLE_DESCRIPTIVE_ONLY_NOT_CURRENT_MODEL_CALIBRATION",
+    "new_forecasts_created": 0,
+    "new_model_eligible_examples": 0,
+    "originals_changed": false,
+    "simulation_rerun": false
+  },
+  "cohorts": [
+    {
+      "calibration_status": "NOT_ESTABLISHED",
+      "historical_walk_forward": {
+        "calibration_status": "NOT_ESTABLISHED",
+        "corrected_metrics": null,
+        "evaluated_games": 0,
+        "folds": [],
+        "input_games": 2,
+        "insufficient_training_games": 2,
+        "invalid_corrections": 0,
+        "method": "expanding_window_team_score_bias",
+        "min_training_games": 30,
+        "original_metrics": null,
+        "status": "insufficient_verified_history",
+        "usage": "offline_research_only"
+      },
+      "metrics": {
+        "away_score_bias": -7.539999999999999,
+        "home_score_bias": 4.599999999999994,
+        "home_win_brier": null,
+        "home_win_log_loss": null,
+        "margin_mae": 12.139999999999993,
+        "margin_rmse": 12.562344526401105,
+        "n_games": 2,
+        "n_probability_games": 0,
+        "score_mae": 6.069999999999997,
+        "score_rmse": 6.469857030877882,
+        "total_bias": -2.9399999999999977,
+        "total_mae": 2.9399999999999977,
+        "total_rmse": 3.102208890452093
+      },
+      "model": "FAZ13",
+      "model_version": "9bd8ab492680174accb18afc43dd0426b578ce32",
+      "scope": "FINAL_WITH_OT"
+    },
+    {
+      "calibration_status": "NOT_ESTABLISHED",
+      "historical_walk_forward": {
+        "calibration_status": "NOT_ESTABLISHED",
+        "corrected_metrics": null,
+        "evaluated_games": 0,
+        "folds": [],
+        "input_games": 1,
+        "insufficient_training_games": 1,
+        "invalid_corrections": 0,
+        "method": "expanding_window_team_score_bias",
+        "min_training_games": 30,
+        "original_metrics": null,
+        "status": "insufficient_verified_history",
+        "usage": "offline_research_only"
+      },
+      "metrics": {
+        "away_score_bias": 1.7600000000000051,
+        "home_score_bias": -6.900000000000006,
+        "home_win_brier": null,
+        "home_win_log_loss": null,
+        "margin_mae": 8.66000000000001,
+        "margin_rmse": 8.66000000000001,
+        "n_games": 1,
+        "n_probability_games": 0,
+        "score_mae": 4.330000000000005,
+        "score_rmse": 5.0352557035368175,
+        "total_bias": -5.139999999999986,
+        "total_mae": 5.139999999999986,
+        "total_rmse": 5.139999999999986
+      },
+      "model": "FAZ13",
+      "model_version": "2bbe3c39d7af2122542cb127fc6a044001553a4d",
+      "scope": "FINAL_WITH_OT"
+    },
+    {
+      "calibration_status": "NOT_ESTABLISHED",
+      "historical_walk_forward": {
+        "calibration_status": "NOT_ESTABLISHED",
+        "corrected_metrics": null,
+        "evaluated_games": 0,
+        "folds": [],
+        "input_games": 1,
+        "insufficient_training_games": 1,
+        "invalid_corrections": 0,
+        "method": "expanding_window_team_score_bias",
+        "min_training_games": 30,
+        "original_metrics": null,
+        "status": "insufficient_verified_history",
+        "usage": "offline_research_only"
+      },
+      "metrics": {
+        "away_score_bias": 1.657899999999998,
+        "home_score_bias": -6.835800000000006,
+        "home_win_brier": null,
+        "home_win_log_loss": null,
+        "margin_mae": 8.493700000000004,
+        "margin_rmse": 8.493700000000004,
+        "n_games": 1,
+        "n_probability_games": 0,
+        "score_mae": 4.246850000000002,
+        "score_rmse": 4.973770905962601,
+        "total_bias": -5.177900000000022,
+        "total_mae": 5.177900000000022,
+        "total_rmse": 5.177900000000022
+      },
+      "model": "FAZ28_NORMAL_V1/MC",
+      "model_version": "2bbe3c39d7af2122542cb127fc6a044001553a4d",
+      "scope": "REGULATION_ONLY"
+    }
+  ],
+  "distinct_fixtures": 3,
+  "error_sign": "prediction_minus_actual",
+  "ledgers": [
+    {
+      "integrity": "ok",
+      "ledger": "/workspace/scratch/faz25-history-poll/diagnostic-ledger.sqlite"
+    },
+    {
+      "integrity": "ok",
+      "ledger": "/workspace/scratch/faz28-real-v1udwyw4/ledger.sqlite"
+    }
+  ],
+  "policy": "Observed results may train only later predictions; never alter original forecasts",
+  "preservation": {
+    "after_sha256": {
+      "/workspace/scratch/faz25-history-poll/diagnostic-ledger.sqlite": "fab04031283455f2a6034e33417f169d68f0a02f732bbd3fe819444eb8d84fab",
+      "/workspace/scratch/faz28-real-v1udwyw4/ledger.sqlite": "8cf5c98cc124a7144401a52ace34725d9a3d4545f86259552b45d4c16ff23ba9"
+    },
+    "before_sha256": {
+      "/workspace/scratch/faz25-history-poll/diagnostic-ledger.sqlite": "fab04031283455f2a6034e33417f169d68f0a02f732bbd3fe819444eb8d84fab",
+      "/workspace/scratch/faz28-real-v1udwyw4/ledger.sqlite": "8cf5c98cc124a7144401a52ace34725d9a3d4545f86259552b45d4c16ff23ba9"
+    },
+    "forecast_regeneration": false,
+    "legacy_results_not_new_model_training_eligibility": true,
+    "simulation_rerun": false,
+    "source_mode": "READ_ONLY",
+    "unchanged": true
+  },
+  "rows": [
+    {
+      "actual_away": 112,
+      "actual_home": 106,
+      "actual_margin": -6,
+      "away_error": -6.42,
+      "context": {
+        "away": "PHI",
+        "date": "2026-11-05",
+        "home": "DET"
+      },
+      "expected_away": 105.58,
+      "expected_home": 108.49,
+      "final_evidence_sha256": "1255f42eb21101bfe6ade1f4854ff7a1e2fd9b5999e5d9e1414cc3da79479c2f",
+      "fixture_id": "401909922",
+      "generated_at": 1793827475,
+      "home_error": 2.49,
+      "margin_absolute_error": 8.91,
+      "margin_error": 8.91,
+      "missing_data": [
+        "PREMATCH_INJURIES",
+        "PREMATCH_ROSTERS",
+        "CALIBRATED_WIN_PROBABILITY"
+      ],
+      "model": "FAZ13",
+      "model_version": "9bd8ab492680174accb18afc43dd0426b578ce32",
+      "predicted_margin": 2.91,
+      "recorded_utc": 1793827475,
+      "result_observed_utc": 1793852671,
+      "scope": "FINAL_WITH_OT",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909922",
+      "start_utc": 1793836800,
+      "status": "evaluated",
+      "total_absolute_error": 3.93,
+      "winner_direction_correct": false
+    },
+    {
+      "actual_away": 120,
+      "actual_home": 105,
+      "actual_margin": -15,
+      "away_error": -8.66,
+      "context": {
+        "away": "ATL",
+        "date": "2026-11-05",
+        "home": "WSH"
+      },
+      "expected_away": 111.34,
+      "expected_home": 111.71,
+      "final_evidence_sha256": "e8c4cfdc8b7e1eaa564608ce9217bc101ef0f5767aa17bbb2b8780a33fd8a159",
+      "fixture_id": "401909923",
+      "generated_at": 1793827477,
+      "home_error": 6.71,
+      "margin_absolute_error": 15.37,
+      "margin_error": 15.37,
+      "missing_data": [
+        "PREMATCH_INJURIES",
+        "PREMATCH_ROSTERS",
+        "CALIBRATED_WIN_PROBABILITY"
+      ],
+      "model": "FAZ13",
+      "model_version": "9bd8ab492680174accb18afc43dd0426b578ce32",
+      "predicted_margin": 0.37,
+      "recorded_utc": 1793827477,
+      "result_observed_utc": 1793852671,
+      "scope": "FINAL_WITH_OT",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909923",
+      "start_utc": 1793836800,
+      "status": "evaluated",
+      "total_absolute_error": 1.95,
+      "winner_direction_correct": false
+    },
+    {
+      "actual_away": 104,
+      "actual_home": 114,
+      "actual_margin": 10,
+      "away_error": 1.76,
+      "context": {
+        "away": "CHA",
+        "date": "2026-11-05",
+        "home": "BKN"
+      },
+      "expected_away": 105.76,
+      "expected_home": 107.1,
+      "final_evidence_sha256": "0c82e8bb29bade350cb0796432e40d4e79d3076c91c54b5f6b3a810e6b10f9ce",
+      "fixture_id": "401909925",
+      "generated_at": 1793833437,
+      "home_error": -6.9,
+      "margin_absolute_error": 8.66,
+      "margin_error": -8.66,
+      "missing_data": [
+        "PREMATCH_INJURIES",
+        "PREMATCH_ROSTERS",
+        "CALIBRATED_WIN_PROBABILITY"
+      ],
+      "model": "FAZ13",
+      "model_version": "2bbe3c39d7af2122542cb127fc6a044001553a4d",
+      "predicted_margin": 1.34,
+      "recorded_utc": 1793833437,
+      "result_observed_utc": 1793852672,
+      "scope": "FINAL_WITH_OT",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909925",
+      "start_utc": 1793838600,
+      "status": "evaluated",
+      "total_absolute_error": 5.14,
+      "winner_direction_correct": true
+    },
+    {
+      "actual_away": 104,
+      "actual_home": 114,
+      "actual_margin": 10,
+      "away_error": 1.6579,
+      "context": {
+        "away": "CHA",
+        "date": "2026-11-05",
+        "home": "BKN"
+      },
+      "distribution": {
+        "actual_regulation_total": 218,
+        "inside_p05_p95": true,
+        "overtime": false,
+        "p05": 181.0,
+        "p95": 244.0,
+        "regulation_probabilities": {
+          "away_regulation_win_probability": 0.4574,
+          "home_regulation_win_probability": 0.5229,
+          "regulation_tie_probability": 0.0197
+        },
+        "scope_status": "UNVALIDATED_REGULATION_PROXY"
+      },
+      "expected_away": 105.6579,
+      "expected_home": 107.1642,
+      "final_evidence_sha256": "0c82e8bb29bade350cb0796432e40d4e79d3076c91c54b5f6b3a810e6b10f9ce",
+      "fixture_id": "401909925",
+      "generated_at": 1793833437,
+      "home_error": -6.8358,
+      "margin_absolute_error": 8.4937,
+      "margin_error": -8.4937,
+      "missing_data": [
+        "PREMATCH_INJURIES",
+        "PREMATCH_ROSTERS",
+        "CALIBRATED_WIN_PROBABILITY"
+      ],
+      "model": "FAZ28_NORMAL_V1/MC",
+      "model_version": "2bbe3c39d7af2122542cb127fc6a044001553a4d",
+      "predicted_margin": 1.5063,
+      "quarter_comparison": [
+        {
+          "actual_away": 24,
+          "actual_home": 21,
+          "expected": {
+            "away": 26.44,
+            "home": 26.78,
+            "total": 53.22
+          },
+          "quarter": 1
+        },
+        {
+          "actual_away": 33,
+          "actual_home": 29,
+          "expected": {
+            "away": 26.44,
+            "home": 26.78,
+            "total": 53.22
+          },
+          "quarter": 2
+        },
+        {
+          "actual_away": 23,
+          "actual_home": 30,
+          "expected": {
+            "away": 26.44,
+            "home": 26.77,
+            "total": 53.21
+          },
+          "quarter": 3
+        },
+        {
+          "actual_away": 24,
+          "actual_home": 34,
+          "expected": {
+            "away": 26.44,
+            "home": 26.77,
+            "total": 53.21
+          },
+          "quarter": 4
+        }
+      ],
+      "recorded_utc": 1793833437,
+      "result_observed_utc": 1793852804,
+      "scope": "REGULATION_ONLY",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909925",
+      "start_utc": 1793838600,
+      "status": "evaluated",
+      "total_absolute_error": 5.1779,
+      "winner_direction_correct": true
+    }
+  ],
+  "statistical_status": "SMALL_SAMPLE_DESCRIPTIVE_ONLY"
+}
