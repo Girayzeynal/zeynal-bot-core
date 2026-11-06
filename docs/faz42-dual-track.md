@@ -60,3 +60,15 @@ python -m faz42_dry_run --live-discovery # sadece opt-in salt okunur discovery
 ```
 
 Sonraki aşama: kaynak izinlerini ve zaman kanıtlarını doğrulamak, diğer ligler için gerçek adaptörler edinmek, oyuncu/PBP/lineup kapsamını artırmak. Gerçek kayıt saklama hedefi ve operasyonel zamanlayıcı incelenip ayrıca onaylanmadan üretim pilotu etkinleştirilmez. Kalibrasyon için yeterli izinli/PIT güvenli örnek ve ayrı kronolojik test dönemi gerekir. Tek maç veya bu küçük arşiv üzerinden katsayı optimizasyonu yapılmadı.
+
+## Gerçek canlı discovery dry-run — 6 Kasım 2026
+
+Kod/model SHA `9765926ec0cbb944b70745ddd664a6fd6565443e`, temiz geliştirme dalı. Önce push 42225453933 ve PR 42225461440 için unit-tests/docker-build başarıları ve iki CI günlüğündeki **888/OK** doğrulandı. Ardından gerçek kaynaklara yalnızca beş salt okunur istek yapıldı.
+
+Kesit: **2026-11-06 13:28:15 UTC / 16:28:15 TSİ**. Üç ESPN takvim günü ve EuroLeague/EuroCup sezon kataloğu HTTP 200 döndürdü. Önümüzdeki 48 saat için kanonik tekilleştirmeyle **20 maç** bulundu: **16 NBA, 4 EuroLeague, 0 EuroCup**. EuroCup kataloğunda sezon boyunca 128 gelecekteki fixture olması, 48 saatlik ufukta 128 maç olduğu anlamına gelmez.
+
+**20/20 ABSTAIN — SCHEDULE_USAGE_NOT_ESTABLISHED.** Hiçbir kaynak izni otomatik PERMITTED yapılmadı. Gerçek tahmin, bellek içi skor projeksiyonu, kalıcı snapshot ve gerçek tahmin–sonuç çifti sayıları **0**. Bu canlı çalışmada geçmiş arşiv girdisi model hesabına bağlanmadı; ilk izin kapısı zaten reddetti. Gerçek Monte Carlo/tahmin/sonuç zinciri doğrulandı denmez; onun pozitif uçtan uca testi sentetiktir.
+
+Örnek ilk fixture kaynağa göre EuroLeague BES–ZAL: 6 Kasım 17:00 UTC / 20:00 TSİ; aynı ABSTAIN kuralına tabidir. Takvim kaynağının iddiası bağımsız ikinci sağlayıcı tasdiki değildir. Ham API yanıtları Git'e/harici depolamaya yüklenmedi; rapor kaynak URL, UTC gözlem/ingestion ve digest gibi tanı metaverisini içerir. Bunlar imzalı/kalıcı bir kaynak arşivinin veya gerçek prospektif tahmin kaydının yerine geçmez.
+
+Kanıt: `docs/evidence/faz42-live-discovery-20261106.json`. Son dokümantasyon commit'i kodu değiştirmez; 888 test sonucu aynı kod için geçerlidir ve yeni HEAD'in CI'si ayrıca kontrol edilir. Araştırma SQLite SHA'sı `43adc6de12bc065e38b666dad8ba2cd9a48c5786c1185b396de5a37ebe4dd002` olarak değişmeden kaldı. Gerçek saklama/scheduler onayı, izinli kaynaklar ve yeterli PIT veri kapsamı açık blokajlardır.
