@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "phase": "FAZ39_PROVIDER_NEUTRAL_TRANSFER",
+  "base_sha": "d96e535a92146503fe594f23bb413b9bf5e00152",
+  "branch": "feature/faz39-time-guarded-prospective",
+  "created_utc": "2026-11-05T21:58:32.229146+00:00",
+  "tests": {
+    "all": 811,
+    "failures": 0,
+    "new_storage_tests": 28,
+    "wal_active_writer_tests": 5,
+    "faz39_total": 86,
+    "full_log_sha256": "a0668582c0c5ba542a6078208ecacae13f51a5c729b63060f37760cdae6daa88",
+    "focused_log_sha256": "d14f6b24d612b424a07aed414cd50d3db7812955c236a03a720743b0cb387aee",
+    "compileall": "PASSED"
+  },
+  "preserved_local_code_and_config": {
+    "faz39_recovery.py": "86dce2c753fbc2d2a861eff934cf2bfaa9fb850a46c5eaba88c98221affddd5c",
+    "research_recovery.py": "f4d531a1157b4413c3d6f1d1fcb29a236d0d435ac3d6ba2cc9330e662fd9340b",
+    "faz25.py": "18096a40127855b213596ff543784a02892a67de4c80cd1bb90f118ced94ab0d",
+    "config/faz39-local.example.json": "776d65923ff23da4fd50cdd4d97afcf37235ce13601a10d92955b5f46adde2e9"
+  },
+  "original_records_models_evidence_hashes_unchanged": true,
+  "default_storage": {
+    "mode": "LOCAL_ONLY",
+    "external_target": null,
+    "upload_enabled": false
+  },
+  "local_transfer_experiment": {
+    "status": "LOCAL_RECOVERY_VERIFIED",
+    "bundle_sha256": "6edbd766c0a7a1fbf567d3241a2dd67811c16e77f04dbca83963b8c23ae6265e",
+    "manifest_sha256": "c6598ed87fb5c45952c96cb142d870ea4b787f1e98b9b9ad8bf182b0de95c1fa",
+    "objects": 3,
+    "repeat_export_status": "ALREADY_EXPORTED",
+    "source_unchanged": true,
+    "separate_python_processes": true,
+    "scope": "SAME_CLOUD_RUNTIME_SYNTHETIC_DATA_ONLY"
+  },
+  "external_adapter_test": "IN_MEMORY_CONTRACT_ONLY_NO_NETWORK",
+  "real_external_provider_configured": false,
+  "external_upload_performed": false,
+  "separate_cloud_runtime_verified": false,
+  "real_new_prospective_records": 0,
+  "production_scheduler_enabled": false,
+  "deploy_or_main_merge": false,
+  "ci_for_final_sha": "VERIFY_AFTER_PUSH"
+}

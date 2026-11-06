@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "phase": "FAZ39_INDEPENDENT_RUNTIME_RECOVERY_READINESS",
+  "created_utc": "2026-11-06T05:40:47.091590+00:00",
+  "task_url": "https://github.com/Girayzeynal/zeynal-bot-core/pull/14#issuecomment-6677628143",
+  "base_sha": "ac4a4bc6d6698f5f6ea55b6c6b9c4e26a8ac4c87",
+  "branch": "feature/faz39-time-guarded-prospective",
+  "pr": 14,
+  "tests": {
+    "all": 889,
+    "new": 46,
+    "contract": 41,
+    "integration": 5,
+    "final_failures": 0,
+    "full_log_sha256": "5de9738de0792eef0c4fae8ff0103bb25a48d1425df40525e6376bc33797d344",
+    "focused_log_sha256": "715350068c3a8a3fb2d97f459eae5d11808b07902a0f82e2e0f3907272d46ac0",
+    "reproduced_and_fixed": {
+      "tests": 1,
+      "initial_failures": 1,
+      "cause": "Attempt key included mutable filesystem/storage metadata; same destination runtime/run could create a second apparent outcome",
+      "fix": "Attempt key uses stable destination runtime/run plus exact pin digest/generation; conflicting metadata is immutable outcome content",
+      "red_log_sha256": "5949492c0adb204c2e2e238a1ba142bdc218374f7aaf44b4b3f40dd5f152b3e9"
+    }
+  },
+  "new_file_sha256": {
+    "faz39_checkpoint_contract.py": "e66d6cd9b97932676babff02fce2b5f51d6bb3e21d3b6b50f72905b975ad045f",
+    "tests/test_faz39_checkpoint_contract.py": "9e709ae58febbf7687b9ca05bcd735d13b076588047015a687b1e164fdad22fd",
+    "tests/test_faz39_checkpoint_integration.py": "75b2ec6ef06599466f0921a8c324fad367ad7967163451e27fb875ec83a80e40",
+    "docs/faz39-independent-recovery-runbook.md": "1bbf73e74bfc92513169854c8fc2acfb0478e31e3370ce468f9d6b1f7ecd0d2d",
+    "docs/faz39-transfer-protocol.md": "880fc1cf32bb497e4c185dc636b0cb5fd877d0772f904d4547dc6ecaf8276cd3"
+  },
+  "unchanged": {
+    "fly.toml": "a35ebbdf49b7d3e80868181c7f015d619dc0799195b30a97b163af4f88e687b8",
+    "Dockerfile": "e3a55f288ad2897513456552024ccfcae8c278b977c061ae5631efd7f1b552b7",
+    "faz39.py": "c593b1cf63fbf8da748c78f92a256ec5d494f60e1af6c8508df037b81d5ee5ad",
+    "faz39_transfer.py": "141b3e92035b618b9425c352bd44a2739518caf04a523dff36d64e30847c9433",
+    "faz39_recovery.py": "86dce2c753fbc2d2a861eff934cf2bfaa9fb850a46c5eaba88c98221affddd5c",
+    "faz39_sandbox.py": "0555b3890e75b9c67c58989d898968d51ccb27fad5791e457d190e3094d0b35d",
+    "fly.faz39-sandbox.toml": "de214ffaacbac933d5442426bdfd39d67d813f2fe109228fcf89728581376752",
+    "Dockerfile.faz39-sandbox": "749ad9f6d45de3bb7f341f511141d1120fb604a6c289c4af0eeeb17d2207c3dd",
+    "Dockerfile.faz39-sandbox.dockerignore": "5c70755a3dd56a08ea178f136d9264be3cbfe0f7e94886fa8e60e05f54a783f0",
+    "config/faz39-local.example.json": "776d65923ff23da4fd50cdd4d97afcf37235ce13601a10d92955b5f46adde2e9",
+    "config/faz39-sandbox-image-files.json": "32779ce5e36dd7284b31e8e2a07bb67effee44dd5f5144903cfda020054f878f",
+    ".github/workflows/python-tests.yml": "8941b53db7eb60fbb98d8ac35ae8866be166553dbe45d1e57b3fbd3de9190263"
+  },
+  "preserved": {
+    "original_files": {
+      "checked": 7,
+      "mismatches": []
+    },
+    "model_sources": {
+      "checked": 4,
+      "mismatches": []
+    },
+    "prior_faz29_to_faz36_tracked_files": {
+      "checked": 36,
+      "mismatches": []
+    }
+  },
+  "new_module_imports": [
+    "dataclasses",
+    "hashlib",
+    "json",
+    "math",
+    "re",
+    "time",
+    "typing"
+  ],
+  "verification_level": "DETERMINISTIC_FAKE_CONTRACT_AND_LOCAL_SYNTHETIC_SQLITE_INTEGRATION",
+  "real_external_transport_used": false,
+  "cryptographic_attestation_verified": false,
+  "second_cloud_runtime_access": false,
+  "separate_cloud_runtime_verified": false,
+  "durable_storage_verified": false,
+  "cross_runtime_status": "NOT_VERIFIED",
+  "external_defaults": {
+    "enabled": false,
+    "target_id": null,
+    "issuer_id": null,
+    "usage": "DISABLED",
+    "attestation_scope": "UNCONFIGURED"
+  },
+  "collector_storage_default": {
+    "mode": "LOCAL_ONLY",
+    "external_target": null,
+    "upload_enabled": false
+  },
+  "new_real_prospective_records": 0,
+  "production_scheduler_enabled": false,
+  "deploy_performed": false,
+  "main_merge": false,
+  "secret_changes": false,
+  "external_upload_performed": false,
+  "paid_resources_allocated": false,
+  "new_head_ci": "VERIFY_EXACT_SHA_AFTER_PUSH",
+  "blockers": [
+    "No authorized live storage provider/namespace or transport implementation",
+    "No installed independent public-key/attestation verifier or external high-water pin authority",
+    "No independent second Cloud runtime or verified distinct durable storage",
+    "Actual provider CAS/streaming read/durable ACK/partition/power-loss guarantees unproved",
+    "Live quarantine/fresh-UTC/expired-operation audit orchestration is not enabled"
+  ]
+}

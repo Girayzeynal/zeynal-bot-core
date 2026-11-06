@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1
+# Preparation only: explicitly selected source files, no bot entry point or data.
+FROM python:3.11-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /sandbox
+COPY requirements.faz39-sandbox.txt /sandbox/
+# Optional session CA mount for managed Cloud builds; never stored in a layer.
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then export PIP_CERT=/run/secrets/proxy_ca; fi; \
+    python -m pip install --no-cache-dir -r requirements.faz39-sandbox.txt
+COPY --chmod=0444 ["__init__.py","backtest_uncertainty.py","baseline_numeric_reconciliation.py","bound_backtest_report.py","bound_error_uncertainty.py","faz24.py","faz25.py","faz28.py","faz32.py","faz32_collect.py","faz33.py","faz34.py","faz35.py","faz36.py","faz37.py","faz39.py","faz39_recovery.py","faz39_sandbox.py","faz39_transfer.py","fly.faz39-sandbox.toml","historical_backtest.py","historical_research.py","league_profiles.py","model_evaluation.py","nba_history_contract.py","nba_prematch_orchestrator.py","nba_research_store.py","nba_season_2027.py","period_feature_layer.py","prediction_inputs.py","prediction_ledger.py","prematch_ledger_bridge.py","prematch_monte_carlo.py","prematch_series_audit.py","prospective_cuts.py","prospective_error_audit.py","research_recovery.py","shadow_features.py","shadow_pairs.py","shadow_probability.py","shadow_ridge.py","walk_forward_calibration.py","/sandbox/"]
+COPY --chmod=0444 ["baseline/__init__.py","baseline/team_baseline_store.py","/sandbox/baseline/"]
+COPY --chmod=0444 ["core/__init__.py","core/aggregate_engine.py","/sandbox/core/"]
+COPY --chmod=0444 ["docs/evidence/faz33-official-season-20261105.json","/sandbox/docs/evidence/"]
+COPY --chmod=0444 ["faz13_engine/__init__.py","faz13_engine/faz13_engine.py","/sandbox/faz13_engine/"]
+COPY --chmod=0444 ["faz22_engine/__init__.py","faz22_engine/faz22_engine.py","/sandbox/faz22_engine/"]
+COPY --chmod=0444 ["faz23_engine/__init__.py","faz23_engine/faz23_engine.py","/sandbox/faz23_engine/"]
+COPY --chmod=0444 ["providers/__init__.py","providers/espn_adapter.py","providers/espn_bound_results.py","providers/espn_boxscore_pace.py","providers/espn_completed_event.py","providers/espn_identity_audit.py","providers/espn_ledger_ingest.py","providers/espn_pace_evidence.py","providers/espn_quality_audit.py","providers/espn_rejection_diagnostics.py","providers/espn_result_evidence.py","providers/espn_scheduled_fixture.py","providers/espn_scoreboard_history.py","providers/espn_season_filter.py","providers/espn_status_shapes.py","providers/espn_turkey_fixture_lookup.py","providers/euroleague_fixture_evidence.py","providers/euroleague_live.py","providers/euroleague_result_evidence.py","providers/euroleague_results.py","providers/pace_evidence.py","/sandbox/providers/"]
+ARG FAZ39_SOURCE_SHA
+RUN python -c 'import os,re,pathlib; s=os.environ.get("FAZ39_SOURCE_SHA",""); assert re.fullmatch("[0-9a-f]{40}",s), "FAZ39_SOURCE_SHA required"; p=pathlib.Path("source-sha.txt"); p.write_text(s); p.chmod(0o444); [d.chmod(0o555) for d in pathlib.Path(".").rglob("*") if d.is_dir()]; pathlib.Path(".").chmod(0o555)'
+USER 10001:10001
+CMD ["python", "-I", "/sandbox/faz39_sandbox.py"]

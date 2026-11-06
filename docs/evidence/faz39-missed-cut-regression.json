@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "incident": "FAZ38_T6_MISSED_CUT",
+  "espn_fixture_id": "401909936",
+  "match": "Phoenix Suns vs Orlando Magic",
+  "initial_clock_utc": "2026-11-05T20:04:44+00:00",
+  "invocation_gate_utc": "2026-11-05T20:05:12.151697+00:00",
+  "authorized_window_utc": ["2026-11-05T20:00:00+00:00", "2026-11-05T20:05:00+00:00"],
+  "incident_status": "MISSED_CUT",
+  "incident_new_real_predictions": 0,
+  "prior_model_sha": "2f24acb6e8f569b35c9ee1c241d8fe672da848d0",
+  "runtime_evidence_path": "/workspace/scratch/faz38-live-dwh3zx93/final-report.json",
+  "regression": "tests/test_faz39.py:test_faz38_200444_to_200512_delay_is_rechecked_after_local_checks",
+  "regression_usage": "SYNTHETIC_TEST_ONLY",
+  "expected_regression_behavior": "Reject final gate after local checks consume the remaining window; commit no prediction or fixture row",
+  "architectural_prevention": "Complete remote prechecks before the window; start the armed foreground process before the cut; no network or history refresh during capture",
+  "backfill_authorized": false,
+  "real_faz39_forecasts_claimed": 0,
+  "production_scheduler_enabled": false,
+  "external_storage_configured": false,
+  "separate_cloud_restore_verified": false
+}

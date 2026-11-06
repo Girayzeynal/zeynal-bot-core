@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "phase": "FAZ39_TEMPORARY_FILE_OWNERSHIP",
+  "base_sha": "058c35fcecb2809dfcf298b092d3a90654e334fb",
+  "branch": "feature/faz39-time-guarded-prospective",
+  "pr": 14,
+  "created_utc": "2026-11-06T04:39:00.829202+00:00",
+  "fixed_issue": "Cleanup after O_EXCL temporary-name collision could unlink another writer temporary file; cleanup now requires successful creation by this call",
+  "tests": {
+    "all": 828,
+    "failures": 0,
+    "safety": 17,
+    "storage_combined": 45,
+    "faz39_total": 103,
+    "new_this_followup": 1,
+    "new_this_request": 17,
+    "ownership_reproduction_errors_before_fix": 1,
+    "ownership_red_log_sha256": "5d5f711f408d85ad7a5d534564ba6d01f7edd99f5a820b38973e7932a3739630",
+    "full_log_sha256": "3750db67407d9ffdea43dcadc06bb6fdc5b3e078c26b4508a84b4e6e4d6ea5c5",
+    "compileall": "PASSED"
+  },
+  "local_verification": {
+    "status": "LOCAL_RECOVERY_VERIFIED",
+    "pin_outside_source_directory": true,
+    "different_filesystems_verified": false,
+    "separate_python_processes": true,
+    "source_unchanged": true,
+    "manifest_sha256": "c6598ed87fb5c45952c96cb142d870ea4b787f1e98b9b9ad8bf182b0de95c1fa"
+  },
+  "original_records_models_and_recovery_config_preserved": true,
+  "default_storage": {
+    "mode": "LOCAL_ONLY",
+    "external_target": null,
+    "upload_enabled": false
+  },
+  "external_upload_performed": false,
+  "separate_cloud_runtime_verified": false,
+  "new_real_prospective_records": 0,
+  "production_scheduler_enabled": false,
+  "deploy_or_main_merge": false,
+  "ci_final_sha": "VERIFY_AFTER_PUSH"
+}

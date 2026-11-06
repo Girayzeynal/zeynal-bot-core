@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "collection": {
+    "database": "/workspace/state/faz39/prospective.sqlite",
+    "research_database": "/workspace/state/faz39/research.sqlite",
+    "state_directory": "/workspace/state/faz39",
+    "legacy_databases": {}
+  },
+  "storage": {
+    "mode": "LOCAL_ONLY",
+    "external_target": null,
+    "upload_enabled": false
+  }
+}

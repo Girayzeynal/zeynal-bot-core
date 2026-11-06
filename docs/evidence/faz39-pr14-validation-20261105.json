@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "phase": "FAZ39_PR14_REVIEW",
+  "review_url": "https://github.com/Girayzeynal/zeynal-bot-core/pull/14#issuecomment-6668969290",
+  "branch": "feature/faz39-time-guarded-prospective",
+  "base_sha": "19555088a86b249829e43aa8f3bb1b060fb02d61",
+  "recorded_utc": "2026-11-05T21:08:24.933635+00:00",
+  "tests": {
+    "all_regressions": 781,
+    "failures": 0,
+    "new_regressions": 26,
+    "faz39_total": 56,
+    "full_run_log_sha256": "1a85d2d62785842656373b2251ca8d90e89a0fff2ac7832860bc9dd9247dbaf2",
+    "first_integration_run": {
+      "tests": 780,
+      "errors": 12,
+      "cause": "Helper IsolatedAsyncioTestCase doCleanups called without its runner leaked mocked wall clock; transferred cleanup callbacks and assert clock/sleep isolation after every new test",
+      "fixed": true,
+      "log_sha256": "a5621400c628e01ce4d2c96d33c46ef6d30e747f6eef9f8380f8df10c5188d65"
+    },
+    "positive_capture_and_recovery_usage": "SYNTHETIC_TEST_ONLY",
+    "compileall": "PASSED"
+  },
+  "baseline_latency": {
+    "source_sha": "19555088a86b249829e43aa8f3bb1b060fb02d61",
+    "scope": "current Codex runtime; empty SYNTHETIC_TEST database; no mobile or production claim",
+    "quantiles": "nearest rank; descriptive, not a latency SLA",
+    "measurements": {
+      "git_source_check": {
+        "samples": 128,
+        "p50_ms": 15.439715,
+        "p95_ms": 19.335377,
+        "p99_ms": 20.889231,
+        "max_ms": 21.181639
+      },
+      "cut_proofs_empty": {
+        "samples": 128,
+        "p50_ms": 0.136285,
+        "p95_ms": 0.302996,
+        "p99_ms": 2.716057,
+        "max_ms": 12.0006
+      },
+      "ledger_has_empty": {
+        "samples": 128,
+        "p50_ms": 0.074072,
+        "p95_ms": 0.31879,
+        "p99_ms": 1.711846,
+        "max_ms": 2.889739
+      }
+    }
+  },
+  "live_read_only_sources": {
+    "scope": "READ_ONLY_REAL_PROVIDER_AND_MUTATED_RESPONSE_PROBES",
+    "new_real_prospective_records": 0,
+    "sources": {
+      "utc": {
+        "status": "HTTP_200",
+        "url": "https://timeapi.io/api/time/current/zone?timeZone=UTC",
+        "sha256": "87e63e09c2f42edb93fc7e18abe62ea2ca59b94914f5599ac8cfa52511995f82",
+        "observed_utc": 1793912582.100214,
+        "elapsed_seconds": 0.7995651160017587
+      },
+      "directory": {
+        "status": "HTTP_200",
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "sha256": "9133e21f5de866c269df1d9e6e49bf20cf84b9e856313cabfbdb4e1845895e99",
+        "observed_utc": 1793912582.245995,
+        "elapsed_seconds": 0.14540647801186424
+      },
+      "schedule": {
+        "status": "HTTP_200",
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909936",
+        "sha256": "3d87f666bd52765f23fb5e0ac09010540a7b65ba555c475865eee667ed571925",
+        "observed_utc": 1793912582.3667984,
+        "elapsed_seconds": 0.12010544398799539
+      },
+      "official": {
+        "status": "HTTP_200",
+        "url": "https://www.nba.com/games?date=2026-11-05",
+        "sha256": "7ec55d645927697cddf2805ba260917bbe7fa28a4aa792e7661ac65fa333fbe3",
+        "observed_utc": 1793912583.0913565,
+        "elapsed_seconds": 0.7235980569967069
+      }
+    },
+    "utc_verified_epoch": 1793912582.036102,
+    "official_crosscheck": {
+      "status": "VERIFIED",
+      "fixture": {
+        "provider": "ESPN",
+        "provider_fixture_id": "401909936",
+        "start_ts_utc": 1793930400,
+        "home_team_id": "21",
+        "away_team_id": "19"
+      },
+      "nba_id": "0022600187",
+      "nba_start_utc": "2026-11-06T02:00:00Z"
+    },
+    "mutated_real_schema_test": {
+      "status": "SAFELY_REFUSED",
+      "reason": "OFFICIAL_SCHEDULE_UNAVAILABLE"
+    }
+  },
+  "preservation": {
+    "original_files": {
+      "checked": 7,
+      "mismatches": []
+    },
+    "model_sources": {
+      "checked": 4,
+      "mismatches": []
+    },
+    "prior_faz29_to_faz36_tracked_files": {
+      "checked": 36,
+      "mismatches": []
+    },
+    "docs/evidence/faz39-missed-cut-regression.json": "d606300f220eb696d5abfe05584eb20b0f8f46a97fe7057735a30e413b3849a7",
+    "docs/evidence/faz39-validation-20261105.json": "dba9c045179ad109eb69be035aa521991087b2a94f934102271c34abe61538f5"
+  },
+  "new_real_prospective_records": 0,
+  "separate_codex_cloud_runtime_access": false,
+  "separate_cloud_persistence_verified": false,
+  "new_process_recovery_test": "PASSED_SYNTHETIC_ONLY_SAME_RUNTIME",
+  "external_upload_performed": false,
+  "production_scheduler_enabled": false,
+  "fly_or_telegram_changed": false,
+  "main_merge": false,
+  "new_commit_ci": "VERIFY_EXACT_SHA_AFTER_PUSH",
+  "postcommit_latency_reproduction": "python -m faz39_probe NEW_ABSOLUTE_LOCAL_DIRECTORY --samples 128"
+}

@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "phase": "FAZ39",
+  "branch": "feature/faz39-time-guarded-prospective",
+  "base_sha": "2f24acb6e8f569b35c9ee1c241d8fe672da848d0",
+  "recorded_utc": "2026-11-05T20:33:23.592783+00:00",
+  "tests": {
+    "focused": {
+      "count": 30,
+      "failures": 0,
+      "log_sha256": "942c44ef2446d120e3fad96fcb4e22d94c5b826f895b0b7f99eca7e5a76125b2"
+    },
+    "all_regressions": {
+      "count": 755,
+      "failures": 0,
+      "seconds": 47.842,
+      "log_sha256": "96b15600e2c6a964a1985494e242eec005cf0d5f3d3269c157734f6d039070ae"
+    },
+    "positive_forecast_tests_usage": "SYNTHETIC_TEST_ONLY"
+  },
+  "preservation": {
+    "original_files": {
+      "checked": 7,
+      "changed": []
+    },
+    "model_sources": {
+      "checked": 4,
+      "changed": []
+    },
+    "prior_faz29_to_faz36_tracked_files": {
+      "checked": 36,
+      "changed": []
+    },
+    "faz38_incident_report_sha256": "f64729bbe4f9fa5ccc8368a5e5fc4c63525d2b79c3a798846a80cdcdda2d1a3b"
+  },
+  "utc_provider_probe": {
+    "usage": "READ_ONLY_SOURCE_CHECK_NOT_FORECAST",
+    "status": "VERIFIED",
+    "url": "https://timeapi.io/api/time/current/zone?timeZone=UTC",
+    "verified_utc_epoch": 1793910681.663788,
+    "response_sha256": "f9ffddabc784690c95407f476803d9c99325843a4297f5e644c4d5609f9cf978"
+  },
+  "local_docker": "BLOCKED_UNIX_SOCKET_PERMISSION_BUILD_NOT_RUN",
+  "github_ci_for_new_commit": "MUST_VERIFY_AFTER_PUSH_DO_NOT_INFER_FROM_BASE_SHA",
+  "new_real_prospective_predictions": 0,
+  "original_models_modified": false,
+  "external_upload_performed": false,
+  "separate_cloud_runtime_restore_verified": false,
+  "production_scheduler_enabled": false,
+  "production_deployment": false,
+  "main_merge": false
+}
