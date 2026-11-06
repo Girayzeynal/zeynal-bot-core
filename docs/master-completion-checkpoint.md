@@ -44,3 +44,25 @@ Açık, kaynakla doğrulanmış player_in/player_out rolleri verildiğinde saf r
 NBA ve Disney kullanım koşulları referans sayfaları HTTP 200; EuroLeague koşul sayfası adayı HTTP 403 döndürdü. Sayfanın okunabilmesi kullanım hakkı tanınması değildir. Hiçbir izin UNKNOWN'dan PERMITTED'a çevrilmedi; izinli haber feed'i yapılandırılmadı ve haber içeriği toplanmadı. Kaynak URL/zaman/yanıt hash'leri kanıt raporunda, ham sayfa/PBP gövdeleri Git'e yüklenmedi.
 
 Yerel tam regresyon **910/910**; bu aşamada **14 yeni PBP/rotasyon testi**. Katalog aşaması `def2b23af9a13c8151fd868088d24d17d001b87a` için push 42227618369 ve PR 42227670008 unit-tests/docker-build başarılı. Gerçek uygun PBP/rotasyon maçı 0, yeni prospektif tahmin 0, eğitim/kalibrasyon yapılmadı. Kanıt: docs/evidence/master-pbp-20261106.json.
+
+## Aşama 3 — geliştirme /analyze, günlük plan ve son gönderim kapısı
+
+`faz43_development.py` üretim main başlangıcını import etmez, secret okumaz, uygulama/polling/webhook başlatmaz. `register_development_analyze` yalnızca durdurulmuş DEVELOPMENT uygulaması, açık chat allowlist ve mevcut /analyze handler'ı yoksa kayıt yapar. Veri/model beklemesinden sonra scope/chat yeniden kontrol edilir. Snapshot oluşturulduktan sonra kaynak izni sona ererse, cutoff eskirse veya maç başlarsa çıktı gönderilmez. Bu iki son gönderim açığı önce iki başarısız regresyonla yeniden üretildi, sonra kapatıldı.
+
+Takımlar sadece kaynak takım kimliği veya tam alias eşleşmesiyle çözülür; fuzzy eşleşme, belirsiz aynı gün fikstürü, geçmiş tarihe güncel veri veya cross-league kaynak reddedilir. Tarih Europe/Istanbul günü olarak doğrulanır. Yeterli/izinli kaynakta FAZ42 snapshot'ı yeniden kullanılır; 1Q–4Q, 1H/2H, takım toplamları, total, margin, üç normal süre olasılığı, 10.000 Monte Carlo/tohum/model/source SHA gösterilir. Sentetik kullanım açık etiketlidir ve varsayılan kapalıdır. Aynı fixture'ın pozitif snapshot'ı bellek içi cache'de değiştirilmez; cache gerçek kalıcı prospektif kayıt sayılmaz.
+
+FrozenInputsBackend yalnızca dışarıdan trusted pin'i verilen salt okunur geliştirme bundle'ını kabul eder; bundle kaynak kullanım izni vermez ve başka tarih verisine fallback yapmaz. Manuel prepare_day üç destekli ligde fixture'ı tekilleştirir; scheduler kurmaz veya gerçek ledger açmaz. Pozitif uçtan uca testler sentetiktir. Gerçek geliştirme backend'i henüz izinli kaynakla yapılandırılmadı.
+
+Legacy /analyze'da Faz13CoreOutput ismi kullanılıp import edilmediği için gerçek çıktı tipiyle NameError oluştuğu yeni testle yeniden üretildi. main.py'ye yalnızca eksik tip importu eklendi; FAZ13/22/23 katsayıları, eski kayıtlar ve production çalışma ortamı değiştirilmedi.
+
+Yerel tam regresyon **936/936**, bu aşamada **26 yeni test**; geliştirme/legacy odaklı grupta 33/33. Eski PBP checkpoint `b44708724a2a2e5646ddacdf883f200a10c40085` için push 42229035414 ve PR 42229043590 unit-tests/docker-build başarılı. Gerçek komut satırı smoke sonucu: DEVELOPMENT_SOURCE_NOT_CONFIGURED / DEVELOPMENT_DAY_SOURCE_UNAVAILABLE; kalıcı tahmin, Telegram mesajı ve scheduler 0. Kaynak izinleri/gerçek backend yokken skor uydurulmadı.
+
+```sh
+python -m faz43_development --request '/analyze NBA 2026-11-07 Detroit Pistons vs Philadelphia 76ers'
+python -m faz43_development --day 2026-11-06
+# İzinli hazırlanmış geliştirme bundle'ı varsa:
+python -m faz43_development --request '/analyze NBA YYYY-MM-DD HOME vs AWAY' \
+  --inputs /path/to/bundle.json --trusted-bundle-sha256 TRUSTED_SHA256
+```
+
+Bu komutlar Telegram botunu çalıştırmaz. Üretimde legacy /analyze yerine yeni akış etkinleştirilmedi; bu adım ayrıca review/onay/deploy gerektirir. Kanıt: docs/evidence/master-development-20261106.json.
