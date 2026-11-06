@@ -1,0 +1,40 @@
+{
+  "stage": "FAZ45_SCORE_BOUND_PLAYER_PBP_RESEARCH",
+  "created_utc": "2026-11-06T16:49:34.243351+00:00",
+  "base_sha": "5feacab0c1e33174045f9429b3ead7564f3089b3",
+  "base_ci": {
+    "push": 42252682557,
+    "pull_request": 42252693429,
+    "unit_tests": "success",
+    "docker_build": "success",
+    "tests_in_logs": 981
+  },
+  "files": {
+    "faz44_inputs.py": "2787fa53390de1f64eb4e44e2124eb63be03861428e21af140ac092d8d07a389",
+    "faz45_support.py": "21607e29bc945c9702d6c7df731c52f23d4a4c2a03c17b55ca80514a0f47ccbe",
+    "faz45_collection.py": "66d0bd46ea2a84dd2826330b73921c2518b44fa72c9128ea999ba70e69f0c2f7",
+    "tests/test_faz45_support.py": "02dfeb520dddb0a53931dcd15fc8d7d84116067a8272df8e1131a45eed3a537a",
+    "tests/test_faz45_collection.py": "ad9533181309f47d2f129c33e993d5e8bc231ce83760cda2b31c4613e3ca0216"
+  },
+  "tests": {
+    "baseline": 981,
+    "all": 1011,
+    "new": 30,
+    "focused_with_faz44_compatibility": 47,
+    "failures": 0,
+    "full_log_sha256": "a6cf5376e8c4915944621e06f80a264cfbcf60c8b34d6386635ac7088195deee",
+    "focused_log_sha256": "4885f9ee6112890db636fa3362342156b31f8517f53b6d8f7123ce5d829f8304"
+  },
+  "fixed_during_development": [
+    "Corrected synthetic expected half-margin delta from +3 to -1 after checking source periods",
+    "EL/EC composite score validation must replay its game child, not the whole player/stats composite"
+  ],
+  "actual_source_collection": "Not yet run at code checkpoint",
+  "source_permissions": "UNKNOWN_DEFAULT_UNCHANGED",
+  "prospective_records_created": 0,
+  "production_coefficients_changed": false,
+  "external_storage": "NOT_CONFIGURED",
+  "independent_cloud_recovery": "NOT_VERIFIED",
+  "scheduler": "NOT_INSTALLED",
+  "ci": "Verify exact new SHA after push and draft PR creation"
+}

@@ -1,0 +1,56 @@
+{
+  "stage": "FAZ45_SYNTHETIC_SQLITE_CONTENTION_CI_FIX",
+  "created_utc": "2026-11-06T17:03:04.725260+00:00",
+  "base_sha": "a0d56370e0c8f196326ac46b42f76642f30e1b8f",
+  "observed_ci": {
+    "push": {
+      "run_id": 42256963916,
+      "unit_tests": "success",
+      "docker_build": "success",
+      "tests": 1013
+    },
+    "pull_request": {
+      "run_id": 42256974412,
+      "job_id": 128026630699,
+      "unit_tests": "failure",
+      "docker_build": "success",
+      "tests": 1013,
+      "errors": 1,
+      "test": "test_concurrent_same_snapshot_creates_exactly_one_row",
+      "exception": "sqlite3.OperationalError: database is locked",
+      "statement": "BEGIN IMMEDIATE"
+    }
+  },
+  "root_cause": "SyntheticSnapshotStore fixed 100ms SQLite busy budget can expire under CI writer contention",
+  "fix": {
+    "scope": "SYNTHETIC_TEST_ONLY_TEMPORARY_FAZ42_TEST_DIRECTORY",
+    "default_busy_timeout_ms": 1500,
+    "minimum_ms": 1,
+    "maximum_ms": 5000,
+    "unbounded_retries": false,
+    "final_recording_time_checks_preserved": true,
+    "real_prediction_storage_activated": false
+  },
+  "tests": {
+    "all": 1016,
+    "new_in_fix": 3,
+    "new_in_phase": 35,
+    "focused": 55,
+    "failures": 0,
+    "red_tests": 3,
+    "red_errors": 2,
+    "red_failures": 1,
+    "full_log_sha256": "f5e340cc1e7d1c07f09a130390340665339177f288ff2559e58dbc4367f71082",
+    "focused_log_sha256": "e06b42d131d000d0884dacb66c7e24e4f22e866d0484e696bb5c592786b000fa",
+    "red_log_sha256": "1f96d85ebba549c7c94a576c2a43217d72c22ada9db1f3923840534702a1cf2f"
+  },
+  "files": {
+    "faz42_test_store.py": "5964e5f673c2c4ff3f64d871bb228f370e6fd3d643d32199567cd58eea85c15f",
+    "tests/test_faz45_store_contention.py": "282b59a6252a117988b8ddc0683489dbc15feec678de5b6eab9171a73f0ff80d"
+  },
+  "current_commit_ci": "Verify exact SHA after push",
+  "source_collection_sha": "4b185bd153d1fb0ed0700a8c18a5d2e46b9a865a",
+  "actual_source_collection_relabelled": false,
+  "prospective_records_created": 0,
+  "production_changed": false
+}
