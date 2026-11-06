@@ -1,0 +1,49 @@
+{
+  "ci": "Verify exact new SHA after push",
+  "created_utc": "2026-11-06T13:25:53.657694+00:00",
+  "files": {
+    "faz42_dry_run.py": "da4491e2b92940b2f6d422342d87be8ffbb46535c99f46000385ee1e347790e7",
+    "faz42_schedule.py": "b23d1ff970203d0876c57130b92eebd2b4c40ccdd340de663bc496344bad82ff",
+    "faz42_snapshot.py": "3cc5ff1d3f5f5c4a72d28273df3c889ef5e3e4ed9b57550e71e89ca40925a1b2",
+    "faz42_test_store.py": "000de5b0c0822937e4e5a800644673dbccb583822d442168d9fa0668029681e9",
+    "tests/test_faz42_dry_run.py": "9a521997069680494806892bc26ea584a79fa71d1dc3251fbe0e7cc0162dbc36",
+    "tests/test_faz42_prospective.py": "b456f2336ac08b00a671d7e8e2aeeb380dbe3ff906905872ee5a79913fb278e7"
+  },
+  "independent_cloud_restore_verified": false,
+  "parent_commit": "ca9d0d6b22b62fe243d481699f764c8dd434e382",
+  "production_coefficients_changed": false,
+  "prospective_records_created": 0,
+  "real_prediction_result_pairs": 0,
+  "scheduler_status": "NOT_INSTALLED",
+  "stage": "FAZ42_TRACK_B_SYNTHETIC_AND_DRY_RUN",
+  "storage_status": "NOT_ACTIVATED",
+  "test_storage": "ISOLATED_SYNTHETIC_ONLY",
+  "tests": {
+    "all": 888,
+    "failures": 0,
+    "focused": 35,
+    "focused_log_sha256": "6f5f25b0607bdf8d8025f2103319c81e270078a1fcf864222f2885fd9db8e94e",
+    "full_log_sha256": "43555a1c9892459b8cc03b18fa96fa5e7eec6ce33cbe86e23a58b72dc15006bb",
+    "new_since_pr19": 35,
+    "new_since_track_a": 23,
+    "red_failures": 4,
+    "red_log_sha256": "45d9ce0b3c52d652e9214003e488bbacfd16abb16155b259e3656a023db79b71",
+    "red_tests": 3
+  },
+  "track_a_ci": [
+    {
+      "docker_build": "success",
+      "event": "push",
+      "run_id": 42223738445,
+      "tests": 865,
+      "unit_tests": "success"
+    },
+    {
+      "docker_build": "success",
+      "event": "pull_request",
+      "run_id": 42223787921,
+      "tests": 865,
+      "unit_tests": "success"
+    }
+  ]
+}
