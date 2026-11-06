@@ -42,6 +42,14 @@ def validate_model(m,cutoff):
     return p
 
 
+def verify_execution_manifest(manifest):
+    """Generation-time code binding. Historical validation does not call this."""
+    p=validate_model(manifest,int(time.time()));current=model_manifest()['payload']
+    require(p['purpose']=='EXPERIMENTAL_DRY_RUN' and all(p[k]==current[k] for k in
+        ('schema_version','model','git_sha','commit_utc','purpose','modules_sha256')),'MODEL_MANIFEST_DOES_NOT_MATCH_RUNTIME')
+    return True
+
+
 def build_snapshot(observations,schedule,canonical_id,model,*,cutoff_utc,registry=REGISTRY,registry_pin=REGISTRY_PIN,
                    minimum_team_games=5,simulations=10000,seed=20261106):
     now=int(time.time());require(type(cutoff_utc) is int and 0<cutoff_utc<=now<=cutoff_utc+60,'SNAPSHOT_CREATION_CLOCK')
@@ -56,11 +64,13 @@ def build_snapshot(observations,schedule,canonical_id,model,*,cutoff_utc,registr
     try:
         require(now<f['start_utc'],'ALREADY_STARTED')
         validate_schedule(schedule,cutoff_utc=cutoff_utc,registry=registry,registry_pin=registry_pin)
+        if usage!='SYNTHETIC_TEST':verify_execution_manifest(model)
         out=forecast(observations,f,cutoff_utc,registry=registry,registry_pin=registry_pin,
                      minimum_team_games=minimum_team_games,simulations=simulations,seed=seed)
         if out['prediction'] is None:reason=out['abstain_reason']
         if out['prediction'] is not None:
             require((out['usage']=='SYNTHETIC_TEST')==(usage=='SYNTHETIC_TEST'),'MIXED_SYNTHETIC_REAL_SNAPSHOT')
+            if usage!='SYNTHETIC_TEST':verify_execution_manifest(model)
     except ValueError as ex:reason=str(ex)
     created=int(time.time())
     if created>=f['start_utc']:reason='TIPOFF_REACHED_DURING_GENERATION'

@@ -69,9 +69,13 @@ class DevelopmentAnalysisService:
     def for_delivery(self,result):
         if result['status']!='PREDICTED_EXPERIMENTAL':return deepcopy(result)
         try:
+            require(self.mode=='DEVELOPMENT','DEVELOPMENT_MODE_REQUIRED')
             p=validate_snapshot(result['snapshot'],registry=self.registry,registry_pin=self.pin)
+            require(self.allow_synthetic or p['usage']!='SYNTHETIC_TEST','SYNTHETIC_SOURCE_REFUSED')
+            require(type(self.clock()) is int and self.clock()>=p['created_utc'],'DELIVERY_CLOCK_REVERSED')
             require(self.clock()<p['fixture']['start_utc'],'ALREADY_STARTED')
             require(self.clock()<=p['cutoff_utc']+60,'SNAPSHOT_STALE_NO_REGENERATION')
+            require(0<=self.clock()-p['schedule']['payload']['observed_at_utc']<=300,'STALE_SCHEDULE_AT_DELIVERY')
             providers={p['schedule']['payload']['provider']}|{o['payload']['provider'] for o in p['history']}
             for provider in providers:
                 policy=self.registry[provider]
@@ -82,6 +86,7 @@ class DevelopmentAnalysisService:
 
     def _prepare(self,request,inputs):
         try:
+            require(self.mode=='DEVELOPMENT','DEVELOPMENT_MODE_REQUIRED')
             require(type(inputs) is dict and set(inputs)=={'schedules','history','model'} and type(inputs['schedules']) is list and type(inputs['history']) is list,'BACKEND_INPUT_SCHEMA')
             cutoff=self.clock();candidates={}
             for schedule in inputs['schedules']:
@@ -109,6 +114,7 @@ class DevelopmentAnalysisService:
         except (ValueError,KeyError,TypeError,AttributeError) as ex:return _abstain(str(ex),request)
 
     async def analyze(self,text):
+        if self.mode!='DEVELOPMENT':return _abstain('DEVELOPMENT_MODE_REQUIRED')
         try:request=parse_request(text)
         except ValueError as ex:return _abstain(str(ex))
         if request['league'] not in LEAGUES:return _abstain('LEAGUE_ADAPTER_UNAVAILABLE',request)
@@ -126,6 +132,7 @@ class DevelopmentAnalysisService:
         return result
 
     async def prepare_day(self,day):
+        if self.mode!='DEVELOPMENT':return dict(status='ABSTAIN',reason='DEVELOPMENT_MODE_REQUIRED',plans=[],prospective_records_created=0)
         try:parse_request('/analyze NBA '+day+' 19 vs 2')
         except (ValueError,TypeError):return dict(status='ABSTAIN',reason='INVALID_REQUEST_DATE',plans=[],prospective_records_created=0)
         if day<self._today() or self.backend is None:return dict(status='ABSTAIN',reason='DEVELOPMENT_DAY_SOURCE_UNAVAILABLE',plans=[],prospective_records_created=0)
@@ -176,12 +183,12 @@ def register_development_analyze(application,service,*,allowed_chat_ids):
         require(not any('analyze' in getattr(h,'commands',set()) for h in handlers),'EXISTING_ANALYZE_HANDLER_REFUSED')
     chats=frozenset(allowed_chat_ids)
     async def callback(update,context):
-        if context.application is not application or application.bot_data.get('deployment_scope')!='DEVELOPMENT':return
+        if context.application is not application or application.bot_data.get('deployment_scope')!='DEVELOPMENT' or service.mode!='DEVELOPMENT':return
         chat=getattr(update,'effective_chat',None);message=getattr(update,'effective_message',None)
         if chat is None or type(chat.id) is not int or chat.id not in chats or message is None:return
         result=service.for_delivery(await service.analyze(message.text or ''))
         # Recheck after awaiting data/model work; runtime scope/chat may change.
-        if context.application is not application or application.bot_data.get('deployment_scope')!='DEVELOPMENT':return
+        if context.application is not application or application.bot_data.get('deployment_scope')!='DEVELOPMENT' or service.mode!='DEVELOPMENT':return
         chat=getattr(update,'effective_chat',None)
         if chat is None or type(chat.id) is not int or chat.id not in chats:return
         await message.reply_text(render_analysis(result),parse_mode='HTML',disable_web_page_preview=True)
