@@ -79,3 +79,15 @@ Son dakika/oynama ayrımı düzeltmesi sonrası tam regresyon **1013/1013**, top
 Gerçek izin kanıtları ve yeterli takım/oyuncu zaman serisi olmadan bu beş maça göre katsayı/eğitim/kalibrasyon ayarlanmaz. İlk iş izinli PIT oyuncu/kadro kaynaklarının kapsamını büyütmek ve fixture duyurularını mevcut açık prematch sözleşmesine bağlamaktır. Ardından yeterli kronolojik eğitim/validasyon/test örnekleriyle aynı maçlarda referans/gölge model karşılaştırması yapılabilir. PBP score replay'i ikame oyuncu rolleri, lineup effect, bağımsız NBA resmî çapraz onayı veya gerçek model üstünlüğü kanıtı değildir.
 
 Yerel dosya oturumlar arası kalıcılık sağlamaz. İkinci Cloud runtime/harici storage doğrulaması yok; kalıcı tahmin ledger'ı ve production zamanlayıcı OFF. Sonraki oturumda yerel paket yoksa yeni toplama yeni zaman damgasıyla yapılmalı; eski SHA ve gözlem zamanları yeniden üretilmemelidir. Master kapsamı tamamlanmış değildir.
+
+## PR CI'de yakalanan sentetik SQLite kilit sorunu
+
+`a0d56370e0c8f196326ac46b42f76642f30e1b8f` için push [42256963916](https://github.com/Girayzeynal/zeynal-bot-core/actions/runs/42256963916) unit-tests/docker-build başarılıydı (1013/OK). PR [42256974412](https://github.com/Girayzeynal/zeynal-bot-core/actions/runs/42256974412) docker-build geçti, unit-tests **başarısız**: 1013 testte tek hata `test_concurrent_same_snapshot_creates_exactly_one_row`, `BEGIN IMMEDIATE` üzerinde `sqlite3.OperationalError: database is locked`. Başarısız CI başarılı gibi raporlanmadı ve sonuç yalnızca retry ile gizlenmedi.
+
+Kök neden: yalnızca `faz42-test-*` geçici dizininde çalışan SYNTHETIC_TEST deposunun sabit 100 ms SQLite busy bütçesi, yüklü CI runner'da eşzamanlı yazma için yetersiz kalabiliyordu. Yeni yerel testler kilidi BEGIN kapısına ulaşılmasının ardından 250 ms tutarak hatayı iki senaryoda yeniden üretti; mevcut bütçe kontrolü de 100/1500 farkıyla başarısız oldu.
+
+Sentetik deponun transaction kilit bütçesi artık varsayılan 1500 ms; açık yapılandırma yalnızca integer 1–5000 ms. Sınırsız retry veya yazılmış kaydı değiştirme yok. Kilit gerçekten alınana kadar kayıt saati ölçülmez; mevcut kayıt öncesi/sonrası deadline kontrolleri korunur. Kilit beklerken cutoff+60 s sınırı aşılırsa hiçbir satır yazılmaz; sürekli kilit hatası eski testte hâlâ rollback ile sonuçlanır. Yeni üç regresyon ve eski prospektif/yardımcı veri grubu **55/55** geçti.
+
+Bu değişiklik yalnızca sentetik depoya uygulanır; gerçek FAZ24 veritabanı, üretim SQLite bağlantıları veya zamanlayıcı ayarı değiştirilmez. Son commit'in tam regresyon ve exact-SHA push/PR CI sonuçları ayrıca doğrulanır.
+
+SQLite CI düzeltmesi sonrası son yerel tam regresyon: **1016/1016**, başarısızlık 0; FAZ45 toplam 35 yeni test. Kanıt: `docs/evidence/faz45-lock-ci-fix-20261106.json`. Son SHA push/PR CI durumları PR #24 üzerinde ayrıca raporlanır.

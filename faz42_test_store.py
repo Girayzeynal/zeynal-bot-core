@@ -19,7 +19,9 @@ from faz41_evidence import REGISTRY,REGISTRY_PIN
 
 
 class SyntheticSnapshotStore:
-    def __init__(self,directory,*,guard_clock=None):
+    def __init__(self,directory,*,guard_clock=None,busy_timeout_ms=1500):
+        require(type(busy_timeout_ms) is int and 1<=busy_timeout_ms<=5000,'BOUNDED_SYNTHETIC_LOCK_BUDGET_REQUIRED')
+        self.busy_timeout_ms=busy_timeout_ms
         root=Path(directory)
         require(not root.is_symlink() and root.resolve().parent==Path(tempfile.gettempdir()).resolve() and
                 root.name.startswith('faz42-test-') and root.is_dir(),'ISOLATED_SYNTHETIC_DIRECTORY_REQUIRED')
@@ -39,7 +41,7 @@ class SyntheticSnapshotStore:
                 db.execute(f"CREATE TRIGGER IF NOT EXISTS {table}_no_replace BEFORE INSERT ON {table} WHEN EXISTS (SELECT 1 FROM {table} WHERE {key}=NEW.{key}) BEGIN SELECT RAISE(ABORT,'immutable FAZ42 replacement'); END")
 
     def connect(self):
-        db=self.base._connect();db.execute('PRAGMA busy_timeout=100');db.execute('PRAGMA foreign_keys=ON');return db
+        db=self.base._connect();db.execute(f'PRAGMA busy_timeout={self.busy_timeout_ms}');db.execute('PRAGMA foreign_keys=ON');return db
 
     def insert(self,snapshot,*,registry=REGISTRY,registry_pin=REGISTRY_PIN):
         require(snapshot['payload']['usage']=='SYNTHETIC_TEST','REAL_STORAGE_NOT_ACTIVATED')
