@@ -60,6 +60,9 @@ veritabanına kayıt eklemez ve eski tahminleri değiştirmez.
 bir `latest` seçilmez. En yeni pinin oturum dışında güvenle korunması ayrıca
 gereklidir; eski bir pin verilirse sistem daha yeni yedek olduğunu bilemez.
 Dosya kilidi/kopya SQLite, farklı makinelerde dağıtık tek-yazıcı garantisi vermez.
+İçe aktarım sonucu bunu `checkpoint_selection=EXACT_TRUSTED_PIN` ve
+`pin_freshness=NOT_ATTESTED` alanlarıyla açıkça belirtir. Eski ama geçerli bir
+pin bilinçli olarak eski yedeği seçebilir; bunun en yeni pin olduğu iddia edilmez.
 
 ## Yerel kullanım
 
@@ -106,3 +109,39 @@ kurtarma, güvenilir harici pin deposu ve gerçek prospektif tahmin üretimi
 **DOĞRULANMADI**. `durable_storage_verified` ve
 `separate_cloud_runtime_verified` alanları otomatik olarak true olmaz.
 Sentetik kayıtlar gerçek prospektif örnek değildir. Üretim zamanlayıcısı kapalıdır.
+
+## Güvenli hata ve tekrar deneme denetimi
+
+`tests/test_faz39_transfer_safety.py`, 16 ek regresyonla önceki kapsamı genişletir.
+Tamamlama kaydı görünür olduktan sonra dizin fsync'i başarısız olabilir. Önceki
+kod, aynı nesneyi tekrar gördüğünde bu bariyeri atlayabiliyordu. Yerel adaptör
+artık mevcut nesne için de dizin fsync'ini tekrarlar. Hata devam ediyorsa
+`ALREADY_EXPORTED` başarısı bildirilmez; önceden görünür olan nesne silinmez.
+
+| Senaryo | Güvenli davranış |
+|---|---|
+| Eksik/geçersiz trusted pin | Adaptör okumasından önce ret |
+| Doğru pin, eksik commit marker | İçe aktarım yok, latest/fallback seçimi yok |
+| Eski içerik yeni pin anahtarında | SHA/uzunluk uyuşmazlığı nedeniyle ret |
+| Bozuk/truncated bundle | Hedef oluşturulmadan ret |
+| Dosya fsync'inde ENOSPC | Başarı yok, henüz yayımlanmamış geçici dosya temizlenir |
+| Manifest link'inde EACCES | Tamamlama kaydı yok; aynı paketle tekrar denenebilir |
+| Commit link'inden sonra dizin fsync hatası | Nesne görünür olabilir; hata/sonuç belirsizdir, tekrar denemede bariyer zorunludur |
+| İçe aktarım sırasında ENOSPC | Doğrulanmış kurtarma bildirimi yok; kısmi hedef korunur ve üzerine yazılmaz |
+| Gecikmeli read-after-write / kayıp ACK | Başarı varsayılmaz; aynı içerik kimliğiyle tekrar deneme yapılır |
+| Eşzamanlı okuyucu/yayımlayıcı | Commit marker öncesi okuyucu reddedilir |
+| Aynı hedefe iki importer | Tek işlem hedefi oluşturur, diğeri mevcut hedef nedeniyle reddedilir |
+
+CLI hata halinde JSON `TRANSFER_FAILED` ve sıfırdan farklı çıkış kodu verir.
+`publication_state=UNKNOWN_AUDIT_REQUIRED`, `local_recovery_verified=false`
+alanları hata sonrasında sıfır yazma varsayılmasını engeller. Ham I/O hata
+metinleri yazdırılmaz. Marker/ACK sonrası hatada nesneler zaten görünür olabilir;
+aynı trusted pin ile yeniden deneme veya salt okunur denetim gerekir. Eksik
+hedef otomatik silinmez. Başarılı yerel replay, harici kalıcılık kanıtı olmaz.
+
+Disk gerçekten doldurulmadı: ENOSPC/fsync/link/yazma hataları kontrollü olarak
+enjekte edilir. Hedef izin reddi ayrıca mevcut non-root Linux kullanıcısında
+gerçek `chmod 0500` ile sınanır (root bu testi atlar). Ağ gecikmesi ve kayıp ACK
+bellek adaptöründe taklit edilir. Ayrı Cloud runtime yoktur. Bu ortamda izinli
+`/workspace` ve `/tmp` aynı dosya sistemi aygıtındadır; iki dizin/süreç deneyi
+iki bağımsız dosya sistemi veya Cloud kurtarması olarak raporlanmaz.

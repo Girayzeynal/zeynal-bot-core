@@ -225,7 +225,8 @@ def import_bundle(store: ObjectStore, destination, expected_manifest_sha256, *, 
         recovered = restore(stable, destination, bundle_sha)
     return dict(status='LOCAL_RECOVERY_VERIFIED', manifest_sha256=sha, recovery=recovered,
         adapter_scope=store.scope, external_transfer_requested=store.scope == 'EXTERNAL',
-        durable_storage_verified=False, separate_cloud_runtime_verified=False)
+        durable_storage_verified=False, separate_cloud_runtime_verified=False,
+        checkpoint_selection='EXACT_TRUSTED_PIN', pin_freshness='NOT_ATTESTED')
 
 
 class DirectoryStore:
@@ -279,7 +280,11 @@ class DirectoryStore:
                 with os.fdopen(fd, 'wb') as stream:
                     stream.write(value); stream.flush(); os.fsync(stream.fileno())
                 try:os.link(temporary, name, src_dir_fd=folder, dst_dir_fd=folder, follow_symlinks=False)
-                except FileExistsError:return False
+                except FileExistsError:
+                    # An earlier attempt may have linked this object but failed
+                    # its directory fsync. A retry must not bypass that barrier.
+                    os.fsync(folder)
+                    return False
                 os.fsync(folder)
                 return True
             finally:
@@ -295,14 +300,29 @@ def main():
     p = commands.add_parser('import'); p.add_argument('staging_directory'); p.add_argument('destination')
     p.add_argument('--expected-manifest-sha256', required=True); p.add_argument('--config')
     args = parser.parse_args()
-    # The existing collector configuration still refuses external activation.
-    policy = validate_config(json.loads(Path(args.config).read_text()))['storage'] if args.config else None
-    store = DirectoryStore(args.staging_directory)
-    if args.command == 'export':
-        result = export_bundle(args.bundle, args.expected_bundle_sha256, store, policy=policy)
-    else:
-        result = import_bundle(store, args.destination, args.expected_manifest_sha256, policy=policy)
+    try:
+        # The existing collector configuration still refuses external activation.
+        policy = validate_config(json.loads(Path(args.config).read_text()))['storage'] if args.config else None
+        store = DirectoryStore(args.staging_directory)
+        if args.command == 'export':
+            result = export_bundle(args.bundle, args.expected_bundle_sha256, store, policy=policy)
+        else:
+            result = import_bundle(store, args.destination, args.expected_manifest_sha256, policy=policy)
+    except (ValueError, KeyError, TypeError, OSError, sqlite3.Error, tarfile.TarError) as exc:
+        reason = (str(exc) if isinstance(exc, Refused) else
+                  'LOCAL_IO_ERROR' if isinstance(exc, OSError) else
+                  'SQLITE_VALIDATION_FAILED' if isinstance(exc, sqlite3.Error) else 'INVALID_TRANSFER_INPUT')
+        # In particular, fsync/ack errors can occur AFTER a link is visible.
+        # Do not claim zero writes, remove another writer's data or print raw IO
+        # exception strings that might contain provider/credential information.
+        result = dict(status='TRANSFER_FAILED', reason=reason, error_type=type(exc).__name__,
+            errno=getattr(exc,'errno',None), publication_state='UNKNOWN_AUDIT_REQUIRED',
+            local_recovery_verified=False, durable_storage_verified=False,
+            separate_cloud_runtime_verified=False, external_upload_performed=False)
+        print(json.dumps(result, sort_keys=True, allow_nan=False))
+        return 1
     print(json.dumps(result, sort_keys=True, allow_nan=False))
+    return 0
 
 
-if __name__ == '__main__':main()
+if __name__ == '__main__':raise SystemExit(main())

@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "phase": "FAZ39_TRANSFER_RECOVERY_SAFETY",
+  "base_sha": "2519618d9505f7f1a1b4aae48e716658d75caca6",
+  "branch": "feature/faz39-time-guarded-prospective",
+  "pr": 14,
+  "created_utc": "2026-11-06T04:32:19.166528+00:00",
+  "tests": {
+    "all": 827,
+    "final_failures": 0,
+    "new_safety": 16,
+    "storage_combined": 44,
+    "faz39_total": 102,
+    "full_log_sha256": "cb09a9a2592de79288c47ef6b24ba118abb3dcea89d4c6d73f920450cabf8c3a",
+    "initial_new_test_run": {
+      "sync_retry_failure": 1,
+      "missing_reporting_fields_errors": 2,
+      "log_sha256": "942858e17784fb68a828c86694d4309a83f2db165acee7f94cefbc1938232ccf"
+    },
+    "compileall": "PASSED"
+  },
+  "fixed_issue": "Retry bypassed failed directory fsync when immutable target already existed; existing-key retry now repeats the barrier",
+  "cli_failure_contract": {
+    "status": "TRANSFER_FAILED",
+    "nonzero_exit": true,
+    "publication_state": "UNKNOWN_AUDIT_REQUIRED",
+    "zero_writes_claimed": false,
+    "raw_io_error_printed": false
+  },
+  "pin_semantics": {
+    "selection": "EXACT_TRUSTED_PIN",
+    "freshness": "NOT_ATTESTED",
+    "automatic_latest_fallback": false
+  },
+  "failure_injection": {
+    "disk_full": "ENOSPC injected; disk not filled",
+    "fsync_link_write_errors": "Injected only on disposable synthetic files",
+    "read_after_write_lag_lost_ack": "In-memory adapter; no network",
+    "permission": "Real chmod 0500 refusal under uid 1000"
+  },
+  "local_experiment": {
+    "status": "LOCAL_RECOVERY_VERIFIED",
+    "trusted_pin_outside_source_directory": true,
+    "manifest_sha256": "c6598ed87fb5c45952c96cb142d870ea4b787f1e98b9b9ad8bf182b0de95c1fa",
+    "source_unchanged": true,
+    "repeat_export": "ALREADY_EXPORTED",
+    "failed_existing_target": "TRANSFER_FAILED",
+    "separate_python_processes": true,
+    "different_filesystems_verified": false
+  },
+  "preserved_code_config_sha256": {
+    "faz39_recovery.py": "86dce2c753fbc2d2a861eff934cf2bfaa9fb850a46c5eaba88c98221affddd5c",
+    "research_recovery.py": "f4d531a1157b4413c3d6f1d1fcb29a236d0d435ac3d6ba2cc9330e662fd9340b",
+    "faz25.py": "18096a40127855b213596ff543784a02892a67de4c80cd1bb90f118ced94ab0d",
+    "config/faz39-local.example.json": "776d65923ff23da4fd50cdd4d97afcf37235ce13601a10d92955b5f46adde2e9"
+  },
+  "original_records_models_and_prior_evidence_unchanged": true,
+  "default_storage": {
+    "mode": "LOCAL_ONLY",
+    "external_target": null,
+    "upload_enabled": false
+  },
+  "new_real_prospective_records": 0,
+  "external_upload_performed": false,
+  "separate_cloud_runtime_verified": false,
+  "production_scheduler_enabled": false,
+  "deploy_or_main_merge": false,
+  "final_sha_ci": "VERIFY_AFTER_PUSH"
+}
