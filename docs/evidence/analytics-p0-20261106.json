@@ -1,0 +1,43 @@
+{
+  "phase": "AUTONOMOUS_ANALYTICS_P0",
+  "created_utc": "2026-11-06T11:46:00.901316+00:00",
+  "dependencies": {
+    "pr12": "2f24acb6e8f569b35c9ee1c241d8fe672da848d0",
+    "pr15": "d899e0d3bdcc3ac520a40cd02103f9e309837d3e",
+    "faz40": "b4cdd6358a5f55c4973b13adbb90b54820ce4c24",
+    "feature_integration_merge": "82145b1"
+  },
+  "tests": {
+    "baseline": 751,
+    "all": 767,
+    "new": 16,
+    "failures": 0,
+    "full_log_sha256": "fc8ed8660079b0368fdcdf2551ef8bcc59dc4781159fdf764fd8b43e4f455f1b"
+  },
+  "reproduced": {
+    "numeric_reconciliation": {
+      "red_failures": 3,
+      "log_sha256": "ae6c1a47ad6e2169378ced141ab253cf6782207817327cbb195a057ef7780f1d"
+    },
+    "first_archive_fixture_failure": "Test materialized the conflicting record exactly at cutoff; fixed test clock rather than weakening PIT filter"
+  },
+  "files": {
+    "faz40_archive.py": "85d2d18f0f63a58ee8765a202206e5777563e11faaba0ef940ece329a900bdce",
+    "baseline_numeric_reconciliation.py": "15b7d165bd6bbcab0e113523c417ed9053fb25c30801065d52b926fee0409576",
+    "tests/test_faz40_archive.py": "06a4df2e7f8801eeab3c1cc2b80fd784c46a68fdcb333a8af3b7d2304c85ac7a",
+    "tests/test_baseline_numeric_reconciliation.py": "60f4d15c8f6ae2fa3705b366acd4d19e594e4f9cb7f6c6f341036712c0065085"
+  },
+  "defaults": "OFFLINE_RESEARCH_ONLY",
+  "prospective_records_created": 0,
+  "model_coefficients_changed": false,
+  "source_attestation": "NOT_INDEPENDENTLY_VERIFIED",
+  "archive_inventory_readonly": {
+    "observations": 107,
+    "distinct_nba_games": 75
+  },
+  "limitations": [
+    "Only ESPN NBA and official EuroLeague/EuroCup parsers supported",
+    "Archive source-clock mode is retrospective, never live ingestion evidence",
+    "P0 CI pending exact new SHA"
+  ]
+}
