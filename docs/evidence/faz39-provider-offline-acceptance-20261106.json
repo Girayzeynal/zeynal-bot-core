@@ -1,0 +1,169 @@
+{
+  "schema_version": 1,
+  "phase": "FAZ39_PROVIDER_ADR_OFFLINE_ACCEPTANCE",
+  "created_utc": "2026-11-06T06:23:14.609550+00:00",
+  "task_url": "https://github.com/Girayzeynal/zeynal-bot-core/pull/14#issuecomment-6678352052",
+  "base_sha": "1c11b1a518d355ce547e4672d5cb92f69f7029eb",
+  "branch": "feature/faz39-time-guarded-prospective",
+  "pr": 14,
+  "pr_draft": true,
+  "decision": {
+    "status": "PROPOSED_NOT_AUTHORIZED",
+    "object_candidate": "AWS S3 Standard",
+    "object_alternative": "Cloudflare R2",
+    "pin_candidate": "Independently administered PostgreSQL; managed candidate Amazon RDS for PostgreSQL",
+    "signing_candidate": "Independent asymmetric trust root; AWS KMS in separate security account is a candidate",
+    "resource_created": false,
+    "prices_invented": false,
+    "free_account_eligibility_verified": false
+  },
+  "sources": {
+    "kind": "PUBLIC_PRIMARY_DOCUMENTATION_REVIEW_NOT_PROVIDER_CERTIFICATION",
+    "items": [
+      {
+        "url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html",
+        "supports": "Single-key consistency; no multi-key atomicity"
+      },
+      {
+        "url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html",
+        "supports": "Conditional immutable writes"
+      },
+      {
+        "url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes-enforce.html",
+        "supports": "Conditional-write policy enforcement"
+      },
+      {
+        "url": "https://developers.cloudflare.com/r2/reference/consistency/",
+        "supports": "Atomic conditional writes, negative reads/inflight writes and caching"
+      },
+      {
+        "url": "https://developers.cloudflare.com/r2/reference/data-location/",
+        "supports": "Hints versus jurisdiction"
+      },
+      {
+        "url": "https://docs.fly.io/volumes/overview",
+        "supports": "Host-local volumes and no built-in replication"
+      },
+      {
+        "url": "https://www.postgresql.org/docs/current/explicit-locking.html",
+        "supports": "Transactional locking"
+      },
+      {
+        "url": "https://www.postgresql.org/docs/current/runtime-config-wal.html",
+        "supports": "Durability configuration"
+      },
+      {
+        "url": "https://www.postgresql.org/docs/current/wal-reliability.html",
+        "supports": "Failure/disk-cache durability limits"
+      },
+      {
+        "url": "https://docs.aws.amazon.com/kms/latest/developerguide/offline-public-key.html",
+        "supports": "Independent public-key verification considerations"
+      },
+      {
+        "url": "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_PostgreSQL.html",
+        "supports": "Managed PostgreSQL candidate"
+      },
+      {
+        "url": "https://aws.amazon.com/rds/postgresql/pricing/",
+        "supports": "RDS cost drivers; account eligibility not checked"
+      },
+      {
+        "url": "https://aws.amazon.com/s3/pricing/",
+        "supports": "Object storage cost drivers"
+      },
+      {
+        "url": "https://developers.cloudflare.com/r2/pricing/",
+        "supports": "R2 storage/operation/egress cost drivers"
+      },
+      {
+        "url": "https://aws.amazon.com/kms/pricing/",
+        "supports": "Signer cost drivers"
+      },
+      {
+        "url": "https://fly.io/docs/about/pricing/",
+        "supports": "Machine/volume cost drivers"
+      }
+    ]
+  },
+  "tests": {
+    "all": 902,
+    "new": 13,
+    "failures": 0,
+    "existing_test_files_preserved": 100,
+    "full_log_sha256": "e8442b27ae68daac3e3b1c8b6ceda1226743cc99c54badd5bf7e19d7cf008212",
+    "focused_log_sha256": "cf131c88e7450780be0a5ba818df1447634770dde9c6379751d7afa67ed1555b",
+    "expected_broken_provider_mutations": 9,
+    "red_self_test": {
+      "tests": 1,
+      "subtest_failures": 3,
+      "cause": "New harness initially blocked CROSS_RUNTIME_VERIFIED but permitted other affirmative VERIFIED labels",
+      "fix": "Whitelist only explicitly non-verifying contract states",
+      "log_sha256": "e923dd5e85f64af299d9b89177590d3e270e5d57f5a1a69e95c1b14feb60d7a3"
+    }
+  },
+  "offline_report": {
+    "check_count": 11,
+    "checks": [
+      "immutable_conditional_create_and_exact_readback",
+      "decoded_stream_limit_without_trusting_metadata",
+      "simulated_durable_ack_receipt_bound_to_exact_bytes",
+      "concurrent_monotonic_cas_and_same_generation_fork_rejection",
+      "lost_ack_uncertainty_and_exact_retry",
+      "stale_pin_fork_and_generation_jump_refused",
+      "simulated_independent_roots_and_issuer_pinning",
+      "fresh_utc_and_request_challenge_binding",
+      "two_runtime_identity_requirements_without_verification_claim",
+      "one_immutable_outcome_per_attempt",
+      "negative_read_does_not_resolve_inflight_write"
+    ],
+    "durable_storage_verified": false,
+    "external_upload_performed": false,
+    "new_real_prospective_records": 0,
+    "provider_kind": "IN_MEMORY_FAKE",
+    "real_external_storage_used": false,
+    "separate_cloud_runtime_verified": false,
+    "status": "OFFLINE_ACCEPTANCE_PASS",
+    "trust_root_kind": "DETERMINISTIC_FAKE",
+    "usage": "SYNTHETIC_TEST",
+    "verification_status": "NOT_VERIFIED"
+  },
+  "offline_report_sha256": "f5298e9290cdfaa77136ef094e3fc7b72db46e2c2e38aa7813e6d343f8a14f79",
+  "file_sha256": {
+    "docs/adr-0039-external-checkpoint-providers.md": "4281eafa4aebbc5399f84fe11f4300b3653d3b2c6e666ecc92601ef57fe59ec6",
+    "tests/faz39_offline_acceptance.py": "0d363799758f94ed771205f55c7ef7719416ed93bfe62fb98937b942a47acf7b",
+    "tests/test_faz39_offline_acceptance.py": "d5b444cb0b5f27ea242d4415b43eb58ec26d89259b54bb37f5818d324136940e"
+  },
+  "unchanged_runtime_config": {
+    "faz39_checkpoint_contract.py": "e66d6cd9b97932676babff02fce2b5f51d6bb3e21d3b6b50f72905b975ad045f",
+    "faz39_transfer.py": "141b3e92035b618b9425c352bd44a2739518caf04a523dff36d64e30847c9433",
+    "faz39_recovery.py": "86dce2c753fbc2d2a861eff934cf2bfaa9fb850a46c5eaba88c98221affddd5c",
+    "faz39_sandbox.py": "0555b3890e75b9c67c58989d898968d51ccb27fad5791e457d190e3094d0b35d",
+    "fly.toml": "a35ebbdf49b7d3e80868181c7f015d619dc0799195b30a97b163af4f88e687b8",
+    "Dockerfile": "e3a55f288ad2897513456552024ccfcae8c278b977c061ae5631efd7f1b552b7",
+    "fly.faz39-sandbox.toml": "de214ffaacbac933d5442426bdfd39d67d813f2fe109228fcf89728581376752",
+    "Dockerfile.faz39-sandbox": "749ad9f6d45de3bb7f341f511141d1120fb604a6c289c4af0eeeb17d2207c3dd",
+    "config/faz39-local.example.json": "776d65923ff23da4fd50cdd4d97afcf37235ce13601a10d92955b5f46adde2e9",
+    ".github/workflows/python-tests.yml": "8941b53db7eb60fbb98d8ac35ae8866be166553dbe45d1e57b3fbd3de9190263"
+  },
+  "verification_status": "NOT_VERIFIED",
+  "real_external_storage_used": false,
+  "cryptographic_attestation_verified": false,
+  "separate_cloud_runtime_verified": false,
+  "durable_storage_verified": false,
+  "real_data_operated_on": false,
+  "new_real_prospective_records": 0,
+  "external_upload_performed": false,
+  "secret_changes": false,
+  "paid_resources_created": false,
+  "main_merge": false,
+  "fly_deploy": false,
+  "production_scheduler_enabled": false,
+  "final_ci": "VERIFY_EXACT_NEW_HEAD_AFTER_PUSH",
+  "blockers": [
+    "No authorized provider/account/namespace/region/budget",
+    "No live transport or independently installed attestor/pin service",
+    "No genuine independent destination runtime or durable provider restart/failover evidence",
+    "Offline fake receipts and root identities cannot certify real durability or independence"
+  ]
+}
