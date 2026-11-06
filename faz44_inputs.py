@@ -162,10 +162,16 @@ def read_development_inputs(path,*,trusted_sha256,registry=REGISTRY,registry_pin
 
 
 def publish_local_bundle(path,sealed):
+    return publish_development_artifact(path,sealed,expected_format=FORMAT,filename_prefix='faz44-inputs-')
+
+
+def publish_development_artifact(path,sealed,*,expected_format,filename_prefix):
+    require((expected_format,filename_prefix) in ((FORMAT,'faz44-inputs-'),('FAZ45_SUPPORT_EVIDENCE_V1','faz45-support-')),
+            'DEVELOPMENT_ARTIFACT_FORMAT_REQUIRED')
     p=Path(path);root=p.parent.resolve();allowed=Path('/workspace/scratch')
     require(root.is_dir() and (root==Path(tempfile.gettempdir()).resolve() or Path(tempfile.gettempdir()).resolve() in root.parents or
-            root==allowed or allowed in root.parents) and p.name.startswith('faz44-inputs-') and p.suffix=='.json' and not p.is_symlink(),'LOCAL_DEVELOPMENT_INPUT_PATH_REQUIRED')
-    require(sealed['sha256']==digest(sealed['payload']) and sealed['payload'].get('format')==FORMAT and sealed['payload'].get('prospective_records_created')==0,'INPUT_BUNDLE_DIGEST')
+            root==allowed or allowed in root.parents) and p.name.startswith(filename_prefix) and p.suffix=='.json' and not p.is_symlink(),'LOCAL_DEVELOPMENT_INPUT_PATH_REQUIRED')
+    require(sealed['sha256']==digest(sealed['payload']) and sealed['payload'].get('format')==expected_format and sealed['payload'].get('prospective_records_created')==0,'INPUT_BUNDLE_DIGEST')
     body=(json.dumps(sealed,sort_keys=True,separators=(',',':'),allow_nan=False)+'\n').encode();require(len(body)<=MAX_BYTES,'INPUT_BUNDLE_SIZE_LIMIT')
     fd,temp=tempfile.mkstemp(prefix='.faz44-',dir=root);temp=Path(temp)
     try:
