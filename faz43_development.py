@@ -226,11 +226,19 @@ def main():
     import json
     parser=argparse.ArgumentParser(description=__doc__);choice=parser.add_mutually_exclusive_group(required=True)
     choice.add_argument('--request');choice.add_argument('--day');parser.add_argument('--inputs');parser.add_argument('--trusted-bundle-sha256')
-    parser.add_argument('--allow-synthetic',action='store_true');args=parser.parse_args()
+    parser.add_argument('--allow-synthetic',action='store_true');parser.add_argument('--source-policy');parser.add_argument('--trusted-policy-sha256');args=parser.parse_args()
     try:
         require(bool(args.inputs)==bool(args.trusted_bundle_sha256),'INPUT_FILE_AND_TRUSTED_PIN_REQUIRED_TOGETHER')
-        backend=None if not args.inputs else FrozenInputsBackend.from_file(args.inputs,trusted_sha256=args.trusted_bundle_sha256)
-        service=DevelopmentAnalysisService(backend,allow_synthetic=args.allow_synthetic)
+        require(bool(args.source_policy)==bool(args.trusted_policy_sha256),'POLICY_FILE_AND_TRUSTED_PIN_REQUIRED_TOGETHER')
+        policy={};bundle_policy={}
+        if args.source_policy:
+            from faz44_policy import read_source_policy
+            loaded=read_source_policy(args.source_policy,trusted_sha256=args.trusted_policy_sha256)
+            policy=dict(registry=loaded['registry'],registry_pin=loaded['registry_sha256'])
+            bundle_policy=dict(policy_bundle_sha256=loaded['policy_bundle_sha256'])
+        from faz44_inputs import read_development_inputs
+        backend=None if not args.inputs else read_development_inputs(args.inputs,trusted_sha256=args.trusted_bundle_sha256,**policy,**bundle_policy)
+        service=DevelopmentAnalysisService(backend,allow_synthetic=args.allow_synthetic,**policy)
         if args.request:print(render_analysis(asyncio.run(service.analyze(args.request))))
         else:
             r=asyncio.run(service.prepare_day(args.day))

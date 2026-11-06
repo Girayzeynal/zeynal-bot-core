@@ -1,0 +1,58 @@
+{
+  "stage": "FAZ44_INDEXED_REVIEWED_DEVELOPMENT_INPUTS",
+  "created_utc": "2026-11-06T16:20:56.343472+00:00",
+  "base_sha": "08315772ff476a79a9029c3ffcd6ef2f04c294c4",
+  "files": {
+    "faz43_development.py": "e78348d49a2067c4218c8c91954282517d9b5a0f1a849079958e6283e59fb24e",
+    "faz44_inputs.py": "61daa137cca18748389169c9b432477c172cbd7f8a4e91e0bcb723c42a3af7b2",
+    "faz44_policy.py": "502ee91189bccf3cd1d5053bc7783843dd6f933877b5f8ab511c55dec2dc4a64",
+    "tests/test_faz44_inputs.py": "007fbfd9e3cccb53a69d8e1ab2ad373de5e196533ba7ae48b40e1d362b6c1e94",
+    "tests/test_faz44_policy.py": "8e1efde2d0ecc54f5e7da6e1c2daef885250e7bdcd19233309f127b62c80fbbc"
+  },
+  "tests": {
+    "all": 979,
+    "new": 25,
+    "failures": 0,
+    "focused": 25,
+    "full_log_sha256": "e5c400fa2f918d851abcec246a0594686dbfc29747e1a4414a68d04510139cff",
+    "focused_log_sha256": "0c177c62480e426d7d49c9bd0c41d672a59d7196fcb568c821c88ae040da3dd7"
+  },
+  "base_ci": {
+    "push": {
+      "run_id": 42249095964,
+      "unit_tests": "success",
+      "docker_build": "success",
+      "tests_in_log": 954
+    },
+    "pull_request": {
+      "run_id": 42249151901,
+      "unit_tests": "success",
+      "docker_build": "success",
+      "tests_in_log": 954
+    }
+  },
+  "new_commit_ci": "Must verify exact SHA after commit and push",
+  "readonly_derivation": {
+    "canonical_games": {
+      "NBA": 77,
+      "EUROLEAGUE": 2,
+      "EUROCUP": 2
+    },
+    "reobservations_coalesced": 32,
+    "source_files_unchanged": true,
+    "nba_sqlite_sha256": "43adc6de12bc065e38b666dad8ba2cd9a48c5786c1185b396de5a37ebe4dd002",
+    "euro_evidence_sha256": "b108e72e9f10c4bf90830d350cb53b692017dc92a7c4db5a6480c4dd666681f6",
+    "nba_refresh_evidence_sha256": "badd497331dc40a58265b294889091d7932d1d155a1bfb0a68d2ba2d54f7ebf3",
+    "live_ingestion_not_backdated": true
+  },
+  "source_permissions_permitted": [],
+  "provider_signature_verified": false,
+  "prospective_records_created": 0,
+  "model_coefficients_changed": false,
+  "production_changed": false,
+  "scheduler_status": "NOT_INSTALLED",
+  "external_storage_status": "NOT_CONFIGURED",
+  "independent_cloud_recovery": "NOT_VERIFIED",
+  "real_model_performance": "NOT_ESTABLISHED",
+  "next_operation": "Run explicitly requested public schedule reads after clean committed source; UNKNOWN permissions must ABSTAIN"
+}
