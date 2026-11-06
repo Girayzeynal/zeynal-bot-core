@@ -1,0 +1,35 @@
+{
+  "stage": "FAZ44_CORRUPT_INPUT_FAIL_CLOSED_BOUNDARY",
+  "created_utc": "2026-11-06T16:28:11.158783+00:00",
+  "base_sha": "b567c9887501182264b69667fe4e570e7aeb298e",
+  "tests": {
+    "full": 981,
+    "new": 2,
+    "focused": 27,
+    "failures": 0,
+    "red_test_cases": 2,
+    "red_subcase_errors": 4,
+    "red_log_sha256": "b1764a4670dc1eca6dcf11ef26695a1824488e92193bfea5d126f279fad86807",
+    "full_log_sha256": "1aeb6e6fc5933de33f17a4a54e68d0b08ff89f98cd51b07f16ce1c4e79fe40bb",
+    "focused_log_sha256": "bfff02d83ef3e2e34ad24b343e851a6d785f57435d696ea8c11730841335d252"
+  },
+  "files": {
+    "faz44_inputs.py": "7ff1823ffbf019611990d76ca6ca40190ca50ee5e1029c01e9ea05cd155e0a6a",
+    "tests/test_faz44_inputs.py": "0c038eb98bd34584f490aa675e7462a984be1cd804d66a8bfce08c5acfa2f7c6"
+  },
+  "prior_checkpoint_ci": {
+    "push": 42252110492,
+    "pull_request": 42252119957,
+    "unit_tests": "success",
+    "docker_build": "success",
+    "tests_in_each_log": 979
+  },
+  "current_commit_ci": "Verify exact new SHA after push",
+  "real_smoke_model_sha": "dbae079eb9b6afbfeba20114c4b658fa1b26612a",
+  "real_smoke_not_relabelled": true,
+  "prospective_records_created": 0,
+  "external_storage": "NOT_CONFIGURED",
+  "independent_cloud_recovery": "NOT_VERIFIED",
+  "source_permissions_permitted": [],
+  "production_changed": false
+}

@@ -80,3 +80,11 @@ Kalan işler bağımlılık sırasıyla:
 4. Gerçek scheduler ve kalıcı storage için ayrı yetki ve bağımsız Cloud geri yükleme kanıtı sağlanmadan günlük prospektif sistem hazır ilan edilmemeli. Mevcut günlük komut yalnızca geliştirme planı üretir; gerçek ledger'a yazmaz.
 
 Yerel paket oturumlar arası kalıcılık garantisi vermez. İkinci Cloud runtime testi, harici storage, production zamanlayıcı/bot entegrasyonu doğrulanmadı ve etkinleştirilmedi. Sonraki oturum temiz yeni HEAD üzerinde taze input üretmelidir; bu dosyayı tekrar kullanarak yeni HEAD veya güncel kaynak tazeliği kanıtı üretmiş saymamalıdır. Tüm master görev tamamlanmış değildir; bu aşama denetlenebilir bir checkpoint'tir.
+
+## Aşama 3 — bozuk input için kontrollü ret
+
+Son hata sınırı denetiminde iki yeni test, düzeltme öncesinde dört alt senaryo hatası üretti: payload'ı liste/null/metin olan hash'li paket `.get` sırasında AttributeError veriyordu; bozuk SQLite girişi DatabaseError ile CLI hata sınırının dışına çıkıyordu. Paket dosyası girişinde artık nesne/envelope kontrolü var. Builder SQLite ve Git subprocess hatalarını da kontrollü `ABSTAIN_INPUT_PUBLICATION_NOT_CONFIRMED` sonucuyla döndürüyor; hata detayı yerine sınıf adı raporlanıyor. Git sorgusu başarısızken manifest veya input dosyası uydurulmuyor.
+
+Yeni regresyonlar bozuk kaynak dosyasının değişmediğini ve input yayımlanmadığını kontrol eder. Odaklı grup **27/27**; tam regresyon ve log hash'leri `docs/evidence/faz44-boundary-20261106.json` içinde. Önceki gerçek smoke'un model SHA'sı `dbae079` olarak korunur; yeni commit ile yapılmış gibi yeniden etiketlenmez. Dokümantasyon checkpoint'i `b567c98` için de push [42252110492](https://github.com/Girayzeynal/zeynal-bot-core/actions/runs/42252110492) ve PR [42252119957](https://github.com/Girayzeynal/zeynal-bot-core/actions/runs/42252119957) unit-tests/docker-build başarılı; iki log 979/OK.
+
+Aşama 3 son yerel tam regresyon: **981/981**, başarısızlık 0. Aşama 1 başlangıcına göre 35 yeni test; bu son düzeltmede 2 yeni test. Yeni SHA için push/PR CI ayrıca doğrulanır.

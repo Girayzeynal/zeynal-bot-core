@@ -2,11 +2,14 @@
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 import errno
+from contextlib import redirect_stdout
+from io import StringIO
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase,TestCase
 from unittest.mock import Mock,patch
+import subprocess
 
 from prediction_inputs import digest
 from faz43_development import DevelopmentAnalysisService
@@ -80,6 +83,13 @@ class IndexedBundleTests(IsolatedAsyncioTestCase):
             backend=read_development_inputs(path2,trusted_sha256=old['sha256'])
             self.assertEqual(len((await backend.load_inputs('NBA',DAY))['history']),10)
 
+    async def test_pinned_non_object_payload_is_rejected_at_input_boundary(self):
+        with TemporaryDirectory() as folder:
+            for payload in ([],None,'not-an-object'):
+                sealed=dict(payload=payload,sha256=digest(payload));path=Path(folder)/'input.json';path.write_text(json.dumps(sealed))
+                with self.subTest(payload=payload),self.assertRaisesRegex(ValueError,'INPUT_BUNDLE_ENVELOPE'):
+                    read_development_inputs(path,trusted_sha256=sealed['sha256'])
+
     async def test_atomic_publication_idempotency_conflict_and_mode_600(self):
         with TemporaryDirectory() as folder:
             p=Path(folder)/'faz44-inputs-test.json'
@@ -136,6 +146,20 @@ class IndexedBundleTests(IsolatedAsyncioTestCase):
 
 
 class DerivationAndCollectionTests(TestCase):
+    def test_corrupt_sqlite_and_git_failure_have_structured_abstain_without_publication(self):
+        from faz44_inputs import main
+        with TemporaryDirectory() as folder:
+            database=Path(folder)/'bad.sqlite';database.write_bytes(b'not-a-sqlite-database');before=database.read_bytes();out=Path(folder)/'faz44-inputs-test.json'
+            args=['faz44_inputs','--nba-database',str(database),'--day',DAY,'--output',str(out)]
+            stream=StringIO()
+            with patch('sys.argv',args),redirect_stdout(stream):self.assertEqual(main(),1)
+            report=json.loads(stream.getvalue());self.assertEqual(report['status'],'ABSTAIN_INPUT_PUBLICATION_NOT_CONFIRMED');self.assertEqual(report['reason'],'DatabaseError')
+            self.assertEqual(database.read_bytes(),before);self.assertFalse(out.exists())
+            stream=StringIO()
+            with patch('sys.argv',args),redirect_stdout(stream),patch('faz44_inputs.derive_history',return_value=([],{})),patch('faz44_inputs.model_manifest',side_effect=subprocess.CalledProcessError(128,['git'])):
+                self.assertEqual(main(),1)
+            self.assertEqual(json.loads(stream.getvalue())['reason'],'CalledProcessError');self.assertFalse(out.exists())
+
     def test_sqlite_derivation_preserves_original_and_uses_new_real_ingestion_clock(self):
         with TemporaryDirectory() as folder,patch('time.time',return_value=NOW-5) as clock:
             path=Path(folder)/'research.sqlite';store=ResearchStore(path,{'19','2'})

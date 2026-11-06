@@ -9,6 +9,8 @@ from datetime import datetime,timedelta
 import json
 import os
 from pathlib import Path
+import sqlite3
+import subprocess
 import tempfile
 import time
 from zoneinfo import ZoneInfo
@@ -103,7 +105,7 @@ class IndexedInputsBackend:
     def __init__(self,sealed,*,trusted_sha256,registry=REGISTRY,registry_pin=REGISTRY_PIN,policy_bundle_sha256=None):
         require(type(sealed) is dict and set(sealed)=={'payload','sha256'} and sealed['sha256']==trusted_sha256 and
                 digest(sealed['payload'])==trusted_sha256,'TRUSTED_INPUT_BUNDLE_PIN_MISMATCH')
-        p=sealed['payload'];require(set(p)==set('format materialized_at_utc registry_sha256 policy_bundle_sha256 sources schedules model_manifest partitions usage prospective_records_created storage_status collection'.split()) and
+        p=sealed['payload'];require(type(p) is dict and set(p)==set('format materialized_at_utc registry_sha256 policy_bundle_sha256 sources schedules model_manifest partitions usage prospective_records_created storage_status collection'.split()) and
             p['format']==FORMAT and p['usage']=='DEVELOPMENT_INPUTS_ONLY' and p['prospective_records_created']==0 and p['storage_status']=='NOT_A_PREDICTION_LEDGER' and type(p['collection']) is dict,'INDEXED_INPUT_SCHEMA')
         now=int(time.time());at=p['materialized_at_utc'];require(type(at) is int and 0<at<=now,'INPUT_BUNDLE_CLOCK')
         require(digest(registry)==registry_pin==p['registry_sha256'] and p['policy_bundle_sha256']==policy_bundle_sha256,'INPUT_POLICY_BINDING')
@@ -152,6 +154,7 @@ class IndexedInputsBackend:
 def read_development_inputs(path,*,trusted_sha256,registry=REGISTRY,registry_pin=REGISTRY_PIN,policy_bundle_sha256=None):
     p=Path(path);require(not p.is_symlink() and Path('/data') not in p.resolve().parents and p.is_file() and p.stat().st_size<=MAX_BYTES,'READONLY_DEVELOPMENT_BUNDLE_REQUIRED')
     sealed=json.loads(p.read_text())
+    require(type(sealed) is dict and set(sealed)=={'payload','sha256'} and type(sealed['payload']) is dict,'INPUT_BUNDLE_ENVELOPE')
     require(type(sealed) is dict and sealed.get('sha256')==trusted_sha256 and digest(sealed['payload'])==trusted_sha256,'TRUSTED_INPUT_BUNDLE_PIN_MISMATCH')
     if sealed['payload'].get('format')==FORMAT:return IndexedInputsBackend(sealed,trusted_sha256=trusted_sha256,registry=registry,registry_pin=registry_pin,policy_bundle_sha256=policy_bundle_sha256)
     from faz43_development import FrozenInputsBackend
@@ -203,7 +206,7 @@ def main():
             partitions=len(bundle['payload']['partitions']),source_permissions_permitted=permitted,network_requests=collection['network_requests'],
             source_files_unchanged=all(file_sha(p['source'])==p['sha256'] for p in provenance['source_files']),prospective_records_created=0,
             scheduler_status='NOT_INSTALLED',storage_status='INPUT_FILE_ONLY_NOT_PREDICTION_STORAGE'),sort_keys=True));return 0
-    except (ValueError,KeyError,TypeError,OSError) as ex:
+    except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,subprocess.SubprocessError) as ex:
         # A failure after atomic linking may leave a valid but unacknowledged
         # input file. Do not falsely claim that no bytes were published.
         print(json.dumps(dict(status='ABSTAIN_INPUT_PUBLICATION_NOT_CONFIRMED',reason=str(ex) if type(ex) is ValueError else type(ex).__name__,prospective_records_created=0)));return 1
