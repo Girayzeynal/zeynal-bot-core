@@ -124,11 +124,21 @@ def historical_player_features(observations, *, target,cutoff_utc,maximum_age_se
 
 
 def research_with_context(records,observations,*,target,cutoff_utc,registry=REGISTRY,registry_pin=REGISTRY_PIN,
-                          news_bindings=None,news_bindings_pin=None,**research_options):
+                          news_bindings=None,news_bindings_pin=None,history_evidence=None,**research_options):
     from faz40_research import project
+    from faz40_archive import replay_game
     context=prematch_context(observations,fixture=target,cutoff_utc=cutoff_utc,registry=registry,registry_pin=registry_pin,
                              news_bindings=news_bindings,news_bindings_pin=news_bindings_pin)
-    prediction=project(records,target,cutoff_utc,**research_options)
-    require(context['payload']['usage'] in ('NO_EVIDENCE',prediction['usage']), 'MIXED_SYNTHETIC_REAL_EVIDENCE')
+    require(type(records) is list,'ARCHIVE_LIST_REQUIRED')
+    categories={replay_game(r)['usage']=='SYNTHETIC_TEST' for r in records};usage=context['payload']['usage']
+    require(len(categories)<=1 and (usage=='NO_EVIDENCE' or not categories or (usage=='SYNTHETIC_TEST') in categories),'MIXED_SYNTHETIC_REAL_EVIDENCE')
+    require(history_evidence is not None or categories!={False},'SOURCE_BOUND_HISTORY_REQUIRED')
+    binding=None
+    if history_evidence is not None:
+        from faz47_history_binding import bound_projection
+        prediction,binding=bound_projection(records,history_evidence,target,cutoff_utc,registry=registry,registry_pin=registry_pin,**research_options)
+    else:prediction=project(records,target,cutoff_utc,**research_options)
+    require(usage=='NO_EVIDENCE' or (usage=='SYNTHETIC_TEST')==(prediction['usage']=='SYNTHETIC_TEST'),'MIXED_SYNTHETIC_REAL_EVIDENCE')
     p=dict(reference=prediction,evidence=context,evidence_applied_to_coefficients=False,prospective_records_created=0)
+    if binding is not None:p['history_source_binding']=binding
     return dict(payload=p,sha256=digest(p))
