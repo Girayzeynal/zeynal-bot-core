@@ -10,7 +10,7 @@ Hem skor hem yardımcı gözlemin observed/ingested/materialized zamanları cuto
 
 Aynı maçın tekrar gözlemleri/sağlayıcı alias'ları örnek sayısını artırmaz. Çelişkili oyuncu düzeltmeleri sessizce en son kayıt seçilerek kapatılmaz. Kaynaklar arasında oyuncu kimlikleri eşlenmiş varsayılmaz. Son N maç zaman sırasıyla seçilir; kaynak SHA ve maç kimlikleri özelliklerde tutulur.
 
-Yeterli izinli PIT örneğinde üretilen araştırma özellikleri: oyuncu bazında bildirilen dakika toplamı/ortalaması, görünüm ve geçmiş ilk beş sayısı, sayı toplamı, dakika hassasiyeti ve uzatma kapsamı; PBP için ikinci yarı–ilk yarı fark değişimi, normal süre comeback sayısı ve açık kurala dayanan garbage-time olay sayısı. Bunlar oyuncu gücü, nedensel rotasyon etkisi, eğitilmiş garbage-time modeli, yeni tahmin veya doğruluk ölçümü değildir.
+Yeterli izinli PIT örneğinde üretilen araştırma özellikleri: oyuncu bazında bildirilen dakika toplamı/ortalaması, boxscore girdi ve geçmiş ilk beş sayısı, sayı toplamı, dakika hassasiyeti ve uzatma kapsamı; PBP için ikinci yarı–ilk yarı fark değişimi, normal süre comeback sayısı ve açık kurala dayanan garbage-time olay sayısı. Bunlar oyuncu gücü, nedensel rotasyon etkisi, eğitilmiş garbage-time modeli, yeni tahmin veya doğruluk ölçümü değildir.
 
 Tarihsel boxscore ilk beşi gelecekteki kadro değildir. Doğrulanmış prematch kadro ve açık incoming/outgoing rolleri yoksa kadro/rotasyon ABSTAIN. ESPN katılımcı sırası veya İngilizce oyuncu değişikliği metni üzerinden rol çıkarılmaz. Tam dakika gösterimi kesin saniye sayılmaz. Oyuncu final skor/dakika toplamları uzatma içeriyorsa normal süre oyuncu özellikleri gibi sunulmaz.
 
@@ -50,3 +50,32 @@ Pozitif testler mock/sentetik kaynak sözleşmeleridir, gerçek tahmin performan
 Gerçek araştırma sonuçları ve exact SHA test/CI kanıtı sonraki checkpoint'te raporlanır. Kaynak izinleri, NBA resmî çapraz onayı, haber izinleri, doğrulanmış prematch kadro/rotasyon, güncel model kalibrasyonu, bağımsız ikinci Cloud kurtarma ve kalıcı gerçek storage henüz tamamlanmış değildir. Gerçek scheduler, production Telegram/Fly, secrets veya ücretli kaynak etkinleştirilmez. PR'lar taslak kalır; main merge yapılmaz.
 
 Kod aşaması yerel sonuç: **1011/1011**, 30 yeni test; FAZ44 uyumluluk testleri dahil odaklı grup **47/47**, başarısızlık 0. Kanıt: `docs/evidence/faz45-support-tests-20261106.json`.
+
+## Gerçek kaynak denemesi
+
+Toplama kod SHA'sı `4b185bd153d1fb0ed0700a8c18a5d2e46b9a865a`; [push 42256001492](https://github.com/Girayzeynal/zeynal-bot-core/actions/runs/42256001492) ve [PR 42256093263](https://github.com/Girayzeynal/zeynal-bot-core/actions/runs/42256093263) unit-tests/docker-build başarılı; iki unit log 1011/OK. PR #24 taslak ve tabanı PR #23 dalı.
+
+2026-11-06 16:49:58–59 UTC'de (19:49:58–59 TSİ) beş public GET, beş oyuncu-dakika gözlemi ve iki PBP gözlemi verdi:
+
+| Lig | Oyuncu-dakika maçları | Boxscore girdisi | Dakika bildirilen satır | Skor/periyot replay geçen PBP |
+|---|---:|---:|---:|---:|
+| NBA | 3 | 79 | 71 | 2 |
+| EuroLeague | 1 | 24 | 24 | 0 |
+| EuroCup | 1 | 21 | 21 | 0 |
+| Toplam | 5 | 124 | 116 | 2 |
+
+NBA kaynakları: ESPN 401909922/401909936/401909937; EL: E2026_87; EC: U2026_91. Tüm dakika ve sayı toplamları kendi maç skor kanıtına bağlanarak replay edildi. NBA'nin 8 açık DNP satırına dakika uydurulmadı. NBA dakika gösterimi tam dakika hassasiyetinde; EL/EC saniye alanı kullanıldı. EuroCup'ta bir 0 saniyelik satır var. EL/EC payload'ında açık oynadı/DNP bayrağı olmadığı için boxscore girdisi kesin maç görünümü sayılmadı. Son iyileştirme bunu `boxscore_entries`, `explicit_played_status_entries`, `positive_reported_minutes_entries` ve `zero_reported_minutes_entries` ile ayırır; iki yeni regresyon eklendi.
+
+401909936 ve 401909937 timeline'ları sırasıyla 478 ve 505 olay içerir; periyot sınırları ve final skorları uzlaştı. Toplam 151 oyuncu değişikliği olayının incoming/outgoing rolleri doğrulanmamış olduğundan rotasyon **ABSTAIN**. İki akışta wallclock alanı mevcut olması bağımsız olay tamlığı veya kaynak zamanı attestasyonu sayılmadı. 401909922 PBP'si `SCORE_CORRECTION_OR_MISSING_SCORING_EVENT` ile reddedildi; olay/skor onarımı yapılmadı. İyi oyuncu verisi bu ret nedeniyle silinmedi.
+
+NBA/EL/EC ileriye dönük araştırma hedeflerinde izin kapısı usable player/PBP sayısını **0** tuttu; sayısal özellikler üretilmedi. 401909937'nin tarihsel cutoff denemesinde bugünkü gözlemler `AUXILIARY_NOT_AVAILABLE_AT_CUTOFF` ile dışlandı; hedef ve sonraki sonuçlar ayrıca reddedildi. Hiçbir gözlem eski prematch kaydı olarak etiketlenmedi. Yeni prospektif tahmin 0; yeni MAE/RMSE/Brier/log-loss veya kalibrasyon iddiası yok.
+
+Paket payload SHA `45b5d8143a3eb49de5b989ce52d9ab980fcf647bc0bef8ccb9da3a496cb0bce6`, salt okunur skor input SHA `243c7b571128ec55fd8172b02ff29119847687a754ac9294afbc11589f176f1e`. Aynı yardımcı paketin tekrar yayını `created=False`; iki dosya hash'i değişmedi. SQLite salt okunur integrity_check `ok`, SHA `43adc6de12bc065e38b666dad8ba2cd9a48c5786c1185b396de5a37ebe4dd002`. Önceki 76 kanıt dosyası byte düzeyinde aynı kaldı. Ayrıntılar: `docs/evidence/faz45-real-support-20261106.json`. Ham sağlayıcı body'leri ve araştırma paketi harici storage'a/GitHub'a yüklenmedi; yalnızca durum, sayılar, kaynak URL/zaman/digest ve ret metadatası raporlandı.
+
+Son dakika/oynama ayrımı düzeltmesi sonrası tam regresyon **1013/1013**, toplam 32 yeni test; FAZ44 uyumluluğu dahil odaklı grup **49/49**. Son SHA CI ayrıca doğrulanır. Gerçek toplama önceki code SHA'sıyla kalır; yeni commit'te yeniden yapılmış gibi etiketlenmez.
+
+### Sonraki bağımlılıklar
+
+Gerçek izin kanıtları ve yeterli takım/oyuncu zaman serisi olmadan bu beş maça göre katsayı/eğitim/kalibrasyon ayarlanmaz. İlk iş izinli PIT oyuncu/kadro kaynaklarının kapsamını büyütmek ve fixture duyurularını mevcut açık prematch sözleşmesine bağlamaktır. Ardından yeterli kronolojik eğitim/validasyon/test örnekleriyle aynı maçlarda referans/gölge model karşılaştırması yapılabilir. PBP score replay'i ikame oyuncu rolleri, lineup effect, bağımsız NBA resmî çapraz onayı veya gerçek model üstünlüğü kanıtı değildir.
+
+Yerel dosya oturumlar arası kalıcılık sağlamaz. İkinci Cloud runtime/harici storage doğrulaması yok; kalıcı tahmin ledger'ı ve production zamanlayıcı OFF. Sonraki oturumda yerel paket yoksa yeni toplama yeni zaman damgasıyla yapılmalı; eski SHA ve gözlem zamanları yeniden üretilmemelidir. Master kapsamı tamamlanmış değildir.

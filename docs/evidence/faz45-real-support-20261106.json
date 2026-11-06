@@ -1,0 +1,609 @@
+{
+  "stage": "FAZ45_REAL_PLAYER_PBP_RESEARCH_NOT_PROSPECTIVE",
+  "created_utc": "2026-11-06T16:53:56.419298+00:00",
+  "source_collection_commit": "4b185bd153d1fb0ed0700a8c18a5d2e46b9a865a",
+  "collection": {
+    "created": true,
+    "network_requests": 5,
+    "observations_by_kind": {
+      "PBP_TIMELINE": 2,
+      "PLAYER_MINUTES": 5
+    },
+    "path": "/workspace/scratch/faz45-support-real-20261106.json",
+    "prospective_records_created": 0,
+    "rejected": [
+      {
+        "identity": "ESPN:401909922",
+        "kind": "PBP_TIMELINE",
+        "reason": "SCORE_CORRECTION_OR_MISSING_SCORING_EVENT"
+      }
+    ],
+    "scheduler": "NOT_INSTALLED",
+    "score_inputs_unchanged": true,
+    "status": "SUPPORT_RESEARCH_COLLECTION_NOT_PREDICTION",
+    "storage": "LOCAL_RESEARCH_FILE_ONLY",
+    "trusted_support_sha256": "45b5d8143a3eb49de5b989ce52d9ab980fcf647bc0bef8ccb9da3a496cb0bce6"
+  },
+  "score_input_payload_sha256": "243c7b571128ec55fd8172b02ff29119847687a754ac9294afbc11589f176f1e",
+  "source_receipts": [
+    {
+      "automatic_retry": false,
+      "elapsed_seconds": 0.330853,
+      "finished_at_utc": 1793983798,
+      "http_status": 200,
+      "identity": "ESPN:401909922",
+      "observed_at_utc": 1793983798,
+      "provider": "ESPN",
+      "response_sha256": "d112394cf07481f3d73a6fcef99ae8629c8b582bf17868812f7b3606795266e0",
+      "server_clock_delta_seconds": 0,
+      "server_date": "Fri, 06 Nov 2026 16:49:58 GMT",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909922",
+      "started_at_utc": 1793983798,
+      "status": "DOCUMENT_RECEIVED",
+      "usage_status": "UNKNOWN"
+    },
+    {
+      "automatic_retry": false,
+      "elapsed_seconds": 0.134411,
+      "finished_at_utc": 1793983798,
+      "http_status": 200,
+      "identity": "ESPN:401909936",
+      "observed_at_utc": 1793983798,
+      "provider": "ESPN",
+      "response_sha256": "5af6b4587c7a9e03e82338b56ecc2308a8707c1165075c597d61edc27a8db661",
+      "server_clock_delta_seconds": 0,
+      "server_date": "Fri, 06 Nov 2026 16:49:58 GMT",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909936",
+      "started_at_utc": 1793983798,
+      "status": "DOCUMENT_RECEIVED",
+      "usage_status": "UNKNOWN"
+    },
+    {
+      "automatic_retry": false,
+      "elapsed_seconds": 0.200364,
+      "finished_at_utc": 1793983798,
+      "http_status": 200,
+      "identity": "ESPN:401909937",
+      "observed_at_utc": 1793983798,
+      "provider": "ESPN",
+      "response_sha256": "c8c10ebd9b4c8b8f0a93a3bd97023d3a9a93a721788a3f003d6e678409f03e46",
+      "server_clock_delta_seconds": 0,
+      "server_date": "Fri, 06 Nov 2026 16:49:58 GMT",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909937",
+      "started_at_utc": 1793983798,
+      "status": "DOCUMENT_RECEIVED",
+      "usage_status": "UNKNOWN"
+    },
+    {
+      "automatic_retry": false,
+      "elapsed_seconds": 0.309209,
+      "finished_at_utc": 1793983799,
+      "http_status": 200,
+      "identity": "EUROLEAGUE_LIVE:E2026_87",
+      "observed_at_utc": 1793983799,
+      "provider": "EUROLEAGUE_LIVE",
+      "response_sha256": "24acd2e6a2c0b6ac79b38d1e0c42be295c287210ed5e6d9302cbefc260f5327d",
+      "server_clock_delta_seconds": 0,
+      "server_date": "Fri, 06 Nov 2026 16:49:59 GMT",
+      "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games/87/stats",
+      "started_at_utc": 1793983799,
+      "status": "DOCUMENT_RECEIVED",
+      "usage_status": "UNKNOWN"
+    },
+    {
+      "automatic_retry": false,
+      "elapsed_seconds": 0.496389,
+      "finished_at_utc": 1793983799,
+      "http_status": 200,
+      "identity": "EUROLEAGUE_LIVE:U2026_91",
+      "observed_at_utc": 1793983799,
+      "provider": "EUROLEAGUE_LIVE",
+      "response_sha256": "2d43327c9599b96321242ab71db15085cd8d15d6b0a57ca10145e191027762c4",
+      "server_clock_delta_seconds": 0,
+      "server_date": "Fri, 06 Nov 2026 16:49:59 GMT",
+      "source_url": "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026/games/91/stats",
+      "started_at_utc": 1793983799,
+      "status": "DOCUMENT_RECEIVED",
+      "usage_status": "UNKNOWN"
+    }
+  ],
+  "support_file_sha256": "b6abaced5d81221e8d7da2eef2d2f7d288fff8b2fe4fcda74a83dd609799c547",
+  "coverage": [
+    {
+      "kind": "PLAYER_MINUTES",
+      "league": "NBA",
+      "provider": "ESPN",
+      "provider_fixture_id": "401909936",
+      "fixture": {
+        "away_team_id": "19",
+        "canonical_id": "e848925f4b22958639a379c275db120c1da7aac01cfa5e181a078e0f3490304b",
+        "home_team_id": "21",
+        "league": "NBA",
+        "season_end_year": 2027,
+        "start_utc": 1793930400
+      },
+      "observation_sha256": "49d29424048f3230030fcfbfaeb64a95cf96c0755931be12f83ae73e42422603",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909936",
+      "observed_at_utc": 1793983798,
+      "ingested_at_utc": 1793983798,
+      "materialized_at_utc": 1793983798,
+      "usage": "RETROSPECTIVE_RESEARCH",
+      "usage_status": "UNKNOWN",
+      "boxscore_entries": 25,
+      "explicit_played_status_rows": 25,
+      "explicit_dnp_rows": 0,
+      "participation_status_available": true,
+      "reported_minutes_rows": 25,
+      "positive_reported_minutes_rows": 25,
+      "zero_reported_minutes_rows": 0,
+      "minutes_precision_counts": {
+        "WHOLE_MINUTE_DISPLAY": 25
+      },
+      "future_roster": "NOT_INFERRED"
+    },
+    {
+      "kind": "PLAYER_MINUTES",
+      "league": "EUROLEAGUE",
+      "provider": "EUROLEAGUE_LIVE",
+      "provider_fixture_id": "E2026_87",
+      "fixture": {
+        "away_team_id": "PAM",
+        "canonical_id": "b108c3927e9afd2dcd78c8eacb7569e0992381e4541df0b518f5fc377ba4cb47",
+        "home_team_id": "BAR",
+        "league": "EUROLEAGUE",
+        "season_end_year": 2027,
+        "start_utc": 1793388600
+      },
+      "observation_sha256": "4b4c654ed345ac459021b301baacf7925d82a3dbefc55889f4eb0a58ef310c7a",
+      "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games/87/stats",
+      "observed_at_utc": 1793983799,
+      "ingested_at_utc": 1793983799,
+      "materialized_at_utc": 1793983799,
+      "usage": "RETROSPECTIVE_RESEARCH",
+      "usage_status": "UNKNOWN",
+      "boxscore_entries": 24,
+      "explicit_played_status_rows": 0,
+      "explicit_dnp_rows": 0,
+      "participation_status_available": false,
+      "reported_minutes_rows": 24,
+      "positive_reported_minutes_rows": 24,
+      "zero_reported_minutes_rows": 0,
+      "minutes_precision_counts": {
+        "SOURCE_SECONDS": 24
+      },
+      "future_roster": "NOT_INFERRED"
+    },
+    {
+      "kind": "PLAYER_MINUTES",
+      "league": "NBA",
+      "provider": "ESPN",
+      "provider_fixture_id": "401909922",
+      "fixture": {
+        "away_team_id": "20",
+        "canonical_id": "ddc99a07ceccb452715eb2e643d5b27ea10fe56099f6ad8ee679d4985a398344",
+        "home_team_id": "8",
+        "league": "NBA",
+        "season_end_year": 2027,
+        "start_utc": 1793836800
+      },
+      "observation_sha256": "68a5136bbe3d026f04713f5b8e68dc6332760aadf61c6ad4f7d64542d844b8eb",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909922",
+      "observed_at_utc": 1793983798,
+      "ingested_at_utc": 1793983798,
+      "materialized_at_utc": 1793983798,
+      "usage": "RETROSPECTIVE_RESEARCH",
+      "usage_status": "UNKNOWN",
+      "boxscore_entries": 26,
+      "explicit_played_status_rows": 19,
+      "explicit_dnp_rows": 7,
+      "participation_status_available": true,
+      "reported_minutes_rows": 19,
+      "positive_reported_minutes_rows": 19,
+      "zero_reported_minutes_rows": 0,
+      "minutes_precision_counts": {
+        "WHOLE_MINUTE_DISPLAY": 19
+      },
+      "future_roster": "NOT_INFERRED"
+    },
+    {
+      "kind": "PBP_TIMELINE",
+      "league": "NBA",
+      "provider": "ESPN",
+      "provider_fixture_id": "401909936",
+      "fixture": {
+        "away_team_id": "19",
+        "canonical_id": "e848925f4b22958639a379c275db120c1da7aac01cfa5e181a078e0f3490304b",
+        "home_team_id": "21",
+        "league": "NBA",
+        "season_end_year": 2027,
+        "start_utc": 1793930400
+      },
+      "observation_sha256": "7b72fd3bef4eeb317a3c43f3f3e78ff9d7c7434ab05d9616e8318973faed6b8d",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909936",
+      "observed_at_utc": 1793983798,
+      "ingested_at_utc": 1793983798,
+      "materialized_at_utc": 1793983798,
+      "usage": "RETROSPECTIVE_RESEARCH",
+      "usage_status": "UNKNOWN",
+      "event_count": 478,
+      "substitution_roles_unverified": 73,
+      "missing_wallclock_events": 0,
+      "rotation_status": "ABSTAIN_SUBSTITUTION_ROLES_UNVERIFIED",
+      "completeness": "PERIOD_BOUNDARIES_AND_FINAL_RECONCILED_NOT_INDEPENDENTLY_ATTESTED"
+    },
+    {
+      "kind": "PLAYER_MINUTES",
+      "league": "EUROCUP",
+      "provider": "EUROLEAGUE_LIVE",
+      "provider_fixture_id": "U2026_91",
+      "fixture": {
+        "away_team_id": "TRN",
+        "canonical_id": "5c92a366380e912a909ae9b594eec0511c862f6646f21ac399f31a0d73fbb3fe",
+        "home_team_id": "NAP",
+        "league": "EUROCUP",
+        "season_end_year": 2027,
+        "start_utc": 1793732400
+      },
+      "observation_sha256": "9295874d5d40392623dfe1ff3b6619caa8acc7982f6eb294f1fb71844ddd3d01",
+      "source_url": "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026/games/91/stats",
+      "observed_at_utc": 1793983799,
+      "ingested_at_utc": 1793983799,
+      "materialized_at_utc": 1793983799,
+      "usage": "RETROSPECTIVE_RESEARCH",
+      "usage_status": "UNKNOWN",
+      "boxscore_entries": 21,
+      "explicit_played_status_rows": 0,
+      "explicit_dnp_rows": 0,
+      "participation_status_available": false,
+      "reported_minutes_rows": 21,
+      "positive_reported_minutes_rows": 20,
+      "zero_reported_minutes_rows": 1,
+      "minutes_precision_counts": {
+        "SOURCE_SECONDS": 21
+      },
+      "future_roster": "NOT_INFERRED"
+    },
+    {
+      "kind": "PLAYER_MINUTES",
+      "league": "NBA",
+      "provider": "ESPN",
+      "provider_fixture_id": "401909937",
+      "fixture": {
+        "away_team_id": "14",
+        "canonical_id": "60f5cbdd7f4b42bc609bddb9f22ed71a6f9d3478bc354a9cc8d960a62da04914",
+        "home_team_id": "9",
+        "league": "NBA",
+        "season_end_year": 2027,
+        "start_utc": 1793934000
+      },
+      "observation_sha256": "96a6e65c26d5a9494b203176bdabdf00f9732b8176e15ade8984dd164b5331c6",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909937",
+      "observed_at_utc": 1793983798,
+      "ingested_at_utc": 1793983798,
+      "materialized_at_utc": 1793983798,
+      "usage": "RETROSPECTIVE_RESEARCH",
+      "usage_status": "UNKNOWN",
+      "boxscore_entries": 28,
+      "explicit_played_status_rows": 27,
+      "explicit_dnp_rows": 1,
+      "participation_status_available": true,
+      "reported_minutes_rows": 27,
+      "positive_reported_minutes_rows": 27,
+      "zero_reported_minutes_rows": 0,
+      "minutes_precision_counts": {
+        "WHOLE_MINUTE_DISPLAY": 27
+      },
+      "future_roster": "NOT_INFERRED"
+    },
+    {
+      "kind": "PBP_TIMELINE",
+      "league": "NBA",
+      "provider": "ESPN",
+      "provider_fixture_id": "401909937",
+      "fixture": {
+        "away_team_id": "14",
+        "canonical_id": "60f5cbdd7f4b42bc609bddb9f22ed71a6f9d3478bc354a9cc8d960a62da04914",
+        "home_team_id": "9",
+        "league": "NBA",
+        "season_end_year": 2027,
+        "start_utc": 1793934000
+      },
+      "observation_sha256": "cedff874e215f3fb8d2c8f9035d486e3ef815c62cfac5cdf860ad5c126c17070",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909937",
+      "observed_at_utc": 1793983798,
+      "ingested_at_utc": 1793983798,
+      "materialized_at_utc": 1793983798,
+      "usage": "RETROSPECTIVE_RESEARCH",
+      "usage_status": "UNKNOWN",
+      "event_count": 505,
+      "substitution_roles_unverified": 78,
+      "missing_wallclock_events": 0,
+      "rotation_status": "ABSTAIN_SUBSTITUTION_ROLES_UNVERIFIED",
+      "completeness": "PERIOD_BOUNDARIES_AND_FINAL_RECONCILED_NOT_INDEPENDENTLY_ATTESTED"
+    }
+  ],
+  "audits": {
+    "NBA_UPCOMING_RESEARCH": {
+      "audited_at_utc": 1793983878,
+      "calibration": "NOT_ESTABLISHED",
+      "cutoff_utc": 1793983878,
+      "excluded": {
+        "OTHER_PARTITION": 2,
+        "SOURCE_PERMISSION_NOT_ESTABLISHED": 5
+      },
+      "fixture": {
+        "away_team_id": "27",
+        "canonical_id": "c6599738eb24a64f4d81f41524ff7a7a8d9c5e353c7c9ff807c88857f06455d4",
+        "home_team_id": "1",
+        "league": "NBA",
+        "season_end_year": 2027,
+        "start_utc": 1794009600
+      },
+      "matched_distinct_games": {
+        "PBP_TIMELINE": 2,
+        "PLAYER_MINUTES": 5
+      },
+      "production_coefficients_changed": false,
+      "prospective_records_created": 0,
+      "registry_sha256": "e83643fc97d78724f415a626a3eef4ece8ec375ab32b6b771d5398ec3945ec23",
+      "source_digest": "978043bf8a7ccef899329f63b085c3166154f66d065641b33c93c6a41e0cd5e2",
+      "source_time_attestation": "NOT_INDEPENDENTLY_VERIFIED",
+      "status": "SUPPORT_RESEARCH_AUDIT_NOT_PREDICTION",
+      "teams": {
+        "away": {
+          "lineup_rotation": "ABSTAIN_EXPLICIT_ROLES_NOT_VERIFIED",
+          "pbp": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PBP_GAMES"
+          },
+          "player_minutes": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PLAYER_GAMES"
+          },
+          "prematch_roster": "ABSTAIN_NO_REPLAYABLE_PREMATCH_ROSTER",
+          "team_id": "27"
+        },
+        "home": {
+          "lineup_rotation": "ABSTAIN_EXPLICIT_ROLES_NOT_VERIFIED",
+          "pbp": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PBP_GAMES"
+          },
+          "player_minutes": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PLAYER_GAMES"
+          },
+          "prematch_roster": "ABSTAIN_NO_REPLAYABLE_PREMATCH_ROSTER",
+          "team_id": "1"
+        }
+      },
+      "unmatched_auxiliary_digests": [],
+      "usable_distinct_games": {
+        "PBP_TIMELINE": 0,
+        "PLAYER_MINUTES": 0
+      }
+    },
+    "EUROLEAGUE_UPCOMING_RESEARCH": {
+      "audited_at_utc": 1793983879,
+      "calibration": "NOT_ESTABLISHED",
+      "cutoff_utc": 1793983879,
+      "excluded": {
+        "OTHER_PARTITION": 6,
+        "SOURCE_PERMISSION_NOT_ESTABLISHED": 1
+      },
+      "fixture": {
+        "away_team_id": "ZAL",
+        "canonical_id": "e0a43638ea145d55d12e9b5199213c7cd25fad09a33bcd6d46fff7a0a256f341",
+        "home_team_id": "BES",
+        "league": "EUROLEAGUE",
+        "season_end_year": 2027,
+        "start_utc": 1793984400
+      },
+      "matched_distinct_games": {
+        "PBP_TIMELINE": 2,
+        "PLAYER_MINUTES": 5
+      },
+      "production_coefficients_changed": false,
+      "prospective_records_created": 0,
+      "registry_sha256": "e83643fc97d78724f415a626a3eef4ece8ec375ab32b6b771d5398ec3945ec23",
+      "source_digest": "978043bf8a7ccef899329f63b085c3166154f66d065641b33c93c6a41e0cd5e2",
+      "source_time_attestation": "NOT_INDEPENDENTLY_VERIFIED",
+      "status": "SUPPORT_RESEARCH_AUDIT_NOT_PREDICTION",
+      "teams": {
+        "away": {
+          "lineup_rotation": "ABSTAIN_EXPLICIT_ROLES_NOT_VERIFIED",
+          "pbp": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PBP_GAMES"
+          },
+          "player_minutes": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PLAYER_GAMES"
+          },
+          "prematch_roster": "ABSTAIN_NO_REPLAYABLE_PREMATCH_ROSTER",
+          "team_id": "ZAL"
+        },
+        "home": {
+          "lineup_rotation": "ABSTAIN_EXPLICIT_ROLES_NOT_VERIFIED",
+          "pbp": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PBP_GAMES"
+          },
+          "player_minutes": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PLAYER_GAMES"
+          },
+          "prematch_roster": "ABSTAIN_NO_REPLAYABLE_PREMATCH_ROSTER",
+          "team_id": "BES"
+        }
+      },
+      "unmatched_auxiliary_digests": [],
+      "usable_distinct_games": {
+        "PBP_TIMELINE": 0,
+        "PLAYER_MINUTES": 0
+      }
+    },
+    "EUROCUP_UPCOMING_RESEARCH": {
+      "audited_at_utc": 1793983881,
+      "calibration": "NOT_ESTABLISHED",
+      "cutoff_utc": 1793983881,
+      "excluded": {
+        "OTHER_PARTITION": 6,
+        "SOURCE_PERMISSION_NOT_ESTABLISHED": 1
+      },
+      "fixture": {
+        "away_team_id": "TTK",
+        "canonical_id": "7dd2a31894105ab5d0dd4a4441fb90ec074099881e65d00f93156d1b2afcd1e8",
+        "home_team_id": "CLU",
+        "league": "EUROCUP",
+        "season_end_year": 2027,
+        "start_utc": 1794330000
+      },
+      "matched_distinct_games": {
+        "PBP_TIMELINE": 2,
+        "PLAYER_MINUTES": 5
+      },
+      "production_coefficients_changed": false,
+      "prospective_records_created": 0,
+      "registry_sha256": "e83643fc97d78724f415a626a3eef4ece8ec375ab32b6b771d5398ec3945ec23",
+      "source_digest": "978043bf8a7ccef899329f63b085c3166154f66d065641b33c93c6a41e0cd5e2",
+      "source_time_attestation": "NOT_INDEPENDENTLY_VERIFIED",
+      "status": "SUPPORT_RESEARCH_AUDIT_NOT_PREDICTION",
+      "teams": {
+        "away": {
+          "lineup_rotation": "ABSTAIN_EXPLICIT_ROLES_NOT_VERIFIED",
+          "pbp": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PBP_GAMES"
+          },
+          "player_minutes": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PLAYER_GAMES"
+          },
+          "prematch_roster": "ABSTAIN_NO_REPLAYABLE_PREMATCH_ROSTER",
+          "team_id": "TTK"
+        },
+        "home": {
+          "lineup_rotation": "ABSTAIN_EXPLICIT_ROLES_NOT_VERIFIED",
+          "pbp": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PBP_GAMES"
+          },
+          "player_minutes": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PLAYER_GAMES"
+          },
+          "prematch_roster": "ABSTAIN_NO_REPLAYABLE_PREMATCH_ROSTER",
+          "team_id": "CLU"
+        }
+      },
+      "unmatched_auxiliary_digests": [],
+      "usable_distinct_games": {
+        "PBP_TIMELINE": 0,
+        "PLAYER_MINUTES": 0
+      }
+    },
+    "NBA_HISTORICAL": {
+      "audited_at_utc": 1793983882,
+      "calibration": "NOT_ESTABLISHED",
+      "cutoff_utc": 1793933999,
+      "excluded": {
+        "AUXILIARY_NOT_AVAILABLE_AT_CUTOFF": 3,
+        "OTHER_PARTITION": 2,
+        "TARGET_OR_FUTURE_RESULT": 2
+      },
+      "fixture": {
+        "away_team_id": "14",
+        "canonical_id": "60f5cbdd7f4b42bc609bddb9f22ed71a6f9d3478bc354a9cc8d960a62da04914",
+        "home_team_id": "9",
+        "league": "NBA",
+        "season_end_year": 2027,
+        "start_utc": 1793934000
+      },
+      "matched_distinct_games": {
+        "PBP_TIMELINE": 2,
+        "PLAYER_MINUTES": 5
+      },
+      "production_coefficients_changed": false,
+      "prospective_records_created": 0,
+      "registry_sha256": "e83643fc97d78724f415a626a3eef4ece8ec375ab32b6b771d5398ec3945ec23",
+      "source_digest": "978043bf8a7ccef899329f63b085c3166154f66d065641b33c93c6a41e0cd5e2",
+      "source_time_attestation": "NOT_INDEPENDENTLY_VERIFIED",
+      "status": "SUPPORT_RESEARCH_AUDIT_NOT_PREDICTION",
+      "teams": {
+        "away": {
+          "lineup_rotation": "ABSTAIN_EXPLICIT_ROLES_NOT_VERIFIED",
+          "pbp": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PBP_GAMES"
+          },
+          "player_minutes": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PLAYER_GAMES"
+          },
+          "prematch_roster": "ABSTAIN_NO_REPLAYABLE_PREMATCH_ROSTER",
+          "team_id": "14"
+        },
+        "home": {
+          "lineup_rotation": "ABSTAIN_EXPLICIT_ROLES_NOT_VERIFIED",
+          "pbp": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PBP_GAMES"
+          },
+          "player_minutes": {
+            "eligible_games": 0,
+            "features": null,
+            "status": "ABSTAIN_INSUFFICIENT_PLAYER_GAMES"
+          },
+          "prematch_roster": "ABSTAIN_NO_REPLAYABLE_PREMATCH_ROSTER",
+          "team_id": "9"
+        }
+      },
+      "unmatched_auxiliary_digests": [],
+      "usable_distinct_games": {
+        "PBP_TIMELINE": 0,
+        "PLAYER_MINUTES": 0
+      }
+    }
+  },
+  "input_files_unchanged": true,
+  "repeat_publication_created": false,
+  "prior_evidence_files_byte_identical": 76,
+  "nba_sqlite_integrity": "ok",
+  "nba_sqlite_sha256": "43adc6de12bc065e38b666dad8ba2cd9a48c5786c1185b396de5a37ebe4dd002",
+  "source_permissions_permitted": [],
+  "model_eligible_support_games": 0,
+  "prospective_records_created": 0,
+  "current_model_mae": null,
+  "current_model_rmse": null,
+  "current_model_brier": null,
+  "current_model_log_loss": null,
+  "calibration_status": "NOT_ESTABLISHED",
+  "independent_source_time_attestation": false,
+  "independent_cloud_recovery": "NOT_VERIFIED",
+  "external_storage": "NOT_CONFIGURED",
+  "scheduler": "NOT_INSTALLED",
+  "production_changed": false,
+  "notes": [
+    "Five games are source-replayed research data, not permitted model-use evidence",
+    "PBP score reconciliation does not prove independent event completeness or substitution roles",
+    "Zero-minute rows and missing Euro participation flags are not claimed as played appearances",
+    "New source observations cannot backfill original prematch cutoffs",
+    "Raw provider bodies and the support artifact remain local, not externally uploaded"
+  ]
+}

@@ -12,6 +12,7 @@ from faz45_support import support_report,validate_support
 from tests.test_faz42_history import NOW,permitted_registry
 from tests.test_faz41_adapters import espn
 from tests.test_faz43_pbp import game
+from tests.test_euroleague_live import source
 
 TARGET=fixture_identity(league='NBA',season_end_year=2027,start_utc=NOW+3600,home_team_id='19',away_team_id='2')
 
@@ -147,3 +148,27 @@ class SupportResearchTests(TestCase):
         scores=[record(raw,registry=self.registry)];aux=[record(raw,'PLAYER_MINUTES',registry=self.registry)]
         r=self.report(scores=scores,aux=aux,minimum_team_games=1);m=r['teams']['home']['player_minutes']['features']
         self.assertEqual(m['overtime_games'],1);self.assertEqual(m['scope'],'FINAL_WITH_OT_NOT_REGULATION_PLAYER_SPLIT');self.assertEqual(m['players'][0]['reported_minutes_sum'],53)
+
+    def test_zero_displayed_minutes_are_not_invented_exact_seconds_or_an_appearance_count(self):
+        raw=deepcopy(self.raw[0]);block=next(b for b in raw['boxscore']['players'] if b['team']['id']=='19')
+        block['statistics'][0]['athletes'].append(dict(athlete=dict(id='19999'),stats=['0','0'],starter=False,didNotPlay=False))
+        scores=[record(raw,registry=self.registry)];aux=[record(raw,'PLAYER_MINUTES',registry=self.registry)]
+        r=self.report(scores=scores,aux=aux,minimum_team_games=1);features=r['teams']['home']['player_minutes']['features']
+        player=next(v for v in features['players'] if v['player_id']=='ESPN:19999')
+        self.assertNotIn('appearances',player);self.assertEqual(player['boxscore_entries'],1);self.assertEqual(player['explicit_played_status_entries'],1)
+        self.assertEqual(player['zero_reported_minutes_entries'],1);self.assertEqual(player['positive_reported_minutes_entries'],0)
+        self.assertFalse(features['reported_minutes_are_exact_seconds'])
+
+    def test_euro_missing_participation_status_is_not_filled_from_boxscore_presence(self):
+        raw=source('EUROLEAGUE')
+        for side in ('local','road'):
+            rows=raw['stats'][side]['players'];n=len(rows)-1
+            for i,p in enumerate(rows):p['stats']['timePlayed']=0 if i==0 else 12000//n+(i<=12000%n)
+        with patch('time.time',return_value=NOW-10):
+            score=capture(raw['game'],provider='EUROLEAGUE_LIVE',league='EUROLEAGUE',season_end_year=2027,observed_at_utc=NOW-20,ingested_at_utc=NOW-15,usage='SYNTHETIC_TEST',registry=self.registry,registry_pin=digest(self.registry))
+            aux=capture(dict(game=raw['game'],stats=raw['stats']),provider='EUROLEAGUE_LIVE',league='EUROLEAGUE',season_end_year=2027,data_type='PLAYER_MINUTES',observed_at_utc=NOW-20,ingested_at_utc=NOW-15,usage='SYNTHETIC_TEST',registry=self.registry,registry_pin=digest(self.registry))
+        f=score['payload']['fixture'];target=fixture_identity(league='EUROLEAGUE',season_end_year=2027,start_utc=NOW+3600,home_team_id=f['home_team_id'],away_team_id=f['away_team_id'])
+        r=support_report([score],[aux],target,cutoff_utc=NOW,minimum_team_games=1,registry=self.registry,registry_pin=digest(self.registry))
+        features=r['teams']['home']['player_minutes']['features'];row=next(v for v in features['players'] if v['zero_reported_minutes_entries'])
+        self.assertEqual(row['explicit_played_status_entries'],0);self.assertEqual(row['historical_starter_status'],'NOT_AVAILABLE')
+        self.assertNotIn('appearances',row);self.assertTrue(features['reported_minutes_are_exact_seconds'])

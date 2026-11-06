@@ -1,0 +1,34 @@
+{
+  "stage": "FAZ45_MINUTE_PRECISION_AND_PARTICIPATION_STATUS",
+  "created_utc": "2026-11-06T16:55:30.930249+00:00",
+  "base_sha": "4b185bd153d1fb0ed0700a8c18a5d2e46b9a865a",
+  "files": {
+    "faz45_support.py": "f9e3dd37195b5b6740891ab428d3e71ad613a32622014542a615b8f6616d11e8",
+    "tests/test_faz45_support.py": "d89fb39372fb0406c61b224b3fb301336dbe518b66a27ff32172c41e5e160b87"
+  },
+  "tests": {
+    "all": 1013,
+    "new_in_fix": 2,
+    "new_in_phase": 32,
+    "focused_with_faz44_compatibility": 49,
+    "failures": 0,
+    "full_log_sha256": "62e496b767aeed88337e04a54406ffd61539ca6142a82af0a4d7cecf0134aaf1",
+    "focused_log_sha256": "f587340fa24220aa177ccb15043c1714ab8789d6f5969aad77ded1cdad584f75"
+  },
+  "previous_commit_ci": {
+    "push": 42256001492,
+    "pull_request": 42256093263,
+    "unit_tests": "success",
+    "docker_build": "success",
+    "tests_in_each_log": 1011
+  },
+  "current_commit_ci": "Verify exact SHA after push",
+  "actual_collection_code_sha": "4b185bd153d1fb0ed0700a8c18a5d2e46b9a865a",
+  "source_observations_not_relabelled": true,
+  "source_permissions_permitted": [],
+  "prospective_records_created": 0,
+  "production_coefficients_changed": false,
+  "independent_cloud_recovery": "NOT_VERIFIED",
+  "external_storage": "NOT_CONFIGURED",
+  "scheduler": "NOT_INSTALLED"
+}

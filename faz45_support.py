@@ -90,7 +90,10 @@ def _player_features(games,team,limit):
         source_sha256=[dict(player=o['sha256'],score=s['sha256']) for o,p,s in selected],
         last_game_start_utc=max(starts),overtime_games=overtime,scope='FINAL_WITH_OT_NOT_REGULATION_PLAYER_SPLIT',
         minute_precision_counts=dict(precisions),reported_minutes_are_exact_seconds=all(k in ('SOURCE_SECONDS','SECOND_DISPLAY') for k in precisions),
-        players=[dict(player_id=pid,appearances=len(rows),reported_minutes_sum=sum(r['minutes'] for r in rows),
+        players=[dict(player_id=pid,boxscore_entries=len(rows),
+            explicit_played_status_entries=sum(r.get('did_not_play') is False for r in rows),
+            positive_reported_minutes_entries=sum(r['minutes']>0 for r in rows),
+            zero_reported_minutes_entries=sum(r['minutes']==0 for r in rows),reported_minutes_sum=sum(r['minutes'] for r in rows),
             reported_minutes_mean=fmean(r['minutes'] for r in rows),points_sum=sum(r['points'] for r in rows),
             historical_starts=sum(r.get('historical_starter',False) for r in rows),
             historical_starter_status='SOURCE_REPORTED' if all('historical_starter' in r for r in rows) else 'NOT_AVAILABLE')
