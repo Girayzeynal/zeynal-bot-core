@@ -1,0 +1,48 @@
+{
+  "stage": "FAZ46_PREMATCH_SOURCE_LISTINGS_AND_LINEUP_GUARDS",
+  "created_utc": "2026-11-06T17:27:32.896181+00:00",
+  "base_sha": "2267f0525e1bb0a7c718266c8d1efcf1a0299930",
+  "base_ci": {
+    "push": 42258077947,
+    "pull_request": 42258088036,
+    "unit_tests": "success",
+    "docker_build": "success",
+    "tests": 1016
+  },
+  "files": {
+    "faz41_faz40.py": "a0eade51f73b93e2053ca5a257225c2cd7eebeb019c834102b280b826e668f94",
+    "faz44_inputs.py": "3c5d07bea44ef2ec9d362b931328f4a909e689846961f839aa0091ff36af52fd",
+    "faz46_rosters.py": "6cd33d05616eecbae820e4ef59a91cf0d60510dfa70d4cc9722d94deb35bb1c5",
+    "faz46_collection.py": "d2bbedba9857a44b983dd288ca9fe52d05710eba2f1682214a580dac0924bcb5",
+    "tests/test_faz46_lineup_guards.py": "dcbd8330f3e1f74f44a1a6648e69b6cfda1625a84404cbd9cc575ad14f83c819",
+    "tests/test_faz46_rosters.py": "afbd4f4e60caebe6ae37462d723a3a2d5ba65121a4d7350b2442dc9d9ac997e7",
+    "tests/test_faz46_collection.py": "cf1161b1f18ae1babb19221a6d2d529674b1d5e25ef551c6c6e53f041a2091b9"
+  },
+  "tests": {
+    "all": 1049,
+    "new": 33,
+    "focused_with_faz41_compatibility": 43,
+    "failures": 0,
+    "initial_red_failures": 4,
+    "red_log_sha256": "efe7fcf85bf79dfc0e87cab759d562b67e7c24ee9631ebf19a6385cc91046f2a",
+    "full_log_sha256": "43e1dfde68d16b6f3d28c8ac7b6ab78e2973a2c8c6d93664732b0f1511981633",
+    "focused_log_sha256": "28d2105a603056b6ccbdb46e781e4befe76c29b6998ec41e8cab0a86f843e207"
+  },
+  "preliminary_source_probe": {
+    "network_requests": 7,
+    "nba_official": "HTTP_403",
+    "espn_pregame": "NO_ROSTER_FIELDS",
+    "euroleague": "EMPTY_PLAYER_LISTS",
+    "eurocup": "EMPTY_PLAYER_LISTS",
+    "confirmed_lineups": 0,
+    "not_the_final_cli_run": true
+  },
+  "new_cli_real_run": "Not run at code checkpoint; run after clean commit",
+  "source_permissions_permitted": [],
+  "production_coefficients_changed": false,
+  "prospective_records_created": 0,
+  "external_storage": "NOT_CONFIGURED",
+  "independent_cloud_recovery": "NOT_VERIFIED",
+  "scheduler": "NOT_INSTALLED",
+  "ci": "Verify exact SHA after push and draft PR creation"
+}

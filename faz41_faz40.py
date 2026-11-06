@@ -1,5 +1,6 @@
 """Fail-closed FAZ40 context integration. Never adjusts production predictions."""
 from copy import deepcopy
+import re
 import time
 
 from prediction_inputs import digest
@@ -12,7 +13,14 @@ from faz41_news import replay_rss
 
 
 def _announcement(p):
-    raw=p['raw'];f=p['fixture'];team=raw['team_id'];players=raw['players'];five=raw['starting_five']
+    raw=p['raw'];require(type(raw) is dict and raw.get('format')=='EXPLICIT_TEAM_ANNOUNCEMENT_V1','EXPLICIT_TEAM_ANNOUNCEMENT_REQUIRED')
+    f=p['fixture'];team=raw['team_id'];players=raw['players'];five=raw['starting_five']
+    provider=p['provider'];league=f['league'];season=f['season_end_year'];pid=p['provider_fixture_id']
+    require((provider=='NBA' and league=='NBA') or (provider=='EUROLEAGUE_LIVE' and league in ('EUROLEAGUE','EUROCUP')),
+            'ANNOUNCEMENT_PROVIDER_LEAGUE_MISMATCH')
+    if provider=='NBA':valid=bool(re.fullmatch(r'002\d{7}',pid)) and int(pid[3:5])+2001==season
+    else:valid=bool(re.fullmatch(('E' if league=='EUROLEAGUE' else 'U')+str(season-1)+r'_[1-9]\d{0,3}',pid))
+    require(valid,'ANNOUNCEMENT_PROVIDER_SEASON_MISMATCH')
     require(raw['format']=='EXPLICIT_TEAM_ANNOUNCEMENT_V1' and raw['fixture']==f and
             raw['provider_fixture_id']==p['provider_fixture_id'] and raw['status']=='CONFIRMED' and
             team in (f['home_team_id'],f['away_team_id']) and p['published_at_utc']==raw['published_at_utc'],
@@ -47,7 +55,7 @@ def prematch_context(observations, *, fixture,cutoff_utc,maximum_age_seconds=360
     require(type(observations) is list,'OBSERVATIONS_REQUIRED')
     validation=dict(fixture=fixture,cutoff_utc=cutoff_utc,maximum_age_seconds=maximum_age_seconds,
                     registry=registry,registry_pin=registry_pin,require_permitted=True)
-    rows=[];rosters={}
+    rows=[];rosters={};listings={};memberships={}
     for o in observations:
         p=validate_observation(o,**validation)
         if p['data_type']=='OFFICIAL_LINEUP':
@@ -56,14 +64,24 @@ def prematch_context(observations, *, fixture,cutoff_utc,maximum_age_seconds=360
                                        tipoff_utc=fixture['start_utc'],require_confirmed=True)
             require(team not in rosters or rosters[team]==roster,'CONFLICTING_TEAM_ANNOUNCEMENTS')
             rosters[team]=roster
+        elif p['data_type']=='ROSTER' and p['raw'].get('format')=='FAZ46_ENDPOINT_LISTING_V1':
+            from faz46_rosters import replay_listing
+            replay_listing(o,**validation);team=p['claims']['team_id']
+            require(team not in listings or listings[team]==p['claims'],'CONFLICTING_UNCONFIRMED_SOURCE_LISTINGS')
+            listings[team]=deepcopy(p['claims'])
         elif p['data_type'] in ('NEWS_CLAIM','ANALYST_OPINION'):
             replay_rss(o,bindings=news_bindings,bindings_pin=news_bindings_pin,**validation)
         else:replay(o,**validation)
+        if p['data_type'] in ('OFFICIAL_LINEUP','ROSTER'):
+            team=p['claims']['team_id']
+            for player in p['claims']['players']:
+                pid=player.removeprefix(p['provider']+':');key=(p['provider'],pid)
+                require(key not in memberships or memberships[key]==team,'CROSS_TEAM_PLAYER_ID_CONFLICT');memberships[key]=team
         rows.append(p)
     # Include team namespace in lineup keys: home and away rosters are not conflicting claims.
     comparable=[]
     for o in observations:
-        if o['payload']['data_type']!='OFFICIAL_LINEUP':comparable.append(o)
+        if o['payload']['data_type'] not in ('OFFICIAL_LINEUP','ROSTER'):comparable.append(o)
     comparisons=compare_observations(comparable,**validation) if comparable else []
     require(not any(r['status']=='CONFLICT' for r in comparisons),'SOURCE_CONFLICT_BLOCKS_CONTEXT')
     require(len({r['usage'] for r in rows})<=1,'MIXED_SYNTHETIC_REAL_EVIDENCE')
@@ -75,6 +93,7 @@ def prematch_context(observations, *, fixture,cutoff_utc,maximum_age_seconds=360
         registry_sha256=registry_pin,rosters=rosters,comparisons=comparisons,missing=missing,
         production_coefficients_changed=False,prospective_predictions_created=0,
         source_attestation='NOT_INDEPENDENTLY_VERIFIED')
+    if listings:p['unconfirmed_source_rosters']=listings
     return dict(payload=p,sha256=digest(p))
 
 
