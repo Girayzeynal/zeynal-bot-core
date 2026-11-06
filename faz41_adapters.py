@@ -106,7 +106,7 @@ def _euro_minutes(raw,facts):
             m=p['player'];pid=m['person']['code']
             require(m['club']['code']==team and m['season']['code']==('E' if facts['league']=='EUROLEAGUE' else 'U')+str(facts['season_end_year']-1),
                     'PLAYER_TEAM_OR_SEASON_MISMATCH')
-            require(type(pid) is str and pid and pid not in seen,'DUPLICATE_OR_INVALID_PLAYER');seen.add(pid)
+            require(type(pid) is str and pid and pid==pid.strip() and pid not in seen,'DUPLICATE_OR_INVALID_PLAYER');seen.add(pid)
             seconds=_count(p['stats']['timePlayed']);points=_count(p['stats']['points'])
             require(seconds<=duration*60,'PLAYER_MINUTES_EXCEED_DURATION')
             rows.append(dict(player_id='EUROLEAGUE_LIVE:'+pid,minutes=seconds/60,minutes_precision='SOURCE_SECONDS',points=points))

@@ -130,3 +130,12 @@ class ReplayAdapterTests(TestCase):
             self.assertEqual(round(sum(r['minutes'] for r in rows)*60),12000)
         for value in [True,float('nan'),1.5,-1.0]:
             with self.subTest(value=value),self.assertRaises(ValueError):a._count(value)
+
+    def test_euro_player_identity_with_whitespace_is_not_a_new_person(self):
+        raw=source('EUROLEAGUE')
+        for side in ('local','road'):
+            players=raw['stats'][side]['players'];n=len(players)
+            for i,p in enumerate(players):p['stats']['timePlayed']=float(12000//n+(i<12000%n))
+        raw['stats']['local']['players'][0]['player']['person']['code']=' player-with-space '
+        with self.assertRaisesRegex(ValueError,'INVALID_PLAYER'):
+            self.capture({'game':raw['game'],'stats':raw['stats']},provider='EUROLEAGUE_LIVE',league='EUROLEAGUE',data_type='PLAYER_MINUTES')

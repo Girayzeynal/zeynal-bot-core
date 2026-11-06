@@ -104,3 +104,7 @@ class ContextTests(TestCase):
             usage='SYNTHETIC_TEST',registry=self.registry,registry_pin=self.pin)
         with self.assertRaisesRegex(ValueError,'SAME_TEAM_START_CONFLICT'):
             b.historical_player_features([first,second],target=TARGET,cutoff_utc=NOW+1,registry=self.registry,registry_pin=self.pin)
+
+    def test_whitespace_aliases_cannot_create_five_distinct_lineup_players(self):
+        with self.assertRaisesRegex(ValueError,'CANONICAL_PLAYER_IDS_REQUIRED'):
+            self.announcement(players=['1',' 1 ','2','3','4','5'],starting_five=['1',' 1 ','2','3','4'])

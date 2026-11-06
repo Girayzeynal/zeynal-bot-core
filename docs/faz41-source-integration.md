@@ -48,3 +48,11 @@ Son yerel tam regresyon: **851 geçti, 0 başarısız**, PR #18 başlangıcına 
 Kaynak sözleşmesi testleri sentetik; HTTP 200 ve yerel toplam uzlaşması bağımsız gerçeklik, kullanım izni, takımın gelecek kadrosu veya model doğruluğu kanıtı değildir. NBA.com 403 nedeniyle gerçek çok sağlayıcılı final mutabakatı henüz yoktur. Oyuncu takım üyeliği yalnızca kaynak box-score bloğuna bağlıdır; bağımsız resmi kadro tarihi sağlanmadı. Dakika toplamları beşli stintlerini/rotasyon etkisini kanıtlamaz. İzinli haber kaynakları, gerçek resmi prematch duyuruları, oyuncu ID crosswalk'ı ve gerçek play-by-play/rotasyon verisi sonraki aşamanın blokajlarıdır.
 
 Ham yanıtlar Git'e veya harici depolamaya yüklenmedi. Canlı rapor kaynak URL/zaman/hash, alan kapsamı ve ret nedenlerini içerir; yeni bir bağımsız arşiv tasdiki değildir. Scratch verilerinin yeni Cloud oturumunda kalıcılığı doğrulanmadı. API rate-limit ve kullanım koşulları sağlayıcı tarafından teyit edilmedi; 429/Retry-After davranışı sentetik testle sınırlıdır. Üretime hazır veya kalibre edilmiş model iddiası yoktur.
+
+## Aşama 3 — oyuncu kimliği sınır koşulu
+
+İkinci aşamanın `17ebdb364dfba5a85fdf508605984af1a484571d` SHA'sı için push 42220166517 ve PR 42220176472 unit-tests/docker-build başarılı; iki CI günlüğünde 851/OK doğrulandı.
+
+Son inceleme, `1` ve ` 1 ` biçimindeki oyuncu kimliklerinin ayrı kişiler gibi kabul edilebildiğini gösterdi. İki negatif regresyon önce başarısız oldu. Yeni FAZ41 duyuru ve EuroLeague oyuncu katmanı bu tür kimlikleri otomatik düzeltmeden reddeder; beş kişi kuralı boşluk takma adlarıyla aşılamaz. Eski FAZ40/v1 kayıtları yeniden yazılmadı. Bu kontrol oyuncuların sağlayıcılar arasında aynı kişi olduğunu kanıtlamaz; çapraz oyuncu ID dizini hâlâ eksiktir.
+
+Son tam regresyon: **853 geçti, 0 başarısız**; PR #18 başlangıcına göre **53 yeni test**, eski v1 grubu dahil **65 odaklı test**. Bu sayılar sentetik regresyon başarısıdır, gerçek prospektif model doğruluğu değildir. Önceki canlı smoke kanıtı ikinci aşamaya aittir; bu küçük düzeltme için yeni API çağrısı veya gerçek veri değişikliği yapılmadı. Son commit'in CI sonucu PR #19 üzerinde exact SHA ile doğrulanır.

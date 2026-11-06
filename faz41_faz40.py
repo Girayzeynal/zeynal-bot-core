@@ -17,6 +17,9 @@ def _announcement(p):
             raw['provider_fixture_id']==p['provider_fixture_id'] and raw['status']=='CONFIRMED' and
             team in (f['home_team_id'],f['away_team_id']) and p['published_at_utc']==raw['published_at_utc'],
             'EXPLICIT_TEAM_ANNOUNCEMENT_REQUIRED')
+    require(type(players) is list and type(five) is list and
+            all(type(pid) is str and pid and pid==pid.strip() for pid in players+five),
+            'CANONICAL_PLAYER_IDS_REQUIRED')
     roster=seal_roster_observation(fixture_id=f['canonical_id'],observed_at_utc=p['observed_at_utc'],
         source=p['source_url'],players=players,starting_five=five,status='CONFIRMED')
     require(raw['published_at_utc']<=p['observed_at_utc']<f['start_utc'],'ANNOUNCEMENT_NOT_PREMATCH')
