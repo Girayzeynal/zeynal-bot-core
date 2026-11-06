@@ -1,0 +1,296 @@
+{
+  "base_sha": "df6393e875bd9f809e6ecb041d889e5d682fce9f",
+  "cached_source_sha256": {
+    "/workspace/scratch/faz41-live/access-initial.json": "d7495e0d0a67e5b9a3de1569a1382ef51a3790ef8a762b7ff5176d7a0ef301d6",
+    "/workspace/scratch/faz41-live/ec-stats-debug.json": "36f2167f1710defd3bd49b2437633b3895e9ee90bb9e4cb5d1153d558127273b",
+    "/workspace/scratch/faz41-live/el-stats-debug.json": "d994a59c50036f1bd83b70848bdb475970d58286458e8270699ec86e23af2a97",
+    "/workspace/scratch/faz41-live/espn.json": "45cebafd8db2e7244a25776fc053221c5b3e2d617c68e0cc4b6de7d411f32473",
+    "/workspace/scratch/faz41-live/eurocup.json": "cc120ff6a68afa0f24e7717b87a384d8b0b93564d693a6df86438e990e35e0ef",
+    "/workspace/scratch/faz41-live/euroleague.json": "472cd7ed02c3a6ba2dcbbf1e351cfb534f7ce160c341ade9adc99658e14b1d47"
+  },
+  "ci": "Verify exact new SHA after push",
+  "created_utc": "2026-11-06T13:12:31.829442+00:00",
+  "evaluation": {
+    "EUROCUP": {
+      "calibration_status": "NOT_ESTABLISHED",
+      "cohorts": {
+        "TEST": {
+          "games": 0,
+          "metrics": null,
+          "period_metrics": null
+        },
+        "VALIDATION": {
+          "games": 0,
+          "metrics": null,
+          "period_metrics": null
+        }
+      },
+      "hyperparameters_selected_on_test": false,
+      "league": "EUROCUP",
+      "minimum_evaluation_games": 30,
+      "model": "FAZ40_REGULATION_QUARTER_MEAN_V1",
+      "parameters_fitted": false,
+      "prospective_records_created": 0,
+      "scope": "REGULATION_ONLY",
+      "season_end_year": 2027,
+      "split": {
+        "ties_share_partition": true,
+        "train_end_utc": 1793491200,
+        "validation_end_utc": 1793664000
+      },
+      "status": "ABSTAIN_INSUFFICIENT_EVALUATION_SAMPLE"
+    },
+    "EUROLEAGUE": {
+      "calibration_status": "NOT_ESTABLISHED",
+      "cohorts": {
+        "TEST": {
+          "games": 0,
+          "metrics": null,
+          "period_metrics": null
+        },
+        "VALIDATION": {
+          "games": 0,
+          "metrics": null,
+          "period_metrics": null
+        }
+      },
+      "hyperparameters_selected_on_test": false,
+      "league": "EUROLEAGUE",
+      "minimum_evaluation_games": 30,
+      "model": "FAZ40_REGULATION_QUARTER_MEAN_V1",
+      "parameters_fitted": false,
+      "prospective_records_created": 0,
+      "scope": "REGULATION_ONLY",
+      "season_end_year": 2027,
+      "split": {
+        "ties_share_partition": true,
+        "train_end_utc": 1793491200,
+        "validation_end_utc": 1793664000
+      },
+      "status": "ABSTAIN_INSUFFICIENT_EVALUATION_SAMPLE"
+    },
+    "NBA": {
+      "calibration_status": "NOT_ESTABLISHED",
+      "cohorts": {
+        "TEST": {
+          "games": 0,
+          "metrics": null,
+          "period_metrics": null
+        },
+        "VALIDATION": {
+          "games": 0,
+          "metrics": null,
+          "period_metrics": null
+        }
+      },
+      "hyperparameters_selected_on_test": false,
+      "league": "NBA",
+      "minimum_evaluation_games": 30,
+      "model": "FAZ40_REGULATION_QUARTER_MEAN_V1",
+      "parameters_fitted": false,
+      "prospective_records_created": 0,
+      "scope": "REGULATION_ONLY",
+      "season_end_year": 2027,
+      "split": {
+        "ties_share_partition": true,
+        "train_end_utc": 1793491200,
+        "validation_end_utc": 1793664000
+      },
+      "status": "ABSTAIN_INSUFFICIENT_EVALUATION_SAMPLE"
+    }
+  },
+  "files": {
+    "faz42_audit.py": "943c79923fe9d7f6b476685d6a2ef3529ff8608ff4d2debe4fe1dd8933465bb4",
+    "faz42_history.py": "2a2d851b5db5e486a8a2f1ceacbf834ff266f4db7d5f4569ccaa591de74dcea5",
+    "tests/test_faz42_audit.py": "a431a82fe19e24f066909fdfb989c6288e9b28f8c29820439dd04755b58c6781",
+    "tests/test_faz42_history.py": "6a120fc28283fa63e177e2c25da47c85ddd1830f790247588124765fd7f003f9"
+  },
+  "full_local_audit_sha256": "6aa86b3faf9d3db000ca9bc617f709f9815c1d3a1e8807b099f0cdef058b1976",
+  "inventory": {
+    "CBA:None": {
+      "adapter_supported": false,
+      "distinct_observation_digests": 0,
+      "league": "CBA",
+      "missing_period_games": 0,
+      "missing_player_minutes_games": 0,
+      "observations": 0,
+      "period_games": 0,
+      "permissions": {},
+      "player_minutes_games": 0,
+      "player_rows": 0,
+      "reported_minutes_rows": 0,
+      "season_end_year": null,
+      "source_owners": [],
+      "status": "ABSTAIN_NO_VERIFIED_ADAPTER",
+      "unique_games": 0,
+      "usable_permission_games": 0,
+      "verified_lineup_stint_games": 0,
+      "verified_play_by_play_games": 0,
+      "verified_prematch_roster_games": 0
+    },
+    "EUROCUP:2027": {
+      "adapter_supported": true,
+      "distinct_observation_digests": 3,
+      "league": "EUROCUP",
+      "missing_period_games": 0,
+      "missing_player_minutes_games": 1,
+      "observations": 3,
+      "period_games": 2,
+      "permissions": {
+        "UNKNOWN": 3
+      },
+      "player_minutes_games": 1,
+      "player_rows": 21,
+      "reported_minutes_rows": 21,
+      "season_end_year": 2027,
+      "source_owners": [
+        "EUROLEAGUE_BASKETBALL"
+      ],
+      "status": "SOURCE_INVENTORY_ONLY",
+      "unique_games": 2,
+      "usable_permission_games": 0,
+      "verified_lineup_stint_games": 0,
+      "verified_play_by_play_games": 0,
+      "verified_prematch_roster_games": 0
+    },
+    "EUROLEAGUE:2027": {
+      "adapter_supported": true,
+      "distinct_observation_digests": 3,
+      "league": "EUROLEAGUE",
+      "missing_period_games": 0,
+      "missing_player_minutes_games": 1,
+      "observations": 3,
+      "period_games": 2,
+      "permissions": {
+        "UNKNOWN": 3
+      },
+      "player_minutes_games": 1,
+      "player_rows": 24,
+      "reported_minutes_rows": 24,
+      "season_end_year": 2027,
+      "source_owners": [
+        "EUROLEAGUE_BASKETBALL"
+      ],
+      "status": "SOURCE_INVENTORY_ONLY",
+      "unique_games": 2,
+      "usable_permission_games": 0,
+      "verified_lineup_stint_games": 0,
+      "verified_play_by_play_games": 0,
+      "verified_prematch_roster_games": 0
+    },
+    "JAPAN:None": {
+      "adapter_supported": false,
+      "distinct_observation_digests": 0,
+      "league": "JAPAN",
+      "missing_period_games": 0,
+      "missing_player_minutes_games": 0,
+      "observations": 0,
+      "period_games": 0,
+      "permissions": {},
+      "player_minutes_games": 0,
+      "player_rows": 0,
+      "reported_minutes_rows": 0,
+      "season_end_year": null,
+      "source_owners": [],
+      "status": "ABSTAIN_NO_VERIFIED_ADAPTER",
+      "unique_games": 0,
+      "usable_permission_games": 0,
+      "verified_lineup_stint_games": 0,
+      "verified_play_by_play_games": 0,
+      "verified_prematch_roster_games": 0
+    },
+    "LEGA:None": {
+      "adapter_supported": false,
+      "distinct_observation_digests": 0,
+      "league": "LEGA",
+      "missing_period_games": 0,
+      "missing_player_minutes_games": 0,
+      "observations": 0,
+      "period_games": 0,
+      "permissions": {},
+      "player_minutes_games": 0,
+      "player_rows": 0,
+      "reported_minutes_rows": 0,
+      "season_end_year": null,
+      "source_owners": [],
+      "status": "ABSTAIN_NO_VERIFIED_ADAPTER",
+      "unique_games": 0,
+      "usable_permission_games": 0,
+      "verified_lineup_stint_games": 0,
+      "verified_play_by_play_games": 0,
+      "verified_prematch_roster_games": 0
+    },
+    "NBA:2027": {
+      "adapter_supported": true,
+      "distinct_observation_digests": 108,
+      "league": "NBA",
+      "missing_period_games": 0,
+      "missing_player_minutes_games": 74,
+      "observations": 108,
+      "period_games": 75,
+      "permissions": {
+        "UNKNOWN": 108
+      },
+      "player_minutes_games": 1,
+      "player_rows": 26,
+      "reported_minutes_rows": 19,
+      "season_end_year": 2027,
+      "source_owners": [
+        "ESPN"
+      ],
+      "status": "SOURCE_INVENTORY_ONLY",
+      "unique_games": 75,
+      "usable_permission_games": 0,
+      "verified_lineup_stint_games": 0,
+      "verified_play_by_play_games": 0,
+      "verified_prematch_roster_games": 0
+    },
+    "TBL:None": {
+      "adapter_supported": false,
+      "distinct_observation_digests": 0,
+      "league": "TBL",
+      "missing_period_games": 0,
+      "missing_player_minutes_games": 0,
+      "observations": 0,
+      "period_games": 0,
+      "permissions": {},
+      "player_minutes_games": 0,
+      "player_rows": 0,
+      "reported_minutes_rows": 0,
+      "season_end_year": null,
+      "source_owners": [],
+      "status": "ABSTAIN_NO_VERIFIED_ADAPTER",
+      "unique_games": 0,
+      "usable_permission_games": 0,
+      "verified_lineup_stint_games": 0,
+      "verified_play_by_play_games": 0,
+      "verified_prematch_roster_games": 0
+    }
+  },
+  "production_coefficients_changed": false,
+  "prospective_records_created": 0,
+  "sources": [
+    {
+      "distinct_provider_games": 75,
+      "observations": 107,
+      "sha256": "43adc6de12bc065e38b666dad8ba2cd9a48c5786c1185b396de5a37ebe4dd002",
+      "source": "/workspace/scratch/faz32-data-d5qmmqex/research.sqlite",
+      "unchanged": true
+    },
+    {
+      "catalog_counts_not_used_as_period_samples": true,
+      "observations": 4,
+      "sha256": "b108e72e9f10c4bf90830d350cb53b692017dc92a7c4db5a6480c4dd666681f6",
+      "source": "/workspace/zeynal-bot-faz42/docs/evidence/euroleague-eurocup-audit-20261104.json",
+      "unchanged": true
+    }
+  ],
+  "stage": "FAZ42_TRACK_A",
+  "tests": {
+    "all": 865,
+    "failures": 0,
+    "focused": 12,
+    "full_log_sha256": "ffd4b165c01993cd4479e9b3db379c70fd54885b309c7f45853c0f36a251ebec",
+    "new": 12
+  }
+}
