@@ -56,3 +56,27 @@ python -m faz43_development --day YYYY-MM-DD \
 Canlı takvim okumaları sadece açık `--live-schedule` ile; varsayılan sıfır ağ isteğidir. İzin yoksa mevcut ABSTAIN kapısı korunur. İsteğe bağlı incelenmiş politika kullanılacaksa iki komuta da `--source-policy` ve `--trusted-policy-sha256` birlikte verilmelidir. İzin değişikliğinde eski paket yeni politikaya yeniden bağlanmaz; yeni derivation gerekir. Yeni HEAD sonrasında sayısal üretim için paket yeniden oluşturulmalıdır. Gerçek scheduler/storage açılmaz; üretim botuna paket yüklenmez.
 
 Testler: aşama 1 **954/954**; aşama 2'nin yeni odaklı grubu **25/25**. Yeni testler aynı paket üzerinde eşzamanlı yayın, disk doluluğu, izin hatası, kaynak dosyasının korunması, eski paket uyumu, yanlış pin/politika/gün/lig, belgeler arası kimlik çakışması ve kısmi takvim hatası retlerini kapsar. Sayısal pozitif testler sentetiktir. Tam regresyon sonucu ve exact SHA CI ayrı kanıt dosyasında verilir.
+
+## Gerçek geliştirme denemesi ve devam noktası
+
+Kod checkpoint'i `dbae079eb9b6afbfeba20114c4b658fa1b26612a`: yerel **979/979**, push [42251567948](https://github.com/Girayzeynal/zeynal-bot-core/actions/runs/42251567948) ve PR [42251577480](https://github.com/Girayzeynal/zeynal-bot-core/actions/runs/42251577480) unit-tests/docker-build başarılı. Her iki unit log'u 979 test / OK içeriyor. PR #23 taslak ve tabanı PR #22 dalıdır; main ile birleştirme yapılmadı.
+
+Gerçek 5 HTTP takvim isteği 5 belge üretti: ESPN üç tarih, EuroLeague ve EuroCup sezon katalogları. Katalogdaki gelecekteki fikstürler, tamamlanmış/periyot/oyuncu örneği değildir. Yeni yerel input paketinde 81 tarihsel maç ve 6 lig/gün bölümü bulunuyor. `/analyze` geliştirme CLI'si iki gün için denendi:
+
+| TSİ gün | Doğrulanabilir takvim eşleşmesi | Sonuç | Yeni prospektif kayıt |
+|---|---:|---|---:|
+| 2026-11-06 | 4 EuroLeague | 4 × ABSTAIN: SCHEDULE_USAGE_NOT_ESTABLISHED | 0 |
+| 2026-11-07 | 9 NBA | 9 × ABSTAIN: SCHEDULE_USAGE_NOT_ESTABLISHED | 0 |
+
+Paket payload SHA: `243c7b571128ec55fd8172b02ff29119847687a754ac9294afbc11589f176f1e`. Dosya SHA ve kaynak HTTP zamanları `docs/evidence/faz44-real-input-smoke-20261106.json` içinde. Aynı paketin ikinci yayını `created=False`; dosya hash'i sabit. SQLite salt okunur integrity_check `ok`; kaynak SQLite SHA `43adc6de12bc065e38b666dad8ba2cd9a48c5786c1185b396de5a37ebe4dd002`. Başlangıç commit'indeki 72 eski kanıt dosyası byte düzeyinde değişmedi.
+
+Bu input köprüsünün kompakt skor gözlemlerinde 77/2/2 maçın periyotları var; oyuncu dakika, doğrulanmış PBP, maç öncesi kadro ve beşli/rotasyon gözlemi **0**. Önceki ayrı oyuncu/katalog denetimlerinin sayıları buraya eklenmedi veya silinmedi. Kaynak izni uygun eğitim örneği 0; gerçek walk-forward/kalibrasyon veya güncel modele ait MAE/RMSE/Brier/log-loss üretilmedi. Testteki sayısal başarı gerçek doğruluk değildir.
+
+Kalan işler bağımlılık sırasıyla:
+
+1. Gerçek kaynak izin belgelerini incelemek ve dışarıdan güvenilen pin ile geliştime amaçlı politikaya bağlamak. UNKNOWN varsayılanını korumak; izin belgesi yoksa ABSTAIN.
+2. Kompakt skor arşivinden ayrı oyuncu/PBP/ilk beş gözlemlerini orijinal gözlem/ingestion/materialization zamanlarıyla bağlamak. Yeni alınan veriyi eski tahmin cutoff'larında kullanılabilir saymamak. NBA resmî kaynak erişimi/ESPN çapraz denetimi ve haber izinleri henüz tamamlanmış değil.
+3. İzinli, kronolojik ve yeterli takım geçmişi oluşunca mevcut 10.000+ MC / walk-forward / ölçüm katmanını aynı maç setleriyle çalıştırmak; calib ve model karşılaştırmalarını sürüm bazında ayırmak.
+4. Gerçek scheduler ve kalıcı storage için ayrı yetki ve bağımsız Cloud geri yükleme kanıtı sağlanmadan günlük prospektif sistem hazır ilan edilmemeli. Mevcut günlük komut yalnızca geliştirme planı üretir; gerçek ledger'a yazmaz.
+
+Yerel paket oturumlar arası kalıcılık garantisi vermez. İkinci Cloud runtime testi, harici storage, production zamanlayıcı/bot entegrasyonu doğrulanmadı ve etkinleştirilmedi. Sonraki oturum temiz yeni HEAD üzerinde taze input üretmelidir; bu dosyayı tekrar kullanarak yeni HEAD veya güncel kaynak tazeliği kanıtı üretmiş saymamalıdır. Tüm master görev tamamlanmış değildir; bu aşama denetlenebilir bir checkpoint'tir.
