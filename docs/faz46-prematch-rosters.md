@@ -42,3 +42,21 @@ python -m faz46_collection --live \
 Gerçek ilk beşler, sakatlıklar, izinli haber, oyuncu değişikliği rolleri, eğitim/kalibrasyon ve bağımsız Cloud kalıcılığı açık bağımlılıklar. Bu aşama kaynak ve güvenlik bağlantısıdır; model üstünlüğü veya üretime hazır sistem iddiası değildir. Master kapsamı tamamlanmış değildir. PR taslak kalır; main merge veya production deploy yapılmaz.
 
 Kod checkpoint son yerel sonuç: **1049/1049**, 33 yeni test, başarısızlık 0; odaklı grup 43/43. Kanıt `docs/evidence/faz46-tests-20261106.json`.
+
+## Gerçek CLI checkpoint'i
+
+Kod SHA `62ed7e0f47a058575e4d3ccb6b09db8cda2e375a`: [push 42261846662](https://github.com/Girayzeynal/zeynal-bot-core/actions/runs/42261846662) ve [PR 42261984718](https://github.com/Girayzeynal/zeynal-bot-core/actions/runs/42261984718) unit-tests/docker-build başarılı; iki unit log 1049/OK. PR #25 taslak ve FAZ45 dalına bağlıdır.
+
+Yeni CLI 2026-11-06 17:27:52–54 UTC'de (20:27:52–54 TSİ) **9 public GET** yaptı. NBA resmî schedule HTTP_403. Üç fixture için hem kadro gözlemi hem doğrulanmış ilk beş hem yeni tahmin kaydı **0**:
+
+| Lig / sağlayıcı ID | Kaynaktaki UTC başlangıç | Endpoint audit sonucu |
+|---|---|---|
+| NBA / 401909287 | 2026-11-07 00:00 | ABSTAIN_ROSTER_NOT_PUBLISHED |
+| EuroLeague / E2026_100 | 2026-11-06 19:15 | ABSTAIN_ROSTER_NOT_PUBLISHED |
+| EuroCup / U2026_104 | 2026-11-10 17:00 | ABSTAIN_ROSTER_NOT_PUBLISHED |
+
+ESPN compact header'da roster ve boxscore-player alanları yok; EL/EC iki takımın oyuncu listeleri boş. Üç **kadro yayımlanmamış** sonucu saklanan kompakt kaynaklardan salt okunur `read_audit` ile tekrar türetildi. NBA resmî erişim 403 olduğundan bağımsız NBA.com/ESPN çapraz onayı yapılmış sayılmaz. Haber/yorum kaynağı izni yok; kaynaklar UNKNOWN kalır. Bu sonuçlar model doğruluğu veya kalibrasyon değildir.
+
+Audit payload SHA `b95295ae3df980dda74b287fd87eb34a1930fe22ffb205e1d351e4ed46e9a768`. Aynı artefact'ın tekrar yayını `created=False`; dosya hash'i değişmedi. Önceki **80 kanıt dosyası byte düzeyinde aynı**; FAZ45 yardımcı veri artefact'ı değişmedi. Araştırma SQLite integrity_check salt okunur `ok`, SHA `43adc6de12bc065e38b666dad8ba2cd9a48c5786c1185b396de5a37ebe4dd002`. Kaynak URL/receipt/zaman/fixture/digest ve bütünlük metadatası `docs/evidence/faz46-real-source-audit-20261106.json` içinde; ham sağlayıcı body'leri ve yerel audit artefact'ı harici storage'a/GitHub'a yüklenmedi.
+
+Yerel dosya kalıcı harici yedek değildir; bağımsız ikinci Cloud runtime kurtarması doğrulanmadı. Gerçek toplama orijinal kod SHA'sı ve zamanlarıyla korunur; sonraki dokümantasyon commit'iyle yapılmış gibi yeniden etiketlenmez. Sonraki iş: izinli ve kaynak zamanı doğrulanabilir gerçek prematch kadro/ilk beş kaynağı bulmak, kaynakta bulunmayan alanları geçmiş maç kadrosundan doldurmamak. Bu gerçekleşmeden doğrulanmış lineup veya üretime hazır analiz iddiası yok. Günlük scheduler/harici storage ve üretim aktivasyonu ayrı yetki gerektirir; etkinleştirilmedi.
