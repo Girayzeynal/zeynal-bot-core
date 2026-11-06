@@ -41,6 +41,24 @@ class NumericReconciliationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "finite"):
             reconcile_team_average(self.average, self.rows, prediction_utc=10)
 
+    def test_matching_negative_team_scores_cannot_pass_reconciliation(self):
+        self.average.points_for=-1
+        for row in self.rows:row.pts_for=-1
+        with self.assertRaisesRegex(ValueError,'Nonphysical'):
+            reconcile_team_average(self.average,self.rows,prediction_utc=10)
+
+    def test_matching_zero_pace_cannot_pass_reconciliation(self):
+        self.average.pace=0
+        for row in self.rows:row.pace=0
+        with self.assertRaisesRegex(ValueError,'Nonphysical'):
+            reconcile_team_average(self.average,self.rows,prediction_utc=10)
+
+    def test_matching_negative_pace_cannot_pass_reconciliation(self):
+        self.average.pace=-1
+        for row in self.rows:row.pace=-1
+        with self.assertRaisesRegex(ValueError,'Nonphysical'):
+            reconcile_team_average(self.average,self.rows,prediction_utc=10)
+
 
 if __name__ == "__main__":
     unittest.main()

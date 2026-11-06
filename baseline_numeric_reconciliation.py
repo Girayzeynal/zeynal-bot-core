@@ -30,6 +30,9 @@ def reconcile_team_average(core_average, records, *, prediction_utc, tolerance=0
         if (type(target) not in (int, float) or not math.isfinite(target)
                 or any(type(v) not in (int, float) or not math.isfinite(v) for v in values)):
             raise ValueError("Missing finite numerical baseline evidence")
+        if target < 0 or any(v < 0 for v in values) or (target_field == 'pace' and
+                (target == 0 or any(v == 0 for v in values))):
+            raise ValueError("Nonphysical numerical baseline evidence")
         actual = mean(values)
         if abs(actual - target) > tolerance:
             raise ValueError(f"FAZ13 {target_field} differs from historical game mean")
