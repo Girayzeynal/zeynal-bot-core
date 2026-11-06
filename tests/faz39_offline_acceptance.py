@@ -14,9 +14,61 @@ FAULTS = ('overwrite', 'unbounded-read', 'missing-durable-proof', 'unconditional
           'same-runtime', 'same-trust-admin', 'false-verified', 'swapped-trust-root',
           'unsafe-lost-ack')
 
+# Actual guard signatures, deliberately NOT a fault-name -> diagnosis table.
+REJECTIONS = {
+    'immutable_create': {('AcceptanceFailure','IMMUTABLE_CONDITIONAL_CREATE')},
+    'bounded_stream': {('AcceptanceFailure','UNBOUNDED_STREAM_ACCEPTED')},
+    'durable_ack': {('Refused','DURABLE_ACK_EVIDENCE_MISSING')},
+    'pin_cas': {('AcceptanceFailure','DISTRIBUTED_CAS_MODEL_VIOLATION')},
+    'lost_ack': {('AcceptanceFailure','LOST_ACK_WAS_FALSE_SUCCESS')},
+    'trust_roots': {('AcceptanceFailure','INDEPENDENT_ADMIN_BOUNDARIES_MISSING'),
+                    ('AcceptanceFailure','TRUST_ROOT_SUBSTITUTION')},
+    'runtime_isolation': {('Refused','SAME_RUNTIME_OR_FILESYSTEM'),
+                         ('AcceptanceFailure','FAKE_PROVIDER_CANNOT_VERIFY')},
+}
+STAGES = frozenset(REJECTIONS) | {'initialization','pin_generations','utc_freshness',
+                                  'immutable_outcome','inflight_write'}
+SAFE_REASON_CODES = frozenset(code for entries in REJECTIONS.values() for _,code in entries)
+
 
 class AcceptanceFailure(ValueError):
     pass
+
+
+class AcceptanceTrace:
+    def __init__(self):
+        self.stage='initialization';self.checks=[]
+
+    def enter(self,stage):
+        require(stage in STAGES,'UNKNOWN_REJECTION_STAGE')
+        self.stage=stage
+
+
+def failure_report(exc,trace):
+    """Keep actual exception types; never expose arbitrary exception messages.
+
+    A familiar message on a runtime error or a refusal in the wrong stage is
+    not evidence that the intended security guard was exercised.
+    """
+    contract_type=getattr(sys.modules.get('faz39_checkpoint_contract'),'Refused',None)
+    if contract_type is not None and type(exc) is contract_type:
+        origin='CONTRACT_POLICY_REFUSAL';fallback='UNEXPECTED_CONTRACT_REFUSAL'
+    elif type(exc) is AcceptanceFailure:
+        origin='ACCEPTANCE_ASSERTION';fallback='UNEXPECTED_ACCEPTANCE_ASSERTION'
+    else:
+        origin='UNEXPECTED_RUNTIME_ERROR';fallback='UNEXPECTED_EXCEPTION'
+    message=str(exc) if origin!='UNEXPECTED_RUNTIME_ERROR' else None
+    reason=message if message in SAFE_REASON_CODES else fallback
+    stage=trace.stage if trace.stage in STAGES else 'initialization'
+    recognized=(origin!='UNEXPECTED_RUNTIME_ERROR' and
+                (type(exc).__name__,reason) in REJECTIONS.get(stage,set()))
+    return dict(status='OFFLINE_ACCEPTANCE_FAIL',verification_status='NOT_VERIFIED',
+                error_type=type(exc).__name__,reason_code=reason,rejection_stage=stage,
+                rejection_origin=origin,recognized_rejection=recognized,
+                checks=list(trace.checks),check_count=len(trace.checks),usage='SYNTHETIC_TEST',
+                durable_storage_verified=False,separate_cloud_runtime_verified=False,
+                real_external_storage_used=False,external_upload_performed=False,
+                new_real_prospective_records=0)
 
 
 def require(condition, code):
@@ -71,7 +123,7 @@ def unverified(value):
             value.get('status') in permitted,'FAKE_PROVIDER_CANNOT_VERIFY')
 
 
-def exercise(fault=None):
+def exercise(fault=None, *, trace=None):
     # Only pure standard-library contract code and deterministic test fixtures.
     from concurrent.futures import ThreadPoolExecutor
     from copy import deepcopy
@@ -81,8 +133,12 @@ def exercise(fault=None):
     import faz39_checkpoint_contract as c
     from tests import test_faz39_checkpoint_contract as fake
 
+    trace=AcceptanceTrace() if trace is None else trace
+    require(type(trace) is AcceptanceTrace and trace.stage=='initialization' and not trace.checks,
+            'FRESH_TRACE_REQUIRED')
     require(fault is None or fault in FAULTS,'UNKNOWN_FAULT')
-    fx=fake.ContractTests();fx.setUp();passed=[]
+    fx=fake.ContractTests();fx.setUp();passed=trace.checks
+    trace.enter('immutable_create')
     backend=fake.FakeBackend();store=fx.store(backend)
     if fault=='overwrite':
         def overwrite(key,value):backend.objects[key]=value;return True
@@ -93,6 +149,7 @@ def exercise(fault=None):
     require(backend.objects['synthetic-probe']==b'original','ORIGINAL_OBJECT_CHANGED')
     passed.append('immutable_conditional_create_and_exact_readback')
 
+    trace.enter('bounded_stream')
     stream=TrackedStream(b'x'*500)
     reader=(lambda s,limit:s.read()) if fault=='unbounded-read' else bounded_stream
     expect(AcceptanceFailure,lambda:reader(stream,31),'UNBOUNDED_STREAM_ACCEPTED')
@@ -100,6 +157,7 @@ def exercise(fault=None):
     require(bounded_stream(TrackedStream(b'abcd'),4)==b'abcd','EXACT_STREAM_LENGTH')
     passed.append('decoded_stream_limit_without_trusting_metadata')
 
+    trace.enter('durable_ack')
     receipt=dict(target_id=store.target_id,object_sha256=hashlib.sha256(b'original').hexdigest(),
                  provider_receipt_sha256='9'*64,storage_identity='synthetic-durable-oracle',simulation=True)
     if fault=='missing-durable-proof':del receipt['provider_receipt_sha256']
@@ -111,6 +169,7 @@ def exercise(fault=None):
             'DURABLE_ACK_BINDING')
     passed.append('simulated_durable_ack_receipt_bound_to_exact_bytes')
 
+    trace.enter('pin_cas')
     class RaceAuthority(fake.FakeAuthority):
         def __init__(self,current):
             super().__init__(current);self.barrier=threading.Barrier(2);self.seen=threading.local()
@@ -134,6 +193,7 @@ def exercise(fault=None):
             outcomes.count('REFUSED')==1,'DISTRIBUTED_CAS_MODEL_VIOLATION')
     passed.append('concurrent_monotonic_cas_and_same_generation_fork_rejection')
 
+    trace.enter('lost_ack')
     authority=fake.FakeAuthority(fx.raw);original=authority.compare_and_swap
     def lost_ack(*args):original(*args);raise ConnectionError('SIMULATED_LOST_ACK')
     authority.compare_and_swap=lost_ack;candidate=fake.envelope(fx.next_pin())
@@ -149,6 +209,7 @@ def exercise(fault=None):
     require(retry['status']=='PIN_ALREADY_CURRENT','EXACT_ACK_RETRY');unverified(retry)
     passed.append('lost_ack_uncertainty_and_exact_retry')
 
+    trace.enter('pin_generations')
     high=replace(fx.anchor,generation=2,pin_sha256=c.digest(fx.next_pin()))
     expect(c.Refused,lambda:fx.plan(anchor=high),'STALE_PIN_ACCEPTED')
     expect(c.Refused,lambda:fx.plan(fake.envelope(dict(fx.pin,source_runtime_id='synthetic-fork'))),
@@ -158,6 +219,7 @@ def exercise(fault=None):
            'GENERATION_JUMP_ACCEPTED')
     passed.append('stale_pin_fork_and_generation_jump_refused')
 
+    trace.enter('trust_roots')
     # These are FAKE administrative identities/public fingerprints, not live roots.
     roles=dict(object_admin='synthetic-object-owner',pin_admin='synthetic-pin-owner',
                signing_admin='synthetic-signing-owner')
@@ -172,11 +234,13 @@ def exercise(fault=None):
            'FAKE_ATTESTOR_PROMOTED')
     passed.append('simulated_independent_roots_and_issuer_pinning')
 
+    trace.enter('utc_freshness')
     expect(c.Refused,lambda:fx.plan(now=fake.NOW+3),'STALE_UTC_ACCEPTED')
     expect(c.Refused,lambda:fx.plan(policy=replace(fx.policy,clock_challenge_sha256='f'*64)),
            'UTC_CHALLENGE_REPLAY_ACCEPTED')
     unverified(fx.plan());passed.append('fresh_utc_and_request_challenge_binding')
 
+    trace.enter('runtime_isolation')
     p,observation=fx.evidence()
     if fault=='same-runtime':p['destination']['runtime_id']=p['source']['runtime_id']
     result=fx.validate_evidence(p,observation)
@@ -190,6 +254,7 @@ def exercise(fault=None):
     expect(c.Refused,lambda:fx.validate_evidence(bad),'EPHEMERAL_STORAGE_ACCEPTED')
     passed.append('two_runtime_identity_requirements_without_verification_claim')
 
+    trace.enter('immutable_outcome')
     backend=fake.FakeBackend();evidence_store=fx.store(backend)
     first=fx.publish(evidence_store,p);second=fx.publish(evidence_store,p)
     require(first['created'] is True and second['created'] is False,'OUTCOME_RETRY_NOT_IDEMPOTENT')
@@ -198,6 +263,7 @@ def exercise(fault=None):
     require(len(backend.objects)==1,'OUTCOME_COUNT_INFLATED')
     unverified(first);unverified(second);passed.append('one_immutable_outcome_per_attempt')
 
+    trace.enter('inflight_write')
     # A negative read does not prove a timed-out request cannot commit later.
     pending=fake.FakeBackend();delayed=('inflight-probe',b'late-committed-bytes')
     expect(FileNotFoundError,lambda:pending.read(delayed[0],64),'NEGATIVE_READ_EXPECTED')
@@ -221,13 +287,11 @@ def main():
     sys.addaudithook(offline_guard)
     # -I excludes cwd/PYTHONPATH; only this repository's fixed test sources enter.
     sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+    trace=AcceptanceTrace()
     try:
-        result=exercise(args.fault);code=0
+        result=exercise(args.fault,trace=trace);code=0
     except Exception as exc:
-        result=dict(status='OFFLINE_ACCEPTANCE_FAIL',verification_status='NOT_VERIFIED',
-                    error_type=type(exc).__name__,durable_storage_verified=False,
-                    separate_cloud_runtime_verified=False,external_upload_performed=False,
-                    new_real_prospective_records=0)
+        result=failure_report(exc,trace)
         code=1
     print(json.dumps(result,sort_keys=True));return code
 
