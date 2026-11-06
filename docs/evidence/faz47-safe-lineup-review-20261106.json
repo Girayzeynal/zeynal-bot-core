@@ -1,0 +1,266 @@
+{
+  "stage": "FAZ47_SAFE_RESUME_AND_FAZ39_LINEUP_REVIEW_NO_INTEGRATION",
+  "created_utc": "2026-11-06T20:48:21.623454+00:00",
+  "baseline_sha": "c3684df35e0eadf53285ea6743aaf141b28fd80d",
+  "last_successful_checkpoint": "c3684df35e0eadf53285ea6743aaf141b28fd80d",
+  "remote_turn_failure": {
+    "code_or_ci_failure_observed": false,
+    "service_failure_cause": "NOT_VERIFIABLE_FROM_AVAILABLE_SERVICE_LOGS",
+    "runtime_at_resume": "connected/running",
+    "active_test_processes_at_resume": 0,
+    "git_processes_observed": "Zs, already exited; no unsafe termination attempted"
+  },
+  "baseline_ci": {
+    "push": {
+      "run_id": 42281947617,
+      "unit_tests": "success",
+      "docker_build": "success",
+      "tests_in_log": 1078
+    },
+    "pull_request": {
+      "run_id": 42282129330,
+      "unit_tests": "success",
+      "docker_build": "success",
+      "tests_in_log": 1078
+    }
+  },
+  "candidate": {
+    "pr": 12,
+    "head_sha": "d7fb5bf25aafe504a158b564f2e4d99a84f68c89",
+    "module_added_commit": "08ca281fcfe584bdbe35b71592accc599c53b3fa",
+    "module_sha256": "fec7a45a469b252e4753c1004c9f4eb12fd2119f253c92a0af02df0b551ff09b",
+    "tests_sha256": "d90c5be4427b26f3ae367701decf912a0d19b0e99a11d2c2bd6e4c8beef4149c",
+    "call_sites": "Only definition and its own tests at pinned PR12 tree",
+    "copied_into_application_tree": false
+  },
+  "tests": {
+    "candidate_original": 6,
+    "candidate_original_passed": 6,
+    "candidate_log_sha256": "909e64d1160b061f14b120eab1c07c048d364376d4c6ecd49f80e13f33bc84f1",
+    "current_targeted": 72,
+    "current_targeted_passed": 72,
+    "current_targeted_log_sha256": "682f66218fe8ac74e03182776a9e7e51497f4fb51f411a25df4c8f2df19b64fd",
+    "baseline_full": 1078,
+    "baseline_full_failures": 0,
+    "reviewed_probe_log_sha256": "01d3b536aac6639e56bd493d6300f42cf1d79d58e5d87ff8f09d2083fcfd5ae1",
+    "changed_candidate_pin_refused_before_execution": true
+  },
+  "comparison": {
+    "purpose": "SYNTHETIC_CONTRACT_REVIEW_NOT_MERGED_NOT_MODEL_PERFORMANCE",
+    "created_utc": "2026-11-06T20:46:53.837839+00:00",
+    "candidate_sha": "d7fb5bf25aafe504a158b564f2e4d99a84f68c89",
+    "baseline_sha": "c3684df35e0eadf53285ea6743aaf141b28fd80d",
+    "current_sha": "c3684df35e0eadf53285ea6743aaf141b28fd80d",
+    "current_module_sha256": {
+      "faz41_faz40.py": "000f2a9f3c0a0588cbe03c331eca20454c306364466507c7858600479e160dc1",
+      "faz46_rosters.py": "6cd33d05616eecbae820e4ef59a91cf0d60510dfa70d4cc9722d94deb35bb1c5",
+      "faz46_collection.py": "d2bbedba9857a44b983dd288ca9fe52d05710eba2f1682214a580dac0924bcb5"
+    },
+    "files": {
+      "lineup_uncertainty.py": "fec7a45a469b252e4753c1004c9f4eb12fd2119f253c92a0af02df0b551ff09b",
+      "tests/test_lineup_uncertainty.py": "d90c5be4427b26f3ae367701decf912a0d19b0e99a11d2c2bd6e4c8beef4149c",
+      "review_probe_script": "e41ef518cead59d3090cf6d32cb318c17f48bc3b2242d018cb5c6f45e5f16e19"
+    },
+    "classification_checks": 3,
+    "classification_checks_passed": 3,
+    "authoritative_acceptance_criteria": 9,
+    "candidate_standalone_criteria_met": 0,
+    "faz46_authoritative_criteria_met": 8,
+    "cases": [
+      {
+        "case": "missing_is_unavailable",
+        "kind": "DTO_CLASSIFICATION",
+        "candidate": {
+          "rejected": false,
+          "status": "UNAVAILABLE"
+        },
+        "candidate_meets_criterion": true
+      },
+      {
+        "case": "projected_is_not_official",
+        "kind": "DTO_CLASSIFICATION",
+        "candidate": {
+          "rejected": false,
+          "status": "PROJECTED"
+        },
+        "candidate_meets_criterion": true
+      },
+      {
+        "case": "post_prediction_observation_rejected",
+        "kind": "DTO_CLASSIFICATION",
+        "candidate": {
+          "rejected": true,
+          "reason": "post-prediction lineup evidence is forbidden",
+          "exception": "ValueError"
+        },
+        "candidate_meets_criterion": true
+      },
+      {
+        "case": "untrusted_plain_source_is_not_official_proof",
+        "kind": "AUTHORITATIVE_MODEL_GATE_REQUIREMENT",
+        "candidate": {
+          "rejected": false,
+          "status": "OFFICIAL"
+        },
+        "faz46": {
+          "rejected": true,
+          "reason": "SOURCE_ORIGIN_NOT_ALLOWED",
+          "exception": "ValueError"
+        },
+        "candidate_meets_criterion": false,
+        "faz46_meets_criterion": true
+      },
+      {
+        "case": "unknown_policy_cannot_authorize_official_claim",
+        "kind": "AUTHORITATIVE_MODEL_GATE_REQUIREMENT",
+        "candidate": {
+          "rejected": false,
+          "status": "OFFICIAL"
+        },
+        "faz46": {
+          "rejected": true,
+          "reason": "SOURCE_USAGE_NOT_ESTABLISHED",
+          "exception": "ValueError"
+        },
+        "candidate_meets_criterion": false,
+        "faz46_meets_criterion": true
+      },
+      {
+        "case": "prediction_clock_is_mandatory",
+        "kind": "AUTHORITATIVE_MODEL_GATE_REQUIREMENT",
+        "candidate": {
+          "rejected": false,
+          "status": "OFFICIAL"
+        },
+        "faz46": {
+          "rejected": true,
+          "reason": "PREMATCH_CONTEXT_REQUIRED",
+          "exception": "ValueError"
+        },
+        "candidate_meets_criterion": false,
+        "faz46_meets_criterion": true
+      },
+      {
+        "case": "cutoff_must_be_before_tipoff",
+        "kind": "AUTHORITATIVE_MODEL_GATE_REQUIREMENT",
+        "candidate": {
+          "rejected": false,
+          "status": "OFFICIAL"
+        },
+        "faz46": {
+          "rejected": true,
+          "reason": "PREMATCH_CONTEXT_REQUIRED",
+          "exception": "ValueError"
+        },
+        "candidate_meets_criterion": false,
+        "faz46_meets_criterion": true
+      },
+      {
+        "case": "cutoff_and_observation_cannot_be_in_real_clock_future",
+        "kind": "AUTHORITATIVE_MODEL_GATE_REQUIREMENT",
+        "candidate": {
+          "rejected": false,
+          "status": "OFFICIAL"
+        },
+        "faz46": {
+          "rejected": true,
+          "reason": "PREMATCH_CONTEXT_REQUIRED",
+          "exception": "ValueError"
+        },
+        "candidate_meets_criterion": false,
+        "faz46_meets_criterion": true
+      },
+      {
+        "case": "same_second_does_not_prove_v2_availability",
+        "kind": "AUTHORITATIVE_MODEL_GATE_REQUIREMENT",
+        "candidate": {
+          "rejected": false,
+          "status": "OFFICIAL"
+        },
+        "faz46": {
+          "rejected": true,
+          "reason": "EVIDENCE_NOT_AVAILABLE_AT_CUTOFF",
+          "exception": "ValueError"
+        },
+        "candidate_meets_criterion": false,
+        "faz46_meets_criterion": true
+      },
+      {
+        "case": "whitespace_alias_cannot_create_five_players",
+        "kind": "AUTHORITATIVE_MODEL_GATE_REQUIREMENT",
+        "candidate": {
+          "rejected": false,
+          "status": "OFFICIAL"
+        },
+        "faz46": {
+          "rejected": true,
+          "reason": "CANONICAL_PLAYER_IDS_REQUIRED",
+          "exception": "ValueError"
+        },
+        "candidate_meets_criterion": false,
+        "faz46_meets_criterion": true
+      },
+      {
+        "case": "same_player_cannot_be_on_both_teams",
+        "kind": "AUTHORITATIVE_MODEL_GATE_REQUIREMENT",
+        "candidate": {
+          "rejected": false,
+          "status": "OFFICIAL/OFFICIAL"
+        },
+        "faz46": {
+          "rejected": true,
+          "reason": "CROSS_TEAM_PLAYER_ID_CONFLICT",
+          "exception": "ValueError"
+        },
+        "candidate_meets_criterion": false,
+        "faz46_meets_criterion": true
+      },
+      {
+        "case": "same_team_provider_prefix_alias_is_not_a_second_player",
+        "kind": "AUTHORITATIVE_MODEL_GATE_REQUIREMENT",
+        "candidate": {
+          "rejected": false,
+          "status": "OFFICIAL"
+        },
+        "faz46": {
+          "rejected": false,
+          "status": "CONFIRMED"
+        },
+        "candidate_meets_criterion": false,
+        "faz46_meets_criterion": false
+      }
+    ],
+    "integration_performed": false,
+    "safe_to_integrate_without_additional_adapter": false,
+    "production_changed": false,
+    "real_prediction_result_pairs": 0,
+    "caveat": "The candidate is a DTO/classifier, not a source validator. These criteria are required before authoritative model integration, not claims that its existing six unit tests failed."
+  },
+  "review_files": {
+    "tools/review_faz39_lineup_contract.py": "e41ef518cead59d3090cf6d32cb318c17f48bc3b2242d018cb5c6f45e5f16e19",
+    "docs/faz47-lineup-safe-review.md": "66b25ddf2ab9189cb5f1fa37001a99ff70e9909a4e41a73b75a1dc0e903d798f"
+  },
+  "unchanged_prior_evidence_files": 83,
+  "real_readiness": {
+    "model_sha": "c3684df35e0eadf53285ea6743aaf141b28fd80d",
+    "artifact_sha256": "88f452a41567dc9014848a0c7ca9c23a32b953b8e699e78c095339bbab85a1a1",
+    "artifact_payload_sha256": "b0a18dcf92ee8c8e0bc5cb5a24acb64782f800dd284b28d6d40a3cca6b4ecd3e",
+    "input_files_unchanged": true,
+    "real_prediction_result_pairs": 0,
+    "prospective_records_created": 0,
+    "calibration": "NOT_ESTABLISHED",
+    "metrics_completed": false
+  },
+  "core_code_changed": false,
+  "production_changed": false,
+  "merge_or_cherry_pick_performed": false,
+  "integration_plan_applied": false,
+  "remaining_blockers": [
+    "Same-team bare/prefixed provider identity duplicate in normalized current announcement contract",
+    "Whitespace/canonical identity handling in candidate DTO",
+    "Projected-source evidence adapter is not implemented",
+    "No standalone OFFICIAL authority from caller flag/source text",
+    "Real performance/calibration sample is zero"
+  ],
+  "ci_for_review_commit": "Verify exact new SHA after documentation/probe-tool commit"
+}
