@@ -110,3 +110,19 @@ class EvidenceV2Tests(TestCase):
         with self.assertRaisesRegex(ValueError,'MIXED'):
             e.compare_observations([self.seal(),self.seal(usage='RETROSPECTIVE_RESEARCH')],fixture=FIXTURE,
                 cutoff_utc=NOW+1,maximum_age_seconds=60,registry=self.registry,registry_pin=self.pin)
+
+    def test_poststart_observation_cannot_be_labelled_prospective(self):
+        f=e.fixture_identity(league='NBA',season_end_year=2027,start_utc=NOW-1,home_team_id='8',away_team_id='20')
+        with self.assertRaisesRegex(ValueError,'PROSPECTIVE_MUST_BE_PRESTART'):
+            self.seal(fixture=f,usage='PROSPECTIVE_EVIDENCE')
+
+    def test_original_prematch_evidence_remains_replayable_after_tipoff(self):
+        o=self.seal(usage='PROSPECTIVE_EVIDENCE')
+        with patch('time.time',return_value=NOW+2000):
+            self.assertEqual(self.validate(o)['usage'],'PROSPECTIVE_EVIDENCE')
+
+    def test_rehashed_poststart_creation_cannot_retain_prospective_usage(self):
+        o=self.seal(usage='PROSPECTIVE_EVIDENCE');o['payload']['materialized_at_utc']=FIXTURE['start_utc']
+        o['sha256']=digest(o['payload'])
+        with patch('time.time',return_value=NOW+2000),self.assertRaisesRegex(ValueError,'PROSPECTIVE_MUST_BE_PRESTART'):
+            self.validate(o,cutoff_utc=NOW+1500,maximum_age_seconds=2000)

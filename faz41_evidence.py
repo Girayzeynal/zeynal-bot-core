@@ -84,6 +84,7 @@ def seal_observation(*, fixture, provider, provider_fixture_id, source_url, data
             'PUBLICATION_TIME_REQUIRED')
     require(scope in ('NOT_APPLICABLE','REGULATION_ONLY','FINAL_WITH_OT') and
             usage in ('SYNTHETIC_TEST','RETROSPECTIVE_RESEARCH','PROSPECTIVE_EVIDENCE'), 'EVIDENCE_CLASSIFICATION')
+    require(usage!='PROSPECTIVE_EVIDENCE' or now<fixture['start_utc'], 'PROSPECTIVE_MUST_BE_PRESTART')
     require(type(raw) is dict and type(claims) is dict and claims and
             all(type(k) is str and k.strip() for k in claims), 'RAW_AND_CLAIMS_REQUIRED')
     payload=dict(schema_version=2,fixture=deepcopy(fixture),provider=provider,provider_fixture_id=provider_fixture_id,
@@ -113,10 +114,15 @@ def validate_observation(sealed, *, fixture, cutoff_utc, maximum_age_seconds,
         require(p['fixture']==fixture and p['registry_sha256']==registry_pin, 'FIXTURE_OR_POLICY_BINDING_MISMATCH')
         require(type(p['materialized_at_utc']) is int and
                 0<p['ingested_at_utc']<=p['materialized_at_utc']<cutoff_utc, 'EVIDENCE_NOT_AVAILABLE_AT_CUTOFF')
-        rebuilt=seal_observation(**{k:p[k] for k in ('fixture','provider','provider_fixture_id','source_url','data_type',
-            'raw','claims','observed_at_utc','ingested_at_utc','published_at_utc','scope','usage')},
-            registry=registry,registry_pin=registry_pin)['payload']
-        rebuilt['materialized_at_utc']=p['materialized_at_utc']
+        require(p['usage']!='PROSPECTIVE_EVIDENCE' or p['materialized_at_utc']<fixture['start_utc'],
+                'PROSPECTIVE_MUST_BE_PRESTART')
+        fields={k:p[k] for k in ('fixture','provider','provider_fixture_id','source_url','data_type',
+            'raw','claims','observed_at_utc','ingested_at_utc','published_at_utc','scope','usage')}
+        # Replaying an original prematch record after tipoff is legitimate; the
+        # stored creation clock, not today's replay clock, defines its usage.
+        if fields['usage']=='PROSPECTIVE_EVIDENCE':fields['usage']='RETROSPECTIVE_RESEARCH'
+        rebuilt=seal_observation(**fields,registry=registry,registry_pin=registry_pin)['payload']
+        rebuilt['usage']=p['usage'];rebuilt['materialized_at_utc']=p['materialized_at_utc']
         require(rebuilt==p, 'EVIDENCE_SEMANTIC_MISMATCH')
         policy=registry[p['provider']]
         require(cutoff_utc-p['observed_at_utc']<=maximum_age_seconds, 'STALE_OBSERVATION')
