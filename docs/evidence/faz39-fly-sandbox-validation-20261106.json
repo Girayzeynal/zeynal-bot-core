@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "phase": "FAZ39_FLY_SANDBOX_PREPARATION",
+  "created_utc": "2026-11-06T05:06:02.189983+00:00",
+  "base_sha": "2f629dd8dc7857588bf4efdffec00b9be2da024a",
+  "branch": "feature/faz39-time-guarded-prospective",
+  "pr": 14,
+  "pr_draft": true,
+  "tests": {
+    "all": 843,
+    "new_sandbox": 15,
+    "final_failures": 0,
+    "full_log_sha256": "524e48ae8d06454301f4a913fa1d41b956803f01dff8dd61ecc570115aeb41e9",
+    "initial_attempt": {
+      "tests": 829,
+      "errors": 4,
+      "reason": "Base runtime lacks python-telegram-bot; imports/lifecycle tests fail before execution",
+      "fix": "Install repository requirements in separate local venv and rerun all tests",
+      "log_sha256": "7a4a193b408502993de73b3630f453a93cdf925f42e4aba1214a0f3d05dd16c6"
+    }
+  },
+  "local_proof": {
+    "bundle_sha256": "d45d344d5ef123d424011c26806ee13ed996ce98b705b4c854382558915b6b7c",
+    "committed_rows_restored": 1,
+    "durable_storage_verified": false,
+    "export_retry": "ALREADY_EXPORTED",
+    "external_upload_performed": false,
+    "integrity": "ok",
+    "manifest_sha256": "1954578cb1015129dd3853bca06a569fdb29e3a06e04d13f5d60bd456a3054f0",
+    "new_real_prospective_records": 0,
+    "original_unchanged": true,
+    "recovery": {
+      "adapter_scope": "LOCAL_STAGING",
+      "checkpoint_selection": "EXACT_TRUSTED_PIN",
+      "durable_storage_verified": false,
+      "external_transfer_requested": false,
+      "manifest_sha256": "1954578cb1015129dd3853bca06a569fdb29e3a06e04d13f5d60bd456a3054f0",
+      "pin_freshness": "NOT_ATTESTED",
+      "recovery": {
+        "audit": {
+          "cuts_by_horizon": {},
+          "distinct_games": 0,
+          "eligible_training_examples": 0,
+          "faz39_bound_cuts": 0,
+          "faz39_ready_receipts": 0,
+          "integrity": "ok",
+          "missing_data": {},
+          "mode": "SYNTHETIC_TEST",
+          "original_predictions_modified": false,
+          "prospective_cuts": 0,
+          "ready_unique_feature_label_games": 0,
+          "shadow_statuses": {},
+          "synthetic_cuts": 0,
+          "synthetic_eligible_examples": 0,
+          "training_horizon": "T60M",
+          "verified_final_games": 0
+        },
+        "base_restore": "RESTORE_COMPLETE",
+        "bundle_sha256": "d45d344d5ef123d424011c26806ee13ed996ce98b705b4c854382558915b6b7c",
+        "destination": "/tmp/faz39-sandbox-gg0mktyv/restored",
+        "external_uploaded": false,
+        "rearms_expired_cut": false,
+        "separate_cloud_runtime_verified": false,
+        "status": "FAZ39_LOCAL_RESTORE_VERIFIED"
+      },
+      "separate_cloud_runtime_verified": false,
+      "status": "LOCAL_RECOVERY_VERIFIED"
+    },
+    "restore_overwrite_refused": true,
+    "restored_sqlite_sha256": "bb04a8f47b7d1ec0f90cfb30635f82924213952403a75c83af8297b990e905c8",
+    "runner_sha256": "0555b3890e75b9c67c58989d898968d51ccb27fad5791e457d190e3094d0b35d",
+    "separate_cloud_runtime_verified": false,
+    "source_sha": "2f629dd8dc7857588bf4efdffec00b9be2da024a",
+    "source_sha_attestation": "CALLER_OR_BUILD_SUPPLIED_NOT_GITHUB_VERIFIED",
+    "status": "SANDBOX_LOCAL_RECOVERY_VERIFIED",
+    "storage_mode": "LOCAL_ONLY",
+    "uncommitted_rows_restored": 0,
+    "usage": "SYNTHETIC_TEST",
+    "wal_bytes": 16512,
+    "work_directory": "/tmp/faz39-sandbox-gg0mktyv"
+  },
+  "proof_sha256": "1191600de98a6905d3bfe9c7886544af0d56df5f6ae321e6ebf321fc3665c9e9",
+  "new_file_sha256": {
+    "faz39_sandbox.py": "0555b3890e75b9c67c58989d898968d51ccb27fad5791e457d190e3094d0b35d",
+    "fly.faz39-sandbox.toml": "de214ffaacbac933d5442426bdfd39d67d813f2fe109228fcf89728581376752",
+    "Dockerfile.faz39-sandbox": "749ad9f6d45de3bb7f341f511141d1120fb604a6c289c4af0eeeb17d2207c3dd",
+    "Dockerfile.faz39-sandbox.dockerignore": "5c70755a3dd56a08ea178f136d9264be3cbfe0f7e94886fa8e60e05f54a783f0",
+    "config/faz39-sandbox-image-files.json": "32779ce5e36dd7284b31e8e2a07bb67effee44dd5f5144903cfda020054f878f",
+    "requirements.faz39-sandbox.txt": "3eb088b56b620e45dc565b66acb24705ebdc2d0dc93d0e95d0c0bfe837f99f71",
+    "tests/test_faz39_sandbox.py": "63fef57add63bed0010af3bc5b9189464266689efaf718c84c7e6423c366e355",
+    "docs/faz39-fly-sandbox.md": "1b64d8544b32db1352c439c1d497cdb35f3c63ea4c39f26a17674f208e82d8ed",
+    ".github/workflows/python-tests.yml": "8941b53db7eb60fbb98d8ac35ae8866be166553dbe45d1e57b3fbd3de9190263"
+  },
+  "preserved": {
+    "original_files": {
+      "checked": 7,
+      "mismatches": []
+    },
+    "model_sources": {
+      "checked": 4,
+      "mismatches": []
+    },
+    "prior_faz29_to_faz36_tracked_files": {
+      "checked": 36,
+      "mismatches": []
+    }
+  },
+  "unchanged": {
+    "fly.toml": "a35ebbdf49b7d3e80868181c7f015d619dc0799195b30a97b163af4f88e687b8",
+    "Dockerfile": "e3a55f288ad2897513456552024ccfcae8c278b977c061ae5631efd7f1b552b7",
+    "faz39.py": "c593b1cf63fbf8da748c78f92a256ec5d494f60e1af6c8508df037b81d5ee5ad",
+    "faz39_transfer.py": "141b3e92035b618b9425c352bd44a2739518caf04a523dff36d64e30847c9433",
+    "faz39_recovery.py": "86dce2c753fbc2d2a861eff934cf2bfaa9fb850a46c5eaba88c98221affddd5c",
+    "config/faz39-local.example.json": "776d65923ff23da4fd50cdd4d97afcf37235ce13601a10d92955b5f46adde2e9"
+  },
+  "config_validation": "TOMLLIB_AND_STRICT_CONTRACT_TESTS_PASS",
+  "fly_platform_validation": "NOT_RUN_FLY_CLI_UNAVAILABLE",
+  "local_container_validation": "NOT_RUN_LOCAL_DOCKER_SOCKET_PERMISSION_DENIED_NONROOT",
+  "ci": "VERIFY_EXACT_NEW_SHA_AFTER_PUSH; docker-build now builds and runs isolated sandbox image",
+  "verification_level": "LOCAL_SYNTHETIC_RECOVERY_ONLY",
+  "storage_mode": "LOCAL_ONLY",
+  "app_created": false,
+  "volume_created": false,
+  "paid_resources_allocated": false,
+  "deploy_performed": false,
+  "external_upload_performed": false,
+  "production_scheduler_enabled": false,
+  "main_merge": false,
+  "new_real_prospective_records": 0,
+  "separate_cloud_runtime_verified": false,
+  "durable_storage_verified": false,
+  "remaining_risks": [
+    "No actual Fly sandbox or independently accessed second Cloud runtime",
+    "No external durable store or externally retained trusted latest manifest pin",
+    "Python audit hook is application defense; authorized future Fly runtime needs platform egress isolation",
+    "Default tmp filesystem is ephemeral; CI container success is not a cross-runtime recovery proof"
+  ]
+}

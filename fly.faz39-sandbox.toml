@@ -1,0 +1,21 @@
+# Preparation only. No app, volume, secrets or production service is selected.
+# A separately authorized app must use the zeynal-faz39-sandbox- prefix.
+primary_region = "ams"
+kill_signal = "SIGTERM"
+kill_timeout = "5s"
+
+[build]
+dockerfile = "Dockerfile.faz39-sandbox"
+
+[env]
+FAZ39_SANDBOX = "SYNTHETIC_TEST_ONLY"
+FAZ39_STORAGE_MODE = "LOCAL_ONLY"
+PYTHONDONTWRITEBYTECODE = "1"
+PYTHONUNBUFFERED = "1"
+
+[processes]
+sandbox = "python -I /sandbox/faz39_sandbox.py"
+
+[[restart]]
+policy = "no"
+processes = ["sandbox"]
