@@ -1,0 +1,1074 @@
+{
+  "checkpoint": {
+    "ci": "Verify exact new SHA after push",
+    "created_utc": "2026-11-06T15:46:07.788324+00:00",
+    "files": {
+      "faz43_nba_refresh.py": "b1a5a7f969cdda0d09d2555c823fb7d4d97db2253cc76afff45e66eb0ed5ce37",
+      "tests/test_faz43_nba_refresh.py": "ff98178dc466b18c2da1dcd91eb060186a89e198ca942779e62189e49682a35c"
+    },
+    "parent_commit": "7eb0f014b7d02b620c3ddf880837004f9b0626d8",
+    "source_permissions_changed": false,
+    "tests": {
+      "all": 946,
+      "failures": 0,
+      "focused_log_sha256": "25b8a6cfb01933c3064a457bed74618f46c7e5a599eed346ef1085c49a2a2629",
+      "full_log_sha256": "6d4031f08ec93696734068cf7f8bc8e1614fc4067e82433c67762b86935460a4",
+      "new_since_master_start": 58,
+      "new_since_parent": 10,
+      "overtime_red_failures": 1,
+      "overtime_red_log_sha256": "87f448537c004afbf2db96b5e77638f9ef0fd48e0449a3fbcfb76c1cc6d2ec3d"
+    }
+  },
+  "deferred_by_budget": 0,
+  "discovered_missing_games": 2,
+  "existing_games": 75,
+  "independent_nba_confirmation": false,
+  "legacy_database_modified": false,
+  "model_coefficients_changed": false,
+  "model_eligible_games": 0,
+  "network_requests": 4,
+  "new_games": [
+    {
+      "payload": {
+        "compact_summary": {
+          "boxscore": {
+            "teams": [
+              {
+                "homeAway": "away",
+                "statistics": [
+                  {
+                    "displayValue": "39-81",
+                    "label": "FG",
+                    "name": "fieldGoalsMade-fieldGoalsAttempted"
+                  },
+                  {
+                    "abbreviation": "FG%",
+                    "displayValue": "48",
+                    "label": "Field Goal %",
+                    "name": "fieldGoalPct"
+                  },
+                  {
+                    "displayValue": "13-38",
+                    "label": "3PT",
+                    "name": "threePointFieldGoalsMade-threePointFieldGoalsAttempted"
+                  },
+                  {
+                    "abbreviation": "3P%",
+                    "displayValue": "34",
+                    "label": "Three Point %",
+                    "name": "threePointFieldGoalPct"
+                  },
+                  {
+                    "displayValue": "13-24",
+                    "label": "FT",
+                    "name": "freeThrowsMade-freeThrowsAttempted"
+                  },
+                  {
+                    "abbreviation": "FT%",
+                    "displayValue": "54",
+                    "label": "Free Throw %",
+                    "name": "freeThrowPct"
+                  },
+                  {
+                    "abbreviation": "REB",
+                    "displayValue": "48",
+                    "label": "Rebounds",
+                    "name": "totalRebounds"
+                  },
+                  {
+                    "abbreviation": "OR",
+                    "displayValue": "15",
+                    "label": "Offensive Rebounds",
+                    "name": "offensiveRebounds"
+                  },
+                  {
+                    "abbreviation": "DR",
+                    "displayValue": "33",
+                    "label": "Defensive Rebounds",
+                    "name": "defensiveRebounds"
+                  },
+                  {
+                    "abbreviation": "AST",
+                    "displayValue": "28",
+                    "label": "Assists",
+                    "name": "assists"
+                  },
+                  {
+                    "abbreviation": "STL",
+                    "displayValue": "9",
+                    "label": "Steals",
+                    "name": "steals"
+                  },
+                  {
+                    "abbreviation": "BLK",
+                    "displayValue": "3",
+                    "label": "Blocks",
+                    "name": "blocks"
+                  },
+                  {
+                    "abbreviation": "TO",
+                    "displayValue": "25",
+                    "label": "Turnovers",
+                    "name": "turnovers"
+                  },
+                  {
+                    "abbreviation": "TTO",
+                    "displayValue": "0",
+                    "label": "Team Turnovers",
+                    "name": "teamTurnovers"
+                  },
+                  {
+                    "abbreviation": "ToTO",
+                    "displayValue": "25",
+                    "label": "Total Turnovers",
+                    "name": "totalTurnovers"
+                  },
+                  {
+                    "abbreviation": "TECH",
+                    "displayValue": "1",
+                    "label": "Technical Fouls",
+                    "name": "technicalFouls"
+                  },
+                  {
+                    "abbreviation": "TECH",
+                    "displayValue": "1",
+                    "label": "Total Technical Fouls",
+                    "name": "totalTechnicalFouls"
+                  },
+                  {
+                    "abbreviation": "FLAG",
+                    "displayValue": "1",
+                    "label": "Flagrant Fouls",
+                    "name": "flagrantFouls"
+                  },
+                  {
+                    "abbreviation": "Points Conceded Off Turnovers",
+                    "displayValue": "36",
+                    "label": "Points Conceded Off Turnovers",
+                    "name": "turnoverPoints"
+                  },
+                  {
+                    "abbreviation": "FBPs",
+                    "displayValue": "23",
+                    "label": "Fast Break Points",
+                    "name": "fastBreakPoints"
+                  },
+                  {
+                    "abbreviation": "PIP",
+                    "displayValue": "48",
+                    "label": "Points in Paint",
+                    "name": "pointsInPaint"
+                  },
+                  {
+                    "abbreviation": "PF",
+                    "displayValue": "14",
+                    "label": "Fouls",
+                    "name": "fouls"
+                  },
+                  {
+                    "abbreviation": "LL",
+                    "displayValue": "6",
+                    "label": "Largest Lead",
+                    "name": "largestLead"
+                  },
+                  {
+                    "abbreviation": "LC",
+                    "displayValue": "5",
+                    "label": "Lead Changes",
+                    "name": "leadChanges"
+                  },
+                  {
+                    "abbreviation": "LPCT",
+                    "displayValue": "11",
+                    "label": "Percent Led",
+                    "name": "leadPercentage"
+                  }
+                ],
+                "team": {
+                  "id": "19"
+                }
+              },
+              {
+                "homeAway": "home",
+                "statistics": [
+                  {
+                    "displayValue": "45-87",
+                    "label": "FG",
+                    "name": "fieldGoalsMade-fieldGoalsAttempted"
+                  },
+                  {
+                    "abbreviation": "FG%",
+                    "displayValue": "52",
+                    "label": "Field Goal %",
+                    "name": "fieldGoalPct"
+                  },
+                  {
+                    "displayValue": "17-34",
+                    "label": "3PT",
+                    "name": "threePointFieldGoalsMade-threePointFieldGoalsAttempted"
+                  },
+                  {
+                    "abbreviation": "3P%",
+                    "displayValue": "50",
+                    "label": "Three Point %",
+                    "name": "threePointFieldGoalPct"
+                  },
+                  {
+                    "displayValue": "10-13",
+                    "label": "FT",
+                    "name": "freeThrowsMade-freeThrowsAttempted"
+                  },
+                  {
+                    "abbreviation": "FT%",
+                    "displayValue": "77",
+                    "label": "Free Throw %",
+                    "name": "freeThrowPct"
+                  },
+                  {
+                    "abbreviation": "REB",
+                    "displayValue": "33",
+                    "label": "Rebounds",
+                    "name": "totalRebounds"
+                  },
+                  {
+                    "abbreviation": "OR",
+                    "displayValue": "6",
+                    "label": "Offensive Rebounds",
+                    "name": "offensiveRebounds"
+                  },
+                  {
+                    "abbreviation": "DR",
+                    "displayValue": "27",
+                    "label": "Defensive Rebounds",
+                    "name": "defensiveRebounds"
+                  },
+                  {
+                    "abbreviation": "AST",
+                    "displayValue": "30",
+                    "label": "Assists",
+                    "name": "assists"
+                  },
+                  {
+                    "abbreviation": "STL",
+                    "displayValue": "14",
+                    "label": "Steals",
+                    "name": "steals"
+                  },
+                  {
+                    "abbreviation": "BLK",
+                    "displayValue": "3",
+                    "label": "Blocks",
+                    "name": "blocks"
+                  },
+                  {
+                    "abbreviation": "TO",
+                    "displayValue": "14",
+                    "label": "Turnovers",
+                    "name": "turnovers"
+                  },
+                  {
+                    "abbreviation": "TTO",
+                    "displayValue": "1",
+                    "label": "Team Turnovers",
+                    "name": "teamTurnovers"
+                  },
+                  {
+                    "abbreviation": "ToTO",
+                    "displayValue": "15",
+                    "label": "Total Turnovers",
+                    "name": "totalTurnovers"
+                  },
+                  {
+                    "abbreviation": "TECH",
+                    "displayValue": "0",
+                    "label": "Technical Fouls",
+                    "name": "technicalFouls"
+                  },
+                  {
+                    "abbreviation": "TECH",
+                    "displayValue": "0",
+                    "label": "Total Technical Fouls",
+                    "name": "totalTechnicalFouls"
+                  },
+                  {
+                    "abbreviation": "FLAG",
+                    "displayValue": "0",
+                    "label": "Flagrant Fouls",
+                    "name": "flagrantFouls"
+                  },
+                  {
+                    "abbreviation": "Points Conceded Off Turnovers",
+                    "displayValue": "22",
+                    "label": "Points Conceded Off Turnovers",
+                    "name": "turnoverPoints"
+                  },
+                  {
+                    "abbreviation": "FBPs",
+                    "displayValue": "18",
+                    "label": "Fast Break Points",
+                    "name": "fastBreakPoints"
+                  },
+                  {
+                    "abbreviation": "PIP",
+                    "displayValue": "40",
+                    "label": "Points in Paint",
+                    "name": "pointsInPaint"
+                  },
+                  {
+                    "abbreviation": "PF",
+                    "displayValue": "24",
+                    "label": "Fouls",
+                    "name": "fouls"
+                  },
+                  {
+                    "abbreviation": "LL",
+                    "displayValue": "30",
+                    "label": "Largest Lead",
+                    "name": "largestLead"
+                  },
+                  {
+                    "abbreviation": "LC",
+                    "displayValue": "5",
+                    "label": "Lead Changes",
+                    "name": "leadChanges"
+                  },
+                  {
+                    "abbreviation": "LPCT",
+                    "displayValue": "88",
+                    "label": "Percent Led",
+                    "name": "leadPercentage"
+                  }
+                ],
+                "team": {
+                  "id": "21"
+                }
+              }
+            ]
+          },
+          "format": {
+            "overtime": {
+              "clock": 300.0,
+              "displayName": "Quarter",
+              "slug": "quarter"
+            },
+            "regulation": {
+              "clock": 720.0,
+              "displayName": "Quarter",
+              "periods": 4,
+              "slug": "quarter"
+            }
+          },
+          "header": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "linescores": [
+                      {
+                        "displayValue": "33"
+                      },
+                      {
+                        "displayValue": "30"
+                      },
+                      {
+                        "displayValue": "33"
+                      },
+                      {
+                        "displayValue": "21"
+                      }
+                    ],
+                    "score": "117",
+                    "team": {
+                      "id": "21"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "linescores": [
+                      {
+                        "displayValue": "26"
+                      },
+                      {
+                        "displayValue": "25"
+                      },
+                      {
+                        "displayValue": "22"
+                      },
+                      {
+                        "displayValue": "31"
+                      }
+                    ],
+                    "score": "104",
+                    "team": {
+                      "id": "19"
+                    }
+                  }
+                ],
+                "date": "2026-11-06T02:00Z",
+                "id": "401909936",
+                "status": {
+                  "type": {
+                    "completed": true,
+                    "description": "Final",
+                    "detail": "Final",
+                    "id": "3",
+                    "name": "STATUS_FINAL",
+                    "shortDetail": "Final",
+                    "state": "post"
+                  }
+                }
+              }
+            ],
+            "id": "401909936",
+            "season": {
+              "current": true,
+              "type": 2,
+              "year": 2027
+            }
+          }
+        },
+        "ingested_at_utc": 1793979596,
+        "materialized_at_utc": 1793979596,
+        "normalized": {
+          "claims": {
+            "final_away": 104,
+            "final_home": 117,
+            "overtime_away": [],
+            "overtime_home": [],
+            "quarters_away": [
+              26,
+              25,
+              22,
+              31
+            ],
+            "quarters_home": [
+              33,
+              30,
+              33,
+              21
+            ],
+            "regulation_away": 104,
+            "regulation_home": 117
+          },
+          "fixture": {
+            "away_team_id": "19",
+            "canonical_id": "e848925f4b22958639a379c275db120c1da7aac01cfa5e181a078e0f3490304b",
+            "home_team_id": "21",
+            "league": "NBA",
+            "season_end_year": 2027,
+            "start_utc": 1793930400
+          },
+          "provider_fixture_id": "401909936",
+          "scope": "FINAL_WITH_OT",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909936"
+        },
+        "observed_at_utc": 1793979595,
+        "prospective_records_created": 0,
+        "provenance": "NORMALIZED_SECONDARY_SOURCE_FACTS_NOT_INDEPENDENT_ATTESTATION",
+        "published_at_utc": null,
+        "response_sha256": "c500fbb45409658824b454c00ee6ee307cb546eec0b5f9c067bd9419cadf0e00",
+        "schema_version": 1,
+        "scoreboard_fact": {
+          "actual_away": 104,
+          "actual_home": 117,
+          "away_team_id": "19",
+          "home_team_id": "21",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909936",
+          "scope": "FINAL_WITH_OT",
+          "start_ts_utc": 1793930400
+        },
+        "scoreboard_response_sha256": "a85ca87b286e8bb302e94668ef1d0a4064b21e7163041a5082749d8192e0f243",
+        "scoreboard_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261105",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909936",
+        "usage": "RETROSPECTIVE_RESEARCH",
+        "usage_status": "UNKNOWN"
+      },
+      "sha256": "4aa6959d397748856636af3a306605ceb0043fef1304026d98d1c7ba0213f66b"
+    },
+    {
+      "payload": {
+        "compact_summary": {
+          "boxscore": {
+            "teams": [
+              {
+                "homeAway": "away",
+                "statistics": [
+                  {
+                    "displayValue": "35-86",
+                    "label": "FG",
+                    "name": "fieldGoalsMade-fieldGoalsAttempted"
+                  },
+                  {
+                    "abbreviation": "FG%",
+                    "displayValue": "41",
+                    "label": "Field Goal %",
+                    "name": "fieldGoalPct"
+                  },
+                  {
+                    "displayValue": "13-44",
+                    "label": "3PT",
+                    "name": "threePointFieldGoalsMade-threePointFieldGoalsAttempted"
+                  },
+                  {
+                    "abbreviation": "3P%",
+                    "displayValue": "30",
+                    "label": "Three Point %",
+                    "name": "threePointFieldGoalPct"
+                  },
+                  {
+                    "displayValue": "17-23",
+                    "label": "FT",
+                    "name": "freeThrowsMade-freeThrowsAttempted"
+                  },
+                  {
+                    "abbreviation": "FT%",
+                    "displayValue": "74",
+                    "label": "Free Throw %",
+                    "name": "freeThrowPct"
+                  },
+                  {
+                    "abbreviation": "REB",
+                    "displayValue": "39",
+                    "label": "Rebounds",
+                    "name": "totalRebounds"
+                  },
+                  {
+                    "abbreviation": "OR",
+                    "displayValue": "9",
+                    "label": "Offensive Rebounds",
+                    "name": "offensiveRebounds"
+                  },
+                  {
+                    "abbreviation": "DR",
+                    "displayValue": "30",
+                    "label": "Defensive Rebounds",
+                    "name": "defensiveRebounds"
+                  },
+                  {
+                    "abbreviation": "AST",
+                    "displayValue": "27",
+                    "label": "Assists",
+                    "name": "assists"
+                  },
+                  {
+                    "abbreviation": "STL",
+                    "displayValue": "8",
+                    "label": "Steals",
+                    "name": "steals"
+                  },
+                  {
+                    "abbreviation": "BLK",
+                    "displayValue": "5",
+                    "label": "Blocks",
+                    "name": "blocks"
+                  },
+                  {
+                    "abbreviation": "TO",
+                    "displayValue": "19",
+                    "label": "Turnovers",
+                    "name": "turnovers"
+                  },
+                  {
+                    "abbreviation": "TTO",
+                    "displayValue": "3",
+                    "label": "Team Turnovers",
+                    "name": "teamTurnovers"
+                  },
+                  {
+                    "abbreviation": "ToTO",
+                    "displayValue": "22",
+                    "label": "Total Turnovers",
+                    "name": "totalTurnovers"
+                  },
+                  {
+                    "abbreviation": "TECH",
+                    "displayValue": "1",
+                    "label": "Technical Fouls",
+                    "name": "technicalFouls"
+                  },
+                  {
+                    "abbreviation": "TECH",
+                    "displayValue": "1",
+                    "label": "Total Technical Fouls",
+                    "name": "totalTechnicalFouls"
+                  },
+                  {
+                    "abbreviation": "FLAG",
+                    "displayValue": "0",
+                    "label": "Flagrant Fouls",
+                    "name": "flagrantFouls"
+                  },
+                  {
+                    "abbreviation": "Points Conceded Off Turnovers",
+                    "displayValue": "28",
+                    "label": "Points Conceded Off Turnovers",
+                    "name": "turnoverPoints"
+                  },
+                  {
+                    "abbreviation": "FBPs",
+                    "displayValue": "7",
+                    "label": "Fast Break Points",
+                    "name": "fastBreakPoints"
+                  },
+                  {
+                    "abbreviation": "PIP",
+                    "displayValue": "32",
+                    "label": "Points in Paint",
+                    "name": "pointsInPaint"
+                  },
+                  {
+                    "abbreviation": "PF",
+                    "displayValue": "22",
+                    "label": "Fouls",
+                    "name": "fouls"
+                  },
+                  {
+                    "abbreviation": "LL",
+                    "displayValue": "10",
+                    "label": "Largest Lead",
+                    "name": "largestLead"
+                  },
+                  {
+                    "abbreviation": "LC",
+                    "displayValue": "3",
+                    "label": "Lead Changes",
+                    "name": "leadChanges"
+                  },
+                  {
+                    "abbreviation": "LPCT",
+                    "displayValue": "44",
+                    "label": "Percent Led",
+                    "name": "leadPercentage"
+                  }
+                ],
+                "team": {
+                  "id": "14"
+                }
+              },
+              {
+                "homeAway": "home",
+                "statistics": [
+                  {
+                    "displayValue": "42-80",
+                    "label": "FG",
+                    "name": "fieldGoalsMade-fieldGoalsAttempted"
+                  },
+                  {
+                    "abbreviation": "FG%",
+                    "displayValue": "53",
+                    "label": "Field Goal %",
+                    "name": "fieldGoalPct"
+                  },
+                  {
+                    "displayValue": "16-41",
+                    "label": "3PT",
+                    "name": "threePointFieldGoalsMade-threePointFieldGoalsAttempted"
+                  },
+                  {
+                    "abbreviation": "3P%",
+                    "displayValue": "39",
+                    "label": "Three Point %",
+                    "name": "threePointFieldGoalPct"
+                  },
+                  {
+                    "displayValue": "20-25",
+                    "label": "FT",
+                    "name": "freeThrowsMade-freeThrowsAttempted"
+                  },
+                  {
+                    "abbreviation": "FT%",
+                    "displayValue": "80",
+                    "label": "Free Throw %",
+                    "name": "freeThrowPct"
+                  },
+                  {
+                    "abbreviation": "REB",
+                    "displayValue": "44",
+                    "label": "Rebounds",
+                    "name": "totalRebounds"
+                  },
+                  {
+                    "abbreviation": "OR",
+                    "displayValue": "7",
+                    "label": "Offensive Rebounds",
+                    "name": "offensiveRebounds"
+                  },
+                  {
+                    "abbreviation": "DR",
+                    "displayValue": "37",
+                    "label": "Defensive Rebounds",
+                    "name": "defensiveRebounds"
+                  },
+                  {
+                    "abbreviation": "AST",
+                    "displayValue": "36",
+                    "label": "Assists",
+                    "name": "assists"
+                  },
+                  {
+                    "abbreviation": "STL",
+                    "displayValue": "11",
+                    "label": "Steals",
+                    "name": "steals"
+                  },
+                  {
+                    "abbreviation": "BLK",
+                    "displayValue": "9",
+                    "label": "Blocks",
+                    "name": "blocks"
+                  },
+                  {
+                    "abbreviation": "TO",
+                    "displayValue": "18",
+                    "label": "Turnovers",
+                    "name": "turnovers"
+                  },
+                  {
+                    "abbreviation": "TTO",
+                    "displayValue": "1",
+                    "label": "Team Turnovers",
+                    "name": "teamTurnovers"
+                  },
+                  {
+                    "abbreviation": "ToTO",
+                    "displayValue": "19",
+                    "label": "Total Turnovers",
+                    "name": "totalTurnovers"
+                  },
+                  {
+                    "abbreviation": "TECH",
+                    "displayValue": "1",
+                    "label": "Technical Fouls",
+                    "name": "technicalFouls"
+                  },
+                  {
+                    "abbreviation": "TECH",
+                    "displayValue": "1",
+                    "label": "Total Technical Fouls",
+                    "name": "totalTechnicalFouls"
+                  },
+                  {
+                    "abbreviation": "FLAG",
+                    "displayValue": "0",
+                    "label": "Flagrant Fouls",
+                    "name": "flagrantFouls"
+                  },
+                  {
+                    "abbreviation": "Points Conceded Off Turnovers",
+                    "displayValue": "17",
+                    "label": "Points Conceded Off Turnovers",
+                    "name": "turnoverPoints"
+                  },
+                  {
+                    "abbreviation": "FBPs",
+                    "displayValue": "21",
+                    "label": "Fast Break Points",
+                    "name": "fastBreakPoints"
+                  },
+                  {
+                    "abbreviation": "PIP",
+                    "displayValue": "50",
+                    "label": "Points in Paint",
+                    "name": "pointsInPaint"
+                  },
+                  {
+                    "abbreviation": "PF",
+                    "displayValue": "22",
+                    "label": "Fouls",
+                    "name": "fouls"
+                  },
+                  {
+                    "abbreviation": "LL",
+                    "displayValue": "20",
+                    "label": "Largest Lead",
+                    "name": "largestLead"
+                  },
+                  {
+                    "abbreviation": "LC",
+                    "displayValue": "3",
+                    "label": "Lead Changes",
+                    "name": "leadChanges"
+                  },
+                  {
+                    "abbreviation": "LPCT",
+                    "displayValue": "45",
+                    "label": "Percent Led",
+                    "name": "leadPercentage"
+                  }
+                ],
+                "team": {
+                  "id": "9"
+                }
+              }
+            ]
+          },
+          "format": {
+            "overtime": {
+              "clock": 300.0,
+              "displayName": "Quarter",
+              "slug": "quarter"
+            },
+            "regulation": {
+              "clock": 720.0,
+              "displayName": "Quarter",
+              "periods": 4,
+              "slug": "quarter"
+            }
+          },
+          "header": {
+            "competitions": [
+              {
+                "competitors": [
+                  {
+                    "homeAway": "home",
+                    "linescores": [
+                      {
+                        "displayValue": "26"
+                      },
+                      {
+                        "displayValue": "27"
+                      },
+                      {
+                        "displayValue": "38"
+                      },
+                      {
+                        "displayValue": "29"
+                      }
+                    ],
+                    "score": "120",
+                    "team": {
+                      "id": "9"
+                    }
+                  },
+                  {
+                    "homeAway": "away",
+                    "linescores": [
+                      {
+                        "displayValue": "29"
+                      },
+                      {
+                        "displayValue": "24"
+                      },
+                      {
+                        "displayValue": "23"
+                      },
+                      {
+                        "displayValue": "24"
+                      }
+                    ],
+                    "score": "100",
+                    "team": {
+                      "id": "14"
+                    }
+                  }
+                ],
+                "date": "2026-11-06T03:00Z",
+                "id": "401909937",
+                "status": {
+                  "type": {
+                    "completed": true,
+                    "description": "Final",
+                    "detail": "Final",
+                    "id": "3",
+                    "name": "STATUS_FINAL",
+                    "shortDetail": "Final",
+                    "state": "post"
+                  }
+                }
+              }
+            ],
+            "id": "401909937",
+            "season": {
+              "current": true,
+              "type": 2,
+              "year": 2027
+            }
+          }
+        },
+        "ingested_at_utc": 1793979596,
+        "materialized_at_utc": 1793979596,
+        "normalized": {
+          "claims": {
+            "final_away": 100,
+            "final_home": 120,
+            "overtime_away": [],
+            "overtime_home": [],
+            "quarters_away": [
+              29,
+              24,
+              23,
+              24
+            ],
+            "quarters_home": [
+              26,
+              27,
+              38,
+              29
+            ],
+            "regulation_away": 100,
+            "regulation_home": 120
+          },
+          "fixture": {
+            "away_team_id": "14",
+            "canonical_id": "60f5cbdd7f4b42bc609bddb9f22ed71a6f9d3478bc354a9cc8d960a62da04914",
+            "home_team_id": "9",
+            "league": "NBA",
+            "season_end_year": 2027,
+            "start_utc": 1793934000
+          },
+          "provider_fixture_id": "401909937",
+          "scope": "FINAL_WITH_OT",
+          "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909937"
+        },
+        "observed_at_utc": 1793979595,
+        "prospective_records_created": 0,
+        "provenance": "NORMALIZED_SECONDARY_SOURCE_FACTS_NOT_INDEPENDENT_ATTESTATION",
+        "published_at_utc": null,
+        "response_sha256": "15791ce819be50a1f52af5c3e907b979814f81e7d9d2f973f4543824f6a2228a",
+        "schema_version": 1,
+        "scoreboard_fact": {
+          "actual_away": 100,
+          "actual_home": 120,
+          "away_team_id": "14",
+          "home_team_id": "9",
+          "provider": "ESPN",
+          "provider_fixture_id": "401909937",
+          "scope": "FINAL_WITH_OT",
+          "start_ts_utc": 1793934000
+        },
+        "scoreboard_response_sha256": "a85ca87b286e8bb302e94668ef1d0a4064b21e7163041a5082749d8192e0f243",
+        "scoreboard_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261105",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909937",
+        "usage": "RETROSPECTIVE_RESEARCH",
+        "usage_status": "UNKNOWN"
+      },
+      "sha256": "539877c1ff81f9397ca7481bf266141171d8a1c3a988dead39c507ba26ffcdcb"
+    }
+  ],
+  "original_archive_source": {
+    "distinct_provider_games": 75,
+    "observations": 107,
+    "sha256": "43adc6de12bc065e38b666dad8ba2cd9a48c5786c1185b396de5a37ebe4dd002",
+    "source": "/workspace/scratch/faz32-data-d5qmmqex/research.sqlite",
+    "unchanged": true
+  },
+  "original_sha256_unchanged": true,
+  "player_coverage": [
+    {
+      "canonical_id": "60f5cbdd7f4b42bc609bddb9f22ed71a6f9d3478bc354a9cc8d960a62da04914",
+      "player_entries": 28,
+      "reported_minutes_rows": 27,
+      "status": "SOURCE_MINUTES_RECONCILED_PERMISSION_UNKNOWN"
+    },
+    {
+      "canonical_id": "e848925f4b22958639a379c275db120c1da7aac01cfa5e181a078e0f3490304b",
+      "player_entries": 25,
+      "reported_minutes_rows": 25,
+      "status": "SOURCE_MINUTES_RECONCILED_PERMISSION_UNKNOWN"
+    }
+  ],
+  "prospective_records_created": 0,
+  "rejected": [
+    {
+      "provider_fixture_id": "401909287",
+      "reason": "VERIFIED_COMPLETED_SCOREBOARD_REQUIRED"
+    },
+    {
+      "provider_fixture_id": "401909288",
+      "reason": "VERIFIED_COMPLETED_SCOREBOARD_REQUIRED"
+    },
+    {
+      "provider_fixture_id": "401909289",
+      "reason": "VERIFIED_COMPLETED_SCOREBOARD_REQUIRED"
+    },
+    {
+      "provider_fixture_id": "401909290",
+      "reason": "VERIFIED_COMPLETED_SCOREBOARD_REQUIRED"
+    },
+    {
+      "provider_fixture_id": "401909291",
+      "reason": "VERIFIED_COMPLETED_SCOREBOARD_REQUIRED"
+    },
+    {
+      "provider_fixture_id": "401909292",
+      "reason": "VERIFIED_COMPLETED_SCOREBOARD_REQUIRED"
+    },
+    {
+      "provider_fixture_id": "401909293",
+      "reason": "VERIFIED_COMPLETED_SCOREBOARD_REQUIRED"
+    },
+    {
+      "provider_fixture_id": "401909294",
+      "reason": "VERIFIED_COMPLETED_SCOREBOARD_REQUIRED"
+    },
+    {
+      "provider_fixture_id": "401909295",
+      "reason": "VERIFIED_COMPLETED_SCOREBOARD_REQUIRED"
+    }
+  ],
+  "selected_missing_games": 2,
+  "sources": [
+    {
+      "automatic_retry": false,
+      "elapsed_seconds": 0.277709,
+      "finished_at_utc": 1793979595,
+      "http_status": 200,
+      "observed_at_utc": 1793979595,
+      "provider": "ESPN",
+      "server_clock_delta_seconds": 0,
+      "server_date": "Fri, 06 Nov 2026 15:39:55 GMT",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261106",
+      "started_at_utc": 1793979595,
+      "status": "DOCUMENT_RECEIVED",
+      "usage_status": "UNKNOWN"
+    },
+    {
+      "automatic_retry": false,
+      "elapsed_seconds": 0.180248,
+      "finished_at_utc": 1793979595,
+      "http_status": 200,
+      "observed_at_utc": 1793979595,
+      "provider": "ESPN",
+      "server_clock_delta_seconds": 0,
+      "server_date": "Fri, 06 Nov 2026 15:39:55 GMT",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261105",
+      "started_at_utc": 1793979595,
+      "status": "DOCUMENT_RECEIVED",
+      "usage_status": "UNKNOWN"
+    },
+    {
+      "automatic_retry": false,
+      "elapsed_seconds": 0.15561,
+      "finished_at_utc": 1793979595,
+      "http_status": 200,
+      "observed_at_utc": 1793979595,
+      "provider": "ESPN",
+      "server_clock_delta_seconds": 0,
+      "server_date": "Fri, 06 Nov 2026 15:39:55 GMT",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909936",
+      "started_at_utc": 1793979595,
+      "status": "DOCUMENT_RECEIVED",
+      "usage_status": "UNKNOWN"
+    },
+    {
+      "automatic_retry": false,
+      "elapsed_seconds": 0.110582,
+      "finished_at_utc": 1793979595,
+      "http_status": 200,
+      "observed_at_utc": 1793979595,
+      "provider": "ESPN",
+      "server_clock_delta_seconds": 0,
+      "server_date": "Fri, 06 Nov 2026 15:39:55 GMT",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909937",
+      "started_at_utc": 1793979595,
+      "status": "DOCUMENT_RECEIVED",
+      "usage_status": "UNKNOWN"
+    }
+  ],
+  "status": "BOUNDED_NBA_RESEARCH_REFRESH",
+  "union_period_games": 77,
+  "unique_new_games": 2,
+  "usage_status": "UNKNOWN"
+}

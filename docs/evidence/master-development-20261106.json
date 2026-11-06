@@ -1,0 +1,38 @@
+{
+  "ci": "Verify exact new SHA after push",
+  "cli_analyze_smoke": "<b>GEL\u0130\u015eT\u0130RME \u2014 kal\u0131c\u0131 kay\u0131t yap\u0131lmad\u0131</b>\nABSTAIN: DEVELOPMENT_SOURCE_NOT_CONFIGURED\nDo\u011frulanabilir veri/izin/model olmadan skor \u00fcretilmedi.\n",
+  "cli_day_smoke": {
+    "plans": [],
+    "prospective_records_created": 0,
+    "reason": "DEVELOPMENT_DAY_SOURCE_UNAVAILABLE",
+    "status": "ABSTAIN"
+  },
+  "created_utc": "2026-11-06T15:34:35.486001+00:00",
+  "files": {
+    "faz43_development.py": "d5f9fcabfb90e099b4c6b564f42e4bf5c246ec8a3424cefae847dcbad936f01a",
+    "main.py": "bf876c2f07dd49a11282969c80083c8095ca2440477bd7569330d64aab37e220",
+    "tests/test_faz43_development.py": "5481ec15a1d33b84c0044b7b6a42e261010eadae8bc696bf576ff8ddbb52abba",
+    "tests/test_legacy_analyze_real_type.py": "b32563ecd7f5d6f2a852c3ecf145a4ca73b4e67f1ff6b3ecede7292a17259521"
+  },
+  "model_coefficients_changed": false,
+  "parent_commit": "b44708724a2a2e5646ddacdf883f200a10c40085",
+  "production_bot_started": false,
+  "prospective_records_created": 0,
+  "real_telegram_messages": 0,
+  "scheduler_installed": false,
+  "source_permissions_changed": false,
+  "stage": "FAZ43_DEVELOPMENT_ANALYZE_AND_DAY_PLAN",
+  "tests": {
+    "all": 936,
+    "delivery_red_log_sha256": "a35313de8b078c040c8143f666aa554e8dcf0cd275f2b2707409abff998c51c7",
+    "delivery_red_scenarios": 2,
+    "failures": 0,
+    "focused": 33,
+    "focused_log_sha256": "e09a1749bd0420990c9aea2ba233d73e2666c36c43d25a7826807e0ba5762139",
+    "full_log_sha256": "a58b0e582448c64e57fdd862c254c975f19e7b07de215b37d687249971452140",
+    "legacy_import_red_failures": 1,
+    "legacy_red_log_sha256": "dd26eb37180af9e9b232b98df306417b10e15fc5aa19483f7acbd22d25de72fe",
+    "new_since_master_start": 48,
+    "new_since_parent": 26
+  }
+}

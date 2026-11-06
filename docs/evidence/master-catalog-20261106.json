@@ -1,0 +1,5201 @@
+{
+  "checkpoint": {
+    "base_sha": "6603d0e2616138aecfd7a9bdab23e73b5089252d",
+    "ci": "Verify exact pushed SHA",
+    "created_utc": "2026-11-06T13:41:58.964731+00:00",
+    "files": {
+      "faz43_catalog.py": "302e61aecd017bdeed9cd612d3e393665d4560235df3f376f5dd56ab08b26775",
+      "tests/test_faz43_catalog.py": "568a2902a5500ef510bee40df223e14eba1d2fe78fb79be8b2d6663fb61f23de"
+    },
+    "prospective_records_created": 0,
+    "tests": {
+      "all": 896,
+      "failures": 0,
+      "full_log_sha256": "6f7b1df59f228ab68449af0ee9710f3488f93f02f38e1261a29ab5106563ec1d",
+      "new": 8,
+      "red_failures": 1,
+      "red_log_sha256": "3896502ba16581726a89b2957118997662c36b907f57ccbf0cda9cb739d188cd"
+    }
+  },
+  "network_requests": 6,
+  "prospective_records_created": 0,
+  "raw_payloads_published": false,
+  "reports": [
+    {
+      "catalog_sha256": "41238d1add79ca5fc0f51839342ab4624d5c6d7ee26dce5d2ba73bf181e4b53c",
+      "facts": {
+        "accepted_unique": 380,
+        "catalog_is_not_per_game_fetch": true,
+        "completed": [
+          {
+            "away_team_id": "MAD",
+            "duration_minutes": 40,
+            "final_away": 77,
+            "final_home": 78,
+            "home_team_id": "DUB",
+            "provider_fixture_id": "E2026_2",
+            "quarters": {
+              "away": [
+                16,
+                28,
+                18,
+                15
+              ],
+              "home": [
+                20,
+                18,
+                25,
+                15
+              ]
+            },
+            "regulation_away": 77,
+            "regulation_home": 78,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790265600
+          },
+          {
+            "away_team_id": "MUN",
+            "duration_minutes": 40,
+            "final_away": 86,
+            "final_home": 84,
+            "home_team_id": "HTA",
+            "provider_fixture_id": "E2026_3",
+            "quarters": {
+              "away": [
+                16,
+                28,
+                24,
+                18
+              ],
+              "home": [
+                21,
+                18,
+                18,
+                27
+              ]
+            },
+            "regulation_away": 86,
+            "regulation_home": 84,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790265600
+          },
+          {
+            "away_team_id": "ZAL",
+            "duration_minutes": 40,
+            "final_away": 83,
+            "final_home": 77,
+            "home_team_id": "RED",
+            "provider_fixture_id": "E2026_1",
+            "quarters": {
+              "away": [
+                28,
+                15,
+                16,
+                24
+              ],
+              "home": [
+                21,
+                24,
+                12,
+                20
+              ]
+            },
+            "regulation_away": 83,
+            "regulation_home": 77,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790272800
+          },
+          {
+            "away_team_id": "PRS",
+            "duration_minutes": 40,
+            "final_away": 72,
+            "final_home": 91,
+            "home_team_id": "PAN",
+            "provider_fixture_id": "E2026_7",
+            "quarters": {
+              "away": [
+                17,
+                14,
+                13,
+                28
+              ],
+              "home": [
+                31,
+                11,
+                27,
+                22
+              ]
+            },
+            "regulation_away": 72,
+            "regulation_home": 91,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790273700
+          },
+          {
+            "away_team_id": "IST",
+            "duration_minutes": 40,
+            "final_away": 82,
+            "final_home": 89,
+            "home_team_id": "BAR",
+            "provider_fixture_id": "E2026_4",
+            "quarters": {
+              "away": [
+                25,
+                19,
+                23,
+                15
+              ],
+              "home": [
+                16,
+                29,
+                18,
+                26
+              ]
+            },
+            "regulation_away": 82,
+            "regulation_home": 89,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790274600
+          },
+          {
+            "away_team_id": "OLY",
+            "duration_minutes": 40,
+            "final_away": 106,
+            "final_home": 89,
+            "home_team_id": "BAS",
+            "provider_fixture_id": "E2026_5",
+            "quarters": {
+              "away": [
+                36,
+                20,
+                25,
+                25
+              ],
+              "home": [
+                29,
+                17,
+                14,
+                29
+              ]
+            },
+            "regulation_away": 106,
+            "regulation_home": 89,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790274600
+          },
+          {
+            "away_team_id": "TEL",
+            "duration_minutes": 40,
+            "final_away": 74,
+            "final_home": 84,
+            "home_team_id": "ASV",
+            "provider_fixture_id": "E2026_6",
+            "quarters": {
+              "away": [
+                19,
+                13,
+                25,
+                17
+              ],
+              "home": [
+                19,
+                23,
+                20,
+                22
+              ]
+            },
+            "regulation_away": 74,
+            "regulation_home": 84,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790275500
+          },
+          {
+            "away_team_id": "PAM",
+            "duration_minutes": 40,
+            "final_away": 96,
+            "final_home": 94,
+            "home_team_id": "BES",
+            "provider_fixture_id": "E2026_8",
+            "quarters": {
+              "away": [
+                28,
+                26,
+                27,
+                15
+              ],
+              "home": [
+                27,
+                24,
+                20,
+                23
+              ]
+            },
+            "regulation_away": 96,
+            "regulation_home": 94,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790355600
+          },
+          {
+            "away_team_id": "VIR",
+            "duration_minutes": 40,
+            "final_away": 68,
+            "final_home": 78,
+            "home_team_id": "ULK",
+            "provider_fixture_id": "E2026_9",
+            "quarters": {
+              "away": [
+                17,
+                21,
+                17,
+                13
+              ],
+              "home": [
+                23,
+                16,
+                20,
+                19
+              ]
+            },
+            "regulation_away": 68,
+            "regulation_home": 78,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790358300
+          },
+          {
+            "away_team_id": "MIL",
+            "duration_minutes": 40,
+            "final_away": 76,
+            "final_home": 92,
+            "home_team_id": "PAR",
+            "provider_fixture_id": "E2026_10",
+            "quarters": {
+              "away": [
+                16,
+                20,
+                22,
+                18
+              ],
+              "home": [
+                20,
+                22,
+                21,
+                29
+              ]
+            },
+            "regulation_away": 76,
+            "regulation_home": 92,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790361900
+          },
+          {
+            "away_team_id": "BAR",
+            "duration_minutes": 40,
+            "final_away": 87,
+            "final_home": 94,
+            "home_team_id": "DUB",
+            "provider_fixture_id": "E2026_13",
+            "quarters": {
+              "away": [
+                25,
+                12,
+                25,
+                25
+              ],
+              "home": [
+                23,
+                29,
+                24,
+                18
+              ]
+            },
+            "regulation_away": 87,
+            "regulation_home": 94,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790697600
+          },
+          {
+            "away_team_id": "MAD",
+            "duration_minutes": 40,
+            "final_away": 84,
+            "final_home": 94,
+            "home_team_id": "IST",
+            "provider_fixture_id": "E2026_11",
+            "quarters": {
+              "away": [
+                29,
+                12,
+                24,
+                19
+              ],
+              "home": [
+                27,
+                26,
+                19,
+                22
+              ]
+            },
+            "regulation_away": 84,
+            "regulation_home": 94,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790701200
+          },
+          {
+            "away_team_id": "OLY",
+            "duration_minutes": 40,
+            "final_away": 93,
+            "final_home": 91,
+            "home_team_id": "ZAL",
+            "provider_fixture_id": "E2026_14",
+            "quarters": {
+              "away": [
+                21,
+                23,
+                20,
+                29
+              ],
+              "home": [
+                24,
+                20,
+                19,
+                28
+              ]
+            },
+            "regulation_away": 93,
+            "regulation_home": 91,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790701200
+          },
+          {
+            "away_team_id": "MUN",
+            "duration_minutes": 40,
+            "final_away": 76,
+            "final_home": 100,
+            "home_team_id": "ULK",
+            "provider_fixture_id": "E2026_17",
+            "quarters": {
+              "away": [
+                15,
+                16,
+                20,
+                25
+              ],
+              "home": [
+                31,
+                19,
+                25,
+                25
+              ]
+            },
+            "regulation_away": 76,
+            "regulation_home": 100,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790703900
+          },
+          {
+            "away_team_id": "HTA",
+            "duration_minutes": 40,
+            "final_away": 81,
+            "final_home": 80,
+            "home_team_id": "RED",
+            "provider_fixture_id": "E2026_12",
+            "quarters": {
+              "away": [
+                28,
+                17,
+                22,
+                14
+              ],
+              "home": [
+                18,
+                17,
+                24,
+                21
+              ]
+            },
+            "regulation_away": 81,
+            "regulation_home": 80,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790704800
+          },
+          {
+            "away_team_id": "BAS",
+            "duration_minutes": 40,
+            "final_away": 88,
+            "final_home": 111,
+            "home_team_id": "PAM",
+            "provider_fixture_id": "E2026_15",
+            "quarters": {
+              "away": [
+                10,
+                23,
+                27,
+                28
+              ],
+              "home": [
+                26,
+                26,
+                31,
+                28
+              ]
+            },
+            "regulation_away": 88,
+            "regulation_home": 111,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790706600
+          },
+          {
+            "away_team_id": "VIR",
+            "duration_minutes": 40,
+            "final_away": 85,
+            "final_home": 87,
+            "home_team_id": "MIL",
+            "provider_fixture_id": "E2026_16",
+            "quarters": {
+              "away": [
+                20,
+                21,
+                26,
+                18
+              ],
+              "home": [
+                30,
+                17,
+                19,
+                21
+              ]
+            },
+            "regulation_away": 85,
+            "regulation_home": 87,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790706600
+          },
+          {
+            "away_team_id": "PAR",
+            "duration_minutes": 40,
+            "final_away": 92,
+            "final_home": 79,
+            "home_team_id": "PRS",
+            "provider_fixture_id": "E2026_18",
+            "quarters": {
+              "away": [
+                15,
+                29,
+                23,
+                25
+              ],
+              "home": [
+                18,
+                22,
+                23,
+                16
+              ]
+            },
+            "regulation_away": 92,
+            "regulation_home": 79,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790707500
+          },
+          {
+            "away_team_id": "BES",
+            "duration_minutes": 40,
+            "final_away": 109,
+            "final_home": 93,
+            "home_team_id": "TEL",
+            "provider_fixture_id": "E2026_19",
+            "quarters": {
+              "away": [
+                27,
+                25,
+                26,
+                31
+              ],
+              "home": [
+                19,
+                27,
+                17,
+                30
+              ]
+            },
+            "regulation_away": 109,
+            "regulation_home": 93,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790791500
+          },
+          {
+            "away_team_id": "ASV",
+            "duration_minutes": 40,
+            "final_away": 79,
+            "final_home": 102,
+            "home_team_id": "PAN",
+            "provider_fixture_id": "E2026_20",
+            "quarters": {
+              "away": [
+                13,
+                21,
+                22,
+                23
+              ],
+              "home": [
+                25,
+                31,
+                24,
+                22
+              ]
+            },
+            "regulation_away": 79,
+            "regulation_home": 102,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790792100
+          },
+          {
+            "away_team_id": "MAD",
+            "duration_minutes": 40,
+            "final_away": 98,
+            "final_home": 102,
+            "home_team_id": "HTA",
+            "provider_fixture_id": "E2026_22",
+            "quarters": {
+              "away": [
+                20,
+                23,
+                32,
+                23
+              ],
+              "home": [
+                29,
+                34,
+                12,
+                27
+              ]
+            },
+            "regulation_away": 98,
+            "regulation_home": 102,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790870400
+          },
+          {
+            "away_team_id": "IST",
+            "duration_minutes": 40,
+            "final_away": 72,
+            "final_home": 77,
+            "home_team_id": "RED",
+            "provider_fixture_id": "E2026_21",
+            "quarters": {
+              "away": [
+                21,
+                15,
+                17,
+                19
+              ],
+              "home": [
+                19,
+                18,
+                19,
+                21
+              ]
+            },
+            "regulation_away": 72,
+            "regulation_home": 77,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790877600
+          },
+          {
+            "away_team_id": "OLY",
+            "duration_minutes": 40,
+            "final_away": 94,
+            "final_home": 96,
+            "home_team_id": "VIR",
+            "provider_fixture_id": "E2026_23",
+            "quarters": {
+              "away": [
+                30,
+                20,
+                20,
+                24
+              ],
+              "home": [
+                33,
+                16,
+                26,
+                21
+              ]
+            },
+            "regulation_away": 94,
+            "regulation_home": 96,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790879400
+          },
+          {
+            "away_team_id": "ZAL",
+            "duration_minutes": 40,
+            "final_away": 78,
+            "final_home": 82,
+            "home_team_id": "PRS",
+            "provider_fixture_id": "E2026_24",
+            "quarters": {
+              "away": [
+                19,
+                19,
+                15,
+                25
+              ],
+              "home": [
+                17,
+                24,
+                20,
+                21
+              ]
+            },
+            "regulation_away": 78,
+            "regulation_home": 82,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790880300
+          },
+          {
+            "away_team_id": "BAR",
+            "duration_minutes": 40,
+            "final_away": 95,
+            "final_home": 82,
+            "home_team_id": "BES",
+            "provider_fixture_id": "E2026_25",
+            "quarters": {
+              "away": [
+                25,
+                27,
+                25,
+                18
+              ],
+              "home": [
+                17,
+                23,
+                22,
+                20
+              ]
+            },
+            "regulation_away": 95,
+            "regulation_home": 82,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790960400
+          },
+          {
+            "away_team_id": "DUB",
+            "duration_minutes": 40,
+            "final_away": 66,
+            "final_home": 76,
+            "home_team_id": "ULK",
+            "provider_fixture_id": "E2026_29",
+            "quarters": {
+              "away": [
+                14,
+                25,
+                12,
+                15
+              ],
+              "home": [
+                26,
+                16,
+                13,
+                21
+              ]
+            },
+            "regulation_away": 66,
+            "regulation_home": 76,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790963100
+          },
+          {
+            "away_team_id": "PAM",
+            "duration_minutes": 40,
+            "final_away": 105,
+            "final_home": 92,
+            "home_team_id": "ASV",
+            "provider_fixture_id": "E2026_26",
+            "quarters": {
+              "away": [
+                21,
+                29,
+                26,
+                29
+              ],
+              "home": [
+                33,
+                28,
+                16,
+                15
+              ]
+            },
+            "regulation_away": 105,
+            "regulation_home": 92,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790964000
+          },
+          {
+            "away_team_id": "PAR",
+            "duration_minutes": 40,
+            "final_away": 86,
+            "final_home": 84,
+            "home_team_id": "MUN",
+            "provider_fixture_id": "E2026_28",
+            "quarters": {
+              "away": [
+                22,
+                24,
+                11,
+                29
+              ],
+              "home": [
+                27,
+                20,
+                18,
+                19
+              ]
+            },
+            "regulation_away": 86,
+            "regulation_home": 84,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790964000
+          },
+          {
+            "away_team_id": "TEL",
+            "duration_minutes": 40,
+            "final_away": 67,
+            "final_home": 90,
+            "home_team_id": "PAN",
+            "provider_fixture_id": "E2026_30",
+            "quarters": {
+              "away": [
+                10,
+                14,
+                19,
+                24
+              ],
+              "home": [
+                25,
+                18,
+                25,
+                22
+              ]
+            },
+            "regulation_away": 67,
+            "regulation_home": 90,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790964900
+          },
+          {
+            "away_team_id": "MIL",
+            "duration_minutes": 40,
+            "final_away": 76,
+            "final_home": 86,
+            "home_team_id": "BAS",
+            "provider_fixture_id": "E2026_27",
+            "quarters": {
+              "away": [
+                16,
+                20,
+                24,
+                16
+              ],
+              "home": [
+                26,
+                18,
+                21,
+                21
+              ]
+            },
+            "regulation_away": 76,
+            "regulation_home": 86,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790965800
+          },
+          {
+            "away_team_id": "ASV",
+            "duration_minutes": 40,
+            "final_away": 98,
+            "final_home": 96,
+            "home_team_id": "PRS",
+            "provider_fixture_id": "E2026_31",
+            "quarters": {
+              "away": [
+                14,
+                32,
+                28,
+                24
+              ],
+              "home": [
+                21,
+                22,
+                34,
+                19
+              ]
+            },
+            "regulation_away": 98,
+            "regulation_home": 96,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791398700
+          },
+          {
+            "away_team_id": "MIL",
+            "duration_minutes": 40,
+            "final_away": 79,
+            "final_home": 97,
+            "home_team_id": "TEL",
+            "provider_fixture_id": "E2026_32",
+            "quarters": {
+              "away": [
+                20,
+                25,
+                17,
+                17
+              ],
+              "home": [
+                24,
+                27,
+                23,
+                23
+              ]
+            },
+            "regulation_away": 79,
+            "regulation_home": 97,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791475200
+          },
+          {
+            "away_team_id": "RED",
+            "duration_minutes": 40,
+            "final_away": 77,
+            "final_home": 58,
+            "home_team_id": "DUB",
+            "provider_fixture_id": "E2026_37",
+            "quarters": {
+              "away": [
+                16,
+                21,
+                19,
+                21
+              ],
+              "home": [
+                21,
+                10,
+                15,
+                12
+              ]
+            },
+            "regulation_away": 77,
+            "regulation_home": 58,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791475200
+          },
+          {
+            "away_team_id": "VIR",
+            "duration_minutes": 40,
+            "final_away": 94,
+            "final_home": 87,
+            "home_team_id": "MUN",
+            "provider_fixture_id": "E2026_33",
+            "quarters": {
+              "away": [
+                35,
+                17,
+                23,
+                19
+              ],
+              "home": [
+                21,
+                22,
+                25,
+                19
+              ]
+            },
+            "regulation_away": 94,
+            "regulation_home": 87,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791482400
+          },
+          {
+            "away_team_id": "ULK",
+            "duration_minutes": 40,
+            "final_away": 74,
+            "final_home": 92,
+            "home_team_id": "PAN",
+            "provider_fixture_id": "E2026_36",
+            "quarters": {
+              "away": [
+                24,
+                17,
+                14,
+                19
+              ],
+              "home": [
+                27,
+                19,
+                21,
+                25
+              ]
+            },
+            "regulation_away": 74,
+            "regulation_home": 92,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791483300
+          },
+          {
+            "away_team_id": "HTA",
+            "duration_minutes": 40,
+            "final_away": 82,
+            "final_home": 93,
+            "home_team_id": "PAM",
+            "provider_fixture_id": "E2026_34",
+            "quarters": {
+              "away": [
+                17,
+                23,
+                17,
+                25
+              ],
+              "home": [
+                29,
+                18,
+                27,
+                19
+              ]
+            },
+            "regulation_away": 82,
+            "regulation_home": 93,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791484200
+          },
+          {
+            "away_team_id": "PAR",
+            "duration_minutes": 40,
+            "final_away": 76,
+            "final_home": 86,
+            "home_team_id": "MAD",
+            "provider_fixture_id": "E2026_35",
+            "quarters": {
+              "away": [
+                19,
+                18,
+                20,
+                19
+              ],
+              "home": [
+                27,
+                26,
+                18,
+                15
+              ]
+            },
+            "regulation_away": 76,
+            "regulation_home": 86,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791485100
+          },
+          {
+            "away_team_id": "IST",
+            "duration_minutes": 40,
+            "final_away": 66,
+            "final_home": 89,
+            "home_team_id": "OLY",
+            "provider_fixture_id": "E2026_40",
+            "quarters": {
+              "away": [
+                16,
+                15,
+                18,
+                17
+              ],
+              "home": [
+                26,
+                9,
+                27,
+                27
+              ]
+            },
+            "regulation_away": 66,
+            "regulation_home": 89,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791569700
+          },
+          {
+            "away_team_id": "BES",
+            "duration_minutes": 40,
+            "final_away": 92,
+            "final_home": 84,
+            "home_team_id": "BAS",
+            "provider_fixture_id": "E2026_38",
+            "quarters": {
+              "away": [
+                28,
+                21,
+                24,
+                19
+              ],
+              "home": [
+                20,
+                31,
+                20,
+                13
+              ]
+            },
+            "regulation_away": 92,
+            "regulation_home": 84,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791570600
+          },
+          {
+            "away_team_id": "ZAL",
+            "duration_minutes": 40,
+            "final_away": 88,
+            "final_home": 81,
+            "home_team_id": "BAR",
+            "provider_fixture_id": "E2026_39",
+            "quarters": {
+              "away": [
+                23,
+                16,
+                16,
+                33
+              ],
+              "home": [
+                18,
+                23,
+                24,
+                16
+              ]
+            },
+            "regulation_away": 88,
+            "regulation_home": 81,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791570600
+          },
+          {
+            "away_team_id": "ZAL",
+            "duration_minutes": 40,
+            "final_away": 80,
+            "final_home": 99,
+            "home_team_id": "ULK",
+            "provider_fixture_id": "E2026_46",
+            "quarters": {
+              "away": [
+                14,
+                29,
+                13,
+                24
+              ],
+              "home": [
+                27,
+                23,
+                28,
+                21
+              ]
+            },
+            "regulation_away": 80,
+            "regulation_home": 99,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791913500
+          },
+          {
+            "away_team_id": "RED",
+            "duration_minutes": 40,
+            "final_away": 84,
+            "final_home": 82,
+            "home_team_id": "ASV",
+            "provider_fixture_id": "E2026_41",
+            "quarters": {
+              "away": [
+                26,
+                16,
+                24,
+                18
+              ],
+              "home": [
+                23,
+                23,
+                21,
+                15
+              ]
+            },
+            "regulation_away": 84,
+            "regulation_home": 82,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791914400
+          },
+          {
+            "away_team_id": "DUB",
+            "duration_minutes": 40,
+            "final_away": 93,
+            "final_home": 79,
+            "home_team_id": "BAS",
+            "provider_fixture_id": "E2026_42",
+            "quarters": {
+              "away": [
+                25,
+                19,
+                26,
+                23
+              ],
+              "home": [
+                23,
+                20,
+                19,
+                17
+              ]
+            },
+            "regulation_away": 93,
+            "regulation_home": 79,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791916200
+          },
+          {
+            "away_team_id": "MAD",
+            "duration_minutes": 40,
+            "final_away": 98,
+            "final_home": 89,
+            "home_team_id": "MIL",
+            "provider_fixture_id": "E2026_43",
+            "quarters": {
+              "away": [
+                21,
+                32,
+                31,
+                14
+              ],
+              "home": [
+                25,
+                15,
+                27,
+                22
+              ]
+            },
+            "regulation_away": 98,
+            "regulation_home": 89,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791916200
+          },
+          {
+            "away_team_id": "TEL",
+            "duration_minutes": 40,
+            "final_away": 87,
+            "final_home": 90,
+            "home_team_id": "BAR",
+            "provider_fixture_id": "E2026_44",
+            "quarters": {
+              "away": [
+                24,
+                18,
+                22,
+                23
+              ],
+              "home": [
+                23,
+                17,
+                27,
+                23
+              ]
+            },
+            "regulation_away": 87,
+            "regulation_home": 90,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791916200
+          },
+          {
+            "away_team_id": "PAN",
+            "duration_minutes": 40,
+            "final_away": 72,
+            "final_home": 55,
+            "home_team_id": "PAR",
+            "provider_fixture_id": "E2026_47",
+            "quarters": {
+              "away": [
+                16,
+                19,
+                20,
+                17
+              ],
+              "home": [
+                16,
+                12,
+                8,
+                19
+              ]
+            },
+            "regulation_away": 72,
+            "regulation_home": 55,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791916200
+          },
+          {
+            "away_team_id": "OLY",
+            "duration_minutes": 45,
+            "final_away": 102,
+            "final_home": 97,
+            "home_team_id": "PAM",
+            "provider_fixture_id": "E2026_45",
+            "quarters": {
+              "away": [
+                17,
+                17,
+                25,
+                31
+              ],
+              "home": [
+                31,
+                28,
+                12,
+                19
+              ]
+            },
+            "regulation_away": 90,
+            "regulation_home": 90,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791918000
+          },
+          {
+            "away_team_id": "BES",
+            "duration_minutes": 40,
+            "final_away": 82,
+            "final_home": 100,
+            "home_team_id": "HTA",
+            "provider_fixture_id": "E2026_48",
+            "quarters": {
+              "away": [
+                18,
+                21,
+                16,
+                27
+              ],
+              "home": [
+                22,
+                21,
+                32,
+                25
+              ]
+            },
+            "regulation_away": 82,
+            "regulation_home": 100,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791993600
+          },
+          {
+            "away_team_id": "MUN",
+            "duration_minutes": 40,
+            "final_away": 101,
+            "final_home": 93,
+            "home_team_id": "IST",
+            "provider_fixture_id": "E2026_49",
+            "quarters": {
+              "away": [
+                26,
+                28,
+                21,
+                26
+              ],
+              "home": [
+                22,
+                24,
+                22,
+                25
+              ]
+            },
+            "regulation_away": 101,
+            "regulation_home": 93,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791999000
+          },
+          {
+            "away_team_id": "VIR",
+            "duration_minutes": 40,
+            "final_away": 96,
+            "final_home": 94,
+            "home_team_id": "PRS",
+            "provider_fixture_id": "E2026_50",
+            "quarters": {
+              "away": [
+                26,
+                20,
+                18,
+                32
+              ],
+              "home": [
+                26,
+                12,
+                27,
+                29
+              ]
+            },
+            "regulation_away": 96,
+            "regulation_home": 94,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792003500
+          },
+          {
+            "away_team_id": "PAR",
+            "duration_minutes": 40,
+            "final_away": 65,
+            "final_home": 74,
+            "home_team_id": "ULK",
+            "provider_fixture_id": "E2026_54",
+            "quarters": {
+              "away": [
+                19,
+                9,
+                16,
+                21
+              ],
+              "home": [
+                12,
+                13,
+                34,
+                15
+              ]
+            },
+            "regulation_away": 65,
+            "regulation_home": 74,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792086300
+          },
+          {
+            "away_team_id": "DUB",
+            "duration_minutes": 40,
+            "final_away": 101,
+            "final_home": 97,
+            "home_team_id": "MIL",
+            "provider_fixture_id": "E2026_51",
+            "quarters": {
+              "away": [
+                29,
+                27,
+                27,
+                18
+              ],
+              "home": [
+                23,
+                26,
+                19,
+                29
+              ]
+            },
+            "regulation_away": 101,
+            "regulation_home": 97,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792089000
+          },
+          {
+            "away_team_id": "TEL",
+            "duration_minutes": 40,
+            "final_away": 91,
+            "final_home": 88,
+            "home_team_id": "PAM",
+            "provider_fixture_id": "E2026_52",
+            "quarters": {
+              "away": [
+                31,
+                19,
+                21,
+                20
+              ],
+              "home": [
+                23,
+                25,
+                24,
+                16
+              ]
+            },
+            "regulation_away": 91,
+            "regulation_home": 88,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792089000
+          },
+          {
+            "away_team_id": "ASV",
+            "duration_minutes": 40,
+            "final_away": 92,
+            "final_home": 111,
+            "home_team_id": "MAD",
+            "provider_fixture_id": "E2026_53",
+            "quarters": {
+              "away": [
+                25,
+                23,
+                23,
+                21
+              ],
+              "home": [
+                27,
+                34,
+                16,
+                34
+              ]
+            },
+            "regulation_away": 92,
+            "regulation_home": 111,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792090800
+          },
+          {
+            "away_team_id": "MUN",
+            "duration_minutes": 40,
+            "final_away": 87,
+            "final_home": 95,
+            "home_team_id": "BES",
+            "provider_fixture_id": "E2026_55",
+            "quarters": {
+              "away": [
+                17,
+                18,
+                23,
+                29
+              ],
+              "home": [
+                26,
+                27,
+                16,
+                26
+              ]
+            },
+            "regulation_away": 87,
+            "regulation_home": 95,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792170000
+          },
+          {
+            "away_team_id": "IST",
+            "duration_minutes": 40,
+            "final_away": 85,
+            "final_home": 70,
+            "home_team_id": "ZAL",
+            "provider_fixture_id": "E2026_57",
+            "quarters": {
+              "away": [
+                21,
+                21,
+                25,
+                18
+              ],
+              "home": [
+                12,
+                24,
+                20,
+                14
+              ]
+            },
+            "regulation_away": 85,
+            "regulation_home": 70,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792170000
+          },
+          {
+            "away_team_id": "PRS",
+            "duration_minutes": 40,
+            "final_away": 81,
+            "final_home": 90,
+            "home_team_id": "RED",
+            "provider_fixture_id": "E2026_56",
+            "quarters": {
+              "away": [
+                18,
+                18,
+                22,
+                23
+              ],
+              "home": [
+                28,
+                18,
+                31,
+                13
+              ]
+            },
+            "regulation_away": 81,
+            "regulation_home": 90,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792173600
+          },
+          {
+            "away_team_id": "HTA",
+            "duration_minutes": 40,
+            "final_away": 91,
+            "final_home": 81,
+            "home_team_id": "PAN",
+            "provider_fixture_id": "E2026_60",
+            "quarters": {
+              "away": [
+                29,
+                19,
+                20,
+                23
+              ],
+              "home": [
+                25,
+                21,
+                15,
+                20
+              ]
+            },
+            "regulation_away": 91,
+            "regulation_home": 81,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792174500
+          },
+          {
+            "away_team_id": "OLY",
+            "duration_minutes": 45,
+            "final_away": 105,
+            "final_home": 100,
+            "home_team_id": "BAR",
+            "provider_fixture_id": "E2026_58",
+            "quarters": {
+              "away": [
+                26,
+                31,
+                20,
+                15
+              ],
+              "home": [
+                30,
+                17,
+                19,
+                26
+              ]
+            },
+            "regulation_away": 92,
+            "regulation_home": 92,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792175400
+          },
+          {
+            "away_team_id": "BAS",
+            "duration_minutes": 40,
+            "final_away": 78,
+            "final_home": 86,
+            "home_team_id": "VIR",
+            "provider_fixture_id": "E2026_59",
+            "quarters": {
+              "away": [
+                12,
+                22,
+                19,
+                25
+              ],
+              "home": [
+                24,
+                22,
+                22,
+                18
+              ]
+            },
+            "regulation_away": 78,
+            "regulation_home": 86,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792175400
+          },
+          {
+            "away_team_id": "VIR",
+            "duration_minutes": 40,
+            "final_away": 81,
+            "final_home": 90,
+            "home_team_id": "HTA",
+            "provider_fixture_id": "E2026_61",
+            "quarters": {
+              "away": [
+                25,
+                23,
+                14,
+                19
+              ],
+              "home": [
+                23,
+                13,
+                28,
+                26
+              ]
+            },
+            "regulation_away": 81,
+            "regulation_home": 90,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792598400
+          },
+          {
+            "away_team_id": "BES",
+            "duration_minutes": 40,
+            "final_away": 80,
+            "final_home": 89,
+            "home_team_id": "IST",
+            "provider_fixture_id": "E2026_64",
+            "quarters": {
+              "away": [
+                17,
+                19,
+                24,
+                20
+              ],
+              "home": [
+                29,
+                28,
+                11,
+                21
+              ]
+            },
+            "regulation_away": 80,
+            "regulation_home": 89,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792690200
+          },
+          {
+            "away_team_id": "DUB",
+            "duration_minutes": 40,
+            "final_away": 107,
+            "final_home": 91,
+            "home_team_id": "MUN",
+            "provider_fixture_id": "E2026_65",
+            "quarters": {
+              "away": [
+                29,
+                34,
+                19,
+                25
+              ],
+              "home": [
+                14,
+                22,
+                31,
+                24
+              ]
+            },
+            "regulation_away": 107,
+            "regulation_home": 91,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792692000
+          },
+          {
+            "away_team_id": "MAD",
+            "duration_minutes": 40,
+            "final_away": 113,
+            "final_home": 99,
+            "home_team_id": "TEL",
+            "provider_fixture_id": "E2026_62",
+            "quarters": {
+              "away": [
+                23,
+                28,
+                30,
+                32
+              ],
+              "home": [
+                30,
+                22,
+                21,
+                26
+              ]
+            },
+            "regulation_away": 113,
+            "regulation_home": 99,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792692300
+          },
+          {
+            "away_team_id": "BAS",
+            "duration_minutes": 40,
+            "final_away": 79,
+            "final_home": 85,
+            "home_team_id": "PAN",
+            "provider_fixture_id": "E2026_67",
+            "quarters": {
+              "away": [
+                21,
+                19,
+                14,
+                25
+              ],
+              "home": [
+                20,
+                23,
+                20,
+                22
+              ]
+            },
+            "regulation_away": 79,
+            "regulation_home": 85,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792692900
+          },
+          {
+            "away_team_id": "BAR",
+            "duration_minutes": 40,
+            "final_away": 89,
+            "final_home": 81,
+            "home_team_id": "MIL",
+            "provider_fixture_id": "E2026_63",
+            "quarters": {
+              "away": [
+                23,
+                21,
+                27,
+                18
+              ],
+              "home": [
+                21,
+                19,
+                24,
+                17
+              ]
+            },
+            "regulation_away": 89,
+            "regulation_home": 81,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792693800
+          },
+          {
+            "away_team_id": "RED",
+            "duration_minutes": 45,
+            "final_away": 82,
+            "final_home": 85,
+            "home_team_id": "PAR",
+            "provider_fixture_id": "E2026_66",
+            "quarters": {
+              "away": [
+                21,
+                17,
+                12,
+                25
+              ],
+              "home": [
+                31,
+                21,
+                13,
+                10
+              ]
+            },
+            "regulation_away": 75,
+            "regulation_home": 75,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792694700
+          },
+          {
+            "away_team_id": "ASV",
+            "duration_minutes": 40,
+            "final_away": 85,
+            "final_home": 105,
+            "home_team_id": "ZAL",
+            "provider_fixture_id": "E2026_68",
+            "quarters": {
+              "away": [
+                20,
+                14,
+                25,
+                26
+              ],
+              "home": [
+                29,
+                21,
+                31,
+                24
+              ]
+            },
+            "regulation_away": 85,
+            "regulation_home": 105,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792774800
+          },
+          {
+            "away_team_id": "ULK",
+            "duration_minutes": 40,
+            "final_away": 64,
+            "final_home": 61,
+            "home_team_id": "OLY",
+            "provider_fixture_id": "E2026_70",
+            "quarters": {
+              "away": [
+                8,
+                16,
+                21,
+                19
+              ],
+              "home": [
+                20,
+                14,
+                15,
+                12
+              ]
+            },
+            "regulation_away": 64,
+            "regulation_home": 61,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792779300
+          },
+          {
+            "away_team_id": "PAM",
+            "duration_minutes": 40,
+            "final_away": 104,
+            "final_home": 93,
+            "home_team_id": "PRS",
+            "provider_fixture_id": "E2026_69",
+            "quarters": {
+              "away": [
+                32,
+                25,
+                26,
+                21
+              ],
+              "home": [
+                26,
+                28,
+                16,
+                23
+              ]
+            },
+            "regulation_away": 104,
+            "regulation_home": 93,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792781100
+          },
+          {
+            "away_team_id": "PRS",
+            "duration_minutes": 40,
+            "final_away": 99,
+            "final_home": 93,
+            "home_team_id": "DUB",
+            "provider_fixture_id": "E2026_72",
+            "quarters": {
+              "away": [
+                23,
+                31,
+                19,
+                26
+              ],
+              "home": [
+                25,
+                22,
+                25,
+                21
+              ]
+            },
+            "regulation_away": 99,
+            "regulation_home": 93,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793116800
+          },
+          {
+            "away_team_id": "TEL",
+            "duration_minutes": 40,
+            "final_away": 78,
+            "final_home": 100,
+            "home_team_id": "RED",
+            "provider_fixture_id": "E2026_71",
+            "quarters": {
+              "away": [
+                15,
+                15,
+                25,
+                23
+              ],
+              "home": [
+                34,
+                21,
+                23,
+                22
+              ]
+            },
+            "regulation_away": 78,
+            "regulation_home": 100,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793127600
+          },
+          {
+            "away_team_id": "BAR",
+            "duration_minutes": 40,
+            "final_away": 88,
+            "final_home": 84,
+            "home_team_id": "MUN",
+            "provider_fixture_id": "E2026_74",
+            "quarters": {
+              "away": [
+                21,
+                20,
+                23,
+                24
+              ],
+              "home": [
+                17,
+                25,
+                19,
+                23
+              ]
+            },
+            "regulation_away": 88,
+            "regulation_home": 84,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793127600
+          },
+          {
+            "away_team_id": "MIL",
+            "duration_minutes": 40,
+            "final_away": 75,
+            "final_home": 80,
+            "home_team_id": "PAN",
+            "provider_fixture_id": "E2026_76",
+            "quarters": {
+              "away": [
+                19,
+                18,
+                24,
+                14
+              ],
+              "home": [
+                18,
+                22,
+                20,
+                20
+              ]
+            },
+            "regulation_away": 75,
+            "regulation_home": 80,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793128500
+          },
+          {
+            "away_team_id": "ULK",
+            "duration_minutes": 40,
+            "final_away": 78,
+            "final_home": 86,
+            "home_team_id": "PAM",
+            "provider_fixture_id": "E2026_75",
+            "quarters": {
+              "away": [
+                9,
+                16,
+                21,
+                32
+              ],
+              "home": [
+                19,
+                17,
+                24,
+                26
+              ]
+            },
+            "regulation_away": 78,
+            "regulation_home": 86,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793129400
+          },
+          {
+            "away_team_id": "MAD",
+            "duration_minutes": 40,
+            "final_away": 104,
+            "final_home": 86,
+            "home_team_id": "BAS",
+            "provider_fixture_id": "E2026_73",
+            "quarters": {
+              "away": [
+                30,
+                26,
+                26,
+                22
+              ],
+              "home": [
+                19,
+                27,
+                23,
+                17
+              ]
+            },
+            "regulation_away": 104,
+            "regulation_home": 86,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793131200
+          },
+          {
+            "away_team_id": "OLY",
+            "duration_minutes": 40,
+            "final_away": 81,
+            "final_home": 73,
+            "home_team_id": "BES",
+            "provider_fixture_id": "E2026_79",
+            "quarters": {
+              "away": [
+                25,
+                17,
+                19,
+                20
+              ],
+              "home": [
+                23,
+                13,
+                22,
+                15
+              ]
+            },
+            "regulation_away": 81,
+            "regulation_home": 73,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793208600
+          },
+          {
+            "away_team_id": "IST",
+            "duration_minutes": 40,
+            "final_away": 88,
+            "final_home": 118,
+            "home_team_id": "HTA",
+            "provider_fixture_id": "E2026_77",
+            "quarters": {
+              "away": [
+                21,
+                20,
+                18,
+                29
+              ],
+              "home": [
+                27,
+                36,
+                27,
+                28
+              ]
+            },
+            "regulation_away": 88,
+            "regulation_home": 118,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793210400
+          },
+          {
+            "away_team_id": "PAR",
+            "duration_minutes": 40,
+            "final_away": 75,
+            "final_home": 82,
+            "home_team_id": "ASV",
+            "provider_fixture_id": "E2026_78",
+            "quarters": {
+              "away": [
+                19,
+                13,
+                27,
+                16
+              ],
+              "home": [
+                22,
+                14,
+                20,
+                26
+              ]
+            },
+            "regulation_away": 75,
+            "regulation_home": 82,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793214000
+          },
+          {
+            "away_team_id": "ZAL",
+            "duration_minutes": 40,
+            "final_away": 91,
+            "final_home": 74,
+            "home_team_id": "VIR",
+            "provider_fixture_id": "E2026_80",
+            "quarters": {
+              "away": [
+                14,
+                23,
+                28,
+                26
+              ],
+              "home": [
+                22,
+                13,
+                18,
+                21
+              ]
+            },
+            "regulation_away": 91,
+            "regulation_home": 74,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793215800
+          },
+          {
+            "away_team_id": "MUN",
+            "duration_minutes": 40,
+            "final_away": 73,
+            "final_home": 103,
+            "home_team_id": "RED",
+            "provider_fixture_id": "E2026_81",
+            "quarters": {
+              "away": [
+                15,
+                16,
+                23,
+                19
+              ],
+              "home": [
+                19,
+                29,
+                31,
+                24
+              ]
+            },
+            "regulation_away": 73,
+            "regulation_home": 103,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793300400
+          },
+          {
+            "away_team_id": "PRS",
+            "duration_minutes": 40,
+            "final_away": 99,
+            "final_home": 94,
+            "home_team_id": "TEL",
+            "provider_fixture_id": "E2026_82",
+            "quarters": {
+              "away": [
+                25,
+                10,
+                30,
+                34
+              ],
+              "home": [
+                17,
+                19,
+                29,
+                29
+              ]
+            },
+            "regulation_away": 99,
+            "regulation_home": 94,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793300700
+          },
+          {
+            "away_team_id": "ULK",
+            "duration_minutes": 40,
+            "final_away": 76,
+            "final_home": 95,
+            "home_team_id": "MAD",
+            "provider_fixture_id": "E2026_83",
+            "quarters": {
+              "away": [
+                24,
+                18,
+                13,
+                21
+              ],
+              "home": [
+                22,
+                25,
+                23,
+                25
+              ]
+            },
+            "regulation_away": 76,
+            "regulation_home": 95,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793303100
+          },
+          {
+            "away_team_id": "HTA",
+            "duration_minutes": 40,
+            "final_away": 83,
+            "final_home": 97,
+            "home_team_id": "DUB",
+            "provider_fixture_id": "E2026_84",
+            "quarters": {
+              "away": [
+                22,
+                18,
+                20,
+                23
+              ],
+              "home": [
+                19,
+                26,
+                29,
+                23
+              ]
+            },
+            "regulation_away": 83,
+            "regulation_home": 97,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793376000
+          },
+          {
+            "away_team_id": "PAN",
+            "duration_minutes": 40,
+            "final_away": 68,
+            "final_home": 83,
+            "home_team_id": "IST",
+            "provider_fixture_id": "E2026_88",
+            "quarters": {
+              "away": [
+                18,
+                19,
+                14,
+                17
+              ],
+              "home": [
+                21,
+                24,
+                16,
+                22
+              ]
+            },
+            "regulation_away": 68,
+            "regulation_home": 83,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793381400
+          },
+          {
+            "away_team_id": "PAR",
+            "duration_minutes": 40,
+            "final_away": 80,
+            "final_home": 87,
+            "home_team_id": "ZAL",
+            "provider_fixture_id": "E2026_86",
+            "quarters": {
+              "away": [
+                21,
+                19,
+                17,
+                23
+              ],
+              "home": [
+                27,
+                17,
+                25,
+                18
+              ]
+            },
+            "regulation_away": 80,
+            "regulation_home": 87,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793383200
+          },
+          {
+            "away_team_id": "BAS",
+            "duration_minutes": 40,
+            "final_away": 79,
+            "final_home": 94,
+            "home_team_id": "ASV",
+            "provider_fixture_id": "E2026_85",
+            "quarters": {
+              "away": [
+                16,
+                23,
+                20,
+                20
+              ],
+              "home": [
+                26,
+                23,
+                26,
+                19
+              ]
+            },
+            "regulation_away": 79,
+            "regulation_home": 94,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793386800
+          },
+          {
+            "away_team_id": "MIL",
+            "duration_minutes": 40,
+            "final_away": 78,
+            "final_home": 84,
+            "home_team_id": "OLY",
+            "provider_fixture_id": "E2026_90",
+            "quarters": {
+              "away": [
+                19,
+                25,
+                17,
+                17
+              ],
+              "home": [
+                25,
+                19,
+                25,
+                15
+              ]
+            },
+            "regulation_away": 78,
+            "regulation_home": 84,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793387700
+          },
+          {
+            "away_team_id": "PAM",
+            "duration_minutes": 40,
+            "final_away": 94,
+            "final_home": 98,
+            "home_team_id": "BAR",
+            "provider_fixture_id": "E2026_87",
+            "quarters": {
+              "away": [
+                25,
+                17,
+                26,
+                26
+              ],
+              "home": [
+                30,
+                14,
+                25,
+                29
+              ]
+            },
+            "regulation_away": 94,
+            "regulation_home": 98,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793388600
+          },
+          {
+            "away_team_id": "BES",
+            "duration_minutes": 40,
+            "final_away": 103,
+            "final_home": 101,
+            "home_team_id": "VIR",
+            "provider_fixture_id": "E2026_89",
+            "quarters": {
+              "away": [
+                24,
+                23,
+                23,
+                33
+              ],
+              "home": [
+                24,
+                30,
+                20,
+                27
+              ]
+            },
+            "regulation_away": 103,
+            "regulation_home": 101,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793388600
+          },
+          {
+            "away_team_id": "PAN",
+            "duration_minutes": 45,
+            "final_away": 115,
+            "final_home": 112,
+            "home_team_id": "MAD",
+            "provider_fixture_id": "E2026_91",
+            "quarters": {
+              "away": [
+                24,
+                27,
+                23,
+                27
+              ],
+              "home": [
+                18,
+                30,
+                25,
+                28
+              ]
+            },
+            "regulation_away": 101,
+            "regulation_home": 101,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793821500
+          },
+          {
+            "away_team_id": "PRS",
+            "duration_minutes": 40,
+            "final_away": 95,
+            "final_home": 90,
+            "home_team_id": "IST",
+            "provider_fixture_id": "E2026_95",
+            "quarters": {
+              "away": [
+                23,
+                19,
+                24,
+                29
+              ],
+              "home": [
+                26,
+                10,
+                34,
+                20
+              ]
+            },
+            "regulation_away": 95,
+            "regulation_home": 90,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793898900
+          },
+          {
+            "away_team_id": "BAS",
+            "duration_minutes": 40,
+            "final_away": 65,
+            "final_home": 84,
+            "home_team_id": "ULK",
+            "provider_fixture_id": "E2026_92",
+            "quarters": {
+              "away": [
+                18,
+                14,
+                9,
+                24
+              ],
+              "home": [
+                33,
+                19,
+                11,
+                21
+              ]
+            },
+            "regulation_away": 65,
+            "regulation_home": 84,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793901600
+          },
+          {
+            "away_team_id": "BAR",
+            "duration_minutes": 40,
+            "final_away": 93,
+            "final_home": 90,
+            "home_team_id": "HTA",
+            "provider_fixture_id": "E2026_93",
+            "quarters": {
+              "away": [
+                19,
+                27,
+                27,
+                20
+              ],
+              "home": [
+                21,
+                25,
+                18,
+                26
+              ]
+            },
+            "regulation_away": 93,
+            "regulation_home": 90,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793904300
+          },
+          {
+            "away_team_id": "MUN",
+            "duration_minutes": 40,
+            "final_away": 99,
+            "final_home": 95,
+            "home_team_id": "ASV",
+            "provider_fixture_id": "E2026_94",
+            "quarters": {
+              "away": [
+                20,
+                25,
+                28,
+                26
+              ],
+              "home": [
+                21,
+                24,
+                21,
+                29
+              ]
+            },
+            "regulation_away": 99,
+            "regulation_home": 95,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793905200
+          },
+          {
+            "away_team_id": "PAM",
+            "duration_minutes": 40,
+            "final_away": 84,
+            "final_home": 73,
+            "home_team_id": "MIL",
+            "provider_fixture_id": "E2026_96",
+            "quarters": {
+              "away": [
+                24,
+                16,
+                11,
+                33
+              ],
+              "home": [
+                15,
+                22,
+                22,
+                14
+              ]
+            },
+            "regulation_away": 84,
+            "regulation_home": 73,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793907000
+          }
+        ],
+        "completed_period_games": 96,
+        "conflicting_records": 0,
+        "duplicate_identical": 0,
+        "invalid_records": 0,
+        "league": "EUROLEAGUE",
+        "per_game_endpoint_requests": 0,
+        "player_stats_games": 0,
+        "scheduled_games": 284,
+        "season_end_year": 2027,
+        "total_catalog_rows": 380,
+        "verified_lineup_games": 0,
+        "verified_pbp_games": 0
+      },
+      "league": "EUROLEAGUE",
+      "materialized_at_utc": 1793972455,
+      "model_eligible_games": 0,
+      "model_status": "ABSTAIN_USAGE_NOT_ESTABLISHED",
+      "source_receipts": [
+        {
+          "ingested_at_utc": 1793972455,
+          "observed_at_utc": 1793972455,
+          "response_sha256": "6759db39d2a0a5291e39799e190ce14d6955b43fdc4094670c8b9b7617ddb0fa",
+          "source_url": "https://api-live.euroleague.net/v2/competitions/E"
+        },
+        {
+          "ingested_at_utc": 1793972455,
+          "observed_at_utc": 1793972455,
+          "response_sha256": "e10cfd04d40cc26aa0abd7df0c95888a8794c96834b74ddafd2c097e405537bb",
+          "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026"
+        },
+        {
+          "ingested_at_utc": 1793972455,
+          "observed_at_utc": 1793972455,
+          "response_sha256": "8fc279898e63121cec15c50c54da7e5143455831666abb509c8a27fc61319ddb",
+          "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games"
+        }
+      ],
+      "sources": [
+        {
+          "automatic_retry": false,
+          "elapsed_seconds": 0.342785,
+          "finished_at_utc": 1793972455,
+          "http_status": 200,
+          "observed_at_utc": 1793972455,
+          "provider": "EUROLEAGUE_LIVE",
+          "server_clock_delta_seconds": 0,
+          "server_date": "Fri, 06 Nov 2026 13:40:55 GMT",
+          "source_url": "https://api-live.euroleague.net/v2/competitions/E",
+          "started_at_utc": 1793972455,
+          "status": "DOCUMENT_RECEIVED",
+          "usage_status": "UNKNOWN"
+        },
+        {
+          "automatic_retry": false,
+          "elapsed_seconds": 0.344304,
+          "finished_at_utc": 1793972455,
+          "http_status": 200,
+          "observed_at_utc": 1793972455,
+          "provider": "EUROLEAGUE_LIVE",
+          "server_clock_delta_seconds": 0,
+          "server_date": "Fri, 06 Nov 2026 13:40:55 GMT",
+          "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026",
+          "started_at_utc": 1793972455,
+          "status": "DOCUMENT_RECEIVED",
+          "usage_status": "UNKNOWN"
+        },
+        {
+          "automatic_retry": false,
+          "elapsed_seconds": 0.237282,
+          "finished_at_utc": 1793972455,
+          "http_status": 200,
+          "observed_at_utc": 1793972455,
+          "provider": "EUROLEAGUE_LIVE",
+          "server_clock_delta_seconds": 0,
+          "server_date": "Fri, 06 Nov 2026 13:40:55 GMT",
+          "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games",
+          "started_at_utc": 1793972455,
+          "status": "DOCUMENT_RECEIVED",
+          "usage_status": "UNKNOWN"
+        }
+      ],
+      "status": "CATALOG_INVENTORY_ONLY",
+      "usage_status": "UNKNOWN"
+    },
+    {
+      "catalog_sha256": "37cc02f25fd7a87a5db766ebf7f839942202cd9e18dc04e584780b9c47883ef0",
+      "facts": {
+        "accepted_unique": 224,
+        "catalog_is_not_per_game_fetch": true,
+        "completed": [
+          {
+            "away_team_id": "TRN",
+            "duration_minutes": 40,
+            "final_away": 76,
+            "final_home": 73,
+            "home_team_id": "KLA",
+            "provider_fixture_id": "U2026_12",
+            "quarters": {
+              "away": [
+                21,
+                15,
+                23,
+                17
+              ],
+              "home": [
+                15,
+                21,
+                15,
+                22
+              ]
+            },
+            "regulation_away": 76,
+            "regulation_home": 73,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790697600
+          },
+          {
+            "away_team_id": "RTK",
+            "duration_minutes": 40,
+            "final_away": 73,
+            "final_home": 94,
+            "home_team_id": "JER",
+            "provider_fixture_id": "U2026_2",
+            "quarters": {
+              "away": [
+                18,
+                19,
+                17,
+                19
+              ],
+              "home": [
+                25,
+                24,
+                24,
+                21
+              ]
+            },
+            "regulation_away": 73,
+            "regulation_home": 94,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790701200
+          },
+          {
+            "away_team_id": "NIN",
+            "duration_minutes": 40,
+            "final_away": 69,
+            "final_home": 82,
+            "home_team_id": "BUR",
+            "provider_fixture_id": "U2026_11",
+            "quarters": {
+              "away": [
+                15,
+                15,
+                23,
+                16
+              ],
+              "home": [
+                22,
+                24,
+                14,
+                22
+              ]
+            },
+            "regulation_away": 69,
+            "regulation_home": 82,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790701200
+          },
+          {
+            "away_team_id": "ARI",
+            "duration_minutes": 40,
+            "final_away": 87,
+            "final_home": 74,
+            "home_team_id": "LEM",
+            "provider_fixture_id": "U2026_4",
+            "quarters": {
+              "away": [
+                15,
+                24,
+                24,
+                24
+              ],
+              "home": [
+                26,
+                14,
+                15,
+                19
+              ]
+            },
+            "regulation_away": 87,
+            "regulation_home": 74,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790704800
+          },
+          {
+            "away_team_id": "FRA",
+            "duration_minutes": 40,
+            "final_away": 72,
+            "final_home": 104,
+            "home_team_id": "VNC",
+            "provider_fixture_id": "U2026_7",
+            "quarters": {
+              "away": [
+                17,
+                17,
+                26,
+                12
+              ],
+              "home": [
+                28,
+                20,
+                31,
+                25
+              ]
+            },
+            "regulation_away": 72,
+            "regulation_home": 104,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790706600
+          },
+          {
+            "away_team_id": "LLI",
+            "duration_minutes": 40,
+            "final_away": 71,
+            "final_home": 74,
+            "home_team_id": "SIA",
+            "provider_fixture_id": "U2026_8",
+            "quarters": {
+              "away": [
+                14,
+                18,
+                22,
+                17
+              ],
+              "home": [
+                19,
+                22,
+                16,
+                17
+              ]
+            },
+            "regulation_away": 71,
+            "regulation_home": 74,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790782200
+          },
+          {
+            "away_team_id": "TRT",
+            "duration_minutes": 40,
+            "final_away": 84,
+            "final_home": 86,
+            "home_team_id": "RIG",
+            "provider_fixture_id": "U2026_3",
+            "quarters": {
+              "away": [
+                21,
+                25,
+                16,
+                22
+              ],
+              "home": [
+                31,
+                19,
+                13,
+                23
+              ]
+            },
+            "regulation_away": 84,
+            "regulation_home": 86,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790784000
+          },
+          {
+            "away_team_id": "BCR",
+            "duration_minutes": 40,
+            "final_away": 78,
+            "final_home": 91,
+            "home_team_id": "BAH",
+            "provider_fixture_id": "U2026_16",
+            "quarters": {
+              "away": [
+                18,
+                20,
+                18,
+                22
+              ],
+              "home": [
+                23,
+                22,
+                22,
+                24
+              ]
+            },
+            "regulation_away": 78,
+            "regulation_home": 91,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790784000
+          },
+          {
+            "away_team_id": "BOS",
+            "duration_minutes": 40,
+            "final_away": 72,
+            "final_home": 75,
+            "home_team_id": "LKB",
+            "provider_fixture_id": "U2026_13",
+            "quarters": {
+              "away": [
+                20,
+                18,
+                15,
+                19
+              ],
+              "home": [
+                12,
+                25,
+                25,
+                13
+              ]
+            },
+            "regulation_away": 72,
+            "regulation_home": 75,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790785800
+          },
+          {
+            "away_team_id": "MAN",
+            "duration_minutes": 40,
+            "final_away": 78,
+            "final_home": 93,
+            "home_team_id": "PAO",
+            "provider_fixture_id": "U2026_14",
+            "quarters": {
+              "away": [
+                20,
+                21,
+                15,
+                22
+              ],
+              "home": [
+                21,
+                19,
+                18,
+                35
+              ]
+            },
+            "regulation_away": 78,
+            "regulation_home": 93,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790785800
+          },
+          {
+            "away_team_id": "BUD",
+            "duration_minutes": 40,
+            "final_away": 99,
+            "final_home": 75,
+            "home_team_id": "WRO",
+            "provider_fixture_id": "U2026_9",
+            "quarters": {
+              "away": [
+                22,
+                29,
+                23,
+                25
+              ],
+              "home": [
+                19,
+                14,
+                25,
+                17
+              ]
+            },
+            "regulation_away": 99,
+            "regulation_home": 75,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790787600
+          },
+          {
+            "away_team_id": "BLK",
+            "duration_minutes": 40,
+            "final_away": 84,
+            "final_home": 98,
+            "home_team_id": "ULM",
+            "provider_fixture_id": "U2026_15",
+            "quarters": {
+              "away": [
+                17,
+                22,
+                20,
+                25
+              ],
+              "home": [
+                31,
+                23,
+                21,
+                23
+              ]
+            },
+            "regulation_away": 84,
+            "regulation_home": 98,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790787600
+          },
+          {
+            "away_team_id": "BOU",
+            "duration_minutes": 40,
+            "final_away": 76,
+            "final_home": 84,
+            "home_team_id": "NAP",
+            "provider_fixture_id": "U2026_10",
+            "quarters": {
+              "away": [
+                17,
+                20,
+                13,
+                26
+              ],
+              "home": [
+                19,
+                28,
+                18,
+                19
+              ]
+            },
+            "regulation_away": 76,
+            "regulation_home": 84,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790791200
+          },
+          {
+            "away_team_id": "LJU",
+            "duration_minutes": 40,
+            "final_away": 81,
+            "final_home": 85,
+            "home_team_id": "BGS",
+            "provider_fixture_id": "U2026_1",
+            "quarters": {
+              "away": [
+                21,
+                21,
+                17,
+                22
+              ],
+              "home": [
+                25,
+                18,
+                17,
+                25
+              ]
+            },
+            "regulation_away": 81,
+            "regulation_home": 85,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790793000
+          },
+          {
+            "away_team_id": "TTK",
+            "duration_minutes": 40,
+            "final_away": 75,
+            "final_home": 82,
+            "home_team_id": "TNF",
+            "provider_fixture_id": "U2026_5",
+            "quarters": {
+              "away": [
+                17,
+                20,
+                19,
+                19
+              ],
+              "home": [
+                24,
+                20,
+                21,
+                17
+              ]
+            },
+            "regulation_away": 75,
+            "regulation_home": 82,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790794800
+          },
+          {
+            "away_team_id": "CLU",
+            "duration_minutes": 40,
+            "final_away": 55,
+            "final_home": 89,
+            "home_team_id": "MRO",
+            "provider_fixture_id": "U2026_6",
+            "quarters": {
+              "away": [
+                18,
+                12,
+                10,
+                15
+              ],
+              "home": [
+                34,
+                21,
+                27,
+                7
+              ]
+            },
+            "regulation_away": 55,
+            "regulation_home": 89,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1790794800
+          },
+          {
+            "away_team_id": "JER",
+            "duration_minutes": 40,
+            "final_away": 75,
+            "final_home": 64,
+            "home_team_id": "LJU",
+            "provider_fixture_id": "U2026_20",
+            "quarters": {
+              "away": [
+                18,
+                19,
+                18,
+                20
+              ],
+              "home": [
+                18,
+                9,
+                20,
+                17
+              ]
+            },
+            "regulation_away": 75,
+            "regulation_home": 64,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791304200
+          },
+          {
+            "away_team_id": "MRO",
+            "duration_minutes": 40,
+            "final_away": 77,
+            "final_home": 92,
+            "home_team_id": "TTK",
+            "provider_fixture_id": "U2026_24",
+            "quarters": {
+              "away": [
+                23,
+                16,
+                26,
+                12
+              ],
+              "home": [
+                22,
+                16,
+                22,
+                32
+              ]
+            },
+            "regulation_away": 77,
+            "regulation_home": 92,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791304200
+          },
+          {
+            "away_team_id": "NAP",
+            "duration_minutes": 40,
+            "final_away": 93,
+            "final_home": 75,
+            "home_team_id": "BUD",
+            "provider_fixture_id": "U2026_28",
+            "quarters": {
+              "away": [
+                25,
+                28,
+                22,
+                18
+              ],
+              "home": [
+                19,
+                14,
+                18,
+                24
+              ]
+            },
+            "regulation_away": 93,
+            "regulation_home": 75,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791306000
+          },
+          {
+            "away_team_id": "SIA",
+            "duration_minutes": 40,
+            "final_away": 71,
+            "final_home": 79,
+            "home_team_id": "FRA",
+            "provider_fixture_id": "U2026_22",
+            "quarters": {
+              "away": [
+                13,
+                22,
+                17,
+                19
+              ],
+              "home": [
+                12,
+                16,
+                21,
+                30
+              ]
+            },
+            "regulation_away": 71,
+            "regulation_home": 79,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791307800
+          },
+          {
+            "away_team_id": "BUR",
+            "duration_minutes": 40,
+            "final_away": 89,
+            "final_home": 82,
+            "home_team_id": "BOU",
+            "provider_fixture_id": "U2026_27",
+            "quarters": {
+              "away": [
+                18,
+                31,
+                18,
+                22
+              ],
+              "home": [
+                21,
+                19,
+                24,
+                18
+              ]
+            },
+            "regulation_away": 89,
+            "regulation_home": 82,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791307800
+          },
+          {
+            "away_team_id": "PAO",
+            "duration_minutes": 40,
+            "final_away": 75,
+            "final_home": 72,
+            "home_team_id": "BOS",
+            "provider_fixture_id": "U2026_32",
+            "quarters": {
+              "away": [
+                22,
+                18,
+                19,
+                16
+              ],
+              "home": [
+                18,
+                17,
+                26,
+                11
+              ]
+            },
+            "regulation_away": 75,
+            "regulation_home": 72,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791307800
+          },
+          {
+            "away_team_id": "RIG",
+            "duration_minutes": 40,
+            "final_away": 86,
+            "final_home": 87,
+            "home_team_id": "RTK",
+            "provider_fixture_id": "U2026_19",
+            "quarters": {
+              "away": [
+                26,
+                15,
+                25,
+                20
+              ],
+              "home": [
+                20,
+                22,
+                22,
+                23
+              ]
+            },
+            "regulation_away": 86,
+            "regulation_home": 87,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791309600
+          },
+          {
+            "away_team_id": "WRO",
+            "duration_minutes": 40,
+            "final_away": 94,
+            "final_home": 81,
+            "home_team_id": "TRN",
+            "provider_fixture_id": "U2026_25",
+            "quarters": {
+              "away": [
+                28,
+                22,
+                19,
+                25
+              ],
+              "home": [
+                22,
+                13,
+                26,
+                20
+              ]
+            },
+            "regulation_away": 94,
+            "regulation_home": 81,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791309600
+          },
+          {
+            "away_team_id": "TNF",
+            "duration_minutes": 40,
+            "final_away": 77,
+            "final_home": 89,
+            "home_team_id": "LLI",
+            "provider_fixture_id": "U2026_21",
+            "quarters": {
+              "away": [
+                19,
+                23,
+                16,
+                19
+              ],
+              "home": [
+                18,
+                28,
+                19,
+                24
+              ]
+            },
+            "regulation_away": 77,
+            "regulation_home": 89,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791311400
+          },
+          {
+            "away_team_id": "VNC",
+            "duration_minutes": 40,
+            "final_away": 92,
+            "final_home": 98,
+            "home_team_id": "CLU",
+            "provider_fixture_id": "U2026_23",
+            "quarters": {
+              "away": [
+                27,
+                23,
+                19,
+                23
+              ],
+              "home": [
+                21,
+                19,
+                29,
+                29
+              ]
+            },
+            "regulation_away": 92,
+            "regulation_home": 98,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791388800
+          },
+          {
+            "away_team_id": "BAH",
+            "duration_minutes": 40,
+            "final_away": 100,
+            "final_home": 61,
+            "home_team_id": "BLK",
+            "provider_fixture_id": "U2026_30",
+            "quarters": {
+              "away": [
+                24,
+                29,
+                28,
+                19
+              ],
+              "home": [
+                16,
+                5,
+                21,
+                19
+              ]
+            },
+            "regulation_away": 100,
+            "regulation_home": 61,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791388800
+          },
+          {
+            "away_team_id": "BGS",
+            "duration_minutes": 40,
+            "final_away": 80,
+            "final_home": 93,
+            "home_team_id": "ARI",
+            "provider_fixture_id": "U2026_17",
+            "quarters": {
+              "away": [
+                14,
+                16,
+                25,
+                25
+              ],
+              "home": [
+                28,
+                25,
+                16,
+                24
+              ]
+            },
+            "regulation_away": 80,
+            "regulation_home": 93,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791392400
+          },
+          {
+            "away_team_id": "KLA",
+            "duration_minutes": 40,
+            "final_away": 84,
+            "final_home": 93,
+            "home_team_id": "NIN",
+            "provider_fixture_id": "U2026_26",
+            "quarters": {
+              "away": [
+                15,
+                24,
+                27,
+                18
+              ],
+              "home": [
+                31,
+                26,
+                18,
+                18
+              ]
+            },
+            "regulation_away": 84,
+            "regulation_home": 93,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791392400
+          },
+          {
+            "away_team_id": "LEM",
+            "duration_minutes": 40,
+            "final_away": 83,
+            "final_home": 89,
+            "home_team_id": "TRT",
+            "provider_fixture_id": "U2026_18",
+            "quarters": {
+              "away": [
+                20,
+                24,
+                22,
+                17
+              ],
+              "home": [
+                22,
+                24,
+                20,
+                23
+              ]
+            },
+            "regulation_away": 83,
+            "regulation_home": 89,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791394200
+          },
+          {
+            "away_team_id": "LKB",
+            "duration_minutes": 40,
+            "final_away": 87,
+            "final_home": 92,
+            "home_team_id": "BCR",
+            "provider_fixture_id": "U2026_29",
+            "quarters": {
+              "away": [
+                11,
+                27,
+                25,
+                24
+              ],
+              "home": [
+                22,
+                21,
+                27,
+                22
+              ]
+            },
+            "regulation_away": 87,
+            "regulation_home": 92,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791396000
+          },
+          {
+            "away_team_id": "ULM",
+            "duration_minutes": 40,
+            "final_away": 89,
+            "final_home": 101,
+            "home_team_id": "MAN",
+            "provider_fixture_id": "U2026_31",
+            "quarters": {
+              "away": [
+                24,
+                21,
+                24,
+                20
+              ],
+              "home": [
+                31,
+                31,
+                20,
+                19
+              ]
+            },
+            "regulation_away": 89,
+            "regulation_home": 101,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791397800
+          },
+          {
+            "away_team_id": "BOU",
+            "duration_minutes": 40,
+            "final_away": 89,
+            "final_home": 93,
+            "home_team_id": "KLA",
+            "provider_fixture_id": "U2026_43",
+            "quarters": {
+              "away": [
+                14,
+                29,
+                24,
+                22
+              ],
+              "home": [
+                32,
+                19,
+                17,
+                25
+              ]
+            },
+            "regulation_away": 89,
+            "regulation_home": 93,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791907200
+          },
+          {
+            "away_team_id": "PAO",
+            "duration_minutes": 40,
+            "final_away": 86,
+            "final_home": 95,
+            "home_team_id": "LKB",
+            "provider_fixture_id": "U2026_45",
+            "quarters": {
+              "away": [
+                22,
+                18,
+                24,
+                22
+              ],
+              "home": [
+                23,
+                27,
+                24,
+                21
+              ]
+            },
+            "regulation_away": 86,
+            "regulation_home": 95,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791907200
+          },
+          {
+            "away_team_id": "MAN",
+            "duration_minutes": 40,
+            "final_away": 88,
+            "final_home": 100,
+            "home_team_id": "BAH",
+            "provider_fixture_id": "U2026_47",
+            "quarters": {
+              "away": [
+                20,
+                24,
+                22,
+                22
+              ],
+              "home": [
+                32,
+                21,
+                23,
+                24
+              ]
+            },
+            "regulation_away": 88,
+            "regulation_home": 100,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791907200
+          },
+          {
+            "away_team_id": "NIN",
+            "duration_minutes": 40,
+            "final_away": 88,
+            "final_home": 80,
+            "home_team_id": "TRN",
+            "provider_fixture_id": "U2026_44",
+            "quarters": {
+              "away": [
+                19,
+                18,
+                18,
+                33
+              ],
+              "home": [
+                17,
+                17,
+                24,
+                22
+              ]
+            },
+            "regulation_away": 88,
+            "regulation_home": 80,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791914400
+          },
+          {
+            "away_team_id": "BLK",
+            "duration_minutes": 45,
+            "final_away": 72,
+            "final_home": 77,
+            "home_team_id": "BCR",
+            "provider_fixture_id": "U2026_48",
+            "quarters": {
+              "away": [
+                12,
+                21,
+                12,
+                24
+              ],
+              "home": [
+                13,
+                16,
+                18,
+                22
+              ]
+            },
+            "regulation_away": 69,
+            "regulation_home": 69,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791914400
+          },
+          {
+            "away_team_id": "CLU",
+            "duration_minutes": 40,
+            "final_away": 94,
+            "final_home": 75,
+            "home_team_id": "SIA",
+            "provider_fixture_id": "U2026_39",
+            "quarters": {
+              "away": [
+                16,
+                25,
+                25,
+                28
+              ],
+              "home": [
+                26,
+                14,
+                20,
+                15
+              ]
+            },
+            "regulation_away": 94,
+            "regulation_home": 75,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791991800
+          },
+          {
+            "away_team_id": "LJU",
+            "duration_minutes": 40,
+            "final_away": 79,
+            "final_home": 89,
+            "home_team_id": "RIG",
+            "provider_fixture_id": "U2026_34",
+            "quarters": {
+              "away": [
+                18,
+                22,
+                19,
+                20
+              ],
+              "home": [
+                27,
+                29,
+                16,
+                17
+              ]
+            },
+            "regulation_away": 79,
+            "regulation_home": 89,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791993600
+          },
+          {
+            "away_team_id": "BOS",
+            "duration_minutes": 40,
+            "final_away": 93,
+            "final_home": 102,
+            "home_team_id": "ULM",
+            "provider_fixture_id": "U2026_46",
+            "quarters": {
+              "away": [
+                26,
+                23,
+                16,
+                28
+              ],
+              "home": [
+                26,
+                26,
+                26,
+                24
+              ]
+            },
+            "regulation_away": 93,
+            "regulation_home": 102,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791995400
+          },
+          {
+            "away_team_id": "TRT",
+            "duration_minutes": 40,
+            "final_away": 68,
+            "final_home": 88,
+            "home_team_id": "ARI",
+            "provider_fixture_id": "U2026_36",
+            "quarters": {
+              "away": [
+                21,
+                23,
+                11,
+                13
+              ],
+              "home": [
+                31,
+                14,
+                17,
+                26
+              ]
+            },
+            "regulation_away": 68,
+            "regulation_home": 88,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791997200
+          },
+          {
+            "away_team_id": "NAP",
+            "duration_minutes": 40,
+            "final_away": 86,
+            "final_home": 82,
+            "home_team_id": "WRO",
+            "provider_fixture_id": "U2026_41",
+            "quarters": {
+              "away": [
+                22,
+                18,
+                21,
+                25
+              ],
+              "home": [
+                18,
+                19,
+                24,
+                21
+              ]
+            },
+            "regulation_away": 86,
+            "regulation_home": 82,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791997200
+          },
+          {
+            "away_team_id": "BUD",
+            "duration_minutes": 40,
+            "final_away": 85,
+            "final_home": 90,
+            "home_team_id": "BUR",
+            "provider_fixture_id": "U2026_42",
+            "quarters": {
+              "away": [
+                25,
+                19,
+                20,
+                21
+              ],
+              "home": [
+                22,
+                30,
+                19,
+                19
+              ]
+            },
+            "regulation_away": 85,
+            "regulation_home": 90,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1791997200
+          },
+          {
+            "away_team_id": "RTK",
+            "duration_minutes": 40,
+            "final_away": 70,
+            "final_home": 82,
+            "home_team_id": "LEM",
+            "provider_fixture_id": "U2026_35",
+            "quarters": {
+              "away": [
+                18,
+                16,
+                18,
+                18
+              ],
+              "home": [
+                19,
+                32,
+                20,
+                11
+              ]
+            },
+            "regulation_away": 70,
+            "regulation_home": 82,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792000800
+          },
+          {
+            "away_team_id": "JER",
+            "duration_minutes": 40,
+            "final_away": 85,
+            "final_home": 84,
+            "home_team_id": "BGS",
+            "provider_fixture_id": "U2026_33",
+            "quarters": {
+              "away": [
+                24,
+                22,
+                24,
+                15
+              ],
+              "home": [
+                18,
+                21,
+                20,
+                25
+              ]
+            },
+            "regulation_away": 85,
+            "regulation_home": 84,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792002600
+          },
+          {
+            "away_team_id": "MRO",
+            "duration_minutes": 40,
+            "final_away": 71,
+            "final_home": 96,
+            "home_team_id": "TNF",
+            "provider_fixture_id": "U2026_37",
+            "quarters": {
+              "away": [
+                14,
+                19,
+                15,
+                23
+              ],
+              "home": [
+                26,
+                19,
+                20,
+                31
+              ]
+            },
+            "regulation_away": 71,
+            "regulation_home": 96,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792004400
+          },
+          {
+            "away_team_id": "TTK",
+            "duration_minutes": 40,
+            "final_away": 65,
+            "final_home": 75,
+            "home_team_id": "VNC",
+            "provider_fixture_id": "U2026_38",
+            "quarters": {
+              "away": [
+                16,
+                13,
+                22,
+                14
+              ],
+              "home": [
+                20,
+                19,
+                18,
+                18
+              ]
+            },
+            "regulation_away": 65,
+            "regulation_home": 75,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792004400
+          },
+          {
+            "away_team_id": "FRA",
+            "duration_minutes": 40,
+            "final_away": 81,
+            "final_home": 76,
+            "home_team_id": "LLI",
+            "provider_fixture_id": "U2026_40",
+            "quarters": {
+              "away": [
+                21,
+                24,
+                18,
+                18
+              ],
+              "home": [
+                18,
+                18,
+                22,
+                18
+              ]
+            },
+            "regulation_away": 81,
+            "regulation_home": 76,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792089000
+          },
+          {
+            "away_team_id": "LKB",
+            "duration_minutes": 40,
+            "final_away": 64,
+            "final_home": 57,
+            "home_team_id": "BLK",
+            "provider_fixture_id": "U2026_61",
+            "quarters": {
+              "away": [
+                13,
+                20,
+                16,
+                15
+              ],
+              "home": [
+                10,
+                15,
+                20,
+                12
+              ]
+            },
+            "regulation_away": 64,
+            "regulation_home": 57,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792512000
+          },
+          {
+            "away_team_id": "SIA",
+            "duration_minutes": 40,
+            "final_away": 94,
+            "final_home": 84,
+            "home_team_id": "TTK",
+            "provider_fixture_id": "U2026_55",
+            "quarters": {
+              "away": [
+                16,
+                27,
+                24,
+                27
+              ],
+              "home": [
+                21,
+                24,
+                22,
+                17
+              ]
+            },
+            "regulation_away": 94,
+            "regulation_home": 84,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792513800
+          },
+          {
+            "away_team_id": "KLA",
+            "duration_minutes": 40,
+            "final_away": 89,
+            "final_home": 104,
+            "home_team_id": "BUD",
+            "provider_fixture_id": "U2026_59",
+            "quarters": {
+              "away": [
+                22,
+                20,
+                26,
+                21
+              ],
+              "home": [
+                31,
+                25,
+                24,
+                24
+              ]
+            },
+            "regulation_away": 89,
+            "regulation_home": 104,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792515600
+          },
+          {
+            "away_team_id": "ARI",
+            "duration_minutes": 40,
+            "final_away": 110,
+            "final_home": 79,
+            "home_team_id": "RTK",
+            "provider_fixture_id": "U2026_50",
+            "quarters": {
+              "away": [
+                29,
+                29,
+                25,
+                27
+              ],
+              "home": [
+                20,
+                17,
+                14,
+                28
+              ]
+            },
+            "regulation_away": 110,
+            "regulation_home": 79,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792519200
+          },
+          {
+            "away_team_id": "BCR",
+            "duration_minutes": 40,
+            "final_away": 88,
+            "final_home": 108,
+            "home_team_id": "MAN",
+            "provider_fixture_id": "U2026_62",
+            "quarters": {
+              "away": [
+                21,
+                25,
+                24,
+                18
+              ],
+              "home": [
+                32,
+                25,
+                25,
+                26
+              ]
+            },
+            "regulation_away": 88,
+            "regulation_home": 108,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792521000
+          },
+          {
+            "away_team_id": "LLI",
+            "duration_minutes": 40,
+            "final_away": 89,
+            "final_home": 72,
+            "home_team_id": "CLU",
+            "provider_fixture_id": "U2026_54",
+            "quarters": {
+              "away": [
+                21,
+                19,
+                24,
+                25
+              ],
+              "home": [
+                22,
+                15,
+                18,
+                17
+              ]
+            },
+            "regulation_away": 89,
+            "regulation_home": 72,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792598400
+          },
+          {
+            "away_team_id": "LEM",
+            "duration_minutes": 40,
+            "final_away": 84,
+            "final_home": 66,
+            "home_team_id": "LJU",
+            "provider_fixture_id": "U2026_51",
+            "quarters": {
+              "away": [
+                22,
+                21,
+                28,
+                13
+              ],
+              "home": [
+                16,
+                22,
+                14,
+                14
+              ]
+            },
+            "regulation_away": 84,
+            "regulation_home": 66,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792600200
+          },
+          {
+            "away_team_id": "BGS",
+            "duration_minutes": 40,
+            "final_away": 79,
+            "final_home": 89,
+            "home_team_id": "TRT",
+            "provider_fixture_id": "U2026_49",
+            "quarters": {
+              "away": [
+                25,
+                20,
+                17,
+                17
+              ],
+              "home": [
+                18,
+                18,
+                22,
+                31
+              ]
+            },
+            "regulation_away": 79,
+            "regulation_home": 89,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792602000
+          },
+          {
+            "away_team_id": "WRO",
+            "duration_minutes": 40,
+            "final_away": 67,
+            "final_home": 95,
+            "home_team_id": "NIN",
+            "provider_fixture_id": "U2026_57",
+            "quarters": {
+              "away": [
+                21,
+                19,
+                20,
+                7
+              ],
+              "home": [
+                20,
+                26,
+                24,
+                25
+              ]
+            },
+            "regulation_away": 67,
+            "regulation_home": 95,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792602000
+          },
+          {
+            "away_team_id": "ULM",
+            "duration_minutes": 40,
+            "final_away": 78,
+            "final_home": 87,
+            "home_team_id": "PAO",
+            "provider_fixture_id": "U2026_64",
+            "quarters": {
+              "away": [
+                20,
+                22,
+                13,
+                23
+              ],
+              "home": [
+                19,
+                27,
+                13,
+                28
+              ]
+            },
+            "regulation_away": 78,
+            "regulation_home": 87,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792602000
+          },
+          {
+            "away_team_id": "TNF",
+            "duration_minutes": 40,
+            "final_away": 104,
+            "final_home": 94,
+            "home_team_id": "FRA",
+            "provider_fixture_id": "U2026_53",
+            "quarters": {
+              "away": [
+                14,
+                17,
+                43,
+                30
+              ],
+              "home": [
+                22,
+                21,
+                23,
+                28
+              ]
+            },
+            "regulation_away": 104,
+            "regulation_home": 94,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792603800
+          },
+          {
+            "away_team_id": "TRN",
+            "duration_minutes": 40,
+            "final_away": 79,
+            "final_home": 90,
+            "home_team_id": "BOU",
+            "provider_fixture_id": "U2026_58",
+            "quarters": {
+              "away": [
+                24,
+                21,
+                15,
+                19
+              ],
+              "home": [
+                19,
+                34,
+                22,
+                15
+              ]
+            },
+            "regulation_away": 79,
+            "regulation_home": 90,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792603800
+          },
+          {
+            "away_team_id": "BAH",
+            "duration_minutes": 40,
+            "final_away": 77,
+            "final_home": 86,
+            "home_team_id": "BOS",
+            "provider_fixture_id": "U2026_63",
+            "quarters": {
+              "away": [
+                13,
+                20,
+                17,
+                27
+              ],
+              "home": [
+                21,
+                15,
+                22,
+                28
+              ]
+            },
+            "regulation_away": 77,
+            "regulation_home": 86,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792603800
+          },
+          {
+            "away_team_id": "RIG",
+            "duration_minutes": 40,
+            "final_away": 64,
+            "final_home": 100,
+            "home_team_id": "JER",
+            "provider_fixture_id": "U2026_52",
+            "quarters": {
+              "away": [
+                20,
+                16,
+                19,
+                9
+              ],
+              "home": [
+                29,
+                21,
+                27,
+                23
+              ]
+            },
+            "regulation_away": 64,
+            "regulation_home": 100,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792605600
+          },
+          {
+            "away_team_id": "BUR",
+            "duration_minutes": 45,
+            "final_away": 101,
+            "final_home": 105,
+            "home_team_id": "NAP",
+            "provider_fixture_id": "U2026_60",
+            "quarters": {
+              "away": [
+                20,
+                22,
+                24,
+                27
+              ],
+              "home": [
+                29,
+                24,
+                20,
+                20
+              ]
+            },
+            "regulation_away": 93,
+            "regulation_home": 93,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792605600
+          },
+          {
+            "away_team_id": "VNC",
+            "duration_minutes": 40,
+            "final_away": 79,
+            "final_home": 90,
+            "home_team_id": "MRO",
+            "provider_fixture_id": "U2026_56",
+            "quarters": {
+              "away": [
+                18,
+                27,
+                12,
+                22
+              ],
+              "home": [
+                23,
+                22,
+                19,
+                26
+              ]
+            },
+            "regulation_away": 79,
+            "regulation_home": 90,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1792607400
+          },
+          {
+            "away_team_id": "PAO",
+            "duration_minutes": 40,
+            "final_away": 81,
+            "final_home": 84,
+            "home_team_id": "BAH",
+            "provider_fixture_id": "U2026_78",
+            "quarters": {
+              "away": [
+                23,
+                17,
+                18,
+                23
+              ],
+              "home": [
+                26,
+                26,
+                11,
+                21
+              ]
+            },
+            "regulation_away": 81,
+            "regulation_home": 84,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793116800
+          },
+          {
+            "away_team_id": "ULM",
+            "duration_minutes": 40,
+            "final_away": 86,
+            "final_home": 68,
+            "home_team_id": "LKB",
+            "provider_fixture_id": "U2026_77",
+            "quarters": {
+              "away": [
+                22,
+                28,
+                17,
+                19
+              ],
+              "home": [
+                25,
+                17,
+                9,
+                17
+              ]
+            },
+            "regulation_away": 86,
+            "regulation_home": 68,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793120400
+          },
+          {
+            "away_team_id": "MAN",
+            "duration_minutes": 40,
+            "final_away": 76,
+            "final_home": 65,
+            "home_team_id": "BLK",
+            "provider_fixture_id": "U2026_80",
+            "quarters": {
+              "away": [
+                25,
+                14,
+                15,
+                22
+              ],
+              "home": [
+                17,
+                19,
+                14,
+                15
+              ]
+            },
+            "regulation_away": 76,
+            "regulation_home": 65,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793120400
+          },
+          {
+            "away_team_id": "CLU",
+            "duration_minutes": 40,
+            "final_away": 97,
+            "final_home": 113,
+            "home_team_id": "FRA",
+            "provider_fixture_id": "U2026_72",
+            "quarters": {
+              "away": [
+                29,
+                22,
+                22,
+                24
+              ],
+              "home": [
+                30,
+                32,
+                28,
+                23
+              ]
+            },
+            "regulation_away": 97,
+            "regulation_home": 113,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793125800
+          },
+          {
+            "away_team_id": "BUD",
+            "duration_minutes": 40,
+            "final_away": 92,
+            "final_home": 94,
+            "home_team_id": "TRN",
+            "provider_fixture_id": "U2026_75",
+            "quarters": {
+              "away": [
+                16,
+                34,
+                17,
+                25
+              ],
+              "home": [
+                23,
+                24,
+                20,
+                27
+              ]
+            },
+            "regulation_away": 92,
+            "regulation_home": 94,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793127600
+          },
+          {
+            "away_team_id": "BOS",
+            "duration_minutes": 40,
+            "final_away": 85,
+            "final_home": 80,
+            "home_team_id": "BCR",
+            "provider_fixture_id": "U2026_79",
+            "quarters": {
+              "away": [
+                16,
+                27,
+                20,
+                22
+              ],
+              "home": [
+                21,
+                20,
+                26,
+                13
+              ]
+            },
+            "regulation_away": 85,
+            "regulation_home": 80,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793127600
+          },
+          {
+            "away_team_id": "MRO",
+            "duration_minutes": 40,
+            "final_away": 93,
+            "final_home": 98,
+            "home_team_id": "SIA",
+            "provider_fixture_id": "U2026_70",
+            "quarters": {
+              "away": [
+                23,
+                26,
+                26,
+                18
+              ],
+              "home": [
+                31,
+                18,
+                31,
+                18
+              ]
+            },
+            "regulation_away": 93,
+            "regulation_home": 98,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793205000
+          },
+          {
+            "away_team_id": "NAP",
+            "duration_minutes": 40,
+            "final_away": 94,
+            "final_home": 85,
+            "home_team_id": "KLA",
+            "provider_fixture_id": "U2026_74",
+            "quarters": {
+              "away": [
+                24,
+                23,
+                24,
+                23
+              ],
+              "home": [
+                20,
+                25,
+                20,
+                20
+              ]
+            },
+            "regulation_away": 94,
+            "regulation_home": 85,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793206800
+          },
+          {
+            "away_team_id": "LJU",
+            "duration_minutes": 40,
+            "final_away": 73,
+            "final_home": 78,
+            "home_team_id": "ARI",
+            "provider_fixture_id": "U2026_67",
+            "quarters": {
+              "away": [
+                19,
+                20,
+                18,
+                16
+              ],
+              "home": [
+                21,
+                17,
+                19,
+                21
+              ]
+            },
+            "regulation_away": 73,
+            "regulation_home": 78,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793208600
+          },
+          {
+            "away_team_id": "BUR",
+            "duration_minutes": 40,
+            "final_away": 90,
+            "final_home": 74,
+            "home_team_id": "WRO",
+            "provider_fixture_id": "U2026_73",
+            "quarters": {
+              "away": [
+                22,
+                33,
+                15,
+                20
+              ],
+              "home": [
+                24,
+                14,
+                22,
+                14
+              ]
+            },
+            "regulation_away": 90,
+            "regulation_home": 74,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793208600
+          },
+          {
+            "away_team_id": "BOU",
+            "duration_minutes": 40,
+            "final_away": 77,
+            "final_home": 96,
+            "home_team_id": "NIN",
+            "provider_fixture_id": "U2026_76",
+            "quarters": {
+              "away": [
+                19,
+                13,
+                17,
+                28
+              ],
+              "home": [
+                25,
+                21,
+                29,
+                21
+              ]
+            },
+            "regulation_away": 77,
+            "regulation_home": 96,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793210400
+          },
+          {
+            "away_team_id": "RTK",
+            "duration_minutes": 40,
+            "final_away": 83,
+            "final_home": 86,
+            "home_team_id": "TRT",
+            "provider_fixture_id": "U2026_68",
+            "quarters": {
+              "away": [
+                24,
+                20,
+                26,
+                13
+              ],
+              "home": [
+                23,
+                16,
+                18,
+                29
+              ]
+            },
+            "regulation_away": 83,
+            "regulation_home": 86,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793212200
+          },
+          {
+            "away_team_id": "JER",
+            "duration_minutes": 40,
+            "final_away": 90,
+            "final_home": 83,
+            "home_team_id": "LEM",
+            "provider_fixture_id": "U2026_66",
+            "quarters": {
+              "away": [
+                21,
+                27,
+                17,
+                25
+              ],
+              "home": [
+                19,
+                21,
+                27,
+                16
+              ]
+            },
+            "regulation_away": 90,
+            "regulation_home": 83,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793214000
+          },
+          {
+            "away_team_id": "RIG",
+            "duration_minutes": 40,
+            "final_away": 79,
+            "final_home": 71,
+            "home_team_id": "BGS",
+            "provider_fixture_id": "U2026_65",
+            "quarters": {
+              "away": [
+                17,
+                22,
+                23,
+                17
+              ],
+              "home": [
+                21,
+                14,
+                19,
+                17
+              ]
+            },
+            "regulation_away": 79,
+            "regulation_home": 71,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793215800
+          },
+          {
+            "away_team_id": "TTK",
+            "duration_minutes": 40,
+            "final_away": 61,
+            "final_home": 79,
+            "home_team_id": "LLI",
+            "provider_fixture_id": "U2026_71",
+            "quarters": {
+              "away": [
+                16,
+                23,
+                12,
+                10
+              ],
+              "home": [
+                20,
+                19,
+                20,
+                20
+              ]
+            },
+            "regulation_away": 61,
+            "regulation_home": 79,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793215800
+          },
+          {
+            "away_team_id": "VNC",
+            "duration_minutes": 40,
+            "final_away": 80,
+            "final_home": 82,
+            "home_team_id": "TNF",
+            "provider_fixture_id": "U2026_69",
+            "quarters": {
+              "away": [
+                25,
+                16,
+                25,
+                14
+              ],
+              "home": [
+                24,
+                24,
+                17,
+                17
+              ]
+            },
+            "regulation_away": 80,
+            "regulation_home": 82,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793217600
+          },
+          {
+            "away_team_id": "KLA",
+            "duration_minutes": 40,
+            "final_away": 79,
+            "final_home": 94,
+            "home_team_id": "BUR",
+            "provider_fixture_id": "U2026_92",
+            "quarters": {
+              "away": [
+                29,
+                20,
+                10,
+                20
+              ],
+              "home": [
+                19,
+                24,
+                24,
+                27
+              ]
+            },
+            "regulation_away": 79,
+            "regulation_home": 94,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793725200
+          },
+          {
+            "away_team_id": "NIN",
+            "duration_minutes": 40,
+            "final_away": 84,
+            "final_home": 96,
+            "home_team_id": "BUD",
+            "provider_fixture_id": "U2026_90",
+            "quarters": {
+              "away": [
+                22,
+                22,
+                22,
+                18
+              ],
+              "home": [
+                23,
+                26,
+                24,
+                23
+              ]
+            },
+            "regulation_away": 84,
+            "regulation_home": 96,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793728800
+          },
+          {
+            "away_team_id": "BCR",
+            "duration_minutes": 40,
+            "final_away": 111,
+            "final_home": 113,
+            "home_team_id": "PAO",
+            "provider_fixture_id": "U2026_95",
+            "quarters": {
+              "away": [
+                22,
+                38,
+                26,
+                25
+              ],
+              "home": [
+                29,
+                32,
+                31,
+                21
+              ]
+            },
+            "regulation_away": 111,
+            "regulation_home": 113,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793728800
+          },
+          {
+            "away_team_id": "BAH",
+            "duration_minutes": 40,
+            "final_away": 96,
+            "final_home": 82,
+            "home_team_id": "ULM",
+            "provider_fixture_id": "U2026_96",
+            "quarters": {
+              "away": [
+                19,
+                35,
+                14,
+                28
+              ],
+              "home": [
+                19,
+                17,
+                24,
+                22
+              ]
+            },
+            "regulation_away": 96,
+            "regulation_home": 82,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793730600
+          },
+          {
+            "away_team_id": "TRN",
+            "duration_minutes": 40,
+            "final_away": 79,
+            "final_home": 90,
+            "home_team_id": "NAP",
+            "provider_fixture_id": "U2026_91",
+            "quarters": {
+              "away": [
+                21,
+                18,
+                15,
+                25
+              ],
+              "home": [
+                24,
+                13,
+                28,
+                25
+              ]
+            },
+            "regulation_away": 79,
+            "regulation_home": 90,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793732400
+          },
+          {
+            "away_team_id": "FRA",
+            "duration_minutes": 40,
+            "final_away": 78,
+            "final_home": 98,
+            "home_team_id": "TTK",
+            "provider_fixture_id": "U2026_86",
+            "quarters": {
+              "away": [
+                17,
+                28,
+                19,
+                14
+              ],
+              "home": [
+                24,
+                27,
+                22,
+                25
+              ]
+            },
+            "regulation_away": 78,
+            "regulation_home": 98,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793809800
+          },
+          {
+            "away_team_id": "LEM",
+            "duration_minutes": 40,
+            "final_away": 71,
+            "final_home": 65,
+            "home_team_id": "RIG",
+            "provider_fixture_id": "U2026_84",
+            "quarters": {
+              "away": [
+                18,
+                10,
+                19,
+                24
+              ],
+              "home": [
+                27,
+                13,
+                9,
+                16
+              ]
+            },
+            "regulation_away": 71,
+            "regulation_home": 65,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793811600
+          },
+          {
+            "away_team_id": "MAN",
+            "duration_minutes": 40,
+            "final_away": 80,
+            "final_home": 66,
+            "home_team_id": "LKB",
+            "provider_fixture_id": "U2026_93",
+            "quarters": {
+              "away": [
+                24,
+                21,
+                22,
+                13
+              ],
+              "home": [
+                14,
+                14,
+                17,
+                21
+              ]
+            },
+            "regulation_away": 80,
+            "regulation_home": 66,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793811600
+          },
+          {
+            "away_team_id": "TRT",
+            "duration_minutes": 45,
+            "final_away": 71,
+            "final_home": 73,
+            "home_team_id": "LJU",
+            "provider_fixture_id": "U2026_82",
+            "quarters": {
+              "away": [
+                20,
+                16,
+                14,
+                15
+              ],
+              "home": [
+                16,
+                11,
+                17,
+                21
+              ]
+            },
+            "regulation_away": 65,
+            "regulation_home": 65,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793813400
+          },
+          {
+            "away_team_id": "BOU",
+            "duration_minutes": 40,
+            "final_away": 88,
+            "final_home": 84,
+            "home_team_id": "WRO",
+            "provider_fixture_id": "U2026_89",
+            "quarters": {
+              "away": [
+                27,
+                20,
+                14,
+                27
+              ],
+              "home": [
+                20,
+                19,
+                21,
+                24
+              ]
+            },
+            "regulation_away": 88,
+            "regulation_home": 84,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793815200
+          },
+          {
+            "away_team_id": "BLK",
+            "duration_minutes": 40,
+            "final_away": 78,
+            "final_home": 69,
+            "home_team_id": "BOS",
+            "provider_fixture_id": "U2026_94",
+            "quarters": {
+              "away": [
+                18,
+                23,
+                20,
+                17
+              ],
+              "home": [
+                24,
+                15,
+                16,
+                14
+              ]
+            },
+            "regulation_away": 78,
+            "regulation_home": 69,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793817000
+          },
+          {
+            "away_team_id": "ARI",
+            "duration_minutes": 40,
+            "final_away": 73,
+            "final_home": 84,
+            "home_team_id": "JER",
+            "provider_fixture_id": "U2026_83",
+            "quarters": {
+              "away": [
+                19,
+                21,
+                16,
+                17
+              ],
+              "home": [
+                18,
+                17,
+                22,
+                27
+              ]
+            },
+            "regulation_away": 73,
+            "regulation_home": 84,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793818800
+          },
+          {
+            "away_team_id": "SIA",
+            "duration_minutes": 40,
+            "final_away": 77,
+            "final_home": 98,
+            "home_team_id": "VNC",
+            "provider_fixture_id": "U2026_88",
+            "quarters": {
+              "away": [
+                21,
+                18,
+                20,
+                18
+              ],
+              "home": [
+                25,
+                27,
+                22,
+                24
+              ]
+            },
+            "regulation_away": 77,
+            "regulation_home": 98,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793818800
+          },
+          {
+            "away_team_id": "RTK",
+            "duration_minutes": 40,
+            "final_away": 86,
+            "final_home": 59,
+            "home_team_id": "BGS",
+            "provider_fixture_id": "U2026_81",
+            "quarters": {
+              "away": [
+                27,
+                24,
+                23,
+                12
+              ],
+              "home": [
+                14,
+                13,
+                21,
+                11
+              ]
+            },
+            "regulation_away": 86,
+            "regulation_home": 59,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793820600
+          },
+          {
+            "away_team_id": "LLI",
+            "duration_minutes": 45,
+            "final_away": 84,
+            "final_home": 86,
+            "home_team_id": "MRO",
+            "provider_fixture_id": "U2026_87",
+            "quarters": {
+              "away": [
+                22,
+                22,
+                11,
+                21
+              ],
+              "home": [
+                16,
+                26,
+                21,
+                13
+              ]
+            },
+            "regulation_away": 76,
+            "regulation_home": 76,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793820600
+          },
+          {
+            "away_team_id": "CLU",
+            "duration_minutes": 40,
+            "final_away": 73,
+            "final_home": 113,
+            "home_team_id": "TNF",
+            "provider_fixture_id": "U2026_85",
+            "quarters": {
+              "away": [
+                19,
+                22,
+                11,
+                21
+              ],
+              "home": [
+                36,
+                23,
+                28,
+                26
+              ]
+            },
+            "regulation_away": 73,
+            "regulation_home": 113,
+            "scope": "FINAL_WITH_OT",
+            "start_utc": 1793908800
+          }
+        ],
+        "completed_period_games": 96,
+        "conflicting_records": 0,
+        "duplicate_identical": 0,
+        "invalid_records": 0,
+        "league": "EUROCUP",
+        "per_game_endpoint_requests": 0,
+        "player_stats_games": 0,
+        "scheduled_games": 128,
+        "season_end_year": 2027,
+        "total_catalog_rows": 224,
+        "verified_lineup_games": 0,
+        "verified_pbp_games": 0
+      },
+      "league": "EUROCUP",
+      "materialized_at_utc": 1793972455,
+      "model_eligible_games": 0,
+      "model_status": "ABSTAIN_USAGE_NOT_ESTABLISHED",
+      "source_receipts": [
+        {
+          "ingested_at_utc": 1793972455,
+          "observed_at_utc": 1793972455,
+          "response_sha256": "814a237f1d26640868d791dbea647dd5e0b8f432d5dd874c556da90771a37485",
+          "source_url": "https://api-live.euroleague.net/v2/competitions/U"
+        },
+        {
+          "ingested_at_utc": 1793972455,
+          "observed_at_utc": 1793972455,
+          "response_sha256": "49d1882af74f2a07f094768385ab05c295be8536c03b4fdaf80e3ea2492962f3",
+          "source_url": "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026"
+        },
+        {
+          "ingested_at_utc": 1793972455,
+          "observed_at_utc": 1793972455,
+          "response_sha256": "2bffec4635e3155f57350aaa669a4d316d1537b93f5f6869da95e8d9b5b3b8cb",
+          "source_url": "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026/games"
+        }
+      ],
+      "sources": [
+        {
+          "automatic_retry": false,
+          "elapsed_seconds": 0.329505,
+          "finished_at_utc": 1793972455,
+          "http_status": 200,
+          "observed_at_utc": 1793972455,
+          "provider": "EUROLEAGUE_LIVE",
+          "server_clock_delta_seconds": 0,
+          "server_date": "Fri, 06 Nov 2026 13:40:55 GMT",
+          "source_url": "https://api-live.euroleague.net/v2/competitions/U",
+          "started_at_utc": 1793972455,
+          "status": "DOCUMENT_RECEIVED",
+          "usage_status": "UNKNOWN"
+        },
+        {
+          "automatic_retry": false,
+          "elapsed_seconds": 0.310017,
+          "finished_at_utc": 1793972455,
+          "http_status": 200,
+          "observed_at_utc": 1793972455,
+          "provider": "EUROLEAGUE_LIVE",
+          "server_clock_delta_seconds": 0,
+          "server_date": "Fri, 06 Nov 2026 13:40:55 GMT",
+          "source_url": "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026",
+          "started_at_utc": 1793972455,
+          "status": "DOCUMENT_RECEIVED",
+          "usage_status": "UNKNOWN"
+        },
+        {
+          "automatic_retry": false,
+          "elapsed_seconds": 0.305911,
+          "finished_at_utc": 1793972455,
+          "http_status": 200,
+          "observed_at_utc": 1793972455,
+          "provider": "EUROLEAGUE_LIVE",
+          "server_clock_delta_seconds": 0,
+          "server_date": "Fri, 06 Nov 2026 13:40:55 GMT",
+          "source_url": "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026/games",
+          "started_at_utc": 1793972455,
+          "status": "DOCUMENT_RECEIVED",
+          "usage_status": "UNKNOWN"
+        }
+      ],
+      "status": "CATALOG_INVENTORY_ONLY",
+      "usage_status": "UNKNOWN"
+    }
+  ],
+  "status": "LIVE_CATALOG_AUDIT_NOT_MODEL_PERFORMANCE",
+  "training_performed": false
+}

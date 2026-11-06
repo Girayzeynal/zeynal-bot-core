@@ -17,7 +17,7 @@ from providers.espn_adapter import ESPNAdapter
 from prediction_ledger import PredictionLedger
 from ledger_storage_config import resolve_prediction_ledger_path
 
-from faz13_engine import Faz13Engine, PrematchRequest
+from faz13_engine import Faz13Engine, PrematchRequest, Faz13CoreOutput
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 

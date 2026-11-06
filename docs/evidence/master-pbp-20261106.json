@@ -1,0 +1,106 @@
+{
+  "access_and_permission_audit": [
+    {
+      "http_status": 403,
+      "name": "nba_schedule",
+      "observed_at_utc": 1793973003,
+      "permission_decision": "UNKNOWN_NO_APPROVED_GRANT_CONFIGURED",
+      "source_url": "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json",
+      "status": "HTTP_ERROR"
+    },
+    {
+      "body_sha256": "b9cc3fcd82baedd0576d67a8254643e5b3bf7cb21d50f4fc47ad4fc1e5d944d5",
+      "http_status": 200,
+      "name": "nba_terms",
+      "observed_at_utc": 1793973003,
+      "permission_decision": "UNKNOWN_NO_APPROVED_GRANT_CONFIGURED",
+      "resolved_url": "https://www.nba.com/termsofuse",
+      "source_url": "https://www.nba.com/termsofuse",
+      "truncated": false
+    },
+    {
+      "body_sha256": "11307831b5d22233f8d0d94bb3ff403095789ba3bc63103c8d279b1b221c9982",
+      "http_status": 200,
+      "name": "espn_terms_reference",
+      "observed_at_utc": 1793973003,
+      "permission_decision": "UNKNOWN_NO_APPROVED_GRANT_CONFIGURED",
+      "resolved_url": "https://disneytermsofuse.com/english/",
+      "source_url": "https://disneytermsofuse.com/english/",
+      "truncated": false
+    },
+    {
+      "http_status": 403,
+      "name": "el_terms_candidate",
+      "observed_at_utc": 1793973003,
+      "permission_decision": "UNKNOWN_NO_APPROVED_GRANT_CONFIGURED",
+      "source_url": "https://www.euroleaguebasketball.net/terms-and-conditions/",
+      "status": "HTTP_ERROR"
+    }
+  ],
+  "ci": "Verify exact new SHA after push",
+  "created_utc": "2026-11-06T13:52:06.600610+00:00",
+  "eligible_real_pbp_games": 0,
+  "eligible_real_rotation_games": 0,
+  "files": {
+    "faz43_pbp.py": "222c450d23737dda9fa18d8489eaba22a4db4b24c86fd5b1a6ba8873803fd9ac",
+    "tests/test_faz43_pbp.py": "55a2aa9b27ae74e1cb3e503f3b6e742832c54848364bc7e17ff88363da97e9e4"
+  },
+  "model_coefficients_changed": false,
+  "parent_commit": "def2b23af9a13c8151fd868088d24d17d001b87a",
+  "prospective_records_created": 0,
+  "real_source_audit": {
+    "original_file_sha256": "45cebafd8db2e7244a25776fc053221c5b3e2d617c68e0cc4b6de7d411f32473",
+    "provenance": "UNSIGNED_CACHED_SOURCE_NOT_NEW_LIVE_QUERY",
+    "reason": "SCORE_CORRECTION_OR_MISSING_SCORING_EVENT",
+    "source_diagnostics": {
+      "first_anomalies": [
+        {
+          "clock": "2:48",
+          "current": {
+            "away": 79,
+            "home": 68
+          },
+          "event_id": "401909922481",
+          "period": 3,
+          "previous": {
+            "away": 81,
+            "home": 68
+          },
+          "type": "584"
+        },
+        {
+          "clock": "10:56",
+          "current": {
+            "away": 91,
+            "home": 77
+          },
+          "event_id": "401909922546",
+          "period": 4,
+          "previous": {
+            "away": 93,
+            "home": 75
+          },
+          "type": "109"
+        }
+      ],
+      "nonmonotonic_sequence_positions": 10,
+      "raw_events": 497,
+      "rotation_model_eligible_games": 0,
+      "score_anomalies": 2
+    },
+    "source_observed_utc": 1793968263,
+    "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909922",
+    "status": "ABSTAIN"
+  },
+  "stage": "FAZ43_PBP_AND_ROTATION_EVIDENCE",
+  "tests": {
+    "all": 910,
+    "failures": 0,
+    "focused_log_sha256": "04aeba4bd5f19fb71ff0464203cd85710afb4ec5d934dea17e35c8ac143cb339",
+    "full_log_sha256": "db7ac78a081ee86f282885c71d829fea1bb731fc01e0924a7d16b8e59a3d955a",
+    "new": 14,
+    "sequence_red_errors": 1,
+    "sequence_red_log_sha256": "771a00204165404dac9cb56ea2dc729ac821325c1e81a4e50004504b10e25dc6"
+  },
+  "verification_note": "Initial git diff --check caught a trailing blank line; corrected without behavioral changes before commit."
+}
