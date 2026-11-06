@@ -32,3 +32,15 @@ Yerel tam regresyon 896/896; 8 yeni katalog testi. Canlı kaynak kontrolü sente
 ## Güvenlik ve açık blokajlar
 
 Main merge, Fly.io/Telegram production, secret değişikliği, ücretli servis veya geri dönüşü zor işlem yapılmaz. Gerçek kalıcı storage/scheduler etkinleştirilmez. Eğitim/kalibrasyon için izinli ve kesit öncesinde gerçekten erişilebilir yeterli örnek gereklidir; mevcut küçük araştırma verisiyle katsayı optimize edilmez. Yeni Cloud ortamında kalıcılık ve bağımsız kurtarma doğrulanmadı.
+
+## Aşama 2 — PBP ve açık oyuncu değişim rolleri
+
+`faz43_pbp.py`, ESPN summary kaynağından dört dönem/uzatma, dönem başlangıç-son skorları, son skor, maç saati, takım ve varsa UTC event wallclock alanlarını yeniden denetler. Aynı olay tekrar sayılmaz; çelişkili id, tekrarlı sequence, geriye giden maç saati ve açıklanamayan skor düzeltmesi reddedilir. ESPN sequenceNumber geç eklenen kayıtlar yüzünden zaman sırası değildir: kaynak dizisi korunur ve dönem/maç saati/skorla doğrulanır; sequence'a göre yeniden sıralanmaz. Bunu gerektiren regresyon önce başarısız oldu, sonra düzeltildi.
+
+497 olay içeren eski gerçek ESPN 401909922 dosyası yeni canlı fetch gibi gösterilmedi. İncelemede 10 sequence ters dönüşü, iki skor anomalisi bulundu (Q3 2:48: deplasman 81→79; Q4 10:56: iki takım skoru aynı olayda değişiyor). **ABSTAIN_SCORE_CORRECTION_OR_MISSING_SCORING_EVENT**: bu kayıt modele uygun PBP değildir. 79 substitution satırında incoming/outgoing rolleri bağımsız doğrulanmadı; metinden veya participant sırasından ilk beş/rotasyon uydurulmadı. NBA CDN yeniden kontrolü HTTP 403: gerçek NBA.com/ESPN çapraz teyidi hâlâ yok.
+
+Açık, kaynakla doğrulanmış player_in/player_out rolleri verildiğinde saf rotasyon aritmetiği beş oyuncuyu, eşzamanlı değişim batch'ini ve toplam oyuncu süresini korur. Pozitif doğrulama yalnızca sentetik normalize olaylarla yapıldı; canlı rotasyon adaptörü veya nedensel beşli gücü modeli değildir. Garbage-time alanı Q4/son 180 saniye/20 sayı farkı için açık, betimsel kuraldır; eğitilmiş model veya katsayı düzeltmesi değildir. Comeback göstergesi de geçmiş sonuç betimlemesidir, kalibre edilmiş olasılık değildir.
+
+NBA ve Disney kullanım koşulları referans sayfaları HTTP 200; EuroLeague koşul sayfası adayı HTTP 403 döndürdü. Sayfanın okunabilmesi kullanım hakkı tanınması değildir. Hiçbir izin UNKNOWN'dan PERMITTED'a çevrilmedi; izinli haber feed'i yapılandırılmadı ve haber içeriği toplanmadı. Kaynak URL/zaman/yanıt hash'leri kanıt raporunda, ham sayfa/PBP gövdeleri Git'e yüklenmedi.
+
+Yerel tam regresyon **910/910**; bu aşamada **14 yeni PBP/rotasyon testi**. Katalog aşaması `def2b23af9a13c8151fd868088d24d17d001b87a` için push 42227618369 ve PR 42227670008 unit-tests/docker-build başarılı. Gerçek uygun PBP/rotasyon maçı 0, yeni prospektif tahmin 0, eğitim/kalibrasyon yapılmadı. Kanıt: docs/evidence/master-pbp-20261106.json.
