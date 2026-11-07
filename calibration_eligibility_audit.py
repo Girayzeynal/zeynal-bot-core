@@ -76,6 +76,22 @@ def audit_calibration_eligibility(ledger, league="NBA"):
         "eligible_fixture_ids": eligible,
         "excluded": dict(sorted(reasons.items())),
         "status": "ELIGIBLE_PAIRS_PRESENT" if eligible else "NO_VERIFIED_PREMATCH_PAIRS",
+        # Passing the ledger consistency checks does not independently attest
+        # the provider, establish forecast accuracy, or calibrate probabilities.
+        "evidence_consistency": {
+            "status": "PASSED" if eligible else "NO_ELIGIBLE_PAIRS",
+            "pairs": len(eligible),
+        },
+        "provider_authenticity": {
+            "status": "NOT_INDEPENDENTLY_VERIFIED",
+            "verified_pairs": 0,
+        },
+        "predictive_performance": {
+            "status": "NOT_EVALUATED",
+            "mae": None,
+            "rmse": None,
+            "brier_score": None,
+        },
         "note": "Recorded evidence consistency; independent provider authenticity is not proven.",
     }
 
