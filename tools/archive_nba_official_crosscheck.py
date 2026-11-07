@@ -52,6 +52,8 @@ async def run():
     observed = int(datetime.now(timezone.utc).timestamp())
     timeout = aiohttp.ClientTimeout(total=12)
     failures = []
+    fetched_days = 0
+    fetched_final_games = 0
     with sqlite3.connect(OUT_DB) as db:
         db.executescript("""
           CREATE TABLE IF NOT EXISTS official_games(
@@ -77,24 +79,36 @@ async def run():
                     if not isinstance(games, list):
                         raise RuntimeError("Invalid official scoreboard schema")
                     digest = hashlib.sha256(raw).hexdigest()
+                    current_finals = [parsed for item in games if (parsed := parse_final(item))]
+                    fetched_days += 1
+                    fetched_final_games += len(current_finals)
                     with db:
                         db.execute("INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?,?)",
                                    (day, str(response.url), digest, observed, raw.decode("utf-8")))
-                        for item in games:
-                            parsed = parse_final(item)
-                            if parsed:
-                                db.execute("INSERT OR REPLACE INTO official_games VALUES (?,?,?,?,?,?,?)",
-                                           (parsed[0], day, *parsed[1:], observed))
+                        for parsed in current_finals:
+                            db.execute("INSERT OR REPLACE INTO official_games VALUES (?,?,?,?,?,?,?)",
+                                       (parsed[0], day, *parsed[1:], observed))
                 except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, RuntimeError) as exc:
                     failures.append({"day": day, "error": str(exc)})
                 await asyncio.sleep(0.25)
         count = db.execute("SELECT count(*) FROM official_games").fetchone()[0]
-        print(json.dumps({"official_games": count, "attempted_days": len(dates[-7:]),
-                          "failures": failures,
-                          "status": "SOURCE_FETCHED_NOT_CROSSCHECKED" if count and not failures else "PARTIAL_OR_UNAVAILABLE",
-                          "score_comparison": "NOT_IMPLEMENTED"}))
-        if not count:
-            raise RuntimeError("No independent NBA official results retrieved; no cross-source score comparison performed")
+        status = ("SOURCE_FETCHED_NOT_CROSSCHECKED"
+                  if fetched_days and fetched_final_games and not failures
+                  else "PARTIAL_OR_UNAVAILABLE")
+        print(json.dumps({
+            "official_games_stored": count,
+            "official_games_fetched_this_run": fetched_final_games,
+            "days_fetched_this_run": fetched_days,
+            "attempted_days": len(dates[-7:]),
+            "failures": failures,
+            "status": status,
+            "score_comparison": "NOT_IMPLEMENTED",
+        }))
+        if not fetched_final_games:
+            raise RuntimeError(
+                "No fresh official NBA final results retrieved in this run; "
+                "historical SQLite rows cannot establish current success"
+            )
 
 
 if __name__ == "__main__":
