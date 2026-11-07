@@ -93,7 +93,7 @@ async def backfill(database, leagues, start, end):
                     async with session.get(
                         os.environ.get("API_SPORTS_BASE", "https://v1.basketball.api-sports.io").rstrip("/") + "/games",
                         headers={"x-apisports-key": key},
-                        params={"league": LEAGUES[league], "date": day.isoformat(), "timezone": "UTC"},
+                        params={"league": LEAGUES[league], "season": "2026-2027", "date": day.isoformat(), "timezone": "UTC"},
                     ) as response:
                         if response.status != 200:
                             raise RuntimeError(f"{league} {day}: HTTP {response.status}")
@@ -102,6 +102,16 @@ async def backfill(database, leagues, start, end):
                             or not isinstance(payload.get("response"), list)):
                         raise RuntimeError(f"{league} {day}: provider error/quota/malformed response")
                     rows = [parse_game(raw, LEAGUES[league]) for raw in payload["response"]]
+                    # A nonempty provider response with no matching league/season
+                    # must not silently become a successful empty archive day.
+                    if payload["response"] and not any(
+                        isinstance(raw, dict)
+                        and isinstance(raw.get("league"), dict)
+                        and str(raw["league"].get("id")) == str(LEAGUES[league])
+                        and raw["league"].get("season") == "2026-2027"
+                        for raw in payload["response"]
+                    ):
+                        raise RuntimeError(f"{league} {day}: unexpected provider league/season")
                     completed = [r for r in rows if r is not None]
                     persist(db, league, day.isoformat(), completed, int(datetime.now(timezone.utc).timestamp()))
                     day += timedelta(days=1)
