@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS scan_days (
 def parse_game(raw, league_id):
     if not isinstance(raw, dict) or not isinstance(raw.get("league"), dict):
         return None
-    if raw["league"].get("id") != league_id:
+    if str(raw["league"].get("id")) != str(league_id) or raw["league"].get("season") != "2026-2027":
         return None
     status = raw.get("status") or {}
     if not isinstance(status, dict) or status.get("short") not in ("FT", "AOT"):
