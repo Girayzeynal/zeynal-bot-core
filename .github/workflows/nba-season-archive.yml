@@ -9,6 +9,8 @@ on:
       - tools/archive_nba_official_crosscheck.py
       - scenario_evidence_contract.py
       - tests/test_scenario_evidence_contract.py
+      - news_evidence_contract.py
+      - tests/test_news_evidence_contract.py
       - tools/archive_nba_2026_27.py
       - tests/test_archive_europe_2026_27.py
       - tests/test_archive_europe_official_2026_27.py
@@ -71,7 +73,7 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install 'aiohttp>=3,<4'
       - name: Test scenario evidence and pre-tipoff controls
-        run: python -m unittest tests.test_scenario_evidence_contract
+        run: python -m unittest tests.test_scenario_evidence_contract tests.test_news_evidence_contract
       - name: Test official European feed parser
         run: python -m unittest tests.test_archive_europe_official_2026_27
       - name: Fetch official EuroLeague and EuroCup 2026-27 results
