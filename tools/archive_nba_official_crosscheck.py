@@ -1,4 +1,4 @@
-"""Optional NBA official scoreboard cross-check of existing ESPN completed-game archive.
+"""Optional independent NBA official scoreboard evidence collection.
 
 Separate provider evidence, no mutation of canonical ESPN games. NBA Stats
 may rate-limit GitHub runners; unavailable evidence is reported, not invented.
@@ -90,9 +90,11 @@ async def run():
                 await asyncio.sleep(0.25)
         count = db.execute("SELECT count(*) FROM official_games").fetchone()[0]
         print(json.dumps({"official_games": count, "attempted_days": len(dates[-7:]),
-                          "failures": failures, "status": "VERIFIED" if count and not failures else "PARTIAL_OR_UNAVAILABLE"}))
+                          "failures": failures,
+                          "status": "SOURCE_FETCHED_NOT_CROSSCHECKED" if count and not failures else "PARTIAL_OR_UNAVAILABLE",
+                          "score_comparison": "NOT_IMPLEMENTED"}))
         if not count:
-            raise RuntimeError("No independent official NBA games validated; do not claim cross-check success")
+            raise RuntimeError("No independent NBA official results retrieved; no cross-source score comparison performed")
 
 
 if __name__ == "__main__":
