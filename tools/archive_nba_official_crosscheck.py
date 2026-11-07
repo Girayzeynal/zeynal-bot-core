@@ -7,6 +7,7 @@ import asyncio
 import hashlib
 import json
 import sqlite3
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 import aiohttp
@@ -99,10 +100,9 @@ async def run():
                     actual = Counter((p[3], p[4]) for p in current_finals)
                     # Matching scores alone do not establish fixture identity.
                     # Never claim a verified per-game cross-provider match.
-                    if expected and actual:
-                        compared_games += sum((expected & actual).values())
-                        mismatched_games += sum((expected - actual).values()) + sum((actual - expected).values())
-                        ambiguous_games += sum(n for n in actual.values() if n > 1)
+                    compared_games += sum((expected & actual).values())
+                    mismatched_games += sum((expected - actual).values()) + sum((actual - expected).values())
+                    ambiguous_games += sum(n for n in actual.values() if n > 1)
                     with db:
                         db.execute("INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?,?)",
                                    (day, str(response.url), digest, observed, raw.decode("utf-8")))
@@ -110,7 +110,9 @@ async def run():
                             db.execute("INSERT OR REPLACE INTO official_games VALUES (?,?,?,?,?,?,?)",
                                        (parsed[0], day, *parsed[1:], observed))
                 except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, RuntimeError) as exc:
-                    failures.append({"day": day, "error": str(exc)})
+                    failures.append({"day": day, "error_type": type(exc).__name__,
+                                     "error": str(exc) or repr(exc),
+                                     "cause_type": type(exc.__cause__).__name__ if exc.__cause__ else None})
                 await asyncio.sleep(0.25)
         count = db.execute("SELECT count(*) FROM official_games").fetchone()[0]
         status = ("SOURCE_FETCHED_NOT_CROSSCHECKED"
