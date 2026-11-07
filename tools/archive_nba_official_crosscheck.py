@@ -74,7 +74,7 @@ async def run():
             espn_by_day = {}
             for day, hs, aas in source.execute(
                 "SELECT date(start_ts_utc, 'unixepoch'), home_score, away_score "
-                "FROM games WHERE score_scope='FULL_GAME'"
+                "FROM games"
             ):
                 espn_by_day.setdefault(day, []).append((hs, aas))
         async with aiohttp.ClientSession(timeout=timeout, headers=HEADERS) as session:
