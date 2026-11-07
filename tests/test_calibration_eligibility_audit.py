@@ -17,6 +17,9 @@ class CalibrationEligibilityAuditTests(unittest.TestCase):
         report = audit_calibration_eligibility(self.ledger)
         self.assertEqual(report["eligible_count"], 0)
         self.assertEqual(report["status"], "NO_VERIFIED_PREMATCH_PAIRS")
+        self.assertEqual(report["provider_authenticity"]["status"], "NOT_INDEPENDENTLY_VERIFIED")
+        self.assertEqual(report["predictive_performance"]["status"], "NOT_EVALUATED")
+        self.assertIsNone(report["predictive_performance"]["mae"])
 
     def test_missing_original_input_snapshot_excludes_pair(self):
         ledger = self.ledger
