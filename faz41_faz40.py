@@ -12,6 +12,20 @@ from faz41_adapters import replay
 from faz41_news import replay_rss
 
 
+def _player_keys(players,provider):
+    """Compare identities in the bound provider namespace, never rewrite evidence."""
+    require(type(players) is list,'CANONICAL_PLAYER_IDS_REQUIRED')
+    keys=[]
+    for player in players:
+        require(type(player) is str and player and player==player.strip(),'CANONICAL_PLAYER_IDS_REQUIRED')
+        # Strip only the already validated source's prefix, exactly once.
+        # Foreign/repeated prefixes and whitespace are rejected, not repaired.
+        pid=player.removeprefix(provider+':')
+        require(re.fullmatch(r'[A-Za-z0-9_-]{1,64}',pid) is not None,'CANONICAL_PLAYER_IDS_REQUIRED')
+        keys.append((provider,pid))
+    return keys
+
+
 def _announcement(p):
     raw=p['raw'];require(type(raw) is dict and raw.get('format')=='EXPLICIT_TEAM_ANNOUNCEMENT_V1','EXPLICIT_TEAM_ANNOUNCEMENT_REQUIRED')
     f=p['fixture'];team=raw['team_id'];players=raw['players'];five=raw['starting_five']
@@ -25,9 +39,9 @@ def _announcement(p):
             raw['provider_fixture_id']==p['provider_fixture_id'] and raw['status']=='CONFIRMED' and
             team in (f['home_team_id'],f['away_team_id']) and p['published_at_utc']==raw['published_at_utc'],
             'EXPLICIT_TEAM_ANNOUNCEMENT_REQUIRED')
-    require(type(players) is list and type(five) is list and
-            all(type(pid) is str and pid and pid==pid.strip() for pid in players+five),
-            'CANONICAL_PLAYER_IDS_REQUIRED')
+    for identities in (players,five):
+        keys=_player_keys(identities,provider)
+        require(len(keys)==len(set(keys)),'ANNOUNCEMENT_PLAYER_ID_CONFLICT')
     roster=seal_roster_observation(fixture_id=f['canonical_id'],observed_at_utc=p['observed_at_utc'],
         source=p['source_url'],players=players,starting_five=five,status='CONFIRMED')
     require(raw['published_at_utc']<=p['observed_at_utc']<f['start_utc'],'ANNOUNCEMENT_NOT_PREMATCH')
@@ -74,8 +88,7 @@ def prematch_context(observations, *, fixture,cutoff_utc,maximum_age_seconds=360
         else:replay(o,**validation)
         if p['data_type'] in ('OFFICIAL_LINEUP','ROSTER'):
             team=p['claims']['team_id']
-            for player in p['claims']['players']:
-                pid=player.removeprefix(p['provider']+':');key=(p['provider'],pid)
+            for key in _player_keys(p['claims']['players'],p['provider']):
                 require(key not in memberships or memberships[key]==team,'CROSS_TEAM_PLAYER_ID_CONFLICT');memberships[key]=team
         rows.append(p)
     # Include team namespace in lineup keys: home and away rosters are not conflicting claims.
