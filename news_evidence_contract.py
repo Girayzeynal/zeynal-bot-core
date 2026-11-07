@@ -67,17 +67,35 @@ def summarize_news(evidence, *, fixture_id, prediction_at_utc):
             continue
         seen.add(key)
         accepted.append(item)
+    # Use latest observed official update; equal-time contradictions are unsafe.
+    latest = {}
+    conflicts = set()
+    for x in accepted:
+        if x.kind != "official_status":
+            continue
+        key = (x.team_id, x.player_id)
+        old = latest.get(key)
+        if old is None or x.observed_at_utc > old.observed_at_utc:
+            latest[key] = x
+            conflicts.discard(key)
+        elif x.observed_at_utc == old.observed_at_utc and x.availability != old.availability:
+            conflicts.add(key)
     return {
         "fixture_id": fixture_id,
+        "official_status_conflicts": [
+            {"team_id": team, "player_id": player}
+            for team, player in sorted(conflicts)
+        ],
         "official_statuses": [
             {"team_id": x.team_id, "player_id": x.player_id,
              "status": x.availability, "url": x.url}
-            for x in accepted if x.kind == "official_status"
+            for key, x in sorted(latest.items()) if key not in conflicts
         ],
         "reported_facts": [x.url for x in accepted if x.kind in {"reported_fact", "team_statement"}],
         "editorial_hypotheses": [x.url for x in accepted if x.kind == "editorial_opinion"],
         "news_observations": len(accepted),
         "independently_confirmed": False,
+        "manual_review_required": bool(conflicts),
         "automatic_projection_adjustment": False,
         "reason": "News and opinions require corroboration and measured historical impact before model weighting",
     }
