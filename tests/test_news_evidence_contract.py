@@ -51,6 +51,22 @@ class NewsEvidenceTests(unittest.TestCase):
         self.assertEqual(summary["news_observations"], 1)
         self.assertFalse(summary["independently_confirmed"])
 
+    def test_later_official_status_supersedes_earlier(self):
+        earlier = item(availability="questionable")
+        later = item(availability="out", observed_at_utc=T-150,
+                     captured_at_utc=T-100, url="https://official.nba.com/update")
+        result = summarize_news([earlier, later], fixture_id="fixture-1", prediction_at_utc=T)
+        self.assertEqual(result["official_statuses"][0]["status"], "out")
+        self.assertFalse(result["manual_review_required"])
+
+    def test_same_time_conflicting_status_requires_review(self):
+        first = item()
+        second = item(availability="out", url="https://official.nba.com/second")
+        result = summarize_news([first, second], fixture_id="fixture-1", prediction_at_utc=T)
+        self.assertEqual(result["official_statuses"], [])
+        self.assertTrue(result["manual_review_required"])
+        self.assertEqual(len(result["official_status_conflicts"]), 1)
+
     def test_non_https_rejected(self):
         with self.assertRaises(ValueError):
             summarize_news([item(url="http://example.com")],
