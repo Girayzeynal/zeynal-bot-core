@@ -1,0 +1,44 @@
+{
+  "stage": "FAZ47_SOURCE_BOUND_RESEARCH_ENTRY_AND_READINESS",
+  "created_utc": "2026-11-06T19:41:53.680688+00:00",
+  "base_sha": "34c6a72f4df9c43c5b1dc3055a552140933e3850",
+  "base_ci": {
+    "push": 42262513279,
+    "pull_request": 42262524544,
+    "unit_tests": "success",
+    "docker_build": "success",
+    "tests": 1049
+  },
+  "tests": {
+    "all": 1078,
+    "new": 29,
+    "focused": 54,
+    "failures": 0,
+    "initial_gate_red_failures": 3,
+    "legacy_cli_red_failures": 2,
+    "full_log_sha256": "2cab6a4e9e25cc8f9a3c186dc546d3e5c4b4415daf910a07ddfe4859684a96f6",
+    "focused_log_sha256": "1ea0b53184f67039700eddfa04c26d23a03c602407cc1fe28cc3faaea68c3219",
+    "gate_red_log_sha256": "a7553e008db708416336d51302dd5b5f7c2b1a1c3c2e3996cecb5211b1ca5c74",
+    "legacy_red_log_sha256": "a0fb0887def9d4c03b8e75655eea54464d032ee5ba0126ba16be05799e7ed8ac"
+  },
+  "files": {
+    "faz40_archive_audit.py": "46a29527762cece3b4cfc8a4e0b54af4c7a23877b7b640c2924ea6189f7cdab8",
+    "faz41_faz40.py": "000f2a9f3c0a0588cbe03c331eca20454c306364466507c7858600479e160dc1",
+    "faz42_history.py": "9dc9604e972d942986384ecc7003cf01e4630c76de2ed01d657af2d5a1f900f4",
+    "faz44_inputs.py": "8209db5354c8bf63852cfae97b4316a69e73f489bead7a638a532e294332bbc2",
+    "faz47_history_binding.py": "6c53b75f254981737a4bc7a5ef78277e2ef2409765fd7caf4593a14b1b017349",
+    "faz47_readiness.py": "38e7209fd41aaa7d6170233a428f6d9ed9fed1dfd9b936703d8b4a5e2f136151",
+    "tests/test_faz47_history_binding.py": "d7592fca4865e08a4e13a976d7990c6341bd946aa9e165765ffa7375c4d4e184",
+    "tests/test_faz47_readiness.py": "fc58859abb7653ccf8129fb50289b9fabeb9b6df941f8aa085ab7d143823c3a9",
+    "tests/test_faz47_legacy_entry.py": "0350a92ae2621016a0304d4b20ca4eb3cbc0af057cf80c7ebbcd7d1bfeae3ed9"
+  },
+  "source_rights_default": "UNKNOWN_UNCHANGED",
+  "production_coefficients_changed": false,
+  "prospective_records_created": 0,
+  "new_live_provider_requests": 0,
+  "real_readiness_run": "After clean code commit",
+  "independent_cloud_recovery": "NOT_VERIFIED",
+  "external_storage": "NOT_CONFIGURED",
+  "scheduler": "NOT_INSTALLED",
+  "ci": "Verify exact SHA after push and draft PR creation"
+}

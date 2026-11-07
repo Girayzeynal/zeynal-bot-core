@@ -73,12 +73,13 @@ def inventory(observations,*,asof_utc,registry=REGISTRY,registry_pin=REGISTRY_PI
 
 
 def forecast(observations,target,cutoff_utc,*,registry=REGISTRY,registry_pin=REGISTRY_PIN,
-             minimum_team_games=5,simulations=10000,seed=20261106,maximum_age_seconds=90*86400):
+             minimum_team_games=5,simulations=10000,seed=20261106,maximum_age_seconds=90*86400,score_correlation=0.0):
     _fixture(target)
     require(type(cutoff_utc) is int and 0<cutoff_utc<=int(time.time()) and cutoff_utc<target['start_utc'],'PREMATCH_CUTOFF_REQUIRED')
     require(type(simulations) is int and simulations>=10000 and type(minimum_team_games) is int and minimum_team_games>=2 and
             type(seed) is int and type(maximum_age_seconds) is int and maximum_age_seconds>0,
             'INVALID_FORECAST_CONFIGURATION')
+    require(type(score_correlation) in (int,float) and math.isfinite(score_correlation) and -1<score_correlation<1,'INVALID_SCORE_CORRELATION')
     rows=_validated(observations,int(time.time()),registry,registry_pin);records=[];refs=[];excluded=Counter()
     for o,p in rows:
         f=p['fixture']
@@ -94,7 +95,10 @@ def forecast(observations,target,cutoff_utc,*,registry=REGISTRY,registry_pin=REG
             ingested_utc=int(time.time()),team_ids=list(ESPN_ABBREVIATIONS) if f['league']=='NBA' else
             [p['raw'][s]['club']['code'] for s in ('local','road')],usage='SYNTHETIC_TEST' if p['usage']=='SYNTHETIC_TEST' else 'RETROSPECTIVE_RESEARCH')
         records.append(r);refs.append(o['sha256'])
-    out=project(records,target,cutoff_utc,mode='ARCHIVED_SOURCE_CLOCK',minimum_team_games=minimum_team_games,simulations=simulations,seed=seed)
+    out=project(records,target,cutoff_utc,mode='ARCHIVED_SOURCE_CLOCK',minimum_team_games=minimum_team_games,simulations=simulations,seed=seed,score_correlation=score_correlation)
+    # An empty eligible set must not turn a synthetic source universe into a
+    # real research cohort merely because project([]) has no usage to inherit.
+    if rows and all(p['usage']=='SYNTHETIC_TEST' for o,p in rows):out['usage']='SYNTHETIC_TEST'
     out.update(availability_policy='FAZ42_STRICT_PUBLISHED_OBSERVED_INGESTED_MATERIALIZED',
                evidence_sha256=sorted(set(refs)),excluded=dict(excluded),prospective_records_created=0)
     if out['prediction'] is None:out['status']='ABSTAIN';out['abstain_reason']='INSUFFICIENT_PERMITTED_PIT_HISTORY'

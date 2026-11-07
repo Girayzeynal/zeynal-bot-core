@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "purpose": "SYNTHETIC_CANONICAL_ID_GUARD_REGRESSION_NOT_MODEL_PERFORMANCE",
+  "created_utc": "2026-11-07T12:15:46.833492+00:00",
+  "baseline_sha": "8291fa4f5d5d4ad1b52b8df2dd0627e726581521",
+  "branch": "feature/faz47-source-bound-research-20261106",
+  "pr_number": 26,
+  "change": "Provider-scoped identities reject same-team bare/prefixed duplicates without rewriting evidence",
+  "file_sha256": {
+    "faz41_faz40.py": "be00da28b38d4979ac291c1f5ec5bb29ef55cf014d28cc7c7589b5c084952e17",
+    "tests/test_faz46_lineup_guards.py": "f4edda060383ce5b2e9a79061dbe9e46f4502f6035b8b203a95bb3d7525fdbbd",
+    "docs/faz47-canonical-lineup-guard.md": "7bfb6b04a0bd56f71a59c261e1b0e1260e1cb664915b0433b5b694d1d332342b"
+  },
+  "validation": {
+    "new_test_methods": 8,
+    "red_test_methods": 13,
+    "red_subtest_assertion_failures": 17,
+    "focused_tests": 80,
+    "full_tests": 1086,
+    "final_test_failures": 0,
+    "full_command": "PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests -v",
+    "logs": {
+      "red": {
+        "local_path": "/workspace/scratch/faz47-canonical-red.log",
+        "sha256": "52b4991734b9c3b06162909ce73239dbbf7534522a108d6d9539e58d06d0672a"
+      },
+      "focused": {
+        "local_path": "/workspace/scratch/faz47-canonical-focused.log",
+        "sha256": "0eee925f9a6fce25c8abfad26fcb12dc0ba6103d5142bb10261f436575728c08"
+      },
+      "full": {
+        "local_path": "/workspace/scratch/faz47-canonical-full.log",
+        "sha256": "0492270c338c4da9534537606eb7d9dffcee068aba4b3a3715fdc9cbc37e0712"
+      },
+      "historical_probe": {
+        "local_path": "/workspace/scratch/faz47-canonical-old-probe.log",
+        "sha256": "de6e93487754b006568d0143af087da07d6b63fee0b6499e187544bdda8c9cfa"
+      }
+    },
+    "prior_probe_refused": "REFUSED_CURRENT_REVIEW_BASELINE_CHANGED",
+    "prior_probe_output_created": false
+  },
+  "checks": [
+    "same-team bare/prefixed starter aliases",
+    "duplicate outside first five",
+    "unknown or repeated namespaces",
+    "internal or surrounding whitespace and invalid characters",
+    "rehashed old unsafe raw/claims replay",
+    "foreign-prefix cross-team evasion",
+    "valid immutable mixed-namespace payloads and idempotency",
+    "NBA EuroLeague EuroCup provider binding"
+  ],
+  "preservation": {
+    "prior_evidence": {
+      "files_verified": 84,
+      "changed_files": [],
+      "snapshot_mapping_sha256": "36bff7ad8ed8ae0da21c2b5ffed4cb92ce49ac8964f516210d76df3b6590cc2c"
+    },
+    "local_real_and_test_databases": {
+      "files_verified": 51,
+      "changed_files": [],
+      "snapshot_mapping_sha256": "e190c2daf2f70d71ba0f492f46d68081eac10be8748e416da0507a22ae51507e"
+    }
+  },
+  "readiness": {
+    "artifact_sha256": "88f452a41567dc9014848a0c7ca9c23a32b953b8e699e78c095339bbab85a1a1",
+    "artifact_model_sha": "c3684df35e0eadf53285ea6743aaf141b28fd80d",
+    "note": "Preserved prior real readiness artifact, no new real evaluation performed",
+    "real_prediction_result_pairs": 0,
+    "prospective_records_created": 0,
+    "calibration": "NOT_ESTABLISHED"
+  },
+  "faz39_candidate_integrated": false,
+  "old_evidence_rewritten": false,
+  "production_coefficients_changed": false,
+  "source_permissions_changed": false,
+  "real_provider_requests": 0,
+  "external_uploads": 0,
+  "independent_second_cloud_recovery": "NOT_VERIFIED",
+  "ci_evidence": "Exact new commit SHA is verified after push in PR #26; local tests are not CI proof",
+  "remaining_blockers": [
+    "FAZ39 read-only adapter not implemented",
+    "Real permitted and timed projected-lineup source absent",
+    "Actual player identity and membership require source evidence",
+    "Zero real performance pairs; no established calibration",
+    "Durable external storage and independent Cloud recovery not verified"
+  ]
+}

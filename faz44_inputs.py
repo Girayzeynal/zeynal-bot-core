@@ -167,7 +167,7 @@ def publish_local_bundle(path,sealed):
 
 def publish_development_artifact(path,sealed,*,expected_format,filename_prefix):
     require((expected_format,filename_prefix) in ((FORMAT,'faz44-inputs-'),('FAZ45_SUPPORT_EVIDENCE_V1','faz45-support-'),
-            ('FAZ46_PREMATCH_AUDIT_V1','faz46-prematch-')),
+            ('FAZ46_PREMATCH_AUDIT_V1','faz46-prematch-'),('FAZ47_RESEARCH_READINESS_V1','faz47-readiness-')),
             'DEVELOPMENT_ARTIFACT_FORMAT_REQUIRED')
     p=Path(path);root=p.parent.resolve();allowed=Path('/workspace/scratch')
     require(root.is_dir() and (root==Path(tempfile.gettempdir()).resolve() or Path(tempfile.gettempdir()).resolve() in root.parents or
