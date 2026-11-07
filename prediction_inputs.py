@@ -104,6 +104,11 @@ def validate_prediction_inputs(snapshot, *, league, prediction_utc,
         payload = snapshot["payload"]
         if snapshot["sha256"] != digest(payload):
             raise ValueError("Input snapshot integrity mismatch")
+        # V1 source rows are final-score inclusive. A caller must never be
+        # allowed to re-label the same rows as regulation-only, even if it
+        # recomputes the digest and requests that scope explicitly.
+        if scope != "FINAL_WITH_OT" or payload.get("scope") != "FINAL_WITH_OT":
+            raise ValueError("FAZ13 v1 only supports FINAL_WITH_OT score scope")
         if (type(payload["schema_version"]) is not int or payload["schema_version"] != 1
                 or payload["league"] != league or payload["scope"] != scope
                 or type(prediction_utc) is not int or prediction_utc <= 0
