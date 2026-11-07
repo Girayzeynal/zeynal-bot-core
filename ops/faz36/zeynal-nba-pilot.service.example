@@ -1,0 +1,10 @@
+# Development host template only. Not installed or activated.
+[Unit]
+Description=Zeynal NBA prospective development pilot
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/ABSOLUTE/DEVELOPMENT/CHECKOUT
+ExecStart=/ABSOLUTE/VENV/bin/python -m faz35 pilot /ABSOLUTE/PILOT/pilot-config.json
+TimeoutStartSec=240

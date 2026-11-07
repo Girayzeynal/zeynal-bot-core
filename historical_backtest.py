@@ -43,6 +43,8 @@ class BacktestMetrics:
 
 
 def _finite(value: float, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{name} must be a numeric magnitude")
     value = float(value)
     if not math.isfinite(value):
         raise ValueError(f"{name} must be finite")
@@ -56,24 +58,32 @@ def evaluate_predictions(records: Iterable[HistoricalPrediction]) -> BacktestMet
     keys = set()
     score_errors, total_errors, home_errors, away_errors, brier, log_loss = [], [], [], [], [], []
     for row in rows:
+        if not isinstance(row, HistoricalPrediction):
+            raise ValueError("records must be HistoricalPrediction instances")
+        if any(not isinstance(v, str) or not v or v != v.strip()
+               for v in (row.league, row.fixture_id)):
+            raise ValueError("fixture and league identifiers must be nonempty trimmed strings")
         key = (row.league, row.fixture_id)
-        if not row.league.strip() or not row.fixture_id.strip() or key in keys:
+        if key in keys:
             raise ValueError("fixture identifiers must be nonempty and unique per league")
         keys.add(key)
-        if not isinstance(row.prediction_ts_utc, int) or not isinstance(row.result_ts_utc, int):
-            raise ValueError("timestamps must be integer UTC epoch seconds")
+        if any(type(v) is not int or v <= 0
+               for v in (row.prediction_ts_utc, row.result_ts_utc)):
+            raise ValueError("timestamps must be positive integer UTC epoch seconds")
         if row.fixture_start_ts_utc is not None:
-            if isinstance(row.fixture_start_ts_utc, bool) or not isinstance(row.fixture_start_ts_utc, int):
+            if type(row.fixture_start_ts_utc) is not int or row.fixture_start_ts_utc <= 0:
                 raise ValueError("fixture start must be integer UTC epoch seconds")
             if not row.prediction_ts_utc < row.fixture_start_ts_utc < row.result_ts_utc:
                 raise ValueError("prematch prediction must precede fixture start, which must precede result")
         if row.prediction_ts_utc >= row.result_ts_utc:
             raise ValueError("prediction must precede the observed result")
+        if row.prediction_scope not in ("REGULATION_ONLY", "FINAL_WITH_OT") or row.result_scope not in ("REGULATION_ONLY", "FINAL_WITH_OT"):
+            raise ValueError("unsupported scoring scope")
         if row.prediction_scope != row.result_scope:
             raise ValueError("prediction/result scope mismatch: regulation vs overtime")
         h = _finite(row.expected_home, "expected_home")
         a = _finite(row.expected_away, "expected_away")
-        if h < 0 or a < 0 or not isinstance(row.actual_home, int) or not isinstance(row.actual_away, int):
+        if h < 0 or a < 0 or type(row.actual_home) is not int or type(row.actual_away) is not int:
             raise ValueError("scores must be nonnegative and actual scores must be integers")
         if row.actual_home < 0 or row.actual_away < 0:
             raise ValueError("actual scores must be nonnegative")

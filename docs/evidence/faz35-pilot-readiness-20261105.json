@@ -1,0 +1,107 @@
+{
+  "base_commit": "ed312b36012aa5c519c1b5afdf7796224c8f57e0",
+  "cross_cloud_persistence": "NOT_VERIFIED",
+  "cut_status_counts": {
+    "MISSED_CUT": 2,
+    "NOT_DUE": 52
+  },
+  "eligible_prospective_training_examples": 0,
+  "external_target_authorized": false,
+  "external_upload_performed": false,
+  "first_fixtures": [
+    {
+      "cutoff_utc": 1793844000,
+      "fixture": {
+        "away_team_id": "19",
+        "home_team_id": "21",
+        "provider": "ESPN",
+        "provider_fixture_id": "401909936",
+        "start_ts_utc": 1793930400
+      },
+      "horizon": "T24H",
+      "status": "MISSED_CUT"
+    },
+    {
+      "cutoff_utc": 1793908800,
+      "fixture": {
+        "away_team_id": "19",
+        "home_team_id": "21",
+        "provider": "ESPN",
+        "provider_fixture_id": "401909936",
+        "start_ts_utc": 1793930400
+      },
+      "horizon": "T6H",
+      "status": "NOT_DUE"
+    },
+    {
+      "cutoff_utc": 1793926800,
+      "fixture": {
+        "away_team_id": "19",
+        "home_team_id": "21",
+        "provider": "ESPN",
+        "provider_fixture_id": "401909936",
+        "start_ts_utc": 1793930400
+      },
+      "horizon": "T60M",
+      "status": "NOT_DUE"
+    },
+    {
+      "cutoff_utc": 1793847600,
+      "fixture": {
+        "away_team_id": "14",
+        "home_team_id": "9",
+        "provider": "ESPN",
+        "provider_fixture_id": "401909937",
+        "start_ts_utc": 1793934000
+      },
+      "horizon": "T24H",
+      "status": "MISSED_CUT"
+    },
+    {
+      "cutoff_utc": 1793912400,
+      "fixture": {
+        "away_team_id": "14",
+        "home_team_id": "9",
+        "provider": "ESPN",
+        "provider_fixture_id": "401909937",
+        "start_ts_utc": 1793934000
+      },
+      "horizon": "T6H",
+      "status": "NOT_DUE"
+    },
+    {
+      "cutoff_utc": 1793930400,
+      "fixture": {
+        "away_team_id": "14",
+        "home_team_id": "9",
+        "provider": "ESPN",
+        "provider_fixture_id": "401909937",
+        "start_ts_utc": 1793934000
+      },
+      "horizon": "T60M",
+      "status": "NOT_DUE"
+    }
+  ],
+  "fixture_count": 18,
+  "local_test_seconds": 38.585,
+  "local_tests_passed": 699,
+  "new_cut_proofs": [],
+  "new_real_prediction_records": 0,
+  "new_tests": 12,
+  "next_cut_utc": 1793908800,
+  "observed_utc": 1793872358,
+  "prior_ci": [
+    {
+      "docker_build": "success",
+      "event": "push",
+      "run_id": 42000755669,
+      "unit_tests": "success"
+    },
+    {
+      "docker_build": "success",
+      "event": "pull_request",
+      "run_id": 42000763176,
+      "unit_tests": "success"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "current_scope": "LOCAL_STAGING_ONLY",
+  "external_target": null,
+  "upload_enabled": false,
+  "distributed_lock_verified": false,
+  "cross_runtime_restore_verified": false,
+  "future_external_activation_requires": [
+    "explicit authorization for provider, exact destination and visibility",
+    "verified free quota, retention and delete policy",
+    "immutable content-addressed capsule and manifest storage",
+    "atomic conditional HEAD update using the current provider version/ETag",
+    "reject stale parent, missing immutable rows and changed original row digests",
+    "verify the stored object by downloading its bytes and comparing hashes",
+    "restore and replay in a genuinely separate runtime",
+    "single-writer coordination or a provider-backed lease across all collectors"
+  ],
+  "publication_order": [
+    "freeze source collection under the existing application lock",
+    "create and locally verify SQLite recovery capsule",
+    "compute immutable row inventory",
+    "store capsule under its SHA-256 key",
+    "store versioned manifest with parent and inventory digest",
+    "conditionally replace HEAD only if the parent is still current",
+    "record external receipt only after successful authorized remote verification"
+  ],
+  "failure_policy": "keep original predictions; do not backfill missed cuts; do not claim durable publication without a verified external receipt"
+}

@@ -1,0 +1,43 @@
+{
+  "payload": {
+    "date_timezone": "America/New_York",
+    "ingested_utc": 1793862298,
+    "regular_end_local_inclusive": "2027-04-11",
+    "regular_start_local": "2026-10-20",
+    "scope": "REGULAR_SEASON_ONLY",
+    "season_year": 2027,
+    "sources": [
+      {
+        "article_modified": "2026-10-28T13:05:49Z",
+        "content_text_sha256": "7130ad422405a414358dffc57ca81abba4d2d4d0b149df0a7d2c8ac9c807b3da",
+        "name": "nba-key-dates",
+        "observed_utc": 1793861918,
+        "sha256": "533288916c86a351d82d57b08872690398c4a1c8bdc6f331ea2f73a850c42060",
+        "snippets": [
+          "ction\r\n \tOct. 19: Rosters set for NBA Opening Day (5 p.m. ET)\r\n \tOct. 20: Start of NBA regular season:\r\n\r\n \tBoston Celtics vs. Detroit Pistons (3 p.m. ET, NBC/Peacock)\r\n \tPhiladelphia 76ers vs. New York Knicks (7 p.m. ET, NBC/Peacock)\r\n \tOklahoma City Thu",
+          "lar Season ends\r\n \tMarch 30: 2027 NBA G League Playoffs begin\r\n \tApril 11: 2026-27 Regular Season ends (All 30 teams play)\r\n \tApril 12: Rosters set for NBA Playoffs 2027 (3 p.m. ET)\r\n \tApril 13-16: SoFi NBA Play-In Tournament\r\n \tApril 17: NBA Playoffs 202"
+        ],
+        "status": 200,
+        "title": "Key dates for 2026-27 NBA season",
+        "url": "https://www.nba.com/news/key-dates"
+      },
+      {
+        "article_modified": "2026-08-27T15:13:53Z",
+        "content_text_sha256": "c901302912677282afe9a52f07a252e7305018515a71a90dcf947e37e5f5b226",
+        "name": "nba-schedule",
+        "observed_utc": 1793861919,
+        "sha256": "caae16a7228c30b2259d6b83b044adb0a7121b7173648cc72c99c27aca429e0c",
+        "snippets": [
+          "ounced, American Express NBA Tip-Off 2026 will begin on Tuesday, Oct. 20 with an NBC/Peacock tripleheader as the Boston Celtics visit the Detroit Pistons (3 p.m. ET), the defending NBA champion New York Knicks host the Philadelphia 76ers (7 p.m. ET) and t",
+          ".m. ET).\u00a0 The NBA\u2019s 81st\u00a0regular season will conclude on Sunday, April 11, 2027, with all 30 teams in action, highlighted by an ESPN doubleheader that will be determined at a later date.\r\n\r\nThe regular-season schedule includes defined dates and opponents ",
+          ".m. ET).\u00a0 The NBA\u2019s 81st\u00a0regular season will conclude on Sunday, April 11, 2027, with all 30 teams in action, highlighted by an ESPN doubleheader that will be determined at a later date.\r\n\r\nThe regular-season schedule includes defined dates and opponents "
+        ],
+        "status": 200,
+        "title": "NBA announces schedule for 2026-27 season",
+        "url": "https://www.nba.com/news/2026-27-nba-regular-season-schedule"
+      }
+    ],
+    "warning": "Local source snapshots and hashes, not provider signatures; ESPN season startDate/endDate includes other phases"
+  },
+  "sha256": "270a552f5dcf885fabc3d9eb9bf0320700f246e96472a9768a2dfdcbf6bb34fb"
+}

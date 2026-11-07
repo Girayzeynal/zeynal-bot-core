@@ -1,0 +1,42 @@
+name: European 2026-27 completed game archive
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  euro-archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'aiohttp>=3,<4'
+      - name: Validate existing API key availability
+        run: |
+          if [ -z "$API_SPORTS_KEY" ]; then
+            echo "::error::API_SPORTS_KEY secret missing; archive not attempted"
+            exit 1
+          fi
+      - name: Backfill EuroLeague and EuroCup 2026-27
+        run: python -m tools.archive_europe_2026_27 --start 2026-11-01 --end 2026-11-08
+      - name: Count actual completed games
+        run: |
+          python - <<'PY'
+          import sqlite3
+          db=sqlite3.connect("data/archive/europe_2026_27.sqlite")
+          for league in ("EuroLeague","EuroCup"):
+              games=db.execute("select count(*) from games where league=?",(league,)).fetchone()[0]
+              days=db.execute("select count(*) from scan_days where league=?",(league,)).fetchone()[0]
+              print(f"{league}: ARCHIVED_GAMES={games} SCANNED_DAYS={days}")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: europe-2026-27-sqlite-pilot
+          path: data/archive/europe_2026_27.sqlite
+          if-no-files-found: warn
+          retention-days: 30

@@ -3,13 +3,16 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any, Dict
+import json
 
 from prediction_ledger import PredictionLedger
+from providers.espn_result_evidence import validate_result_evidence, same_result_observation
 
 
 def ingest_completed_espn_nba_event(
     ledger: PredictionLedger, fixture_id: str, event: Dict[str, Any],
     observed_at_utc: int | None = None,
+    *, result_evidence: dict | None = None,
 ) -> bool:
     """Record a final score only for a pre-registered matching ESPN fixture.
 
@@ -36,6 +39,12 @@ def ingest_completed_espn_nba_event(
             return False
         if type(home) is not int or type(away) is not int or min(home, away) < 0 or home == away:
             return False
+        inputs = None
+        if result_evidence is not None:
+            inputs = ledger.load_prediction_inputs("NBA", fixture_id)
+            if inputs is None:
+                return False
+            validate_result_evidence(result_evidence, event, now, inputs["sha256"])
         with ledger._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("""SELECT p.prediction_ts_utc, p.scope,
@@ -48,14 +57,40 @@ def ingest_completed_espn_nba_event(
                 return False
             if not row[0] < start < now:
                 return False
+            if inputs is not None:
+                stored_input = db.execute(
+                    "SELECT snapshot_sha256 FROM prediction_inputs WHERE league='NBA' AND fixture_id=?",
+                    (fixture_id,)).fetchone()
+                if stored_input != (inputs["sha256"],):
+                    return False
             existing = db.execute("""SELECT result_ts_utc, actual_home, actual_away, scope
                 FROM outcomes WHERE league='NBA' AND fixture_id=?""", (fixture_id,)).fetchone()
             if existing is not None:
-                return existing[1:] == (home, away, "FINAL_WITH_OT")
+                if existing[1:] != (home, away, "FINAL_WITH_OT"):
+                    return False
+                if result_evidence is not None:
+                    prior = db.execute("SELECT evidence_json, evidence_sha256 FROM outcome_evidence WHERE league='NBA' AND fixture_id=?",
+                                       (fixture_id,)).fetchone()
+                    if prior is None:
+                        return False  # Never attach observations posthoc.
+                    prior_evidence = json.loads(prior[0])
+                    if not isinstance(prior_evidence, dict) or prior_evidence.get("sha256") != prior[1]:
+                        return False
+                    validate_result_evidence(prior_evidence, event, existing[0], inputs["sha256"])
+                    return same_result_observation(prior_evidence, result_evidence)
+                return True
+            if result_evidence is not None and db.execute(
+                "SELECT 1 FROM outcome_evidence WHERE league='NBA' AND fixture_id=?", (fixture_id,)
+            ).fetchone():
+                return False
             db.execute(
                 "INSERT INTO outcomes VALUES (?, ?, ?, ?, ?, ?)",
                 ("NBA", fixture_id, now, home, away, "FINAL_WITH_OT"),
             )
+            if result_evidence is not None:
+                db.execute("INSERT INTO outcome_evidence VALUES (?,?,?,?)",
+                    ("NBA", fixture_id, json.dumps(result_evidence, sort_keys=True, allow_nan=False),
+                     result_evidence["sha256"]))
             return True
     except (KeyError, TypeError, ValueError):
         return False

@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from core.aggregate_engine import aggregate_baseline
 from league_profiles import get_league_profile
+from prediction_inputs import capture_team_inputs, seal_prediction_inputs
 
 try:
     from providers.espn_adapter import ESPNAdapter
@@ -151,10 +152,12 @@ class Faz13Engine:
                 except Exception:
                     continue
 
+                if not isinstance(j, dict):
+                    continue
                 return {
-                    "pts_for": float(j["pts_for"]),
-                    "pts_against": float(j["pts_against"]),
-                    "pace": float(j.get("pace", 99.5)),
+                    "pts_for": j.get("pts_for"),
+                    "pts_against": j.get("pts_against"),
+                    "pace": j.get("pace"),
                     "confidence": 0.80,
                     "source": "MANUAL_BASELINE",
                 }
@@ -189,19 +192,31 @@ class Faz13Engine:
             if baseline is None:
                 continue
 
-            n_games = max(0, int(getattr(baseline, "n_games", 0)))
-            if n_games < 1:
+            n_games = getattr(baseline, "n_games", 0)
+            if type(n_games) is not int or n_games < 1:
                 continue
             confidence = min(0.90, 0.50 + 0.025 * min(n_games, 16))
-            return {
-                "pts_for": float(baseline.pts_for),
-                "pts_against": float(baseline.pts_against),
-                "pace": float(baseline.pace),
+            loaded = {
+                "pts_for": baseline.pts_for,
+                "pts_against": baseline.pts_against,
+                "pace": baseline.pace,
                 "confidence": confidence,
                 "source": "TEAM_BASELINE_STORE",
+                "baseline_key": candidate,
                 "n_games": n_games,
                 "fetched_at": int(getattr(baseline, "updated_ts", 0) or 0),
             }
+            if callable(getattr(store, "get_series", None)):
+                try:
+                    loaded["input_records"] = capture_team_inputs(
+                        store, league=league, key=candidate, n_games=n_games,
+                        average=TeamAverages(loaded["pts_for"], loaded["pts_against"], loaded["pace"], 0),
+                    )
+                except (ValueError, TypeError, AttributeError):
+                    # Exploratory outputs remain available; canonical persistence
+                    # requires an original, fully reconciled input snapshot.
+                    pass
+            return loaded
         return None
 
     # ---------------------
@@ -299,15 +314,17 @@ class Faz13Engine:
             int(away_mu + profile.band_hw_team),
         )
 
-        pace_mean = (home_base.get("pace", 99.5) + away_base.get("pace", 99.5)) / 2
+        if home_base["pace"] is None or away_base["pace"] is None:
+            raise ValueError("Tempo verisi eksik veya geçersiz. Tahmin üretilmedi; varsayılan tempo kullanılmadı.")
+        pace_mean = (home_base["pace"] + away_base["pace"]) / 2
         tempo_flag = self._tempo_flag(pace_mean)
 
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
 
-        return Faz13CoreOutput(
+        output = Faz13CoreOutput(
             ctx=ctx,
-            home_avg=TeamAverages(h_pf, h_pa, home_base.get("pace", 99.5), 10.0),
-            away_avg=TeamAverages(a_pf, a_pa, away_base.get("pace", 99.5), 10.0),
+            home_avg=TeamAverages(h_pf, h_pa, home_base["pace"], 10.0),
+            away_avg=TeamAverages(a_pf, a_pa, away_base["pace"], 10.0),
             total_band=total_band,
             home_band=home_band,
             away_band=away_band,
@@ -322,18 +339,36 @@ class Faz13Engine:
             meta={
                 "confidence": min(home_base["confidence"], away_base["confidence"]),
                 "confidence_pct": round(100.0 * min(home_base["confidence"], away_base["confidence"]), 1),
+                "calibration_status": "NOT_ESTABLISHED",
+                "confidence_interpretation": "HEURISTIC_SCORE_NOT_WIN_PROBABILITY",
                 "data_quality": (
                     "MANUAL_BASELINE" if "MANUAL_BASELINE" in home_base.get("sources", [])
                     or "MANUAL_BASELINE" in away_base.get("sources", [])
-                    else "VERIFIED_BASELINE"
+                    else "UNVERIFIED_BASELINE"
                 ),
+                "home_baseline_key": h_store.get("baseline_key") if h_store else None,
+                "away_baseline_key": a_store.get("baseline_key") if a_store else None,
                 "home_sources": list(home_base.get("sources", [])),
                 "away_sources": list(away_base.get("sources", [])),
                 "home_baseline_games": int(home_base.get("n_games", 0)),
                 "away_baseline_games": int(away_base.get("n_games", 0)),
+                "expected_home": round(home_mu, 2),
+                "expected_away": round(away_mu, 2),
                 "expected_total": round(total_mu, 2),
                 "pace_mean": round(pace_mean, 2),
                 "engine": "FAZ-13 FINAL (ABSOLUTE PATH + NORMALIZER)",
                 "generated_at": int(time.time()),
             },
         )
+        output.meta["input_snapshot_status"] = "UNAVAILABLE"
+        if h_store and a_store and "input_records" in h_store and "input_records" in a_store:
+            try:
+                output.meta["input_snapshot"] = seal_prediction_inputs(
+                    output, h_store["input_records"], a_store["input_records"])
+                output.meta["input_snapshot_status"] = "CAPTURED"
+                # Source labels and persisted averages alone do not verify the
+                # exact historical rows used by this projection.
+                output.meta["data_quality"] = "VERIFIED_BASELINE"
+            except ValueError:
+                pass
+        return output

@@ -1,0 +1,1164 @@
+{
+  "additional_ready_examples_needed": 97,
+  "archive_replay": {
+    "coverage": {
+      "distinct_games": 75,
+      "earliest_source_observed_utc": 1793810383,
+      "latest_ingested_utc": 1793859932,
+      "observations": 107,
+      "original_prospective_forecasts_created": 0,
+      "pace_supported_observations": 107,
+      "seasons": [
+        2027
+      ],
+      "source_after_own_tipoff_games": 75
+    },
+    "inserted_by_source": {
+      "ARCHIVED_BOS_MIL_14": 0,
+      "ARCHIVED_NOV02_15": 0,
+      "FAZ30_36": 0
+    }
+  },
+  "coverage": {
+    "distinct_games": 75,
+    "earliest_source_observed_utc": 1793810383,
+    "latest_ingested_utc": 1793859932,
+    "observations": 107,
+    "original_prospective_forecasts_created": 0,
+    "pace_supported_observations": 107,
+    "seasons": [
+      2027
+    ],
+    "source_after_own_tipoff_games": 75
+  },
+  "download_replay": {
+    "coverage": {
+      "distinct_games": 75,
+      "earliest_source_observed_utc": 1793810383,
+      "latest_ingested_utc": 1793859932,
+      "observations": 107,
+      "original_prospective_forecasts_created": 0,
+      "pace_supported_observations": 107,
+      "seasons": [
+        2027
+      ],
+      "source_after_own_tipoff_games": 75
+    },
+    "idempotent": 42,
+    "inserted": 0,
+    "rejected": []
+  },
+  "eligible_research_pairs": [
+    {
+      "created_utc": 1793860739,
+      "feature_sha256": "c8445d59b14b384d53f17d81b7bed3299107dc9d7376ec64637619fbc589588b",
+      "feature_values": {
+        "away_defense": 102.68812363877426,
+        "away_home_away_effect": -1.7766526783930487,
+        "away_offense": 108.1678373091296,
+        "away_opponent_defense": 108.39833495110358,
+        "away_opponent_offense": 106.46891591519486,
+        "away_pace": 102.62249999999999,
+        "home_defense": 99.62581091240642,
+        "home_home_away_effect": 0.9295843828728891,
+        "home_offense": 110.96957221228999,
+        "home_opponent_defense": 109.04475578153571,
+        "home_opponent_offense": 105.47680428043473,
+        "home_pace": 100.66571428571429
+      },
+      "hypothetical_cutoff_utc": 1793836799,
+      "label_observed_utc": 1793859779,
+      "label_sha256": "3e0d1a29d1b7aa073bf72f527969384f2b10a514f172a8f8694f9fc2d23bfdca",
+      "source_games": 54,
+      "target": {
+        "away_team_id": "20",
+        "home_team_id": "8",
+        "provider": "ESPN",
+        "provider_fixture_id": "401909922",
+        "start_ts_utc": 1793836800
+      },
+      "usage": "RETROSPECTIVE_RESEARCH_ONLY"
+    },
+    {
+      "created_utc": 1793860739,
+      "feature_sha256": "cda0ae9d92ce07314ac585e5e794e5b6975496a22b517bf7f219679214c2e03e",
+      "feature_values": {
+        "away_defense": 108.0307730370604,
+        "away_home_away_effect": 2.8860660856185376,
+        "away_offense": 109.3718685405334,
+        "away_opponent_defense": 109.29272890676438,
+        "away_opponent_offense": 111.61840205712983,
+        "away_pace": 105.4225,
+        "home_defense": 106.12838346577196,
+        "home_home_away_effect": -6.826291594902557,
+        "home_offense": 108.19062181838838,
+        "home_opponent_defense": 111.68282974980421,
+        "home_opponent_offense": 105.3025311428356,
+        "home_pace": 101.18285714285715
+      },
+      "hypothetical_cutoff_utc": 1793836799,
+      "label_observed_utc": 1793859779,
+      "label_sha256": "15e2987807db6574fc184ebda5bc32d15857ff44bc794d33bb13aaad56dec49f",
+      "source_games": 54,
+      "target": {
+        "away_team_id": "1",
+        "home_team_id": "27",
+        "provider": "ESPN",
+        "provider_fixture_id": "401909923",
+        "start_ts_utc": 1793836800
+      },
+      "usage": "RETROSPECTIVE_RESEARCH_ONLY"
+    },
+    {
+      "created_utc": 1793860739,
+      "feature_sha256": "b87edc2346bff75497243dedd4c6e468f9779d2cdeab5e9fddcfa765161db92a",
+      "feature_values": {
+        "away_defense": 110.24661420043243,
+        "away_home_away_effect": 7.788857641099952,
+        "away_offense": 98.94724989970865,
+        "away_opponent_defense": 106.34097399032134,
+        "away_opponent_offense": 108.60011204830579,
+        "away_pace": 98.5375,
+        "home_defense": 110.85304989154154,
+        "home_home_away_effect": -9.719380662979276,
+        "home_offense": 102.77109677869014,
+        "home_opponent_defense": 106.16364688210832,
+        "home_opponent_offense": 107.8207778251342,
+        "home_pace": 101.69460916442048
+      },
+      "hypothetical_cutoff_utc": 1793838599,
+      "label_observed_utc": 1793859779,
+      "label_sha256": "3bd1914197a18f72d0974eec32433f4abb40fe2de14fe8446e989c5396961eca",
+      "source_games": 54,
+      "target": {
+        "away_team_id": "30",
+        "home_team_id": "17",
+        "provider": "ESPN",
+        "provider_fixture_id": "401909925",
+        "start_ts_utc": 1793838600
+      },
+      "usage": "RETROSPECTIVE_RESEARCH_ONLY"
+    }
+  ],
+  "excluded": {
+    "INSUFFICIENT_PRESTART_FEATURE_COVERAGE": 72
+  },
+  "excluded_details": [
+    {
+      "fixture_id": "401909088",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909089",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909834",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909835",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909836",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909093",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909843",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909846",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909847",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909853",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909854",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909855",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909857",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909856",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909862",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909866",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909868",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909874",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909877",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909878",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909881",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909882",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909883",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909884",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909893",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909277",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909279",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909280",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909897",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909898",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909904",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909908",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909909",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909910",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909911",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909912",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909907",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909913",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909914",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909915",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909916",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909917",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909918",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909919",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909920",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909921",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909848",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909872",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909887",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909900",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909095",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909870",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909278",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909903",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909281",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909282",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909283",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909284",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909285",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909286",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909905",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909906",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 0
+    },
+    {
+      "fixture_id": "401909924",
+      "missing": [
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 54
+    },
+    {
+      "fixture_id": "401909926",
+      "missing": [
+        "away:HOME_AWAY_SPLIT_MIN_2"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 54
+    },
+    {
+      "fixture_id": "401909927",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 54
+    },
+    {
+      "fixture_id": "401909928",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 54
+    },
+    {
+      "fixture_id": "401909929",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 54
+    },
+    {
+      "fixture_id": "401909930",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 54
+    },
+    {
+      "fixture_id": "401909931",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 54
+    },
+    {
+      "fixture_id": "401909932",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 54
+    },
+    {
+      "fixture_id": "401909933",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2",
+        "away:OPPONENT_FORM_COVERAGE"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 54
+    },
+    {
+      "fixture_id": "401909934",
+      "missing": [
+        "home:MIN_5_SOURCE_GAMES",
+        "home:HOME_AWAY_SPLIT_MIN_2",
+        "home:OPPONENT_FORM_COVERAGE",
+        "away:MIN_5_SOURCE_GAMES",
+        "away:HOME_AWAY_SPLIT_MIN_2"
+      ],
+      "reason": "INSUFFICIENT_PRESTART_FEATURE_COVERAGE",
+      "source_games": 54
+    }
+  ],
+  "historical_walk_forward": {
+    "folds": [],
+    "models_promoted": false,
+    "status": "INSUFFICIENT_DATA"
+  },
+  "leakage_audit": {
+    "late_source_observations_used_in_ready_pairs": 0,
+    "live_replay_rejects_research_envelopes": true,
+    "required_extra_examples_are_lower_bound": true,
+    "self_target_sources_in_ready_pairs": 0,
+    "targets_without_any_prestart_observations": 62
+  },
+  "limitations": [
+    "No verified injuries, rosters or market observations",
+    "Pace is a 0.44 box-score estimate, not measured possessions",
+    "Source-clock availability uses local archived observation evidence, not signed provider publication times",
+    "Current NBA directory validates IDs; historical directory publication snapshots not available",
+    "No real model fitted; no new accuracy metrics or superiority claim",
+    "New cloud-session restoration and off-machine retention not tested"
+  ],
+  "live_eligibility": "Research source-clock reconstruction is not an original precomputed forecast",
+  "missing_features": {
+    "away:HOME_AWAY_SPLIT_MIN_2": 69,
+    "away:MIN_5_SOURCE_GAMES": 68,
+    "away:OPPONENT_FORM_COVERAGE": 68,
+    "home:HOME_AWAY_SPLIT_MIN_2": 69,
+    "home:MIN_5_SOURCE_GAMES": 70,
+    "home:OPPONENT_FORM_COVERAGE": 67
+  },
+  "original_prospective_feature_label_pairs_created": 0,
+  "production_promoted": false,
+  "prospective_shadow_pairs": 0,
+  "required_examples": 100,
+  "retrospective_examples": 3,
+  "source_batches": {
+    "ARCHIVED_BOS_MIL_14": {
+      "idempotent": 0,
+      "inserted": 14
+    },
+    "ARCHIVED_NOV02_15": {
+      "idempotent": 0,
+      "inserted": 15
+    },
+    "FAZ30_36": {
+      "idempotent": 0,
+      "inserted": 36
+    },
+    "NEW_DOWNLOAD_42": {
+      "idempotent": 0,
+      "inserted": 42
+    }
+  },
+  "source_days": [
+    {
+      "accepted_final_candidates": 10,
+      "day": "20261030",
+      "not_final_or_invalid": 0,
+      "raw_events": 10
+    },
+    {
+      "accepted_final_candidates": 4,
+      "day": "20261101",
+      "not_final_or_invalid": 0,
+      "raw_events": 4
+    },
+    {
+      "accepted_final_candidates": 15,
+      "day": "20261102",
+      "not_final_or_invalid": 0,
+      "raw_events": 15
+    },
+    {
+      "accepted_final_candidates": 13,
+      "day": "20261104",
+      "not_final_or_invalid": 1,
+      "raw_events": 14
+    }
+  ],
+  "source_version": "7f747ff378a5f7ccb56e763c25d0108bc8441289",
+  "source_worktree_dirty": true,
+  "training": {
+    "examples": 3,
+    "reason": "MIN_100_TIMESTAMPED_EXAMPLES",
+    "required": {
+      "test": 20,
+      "train": 60,
+      "validation": 20
+    },
+    "status": "NOT_TRAINED"
+  },
+  "usage": "RETROSPECTIVE_RESEARCH_ONLY",
+  "verified_fields": [
+    "ESPN_ID",
+    "UTC_START",
+    "NBA_TEAM_IDS",
+    "HOME_AWAY",
+    "SEASON",
+    "FINAL_SCORE",
+    "QUARTERS",
+    "REGULATION_OT_SEPARATION"
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "base_commit": "66e14bb349c0ff408da1ef9ce6e69fabac06f4e3",
+  "branch": "feature/nba-command-20261104",
+  "eligible_prospective_training_examples": 0,
+  "external_persistence": "NOT_CONFIGURED",
+  "initial_full_suite": {
+    "cause": "Manually initialized IsolatedAsyncioTestCase fixture did not execute cleanup; virtual time leaked into real-final tests",
+    "errors": 12,
+    "fix": "Register concrete clock/sleep/folder cleanup with active outer test case; do not relax final validators",
+    "result": "FAILED"
+  },
+  "interrupted_work_files_found": true,
+  "interruption_reason": {
+    "evidence": "USER_REPORTED_NOT_LOCAL_APPLICATION_TRACE",
+    "value": "Selected model is at capacity"
+  },
+  "local_test_count": 687,
+  "local_test_result": "PASS",
+  "local_test_seconds": 37.556,
+  "new_faz34_tests": 14,
+  "new_real_prediction_records": 0,
+  "no_future_cut_backfill": true,
+  "prior_ci": [
+    {
+      "docker_build": "success",
+      "event": "push",
+      "run_id": 41988665579,
+      "unit_tests": "success"
+    },
+    {
+      "docker_build": "success",
+      "event": "pull_request",
+      "run_id": 41988673611,
+      "unit_tests": "success"
+    }
+  ],
+  "production_deployed": false,
+  "protected_original_hashes_unchanged": 7,
+  "sqlite_integrity_checked_databases": 5,
+  "true_cross_codex_cloud_restore": "NOT_VERIFIED",
+  "work_files_preserved": true
+}

@@ -32,7 +32,7 @@ class ESPNScoreboardHistory:
         try:
             if self._session is None or self._session.closed:
                 self._session = aiohttp.ClientSession(
-                    timeout=aiohttp.ClientTimeout(total=15))
+                    timeout=aiohttp.ClientTimeout(total=15), trust_env=True)
                 self._owns_session = True
             async with self._session.get(BASE, params={"dates": day}) as response:
                 if response.status != 200:

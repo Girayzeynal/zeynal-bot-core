@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 import sqlite3
+import json
 from typing import Optional
 
 from historical_backtest import HistoricalPrediction, BacktestMetrics, evaluate_predictions
@@ -52,9 +53,127 @@ class PredictionLedger:
                 scope TEXT NOT NULL,
                 PRIMARY KEY (league, fixture_id)
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS prediction_inputs (
+                league TEXT NOT NULL, fixture_id TEXT NOT NULL,
+                snapshot_json TEXT NOT NULL, snapshot_sha256 TEXT NOT NULL,
+                PRIMARY KEY (league, fixture_id)
+            )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS outcome_evidence (
+                league TEXT NOT NULL, fixture_id TEXT NOT NULL,
+                evidence_json TEXT NOT NULL, evidence_sha256 TEXT NOT NULL,
+                PRIMARY KEY (league, fixture_id)
+            )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS fixture_observations (
+                league TEXT NOT NULL, fixture_id TEXT NOT NULL,
+                observation_json TEXT NOT NULL, observation_sha256 TEXT NOT NULL,
+                PRIMARY KEY (league, fixture_id)
+            )""")
 
     def _connect(self):
         return sqlite3.connect(self.db_path, timeout=10)
+
+    def load_prediction_inputs(self, league: str, fixture_id: str):
+        """Replay persisted inputs without consulting mutable baseline files."""
+        from prediction_inputs import validate_prediction_inputs
+        self._identity(league, fixture_id)
+        with self._connect() as db:
+            snapshot = db.execute(
+                "SELECT snapshot_json, snapshot_sha256 FROM prediction_inputs WHERE league=? AND fixture_id=?",
+                (league, fixture_id)).fetchone()
+            prediction = db.execute(
+                "SELECT prediction_ts_utc, expected_home, expected_away, scope FROM predictions WHERE league=? AND fixture_id=?",
+                (league, fixture_id)).fetchone()
+        if snapshot is None:
+            return None
+        if prediction is None:
+            raise ValueError("Orphan prediction input snapshot")
+        result = json.loads(snapshot[0])
+        if not isinstance(result, dict) or result.get("sha256") != snapshot[1]:
+            raise ValueError("Stored prediction input digest mismatch")
+        validate_prediction_inputs(result, league=league, prediction_utc=prediction[0],
+            expected_home=prediction[1], expected_away=prediction[2], scope=prediction[3])
+        return result
+
+    def audit_prediction_inputs(self, league: str):
+        """Describe input binding separately from provider-identity verification."""
+        self._identity(league, "audit")
+        with self._connect() as db:
+            predictions = db.execute("SELECT fixture_id FROM predictions WHERE league=?", (league,)).fetchall()
+            orphaned = db.execute("""SELECT COUNT(*) FROM prediction_inputs i
+                LEFT JOIN predictions p ON i.league=p.league AND i.fixture_id=p.fixture_id
+                WHERE i.league=? AND p.fixture_id IS NULL""", (league,)).fetchone()[0]
+        counts = dict(predictions=len(predictions), bound=0, missing=0, invalid=0, orphaned=orphaned)
+        for (fixture_id,) in predictions:
+            try:
+                snapshot = self.load_prediction_inputs(league, fixture_id)
+            except (ValueError, TypeError):
+                counts["invalid"] += 1
+            else:
+                counts["missing" if snapshot is None else "bound"] += 1
+        return counts
+
+    def load_fixture_observation(self, league: str, fixture_id: str):
+        """Replay the original EuroLeague fixture without current provider data."""
+        from providers.euroleague_fixture_evidence import validate_fixture_evidence
+        self._identity(league, fixture_id)
+        with self._connect() as db:
+            observation = db.execute("SELECT observation_json, observation_sha256 FROM fixture_observations WHERE league=? AND fixture_id=?",
+                                     (league, fixture_id)).fetchone()
+            if observation is None:
+                return None
+            row = db.execute("""SELECT p.prediction_ts_utc, p.scope, v.provider,
+                        v.provider_fixture_id, v.start_ts_utc, f.start_ts_utc
+                FROM predictions p JOIN fixture_provenance v ON p.league=v.league AND p.fixture_id=v.fixture_id
+                JOIN fixture_starts f ON p.league=f.league AND p.fixture_id=f.fixture_id
+                WHERE p.league=? AND p.fixture_id=?""", (league, fixture_id)).fetchone()
+        inputs = self.load_prediction_inputs(league, fixture_id)
+        if (league != "EUROLEAGUE" or row is None or inputs is None
+                or row[1] != "FINAL_WITH_OT" or row[2] != "EUROLEAGUE_LIVE"
+                or row[3] != fixture_id or row[4] != row[5]):
+            raise ValueError("Unbound or conflicting EuroLeague fixture observation")
+        result = json.loads(observation[0])
+        if not isinstance(result, dict) or result.get("sha256") != observation[1]:
+            raise ValueError("Stored EuroLeague fixture digest mismatch")
+        validate_fixture_evidence(result, fixture_id=fixture_id, tipoff_utc=row[4],
+                                  prediction_utc=row[0], input_snapshot=inputs)
+        return result
+
+    def load_outcome_evidence(self, league: str, fixture_id: str):
+        """Replay final-score evidence and bind it to the original prediction inputs."""
+        if league == "EUROLEAGUE":
+            from providers.euroleague_results import load_bound_outcome
+            self._identity(league, fixture_id)
+            return load_bound_outcome(self, fixture_id)
+        from providers.espn_result_evidence import validate_result_evidence
+        self._identity(league, fixture_id)
+        with self._connect() as db:
+            evidence = db.execute("SELECT evidence_json, evidence_sha256 FROM outcome_evidence WHERE league=? AND fixture_id=?",
+                                  (league, fixture_id)).fetchone()
+            if evidence is None:
+                return None
+            outcome = db.execute("SELECT result_ts_utc, actual_home, actual_away, scope FROM outcomes WHERE league=? AND fixture_id=?",
+                                 (league, fixture_id)).fetchone()
+            source = db.execute("""SELECT v.provider, v.provider_fixture_id, v.start_ts_utc, f.start_ts_utc
+                FROM fixture_provenance v JOIN fixture_starts f
+                ON v.league=f.league AND v.fixture_id=f.fixture_id
+                WHERE v.league=? AND v.fixture_id=?""", (league, fixture_id)).fetchone()
+        inputs = self.load_prediction_inputs(league, fixture_id)
+        if outcome is None or inputs is None or source is None or league != "NBA":
+            raise ValueError("Orphan or unbound result evidence")
+        result = json.loads(evidence[0])
+        if not isinstance(result, dict) or result.get("sha256") != evidence[1]:
+            raise ValueError("Stored result evidence digest mismatch")
+        try:
+            event = result["snapshot"]["event"]
+            if (inputs["payload"]["scope"] != "FINAL_WITH_OT"
+                    or outcome[1:] != (event["actual_home"], event["actual_away"], "FINAL_WITH_OT")
+                    or source != ("ESPN", event["provider_fixture_id"], event["start_ts_utc"], event["start_ts_utc"])
+                    or not inputs["payload"]["prediction_ts_utc"] < event["start_ts_utc"] < outcome[0]):
+                raise ValueError("Stored result conflicts with fixture or prediction")
+        except (KeyError, TypeError, AttributeError) as exc:
+            raise ValueError("Malformed stored result observation") from exc
+        validate_result_evidence(result, event, outcome[0], inputs["sha256"])
+        return result
 
     @staticmethod
     def _identity(league: str, fixture_id: str):

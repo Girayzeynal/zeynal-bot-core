@@ -2,6 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import json
+import math
 import sqlite3
 import time
 from typing import Any, Dict, List, Optional
@@ -55,6 +56,9 @@ class Faz23Engine:
             con.close()
 
     async def record_snapshot(self, out: Faz13CoreOutput) -> None:
+        quality = getattr(out, "meta", None)
+        if not isinstance(quality, dict) or not isinstance(quality.get("data_quality"), str) or not quality["data_quality"].strip():
+            raise ValueError("Cannot record analysis without data-quality provenance")
         fixture_key = f"{out.ctx.date}:{out.ctx.home}:{out.ctx.away}:{out.ctx.league}"
         payload = {
             "ctx": out.ctx.__dict__,
@@ -73,6 +77,67 @@ class Faz23Engine:
         finally:
             con.close()
 
+    def latest_snapshots_by_fixture(self) -> List[Dict[str, Any]]:
+        """Return one latest inserted snapshot per fixture for calibration inputs.
+
+        This is a read-only selection; all historical snapshots remain stored.
+        Ordering by insertion id resolves equal-second timestamps deterministically.
+        It does not match snapshots with actual results or validate prediction timing.
+        """
+        con = sqlite3.connect(self.path)
+        try:
+            rows = con.execute(
+                """
+                SELECT id, ts, fixture_key, payload
+                FROM snapshots
+                WHERE id IN (
+                    SELECT MAX(id) FROM snapshots GROUP BY fixture_key
+                )
+                ORDER BY id
+                """
+            ).fetchall()
+        finally:
+            con.close()
+        return [
+            {"id": row[0], "ts": row[1], "fixture_key": row[2],
+             "payload": json.loads(row[3])}
+            for row in rows
+        ]
+
+    def prematch_snapshots_for_calibration(
+        self, fixture_start_utc: Dict[str, int]
+    ) -> List[Dict[str, Any]]:
+        """One latest strictly pre-tipoff snapshot per fixture, fail closed.
+
+        Caller must supply verified UTC Unix tipoff seconds keyed by fixture_key.
+        Unknown fixtures and snapshots at/after tipoff are excluded. This method
+        does not validate actual scores or calculate calibration metrics.
+        """
+        if not isinstance(fixture_start_utc, dict):
+            raise TypeError("Verified fixture start times must be a dictionary")
+        for key, start in fixture_start_utc.items():
+            if not isinstance(key, str) or not key or type(start) is not int or start <= 0:
+                raise ValueError("Invalid fixture key or UTC start timestamp")
+        if not fixture_start_utc:
+            return []
+        con = sqlite3.connect(self.path)
+        try:
+            rows = con.execute(
+                "SELECT id, ts, fixture_key, payload FROM snapshots ORDER BY id"
+            ).fetchall()
+        finally:
+            con.close()
+        selected: Dict[str, Dict[str, Any]] = {}
+        for snapshot_id, ts, fixture_key, payload in rows:
+            start = fixture_start_utc.get(fixture_key)
+            if start is None or ts >= start:
+                continue
+            selected[fixture_key] = {
+                "id": snapshot_id, "ts": ts, "fixture_key": fixture_key,
+                "payload": json.loads(payload),
+            }
+        return sorted(selected.values(), key=lambda item: item["id"])
+
     # -------------------------------------------------
     # CORE DECISION
     # -------------------------------------------------
@@ -80,15 +145,26 @@ class Faz23Engine:
         meta = core.meta
         notes: List[str] = []
 
-        confidence = float(meta.get("confidence_pct", 0.0))
+        meta["calibration_status"] = "NOT_ESTABLISHED"
+        meta["confidence_interpretation"] = "HEURISTIC_SCORE_NOT_WIN_PROBABILITY"
+
+        # FAZ22 owns confidence adjustment, locks and segment thresholds. Reading
+        # raw FAZ13 confidence here would silently undo those decisions.
+        confidence = self._positive_number(meta.get("final_confidence"))
         risk = meta.get("risk")
-        uncertainty = meta.get("uncertainty_level", "YÜKSEK")
+        uncertainty = meta.get("uncertainty_level")
+        upstream = meta.get("strong_signals")
 
         # Global filtre
         if (
-            confidence < self.MIN_CONFIDENCE
-            or risk == "HIGH"
-            or uncertainty == "YÜKSEK"
+            meta.get("data_quality") != "VERIFIED_BASELINE"
+            or confidence is None or not self.MIN_CONFIDENCE <= confidence <= 100
+            or meta.get("confidence_lock") is not False
+            or meta.get("analysis_status") != "STRONG_SIGNAL"
+            or meta.get("force_enabled") is True
+            or risk not in ("LOW", "MEDIUM")
+            or uncertainty not in ("DÜŞÜK", "ORTA")
+            or not isinstance(upstream, list)
         ):
             notes.append("📉 Güçlü bir istatistiksel sinyal oluşmadı.")
             notes.append("Bu karşılaşma analiz kapsamında izleme listesindedir.")
@@ -99,6 +175,23 @@ class Faz23Engine:
 
         strong_signals: List[str] = []
 
+        # A lower FAZ23 edge threshold must never resurrect a segment rejected
+        # by FAZ22's simulation-dependent threshold. Reconcile its numeric input
+        # too, so stale segment approvals cannot authorize changed projections.
+        def approved(segment, expected_key, market_key):
+            expected = self._positive_number(meta.get(expected_key))
+            market = self._positive_number(meta.get(market_key))
+            if expected is None or market is None:
+                return False
+            return any(
+                isinstance(signal, dict) and signal.get("segment") == segment
+                and self._positive_number(signal.get("expected")) is not None
+                and self._positive_number(signal.get("market")) is not None
+                and abs(signal["expected"] - expected) <= 0.011
+                and abs(signal["market"] - market) <= 0.011
+                for signal in upstream
+            )
+
         # -------------------------
         # 1. İLK YARI
         # -------------------------
@@ -107,7 +200,7 @@ class Faz23Engine:
             market=meta.get("market_1h"),
             label="İLK YARI",
             notes=notes,
-        )
+        ) if approved("1Y", "expected_1h", "market_1h") else None
         if strong_1h:
             strong_signals.append(strong_1h)
 
@@ -119,7 +212,7 @@ class Faz23Engine:
             market=meta.get("market_2h"),
             label="İKİNCİ YARI",
             notes=notes,
-        )
+        ) if approved("2Y", "expected_2h", "market_2h") else None
         if strong_2h:
             strong_signals.append(strong_2h)
 
@@ -131,7 +224,7 @@ class Faz23Engine:
             market=meta.get("market_total"),
             label="MAÇ SONU",
             notes=notes,
-        )
+        ) if approved("MS", "expected_total", "market_total") else None
         if strong_ms:
             strong_signals.append(strong_ms)
 
@@ -154,6 +247,15 @@ class Faz23Engine:
     # -------------------------------------------------
     # SIDE CHECK
     # -------------------------------------------------
+    @staticmethod
+    def _positive_number(value: Any) -> Optional[float]:
+        if type(value) not in (int, float):
+            return None
+        try:
+            return float(value) if math.isfinite(value) and value > 0 else None
+        except OverflowError:
+            return None
+
     def _check_side(
         self,
         expected: Optional[float],
@@ -161,10 +263,14 @@ class Faz23Engine:
         label: str,
         notes: List[str],
     ) -> Optional[str]:
+        expected = self._positive_number(expected)
+        market = self._positive_number(market)
         if expected is None or market is None:
             return None
 
         diff = expected - market
+        if not math.isfinite(diff):
+            return None
 
         if diff >= self.MIN_EDGE:
             notes.append(f"{label}: İstatistik {expected:.1f}, Market {market:.1f} → ÜST yönü güçlü.")

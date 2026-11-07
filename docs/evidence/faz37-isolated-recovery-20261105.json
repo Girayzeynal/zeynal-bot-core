@@ -1,0 +1,51 @@
+{
+  "external_upload_performed": false,
+  "new_cloud_runtime_tested": false,
+  "new_process": true,
+  "new_source_directory": true,
+  "proof": {
+    "bundle_sha256": "90729436c49538c5b862e2fca437480c12b291ec92e77e9b406b72061932d1ec",
+    "config_path": "/tmp/faz37-isolated-dd9vi2rx/restored/pilot-config.json",
+    "external_committed": false,
+    "generation": 1,
+    "implementation_path": "/tmp/faz37-isolated-dd9vi2rx/source/faz37.py",
+    "new_cloud_runtime_tested": false,
+    "restored_databases": [
+      {
+        "integrity": "ok",
+        "name": "history.sqlite",
+        "sha256": "4483768661f063494accbe1fad05d7c2d4d28608ecfa1778611f2ca9ec29cab1"
+      },
+      {
+        "integrity": "ok",
+        "name": "legacy-faz24-bos-mil.sqlite",
+        "sha256": "f0d01eef24f07359856b0059769bc5d90df8306b14c2aba635bdd9d2007d08bb"
+      },
+      {
+        "integrity": "ok",
+        "name": "legacy-faz24-brooklyn.sqlite",
+        "sha256": "2e03af27e214e32af827565c304e0eae05f89f1e037785526a695d811533a80c"
+      },
+      {
+        "integrity": "ok",
+        "name": "legacy-faz24-detroit-washington.sqlite",
+        "sha256": "a964ed46049f726e6f2086eed214f1aa1b37076ab041cc8e0cbe6610b3d09162"
+      },
+      {
+        "integrity": "ok",
+        "name": "operations.sqlite",
+        "sha256": "69892a7f005ef1c321d898e6dfbf667e8c53d13b7a8b00110f4ba38890d27c21"
+      },
+      {
+        "integrity": "ok",
+        "name": "prospective.sqlite",
+        "sha256": "5d1937e84fc8f6e085cdb051e168ac872cd431c24afadc07a6fa7c43daf9e4f9"
+      }
+    ],
+    "source_version": "b61b1ad3bbf12fab856e1939e06db81e58481fef",
+    "status": "PINNED_LOCAL_STATE_RESTORED",
+    "trusted_head_sha256": "b6b28ddf29483d834e1063e1a752bad897dcdd30e2175c01db5e840352cd0259",
+    "verified_generations": 1
+  },
+  "status": "ISOLATED_PROCESS_RECOVERY_VERIFIED"
+}

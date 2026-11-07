@@ -1,0 +1,5 @@
+{
+  "source": "clock.curr_time",
+  "observed_tool_utc": "2026-11-05 11:18:06 UTC",
+  "warning": "Independent tool observation; not proof of future host clock synchronization"
+}

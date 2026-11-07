@@ -1,0 +1,86 @@
+{
+  "bundle": {
+    "external_uploaded": false,
+    "path": "/workspace/scratch/faz33-real-_yrehbhf/recovery-precommit.tar.gz",
+    "sha256": "25fea3bcd27c1507bb415e0441d45d9be955553f9347b127ddc3279f30fb8d6c"
+  },
+  "result": {
+    "clean_source_directory": true,
+    "external_uploaded": false,
+    "new_codex_cloud_session_tested": false,
+    "new_process": true,
+    "status": "CLEAN_PROCESS_RESTORE_VERIFIED",
+    "verification": {
+      "cloud_session_replacement_tested": false,
+      "external_uploaded": false,
+      "files": [
+        {
+          "integrity": "ok",
+          "name": "faz24-bos-mil.sqlite",
+          "tables": [
+            "fixture_observations",
+            "fixture_provenance",
+            "fixture_starts",
+            "outcome_evidence",
+            "outcomes",
+            "prediction_inputs",
+            "predictions"
+          ]
+        },
+        {
+          "integrity": "ok",
+          "name": "faz24-brooklyn.sqlite",
+          "original_predictions": 1,
+          "verified_cohorts": 2
+        },
+        {
+          "integrity": "ok",
+          "name": "faz24-detroit-washington.sqlite",
+          "original_predictions": 2,
+          "verified_cohorts": 1
+        },
+        {
+          "integrity": "ok",
+          "name": "faz33-cuts.sqlite",
+          "prospective_cut_audit": {
+            "cuts_by_horizon": {},
+            "distinct_games": 0,
+            "eligible_training_examples": 0,
+            "integrity": "ok",
+            "missing_data": {},
+            "mode": "PROSPECTIVE",
+            "original_predictions_modified": false,
+            "prospective_cuts": 0,
+            "ready_unique_feature_label_games": 0,
+            "shadow_statuses": {},
+            "synthetic_cuts": 0,
+            "synthetic_eligible_examples": 0,
+            "training_horizon": "T60M",
+            "verified_final_games": 0
+          }
+        },
+        {
+          "integrity": "ok",
+          "name": "historical-observations.sqlite",
+          "research_coverage": {
+            "distinct_games": 81,
+            "earliest_source_observed_utc": 1793810383,
+            "latest_ingested_utc": 1793862906,
+            "observations": 120,
+            "original_prospective_forecasts_created": 0,
+            "pace_supported_observations": 120,
+            "seasons": [
+              2027
+            ],
+            "source_after_own_tipoff_games": 81
+          }
+        }
+      ],
+      "implementation_path": "/tmp/faz33-clean-restore-sd0ory3o/source/research_recovery.py",
+      "source_version": "bd8871f8d9c29fa69e108926f6502808e8f78b92",
+      "status": "RESTORE_VERIFIED_LOCALLY"
+    },
+    "warning": "Same managed machine; a new Codex Cloud runtime was not provisioned"
+  },
+  "source_state": "FAZ33 working tree before commit; source_version is base commit"
+}
