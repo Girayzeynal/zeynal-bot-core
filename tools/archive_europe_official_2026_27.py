@@ -96,6 +96,22 @@ async def run(db_path=DB):
                 if not rows:
                     raise RuntimeError(f"{league}: empty season feed, not archived")
                 digest = hashlib.sha256(raw).hexdigest()
+                # Diagnose schema drift without treating unparsed rows as finals.
+                from collections import Counter
+                diagnostics = {
+                    "sample_field_names": sorted({
+                        key for item in rows[:5] if isinstance(item, dict)
+                        for key in item.keys()
+                    })[:60],
+                    "played_true": sum(isinstance(item, dict) and item.get("played") is True
+                                       for item in rows),
+                    "status_values": dict(Counter(
+                        str(item.get("gameStatus", "<missing>"))
+                        for item in rows if isinstance(item, dict)
+                    ).most_common(12)),
+                    "parseable_finals": sum(parse_completed(item) is not None for item in rows),
+                }
+                print(json.dumps({"league": league, "diagnostics": diagnostics}, sort_keys=True))
                 with db:
                     db.execute("INSERT OR REPLACE INTO source_snapshots VALUES (?,?,?,?,?)",
                                (league, url, digest, observed, raw.decode("utf-8")))
