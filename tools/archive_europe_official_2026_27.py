@@ -112,6 +112,38 @@ async def run(db_path=DB):
                     "parseable_finals": sum(parse_completed(item) is not None for item in rows),
                 }
                 print(json.dumps({"league": league, "diagnostics": diagnostics}, sort_keys=True))
+                # Aggregate rejection causes; never expose raw athlete/team records in CI logs.
+                rejected = {"not_played": 0, "missing_team_side": 0,
+                            "missing_side_score": 0, "tied_score": 0,
+                            "missing_game_code": 0, "missing_utc_date": 0,
+                            "missing_team_identity": 0}
+                for item in rows:
+                    if not isinstance(item, dict):
+                        rejected["not_played"] += 1
+                        continue
+                    if item.get("played") is not True and str(item.get("gameStatus", "")).lower() not in ("result", "finished", "final"):
+                        rejected["not_played"] += 1
+                        continue
+                    home, away = item.get("local") or item.get("home"), item.get("road") or item.get("away")
+                    if not isinstance(home, dict) or not isinstance(away, dict):
+                        rejected["missing_team_side"] += 1
+                        continue
+                    hs, aas = score_from_side(home), score_from_side(away)
+                    if hs is None or aas is None:
+                        rejected["missing_side_score"] += 1
+                        continue
+                    if hs == aas:
+                        rejected["tied_score"] += 1
+                        continue
+                    if item.get("gameCode") is None and item.get("game_code") is None:
+                        rejected["missing_game_code"] += 1
+                        continue
+                    if not isinstance(item.get("utcDate") or item.get("utc_date"), str):
+                        rejected["missing_utc_date"] += 1
+                        continue
+                    if parse_completed(item) is None:
+                        rejected["missing_team_identity"] += 1
+                print(json.dumps({"league": league, "rejection_counts": rejected}, sort_keys=True))
                 with db:
                     db.execute("INSERT OR REPLACE INTO source_snapshots VALUES (?,?,?,?,?)",
                                (league, url, digest, observed, raw.decode("utf-8")))
