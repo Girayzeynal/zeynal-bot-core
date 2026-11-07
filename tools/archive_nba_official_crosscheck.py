@@ -54,6 +54,9 @@ async def run():
     failures = []
     fetched_days = 0
     fetched_final_games = 0
+    compared_games = 0
+    mismatched_games = 0
+    ambiguous_games = 0
     with sqlite3.connect(OUT_DB) as db:
         db.executescript("""
           CREATE TABLE IF NOT EXISTS official_games(
@@ -65,6 +68,15 @@ async def run():
             game_day TEXT PRIMARY KEY, url TEXT NOT NULL, sha256 TEXT NOT NULL,
             observed_ts_utc INTEGER NOT NULL, raw_json TEXT NOT NULL);
         """)
+        # ESPN and NBA use different fixture/team identifiers. Match only when
+        # a day's completed-game score pair uniquely identifies a fixture.
+        with sqlite3.connect(ESPN_DB) as source:
+            espn_by_day = {}
+            for day, hs, aas in source.execute(
+                "SELECT date(start_ts_utc, 'unixepoch'), home_score, away_score "
+                "FROM games WHERE score_scope='FULL_GAME'"
+            ):
+                espn_by_day.setdefault(day, []).append((hs, aas))
         async with aiohttp.ClientSession(timeout=timeout, headers=HEADERS) as session:
             # A bounded recent-date check avoids hundreds of NBA Stats calls.
             for day in dates[-7:]:
@@ -82,6 +94,15 @@ async def run():
                     current_finals = [parsed for item in games if (parsed := parse_final(item))]
                     fetched_days += 1
                     fetched_final_games += len(current_finals)
+                    from collections import Counter
+                    expected = Counter(espn_by_day.get(day, []))
+                    actual = Counter((p[3], p[4]) for p in current_finals)
+                    # Matching scores alone do not establish fixture identity.
+                    # Never claim a verified per-game cross-provider match.
+                    if expected and actual:
+                        compared_games += sum((expected & actual).values())
+                        mismatched_games += sum((expected - actual).values()) + sum((actual - expected).values())
+                        ambiguous_games += sum(n for n in actual.values() if n > 1)
                     with db:
                         db.execute("INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?,?)",
                                    (day, str(response.url), digest, observed, raw.decode("utf-8")))
@@ -102,7 +123,10 @@ async def run():
             "attempted_days": len(dates[-7:]),
             "failures": failures,
             "status": status,
-            "score_comparison": "NOT_IMPLEMENTED",
+            "score_comparison": "DATE_SCORE_MULTISET_ONLY_NOT_FIXTURE_VERIFIED",
+            "score_pairs_in_common": compared_games,
+            "score_pair_disagreements": mismatched_games,
+            "ambiguous_official_score_pairs": ambiguous_games,
         }))
         if not fetched_final_games:
             raise RuntimeError(
