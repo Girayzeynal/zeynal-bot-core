@@ -110,6 +110,21 @@ async def run(db_path=DB):
                         for item in rows if isinstance(item, dict)
                     ).most_common(12)),
                     "parseable_finals": sum(parse_completed(item) is not None for item in rows),
+                    "played_side_shapes": [
+                        {
+                            "local_type": type(item.get("local")).__name__,
+                            "road_type": type(item.get("road")).__name__,
+                            "local_keys": sorted(item["local"].keys())[:40]
+                                if isinstance(item.get("local"), dict) else [],
+                            "road_keys": sorted(item["road"].keys())[:40]
+                                if isinstance(item.get("road"), dict) else [],
+                            "local_score_type": type(item["local"].get("score")).__name__
+                                if isinstance(item.get("local"), dict) else "missing",
+                            "road_score_type": type(item["road"].get("score")).__name__
+                                if isinstance(item.get("road"), dict) else "missing",
+                        }
+                        for item in rows if isinstance(item, dict) and item.get("played") is True
+                    ][:2],
                 }
                 print(json.dumps({"league": league, "diagnostics": diagnostics}, sort_keys=True))
                 # Aggregate rejection causes; never expose raw athlete/team records in CI logs.
