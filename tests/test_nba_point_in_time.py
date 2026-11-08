@@ -30,6 +30,9 @@ class PointInTimeTests(unittest.TestCase):
             self.assertTrue(result.meta["point_in_time"])
             self.assertEqual(result.meta["simulation"]["n"], 10000)
             self.assertIn("Monte Carlo: 10000 senaryo", result.render_html())
+            self.assertIn("48 dk sonunda eşitlik", result.render_html())
+            self.assertNotIn("40 dk", result.render_html())
+            self.assertIn("kesin skor değil", result.render_html())
             self.assertAlmostEqual(sum(result.meta["simulation"][k] for k in ("home_win_pct", "away_win_pct", "tie_pct")), 100, places=6)
             self.assertIn("PRE_FIXTURE_SERIES", result.meta["home_sources"])
 
