@@ -223,7 +223,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 market_engine = context.application.bot_data.get("faz17")
                 if market_engine is not None:
                     market = await market_engine.fetch_market(
-                        MarketRequest(league="NBA", home=home, away=away, date_str=date_str)
+                        MarketRequest(league="NBA", home=home, away=away, date_str=date_str, fixture_start_utc=fixture_start_utc)
                     )
                     if market.get("status") in ("MARKET_OK", "MARKET_OK_DATE_SHIFT") and market.get("total") is not None:
                         result.market = market
