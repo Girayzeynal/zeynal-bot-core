@@ -34,6 +34,22 @@ def utc_dates_for_turkey_day(day: str) -> list[str]:
     return [(local_day - timedelta(days=1)).isoformat(), local_day.isoformat()]
 
 
+def classify_provider_error(errors: object) -> str:
+    """Classify provider failures without logging credentials or raw response text."""
+    if not isinstance(errors, dict):
+        return "provider_error"
+    values = " ".join(str(value).lower() for value in errors.values() if isinstance(value, (str, int, float)))
+    if any(term in values for term in ("limit", "quota", "too many", "requests per", "request count", "rate")):
+        return "request_limit"
+    if any(term in values for term in ("subscription", "plan", "access denied", "not allowed")):
+        return "subscription_restriction"
+    if any(term in values for term in ("token", "api key", "apikey", "unauthorized", "authentication")):
+        return "authentication"
+    if any(term in values for term in ("parameter", "invalid league", "invalid date")):
+        return "invalid_parameters"
+    return "unclassified_provider_error"
+
+
 def validate_provider_payload(payload: object) -> list[dict]:
     """Reject incomplete or error-bearing API responses before selecting games."""
     if not isinstance(payload, dict):
@@ -41,7 +57,7 @@ def validate_provider_payload(payload: object) -> list[dict]:
     if payload.get("errors") not in (None, [], {}):
         errors = payload["errors"]
         categories = sorted(str(k) for k in errors.keys()) if isinstance(errors, dict) else ["provider"]
-        logger.warning("NBA fixture provider rejected request; error_categories=%s", categories)
+        logger.warning("NBA fixture provider rejected request; error_categories=%s classification=%s", categories, classify_provider_error(errors))
         raise ValueError("Fikstür sağlayıcısı API hatası bildirdi.")
     rows = payload.get("response")
     if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
