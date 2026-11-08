@@ -239,6 +239,22 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         result = context.application.bot_data["faz23"].apply_decision(result)
         if not isinstance(result, Faz13CoreOutput) or not isinstance(result.meta, dict):
             raise TypeError("FAZ23 returned an invalid analysis payload")
+        # With opt-in persistence, never show an unrecorded NBA prediction.
+        ledger = context.application.bot_data.get("nba_prediction_ledger")
+        if league.upper() == "NBA" and ledger is not None:
+            from prematch_ledger_bridge import record_faz13_for_espn_fixture
+            if result.meta.get("input_snapshot_status") != "CAPTURED":
+                raise ValueError("NBA ledger requires original replayable inputs")
+            home_ref = await adapter.resolve_team(home)
+            away_ref = await adapter.resolve_team(away)
+            if not home_ref or not away_ref:
+                raise ValueError("NBA ledger team identities unavailable")
+            record_faz13_for_espn_fixture(
+                ledger, result, fixture,
+                resolved_home_team_id=str(home_ref["id"]),
+                resolved_away_team_id=str(away_ref["id"]),
+            )
+
         await context.application.bot_data["faz23"].record_snapshot(result)
 
         await update.message.reply_text(
