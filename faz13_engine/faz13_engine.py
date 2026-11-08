@@ -118,7 +118,8 @@ class Faz13CoreOutput:
             )
             out.append(
                 f"Toplam sayı yüzdelikleri (kesin skor değil): %5={sim['p05']:.1f} | "
-                f"Medyan={sim['p50']:.1f} | %95={sim['p95']:.1f}"
+                f"%25={sim['p25']:.1f} | Medyan={sim['p50']:.1f} | "
+                f"%75={sim['p75']:.1f} | %95={sim['p95']:.1f}"
             )
             out.append(
                 f"Periyot ortalamaları (Ev-Dep): "
@@ -171,6 +172,7 @@ class Faz13CoreOutput:
             "<b>🎯 MAÇ SONU TAHMİNİ</b>",
             f"• Model skor ortalaması: <b>{home_mu:.1f} – {away_mu:.1f}</b>",
             f"• Beklenen toplam: <b>{home_mu + away_mu:.1f}</b>",
+            f"• Dar simülasyon bandı (merkezî %50): <b>{sim['p25']:.0f}–{sim['p75']:.0f}</b>",
             f"• Ev sahibi (48 dk): <b>%{sim['home_win_pct']:.1f}</b>",
             f"• Deplasman (48 dk): <b>%{sim['away_win_pct']:.1f}</b>",
             f"• 48 dk sonunda eşitlik: <b>%{sim['tie_pct']:.1f}</b>",
@@ -192,7 +194,7 @@ class Faz13CoreOutput:
             f"• Geçmiş maç: Ev {home_n} | Dep {away_n}",
             f"• Monte Carlo: {sim['n']:,} senaryo",
             "• Kalibre edilmiş güven endeksi: <b>Henüz yok</b>",
-            "• Baremler piyasa oranı değil, model karşılaştırma seviyeleridir.",
+            "• Alt/üst: beklenen toplam çevresinde 1 sayı aralıklarla dar bant; piyasa oranı değildir.",
             "• Periyot dağılımı ve skor korelasyonu henüz kalibre edilmedi.",
             "• Uzatma dahil değil; yüzdeler doğrulanmış isabet oranı değildir.",
             "",
@@ -215,6 +217,14 @@ class Faz13Engine:
         self.project_root = Path(__file__).resolve().parents[1]
 
     # ---------------------
+
+    @staticmethod
+    def _half_point_lines(expected_total: float, radius: int) -> tuple[float, ...]:
+        """One-point-spaced half-point thresholds centered on the market mean."""
+        if not math.isfinite(expected_total) or expected_total < 0 or radius < 0:
+            raise ValueError("Invalid over/under grid")
+        anchor = math.floor(expected_total) + 0.5
+        return tuple(anchor + offset for offset in range(-radius, radius + 1))
 
     @staticmethod
     def _tempo_flag(pace: float) -> str:
@@ -460,8 +470,10 @@ class Faz13Engine:
                 home_std=h_std, away_std=a_std,
                 score_correlation=0.0, shared_pace_std=0.0,
                 simulations=10000, seed=20261108,
-                total_lines=tuple(math.floor(total_mu / 5) * 5 + 0.5 + d for d in (-10, -5, 0, 5, 10)),
-                first_half_lines=tuple(math.floor(total_mu / 10) * 5 + 0.5 + d for d in (-5, 0, 5)),
+                # Half-point thresholds at every integer, centered on each
+                # market's own expected total (not a five-point sampling grid).
+                total_lines=self._half_point_lines(total_mu, 5),
+                first_half_lines=self._half_point_lines(total_mu / 2, 4),
             ))
             simulation = {
                 "n": sim.simulations,
@@ -472,6 +484,8 @@ class Faz13Engine:
                 "away_win_pct": 100 * sim.away_regulation_win_probability,
                 "tie_pct": 100 * sim.regulation_tie_probability,
                 "p05": sim.total_quantiles["p05"],
+                "p25": sim.total_quantiles["p25"],
+                "p75": sim.total_quantiles["p75"],
                 "p50": sim.total_quantiles["p50"],
                 "p95": sim.total_quantiles["p95"],
                 "period_home": sim.period_home_means,
