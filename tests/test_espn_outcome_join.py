@@ -38,6 +38,18 @@ class VerifiedOutcomeJoinTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT actual_home, actual_away, scope FROM outcomes").fetchone(),
                              (100, 100, "REGULATION_ONLY"))
 
+    def test_conflicting_final_is_not_silently_accepted(self):
+        self.assertEqual(import_verified_espn_outcome(self.path, event(), 300)["status"], "IMPORTED")
+        conflicting = event()
+        conflicting["competitions"][0]["competitors"][0]["linescores"][0]["value"] = 26
+        conflicting["competitions"][0]["competitors"][0]["score"] = "101"
+        self.assertEqual(
+            import_verified_espn_outcome(self.path, conflicting, 301)["status"],
+            "OUTCOME_CONFLICT",
+        )
+        with sqlite3.connect(self.path) as db:
+            self.assertEqual(db.execute("SELECT actual_home FROM outcomes").fetchone()[0], 100)
+
     def test_unmatched_provider_rejected(self):
         bad = event()
         bad["id"] = "other"

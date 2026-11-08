@@ -46,5 +46,14 @@ def import_verified_espn_outcome(db_path: str, event: object, observed_ts_utc: i
         fixture_id=fixture_id, league="NBA", result_ts_utc=observed_ts_utc,
         actual_home=parsed["home"], actual_away=parsed["away"], scope="REGULATION_ONLY",
     ))
+    if not inserted:
+        # Distinguish an exact replay from a contradictory provider result.
+        with sqlite3.connect(db_path) as db:
+            existing = db.execute(
+                """SELECT actual_home, actual_away, scope FROM outcomes
+                   WHERE league='NBA' AND fixture_id=?""", (fixture_id,),
+            ).fetchone()
+        if existing != (parsed["home"], parsed["away"], "REGULATION_ONLY"):
+            return {"status": "OUTCOME_CONFLICT", "fixture_id": fixture_id}
     return {"status": "IMPORTED" if inserted else "ALREADY_RECORDED",
             "fixture_id": fixture_id, "has_overtime": parsed["has_overtime"]}
