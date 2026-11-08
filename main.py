@@ -249,7 +249,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         sim = result.meta.get("simulation") or {}
                         home_prob = sim.get("home_win_pct")
                         ledger = PredictionLedger(ledger_path)
-                        inserted = ledger.record_prediction(PredictionRecord(
+                        prediction_record = PredictionRecord(
                             fixture_id=fixture_key,
                             league="NBA",
                             prediction_ts_utc=prediction_ts,
@@ -257,9 +257,11 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             expected_away=(result.away_avg.points_for + result.home_avg.points_against) / 2,
                             home_win_probability=(home_prob / 100 if home_prob is not None else None),
                             scope="REGULATION_ONLY",
-                        ))
+                        )
+                        version_id = ledger.record_prediction_version(prediction_record)
+                        inserted = ledger.record_prediction(prediction_record)
                         ledger.record_fixture_start("NBA", fixture_key, fixture_start_utc)
-                        logger.info("Prediction ledger: fixture=%s inserted=%s", fixture_key, inserted)
+                        logger.info("Prediction ledger: fixture=%s version_id=%s first_record_inserted=%s", fixture_key, version_id, inserted)
                 except Exception:
                     logger.exception("Prediction ledger persistence failed; prediction not marked archived")
 
