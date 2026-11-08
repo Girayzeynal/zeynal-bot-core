@@ -17,7 +17,7 @@ ODDS_FORMAT = "decimal"
 
 BASELINE_DIR = "data/baselines"
 FAZ23_STORAGE = "faz23_storage.sqlite"
-PREDICTION_LEDGER_DB = "/data/predictions/prediction_ledger.sqlite"
+PREDICTION_LEDGER_DB = "/data/prediction_ledger.sqlite"
 
 [http_service]
 internal_port = 8080
@@ -32,8 +32,9 @@ timeout = "2s"
 method = "GET"
 path = "/health"
 
-# Deployment prerequisite: provision Fly volume "zeynal_predictions" in ams
-# before merging this config. Without it, Fly deploy can fail.
+# DEPLOYMENT GATE: existing zeynal_data is attached to stopped helper VM 805121f66139d8.
+# Do not merge until its contents are backed up and the volume can be safely reassigned.
+# Active bot VM 2876926b073608 currently has no mounts.
 [[mounts]]
-source = "zeynal_predictions"
-destination = "/data/predictions"
+source = "zeynal_data"
+destination = "/data"
