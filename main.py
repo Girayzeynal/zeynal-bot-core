@@ -304,8 +304,46 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except Exception:
                     logger.exception("Prediction ledger persistence failed; prediction not marked archived")
 
+        # Sharp Guard reports only observed same-bookmaker moves; never promises an edge.
+        sharp_report = ""
+        if league.upper() == "NBA":
+            try:
+                from market_snapshot_store import MarketSnapshotStore
+                from sharp_guard import audit_market
+                import time
+                import html
+                market_path = os.getenv("MARKET_SNAPSHOT_DB", "/data/market_snapshots.sqlite").strip()
+                safe_path = os.path.realpath(market_path) if market_path else ""
+                if (safe_path and os.path.ismount("/data")
+                        and os.path.commonpath(("/data", safe_path)) == "/data"
+                        and os.path.isfile(safe_path)):
+                    market_key = f"{fixture_start_utc}:{home.casefold().strip()}:{away.casefold().strip()}"
+                    store = MarketSnapshotStore(safe_path)
+                    quotes = result.market.get("quotes") or []
+                    seen = set()
+                    reports = []
+                    for quote in quotes:
+                        identity = (quote["bookmaker"], quote["market"], quote["source"])
+                        if identity in seen:
+                            continue
+                        seen.add(identity)
+                        history = store.history(market_key, *identity)
+                        audit = audit_market(history, now_utc=int(time.time()))
+                        if audit.status == "OBSERVED_ONLY":
+                            reports.append(
+                                f"• {html.escape(identity[0])}: {audit.opening_line:.1f} → "
+                                f"{audit.current_line:.1f} ({audit.movement:+.1f}); "
+                                "ilk gözlem açılış garantisi değil"
+                            )
+                    if reports:
+                        sharp_report = ("\n\n<b>🛡 SHARP GUARD | GÖZLENEN HAREKET</b>\n"
+                                        + "\n".join(reports[:5])
+                                        + "\n• Sharp para akışı: doğrulanmadı | NO EDGE")
+            except Exception:
+                logger.exception("Sharp Guard reporting failed; no movement asserted")
+
         await update.message.reply_text(
-            result.render_telegram_html() if league.upper() == "NBA" else result.render_html(),
+            (result.render_telegram_html() + sharp_report) if league.upper() == "NBA" else result.render_html(),
             parse_mode="HTML" if league.upper() == "NBA" else None,
             disable_web_page_preview=True,
         )
