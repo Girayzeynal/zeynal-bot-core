@@ -12,6 +12,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstrapper
 from providers.espn_adapter import ESPNAdapter
+from nba_command import nba_command
 
 from faz13_engine import Faz13Engine, PrematchRequest
 from faz22_engine import Faz22Engine
@@ -241,6 +242,7 @@ def build_app() -> Application:
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
+    app.add_handler(CommandHandler("nba", nba_command))
     return app
 
 async def main_async():
