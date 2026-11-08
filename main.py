@@ -215,6 +215,39 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 🔥 DOĞRU ÇAĞRI
         result = await faz13.run_prematch(req)
 
+        # Optional persistent, insert-only ledger. Never claim archived when
+        # the storage volume is not configured or the write fails.
+        if league.upper() == "NBA":
+            ledger_path = os.getenv("PREDICTION_LEDGER_DB", "").strip()
+            if ledger_path:
+                try:
+                    from prediction_ledger import PredictionLedger, PredictionRecord
+                    import time
+                    prediction_ts = int(time.time())
+                    if fixture_start_utc is None or prediction_ts >= fixture_start_utc:
+                        logger.warning("Prediction ledger skipped: fixture already started")
+                    else:
+                        fixture_key = (
+                            f"{fixture_start_utc}:{home.casefold().strip()}:"
+                            f"{away.casefold().strip()}"
+                        )
+                        sim = result.meta.get("simulation") or {}
+                        home_prob = sim.get("home_win_pct")
+                        ledger = PredictionLedger(ledger_path)
+                        inserted = ledger.record_prediction(PredictionRecord(
+                            fixture_id=fixture_key,
+                            league="NBA",
+                            prediction_ts_utc=prediction_ts,
+                            expected_home=(result.home_avg.points_for + result.away_avg.points_against) / 2,
+                            expected_away=(result.away_avg.points_for + result.home_avg.points_against) / 2,
+                            home_win_probability=(home_prob / 100 if home_prob is not None else None),
+                            scope="REGULATION_ONLY",
+                        ))
+                        ledger.record_fixture_start("NBA", fixture_key, fixture_start_utc)
+                        logger.info("Prediction ledger: fixture=%s inserted=%s", fixture_key, inserted)
+                except Exception:
+                    logger.exception("Prediction ledger persistence failed; prediction not marked archived")
+
         await update.message.reply_text(
             result.render_telegram_html() if league.upper() == "NBA" else result.render_html(),
             parse_mode="HTML" if league.upper() == "NBA" else None,
