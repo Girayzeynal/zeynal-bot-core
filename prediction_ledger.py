@@ -53,6 +53,102 @@ class PredictionLedger:
                 PRIMARY KEY (league, fixture_id)
             )""")
 
+    def record_prediction_version(self, item: PredictionRecord) -> int:
+        """Append every requested forecast, including repeated requests in one second."""
+        self._identity(item.league, item.fixture_id)
+        if type(item.prediction_ts_utc) is not int or item.prediction_ts_utc <= 0:
+            raise ValueError("prediction timestamp must be positive UTC epoch seconds")
+        if item.scope not in ("REGULATION_ONLY", "FINAL_WITH_OT"):
+            raise ValueError("unknown prediction scope")
+        if any(not math.isfinite(v) or v < 0 for v in (item.expected_home, item.expected_away)):
+            raise ValueError("invalid expected score")
+        if item.home_win_probability is not None and (
+            not math.isfinite(item.home_win_probability)
+            or not 0 <= item.home_win_probability <= 1
+        ):
+            raise ValueError("invalid win probability")
+        with self._connect() as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS prediction_versions (
+                version_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league TEXT NOT NULL, fixture_id TEXT NOT NULL,
+                prediction_ts_utc INTEGER NOT NULL,
+                expected_home REAL NOT NULL, expected_away REAL NOT NULL,
+                home_win_probability REAL, scope TEXT NOT NULL
+            )""")
+            cursor = db.execute(
+                """INSERT INTO prediction_versions
+                   (league, fixture_id, prediction_ts_utc, expected_home,
+                    expected_away, home_win_probability, scope)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (item.league, item.fixture_id, item.prediction_ts_utc,
+                 item.expected_home, item.expected_away,
+                 item.home_win_probability, item.scope),
+            )
+            return int(cursor.lastrowid)
+
+    def prediction_versions(self, league: str, fixture_id: str) -> list[dict]:
+        """Return every immutable version in insertion order."""
+        self._identity(league, fixture_id)
+        with self._connect() as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS prediction_versions (
+                version_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league TEXT NOT NULL, fixture_id TEXT NOT NULL,
+                prediction_ts_utc INTEGER NOT NULL,
+                expected_home REAL NOT NULL, expected_away REAL NOT NULL,
+                home_win_probability REAL, scope TEXT NOT NULL
+            )""")
+            rows = db.execute(
+                """SELECT version_id, prediction_ts_utc, expected_home,
+                          expected_away, home_win_probability, scope
+                   FROM prediction_versions
+                   WHERE league=? AND fixture_id=? ORDER BY version_id""",
+                (league, fixture_id),
+            ).fetchall()
+        return [dict(zip(
+            ("version_id", "prediction_ts_utc", "expected_home",
+             "expected_away", "home_win_probability", "scope"), row
+        )) for row in rows]
+
+    def compare_prediction_versions(self, league: str, fixture_id: str) -> list[dict]:
+        """Compare all pregame versions against one recorded final result."""
+        versions = self.prediction_versions(league, fixture_id)
+        with self._connect() as db:
+            outcome = db.execute(
+                """SELECT result_ts_utc, actual_home, actual_away, scope
+                   FROM outcomes WHERE league=? AND fixture_id=?""",
+                (league, fixture_id),
+            ).fetchone()
+            start_table = db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='fixture_starts'"
+            ).fetchone()
+            start = db.execute(
+                "SELECT start_ts_utc FROM fixture_starts WHERE league=? AND fixture_id=?",
+                (league, fixture_id),
+            ).fetchone() if start_table else None
+        if outcome is None or start is None:
+            return []
+        result_ts, actual_home, actual_away, scope = outcome
+        total = actual_home + actual_away
+        comparisons = []
+        for v in versions:
+            ts = v["prediction_ts_utc"]
+            if not (ts < start[0] < result_ts and v["scope"] == scope):
+                continue
+            predicted_total = v["expected_home"] + v["expected_away"]
+            comparisons.append({
+                **v,
+                "actual_home": actual_home,
+                "actual_away": actual_away,
+                "home_absolute_error": abs(v["expected_home"] - actual_home),
+                "away_absolute_error": abs(v["expected_away"] - actual_away),
+                "total_absolute_error": abs(predicted_total - total),
+                "winner_correct": (
+                    (v["expected_home"] > v["expected_away"]) ==
+                    (actual_home > actual_away)
+                ) if actual_home != actual_away and v["expected_home"] != v["expected_away"] else None,
+            })
+        return comparisons
+
     def _connect(self):
         return sqlite3.connect(self.db_path, timeout=10)
 
