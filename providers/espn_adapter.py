@@ -345,7 +345,8 @@ class ESPNAdapter:
                             continue
                         if not isinstance(competitor.get("score"), (int, float, str)):
                             rejection_counts["strict_candidate_score_not_scalar"] += 1
-                        if not competitor.get("team", {}).get("id"):
+                        team_obj = competitor.get("team")
+                        if not isinstance(team_obj, dict) or not team_obj.get("id"):
                             rejection_counts["strict_candidate_missing_team_id"] += 1
                     if not ev.get("date"):
                         rejection_counts["strict_candidate_missing_date"] += 1
