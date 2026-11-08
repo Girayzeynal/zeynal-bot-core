@@ -193,7 +193,9 @@ class Faz13CoreOutput:
             *period_lines,
             "",
             "<b>📊 PİYASA VE MODEL SİNYALİ</b>",
-            "• Doğrulanmış piyasa baremi/oranı: <b>Alınmadı</b>.",
+            (f"• Güncel piyasa toplam baremi: <b>{self.market['total']:.1f}</b> (FAZ-17; açılış değil)"
+             if self.market.get("status") in ("MARKET_OK", "MARKET_OK_DATE_SHIFT") and isinstance(self.market.get("total"), (int, float))
+             else "• Doğrulanmış güncel piyasa baremi: <b>Alınmadı</b>."),
             "• Piyasa karşılaştırması: <b>Yapılamadı</b>.",
             "• En güvenilir piyasa seçeneği: <b>BELİRLENEMEDİ / NO EDGE</b>.",
             f"• Model içi 48 dk yön eğilimi: <b>{esc(self.ctx.home) if sim['home_win_pct'] >= sim['away_win_pct'] else esc(self.ctx.away)}</b> (%{max(sim['home_win_pct'], sim['away_win_pct']):.1f}; kalibre edilmedi).",
