@@ -321,7 +321,7 @@ def build_app() -> Application:
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine(storage_path=os.getenv("FAZ23_STORAGE", "faz23_storage.sqlite"))
 
-    # Explicit opt-in. No ledger writes or provider lookups are activated here.
+    # Explicit opt-in. /analyze persists verified NBA projections when enabled.
     ledger_enabled = os.getenv("NBA_LEDGER_ENABLED", "false").strip().lower() == "true"
     ledger_path = resolve_prediction_ledger_path(
         enabled=ledger_enabled,
@@ -330,7 +330,7 @@ def build_app() -> Application:
     if ledger_path is not None:
         app.bot_data["nba_prediction_ledger"] = PredictionLedger(ledger_path)
         app.bot_data["nba_espn_adapter"] = ESPNAdapter()
-        logger.info("NBA prediction ledger configured on persistent volume (writes inactive)")
+        logger.info("NBA prediction ledger enabled for verified /analyze projections")
 
 
     app.add_handler(CommandHandler("start", start_command))
