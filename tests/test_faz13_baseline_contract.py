@@ -52,6 +52,8 @@ class Faz13BaselineContractTests(unittest.TestCase):
         self.assertIn("Örneklem: Ev 10 maç | Dep 10 maç", message)
         self.assertIn("Ev 112.0/108.0 | Dep 109.0/108.0", message)
         self.assertIn("Monte Carlo dahil değil", message)
+        self.assertIn("=110.00 | Dep (109.0+108.0)/2=108.50 | Toplam=218.50", message)
+        self.assertIn("istatistiksel güven aralığı değildir", message)
 
     def test_missing_baseline_fails_closed_without_fabricated_average(self):
         engine = self.make_engine(FakeStore())
