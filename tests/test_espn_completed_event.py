@@ -80,6 +80,33 @@ class ESPNCompletedEventTests(unittest.TestCase):
                 e["competitions"][0]["competitors"][0]["score"] = bad
                 self.assertIsNone(parse_completed_nba_event(e, NOW))
 
+    def test_structured_espn_score_value_and_display(self):
+        e = event()
+        e["competitions"][0]["competitors"][0]["score"] = {"value": 115.0, "displayValue": "115"}
+        e["competitions"][0]["competitors"][1]["score"] = {"value": 109.0, "displayValue": "109"}
+        row = parse_completed_nba_event(e, NOW)
+        self.assertIsNotNone(row)
+        self.assertEqual((row["actual_home"], row["actual_away"]), (115, 109))
+
+    def test_structured_espn_score_display_only(self):
+        e = event()
+        e["competitions"][0]["competitors"][0]["score"] = {"displayValue": "115"}
+        self.assertEqual(parse_completed_nba_event(e, NOW)["actual_home"], 115)
+
+    def test_structured_espn_score_rejects_conflict_or_invalid(self):
+        for bad in (
+            {"value": 115, "displayValue": "114"},
+            {"value": 115.5, "displayValue": "115.5"},
+            {"value": True, "displayValue": "1"},
+            {"value": 115, "displayValue": "unknown"},
+            {"value": None, "displayValue": ""},
+            {"value": {"value": 115}},
+        ):
+            with self.subTest(score=bad):
+                e = event()
+                e["competitions"][0]["competitors"][0]["score"] = bad
+                self.assertIsNone(parse_completed_nba_event(e, NOW))
+
     def test_reject_fractional_score(self):
         e = event()
         e["competitions"][0]["competitors"][0]["score"] = "115.5"

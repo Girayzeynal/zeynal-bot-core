@@ -9,6 +9,34 @@ import math
 from typing import Any, Dict, Optional
 
 
+def _parse_final_score(raw: Any) -> Optional[int]:
+    """Accept ESPN scalar scores or structured {value, displayValue} scores."""
+    if isinstance(raw, dict):
+        value = raw.get("value")
+        display = raw.get("displayValue")
+        if value is None:
+            raw = display
+        else:
+            raw = value
+            # Reject contradictory representations rather than guessing.
+            if display is not None:
+                display_score = _parse_final_score(display)
+                value_score = _parse_final_score(value)
+                if display_score is None or value_score is None or display_score != value_score:
+                    return None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float, str)):
+        return None
+    if isinstance(raw, str) and not raw.strip():
+        return None
+    try:
+        score = float(raw)
+    except (ValueError, OverflowError):
+        return None
+    if not math.isfinite(score) or score < 0 or not score.is_integer():
+        return None
+    return int(score)
+
+
 def parse_completed_nba_event(event: Dict[str, Any], now_utc: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
     if not isinstance(event, dict):
         return None
@@ -42,12 +70,10 @@ def parse_completed_nba_event(event: Dict[str, Any], now_utc: Optional[datetime]
             score = competitor.get("score")
             if side not in ("home", "away") or side in by_side or not team_id:
                 return None
-            if isinstance(score, bool) or not isinstance(score, (int, float, str)) or (isinstance(score, str) and not score.strip()):
+            value = _parse_final_score(score)
+            if value is None:
                 return None
-            value = float(score)
-            if not math.isfinite(value) or value < 0 or not value.is_integer():
-                return None
-            by_side[side] = (team_id, int(value))
+            by_side[side] = (team_id, value)
         if (set(by_side) != {"home", "away"} or by_side["home"][0] == by_side["away"][0]
                 or by_side["home"][1] == by_side["away"][1]):
             return None
