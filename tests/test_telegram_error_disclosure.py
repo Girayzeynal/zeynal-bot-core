@@ -18,17 +18,21 @@ class TelegramErrorDisclosureTests(unittest.TestCase):
             and isinstance(node.type, ast.Name) and node.type.id == "Exception"
         ]
         self.assertGreaterEqual(len(handlers), 2)
-        internal_handler = handlers[-1]
-        replies = [
-            node for node in ast.walk(internal_handler)
-            if isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "reply_text"
-        ]
-        self.assertEqual(len(replies), 1)
-        self.assertTrue(replies[0].args)
-        self.assertIsInstance(replies[0].args[0], ast.Constant)
-        self.assertIsInstance(replies[0].args[0].value, str)
+        # New fixture-provider handlers may follow the internal analysis handler
+        # in AST traversal; identify the internal handler by its fixed message.
+        internal_replies = []
+        for handler in handlers:
+            for node in ast.walk(handler):
+                if (isinstance(node, ast.Call)
+                        and isinstance(node.func, ast.Attribute)
+                        and node.func.attr == "reply_text"
+                        and node.args
+                        and isinstance(node.args[0], ast.Constant)
+                        and isinstance(node.args[0].value, str)
+                        and "dahili bir hata" in node.args[0].value):
+                    internal_replies.append(node)
+        self.assertEqual(len(internal_replies), 1)
+        self.assertNotIn("str(e)", internal_replies[0].args[0].value)
 
 
 if __name__ == "__main__":

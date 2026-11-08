@@ -6,6 +6,7 @@ import json
 import os
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -29,6 +30,8 @@ class PrematchRequest:
     date_str: str
     home: str
     away: str
+    strict_point_in_time: bool = False
+    fixture_start_utc: Optional[int] = None
 
 
 @dataclass
@@ -222,6 +225,7 @@ class Faz13Engine:
                 "source": "TEAM_BASELINE_STORE",
                 "n_games": n_games,
                 "fetched_at": int(getattr(baseline, "updated_ts", 0) or 0),
+                "canonical_team": candidate,
             }
         return None
 
@@ -268,21 +272,52 @@ class Faz13Engine:
         if a_store:
             away_rows.append(a_store)
 
-        # 2) Manual baselines are an explicitly lower-priority secondary source.
-        if not h_store:
-            h_manual = self._load_manual_baseline(req.league, req.home)
-            if h_manual:
-                home_rows.append(h_manual)
-        if not a_store:
-            a_manual = self._load_manual_baseline(req.league, req.away)
-            if a_manual:
-                away_rows.append(a_manual)
+        # Strict NBA prematch mode: rebuild from timestamped completed-game series.
+        # Date-only requests use 00:00 UTC as a conservative cutoff; no game
+        # on the requested UTC day is allowed into the sample.
+        if req.strict_point_in_time and req.league.upper() == "NBA":
+            cutoff = (int(req.fixture_start_utc) if req.fixture_start_utc is not None
+                      else int(datetime.strptime(req.date_str, "%Y-%m-%d").replace(
+                          tzinfo=timezone.utc).timestamp()))
+            if self.baseline_store is None:
+                raise ValueError("Point-in-time series store missing; no prediction.")
+            strict_rows = []
+            for team, baseline in ((req.home, h_store), (req.away, a_store)):
+                canonical = baseline.get("canonical_team", team) if baseline else team
+                agg = self.baseline_store.compute_baseline_before(
+                    req.league, canonical, cutoff, n_games=10, min_games=6)
+                if agg is None:
+                    raise ValueError(
+                        f"Point-in-time sample insufficient: {team}; no prediction.")
+                records = self.baseline_store.get_series_before(
+                    req.league, canonical, cutoff, 10)
+                strict_rows.append({
+                    "pts_for": agg["pts_for"],
+                    "pts_against": agg["pts_against"],
+                    "pace": agg["pace"],
+                    "confidence": min(0.90, 0.50 + 0.025 * len(records)),
+                    "source": "PRE_FIXTURE_SERIES",
+                    "n_games": len(records),
+                    "first_game_ts": min(r.ts_utc for r in records),
+                    "last_game_ts": max(r.ts_utc for r in records),
+                })
+            home_rows, away_rows = [[strict_rows[0]], [strict_rows[1]]]
+        else:
+            # 2) Manual baselines are an explicitly lower-priority secondary source.
+            if not h_store:
+                h_manual = self._load_manual_baseline(req.league, req.home)
+                if h_manual:
+                    home_rows.append(h_manual)
+            if not a_store:
+                a_manual = self._load_manual_baseline(req.league, req.away)
+                if a_manual:
+                    away_rows.append(a_manual)
 
-        # 3) ESPN recent games are used only when no persisted/manual baseline exists.
-        if not home_rows:
-            home_rows += await self._espn_rows(req.league, req.home)
-        if not away_rows:
-            away_rows += await self._espn_rows(req.league, req.away)
+            # 3) ESPN recent games are used only when no persisted/manual baseline exists.
+            if not home_rows:
+                home_rows += await self._espn_rows(req.league, req.home)
+            if not away_rows:
+                away_rows += await self._espn_rows(req.league, req.away)
 
         # 4) Strict aggregation: never manufacture league-average team data.
         home_base = aggregate_baseline(home_rows)
@@ -353,6 +388,8 @@ class Faz13Engine:
                 "home_baseline_games": int(home_base.get("n_games", 0)),
                 "away_baseline_games": int(away_base.get("n_games", 0)),
                 "expected_total": round(total_mu, 2),
+                "point_in_time": bool(req.strict_point_in_time and req.league.upper() == "NBA"),
+                "cutoff_utc": datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat() if req.strict_point_in_time else None,
                 "pace_mean": round(pace_mean, 2),
                 "engine": "FAZ-13 FINAL (ABSOLUTE PATH + NORMALIZER)",
                 "generated_at": int(time.time()),
