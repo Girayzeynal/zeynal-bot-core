@@ -110,6 +110,45 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
             self.assertIn("dahili bir hata", update.message.reply_text.await_args.args[0])
         asyncio.run(scenario())
 
+    def test_opt_in_ledger_records_verified_projection_before_reply(self):
+        async def scenario():
+            import sys
+            from unittest.mock import Mock, patch
+            handler = load_handler()
+            handler.__globals__["PrematchRequest"] = lambda **kwargs: types.SimpleNamespace(**kwargs)
+            handler.__globals__["Faz13CoreOutput"] = types.SimpleNamespace
+            handler.__globals__["baseline_quality_reason"] = lambda *_args: "usable"
+            tomorrow = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
+                        + datetime.timedelta(days=1)).isoformat()
+            update = types.SimpleNamespace(message=types.SimpleNamespace(
+                text=f"/analyze NBA {tomorrow} Home vs Away", reply_text=AsyncMock()))
+            result = types.SimpleNamespace(meta={
+                "data_quality": "VERIFIED_BASELINE", "input_snapshot_status": "CAPTURED"
+            }, render_html=lambda: "<b>recorded</b>")
+            adapter = types.SimpleNamespace(resolve_team=AsyncMock(side_effect=[
+                {"id": "1"}, {"id": "2"}]))
+            ledger = object()
+            faz23 = types.SimpleNamespace(apply_decision=lambda core: core, record_snapshot=AsyncMock())
+            context = types.SimpleNamespace(application=types.SimpleNamespace(bot_data={
+                "nba_fixture_adapter": adapter, "nba_prediction_ledger": ledger,
+                "faz13": types.SimpleNamespace(run_prematch=AsyncMock(return_value=result)),
+                "baseline_bootstrapper": types.SimpleNamespace(ensure_async=AsyncMock(return_value=object())),
+                "faz22": types.SimpleNamespace(score_and_finalize=lambda core: core), "faz23": faz23,
+            }))
+            recorded = Mock(return_value=True)
+            def check_recorded(*args, **kwargs):
+                self.assertEqual(args[:2], (ledger, result))
+                self.assertEqual(kwargs["resolved_home_team_id"], "1")
+                self.assertEqual(kwargs["resolved_away_team_id"], "2")
+                update.message.reply_text.assert_not_awaited()
+                return recorded(*args, **kwargs)
+            with patch("prematch_ledger_bridge.record_faz13_for_espn_fixture", side_effect=check_recorded):
+                await handler(update, context)
+            recorded.assert_called_once()
+            faz23.record_snapshot.assert_awaited_once_with(result)
+            self.assertEqual(update.message.reply_text.await_args.args[0], "<b>recorded</b>")
+        asyncio.run(scenario())
+
     def test_success_renders_telegram_html(self):
         async def scenario():
             handler = load_handler()
