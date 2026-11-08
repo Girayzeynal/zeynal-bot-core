@@ -95,6 +95,44 @@ def _extract_total(event: Dict[str, Any]) -> Optional[float]:
     return None
 
 
+def _verified_total_quotes(event: Dict[str, Any], observed_utc: int) -> list[dict]:
+    """Extract per-bookmaker complete totals quotes, never fabricate opening prices."""
+    from datetime import datetime, timezone
+    quotes = []
+    for bookmaker in event.get("bookmakers") or []:
+        key = bookmaker.get("key")
+        updated = bookmaker.get("last_update")
+        if not isinstance(key, str) or not key.strip() or not isinstance(updated, str):
+            continue
+        try:
+            stamp = int(datetime.fromisoformat(updated.replace("Z", "+00:00")).timestamp())
+        except (ValueError, OverflowError):
+            continue
+        if stamp <= 0 or stamp > observed_utc:
+            continue
+        for market in bookmaker.get("markets") or []:
+            if market.get("key") != "totals":
+                continue
+            outcomes = market.get("outcomes") or []
+            over = next((x for x in outcomes if x.get("name") == "Over"), None)
+            under = next((x for x in outcomes if x.get("name") == "Under"), None)
+            if not over or not under:
+                continue
+            try:
+                over_line, under_line = float(over["point"]), float(under["point"])
+                over_price, under_price = float(over["price"]), float(under["price"])
+            except (ValueError, TypeError, KeyError):
+                continue
+            from math import isfinite
+            if (not all(isfinite(x) for x in (over_line, under_line, over_price, under_price))
+                    or over_line != under_line or min(over_price, under_price) <= 1):
+                continue
+            quotes.append({"bookmaker": key, "market": "TOTAL", "line": over_line,
+                           "decimal_over": over_price, "decimal_under": under_price,
+                           "observed_utc": stamp, "source": "the-odds-api"})
+    return quotes
+
+
 def _safe_getattr(obj: Any, name: str, default=None):
     try:
         return getattr(obj, name, default)
@@ -330,6 +368,7 @@ class Faz17Engine:
 
         out = {
             "status": status,
+            "quotes": _verified_total_quotes(best_event, int(time.time())),
             "total": float(total_line),
             "latency_ms": int((time.time() - t0) * 1000),
             "reason": None,
