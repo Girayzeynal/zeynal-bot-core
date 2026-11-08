@@ -217,6 +217,14 @@ class Faz13Engine:
     # ---------------------
 
     @staticmethod
+    def _half_point_lines(expected_total: float, radius: int) -> tuple[float, ...]:
+        """One-point-spaced half-point thresholds centered on the market mean."""
+        if not math.isfinite(expected_total) or expected_total < 0 or radius < 0:
+            raise ValueError("Invalid over/under grid")
+        anchor = math.floor(expected_total) + 0.5
+        return tuple(anchor + offset for offset in range(-radius, radius + 1))
+
+    @staticmethod
     def _tempo_flag(pace: float) -> str:
         if pace >= 102:
             return "FAST"
@@ -462,8 +470,8 @@ class Faz13Engine:
                 simulations=10000, seed=20261108,
                 # Half-point thresholds at every integer, centered on each
                 # market's own expected total (not a five-point sampling grid).
-                total_lines=tuple(math.floor(total_mu) + 0.5 + d for d in range(-10, 11)),
-                first_half_lines=tuple(math.floor(total_mu / 2) + 0.5 + d for d in range(-7, 8)),
+                total_lines=self._half_point_lines(total_mu, 10),
+                first_half_lines=self._half_point_lines(total_mu / 2, 7),
             ))
             simulation = {
                 "n": sim.simulations,
