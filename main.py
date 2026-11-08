@@ -179,6 +179,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             date_str=date_str,
             home=home,
             away=away,
+            strict_point_in_time=(league.upper() == "NBA"),
         )
 
         # 🔥 DOĞRU ÇAĞRI
