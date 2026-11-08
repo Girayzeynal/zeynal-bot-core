@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import calendar
+from collections import Counter
 import logging
 import time
 from datetime import datetime, timezone
@@ -306,14 +307,46 @@ class ESPNAdapter:
         # Use the shared strict completed-event parser. ESPN finals typically
         # use state=post with completed=true; never accept scheduled/live games.
         completed: List[Dict[str, Any]] = []
+        rejection_counts: Counter[str] = Counter()
+        status_shape_counts: Counter[str] = Counter()
         for ev in events:
+            if not isinstance(ev, dict):
+                rejection_counts["invalid_event"] += 1
+                continue
+            competitions = ev.get("competitions")
+            if not isinstance(competitions, list) or len(competitions) != 1 or not isinstance(competitions[0], dict):
+                rejection_counts["invalid_competition"] += 1
+                continue
+            competition = competitions[0]
+            comp_status = competition.get("status")
+            event_status = ev.get("status")
+            comp_type = comp_status.get("type") if isinstance(comp_status, dict) else None
+            event_type = event_status.get("type") if isinstance(event_status, dict) else None
+            status_shape_counts[
+                "competition_type_dict" if isinstance(comp_type, dict)
+                else "event_type_dict" if isinstance(event_type, dict)
+                else "no_status_type_dict"
+            ] += 1
+            if not isinstance(comp_type, dict):
+                rejection_counts["missing_competition_status_type"] += 1
+            elif comp_type.get("state") not in ("post", "completed") or comp_type.get("completed") is not True:
+                rejection_counts["not_strictly_completed"] += 1
+            elif not isinstance(competition.get("competitors"), list):
+                rejection_counts["invalid_competitors"] += 1
             parsed = parse_completed_nba_event(ev)
             if parsed is None:
+                rejection_counts["parser_rejected"] += 1
                 continue
             if team_id not in (parsed["home_team_id"], parsed["away_team_id"]):
+                rejection_counts["team_id_mismatch"] += 1
                 continue
             completed.append(parsed)
 
+        logger.info(
+            "[ESPN-DIAG] stage=reject_audit team=%s raw=%d reasons=%s status_shapes=%s",
+            ref["abbr"], len(events), dict(sorted(rejection_counts.items())),
+            dict(sorted(status_shape_counts.items())),
+        )
         logger.info("[ESPN-DIAG] stage=completed team=%s completed_events=%d", ref["abbr"], len(completed))
         if not completed:
             return None
