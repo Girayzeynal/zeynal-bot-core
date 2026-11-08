@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 from datetime import datetime, timezone
 
-from nba_command import load_nba_games, parse_nba_date, select_local_games, utc_dates_for_turkey_day, validate_provider_payload
+from nba_command import load_nba_games, parse_nba_date, select_local_games, utc_dates_for_turkey_day, validate_provider_payload, classify_provider_error
 
 
 class NbaCommandTests(unittest.TestCase):
@@ -51,6 +51,18 @@ class NbaCommandTests(unittest.TestCase):
             {**template, "id": 4, "date": "2026-11-04T21:00:00Z"},
         ]
         self.assertEqual(len(select_local_games(rows, "2026-11-04")), 2)
+
+    def test_provider_error_classification_redacts_raw_message(self):
+        cases = [
+            ({"requests": "You have reached your daily requests limit"}, "request_limit"),
+            ({"requests": "Your subscription plan is not allowed"}, "subscription_restriction"),
+            ({"token": "Invalid API key"}, "authentication"),
+            ({"league": "Invalid league parameter"}, "invalid_parameters"),
+            ({"requests": "Unexpected response"}, "unclassified_provider_error"),
+        ]
+        for payload, expected in cases:
+            with self.subTest(payload=payload):
+                self.assertEqual(classify_provider_error(payload), expected)
 
     def test_provider_payload_rejects_errors(self):
         for errors in ({"token": "invalid"}, ["quota exceeded"], "error"):
