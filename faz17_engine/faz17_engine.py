@@ -371,7 +371,12 @@ class Faz17Engine:
         # Do not display an arbitrary unpaired bookmaker outcome as a verified line.
         # A valid market line requires matching Over/Under points, prices,
         # bookmaker identity and a source timestamp.
-        verified_quotes = _verified_total_quotes(best_event, int(time.time()))
+        # Do not display stale quotes as a current bookmaker market.
+        now_utc = int(time.time())
+        verified_quotes = [
+            q for q in _verified_total_quotes(best_event, now_utc)
+            if 0 <= now_utc - int(q["observed_utc"]) <= 900
+        ]
         total_line = verified_quotes[0]["line"] if verified_quotes else None
         if total_line is None:
             out = {
