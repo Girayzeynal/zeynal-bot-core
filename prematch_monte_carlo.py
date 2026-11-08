@@ -19,6 +19,8 @@ class PrematchSimulationInput:
     simulations: int = 10000
     seed: int = 20261101
     market_total: Optional[float] = None
+    total_lines: Tuple[float, ...] = ()
+    first_half_lines: Tuple[float, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,9 @@ class PrematchSimulationResult:
     over_probability: Optional[float]
     under_probability: Optional[float]
     push_probability: Optional[float]
+    total_line_over_probabilities: Dict[float, float]
+    first_half_line_over_probabilities: Dict[float, float]
+    first_half_expected_total: float
 
 
 def _finite_positive(name: str, value: float, allow_zero: bool = False) -> float:
@@ -108,7 +113,7 @@ class PrematchMonteCarloEngine:
             raise ValueError('shared_pace_std and score_correlation imply an impossible covariance')
         rng = random.Random(request.seed)
         root = math.sqrt(max(0.0, 1.0 - residual_corr * residual_corr))
-        home_scores, away_scores, totals, margins = [], [], [], []
+        home_scores, away_scores, totals, margins, half_totals = [], [], [], [], []
         home_period_sums = [0] * periods
         away_period_sums = [0] * periods
         home_wins = away_wins = ties = over = under = pushes = 0
@@ -129,6 +134,7 @@ class PrematchMonteCarloEngine:
             home_scores.append(h_score)
             away_scores.append(a_score)
             totals.append(total)
+            half_totals.append(sum(h_periods[:periods // 2]) + sum(a_periods[:periods // 2]))
             margins.append(margin)
             if margin > 0:
                 home_wins += 1
@@ -173,6 +179,9 @@ class PrematchMonteCarloEngine:
             over_probability=(over / n if market is not None else None),
             under_probability=(under / n if market is not None else None),
             push_probability=(pushes / n if market is not None else None),
+            total_line_over_probabilities={float(line): sum(t > line for t in totals) / n for line in request.total_lines},
+            first_half_line_over_probabilities={float(line): sum(t > line for t in half_totals) / n for line in request.first_half_lines},
+            first_half_expected_total=statistics.fmean(half_totals),
         )
 
 

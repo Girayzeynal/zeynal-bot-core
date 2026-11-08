@@ -162,6 +162,16 @@ class Faz13CoreOutput:
             f"{i+1}Ç {h:.1f}-{a:.1f}"
             for i, (h, a) in enumerate(zip(sim["period_home"], sim["period_away"]))
         )
+        total_lines = sim.get("total_lines", {})
+        half_lines = sim.get("first_half_lines", {})
+        def line_table(lines):
+            return "\\n".join(
+                f"{line:>6.1f}  %{(1 - prob) * 100:>5.1f}  %{prob * 100:>5.1f}"
+                for line, prob in sorted(lines.items())
+            )
+        first_half = sim.get("first_half_total")
+        half_home = sum(sim["period_home"][:2])
+        half_away = sum(sim["period_away"][:2])
         return "\n".join([
             "<b>🏀 NBA | MAÇ ÖNCESİ ANALİZ</b>",
             f"{esc(self.ctx.home)} – {esc(self.ctx.away)}",
@@ -171,6 +181,12 @@ class Faz13CoreOutput:
             f"<pre>{esc(table)}</pre>",
             f"🎯 Model skor ort.: {home_mu:.1f} – {away_mu:.1f}",
             f"📈 Toplam beklenti: {home_mu + away_mu:.1f}",
+            f"⏳ İlk yarı model ort.: {half_home:.1f} – {half_away:.1f} | Toplam {first_half:.1f}",
+            "",
+            "<b>📉 MAÇ TOPLAMI ALT / ÜST</b>",
+            f"<pre>{esc('Barem     Alt     Üst' + chr(10) + line_table(total_lines))}</pre>",
+            "<b>⏳ İLK YARI ALT / ÜST</b>",
+            f"<pre>{esc('Barem     Alt     Üst' + chr(10) + line_table(half_lines))}</pre>",
             f"⏱ Periyot ort.: {esc(periods)}",
             "",
             "<b>🛡 GÜVENİLİRLİK</b>",
@@ -178,6 +194,8 @@ class Faz13CoreOutput:
             f"Veri: Ev {home_n} | Dep {away_n} geçmiş maç",
             f"Simülasyon: {sim['n']:,} senaryo",
             "Korelasyon: 0 varsayımı (kalibre edilmedi)",
+            "Baremler örnektir, canlı bahis piyasasından alınmadı.",
+            "İlk yarı dağılımı rastgele periyot paylaştırmasıdır; periyot bazlı kalibrasyon yok.",
             "Yüzdelikler kesin skor veya güven aralığı değildir.",
             "Uzatma dahil değildir; olasılıklar doğrulanmış başarı oranı değildir.",
             "",
@@ -445,9 +463,14 @@ class Faz13Engine:
                 home_std=h_std, away_std=a_std,
                 score_correlation=0.0, shared_pace_std=0.0,
                 simulations=10000, seed=20261108,
+                total_lines=tuple(math.floor(total_mu / 5) * 5 + 0.5 + d for d in (-10, -5, 0, 5, 10)),
+                first_half_lines=tuple(math.floor(total_mu / 10) * 5 + 0.5 + d for d in (-5, 0, 5)),
             ))
             simulation = {
                 "n": sim.simulations,
+                "total_lines": sim.total_line_over_probabilities,
+                "first_half_lines": sim.first_half_line_over_probabilities,
+                "first_half_total": sim.first_half_expected_total,
                 "home_win_pct": 100 * sim.home_regulation_win_probability,
                 "away_win_pct": 100 * sim.away_regulation_win_probability,
                 "tie_pct": 100 * sim.regulation_tie_probability,
