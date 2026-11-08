@@ -70,8 +70,9 @@ def parse_analyze(text: str) -> Tuple[str, str, str, str]:
         raise ValueError("'vs' bulunamadi")
 
     i = lower.index("vs")
-    home = " ".join(rest[:i]).strip()
-    away = " ".join(rest[i + 1 :]).strip()
+    # Strip accidental wrapping/pasted quotes, not punctuation inside team names.
+    home = " ".join(rest[:i]).strip().strip("\\\"\u201c\u201d\u2018\u2019\u0027").strip()
+    away = " ".join(rest[i + 1 :]).strip().strip("\\\"\u201c\u201d\u2018\u2019\u0027").strip()
     if not home or not away:
         raise ValueError("Ev sahibi ve deplasman takımı zorunludur")
     try:
