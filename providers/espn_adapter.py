@@ -104,7 +104,7 @@ class ESPNAdapter:
 
         # Telegram inputs can carry stray wrapping quote characters (e.g.
         # Denver Nuggets"). Remove only boundary quotes; never guess a team.
-        key = team_input.strip().strip("\\\"'“”‘’").strip().casefold()
+        key = team_input.strip().strip(chr(34) + chr(39) + "“”‘’").strip().casefold()
         if not key:
             return None
         teams = await self._load_teams()
