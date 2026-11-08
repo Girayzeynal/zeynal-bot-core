@@ -31,6 +31,7 @@ class PrematchRequest:
     home: str
     away: str
     strict_point_in_time: bool = False
+    fixture_start_utc: Optional[int] = None
 
 
 @dataclass
@@ -275,8 +276,9 @@ class Faz13Engine:
         # Date-only requests use 00:00 UTC as a conservative cutoff; no game
         # on the requested UTC day is allowed into the sample.
         if req.strict_point_in_time and req.league.upper() == "NBA":
-            cutoff = int(datetime.strptime(req.date_str, "%Y-%m-%d").replace(
-                tzinfo=timezone.utc).timestamp())
+            cutoff = (int(req.fixture_start_utc) if req.fixture_start_utc is not None
+                      else int(datetime.strptime(req.date_str, "%Y-%m-%d").replace(
+                          tzinfo=timezone.utc).timestamp()))
             if self.baseline_store is None:
                 raise ValueError("Point-in-time series store missing; no prediction.")
             strict_rows = []
@@ -387,7 +389,7 @@ class Faz13Engine:
                 "away_baseline_games": int(away_base.get("n_games", 0)),
                 "expected_total": round(total_mu, 2),
                 "point_in_time": bool(req.strict_point_in_time and req.league.upper() == "NBA"),
-                "cutoff_utc": req.date_str + "T00:00:00Z" if req.strict_point_in_time else None,
+                "cutoff_utc": datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat() if req.strict_point_in_time else None,
                 "pace_mean": round(pace_mean, 2),
                 "engine": "FAZ-13 FINAL (ABSOLUTE PATH + NORMALIZER)",
                 "generated_at": int(time.time()),
