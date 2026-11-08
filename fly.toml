@@ -18,7 +18,7 @@ ODDS_FORMAT = "decimal"
 BASELINE_DIR = "data/baselines"
 FAZ23_STORAGE = "faz23_storage.sqlite"
 
-[http_service]
+# Existing Fly volume: zeynal_data (ams), attached to machine 805121f66139d8.\n# CAUTION: this volume is NOT shared with other machines. Deploy only after\n# reconciling the second machine and choosing a single ledger writer.\n[mounts]\nsource = "zeynal_data"\ndestination = "/data"\n\n[http_service]
 internal_port = 8080
 force_https = true
 auto_start_machines = true
