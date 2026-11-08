@@ -405,6 +405,7 @@ def build_app() -> Application:
     app.bot_data["baseline_store"] = baseline_store
     app.bot_data["baseline_bootstrapper"] = bootstrapper
     app.bot_data["faz13"] = faz13
+    app.bot_data["faz17"] = Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE"))
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine()
 
@@ -434,7 +435,7 @@ async def main_async():
         logger.info("Bot polling started")
         engines = {
             "faz13": app.bot_data["faz13"],
-            "faz17": Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE")),
+            "faz17": app.bot_data["faz17"],
             "faz22": app.bot_data["faz22"],
             "faz23": app.bot_data["faz23"],
         }
