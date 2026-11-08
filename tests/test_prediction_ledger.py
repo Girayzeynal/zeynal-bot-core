@@ -165,6 +165,30 @@ class PredictionLedgerTests(unittest.TestCase):
         self.assertEqual(metrics.n_games, 1)
         self.assertAlmostEqual(metrics.score_mae, 2.0)
 
+    def test_multiple_requests_same_fixture_and_second_are_preserved(self):
+        first = self.prediction(expected_home=110.0)
+        second = self.prediction(expected_home=115.0)
+        v1 = self.ledger.record_prediction_version(first)
+        v2 = self.ledger.record_prediction_version(second)
+        self.assertNotEqual(v1, v2)
+        versions = self.ledger.prediction_versions("NBA", "fixture-1")
+        self.assertEqual(len(versions), 2)
+        self.assertEqual([v["expected_home"] for v in versions], [110.0, 115.0])
+
+    def test_each_version_compared_to_same_outcome(self):
+        self.ledger.record_prediction_version(self.prediction(expected_home=110))
+        self.ledger.record_prediction_version(
+            self.prediction(prediction_ts_utc=120, expected_home=112)
+        )
+        self.ledger.record_prediction_version(
+            self.prediction(prediction_ts_utc=160, expected_home=999)
+        )
+        self.ledger.record_fixture_start("NBA", "fixture-1", 150)
+        self.ledger.record_outcome(self.outcome())
+        comparisons = self.ledger.compare_prediction_versions("NBA", "fixture-1")
+        self.assertEqual(len(comparisons), 2)
+        self.assertEqual([c["home_absolute_error"] for c in comparisons], [2.0, 0.0])
+
     def test_invalid_probability_rejected(self):
         with self.assertRaises(ValueError):
             self.ledger.record_prediction(self.prediction(home_win_probability=float("nan")))
