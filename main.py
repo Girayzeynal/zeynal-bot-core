@@ -267,9 +267,12 @@ def build_app() -> Application:
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     baseline_store = TeamBaselineStore(base_dir=os.getenv("BASELINE_DIR", "data/baselines"))
+    # Estimated pace is accepted only with replayable ESPN boxscore evidence.
+    # Keep opt-in disabled until provider coverage and provenance are verified.
+    espn_estimated_pace = os.getenv("ESPN_ESTIMATED_PACE_ENABLED", "false").strip().lower() == "true"
     bootstrapper = TeamBaselineBootstrapper(
         store=baseline_store,
-        adapters=[ESPNAdapter()],
+        adapters=[ESPNAdapter(allow_estimated_pace=espn_estimated_pace)],
     )
 
     faz13 = Faz13Engine(
