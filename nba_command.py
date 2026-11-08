@@ -115,6 +115,56 @@ async def load_nba_games(day: str) -> list[dict]:
     return select_local_games(rows, day)
 
 
+def parse_espn_scoreboard(payload: object, day: str) -> list[dict]:
+    if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
+        raise ValueError("ESPN scoreboard invalid")
+    rows = []
+    for event in payload["events"]:
+        try:
+            game_id = str(event["id"]).strip()
+            start = datetime.fromisoformat(event["date"].replace("Z", "+00:00"))
+            competitions = event["competitions"]
+            if not game_id or start.tzinfo is None or len(competitions) != 1:
+                continue
+            competitors = competitions[0]["competitors"]
+            if len(competitors) != 2:
+                continue
+            teams = {}
+            for competitor in competitors:
+                side = competitor["homeAway"]
+                name = competitor["team"]["displayName"]
+                if side not in ("home", "away") or side in teams or not isinstance(name, str) or not name.strip():
+                    break
+                teams[side] = name
+            if set(teams) != {"home", "away"}:
+                continue
+            status = event["status"]["type"].get("shortDetail") or event["status"]["type"].get("name")
+            if not isinstance(status, str) or not status.strip():
+                continue
+            rows.append({"id": game_id, "date": start.isoformat(),
+                         "teams": {"home": {"name": teams["home"]}, "away": {"name": teams["away"]}},
+                         "status": {"short": status}})
+        except (KeyError, TypeError, ValueError, AttributeError, IndexError):
+            continue
+    return select_local_games(rows, day)
+
+
+async def load_espn_nba_games(day: str) -> list[dict]:
+    unique = {}
+    timeout = aiohttp.ClientTimeout(total=15)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        for utc_day in utc_dates_for_turkey_day(day):
+            async with session.get(
+                "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard",
+                params={"dates": utc_day.replace("-", "")},
+            ) as response:
+                response.raise_for_status()
+                payload = await response.json()
+                for game in parse_espn_scoreboard(payload, day):
+                    unique[(game["start"].isoformat(), game["home"], game["away"])] = game
+    return sorted(unique.values(), key=lambda game: game["start"])
+
+
 async def nba_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_message is None:
         return
@@ -123,30 +173,26 @@ async def nba_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     except ValueError as exc:
         await update.effective_message.reply_text(str(exc))
         return
+    source = "API-Sports"
     try:
         games = await load_nba_games(day)
-    except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, RuntimeError) as exc:
-        if isinstance(exc, aiohttp.ClientResponseError):
-            reason = f"HTTP {exc.status}"
-        elif isinstance(exc, asyncio.TimeoutError):
-            reason = "Zaman aşımı"
-        elif isinstance(exc, aiohttp.ClientError):
-            reason = "Bağlantı hatası"
-        elif isinstance(exc, RuntimeError):
-            reason = "Yapılandırma hatası"
-        else:
-            reason = "Sağlayıcı yanıt hatası"
-        logger.warning("NBA fixture unavailable; date=%s reason=%s", day, reason)
-        await update.effective_message.reply_text(
-            f"NBA fikstürü doğrulanamadı ({reason}). Sağlayıcı ve yapılandırma kontrol edilmeli. Tahmin üretilmedi."
-        )
-        return
+    except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, RuntimeError) as primary_exc:
+        logger.warning("NBA primary fixture provider failed; date=%s reason=%s", day, type(primary_exc).__name__)
+        try:
+            games = await load_espn_nba_games(day)
+            source = "ESPN"
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, RuntimeError) as secondary_exc:
+            logger.warning("NBA secondary fixture provider failed; date=%s reason=%s", day, type(secondary_exc).__name__)
+            await update.effective_message.reply_text(
+                "NBA fikstürü iki bağımsız sağlayıcıdan da doğrulanamadı. Tahmin üretilmedi."
+            )
+            return
     if not games:
         await update.effective_message.reply_text(
             f"NBA | {day} | Türkiye saati\nDoğrulanmış maç kaydı bulunamadı. Bu, kesin olarak maç olmadığı anlamına gelmez."
         )
         return
-    lines = [f"NBA | {day} | Türkiye saati", "Kaynak: API-Sports | Fikstür (tahmin değil)"]
+    lines = [f"NBA | {day} | Türkiye saati", f"Kaynak: {source} | Fikstür (tahmin değil)"]
     for game in games:
         lines.append(
             f"{game['start']:%H:%M} | {game['home']} - {game['away']} | {game['status']}"
