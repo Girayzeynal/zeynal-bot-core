@@ -14,6 +14,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstrapper
 from providers.espn_adapter import ESPNAdapter
+from nba_fixture_binding import resolve_nba_fixture
 from prediction_ledger import PredictionLedger
 from ledger_storage_config import resolve_prediction_ledger_path
 
@@ -199,9 +200,25 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Never attach an NBA projection to an invented fixture id.
+    fixture_id = 0
+    if league.upper() == "NBA":
+        try:
+            adapter = context.application.bot_data.get("nba_fixture_adapter")
+            if adapter is None:
+                raise ValueError("ESPN fixture adapter unavailable")
+            fixture = await resolve_nba_fixture(adapter, date_str, home, away)
+            fixture_id = int(fixture["provider_fixture_id"])
+        except (ValueError, RuntimeError, KeyError, TypeError) as exc:
+            logger.warning("NBA fixture validation failed: %s", exc)
+            await update.message.reply_text(
+                "NBA fikstürü doğrulanamadı: analiz oluşturulmadı."
+            )
+            return
+
     try:
         req = PrematchRequest(
-            fixture_id=0,
+            fixture_id=fixture_id,
             league=league,
             date_str=date_str,
             home=home,
@@ -283,6 +300,7 @@ def build_app() -> Application:
 
     app.bot_data["baseline_store"] = baseline_store
     app.bot_data["baseline_bootstrapper"] = bootstrapper
+    app.bot_data["nba_fixture_adapter"] = ESPNAdapter()
     app.bot_data["faz13"] = faz13
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine(storage_path=os.getenv("FAZ23_STORAGE", "faz23_storage.sqlite"))
