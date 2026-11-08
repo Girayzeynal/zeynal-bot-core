@@ -227,6 +227,27 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
                     if market.get("status") in ("MARKET_OK", "MARKET_OK_DATE_SHIFT") and market.get("total") is not None:
                         result.market = market
+                        # Persist only bookmaker-attributed, timestamped quotes on the Fly volume.
+                        try:
+                            from market_snapshot_store import MarketSnapshotStore
+                            from sharp_guard import MarketSnapshot
+                            import time
+                            market_path = os.getenv("MARKET_SNAPSHOT_DB", "/data/market_snapshots.sqlite").strip()
+                            safe_path = os.path.realpath(market_path) if market_path else ""
+                            safe_storage = (
+                                bool(safe_path) and os.path.ismount("/data")
+                                and os.path.commonpath(("/data", safe_path)) == "/data"
+                                and os.path.isdir(os.path.dirname(safe_path))
+                            )
+                            if safe_storage:
+                                store = MarketSnapshotStore(safe_path)
+                                market_key = f"{fixture_start_utc}:{home.casefold().strip()}:{away.casefold().strip()}"
+                                for quote in market.get("quotes") or []:
+                                    store.append(market_key, MarketSnapshot(**quote))
+                            else:
+                                logger.warning("Market snapshots not persisted: /data volume unavailable")
+                        except Exception:
+                            logger.exception("Market snapshot persistence failed; no archive claimed")
                     else:
                         result.market = {"status": "MARKET_UNAVAILABLE", "total": None}
             except Exception:
