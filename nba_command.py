@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -10,6 +11,7 @@ import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
 
+logger = logging.getLogger(__name__)
 ISTANBUL = ZoneInfo("Europe/Istanbul")
 NBA_LEAGUE_ID = 12  # API-Sports league mapping; verify against provider before release.
 
@@ -37,6 +39,9 @@ def validate_provider_payload(payload: object) -> list[dict]:
     if not isinstance(payload, dict):
         raise ValueError("Fikstür sağlayıcısı geçersiz yanıt döndürdü.")
     if payload.get("errors") not in (None, [], {}):
+        errors = payload["errors"]
+        categories = sorted(str(k) for k in errors.keys()) if isinstance(errors, dict) else ["provider"]
+        logger.warning("NBA fixture provider rejected request; error_categories=%s", categories)
         raise ValueError("Fikstür sağlayıcısı API hatası bildirdi.")
     rows = payload.get("response")
     if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
@@ -84,6 +89,7 @@ async def load_nba_games(day: str) -> list[dict]:
                 headers={"x-apisports-key": key},
                 params={"league": NBA_LEAGUE_ID, "date": utc_day, "timezone": "UTC"},
             ) as response:
+                logger.info("NBA fixture provider request date=%s status=%s", utc_day, response.status)
                 response.raise_for_status()
                 try:
                     payload = await response.json()
@@ -103,9 +109,20 @@ async def nba_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     try:
         games = await load_nba_games(day)
-    except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, RuntimeError):
+    except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, RuntimeError) as exc:
+        if isinstance(exc, aiohttp.ClientResponseError):
+            reason = f"HTTP {exc.status}"
+        elif isinstance(exc, asyncio.TimeoutError):
+            reason = "Zaman aşımı"
+        elif isinstance(exc, aiohttp.ClientError):
+            reason = "Bağlantı hatası"
+        elif isinstance(exc, RuntimeError):
+            reason = "Yapılandırma hatası"
+        else:
+            reason = "Sağlayıcı yanıt hatası"
+        logger.warning("NBA fixture unavailable; date=%s reason=%s", day, reason)
         await update.effective_message.reply_text(
-            "NBA fikstürü doğrulanamadı. Sağlayıcı bağlantısı, yanıtı veya yapılandırması kontrol edilmeli. Tahmin üretilmedi."
+            f"NBA fikstürü doğrulanamadı ({reason}). Sağlayıcı ve yapılandırma kontrol edilmeli. Tahmin üretilmedi."
         )
         return
     if not games:
