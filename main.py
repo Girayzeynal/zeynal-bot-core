@@ -172,6 +172,35 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Bind strict historical cutoff to an independently fetched, unambiguous
+    # fixture. Do not infer a tipoff timestamp from a date-only command.
+    fixture_start_utc = None
+    if league.upper() == "NBA":
+        from nba_command import load_espn_nba_games, load_nba_games
+        def match_key(value):
+            return "".join(c for c in value.casefold() if c.isalnum())
+        verified = []
+        for loader in (load_espn_nba_games, load_nba_games):
+            try:
+                fixtures = await loader(date_str)
+                matches = [
+                    g for g in fixtures
+                    if match_key(g["home"]) == match_key(home)
+                    and match_key(g["away"]) == match_key(away)
+                ]
+                if len(matches) == 1:
+                    verified = matches
+                    break
+            except Exception as exc:
+                logger.warning("NBA fixture tipoff lookup failed: provider=%s error=%s",
+                               loader.__name__, type(exc).__name__)
+        if len(verified) != 1:
+            await update.message.reply_text(
+                "NBA maç başlangıcı doğrulanamadı; tarih kesiti güvenli değil. Tahmin üretilmedi."
+            )
+            return
+        fixture_start_utc = int(verified[0]["start"].timestamp())
+
     try:
         req = PrematchRequest(
             fixture_id=0,
@@ -180,6 +209,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             home=home,
             away=away,
             strict_point_in_time=(league.upper() == "NBA"),
+            fixture_start_utc=fixture_start_utc,
         )
 
         # 🔥 DOĞRU ÇAĞRI
