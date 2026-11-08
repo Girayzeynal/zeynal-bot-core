@@ -187,10 +187,10 @@ class PredictionLedger:
         if item.scope not in ("REGULATION_ONLY", "FINAL_WITH_OT"):
             raise ValueError("unknown prediction scope")
         for score in (item.expected_home, item.expected_away):
-            if not math.isfinite(score) or score < 0:
+            if type(score) not in (int, float) or not math.isfinite(score) or score < 0:
                 raise ValueError("invalid expected score")
         p = item.home_win_probability
-        if p is not None and (not math.isfinite(p) or not 0 <= p <= 1):
+        if p is not None and (type(p) not in (int, float) or not math.isfinite(p) or not 0 <= p <= 1):
             raise ValueError("invalid win probability")
         with self._connect() as db:
             cursor = db.execute(
