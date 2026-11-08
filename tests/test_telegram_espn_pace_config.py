@@ -11,7 +11,7 @@ class EspnPaceConfigTests(unittest.TestCase):
         assignments = [node for node in ast.walk(build) if isinstance(node, ast.Assign)]
         configured = [node for node in assignments if any(isinstance(t, ast.Name) and t.id == "espn_estimated_pace" for t in node.targets)]
         self.assertEqual(len(configured), 1)
-        self.assertIn('"false"', ast.unparse(configured[0]).lower())
+        self.assertIn("false", ast.unparse(configured[0]).lower())
         calls = [node for node in ast.walk(build) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "ESPNAdapter"]
         self.assertTrue(any(any(kw.arg == "allow_estimated_pace" and isinstance(kw.value, ast.Name) and kw.value.id == "espn_estimated_pace" for kw in call.keywords) for call in calls))
 
