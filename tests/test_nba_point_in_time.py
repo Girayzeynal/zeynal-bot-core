@@ -33,6 +33,11 @@ class PointInTimeTests(unittest.TestCase):
             self.assertIn("48 dk sonunda eşitlik", result.render_html())
             self.assertNotIn("40 dk", result.render_html())
             self.assertIn("kesin skor değil", result.render_html())
+            telegram = result.render_telegram_html()
+            self.assertIn("<pre>", telegram)
+            self.assertIn("Kalibre edilmiş güven endeksi", telegram)
+            self.assertIn("48dk", telegram)
+            self.assertIn("10,000 senaryo", telegram)
             self.assertAlmostEqual(sum(result.meta["simulation"][k] for k in ("home_win_pct", "away_win_pct", "tie_pct")), 100, places=6)
             self.assertIn("PRE_FIXTURE_SERIES", result.meta["home_sources"])
 

@@ -216,7 +216,8 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         result = await faz13.run_prematch(req)
 
         await update.message.reply_text(
-            result.render_html(),
+            result.render_telegram_html() if league.upper() == "NBA" else result.render_html(),
+            parse_mode="HTML" if league.upper() == "NBA" else None,
             disable_web_page_preview=True,
         )
 

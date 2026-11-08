@@ -140,6 +140,51 @@ class Faz13CoreOutput:
         return "\n".join(out)
 
 
+    def render_telegram_html(self) -> str:
+        """Compact mobile-friendly HTML with a fixed-width probability table."""
+        esc = html.escape
+        sim = self.meta.get("simulation")
+        if not sim:
+            return esc(self.render_html())
+        rows = [
+            ("Ev kazanır (48dk)", f"%{sim['home_win_pct']:.1f}"),
+            ("Dep kazanır (48dk)", f"%{sim['away_win_pct']:.1f}"),
+            ("Eşitlik (48dk)", f"%{sim['tie_pct']:.1f}"),
+            ("Toplam medyan", f"{sim['p50']:.0f}"),
+            ("Toplam %5–%95", f"{sim['p05']:.0f}–{sim['p95']:.0f}"),
+        ]
+        table = "\n".join(f"{name:<19} {value:>9}" for name, value in rows)
+        home_n = self.meta.get("home_baseline_games", 0)
+        away_n = self.meta.get("away_baseline_games", 0)
+        home_mu = (self.home_avg.points_for + self.away_avg.points_against) / 2
+        away_mu = (self.away_avg.points_for + self.home_avg.points_against) / 2
+        periods = " | ".join(
+            f"{i+1}Ç {h:.1f}-{a:.1f}"
+            for i, (h, a) in enumerate(zip(sim["period_home"], sim["period_away"]))
+        )
+        return "\n".join([
+            "<b>🏀 NBA | MAÇ ÖNCESİ ANALİZ</b>",
+            f"{esc(self.ctx.home)} – {esc(self.ctx.away)}",
+            f"📅 {esc(self.ctx.date)} | Normal süre 48 dk",
+            "",
+            "<b>📊 SİMÜLASYON TABLOSU</b>",
+            f"<pre>{esc(table)}</pre>",
+            f"🎯 Model skor ort.: {home_mu:.1f} – {away_mu:.1f}",
+            f"📈 Toplam beklenti: {home_mu + away_mu:.1f}",
+            f"⏱ Periyot ort.: {esc(periods)}",
+            "",
+            "<b>🛡 GÜVENİLİRLİK</b>",
+            "Kalibre edilmiş güven endeksi: <b>Henüz yok</b>",
+            f"Veri: Ev {home_n} | Dep {away_n} geçmiş maç",
+            f"Simülasyon: {sim['n']:,} senaryo",
+            "Korelasyon: 0 varsayımı (kalibre edilmedi)",
+            "Yüzdelikler kesin skor veya güven aralığı değildir.",
+            "Uzatma dahil değildir; olasılıklar doğrulanmış başarı oranı değildir.",
+            "",
+            "Bu çıktı analiz/simülasyon amaçlıdır. Bahis tavsiyesi değildir.",
+        ])
+
+
 # =========================
 # ENGINE
 # =========================
