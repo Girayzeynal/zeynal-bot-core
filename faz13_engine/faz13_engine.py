@@ -141,63 +141,60 @@ class Faz13CoreOutput:
 
 
     def render_telegram_html(self) -> str:
-        """Compact mobile-friendly HTML with a fixed-width probability table."""
+        """Readable mobile Telegram HTML without pre/code blocks."""
         esc = html.escape
         sim = self.meta.get("simulation")
         if not sim:
             return esc(self.render_html())
-        rows = [
-            ("Ev kazanır (48dk)", f"%{sim['home_win_pct']:.1f}"),
-            ("Dep kazanır (48dk)", f"%{sim['away_win_pct']:.1f}"),
-            ("Eşitlik (48dk)", f"%{sim['tie_pct']:.1f}"),
-            ("Toplam medyan", f"{sim['p50']:.0f}"),
-            ("Toplam %5–%95", f"{sim['p05']:.0f}–{sim['p95']:.0f}"),
-        ]
-        table = "\n".join(f"{name:<19} {value:>9}" for name, value in rows)
         home_n = self.meta.get("home_baseline_games", 0)
         away_n = self.meta.get("away_baseline_games", 0)
         home_mu = (self.home_avg.points_for + self.away_avg.points_against) / 2
         away_mu = (self.away_avg.points_for + self.home_avg.points_against) / 2
-        periods = " | ".join(
-            f"{i+1}Ç {h:.1f}-{a:.1f}"
-            for i, (h, a) in enumerate(zip(sim["period_home"], sim["period_away"]))
-        )
-        total_lines = sim.get("total_lines", {})
-        half_lines = sim.get("first_half_lines", {})
-        def line_table(lines):
-            return "\\n".join(
-                f"{line:>6.1f}  %{(1 - prob) * 100:>5.1f}  %{prob * 100:>5.1f}"
-                for line, prob in sorted(lines.items())
-            )
-        first_half = sim.get("first_half_total")
         half_home = sum(sim["period_home"][:2])
         half_away = sum(sim["period_away"][:2])
+
+        def probability_lines(lines):
+            return [
+                f"• <b>{float(line):.1f}</b>  Alt %{(1 - prob) * 100:.1f}  |  Üst %{prob * 100:.1f}"
+                for line, prob in sorted(lines.items())
+            ]
+
+        period_lines = [
+            f"• {i + 1}. çeyrek: {h:.1f} – {a:.1f}"
+            for i, (h, a) in enumerate(zip(sim["period_home"], sim["period_away"]))
+        ]
         return "\n".join([
             "<b>🏀 NBA | MAÇ ÖNCESİ ANALİZ</b>",
             f"{esc(self.ctx.home)} – {esc(self.ctx.away)}",
-            f"📅 {esc(self.ctx.date)} | Normal süre 48 dk",
+            f"📅 {esc(self.ctx.date)} | Normal süre: 48 dk",
             "",
-            "<b>📊 SİMÜLASYON TABLOSU</b>",
-            f"<pre>{esc(table)}</pre>",
-            f"🎯 Model skor ort.: {home_mu:.1f} – {away_mu:.1f}",
-            f"📈 Toplam beklenti: {home_mu + away_mu:.1f}",
-            f"⏳ İlk yarı model ort.: {half_home:.1f} – {half_away:.1f} | Toplam {first_half:.1f}",
+            "<b>🎯 MAÇ SONU TAHMİNİ</b>",
+            f"• Model skor ortalaması: <b>{home_mu:.1f} – {away_mu:.1f}</b>",
+            f"• Beklenen toplam: <b>{home_mu + away_mu:.1f}</b>",
+            f"• Ev sahibi (48 dk): <b>%{sim['home_win_pct']:.1f}</b>",
+            f"• Deplasman (48 dk): <b>%{sim['away_win_pct']:.1f}</b>",
+            f"• 48 dk sonunda eşitlik: <b>%{sim['tie_pct']:.1f}</b>",
             "",
-            "<b>📉 MAÇ TOPLAMI ALT / ÜST</b>",
-            f"<pre>{esc('Barem     Alt     Üst' + chr(10) + line_table(total_lines))}</pre>",
-            "<b>⏳ İLK YARI ALT / ÜST</b>",
-            f"<pre>{esc('Barem     Alt     Üst' + chr(10) + line_table(half_lines))}</pre>",
-            f"⏱ Periyot ort.: {esc(periods)}",
+            "<b>⏳ İLK YARI</b>",
+            f"• Skor ortalaması: <b>{half_home:.1f} – {half_away:.1f}</b>",
+            f"• Toplam ortalaması: <b>{sim['first_half_total']:.1f}</b>",
             "",
-            "<b>🛡 GÜVENİLİRLİK</b>",
-            "Kalibre edilmiş güven endeksi: <b>Henüz yok</b>",
-            f"Veri: Ev {home_n} | Dep {away_n} geçmiş maç",
-            f"Simülasyon: {sim['n']:,} senaryo",
-            "Korelasyon: 0 varsayımı (kalibre edilmedi)",
-            "Baremler örnektir, canlı bahis piyasasından alınmadı.",
-            "İlk yarı dağılımı rastgele periyot paylaştırmasıdır; periyot bazlı kalibrasyon yok.",
-            "Yüzdelikler kesin skor veya güven aralığı değildir.",
-            "Uzatma dahil değildir; olasılıklar doğrulanmış başarı oranı değildir.",
+            "<b>📉 MAÇ TOPLAMI | ALT / ÜST</b>",
+            *probability_lines(sim.get("total_lines", {})),
+            "",
+            "<b>📉 İLK YARI | ALT / ÜST</b>",
+            *probability_lines(sim.get("first_half_lines", {})),
+            "",
+            "<b>⏱ PERİYOT SKOR ORTALAMALARI</b>",
+            *period_lines,
+            "",
+            "<b>🛡 VERİ VE GÜVENİLİRLİK</b>",
+            f"• Geçmiş maç: Ev {home_n} | Dep {away_n}",
+            f"• Monte Carlo: {sim['n']:,} senaryo",
+            "• Kalibre edilmiş güven endeksi: <b>Henüz yok</b>",
+            "• Baremler piyasa oranı değil, model karşılaştırma seviyeleridir.",
+            "• Periyot dağılımı ve skor korelasyonu henüz kalibre edilmedi.",
+            "• Uzatma dahil değil; yüzdeler doğrulanmış isabet oranı değildir.",
             "",
             "Bu çıktı analiz/simülasyon amaçlıdır. Bahis tavsiyesi değildir.",
         ])
