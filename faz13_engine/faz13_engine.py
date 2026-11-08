@@ -112,12 +112,12 @@ class Faz13CoreOutput:
                 f"Monte Carlo: {sim['n']} senaryo | 4 periyot | normal süre"
             )
             out.append(
-                f"Simülasyon: Ev %{sim['home_win_pct']:.1f} | "
+                f"Simülasyon (48 dk): Ev %{sim['home_win_pct']:.1f} | "
                 f"Dep %{sim['away_win_pct']:.1f} | "
-                f"40 dk beraberlik %{sim['tie_pct']:.1f}"
+                f"48 dk sonunda eşitlik %{sim['tie_pct']:.1f}"
             )
             out.append(
-                f"Toplam sayı dağılımı: %5={sim['p05']:.1f} | "
+                f"Toplam sayı yüzdelikleri (kesin skor değil): %5={sim['p05']:.1f} | "
                 f"Medyan={sim['p50']:.1f} | %95={sim['p95']:.1f}"
             )
             out.append(
@@ -128,7 +128,7 @@ class Faz13CoreOutput:
             out.append(
                 "Simülasyon varsayımı: takım skorları için geçmiş maç standart sapması; "
                 "takımlar arası korelasyon 0 (kalibre edilmedi). "
-                "Olasılıklar doğrulanmış isabet oranı değildir."
+                "Uzatma dahil değil; olasılıklar doğrulanmış isabet oranı değildir."
             )
         else:
             out.append("Model: Son maç skor ortalamaları; kadro, sakatlık, piyasa ve Monte Carlo dahil değil.")
