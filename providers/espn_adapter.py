@@ -333,6 +333,23 @@ class ESPNAdapter:
                 rejection_counts["not_strictly_completed"] += 1
             elif not isinstance(competition.get("competitors"), list):
                 rejection_counts["invalid_competitors"] += 1
+            # Count rejection causes without logging raw ESPN event payloads.
+            if isinstance(comp_type, dict) and comp_type.get("state") in ("post", "completed") and comp_type.get("completed") is True:
+                competitors = competition.get("competitors")
+                if not isinstance(competitors, list) or len(competitors) != 2:
+                    rejection_counts["strict_candidate_bad_competitors"] += 1
+                else:
+                    for competitor in competitors:
+                        if not isinstance(competitor, dict):
+                            rejection_counts["strict_candidate_invalid_competitor"] += 1
+                            continue
+                        if not isinstance(competitor.get("score"), (int, float, str)):
+                            rejection_counts["strict_candidate_score_not_scalar"] += 1
+                        team_obj = competitor.get("team")
+                        if not isinstance(team_obj, dict) or not team_obj.get("id"):
+                            rejection_counts["strict_candidate_missing_team_id"] += 1
+                    if not ev.get("date"):
+                        rejection_counts["strict_candidate_missing_date"] += 1
             parsed = parse_completed_nba_event(ev)
             if parsed is None:
                 rejection_counts["parser_rejected"] += 1
