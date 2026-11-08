@@ -5,6 +5,8 @@ import html
 import json
 import os
 import time
+import math
+from statistics import pstdev
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from core.aggregate_engine import aggregate_baseline
 from league_profiles import get_league_profile
+from prematch_monte_carlo import PrematchMonteCarloEngine, PrematchSimulationInput
 
 try:
     from providers.espn_adapter import ESPNAdapter
@@ -103,7 +106,32 @@ class Faz13CoreOutput:
         out.append(
             "Bant: Lig profilindeki sabit yarı genişlik; istatistiksel güven aralığı değildir."
         )
-        out.append("Model: Son maç skor ortalamaları; kadro, sakatlık, piyasa ve Monte Carlo dahil değil.")
+        sim = self.meta.get("simulation")
+        if sim:
+            out.append(
+                f"Monte Carlo: {sim['n']} senaryo | 4 periyot | normal süre"
+            )
+            out.append(
+                f"Simülasyon: Ev %{sim['home_win_pct']:.1f} | "
+                f"Dep %{sim['away_win_pct']:.1f} | "
+                f"40 dk beraberlik %{sim['tie_pct']:.1f}"
+            )
+            out.append(
+                f"Toplam sayı dağılımı: %5={sim['p05']:.1f} | "
+                f"Medyan={sim['p50']:.1f} | %95={sim['p95']:.1f}"
+            )
+            out.append(
+                f"Periyot ortalamaları (Ev-Dep): "
+                + " | ".join(f"{i+1}Ç {h:.1f}-{a:.1f}" for i, (h, a) in enumerate(
+                    zip(sim['period_home'], sim['period_away'])))
+            )
+            out.append(
+                "Simülasyon varsayımı: takım skorları için geçmiş maç standart sapması; "
+                "takımlar arası korelasyon 0 (kalibre edilmedi). "
+                "Olasılıklar doğrulanmış isabet oranı değildir."
+            )
+        else:
+            out.append("Model: Son maç skor ortalamaları; kadro, sakatlık, piyasa ve Monte Carlo dahil değil.")
         out.append("")
         for n in self.notes:
             out.append(f"• {esc(n)}")
@@ -300,6 +328,7 @@ class Faz13Engine:
                     "n_games": len(records),
                     "first_game_ts": min(r.ts_utc for r in records),
                     "last_game_ts": max(r.ts_utc for r in records),
+                    "points_for_std": pstdev(r.pts_for for r in records),
                 })
             home_rows, away_rows = [[strict_rows[0]], [strict_rows[1]]]
         else:
@@ -358,6 +387,35 @@ class Faz13Engine:
         pace_mean = (home_base.get("pace", 99.5) + away_base.get("pace", 99.5)) / 2
         tempo_flag = self._tempo_flag(pace_mean)
 
+        simulation = None
+        if req.strict_point_in_time and req.league.upper() == "NBA":
+            # Sample-derived marginal variation; reject degenerate or invalid
+            # estimates rather than substituting arbitrary fixed deviations.
+            h_std = strict_rows[0]["points_for_std"]
+            a_std = strict_rows[1]["points_for_std"]
+            if not all(math.isfinite(x) and x > 0 for x in (h_std, a_std)):
+                raise ValueError("Insufficient score variance for Monte Carlo; no prediction.")
+            sim = PrematchMonteCarloEngine().simulate(PrematchSimulationInput(
+                home_mean=home_mu, away_mean=away_mu,
+                home_std=h_std, away_std=a_std,
+                score_correlation=0.0, shared_pace_std=0.0,
+                simulations=10000, seed=20261108,
+            ))
+            simulation = {
+                "n": sim.simulations,
+                "home_win_pct": 100 * sim.home_regulation_win_probability,
+                "away_win_pct": 100 * sim.away_regulation_win_probability,
+                "tie_pct": 100 * sim.regulation_tie_probability,
+                "p05": sim.total_quantiles["p05"],
+                "p50": sim.total_quantiles["p50"],
+                "p95": sim.total_quantiles["p95"],
+                "period_home": sim.period_home_means,
+                "period_away": sim.period_away_means,
+                "home_std": h_std,
+                "away_std": a_std,
+                "assumed_correlation": 0.0,
+            }
+
         ctx = FixtureContext(req.league, req.date_str, req.home, req.away)
 
         return Faz13CoreOutput(
@@ -388,6 +446,7 @@ class Faz13Engine:
                 "home_baseline_games": int(home_base.get("n_games", 0)),
                 "away_baseline_games": int(away_base.get("n_games", 0)),
                 "expected_total": round(total_mu, 2),
+                "simulation": simulation,
                 "point_in_time": bool(req.strict_point_in_time and req.league.upper() == "NBA"),
                 "cutoff_utc": datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat() if req.strict_point_in_time else None,
                 "pace_mean": round(pace_mean, 2),
