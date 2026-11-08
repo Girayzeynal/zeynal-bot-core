@@ -158,6 +158,7 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
             faz23 = types.SimpleNamespace(apply_decision=unittest.mock.Mock(), record_snapshot=AsyncMock())
             context = types.SimpleNamespace(application=types.SimpleNamespace(bot_data={
                 "faz13": engine,
+                "nba_fixture_adapter": object(),
                 "baseline_bootstrapper": types.SimpleNamespace(ensure_async=AsyncMock(return_value=object())),
                 "faz22": faz22, "faz23": faz23,
             }))
