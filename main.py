@@ -243,6 +243,10 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 store = MarketSnapshotStore(safe_path)
                                 market_key = f"{fixture_start_utc}:{home.casefold().strip()}:{away.casefold().strip()}"
                                 for quote in market.get("quotes") or []:
+                                    if (fixture_start_utc is None
+                                            or quote.get("observed_utc", 0) >= fixture_start_utc):
+                                        logger.warning("Post-tipoff market quote rejected from prematch archive")
+                                        continue
                                     store.append(market_key, MarketSnapshot(**quote))
                             else:
                                 logger.warning("Market snapshots not persisted: /data volume unavailable")
