@@ -53,7 +53,7 @@ class BotLedgerStartupTests(unittest.TestCase):
             "Faz13Engine": lambda **kw: object(),
             "Faz22Engine": lambda: object(),
             "Faz23Engine": lambda **kw: object(),
-            "ESPNAdapter": lambda: object(),
+            "ESPNAdapter": lambda **kwargs: object(),
             "PredictionLedger": FakeLedger,
             "resolve_prediction_ledger_path": __import__(
                 "ledger_storage_config").resolve_prediction_ledger_path,
