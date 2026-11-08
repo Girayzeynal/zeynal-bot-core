@@ -17,6 +17,11 @@ class LivePredictionLedgerWiringTests(unittest.TestCase):
         self.assertIn('scope="REGULATION_ONLY"', body)
         self.assertIn('record_prediction(', body)
         self.assertIn('record_fixture_start(', body)
+        self.assertIn('"/data/prediction_ledger.sqlite"', body)
+        self.assertIn('os.path.ismount(persistent_root)', body)
+        self.assertIn('os.path.commonpath(', body)
+        self.assertIn('if ledger_ready:', body)
+        self.assertIn('Prediction ledger disabled:', body)
 
 
 if __name__ == "__main__":
