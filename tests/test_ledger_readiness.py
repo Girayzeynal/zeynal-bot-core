@@ -23,6 +23,7 @@ class LedgerReadinessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             path = os.path.join(root, "ledger.sqlite")
             ledger = PredictionLedger(path)
+            ledger.record_fixture_start("NBA", "one", 200)
             ledger.record_fixture_provenance("NBA", "one", "ESPN", "401999999", 200)
             with patch("ledger_readiness.os.path.ismount", return_value=True):
                 result = ledger_readiness(path, root)
