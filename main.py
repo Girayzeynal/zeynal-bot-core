@@ -243,9 +243,11 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 store = MarketSnapshotStore(safe_path)
                                 market_key = f"{fixture_start_utc}:{home.casefold().strip()}:{away.casefold().strip()}"
                                 for quote in market.get("quotes") or []:
-                                    if (fixture_start_utc is None
-                                            or quote.get("observed_utc", 0) >= fixture_start_utc):
-                                        logger.warning("Post-tipoff market quote rejected from prematch archive")
+                                    quote_ts = quote.get("observed_utc", 0)
+                                    now_ts = int(time.time())
+                                    if (fixture_start_utc is None or quote_ts >= fixture_start_utc
+                                            or quote_ts > now_ts or now_ts - quote_ts > 900):
+                                        logger.warning("Market quote rejected: post-tipoff, future or stale")
                                         continue
                                     store.append(market_key, MarketSnapshot(**quote))
                             else:
@@ -403,6 +405,7 @@ def build_app() -> Application:
     app.bot_data["baseline_store"] = baseline_store
     app.bot_data["baseline_bootstrapper"] = bootstrapper
     app.bot_data["faz13"] = faz13
+    app.bot_data["faz17"] = Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE"))
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine()
 
@@ -432,7 +435,7 @@ async def main_async():
         logger.info("Bot polling started")
         engines = {
             "faz13": app.bot_data["faz13"],
-            "faz17": Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE")),
+            "faz17": app.bot_data["faz17"],
             "faz22": app.bot_data["faz22"],
             "faz23": app.bot_data["faz23"],
         }
