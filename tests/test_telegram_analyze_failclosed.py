@@ -46,7 +46,7 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
             bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock(return_value=None))
             engine = types.SimpleNamespace(run_prematch=AsyncMock())
             context = types.SimpleNamespace(application=types.SimpleNamespace(
-                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper}))
+                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper, "nba_fixture_adapter": object()}))
             await handler(update, context)
             engine.run_prematch.assert_not_awaited()
             self.assertIn("Analiz oluşturulmadı", update.message.reply_text.await_args.args[0])
@@ -63,7 +63,7 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
             bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock())
             engine = types.SimpleNamespace(run_prematch=AsyncMock())
             context = types.SimpleNamespace(application=types.SimpleNamespace(
-                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper}))
+                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper, "nba_fixture_adapter": object()}))
             await handler(update, context)
             bootstrapper.ensure_async.assert_not_awaited()
             engine.run_prematch.assert_not_awaited()
@@ -78,7 +78,7 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
             bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock())
             engine = types.SimpleNamespace(run_prematch=AsyncMock())
             context = types.SimpleNamespace(application=types.SimpleNamespace(
-                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper}))
+                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper, "nba_fixture_adapter": object()}))
             await handler(update, context)
             bootstrapper.ensure_async.assert_not_awaited()
             engine.run_prematch.assert_not_awaited()
@@ -179,7 +179,7 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
                 side_effect=RuntimeError("provider unavailable")))
             engine = types.SimpleNamespace(run_prematch=AsyncMock())
             context = types.SimpleNamespace(application=types.SimpleNamespace(
-                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper}))
+                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper, "nba_fixture_adapter": object()}))
             await handler(update, context)
             engine.run_prematch.assert_not_awaited()
             self.assertIn("Veri sağlayıcısı hatası", update.message.reply_text.await_args.args[0])
