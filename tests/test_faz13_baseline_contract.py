@@ -55,6 +55,26 @@ class Faz13BaselineContractTests(unittest.TestCase):
         self.assertIn("=110.00 | Dep (109.0+108.0)/2=108.50 | Toplam=218.50", message)
         self.assertIn("istatistiksel güven aralığı değildir", message)
 
+    def test_total_barems_have_one_point_spacing(self):
+        lines = Faz13Engine._half_point_lines(224.6, 10)
+        self.assertEqual(len(lines), 21)
+        self.assertEqual(lines[0], 214.5)
+        self.assertEqual(lines[-1], 234.5)
+        self.assertEqual([b - a for a, b in zip(lines, lines[1:])], [1.0] * 20)
+        self.assertIn(220.5, lines)
+        self.assertIn(221.5, lines)
+
+    def test_first_half_barems_center_on_first_half_not_full_game(self):
+        lines = Faz13Engine._half_point_lines(112.0, 7)
+        self.assertEqual(len(lines), 15)
+        self.assertEqual(lines[0], 105.5)
+        self.assertEqual(lines[-1], 119.5)
+        self.assertIn(112.5, lines)
+
+    def test_invalid_barem_grid_fails_closed(self):
+        with self.assertRaises(ValueError):
+            Faz13Engine._half_point_lines(float("nan"), 5)
+
     def test_missing_baseline_fails_closed_without_fabricated_average(self):
         engine = self.make_engine(FakeStore())
 
