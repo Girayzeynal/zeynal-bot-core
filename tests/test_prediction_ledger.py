@@ -169,9 +169,13 @@ class PredictionLedgerTests(unittest.TestCase):
         for value in (True, False, "110", None, [], {}):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 self.ledger.record_prediction(self.prediction(expected_home=value))
-            with self.subTest(probability=value), self.assertRaises(ValueError):
-                self.ledger.record_prediction(self.prediction(home_win_probability=value))
+            if value is not None:
+                with self.subTest(probability=value), self.assertRaises(ValueError):
+                    self.ledger.record_prediction(self.prediction(home_win_probability=value))
         self.assertEqual(self.ledger.audit("NBA")["predictions"], 0)
+        # None explicitly represents unavailable calibration, not malformed input.
+        self.assertTrue(self.ledger.record_prediction(
+            self.prediction(home_win_probability=None)))
 
     def test_invalid_probability_rejected(self):
         with self.assertRaises(ValueError):
