@@ -72,6 +72,7 @@ class NbaCommandTests(unittest.TestCase):
 class FakeResponse:
     def __init__(self, payload):
         self.payload = payload
+        self.status = 200
 
     async def __aenter__(self):
         return self
