@@ -192,7 +192,7 @@ class Faz13CoreOutput:
             f"• Geçmiş maç: Ev {home_n} | Dep {away_n}",
             f"• Monte Carlo: {sim['n']:,} senaryo",
             "• Kalibre edilmiş güven endeksi: <b>Henüz yok</b>",
-            "• Baremler piyasa oranı değil, model karşılaştırma seviyeleridir.",
+            "• Alt/üst baremleri 1 sayı aralıklarla hesaplanır; piyasa oranı değildir.",
             "• Periyot dağılımı ve skor korelasyonu henüz kalibre edilmedi.",
             "• Uzatma dahil değil; yüzdeler doğrulanmış isabet oranı değildir.",
             "",
@@ -460,8 +460,10 @@ class Faz13Engine:
                 home_std=h_std, away_std=a_std,
                 score_correlation=0.0, shared_pace_std=0.0,
                 simulations=10000, seed=20261108,
-                total_lines=tuple(math.floor(total_mu / 5) * 5 + 0.5 + d for d in (-10, -5, 0, 5, 10)),
-                first_half_lines=tuple(math.floor(total_mu / 10) * 5 + 0.5 + d for d in (-5, 0, 5)),
+                # Half-point thresholds at every integer, centered on each
+                # market's own expected total (not a five-point sampling grid).
+                total_lines=tuple(math.floor(total_mu) + 0.5 + d for d in range(-10, 11)),
+                first_half_lines=tuple(math.floor(total_mu / 2) + 0.5 + d for d in range(-7, 8)),
             ))
             simulation = {
                 "n": sim.simulations,
