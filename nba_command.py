@@ -83,7 +83,7 @@ def select_local_games(rows: list[dict], day: str) -> list[dict]:
             status = item["status"]["short"]
             if not all(isinstance(x, str) and x.strip() for x in (home, away, status)):
                 continue
-            selected[game_id] = {"start": local, "home": home, "away": away, "status": status}
+            selected[game_id] = {"id": game_id, "start": local, "home": home, "away": away, "status": status}
         except (KeyError, TypeError, ValueError, AttributeError):
             continue
     return sorted(selected.values(), key=lambda g: g["start"])
