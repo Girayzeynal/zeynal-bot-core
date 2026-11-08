@@ -165,6 +165,14 @@ class PredictionLedgerTests(unittest.TestCase):
         self.assertEqual(metrics.n_games, 1)
         self.assertAlmostEqual(metrics.score_mae, 2.0)
 
+    def test_nonnumeric_and_boolean_projection_values_rejected(self):
+        for value in (True, False, "110", None, [], {}):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                self.ledger.record_prediction(self.prediction(expected_home=value))
+            with self.subTest(probability=value), self.assertRaises(ValueError):
+                self.ledger.record_prediction(self.prediction(home_win_probability=value))
+        self.assertEqual(self.ledger.audit("NBA")["predictions"], 0)
+
     def test_invalid_probability_rejected(self):
         with self.assertRaises(ValueError):
             self.ledger.record_prediction(self.prediction(home_win_probability=float("nan")))
