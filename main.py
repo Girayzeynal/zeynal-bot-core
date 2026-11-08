@@ -176,6 +176,8 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Bind strict historical cutoff to an independently fetched, unambiguous
     # fixture. Do not infer a tipoff timestamp from a date-only command.
     fixture_start_utc = None
+    fixture_provider = None
+    fixture_provider_id = None
     if league.upper() == "NBA":
         from nba_command import load_espn_nba_games, load_nba_games
         def match_key(value):
@@ -191,6 +193,8 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ]
                 if len(matches) == 1:
                     verified = matches
+                    fixture_provider = "ESPN" if loader is load_espn_nba_games else "API-Sports"
+                    fixture_provider_id = str(matches[0].get("id") or "").strip()
                     break
             except Exception as exc:
                 logger.warning("NBA fixture tipoff lookup failed: provider=%s error=%s",
@@ -306,6 +310,13 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         version_id = ledger.record_prediction_version(prediction_record)
                         inserted = ledger.record_prediction(prediction_record)
                         ledger.record_fixture_start("NBA", fixture_key, fixture_start_utc)
+                        if fixture_provider and fixture_provider_id:
+                            ledger.record_fixture_provenance(
+                                "NBA", fixture_key, fixture_provider,
+                                fixture_provider_id, fixture_start_utc,
+                            )
+                        else:
+                            logger.warning("Fixture provenance missing; calibration not eligible")
                         logger.info("Prediction ledger: fixture=%s version_id=%s first_record_inserted=%s", fixture_key, version_id, inserted)
                 except Exception:
                     logger.exception("Prediction ledger persistence failed; prediction not marked archived")
