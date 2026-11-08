@@ -24,7 +24,7 @@ class VerifiedOutcomeJoinTests(unittest.TestCase):
         ledger = PredictionLedger(self.path)
         ledger.record_prediction(PredictionRecord(
             league="NBA", fixture_id="fixture-1", prediction_ts_utc=100,
-            expected_home=102.0, expected_away=99.0, scope="REGULATION_ONLY",
+            expected_home=102.0, expected_away=99.0, home_win_probability=0.5, scope="REGULATION_ONLY",
         ))
         ledger.record_fixture_start("NBA", "fixture-1", 200)
         ledger.record_fixture_provenance("NBA", "fixture-1", "ESPN", "espn-1", 200)
