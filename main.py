@@ -88,7 +88,7 @@ def parse_analyze(text: str) -> Tuple[str, str, str, str]:
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_message:
         await update.effective_message.reply_text(
-            "Zeynal Bot Core aktif. Analiz biçimi:\n"
+            "Zeynal Bot Core aktif. NBA fikstürü: /nba veya /nba YYYY-MM-DD\nAnaliz biçimi:\n"
             "/analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman\n\n"
             "Yeterli doğrulanabilir takım verisi yoksa tahmin üretilmez."
         )
