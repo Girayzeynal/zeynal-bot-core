@@ -216,6 +216,23 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 🔥 DOĞRU ÇAĞRI
         result = await faz13.run_prematch(req)
 
+        # Market is optional. A verified current line is NOT an opening price or sharp signal.
+        if league.upper() == "NBA":
+            try:
+                from faz17_engine.faz17_engine import MarketRequest
+                market_engine = context.application.bot_data.get("faz17")
+                if market_engine is not None:
+                    market = await market_engine.fetch_market(
+                        MarketRequest(league="NBA", home=home, away=away, date_str=date_str)
+                    )
+                    if market.get("status") in ("MARKET_OK", "MARKET_OK_DATE_SHIFT") and market.get("total") is not None:
+                        result.market = market
+                    else:
+                        result.market = {"status": "MARKET_UNAVAILABLE", "total": None}
+            except Exception:
+                logger.exception("NBA market fetch failed; no market edge claimed")
+                result.market = {"status": "MARKET_UNAVAILABLE", "total": None}
+
         # Optional persistent, insert-only ledger. Never claim archived when
         # the storage volume is not configured or the write fails.
         if league.upper() == "NBA":
