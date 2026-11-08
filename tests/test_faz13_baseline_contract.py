@@ -48,6 +48,10 @@ class Faz13BaselineContractTests(unittest.TestCase):
         self.assertEqual(result.meta["away_baseline_games"], 10)
         self.assertEqual(result.meta["pace_mean"], 99.0)
         self.assertGreater(result.meta["confidence_pct"], 0)
+        message = result.render_html()
+        self.assertIn("Örneklem: Ev 10 maç | Dep 10 maç", message)
+        self.assertIn("Ev 112.0/108.0 | Dep 109.0/108.0", message)
+        self.assertIn("Monte Carlo dahil değil", message)
 
     def test_missing_baseline_fails_closed_without_fabricated_average(self):
         engine = self.make_engine(FakeStore())
