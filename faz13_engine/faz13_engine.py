@@ -196,10 +196,9 @@ class Faz13CoreOutput:
             (f"• Doğrulanmış piyasa baremi/oranı: güncel toplam <b>{self.market['total']:.1f}</b> (FAZ-17; açılış değil)"
              if self.market.get("status") in ("MARKET_OK", "MARKET_OK_DATE_SHIFT") and isinstance(self.market.get("total"), (int, float))
              else "• Doğrulanmış piyasa baremi/oranı: <b>Alınmadı</b>."),
-            (f"• Model – piyasa toplam farkı: <b>{(float(sim.get('expected_total', 0)) - float(self.market['total'])):+.1f}</b> sayı (model eksi piyasa; avantaj kanıtı değil)."
+            (f"• Model – piyasa toplam farkı: <b>{((home_mu + away_mu) - float(self.market['total'])):+.1f}</b> sayı (model eksi piyasa; avantaj kanıtı değil)."
              if self.market.get("status") in ("MARKET_OK", "MARKET_OK_DATE_SHIFT")
              and isinstance(self.market.get("total"), (int, float))
-             and isinstance(sim.get("expected_total"), (int, float))
              else "• Piyasa karşılaştırması: <b>Yapılamadı</b>."),
             (f"• Piyasa kaynağı: <b>{esc(str(self.market['quotes'][0]['bookmaker']))}</b> | "
              f"ALT {float(self.market['quotes'][0]['decimal_under']):.2f} / ÜST {float(self.market['quotes'][0]['decimal_over']):.2f} | "
