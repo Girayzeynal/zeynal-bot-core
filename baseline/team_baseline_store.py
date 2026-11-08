@@ -604,6 +604,21 @@ class TeamBaselineBootstrapper:
                 logger.info(f"[BASELINE-DIAG][ERROR] adapter={ad.__class__.__name__} league={league} team={team} err={e}")
                 continue
 
+        # Reuse an existing baseline only when its underlying persisted game
+        # series independently reproduces every aggregate. A provider returning
+        # duplicate/old events is not a reason to reject valid recent history.
+        if existing and type(existing.n_games) is int and existing.n_games >= min_games:
+            age = time.time() - existing.updated_ts
+            if 0 <= age <= 7 * 86400:
+                verified = self.store.compute_dynamic_baseline(league, team, existing.n_games)
+                if (verified is not None and verified["n_games"] == existing.n_games
+                        and all(math.isfinite(float(getattr(existing, field)))
+                                and math.isclose(float(getattr(existing, field)), float(verified[field]),
+                                                 rel_tol=1e-9, abs_tol=1e-8)
+                                for field in ("pts_for", "pts_against", "pace", "stdev_total"))):
+                    logger.info("[BASELINE-DIAG] reuse_verified_existing league=%s team=%s n_games=%s",
+                                league, team, existing.n_games)
+                    return existing
         logger.info(f"[BASELINE-DIAG] BASELINE_FAIL league={league} team={team} (no adapter produced usable games)")
-        # A stale/undersampled baseline must not be reported as refreshed.
+        # A stale/undersampled/inconsistent baseline must not be reported as refreshed.
         return None
