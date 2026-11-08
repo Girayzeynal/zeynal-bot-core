@@ -29,6 +29,9 @@ def load_handler():
     exec(compile(ast.fix_missing_locations(
         ast.Module(body=reasons + functions, type_ignores=[])), str(path), "exec"),
          namespace)
+    async def fake_fixture(_adapter, _date, _home, _away):
+        return {"provider_fixture_id": "401909924"}
+    namespace["resolve_nba_fixture"] = fake_fixture
     return namespace["analyze_command"]
 
 
@@ -101,6 +104,7 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
             engine = types.SimpleNamespace(run_prematch=AsyncMock(return_value=result))
             context = types.SimpleNamespace(application=types.SimpleNamespace(
                 bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper,
+                          "nba_fixture_adapter": object(),
                           "faz22": faz22, "faz23": faz23}))
             # Isolate the presentation contract from baseline quality policy.
             handler.__globals__["baseline_quality_reason"] = lambda *_args: "usable"
@@ -126,6 +130,7 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
             faz22 = types.SimpleNamespace(score_and_finalize=unittest.mock.Mock())
             faz23 = types.SimpleNamespace(apply_decision=unittest.mock.Mock(), record_snapshot=AsyncMock())
             context = types.SimpleNamespace(application=types.SimpleNamespace(bot_data={
+                "nba_fixture_adapter": object(),
                 "faz13": engine, "baseline_bootstrapper": bootstrapper,
                 "faz22": faz22, "faz23": faz23,
             }))
