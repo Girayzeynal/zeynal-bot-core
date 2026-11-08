@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 from datetime import datetime, timezone
 
-from nba_command import load_nba_games, parse_nba_date, select_local_games, utc_dates_for_turkey_day, validate_provider_payload, classify_provider_error
+from nba_command import load_nba_games, parse_nba_date, select_local_games, utc_dates_for_turkey_day, validate_provider_payload, classify_provider_error, parse_espn_scoreboard
 
 
 class NbaCommandTests(unittest.TestCase):
@@ -76,6 +76,20 @@ class NbaCommandTests(unittest.TestCase):
 
     def test_provider_payload_accepts_empty_valid_response(self):
         self.assertEqual(validate_provider_payload({"errors": [], "response": []}), [])
+
+    def test_espn_scoreboard_normalizes_local_date(self):
+        event = {
+            "id": "401", "date": "2026-11-08T23:30:00Z",
+            "status": {"type": {"name": "STATUS_SCHEDULED", "shortDetail": "7:30 PM"}},
+            "competitions": [{"competitors": [
+                {"homeAway": "home", "team": {"displayName": "Home Team"}},
+                {"homeAway": "away", "team": {"displayName": "Away Team"}},
+            ]}],
+        }
+        self.assertEqual(len(parse_espn_scoreboard({"events": [event]}, "2026-11-09")), 1)
+        self.assertEqual(parse_espn_scoreboard({"events": [event]}, "2026-11-08"), [])
+        with self.assertRaises(ValueError):
+            parse_espn_scoreboard({"events": None}, "2026-11-09")
 
     def test_invalid_rows_skipped(self):
         self.assertEqual(select_local_games([None, [], "invalid"], "2026-11-04"), [])
