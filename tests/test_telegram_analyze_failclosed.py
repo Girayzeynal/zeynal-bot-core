@@ -85,6 +85,31 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
             self.assertIn("Parametre hatasi", update.message.reply_text.await_args.args[0])
         asyncio.run(scenario())
 
+    def test_opt_in_ledger_refuses_missing_input_snapshot(self):
+        async def scenario():
+            handler = load_handler()
+            handler.__globals__["PrematchRequest"] = lambda **kwargs: types.SimpleNamespace(**kwargs)
+            handler.__globals__["Faz13CoreOutput"] = types.SimpleNamespace
+            handler.__globals__["baseline_quality_reason"] = lambda *_args: "usable"
+            tomorrow = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
+                        + datetime.timedelta(days=1)).isoformat()
+            update = types.SimpleNamespace(message=types.SimpleNamespace(
+                text=f"/analyze NBA {tomorrow} Home vs Away", reply_text=AsyncMock()))
+            bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock(return_value=object()))
+            result = types.SimpleNamespace(meta={"data_quality": "VERIFIED_BASELINE"}, render_html=lambda: "not recorded")
+            faz23 = types.SimpleNamespace(apply_decision=lambda core: core, record_snapshot=AsyncMock())
+            engine = types.SimpleNamespace(run_prematch=AsyncMock(return_value=result))
+            context = types.SimpleNamespace(application=types.SimpleNamespace(bot_data={
+                "nba_fixture_adapter": object(), "nba_prediction_ledger": object(),
+                "faz13": engine, "baseline_bootstrapper": bootstrapper,
+                "faz22": types.SimpleNamespace(score_and_finalize=lambda core: core), "faz23": faz23,
+            }))
+            await handler(update, context)
+            faz23.record_snapshot.assert_not_awaited()
+            self.assertNotIn("not recorded", update.message.reply_text.await_args.args[0])
+            self.assertIn("dahili bir hata", update.message.reply_text.await_args.args[0])
+        asyncio.run(scenario())
+
     def test_success_renders_telegram_html(self):
         async def scenario():
             handler = load_handler()
