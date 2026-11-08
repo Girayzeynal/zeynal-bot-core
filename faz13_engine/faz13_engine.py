@@ -89,6 +89,17 @@ class Faz13CoreOutput:
             f"Ev {self.home_avg.points_for:.1f}/{self.home_avg.points_against:.1f} | "
             f"Dep {self.away_avg.points_for:.1f}/{self.away_avg.points_against:.1f}"
         )
+        home_mu = (self.home_avg.points_for + self.away_avg.points_against) / 2
+        away_mu = (self.away_avg.points_for + self.home_avg.points_against) / 2
+        total_mu = home_mu + away_mu
+        out.append(
+            f"Hesap: Ev ({self.home_avg.points_for:.1f}+{self.away_avg.points_against:.1f})/2"
+            f"={home_mu:.2f} | Dep ({self.away_avg.points_for:.1f}+{self.home_avg.points_against:.1f})/2"
+            f"={away_mu:.2f} | Toplam={total_mu:.2f}"
+        )
+        out.append(
+            "Bant: Lig profilindeki sabit yarı genişlik; istatistiksel güven aralığı değildir."
+        )
         out.append("Model: Son maç skor ortalamaları; kadro, sakatlık, piyasa ve Monte Carlo dahil değil.")
         out.append("")
         for n in self.notes:
