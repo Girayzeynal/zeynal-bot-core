@@ -175,6 +175,22 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Never attach an NBA projection to an invented fixture id.
+    fixture_id = 0
+    if league.upper() == "NBA":
+        try:
+            adapter = context.application.bot_data.get("nba_fixture_adapter")
+            if adapter is None:
+                raise ValueError("ESPN fixture adapter unavailable")
+            fixture = await resolve_nba_fixture(adapter, date_str, home, away)
+            fixture_id = int(fixture["provider_fixture_id"])
+        except (ValueError, RuntimeError, KeyError, TypeError) as exc:
+            logger.warning("NBA fixture validation failed: %s", exc)
+            await update.message.reply_text(
+                "NBA fikstürü doğrulanamadı: analiz oluşturulmadı."
+            )
+            return
+
     faz13: Faz13Engine = context.application.bot_data["faz13"]
     bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
 
@@ -199,22 +215,6 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             baseline_failure_message(home_reason, away_reason)
         )
         return
-
-    # Never attach an NBA projection to an invented fixture id.
-    fixture_id = 0
-    if league.upper() == "NBA":
-        try:
-            adapter = context.application.bot_data.get("nba_fixture_adapter")
-            if adapter is None:
-                raise ValueError("ESPN fixture adapter unavailable")
-            fixture = await resolve_nba_fixture(adapter, date_str, home, away)
-            fixture_id = int(fixture["provider_fixture_id"])
-        except (ValueError, RuntimeError, KeyError, TypeError) as exc:
-            logger.warning("NBA fixture validation failed: %s", exc)
-            await update.message.reply_text(
-                "NBA fikstürü doğrulanamadı: analiz oluşturulmadı."
-            )
-            return
 
     try:
         req = PrematchRequest(
