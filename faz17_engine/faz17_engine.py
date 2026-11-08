@@ -347,7 +347,11 @@ class Faz17Engine:
                 self._cache_set(cache_key, out)
                 return out
 
-        total_line = _extract_total(best_event)
+        # Do not display an arbitrary unpaired bookmaker outcome as a verified line.
+        # A valid market line requires matching Over/Under points, prices,
+        # bookmaker identity and a source timestamp.
+        verified_quotes = _verified_total_quotes(best_event, int(time.time()))
+        total_line = verified_quotes[0]["line"] if verified_quotes else None
         if total_line is None:
             out = {
                 "status": "MARKET_OPTIONAL",
@@ -368,7 +372,7 @@ class Faz17Engine:
 
         out = {
             "status": status,
-            "quotes": _verified_total_quotes(best_event, int(time.time())),
+            "quotes": verified_quotes,
             "total": float(total_line),
             "latency_ms": int((time.time() - t0) * 1000),
             "reason": None,
