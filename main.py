@@ -243,9 +243,11 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 store = MarketSnapshotStore(safe_path)
                                 market_key = f"{fixture_start_utc}:{home.casefold().strip()}:{away.casefold().strip()}"
                                 for quote in market.get("quotes") or []:
-                                    if (fixture_start_utc is None
-                                            or quote.get("observed_utc", 0) >= fixture_start_utc):
-                                        logger.warning("Post-tipoff market quote rejected from prematch archive")
+                                    quote_ts = quote.get("observed_utc", 0)
+                                    now_ts = int(time.time())
+                                    if (fixture_start_utc is None or quote_ts >= fixture_start_utc
+                                            or quote_ts > now_ts or now_ts - quote_ts > 900):
+                                        logger.warning("Market quote rejected: post-tipoff, future or stale")
                                         continue
                                     store.append(market_key, MarketSnapshot(**quote))
                             else:
