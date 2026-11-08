@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 from datetime import datetime, timezone
 
-from nba_command import load_nba_games, parse_nba_date, select_local_games, utc_dates_for_turkey_day, validate_provider_payload, classify_provider_error
+from nba_command import load_nba_games, parse_nba_date, select_local_games, utc_dates_for_turkey_day, validate_provider_payload, classify_provider_error, parse_espn_scoreboard
 
 
 class NbaCommandTests(unittest.TestCase):
