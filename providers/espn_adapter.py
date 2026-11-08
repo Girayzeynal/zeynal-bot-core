@@ -102,7 +102,11 @@ class ESPNAdapter:
         if not team_input:
             return None
 
-        key = team_input.strip().lower()
+        # Telegram inputs can carry stray wrapping quote characters (e.g.
+        # Denver Nuggets"). Remove only boundary quotes; never guess a team.
+        key = team_input.strip().strip("\\\"'“”‘’").strip().casefold()
+        if not key:
+            return None
         teams = await self._load_teams()
         if not teams:
             return None
@@ -111,8 +115,8 @@ class ESPNAdapter:
             team = t.get("team", {})
             tid = team.get("id")
             abbr = str(team.get("abbreviation", "")).upper()
-            name = str(team.get("displayName", "")).lower()
-            short = str(team.get("shortDisplayName", "")).lower()
+            name = str(team.get("displayName", "")).casefold()
+            short = str(team.get("shortDisplayName", "")).casefold()
 
             if (
                 key == abbr.lower()
