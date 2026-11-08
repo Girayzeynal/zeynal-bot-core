@@ -218,8 +218,23 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Optional persistent, insert-only ledger. Never claim archived when
         # the storage volume is not configured or the write fails.
         if league.upper() == "NBA":
-            ledger_path = os.getenv("PREDICTION_LEDGER_DB", "").strip()
-            if ledger_path:
+            ledger_path = os.getenv("PREDICTION_LEDGER_DB", "/data/prediction_ledger.sqlite").strip()
+            # Never create a prediction archive in ephemeral container storage.
+            # The production Fly volume must be mounted at /data on this machine.
+            persistent_root = "/data"
+            persistent_path = os.path.realpath(ledger_path) if ledger_path else ""
+            ledger_ready = (
+                bool(persistent_path)
+                and os.path.ismount(persistent_root)
+                and os.path.commonpath((persistent_root, persistent_path)) == persistent_root
+                and os.path.isdir(os.path.dirname(persistent_path))
+            )
+            if not ledger_ready:
+                logger.error(
+                    "Prediction ledger disabled: /data volume missing or ledger path unsafe; path=%s",
+                    ledger_path,
+                )
+            if ledger_ready:
                 try:
                     from prediction_ledger import PredictionLedger, PredictionRecord
                     import time
