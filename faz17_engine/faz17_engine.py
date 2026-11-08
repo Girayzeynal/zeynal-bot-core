@@ -23,6 +23,7 @@ class MarketRequest:
     away: str
     date_str: Optional[str] = None
     date: Optional[str] = None
+    fixture_start_utc: Optional[int] = None
 
     regions: str = "us"
     markets: str = "totals"
@@ -244,7 +245,7 @@ class Faz17Engine:
             }
 
         # cache key includes fixture_key (date + teams)
-        cache_key = f"{league_u}:{fixture_key}:{req.markets}"
+        cache_key = f"{league_u}:{fixture_key}:{req.markets}:{req.fixture_start_utc}"
         cached = self._cache_get(cache_key)
         if cached:
             return cached
@@ -317,6 +318,26 @@ class Faz17Engine:
             }
             self._cache_set(cache_key, out)
             return out
+
+        # A date-only request can match the wrong fixture across UTC midnight.
+        # When a verified ESPN tipoff exists, require the odds event to match it.
+        if req.fixture_start_utc is not None:
+            try:
+                from datetime import timezone
+                commence = datetime.fromisoformat(
+                    str(best_event.get("commence_time", "")).replace("Z", "+00:00")
+                )
+                if commence.tzinfo is None:
+                    raise ValueError("missing timezone")
+                event_start = int(commence.timestamp())
+                if abs(event_start - int(req.fixture_start_utc)) > 900:
+                    raise ValueError("event tipoff differs from verified fixture")
+            except (ValueError, TypeError, OverflowError):
+                out = {"status": "MARKET_MISMATCH", "total": None,
+                       "reason": "TIPOFF_MISMATCH", "fixture_key": fixture_key,
+                       "event_fixture_key": None, "match_score": int(best_score)}
+                self._cache_set(cache_key, out)
+                return out
 
         ev_date = _commence_date(best_event)
         event_fixture_key = _fixture_key(
