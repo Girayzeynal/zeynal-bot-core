@@ -80,6 +80,16 @@ class Faz13CoreOutput:
         )
         out.append(f"Alt/Üst: {self.ou_direction}")
         out.append(f"Tempo: {self.tempo_flag}")
+        home_n = self.meta.get("home_baseline_games")
+        away_n = self.meta.get("away_baseline_games")
+        if isinstance(home_n, int) and isinstance(away_n, int):
+            out.append(f"Örneklem: Ev {home_n} maç | Dep {away_n} maç")
+        out.append(
+            f"Takım ortalamaları (atılan/yenilen): "
+            f"Ev {self.home_avg.points_for:.1f}/{self.home_avg.points_against:.1f} | "
+            f"Dep {self.away_avg.points_for:.1f}/{self.away_avg.points_against:.1f}"
+        )
+        out.append("Model: Son maç skor ortalamaları; kadro, sakatlık, piyasa ve Monte Carlo dahil değil.")
         out.append("")
         for n in self.notes:
             out.append(f"• {esc(n)}")
