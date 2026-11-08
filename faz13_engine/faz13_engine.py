@@ -153,7 +153,7 @@ class Faz13CoreOutput:
             ("Toplam medyan", f"{sim['p50']:.0f}"),
             ("Toplam %5–%95", f"{sim['p05']:.0f}–{sim['p95']:.0f}"),
         ]
-        table = "\\n".join(f"{name:<19} {value:>9}" for name, value in rows)
+        table = "\n".join(f"{name:<19} {value:>9}" for name, value in rows)
         home_n = self.meta.get("home_baseline_games", 0)
         away_n = self.meta.get("away_baseline_games", 0)
         home_mu = (self.home_avg.points_for + self.away_avg.points_against) / 2
@@ -162,7 +162,7 @@ class Faz13CoreOutput:
             f"{i+1}Ç {h:.1f}-{a:.1f}"
             for i, (h, a) in enumerate(zip(sim["period_home"], sim["period_away"]))
         )
-        return "\\n".join([
+        return "\n".join([
             "<b>🏀 NBA | MAÇ ÖNCESİ ANALİZ</b>",
             f"{esc(self.ctx.home)} – {esc(self.ctx.away)}",
             f"📅 {esc(self.ctx.date)} | Normal süre 48 dk",
