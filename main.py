@@ -162,10 +162,13 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Insufficient verified baselines: league=%s home_reason=%s away_reason=%s",
             league, baseline_reason(home_baseline), baseline_reason(away_baseline),
         )
+        home_reason = baseline_reason(home_baseline)
+        away_reason = baseline_reason(away_baseline)
         await update.message.reply_text(
-            "Yetersiz veya güncelliğini yitirmiş takım verisi. "
-            "LEAGUE_AVG yedeğiyle tahmin üretilmedi. "
-            "Veri kaynağı ve fikstür doğrulanınca tekrar deneyin."
+            "Analiz durduruldu: doğrulanmış takım verisi yetersiz.\n"
+            f"Ev sahibi veri durumu: {home_reason}\n"
+            f"Deplasman veri durumu: {away_reason}\n"
+            "Kaynak: ESPN takım geçmişi. Lig ortalamasından tahmin üretilmedi."
         )
         return
 
