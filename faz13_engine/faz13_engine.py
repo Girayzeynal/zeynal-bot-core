@@ -196,7 +196,15 @@ class Faz13CoreOutput:
             (f"• Doğrulanmış piyasa baremi/oranı: güncel toplam <b>{self.market['total']:.1f}</b> (FAZ-17; açılış değil)"
              if self.market.get("status") in ("MARKET_OK", "MARKET_OK_DATE_SHIFT") and isinstance(self.market.get("total"), (int, float))
              else "• Doğrulanmış piyasa baremi/oranı: <b>Alınmadı</b>."),
-            "• Piyasa karşılaştırması: <b>Yapılamadı</b>.",
+            (f"• Model – piyasa toplam farkı: <b>{((home_mu + away_mu) - float(self.market['total'])):+.1f}</b> sayı (model eksi piyasa; avantaj kanıtı değil)."
+             if self.market.get("status") in ("MARKET_OK", "MARKET_OK_DATE_SHIFT")
+             and isinstance(self.market.get("total"), (int, float))
+             else "• Piyasa karşılaştırması: <b>Yapılamadı</b>."),
+            (f"• Piyasa kaynağı: <b>{esc(str(self.market['quotes'][0]['bookmaker']))}</b> | "
+             f"ALT {float(self.market['quotes'][0]['decimal_under']):.2f} / ÜST {float(self.market['quotes'][0]['decimal_over']):.2f} | "
+             f"Kaynak zamanı (UTC): {__import__('datetime').datetime.fromtimestamp(int(self.market['quotes'][0]['observed_utc']), __import__('datetime').timezone.utc).strftime('%Y-%m-%d %H:%M')}"
+             if self.market.get("quotes") and isinstance(self.market.get("total"), (int, float))
+             else "• Bahis şirketi ve oran zaman damgası: <b>Doğrulanamadı</b>."),
             "• En güvenilir piyasa seçeneği: <b>BELİRLENEMEDİ / NO EDGE</b>.",
             f"• Model içi 48 dk yön eğilimi: <b>{esc(self.ctx.home) if sim['home_win_pct'] >= sim['away_win_pct'] else esc(self.ctx.away)}</b> (%{max(sim['home_win_pct'], sim['away_win_pct']):.1f}; kalibre edilmedi).",
             "• Model eğilimi doğrulanmış piyasa avantajı değildir.",
