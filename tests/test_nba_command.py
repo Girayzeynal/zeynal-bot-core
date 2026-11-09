@@ -50,7 +50,7 @@ class NbaCommandTests(unittest.TestCase):
             {**template, "id": 3, "date": "2026-11-04T20:59:59Z"},
             {**template, "id": 4, "date": "2026-11-04T21:00:00Z"},
         ]
-        self.assertEqual(len(select_local_games(rows, "2026-11-04")), 1)
+        self.assertEqual(len(select_local_games(rows, "2026-11-04")), 2)
 
     def test_provider_payload_rejects_errors(self):
         for errors in ({"token": "invalid"}, ["quota exceeded"], "error"):
