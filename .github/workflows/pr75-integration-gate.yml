@@ -5,6 +5,8 @@ on:
       - 'main.py'
       - 'prediction_ledger.py'
       - 'ledger_operational_status.py'
+      - 'verified_nba_accuracy.py'
+      - 'tests/test_verified_nba_accuracy.py'
       - 'tests/test_ledger_operational_status.py'
       - 'prediction_inputs.py'
       - 'prematch_ledger_bridge.py'
@@ -41,6 +43,7 @@ jobs:
       - name: Archive, Telegram and staging offline regressions
         run: |
           python -m pytest -q \
+            tests/test_verified_nba_accuracy.py \
             tests/test_ledger_operational_status.py \
             tests/test_faz25.py \
             tests/test_telegram_result_audit.py \
