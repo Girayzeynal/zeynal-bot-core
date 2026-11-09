@@ -101,6 +101,30 @@ class Faz25Tests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(FileExistsError):backup(self.db,path)
         self.assertEqual(before,path.read_bytes())
 
+    async def test_backup_leaves_no_staging_files(self):
+        destination = Path(self.folder.name) / "clean-backup.sqlite"
+        backup(self.db, destination)
+        self.assertTrue(destination.is_file())
+        self.assertEqual(
+            list(Path(self.folder.name).glob(".faz25-backup-*")), [])
+
+    async def test_backup_no_clobber_cleans_staging_file(self):
+        destination = Path(self.folder.name) / "existing.sqlite"
+        destination.write_bytes(b"original")
+        with self.assertRaises(FileExistsError):
+            backup(self.db, destination)
+        self.assertEqual(destination.read_bytes(), b"original")
+        self.assertEqual(
+            list(Path(self.folder.name).glob(".faz25-backup-*")), [])
+
+    async def test_backup_invalid_timeout_does_not_create_file(self):
+        destination = Path(self.folder.name) / "invalid.sqlite"
+        with self.assertRaises(ValueError):
+            backup(self.db, destination, timeout_seconds=0)
+        self.assertFalse(destination.exists())
+        self.assertEqual(
+            list(Path(self.folder.name).glob(".faz25-backup-*")), [])
+
     async def test_crash_after_atomic_commit_does_not_recollect(self):
         row=validate_schedule([payload()])[0]
         async def committed_then_disconnected(fixture):
