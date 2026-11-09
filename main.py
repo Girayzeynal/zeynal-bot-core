@@ -209,6 +209,43 @@ async def auditstatus_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.effective_message.reply_text(message)
 
 
+async def accuracy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Verified historical accuracy only; no inference or calibration writes."""
+    from verified_nba_accuracy import verified_nba_accuracy
+
+    ledger = context.application.bot_data.get("nba_prediction_ledger")
+    if ledger is None:
+        await update.effective_message.reply_text(
+            "NBA doğrulanmış performans raporu kullanılamıyor: arşiv etkin değil.")
+        return
+    try:
+        report = await asyncio.to_thread(verified_nba_accuracy, ledger.db_path)
+    except (ValueError, OSError, sqlite3.Error):
+        logger.exception("Verified NBA accuracy unavailable")
+        await update.effective_message.reply_text(
+            "Performans raporu kullanılamıyor: arşiv bütünlüğü veya erişim hatası.")
+        return
+    if report["status"] != "EVALUATED":
+        await update.effective_message.reply_text(
+            "NBA performans raporu: doğrulanmış maç çifti bulunamadı. "
+            f"Arşivdeki tahmin: {report['total_predictions']}; "
+            "doğrulanmış karşılaştırma: 0. "
+            "Başarı oranı hesaplanmadı.")
+        return
+    await update.effective_message.reply_text(
+        "NBA doğrulanmış performans (tarihsel)\n"
+        f"Doğrulanmış maç: {report['verified']} / {report['total_predictions']}\n"
+        f"Toplam skor MAE: {report['total_mae']:.2f}\n"
+        f"Skor farkı MAE: {report['margin_mae']:.2f}\n"
+        + (f"Kazanan yönü isabeti: {report['winner_accuracy'] * 100:.1f}% "
+           f"(n={report['winner_sample']})\n"
+           if report["winner_accuracy"] is not None
+           else "Kazanan yönü isabeti: hesaplanamadı\n")
+        + f"Hariç tutulan: {sum(report['excluded'].values())}\n"
+        "Otomatik kalibrasyon: DOĞRULANMADI"
+    )
+
+
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text or ""
 
@@ -399,6 +436,7 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("nba", nba_command))
     app.add_handler(CommandHandler("compare", compare_command))
     app.add_handler(CommandHandler("auditstatus", auditstatus_command))
+    app.add_handler(CommandHandler("accuracy", accuracy_command))
     app.add_handler(CommandHandler("newscheck", newscheck_command))
     return app
 
