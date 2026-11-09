@@ -40,9 +40,11 @@ def assess_telegram_test_readiness(*, env=None, test_token_present=None,
             blockers.append("TEST_LEDGER_NOT_ISOLATED")
     elif path == "/data/nba_prediction_ledger.sqlite":
         blockers.append("PRODUCTION_LEDGER_FILENAME_NOT_ALLOWED_FOR_TEST")
-    if str(env.get("BASELINE_DIR", "")) == "/data/baselines":
+    baseline = str(env.get("BASELINE_DIR", ""))
+    if baseline and Path(baseline).resolve(strict=False) == Path("/data/baselines"):
         blockers.append("PRODUCTION_BASELINE_PATH_NOT_ALLOWED_FOR_TEST")
-    if str(env.get("FAZ23_STORAGE", "")) == "/data/faz23_storage.sqlite":
+    faz23 = str(env.get("FAZ23_STORAGE", ""))
+    if faz23 and Path(faz23).resolve(strict=False) == Path("/data/faz23_storage.sqlite"):
         blockers.append("PRODUCTION_FAZ23_PATH_NOT_ALLOWED_FOR_TEST")
     return Readiness(
         status="READY_FOR_ISOLATED_TEST" if not blockers else "BLOCKED",
