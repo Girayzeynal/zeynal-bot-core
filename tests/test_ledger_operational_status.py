@@ -28,6 +28,28 @@ class OperationalStatusTests(unittest.TestCase):
             self.assertEqual((result["predictions"], result["outcomes"], result["paired"]), (1, 1, 1))
             self.assertEqual(result["calibration"], "NOT_VERIFIED")
 
+    def test_rejects_post_tipoff_prediction_and_scope_mismatch(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = str(Path(folder) / "ledger.db")
+            ledger = PredictionLedger(path)
+            ledger.record_prediction(PredictionRecord(
+                "late", "NBA", 160, 100, 99, None))
+            ledger.record_fixture_start("NBA", "late", 150)
+            ledger.record_outcome(OutcomeRecord(
+                "late", "NBA", 200, 101, 102))
+            ledger.record_prediction(PredictionRecord(
+                "scope", "NBA", 100, 100, 99, None,
+                scope="REGULATION_ONLY"))
+            ledger.record_fixture_start("NBA", "scope", 150)
+            ledger.record_outcome(OutcomeRecord(
+                "scope", "NBA", 200, 101, 102,
+                scope="FINAL_WITH_OT"))
+            status = ledger_operational_status(path)
+            self.assertEqual(status["predictions"], 2)
+            self.assertEqual(status["outcomes"], 2)
+            self.assertEqual(status["paired"], 0)
+            self.assertEqual(status["calibration"], "NOT_VERIFIED")
+
     def test_incomplete_schema(self):
         with tempfile.TemporaryDirectory() as folder:
             path = str(Path(folder) / "empty.db")
