@@ -65,8 +65,12 @@ def compare_fixture(db_path: str, fixture_id: str, league: str = "NBA") -> dict:
     ledger = object.__new__(PredictionLedger)
     ledger.db_path = str(Path(db_path).resolve())
     ledger._connect = lambda: _db(db_path)
-    inputs = ledger.load_prediction_inputs(league, fixture_id)
-    evidence = ledger.load_outcome_evidence(league, fixture_id)
+    try:
+        inputs = ledger.load_prediction_inputs(league, fixture_id)
+        evidence = ledger.load_outcome_evidence(league, fixture_id)
+    except (ValueError, TypeError, KeyError, sqlite3.DatabaseError):
+        # Corrupt or tampered archives must never produce a verified report.
+        return {"status": "UNVERIFIED_FINAL", "fixture_id": fixture_id}
     if inputs is None or evidence is None or inputs["sha256"] != input_sha or evidence["sha256"] != final_sha:
         return {"status": "UNVERIFIED_FINAL", "fixture_id": fixture_id}
 
