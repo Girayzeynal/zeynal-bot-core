@@ -53,6 +53,7 @@ def verified_nba_accuracy(db_path: str, *, minimum_sample: int = 30) -> dict:
                 "total_mae": None, "margin_mae": None,
                 "total_bias": None, "margin_bias": None,
                 "total_rmse": None, "margin_rmse": None,
+                "max_total_abs_error": None, "max_margin_abs_error": None,
                 "winner_accuracy": None,
                 "winner_sample": 0, "calibration": "NOT_VERIFIED"}
     total_mae = math.fsum(abs(r["signed_errors"]["total"]) for r in evaluated) / count
@@ -63,6 +64,8 @@ def verified_nba_accuracy(db_path: str, *, minimum_sample: int = 30) -> dict:
         r["signed_errors"]["total"] ** 2 for r in evaluated) / count)
     margin_rmse = math.sqrt(math.fsum(
         r["signed_errors"]["margin"] ** 2 for r in evaluated) / count)
+    max_total_abs_error = max(abs(r["signed_errors"]["total"]) for r in evaluated)
+    max_margin_abs_error = max(abs(r["signed_errors"]["margin"]) for r in evaluated)
     directional = [r["winner_direction_correct"] for r in evaluated
                    if r["winner_direction_correct"] is not None]
     return {"status": ("EVALUATED" if count >= minimum_sample
@@ -71,6 +74,8 @@ def verified_nba_accuracy(db_path: str, *, minimum_sample: int = 30) -> dict:
             "total_mae": total_mae, "margin_mae": margin_mae,
             "total_bias": total_bias, "margin_bias": margin_bias,
             "total_rmse": total_rmse, "margin_rmse": margin_rmse,
+            "max_total_abs_error": max_total_abs_error,
+            "max_margin_abs_error": max_margin_abs_error,
             "winner_accuracy": (sum(directional) / len(directional)
                                 if directional else None),
             "winner_sample": len(directional),
