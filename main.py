@@ -283,11 +283,15 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             away_ref = await adapter.resolve_team(away)
             if not home_ref or not away_ref:
                 raise ValueError("NBA ledger team identities unavailable")
-            record_faz13_for_espn_fixture(
+            inserted = record_faz13_for_espn_fixture(
                 ledger, result, fixture,
                 resolved_home_team_id=str(home_ref["id"]),
                 resolved_away_team_id=str(away_ref["id"]),
             )
+            # A duplicate means this invocation did not archive its forecast.
+            # Never display a newly computed forecast as if it were persisted.
+            if inserted is not True:
+                raise ValueError("NBA prematch forecast was not newly archived")
 
         await context.application.bot_data["faz23"].record_snapshot(result)
 
