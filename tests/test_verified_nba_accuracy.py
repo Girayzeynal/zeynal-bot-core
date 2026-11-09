@@ -30,6 +30,27 @@ class VerifiedNbaAccuracyTests(unittest.TestCase):
             self.assertEqual(result["total_error_over_20"], 0)
             self.assertEqual(result["excluded"]["UNVERIFIED_FINAL"], 1)
 
+    def test_outlier_counts_include_only_verified_and_exclude_exact_boundary(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = str(Path(folder) / "ledger.sqlite")
+            with sqlite3.connect(path) as db:
+                db.execute("CREATE TABLE predictions (league TEXT, fixture_id TEXT)")
+                db.executemany("INSERT INTO predictions VALUES ('NBA', ?)",
+                               [("a",), ("b",), ("c",), ("d",)])
+            def compare(_, fixture):
+                if fixture == "d":
+                    return {"status": "UNVERIFIED_FINAL"}
+                error = {"a": 10, "b": 20, "c": 21}[fixture]
+                return {"status": "EVALUATED",
+                        "signed_errors": {"total": error, "margin": 0},
+                        "winner_direction_correct": None}
+            with patch("verified_nba_accuracy.compare_fixture", side_effect=compare):
+                result = verified_nba_accuracy(path, minimum_sample=3)
+            self.assertEqual(result["total_error_over_10"], 2)
+            self.assertEqual(result["total_error_over_20"], 1)
+            self.assertEqual(result["verified"], 3)
+            self.assertEqual(result["excluded"], {"UNVERIFIED_FINAL": 1})
+
     def test_invalid_verified_metrics_fail_closed(self):
         with tempfile.TemporaryDirectory() as folder:
             path = str(Path(folder) / "ledger.sqlite")
