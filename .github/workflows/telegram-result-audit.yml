@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install regression dependencies
-        run: python -m pip install pytest
+        run: python -m pip install pytest aiohttp
       - name: Verify syntax
         run: python -m py_compile telegram_result_audit.py tests/test_telegram_result_audit.py main.py
       - name: Run isolated regression tests
