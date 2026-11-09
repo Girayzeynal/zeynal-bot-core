@@ -7,9 +7,9 @@ from nba_command import load_nba_games, parse_nba_date, select_local_games, utc_
 
 
 class NbaCommandTests(unittest.TestCase):
-    def test_default_date_uses_us_eastern_time(self):
+    def test_default_date_uses_turkey_time(self):
         now = datetime(2026, 11, 3, 22, 30, tzinfo=timezone.utc)
-        self.assertEqual(parse_nba_date([], now), "2026-11-03")
+        self.assertEqual(parse_nba_date([], now), "2026-11-04")
 
     def test_invalid_date_rejected(self):
         with self.assertRaises(ValueError):
@@ -21,8 +21,8 @@ class NbaCommandTests(unittest.TestCase):
             "teams": {"home": {"name": "Home"}, "away": {"name": "Away"}},
             "status": {"short": "NS"},
         }
-        self.assertEqual(len(select_local_games([game, game], "2026-11-03")), 1)
-        self.assertEqual(len(select_local_games([game], "2026-11-04")), 0)
+        self.assertEqual(len(select_local_games([game, game], "2026-11-04")), 1)
+        self.assertEqual(len(select_local_games([game], "2026-11-03")), 0)
 
     def test_malformed_game_skipped(self):
         self.assertEqual(select_local_games([{"id": 1}], "2026-11-04"), [])
@@ -37,7 +37,7 @@ class NbaCommandTests(unittest.TestCase):
         self.assertEqual(select_local_games(rows, "2026-11-04"), [])
 
     def test_turkey_day_uses_two_utc_dates(self):
-        self.assertEqual(utc_dates_for_turkey_day("2026-11-04"), ["2026-11-04", "2026-11-05"])
+        self.assertEqual(utc_dates_for_turkey_day("2026-11-04"), ["2026-11-03", "2026-11-04"])
 
     def test_utc_day_boundary_at_both_ends(self):
         template = {
@@ -75,8 +75,8 @@ class NbaCommandTests(unittest.TestCase):
                 {"homeAway": "away", "team": {"displayName": "Away Team"}},
             ]}],
         }
-        self.assertEqual(len(parse_espn_scoreboard({"events": [event]}, "2026-11-08")), 1)
-        self.assertEqual(parse_espn_scoreboard({"events": [event]}, "2026-11-09"), [])
+        self.assertEqual(len(parse_espn_scoreboard({"events": [event]}, "2026-11-09")), 1)
+        self.assertEqual(parse_espn_scoreboard({"events": [event]}, "2026-11-08"), [])
         with self.assertRaises(ValueError):
             parse_espn_scoreboard({"events": None}, "2026-11-09")
 
@@ -130,7 +130,7 @@ class NbaHttpContractTests(unittest.IsolatedAsyncioTestCase):
             games = await load_nba_games("2026-11-04")
         self.assertEqual(games, [])
         self.assertEqual(len(FakeSession.requests), 2)
-        self.assertEqual([r[2]["date"] for r in FakeSession.requests], ["2026-11-04", "2026-11-05"]
+        self.assertEqual([r[2]["date"] for r in FakeSession.requests], ["2026-11-03", "2026-11-04"])
         self.assertTrue(all(r[2]["league"] == 12 and r[2]["timezone"] == "UTC" for r in FakeSession.requests))
         self.assertTrue(all(r[1] == {"x-apisports-key": "test-key"} for r in FakeSession.requests))
 
