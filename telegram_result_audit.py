@@ -21,6 +21,15 @@ def compare_fixture(db_path: str, fixture_id: str, league: str = "NBA") -> dict:
         raise ValueError("Unsupported league or fixture ID")
     with _db(db_path) as db:
         db.execute("PRAGMA query_only=ON")
+        existing = {item[0] for item in db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )}
+        required = {
+            "predictions", "outcomes", "fixture_starts", "fixture_provenance",
+            "prediction_inputs", "outcome_evidence",
+        }
+        if not required.issubset(existing):
+            return {"status": "LEDGER_SCHEMA_INCOMPLETE", "fixture_id": fixture_id}
         row = db.execute(
             """SELECT p.prediction_ts_utc,p.expected_home,p.expected_away,
                       p.home_win_probability,p.scope,o.result_ts_utc,
