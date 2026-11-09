@@ -161,6 +161,43 @@ class TelegramResultAuditUnittestTests(unittest.TestCase):
             self.assertFalse(report["winner_direction_correct"])
             self.assertIn("Mutlak toplam hata: 4.0", format_comparison(report))
 
+    def test_invalid_scores_and_probabilities_fail_closed(self):
+        """Even matching evidence digests cannot legitimize corrupt numeric fields."""
+        with tempfile.TemporaryDirectory() as root:
+            path = _ledger(Path(root))
+            ledger = PredictionLedger(str(path))
+            fixture = "401909922"
+            ledger.record_prediction(PredictionRecord(
+                fixture, "NBA", 100, 108.5, 105.5, 0.6))
+            ledger.record_fixture_start("NBA", fixture, 200)
+            ledger.record_fixture_provenance("NBA", fixture, "ESPN", fixture, 200)
+            ledger.record_outcome(OutcomeRecord(fixture, "NBA", 300, 106, 112))
+            with sqlite3.connect(path) as db:
+                db.execute("INSERT INTO prediction_inputs VALUES (?,?,?,?)",
+                           ("NBA", fixture, "{}", "input-digest"))
+                db.execute("INSERT INTO outcome_evidence VALUES (?,?,?,?)",
+                           ("NBA", fixture, "{}", "result-digest"))
+            with patch.object(PredictionLedger, "load_prediction_inputs",
+                              return_value={"sha256": "input-digest"}), patch.object(
+                              PredictionLedger, "load_outcome_evidence",
+                              return_value={"sha256": "result-digest"}):
+                for column, value, expected in (
+                    ("expected_home", -1, "INVALID_STORED_SCORE"),
+                    ("actual_away", -5, "INVALID_STORED_SCORE"),
+                    ("home_win_probability", 1.5, "INVALID_STORED_PROBABILITY"),
+                ):
+                    with self.subTest(column=column):
+                        with sqlite3.connect(path) as db:
+                            table = "outcomes" if column == "actual_away" else "predictions"
+                            db.execute(f"UPDATE {table} SET {column}=? WHERE fixture_id=?",
+                                       (value, fixture))
+                        self.assertEqual(compare_fixture(str(path), fixture)["status"], expected)
+                        with sqlite3.connect(path) as db:
+                            reset = 112 if column == "actual_away" else (
+                                0.6 if column == "home_win_probability" else 108.5)
+                            db.execute(f"UPDATE {table} SET {column}=? WHERE fixture_id=?",
+                                       (reset, fixture))
+
     def test_corrupt_original_inputs_fail_closed(self):
         """Malformed archived inputs cannot produce a verified result."""
         with tempfile.TemporaryDirectory() as root:
