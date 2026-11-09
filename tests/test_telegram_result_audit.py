@@ -53,3 +53,30 @@ def test_plain_text_report(tmp_path):
     path = _ledger(tmp_path)
     result = compare_fixture(str(path), "401909922")
     assert format_comparison(result) == "NBA 401909922: NO_PREMATCH_PREDICTION"
+
+def test_awaiting_final_does_not_claim_a_result(tmp_path):
+    path = _ledger(tmp_path)
+    ledger = PredictionLedger(str(path))
+    ledger.record_prediction(PredictionRecord(
+        "401909922", "NBA", 100, 110.5, 109.5, None))
+    ledger.record_fixture_start("NBA", "401909922", 200)
+    ledger.record_fixture_provenance("NBA", "401909922", "ESPN", "401909922", 200)
+    with sqlite3.connect(path) as db:
+        db.execute("INSERT INTO prediction_inputs VALUES (?,?,?,?)",
+                   ("NBA", "401909922", "{}", "placeholder"))
+    assert compare_fixture(str(path), "401909922")["status"] == "AWAITING_VERIFIED_FINAL"
+
+
+def test_mismatched_scope_is_rejected(tmp_path):
+    path = _ledger(tmp_path)
+    ledger = PredictionLedger(str(path))
+    ledger.record_prediction(PredictionRecord(
+        "401909922", "NBA", 100, 110.5, 109.5, None))
+    ledger.record_fixture_start("NBA", "401909922", 200)
+    ledger.record_fixture_provenance("NBA", "401909922", "ESPN", "401909922", 200)
+    ledger.record_outcome(OutcomeRecord(
+        "401909922", "NBA", 300, 120, 100, "REGULATION_ONLY"))
+    with sqlite3.connect(path) as db:
+        db.execute("INSERT INTO prediction_inputs VALUES (?,?,?,?)",
+                   ("NBA", "401909922", "{}", "placeholder"))
+    assert compare_fixture(str(path), "401909922")["status"] == "INCOMPATIBLE_SCOPE"
