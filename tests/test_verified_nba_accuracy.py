@@ -26,6 +26,8 @@ class VerifiedNbaAccuracyTests(unittest.TestCase):
             self.assertIsNone(result["total_rmse"])
             self.assertIsNone(result["max_total_abs_error"])
             self.assertIsNone(result["max_margin_abs_error"])
+            self.assertEqual(result["total_error_over_10"], 0)
+            self.assertEqual(result["total_error_over_20"], 0)
             self.assertEqual(result["excluded"]["UNVERIFIED_FINAL"], 1)
 
     def test_invalid_verified_metrics_fail_closed(self):
@@ -75,12 +77,15 @@ class VerifiedNbaAccuracyTests(unittest.TestCase):
             self.assertAlmostEqual(result["margin_rmse"], math.sqrt(20))
             self.assertEqual(result["max_total_abs_error"], 10)
             self.assertEqual(result["max_margin_abs_error"], 6)
+            self.assertEqual(result["total_error_over_10"], 0)
+            self.assertEqual(result["total_error_over_20"], 0)
             self.assertEqual(result["winner_accuracy"], 0.5)
             self.assertEqual(result["winner_sample"], 2)
             self.assertEqual(result["calibration"], "NOT_VERIFIED")
             with patch("verified_nba_accuracy.compare_fixture", side_effect=compare):
                 sufficient = verified_nba_accuracy(path, minimum_sample=2)
             self.assertEqual(sufficient["status"], "EVALUATED")
+            self.assertEqual(sufficient["total_error_over_10"], 0)
 
 
 if __name__ == "__main__":
