@@ -32,36 +32,41 @@ class Faz25Tests(unittest.IsolatedAsyncioTestCase):
         self.reconcile=AsyncMock(return_value={'status':'awaiting_final'})
 
     def _cleanup_test_folder(self):
-        """Retry only transient Android/overlayfs directory-not-empty races.
+        """Remove test artifacts; disclose Android's empty-directory rmdir bug.
 
-        Do not suppress persistent errors or silently leave a test database.
+        A verified empty directory may be left behind if the filesystem refuses
+        rmdir with ENOTEMPTY. Never ignore remaining files or other errors.
         """
+        import os
+        import warnings
+
+        root = Path(self.folder.name)
         for attempt in range(8):
             try:
                 self.folder.cleanup()
                 return
             except OSError as exc:
-                if exc.errno == 39:
-                    root = Path(self.folder.name)
-                    # Print names only: no private contents, no production paths.
-                    try:
-                        remaining = sorted(
-                            str(p.relative_to(root)) + ("/" if p.is_dir() else "")
-                            for p in root.rglob("*")
-                        ) if root.exists() else []
-                    except OSError as scan_error:
-                        remaining = ["SCAN_ERROR:" + type(scan_error).__name__]
-                    print(
-                        "FAZ25_CLEANUP_DIAGNOSTIC",
-                        "attempt=", attempt + 1,
-                        "remaining=", repr(remaining[:40]),
-                        "total=", len(remaining),
-                        flush=True,
-                    )
-                if exc.errno != 39 or attempt == 7:
+                if exc.errno != 39:
                     raise
+                # os.scandir, unlike Path.rglob, also sees hidden entries.
+                if not root.exists():
+                    return
+                with os.scandir(root) as entries:
+                    remaining = [entry.name for entry in entries]
+                if remaining:
+                    if attempt == 7:
+                        raise RuntimeError(
+                            "FAZ25 test artifacts remain: " + repr(remaining[:20])
+                        ) from exc
+                elif attempt == 7:
+                    warnings.warn(
+                        "FAZ25_ANDROID_EMPTY_DIRECTORY_RMDIR_FAILED: "
+                        + str(root) + " (directory contains no files)",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+                    return
                 time.sleep(0.05 * (attempt + 1))
-
 
     async def tick(self):
         return await self.poller.tick(schedule=self.schedule,collect=self.collect,reconcile=self.reconcile)
