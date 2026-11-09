@@ -135,33 +135,66 @@ class Poller:
 
 
 def backup(database, destination, *, timeout_seconds=5):
-    """Consistent, owner-only, no-clobber local snapshot for explicit external transfer."""
-    import os
-    import tempfile
+    """Consistent, owner-only, no-clobber SQLite snapshot.
+
+    Stage a single file in the destination directory, not a temporary
+    directory. This avoids directory-removal races on Android/UserLAnd
+    filesystems while preserving atomic hard-link publication.
+    """
     import hashlib
     import math
+    import os
+    import tempfile
     from contextlib import closing
-    if type(timeout_seconds) not in (int,float) or not math.isfinite(timeout_seconds) or timeout_seconds<=0:raise ValueError('positive backup timeout required')
-    deadline=time.monotonic()+timeout_seconds
-    def progress(status,remaining,total):
-        if time.monotonic()>=deadline:raise TimeoutError('SQLite backup deadline exceeded')
-    destination=Path(destination)
-    with tempfile.TemporaryDirectory(dir=destination.parent) as folder:
-        temporary=Path(folder)/'ledger.sqlite'
-        with closing(sqlite3.connect('file:'+str(Path(database).resolve())+'?mode=ro',uri=True,timeout=min(1,timeout_seconds))) as source:
-            with closing(sqlite3.connect(temporary,timeout=min(1,timeout_seconds))) as target:
-                source.backup(target,pages=128,progress=progress,sleep=.05)
-                target.set_progress_handler(lambda:int(time.monotonic()>=deadline),1000)
+
+    if (type(timeout_seconds) not in (int, float)
+            or not math.isfinite(timeout_seconds) or timeout_seconds <= 0):
+        raise ValueError("positive backup timeout required")
+    destination = Path(destination)
+    deadline = time.monotonic() + timeout_seconds
+    source_path = Path(database).resolve(strict=True)
+    if not source_path.is_file():
+        raise ValueError("source database must be a file")
+    # The staging file must live on the same filesystem as the destination.
+    fd, staged_name = tempfile.mkstemp(
+        prefix=".faz25-backup-", suffix=".sqlite", dir=destination.parent)
+    staged = Path(staged_name)
+    try:
+        os.fchmod(fd, 0o600)
+        os.close(fd)
+        fd = -1
+
+        def progress(status, remaining, total):
+            if time.monotonic() >= deadline:
+                raise TimeoutError("SQLite backup deadline exceeded")
+
+        with closing(sqlite3.connect(
+                source_path.as_uri() + "?mode=ro", uri=True,
+                timeout=min(1, timeout_seconds))) as source:
+            with closing(sqlite3.connect(
+                    staged, timeout=min(1, timeout_seconds))) as target:
+                source.backup(target, pages=128, progress=progress, sleep=.05)
+                target.set_progress_handler(
+                    lambda: int(time.monotonic() >= deadline), 1000)
                 try:
-                    if target.execute('PRAGMA integrity_check').fetchone() != ('ok',): raise ValueError('backup integrity failure')
+                    if target.execute("PRAGMA integrity_check").fetchone() != ("ok",):
+                        raise ValueError("backup integrity failure")
                 except sqlite3.OperationalError as exc:
-                    if time.monotonic()>=deadline:raise TimeoutError('SQLite backup deadline exceeded') from exc
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("SQLite backup deadline exceeded") from exc
                     raise
-        if time.monotonic()>=deadline:raise TimeoutError('SQLite backup deadline exceeded')
-        os.chmod(temporary,0o600)
-        # Hard-link publication is atomic and refuses an existing destination.
-        os.link(temporary,destination)
-    return dict(status='backed_up',sha256=hashlib.sha256(destination.read_bytes()).hexdigest(),external_uploaded=False)
+
+        if time.monotonic() >= deadline:
+            raise TimeoutError("SQLite backup deadline exceeded")
+        # Read the digest before publication so no post-publish failure can
+        # misleadingly report a failed operation after creating the backup.
+        digest = hashlib.sha256(staged.read_bytes()).hexdigest()
+        os.link(staged, destination)  # Atomic, refuses an existing destination.
+        return dict(status="backed_up", sha256=digest, external_uploaded=False)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        staged.unlink(missing_ok=True)
 
 
 class BaselineUnavailable(ValueError):
