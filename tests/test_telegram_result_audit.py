@@ -183,6 +183,7 @@ class TelegramResultAuditUnittestTests(unittest.TestCase):
                               return_value={"sha256": "result-digest"}):
                 for column, value, expected in (
                     ("expected_home", -1, "INVALID_STORED_SCORE"),
+                    ("expected_home", 1e308, "INVALID_STORED_SCORE"),
                     ("actual_away", -5, "INVALID_STORED_SCORE"),
                     ("home_win_probability", 1.5, "INVALID_STORED_PROBABILITY"),
                 ):
