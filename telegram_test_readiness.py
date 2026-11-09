@@ -1,6 +1,7 @@
 """Offline Telegram readiness checks without touching production secrets or Fly volumes."""
 from dataclasses import dataclass
 import os
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -30,7 +31,14 @@ def assess_telegram_test_readiness(*, env=None, test_token_present=None,
     path = str(env.get("NBA_LEDGER_PATH", ""))
     if not path or not os.path.isabs(path):
         blockers.append("TEST_LEDGER_PATH_NOT_ABSOLUTE")
-    if path == "/data/nba_prediction_ledger.sqlite":
+    if path and os.path.isabs(path):
+        # Normalize traversal and symlinks before checking protected locations.
+        resolved = Path(path).resolve(strict=False)
+        if resolved == Path("/data/nba_prediction_ledger.sqlite"):
+            blockers.append("PRODUCTION_LEDGER_FILENAME_NOT_ALLOWED_FOR_TEST")
+        if resolved == Path("/data") or resolved == Path("/data/nba_prediction_ledger.sqlite"):
+            blockers.append("TEST_LEDGER_NOT_ISOLATED")
+    elif path == "/data/nba_prediction_ledger.sqlite":
         blockers.append("PRODUCTION_LEDGER_FILENAME_NOT_ALLOWED_FOR_TEST")
     if str(env.get("BASELINE_DIR", "")) == "/data/baselines":
         blockers.append("PRODUCTION_BASELINE_PATH_NOT_ALLOWED_FOR_TEST")
