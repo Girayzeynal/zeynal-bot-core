@@ -1,4 +1,4 @@
-"""Read-only NBA fixture command: US Eastern game dates, Istanbul tipoff times."""
+"""Read-only NBA fixture command. All displayed dates are Europe/Istanbul local."""
 from __future__ import annotations
 
 import asyncio
@@ -11,7 +11,6 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 ISTANBUL = ZoneInfo("Europe/Istanbul")
-NEW_YORK = ZoneInfo("America/New_York")
 NBA_LEAGUE_ID = 12  # API-Sports league mapping; verify against provider before release.
 
 
@@ -19,7 +18,7 @@ def parse_nba_date(args: list[str], now: datetime) -> str:
     if len(args) > 1:
         raise ValueError("Kullanım: /nba veya /nba YYYY-MM-DD")
     if not args:
-        return now.astimezone(NEW_YORK).date().isoformat()
+        return now.astimezone(ISTANBUL).date().isoformat()
     try:
         day = datetime.strptime(args[0], "%Y-%m-%d").date()
     except ValueError as exc:
@@ -28,9 +27,9 @@ def parse_nba_date(args: list[str], now: datetime) -> str:
 
 
 def utc_dates_for_turkey_day(day: str) -> list[str]:
-    """UTC date partitions intersecting one America/New_York calendar day."""
+    """UTC date partitions intersecting one Europe/Istanbul calendar day."""
     local_day = datetime.strptime(day, "%Y-%m-%d").date()
-    return [local_day.isoformat(), (local_day + timedelta(days=1)).isoformat()]
+    return [(local_day - timedelta(days=1)).isoformat(), local_day.isoformat()]
 
 
 def validate_provider_payload(payload: object) -> list[dict]:
@@ -56,7 +55,7 @@ def select_local_games(rows: list[dict], day: str) -> list[dict]:
             if start.tzinfo is None:
                 continue
             local = start.astimezone(ISTANBUL)
-            if start.astimezone(NEW_YORK).date().isoformat() != day:
+            if local.date().isoformat() != day:
                 continue
             home = item["teams"]["home"]["name"]
             away = item["teams"]["away"]["name"]
@@ -170,7 +169,7 @@ async def nba_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             f"NBA | {day} | Türkiye saati\nDoğrulanmış maç kaydı bulunamadı. Bu, kesin olarak maç olmadığı anlamına gelmez."
         )
         return
-    lines = [f"NBA | {day} ABD tarihi | Saatler Türkiye (TRT)", f"Kaynak: {source} | Fikstür (tahmin değil)"]
+    lines = [f"NBA | {day} | Türkiye saati", f"Kaynak: {source} | Fikstür (tahmin değil)"]
     for game in games:
         lines.append(
             f"{game['start']:%H:%M} | {game['home']} - {game['away']} | {game['status']}"
