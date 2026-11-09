@@ -1,7 +1,6 @@
 """Read-only, fail-closed reporting for archived NBA pregame predictions.
 
-No provider requests, model inference or database writes occur in this module.
-"""
+No provider requests, model inference or database writes occur in this module.\n"""
 from __future__ import annotations
 
 import math
