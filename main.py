@@ -5,6 +5,7 @@ import html
 import logging
 import math
 import asyncio
+import sqlite3
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from typing import Any, Dict, Tuple
@@ -140,6 +141,37 @@ def baseline_failure_message(home_reason: str, away_reason: str) -> str:
 # ============================
 # TELEGRAM COMMANDS
 # ============================
+async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Read-only comparison; never fetch current baselines or regenerate forecasts."""
+    args = context.args or []
+    if len(args) != 2 or args[0].upper() != "NBA" or not args[1].isascii() or not args[1].isdigit():
+        await update.effective_message.reply_text("Kullanım: /compare NBA ESPN_MAC_ID")
+        return
+    ledger = context.application.bot_data.get("nba_prediction_ledger")
+    if ledger is None:
+        await update.effective_message.reply_text(
+            "Karşılaştırma kullanılamıyor: kalıcı NBA tahmin arşivi etkin değil."
+        )
+        return
+    try:
+        from telegram_result_audit import compare_fixture, format_comparison
+        result = await asyncio.to_thread(compare_fixture, ledger.db_path, args[1])
+        labels = {
+            "NO_PREMATCH_PREDICTION": "Maç öncesi kayıtlı tahmin bulunamadı.",
+            "UNVERIFIED_PROVENANCE": "Maç kimliği ve kaynak kanıtı doğrulanamadı.",
+            "INVALID_PREGAME_TIME": "Tahmin maç başlamadan önce kaydedilmemiş.",
+            "AWAITING_VERIFIED_FINAL": "Doğrulanmış maç sonucu henüz arşivde yok.",
+            "INCOMPATIBLE_SCOPE": "Tahmin ve sonuç kapsamları uyuşmuyor.",
+            "UNVERIFIED_FINAL": "Sonuç kanıtı doğrulanamadı.",
+        }
+        message = (format_comparison(result) if result["status"] == "EVALUATED"
+                   else f"NBA {args[1]}: {labels.get(result['status'], 'Karşılaştırma kullanılamıyor.')}")
+    except (ValueError, OSError, sqlite3.Error):
+        logger.exception("Read-only NBA comparison failed")
+        message = "Karşılaştırma yapılamadı: arşiv bütünlüğü veya erişim hatası."
+    await update.effective_message.reply_text(message)
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_message:
         await update.effective_message.reply_text(
@@ -336,6 +368,7 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
     app.add_handler(CommandHandler("nba", nba_command))
+    app.add_handler(CommandHandler("compare", compare_command))
     return app
 
 async def main_async():
