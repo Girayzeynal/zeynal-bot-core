@@ -160,3 +160,23 @@ class TelegramResultAuditUnittestTests(unittest.TestCase):
             self.assertEqual(report["signed_errors"]["margin"], 9.0)
             self.assertFalse(report["winner_direction_correct"])
             self.assertIn("Mutlak toplam hata: 4.0", format_comparison(report))
+
+    def test_corrupt_original_inputs_fail_closed(self):
+        """Malformed archived inputs cannot produce a verified result."""
+        with tempfile.TemporaryDirectory() as root:
+            path = _ledger(Path(root))
+            ledger = PredictionLedger(str(path))
+            fixture = "401909922"
+            ledger.record_prediction(PredictionRecord(
+                fixture, "NBA", 100, 108.5, 105.5, 0.6))
+            ledger.record_fixture_start("NBA", fixture, 200)
+            ledger.record_fixture_provenance("NBA", fixture, "ESPN", fixture, 200)
+            ledger.record_outcome(OutcomeRecord(
+                fixture, "NBA", 300, 106, 112))
+            with sqlite3.connect(path) as db:
+                db.execute("INSERT INTO prediction_inputs VALUES (?,?,?,?)",
+                           ("NBA", fixture, "{corrupted", "input-digest"))
+                db.execute("INSERT INTO outcome_evidence VALUES (?,?,?,?)",
+                           ("NBA", fixture, "{}", "result-digest"))
+            self.assertEqual(compare_fixture(str(path), fixture)["status"],
+                             "UNVERIFIED_FINAL")
