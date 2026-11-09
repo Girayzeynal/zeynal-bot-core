@@ -37,6 +37,13 @@ def verified_nba_accuracy(db_path: str, *, minimum_sample: int = 30) -> dict:
         ids = [row[0] for row in db.execute(
             "SELECT fixture_id FROM predictions WHERE league='NBA' ORDER BY fixture_id"
         )]
+    # Corrupt/legacy schemas can contain duplicate fixture rows. Never count
+    # one game more than once or inflate the verified sample denominator.
+    if len(ids) != len(set(ids)) or any(
+        not isinstance(fixture_id, str) or not fixture_id.strip()
+        for fixture_id in ids
+    ):
+        raise ValueError("Invalid or duplicate NBA fixture IDs in ledger")
     evaluated = []
     excluded = {}
     for fixture_id in ids:
