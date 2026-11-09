@@ -237,7 +237,7 @@ async def accuracy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ("NBA doğrulanmış performans (tarihsel)\n"
          if report["status"] == "EVALUATED" else
          "NBA performans: DÜŞÜK ÖRNEKLEM (n<30)\n")
-        f"Doğrulanmış maç: {report['verified']} / {report['total_predictions']}\n"
+        + f"Doğrulanmış maç: {report['verified']} / {report['total_predictions']}\n"
         f"Toplam skor MAE: {report['total_mae']:.2f}\n"
         f"Skor farkı MAE: {report['margin_mae']:.2f}\n"
         + (f"Kazanan yönü isabeti: {report['winner_accuracy'] * 100:.1f}% "
