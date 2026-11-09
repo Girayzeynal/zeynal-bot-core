@@ -163,6 +163,7 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "AWAITING_VERIFIED_FINAL": "Doğrulanmış maç sonucu henüz arşivde yok.",
             "INCOMPATIBLE_SCOPE": "Tahmin ve sonuç kapsamları uyuşmuyor.",
             "UNVERIFIED_FINAL": "Sonuç kanıtı doğrulanamadı.",
+            "LEDGER_SCHEMA_INCOMPLETE": "Arşiv şeması eksik; doğrulanmış karşılaştırma yapılamıyor.",
         }
         message = (format_comparison(result) if result["status"] == "EVALUATED"
                    else f"NBA {args[1]}: {labels.get(result['status'], 'Karşılaştırma kullanılamıyor.')}")
