@@ -1,5 +1,7 @@
 """Regression tests for read-only Telegram result audit."""
 import sqlite3
+import tempfile
+from pathlib import Path
 
 import unittest
 
@@ -91,3 +93,39 @@ def test_legacy_ledger_without_provenance_tables_fails_closed(tmp_path):
     path = tmp_path / "legacy.sqlite"
     PredictionLedger(str(path))
     assert compare_fixture(str(path), "401909922")["status"] == "LEDGER_SCHEMA_INCOMPLETE"
+
+
+class TelegramResultAuditUnittestTests(unittest.TestCase):
+    """Run the same regression cases in the repository's unittest discovery."""
+
+    def test_missing_forecast_does_not_create_any_record(self):
+        with tempfile.TemporaryDirectory() as root:
+            test_missing_forecast_does_not_create_any_record(Path(root))
+
+    def test_missing_fixture_identity_fails_closed(self):
+        with tempfile.TemporaryDirectory() as root:
+            test_missing_fixture_identity_fails_closed(Path(root))
+
+    def test_post_tipoff_prediction_is_not_accepted(self):
+        with tempfile.TemporaryDirectory() as root:
+            test_post_tipoff_prediction_is_not_accepted(Path(root))
+
+    def test_invalid_league_rejected(self):
+        with tempfile.TemporaryDirectory() as root:
+            test_invalid_league_rejected(Path(root))
+
+    def test_plain_text_report(self):
+        with tempfile.TemporaryDirectory() as root:
+            test_plain_text_report(Path(root))
+
+    def test_awaiting_final_does_not_claim_a_result(self):
+        with tempfile.TemporaryDirectory() as root:
+            test_awaiting_final_does_not_claim_a_result(Path(root))
+
+    def test_mismatched_scope_is_rejected(self):
+        with tempfile.TemporaryDirectory() as root:
+            test_mismatched_scope_is_rejected(Path(root))
+
+    def test_legacy_ledger_without_provenance_tables_fails_closed(self):
+        with tempfile.TemporaryDirectory() as root:
+            test_legacy_ledger_without_provenance_tables_fails_closed(Path(root))
