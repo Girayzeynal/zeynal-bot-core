@@ -25,6 +25,11 @@ class TelegramTestReadinessTests(unittest.TestCase):
         self.assertIn("PRODUCTION_LEDGER_FILENAME_NOT_ALLOWED_FOR_TEST",
                       self.assess().blockers)
 
+    def test_production_ledger_path_traversal_is_blocked(self):
+        self.env["NBA_LEDGER_PATH"] = "/data/test/../nba_prediction_ledger.sqlite"
+        self.assertIn("PRODUCTION_LEDGER_FILENAME_NOT_ALLOWED_FOR_TEST",
+                      self.assess().blockers)
+
     def test_dedicated_test_volume_path_is_eligible(self):
         self.env["NBA_LEDGER_PATH"] = "/data/test_nba_prediction_ledger.sqlite"
         self.assertEqual(self.assess().status, "READY_FOR_ISOLATED_TEST")
