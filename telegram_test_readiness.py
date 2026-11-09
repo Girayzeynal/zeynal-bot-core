@@ -38,8 +38,6 @@ def assess_telegram_test_readiness(*, env=None, test_token_present=None,
             blockers.append("PRODUCTION_LEDGER_FILENAME_NOT_ALLOWED_FOR_TEST")
         if resolved == Path("/data") or resolved == Path("/data/nba_prediction_ledger.sqlite"):
             blockers.append("TEST_LEDGER_NOT_ISOLATED")
-    elif path == "/data/nba_prediction_ledger.sqlite":
-        blockers.append("PRODUCTION_LEDGER_FILENAME_NOT_ALLOWED_FOR_TEST")
     baseline = str(env.get("BASELINE_DIR", ""))
     if baseline and Path(baseline).resolve(strict=False) == Path("/data/baselines"):
         blockers.append("PRODUCTION_BASELINE_PATH_NOT_ALLOWED_FOR_TEST")
