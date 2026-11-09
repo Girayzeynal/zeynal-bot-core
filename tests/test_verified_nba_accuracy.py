@@ -1,3 +1,4 @@
+import math
 import sqlite3
 import tempfile
 import unittest
@@ -22,6 +23,27 @@ class VerifiedNbaAccuracyTests(unittest.TestCase):
             self.assertEqual(result["verified"], 0)
             self.assertIsNone(result["total_mae"])
             self.assertEqual(result["excluded"]["UNVERIFIED_FINAL"], 1)
+
+    def test_invalid_verified_metrics_fail_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = str(Path(folder) / "ledger.sqlite")
+            with sqlite3.connect(path) as db:
+                db.execute("CREATE TABLE predictions (league TEXT, fixture_id TEXT)")
+                db.execute("INSERT INTO predictions VALUES ('NBA', 'bad')")
+            for invalid in (float("nan"), float("inf"), True, "10"):
+                with self.subTest(invalid=repr(invalid)):
+                    with patch("verified_nba_accuracy.compare_fixture",
+                               return_value={"status": "EVALUATED",
+                                             "signed_errors": {"total": invalid, "margin": 1},
+                                             "winner_direction_correct": True}):
+                        with self.assertRaises(ValueError):
+                            verified_nba_accuracy(path)
+            with patch("verified_nba_accuracy.compare_fixture",
+                       return_value={"status": "EVALUATED",
+                                     "signed_errors": {"total": 1, "margin": 1},
+                                     "winner_direction_correct": "yes"}):
+                with self.assertRaises(ValueError):
+                    verified_nba_accuracy(path)
 
     def test_only_verified_pairs_enter_error_denominator(self):
         with tempfile.TemporaryDirectory() as folder:
