@@ -60,7 +60,7 @@ class BotLedgerStartupTests(unittest.TestCase):
             "CommandHandler": lambda *args: args,
             "start_command": object(), "analyze_command": object(),
             "nba_command": object(), "compare_command": object(),
-            "newscheck_command": object(),
+            "newscheck_command": object(), "auditstatus_command": object(),
             "logger": logging.getLogger("startup-test"),
             "os": os,
         }
@@ -72,14 +72,14 @@ class BotLedgerStartupTests(unittest.TestCase):
             app = builder()
         self.assertNotIn("nba_prediction_ledger", app.bot_data)
         self.assertNotIn("nba_espn_adapter", app.bot_data)
-        self.assertEqual(len(app.handlers), 5)
+        self.assertEqual(len(app.handlers), 6)
 
     def test_newscheck_handler_registered_without_ledger(self):
         builder = self.make_builder()
         with patch.dict(os.environ, {"NBA_LEDGER_ENABLED": "false"}, clear=False):
             app = builder()
         commands = [handler[0] for handler in app.handlers]
-        self.assertEqual(commands, ["start", "analyze", "nba", "compare", "newscheck"])
+        self.assertEqual(commands, ["start", "analyze", "nba", "compare", "auditstatus", "newscheck"])
         self.assertNotIn("nba_prediction_ledger", app.bot_data)
 
     def test_enabled_constructs_ledger_on_volume(self):
