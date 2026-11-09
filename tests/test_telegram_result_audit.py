@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 import unittest
+from unittest.mock import patch
 
 from prediction_ledger import PredictionLedger, PredictionRecord, OutcomeRecord
 from telegram_result_audit import compare_fixture, format_comparison
@@ -129,3 +130,33 @@ class TelegramResultAuditUnittestTests(unittest.TestCase):
     def test_legacy_ledger_without_provenance_tables_fails_closed(self):
         with tempfile.TemporaryDirectory() as root:
             test_legacy_ledger_without_provenance_tables_fails_closed(Path(root))
+
+    def test_verified_numeric_comparison_with_stubbed_evidence_replay(self):
+        """Synthetic arithmetic test; canonical evidence validation is mocked."""
+        with tempfile.TemporaryDirectory() as root:
+            path = _ledger(Path(root))
+            ledger = PredictionLedger(str(path))
+            fixture = "401909922"
+            ledger.record_prediction(PredictionRecord(
+                fixture, "NBA", 100, 108.5, 105.5, 0.6))
+            ledger.record_fixture_start("NBA", fixture, 200)
+            ledger.record_fixture_provenance("NBA", fixture, "ESPN", fixture, 200)
+            ledger.record_outcome(OutcomeRecord(
+                fixture, "NBA", 300, 106, 112))
+            with sqlite3.connect(path) as db:
+                db.execute("INSERT INTO prediction_inputs VALUES (?,?,?,?)",
+                           ("NBA", fixture, "{}", "input-digest"))
+                db.execute("INSERT INTO outcome_evidence VALUES (?,?,?,?)",
+                           ("NBA", fixture, "{}", "result-digest"))
+            with patch.object(PredictionLedger, "load_prediction_inputs",
+                              return_value={"sha256": "input-digest"}), patch.object(
+                              PredictionLedger, "load_outcome_evidence",
+                              return_value={"sha256": "result-digest"}):
+                report = compare_fixture(str(path), fixture)
+            self.assertEqual(report["status"], "EVALUATED")
+            self.assertEqual(report["predicted"]["total"], 214.0)
+            self.assertEqual(report["actual"]["total"], 218)
+            self.assertEqual(report["signed_errors"]["total"], -4.0)
+            self.assertEqual(report["signed_errors"]["margin"], 9.0)
+            self.assertFalse(report["winner_direction_correct"])
+            self.assertIn("Mutlak toplam hata: 4.0", format_comparison(report))
