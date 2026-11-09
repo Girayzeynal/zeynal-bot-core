@@ -7,6 +7,7 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import time
+import shutil
 import unittest
 from unittest.mock import AsyncMock, Mock
 from faz25 import Poller,validate_schedule,exclusive,backup
@@ -23,8 +24,25 @@ def payload():
 
 class Faz25Tests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.folder=tempfile.TemporaryDirectory();self.addCleanup(self.folder.cleanup)
+        self.folder=tempfile.TemporaryDirectory()
+        self.addCleanup(self._cleanup_test_folder)
         self.db=str(Path(self.folder.name)/'ledger.sqlite');self.poller=Poller(self.db,timeout=.1)
+
+    def _cleanup_test_folder(self):
+        """Retry only transient Android/overlayfs directory-not-empty races.
+
+        Do not suppress persistent errors or silently leave a test database.
+        """
+        for attempt in range(8):
+            try:
+                self.folder.cleanup()
+                return
+            except OSError as exc:
+                if exc.errno != 39 or attempt == 7:
+                    raise
+                time.sleep(0.05 * (attempt + 1))
+                shutil.rmtree(self.folder.name)
+
         self.schedule=AsyncMock(return_value=[payload()]);self.collect=AsyncMock(return_value={'inserted':True})
         self.reconcile=AsyncMock(return_value={'status':'awaiting_final'})
 
