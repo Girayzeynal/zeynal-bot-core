@@ -50,13 +50,13 @@ class LeagueScheduleConfigTests(unittest.TestCase):
         self.assertEqual(len(first.body), 1)
         self.assertIsInstance(first.body[0], ast.Continue)
 
-    def test_bcl_remains_disabled_until_verified_id_is_configured(self):
+    def test_bcl_is_absent_from_scheduler_catalog(self):
         path = Path(__file__).resolve().parents[1] / "leagues.json"
         leagues = json.loads(path.read_text(encoding="utf-8"))
-        bcl = [item for item in leagues if item.get("name") == "BCL"]
-        self.assertEqual(len(bcl), 1)
-        if bcl[0].get("api_sports_league_id") == 0:
-            self.assertIs(bcl[0].get("enabled_schedule"), False)
+        self.assertFalse(
+            any(item.get("name") == "BCL" for item in leagues),
+            "BCL must not be reintroduced into the scheduler catalog",
+        )
 
 
 if __name__ == "__main__":
