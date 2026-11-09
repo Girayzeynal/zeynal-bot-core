@@ -188,6 +188,27 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ============================
 # ANALYZE COMMAND
 # ============================
+async def auditstatus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Read-only archive health; never conflate stored rows with model calibration."""
+    from ledger_operational_status import ledger_operational_status
+
+    ledger = context.application.bot_data.get("nba_prediction_ledger")
+    path = ledger.db_path if ledger is not None else None
+    report = await asyncio.to_thread(ledger_operational_status, path)
+    if report["status"] != "READABLE":
+        message = f"NBA arşiv durumu: {report['status']}\\nOtomatik kalibrasyon: DOĞRULANMADI"
+    else:
+        message = (
+            f"NBA arşiv durumu: OK\\n"
+            f"Tahmin kayıtları: {report['predictions']}\\n"
+            f"Sonuç kayıtları: {report['outcomes']}\\n"
+            f"Zaman/kapsam uyumlu eşleşmeler: {report['paired']}\\n"
+            "Not: Eşleşme sayısı doğrulanmış performans metriği değildir.\\n"
+            "Otomatik kalibrasyon: DOĞRULANMADI"
+        )
+    await update.effective_message.reply_text(message)
+
+
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text or ""
 
@@ -377,6 +398,7 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("analyze", analyze_command))
     app.add_handler(CommandHandler("nba", nba_command))
     app.add_handler(CommandHandler("compare", compare_command))
+    app.add_handler(CommandHandler("auditstatus", auditstatus_command))
     app.add_handler(CommandHandler("newscheck", newscheck_command))
     return app
 
