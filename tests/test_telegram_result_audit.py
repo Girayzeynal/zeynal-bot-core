@@ -192,12 +192,18 @@ class TelegramResultAuditUnittestTests(unittest.TestCase):
                             table = "outcomes" if column == "actual_away" else "predictions"
                             db.execute(f"UPDATE {table} SET {column}=? WHERE fixture_id=?",
                                        (value, fixture))
+                            if column == "expected_home" and value == 1e308:
+                                db.execute("UPDATE predictions SET expected_away=? WHERE fixture_id=?",
+                                           (1e308, fixture))
                         self.assertEqual(compare_fixture(str(path), fixture)["status"], expected)
                         with sqlite3.connect(path) as db:
                             reset = 112 if column == "actual_away" else (
                                 0.6 if column == "home_win_probability" else 108.5)
                             db.execute(f"UPDATE {table} SET {column}=? WHERE fixture_id=?",
                                        (reset, fixture))
+                            if column == "expected_home" and value == 1e308:
+                                db.execute("UPDATE predictions SET expected_away=? WHERE fixture_id=?",
+                                           (105.5, fixture))
 
     def test_corrupt_original_inputs_fail_closed(self):
         """Malformed archived inputs cannot produce a verified result."""
