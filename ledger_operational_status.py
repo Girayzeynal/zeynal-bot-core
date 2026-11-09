@@ -30,10 +30,19 @@ def ledger_operational_status(path: str | None) -> dict:
                 "SELECT COUNT(*) FROM predictions WHERE league='NBA'").fetchone()[0]
             outcomes = db.execute(
                 "SELECT COUNT(*) FROM outcomes WHERE league='NBA'").fetchone()[0]
-            paired = db.execute("""SELECT COUNT(*) FROM predictions p
-                JOIN outcomes o ON o.league=p.league AND o.fixture_id=p.fixture_id
-                WHERE p.league='NBA' AND p.prediction_ts_utc < o.result_ts_utc
-                AND p.scope=o.scope""").fetchone()[0]
+            # A result timestamp alone cannot prove a prediction was pregame.
+            # Require a stored fixture tipoff and strictly ordered timestamps.
+            if "fixture_starts" in tables:
+                paired = db.execute("""SELECT COUNT(*) FROM predictions p
+                    JOIN outcomes o ON o.league=p.league AND o.fixture_id=p.fixture_id
+                    JOIN fixture_starts f ON f.league=p.league
+                        AND f.fixture_id=p.fixture_id
+                    WHERE p.league='NBA'
+                    AND p.prediction_ts_utc < f.start_ts_utc
+                    AND f.start_ts_utc < o.result_ts_utc
+                    AND p.scope=o.scope""").fetchone()[0]
+            else:
+                paired = 0
     except (OSError, sqlite3.Error):
         return {"status": "UNREADABLE", "predictions": None,
                 "outcomes": None, "paired": None,
