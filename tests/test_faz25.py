@@ -7,7 +7,6 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import time
-import shutil
 import unittest
 from unittest.mock import AsyncMock, Mock
 from faz25 import Poller,validate_schedule,exclusive,backup
@@ -41,7 +40,6 @@ class Faz25Tests(unittest.IsolatedAsyncioTestCase):
                 if exc.errno != 39 or attempt == 7:
                     raise
                 time.sleep(0.05 * (attempt + 1))
-                shutil.rmtree(self.folder.name)
 
         self.schedule=AsyncMock(return_value=[payload()]);self.collect=AsyncMock(return_value={'inserted':True})
         self.reconcile=AsyncMock(return_value={'status':'awaiting_final'})
