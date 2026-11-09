@@ -51,6 +51,25 @@ class VerifiedNbaAccuracyTests(unittest.TestCase):
             self.assertEqual(result["verified"], 3)
             self.assertEqual(result["excluded"], {"UNVERIFIED_FINAL": 1})
 
+    def test_duplicate_and_invalid_fixture_ids_fail_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = str(Path(folder) / "ledger.sqlite")
+            with sqlite3.connect(path) as db:
+                db.execute("CREATE TABLE predictions (league TEXT, fixture_id TEXT)")
+                db.executemany("INSERT INTO predictions VALUES ('NBA', ?)",
+                               [("same",), ("same",)])
+            with patch("verified_nba_accuracy.compare_fixture") as compare:
+                with self.assertRaisesRegex(ValueError, "duplicate"):
+                    verified_nba_accuracy(path)
+                compare.assert_not_called()
+            with sqlite3.connect(path) as db:
+                db.execute("DELETE FROM predictions")
+                db.execute("INSERT INTO predictions VALUES ('NBA', ' ')")
+            with patch("verified_nba_accuracy.compare_fixture") as compare:
+                with self.assertRaisesRegex(ValueError, "fixture"):
+                    verified_nba_accuracy(path)
+                compare.assert_not_called()
+
     def test_invalid_verified_metrics_fail_closed(self):
         with tempfile.TemporaryDirectory() as folder:
             path = str(Path(folder) / "ledger.sqlite")
