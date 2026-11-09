@@ -178,6 +178,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Zeynal Bot Core aktif. NBA fikstürü: /nba veya /nba YYYY-MM-DD\n"
             "Analiz biçimi:\n"
             "/analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman\n\n"
+            "Karşılaştırma: /compare NBA ESPN_MAC_ID\n"
             "Yeterli doğrulanabilir takım verisi yoksa tahmin üretilmez."
         )
 
