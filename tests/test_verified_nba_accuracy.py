@@ -24,6 +24,8 @@ class VerifiedNbaAccuracyTests(unittest.TestCase):
             self.assertIsNone(result["total_mae"])
             self.assertIsNone(result["total_bias"])
             self.assertIsNone(result["total_rmse"])
+            self.assertIsNone(result["max_total_abs_error"])
+            self.assertIsNone(result["max_margin_abs_error"])
             self.assertEqual(result["excluded"]["UNVERIFIED_FINAL"], 1)
 
     def test_invalid_verified_metrics_fail_closed(self):
@@ -71,6 +73,8 @@ class VerifiedNbaAccuracyTests(unittest.TestCase):
             self.assertEqual(result["margin_bias"], -2)
             self.assertAlmostEqual(result["total_rmse"], math.sqrt(58))
             self.assertAlmostEqual(result["margin_rmse"], math.sqrt(20))
+            self.assertEqual(result["max_total_abs_error"], 10)
+            self.assertEqual(result["max_margin_abs_error"], 6)
             self.assertEqual(result["winner_accuracy"], 0.5)
             self.assertEqual(result["winner_sample"], 2)
             self.assertEqual(result["calibration"], "NOT_VERIFIED")
