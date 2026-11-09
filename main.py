@@ -181,6 +181,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Analiz biçimi:\n"
             "/analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman\n\n"
             "Karşılaştırma: /compare NBA ESPN_MAC_ID\n"
+            "Arşiv durumu: /auditstatus | Performans: /accuracy\n"
             "Haber denetimi: /newscheck NBA ESPN_MAC_ID\n"
             "Yeterli doğrulanabilir takım verisi yoksa tahmin üretilmez."
         )
