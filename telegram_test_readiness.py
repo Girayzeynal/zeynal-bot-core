@@ -1,0 +1,39 @@
+"""Offline Telegram readiness checks without touching production secrets or Fly volumes."""
+from dataclasses import dataclass
+import os
+
+
+@dataclass(frozen=True)
+class Readiness:
+    status: str
+    blockers: tuple[str, ...]
+    notes: tuple[str, ...]
+
+
+def assess_telegram_test_readiness(*, env=None, test_token_present=None,
+                                   isolated_storage=None, ci_passed=False):
+    """Explicit evidence only: missing proof is a blocker, not a guessed success.
+
+    The caller should pass token presence and storage isolation after checking
+    the *test* deployment. Token values are never read or returned.
+    """
+    env = os.environ if env is None else env
+    blockers = []
+    if ci_passed is not True:
+        blockers.append("CI_NOT_VERIFIED")
+    if test_token_present is not True:
+        blockers.append("SEPARATE_TEST_TELEGRAM_TOKEN_NOT_VERIFIED")
+    if isolated_storage is not True:
+        blockers.append("TEST_STORAGE_ISOLATION_NOT_VERIFIED")
+    if str(env.get("NBA_LEDGER_ENABLED", "false")).lower() != "true":
+        blockers.append("TEST_LEDGER_NOT_ENABLED")
+    path = str(env.get("NBA_LEDGER_PATH", ""))
+    if not path or not os.path.isabs(path):
+        blockers.append("TEST_LEDGER_PATH_NOT_ABSOLUTE")
+    if path.startswith("/data/"):
+        blockers.append("PRODUCTION_VOLUME_PATH_NOT_ALLOWED_FOR_TEST")
+    return Readiness(
+        status="READY_FOR_ISOLATED_TEST" if not blockers else "BLOCKED",
+        blockers=tuple(blockers),
+        notes=("No Telegram polling or provider calls performed",
+               "No Fly deployment or volume changes performed"))
