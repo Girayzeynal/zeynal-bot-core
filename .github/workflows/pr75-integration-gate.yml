@@ -4,6 +4,8 @@ on:
     paths:
       - 'main.py'
       - 'prediction_ledger.py'
+      - 'ledger_operational_status.py'
+      - 'tests/test_ledger_operational_status.py'
       - 'prediction_inputs.py'
       - 'prematch_ledger_bridge.py'
       - 'telegram_result_audit.py'
@@ -39,6 +41,7 @@ jobs:
       - name: Archive, Telegram and staging offline regressions
         run: |
           python -m pytest -q \
+            tests/test_ledger_operational_status.py \
             tests/test_faz25.py \
             tests/test_telegram_result_audit.py \
             tests/test_telegram_newscheck.py \
