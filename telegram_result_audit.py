@@ -92,10 +92,10 @@ def format_comparison(report: dict) -> str:
         return f"NBA {fixture}: {status}"
     pred, actual, errors = report["predicted"], report["actual"], report["signed_errors"]
     return (
-        f"NBA {fixture} | DOGRULANMIS KARSILASTIRMA\\n"
-        f"Tahmin: {pred['home']:.1f}-{pred['away']:.1f} (toplam {pred['total']:.1f})\\n"
-        f"Sonuc: {actual['home']}-{actual['away']} (toplam {actual['total']})\\n"
-        f"Mutlak toplam hata: {abs(errors['total']):.1f}\\n"
-        f"Mutlak fark hatasi: {abs(errors['margin']):.1f}\\n"
+        f"NBA {fixture} | DOGRULANMIS KARSILASTIRMA\n"
+        f"Tahmin: {pred['home']:.1f}-{pred['away']:.1f} (toplam {pred['total']:.1f})\n"
+        f"Sonuc: {actual['home']}-{actual['away']} (toplam {actual['total']})\n"
+        f"Mutlak toplam hata: {abs(errors['total']):.1f}\n"
+        f"Mutlak fark hatasi: {abs(errors['margin']):.1f}\n"
         f"Kazanan yonu: {report['winner_direction_correct']}"
     )
