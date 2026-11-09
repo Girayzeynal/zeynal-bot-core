@@ -22,6 +22,8 @@ class OperationalStatusTests(unittest.TestCase):
             self.assertEqual((empty["predictions"], empty["outcomes"], empty["paired"]), (0, 0, 0))
             ledger.record_prediction(PredictionRecord("game1", "NBA", 100, 105, 103, None))
             ledger.record_outcome(OutcomeRecord("game1", "NBA", 200, 101, 102))
+            self.assertEqual(ledger_operational_status(path)["paired"], 0)
+            ledger.record_fixture_start("NBA", "game1", 150)
             result = ledger_operational_status(path)
             self.assertEqual((result["predictions"], result["outcomes"], result["paired"]), (1, 1, 1))
             self.assertEqual(result["calibration"], "NOT_VERIFIED")
