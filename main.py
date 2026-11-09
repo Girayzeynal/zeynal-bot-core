@@ -246,6 +246,8 @@ async def accuracy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Skor farkı RMSE: {report['margin_rmse']:.2f}\n"
         f"En büyük toplam skor hatası: {report['max_total_abs_error']:.2f}\n"
         f"En büyük skor farkı hatası: {report['max_margin_abs_error']:.2f}\n"
+        f"Toplam skor hatası >10: {report['total_error_over_10']} maç\n"
+        f"Toplam skor hatası >20: {report['total_error_over_20']} maç\n"
         + (f"Kazanan yönü isabeti: {report['winner_accuracy'] * 100:.1f}% "
            f"(n={report['winner_sample']})\n"
            if report["winner_accuracy"] is not None
