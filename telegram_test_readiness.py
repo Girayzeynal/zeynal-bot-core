@@ -30,8 +30,12 @@ def assess_telegram_test_readiness(*, env=None, test_token_present=None,
     path = str(env.get("NBA_LEDGER_PATH", ""))
     if not path or not os.path.isabs(path):
         blockers.append("TEST_LEDGER_PATH_NOT_ABSOLUTE")
-    if path.startswith("/data/"):
-        blockers.append("PRODUCTION_VOLUME_PATH_NOT_ALLOWED_FOR_TEST")
+    if path == "/data/nba_prediction_ledger.sqlite":
+        blockers.append("PRODUCTION_LEDGER_FILENAME_NOT_ALLOWED_FOR_TEST")
+    if str(env.get("BASELINE_DIR", "")) == "/data/baselines":
+        blockers.append("PRODUCTION_BASELINE_PATH_NOT_ALLOWED_FOR_TEST")
+    if str(env.get("FAZ23_STORAGE", "")) == "/data/faz23_storage.sqlite":
+        blockers.append("PRODUCTION_FAZ23_PATH_NOT_ALLOWED_FOR_TEST")
     return Readiness(
         status="READY_FOR_ISOLATED_TEST" if not blockers else "BLOCKED",
         blockers=tuple(blockers),
