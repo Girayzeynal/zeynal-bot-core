@@ -6,6 +6,7 @@ import logging
 import math
 import asyncio
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Any, Dict, Tuple
 
 from telegram import Update
@@ -13,13 +14,17 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstrapper
 from providers.espn_adapter import ESPNAdapter
+from nba_fixture_binding import resolve_nba_fixture
+from prediction_ledger import PredictionLedger
+from ledger_storage_config import resolve_prediction_ledger_path
 
-from faz13_engine import Faz13Engine, PrematchRequest
+from faz13_engine import Faz13Engine, PrematchRequest, Faz13CoreOutput
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 
 from aiohttp import web
 from dynamic_scheduler import scheduler_loop
+from nba_command import nba_command
 from faz17_engine import Faz17Engine
 
 # ============================
@@ -138,7 +143,8 @@ def baseline_failure_message(home_reason: str, away_reason: str) -> str:
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_message:
         await update.effective_message.reply_text(
-            "Zeynal Bot Core aktif. Analiz biçimi:\n"
+            "Zeynal Bot Core aktif. NBA fikstürü: /nba veya /nba YYYY-MM-DD\n"
+            "Analiz biçimi:\n"
             "/analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman\n\n"
             "Yeterli doğrulanabilir takım verisi yoksa tahmin üretilmez."
         )
@@ -161,13 +167,29 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Historical requests require point-in-time snapshots. Current baselines
     # would leak post-game information into a retrospective prediction.
     requested_day = datetime.strptime(date_str, "%Y-%m-%d").date()
-    utc_today = datetime.now(timezone.utc).date()
-    if requested_day < utc_today:
+    turkey_today = datetime.now(ZoneInfo("Europe/Istanbul")).date()
+    if requested_day < turkey_today:
         await update.message.reply_text(
             "Geçmiş maç için güncel takım verisi kullanılamaz. "
             "Tarihsel veri kesiti doğrulanmadan backtest tahmini üretilmedi."
         )
         return
+
+    # Never attach an NBA projection to an invented fixture id.
+    fixture_id = 0
+    if league.upper() == "NBA":
+        try:
+            adapter = context.application.bot_data.get("nba_fixture_adapter")
+            if adapter is None:
+                raise ValueError("ESPN fixture adapter unavailable")
+            fixture = await resolve_nba_fixture(adapter, date_str, home, away)
+            fixture_id = int(fixture["provider_fixture_id"])
+        except (ValueError, RuntimeError, KeyError, TypeError) as exc:
+            logger.warning("NBA fixture validation failed: %s", exc)
+            await update.message.reply_text(
+                "NBA fikstürü doğrulanamadı: analiz oluşturulmadı."
+            )
+            return
 
     faz13: Faz13Engine = context.application.bot_data["faz13"]
     bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
@@ -196,7 +218,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         req = PrematchRequest(
-            fixture_id=0,
+            fixture_id=fixture_id,
             league=league,
             date_str=date_str,
             home=home,
@@ -205,9 +227,39 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # 🔥 DOĞRU ÇAĞRI
         result = await faz13.run_prematch(req)
+        if not isinstance(result, Faz13CoreOutput) or not isinstance(result.meta, dict):
+            raise TypeError("FAZ13 returned an invalid analysis payload")
+        if not result.meta.get("data_quality"):
+            raise ValueError("FAZ13 analysis lacks data-quality provenance")
+
+        # PRE pipeline: FAZ22 risk filter, then FAZ23 signal filter and snapshot.
+        result = context.application.bot_data["faz22"].score_and_finalize(result)
+        if not isinstance(result, Faz13CoreOutput) or not isinstance(result.meta, dict):
+            raise TypeError("FAZ22 returned an invalid analysis payload")
+        result = context.application.bot_data["faz23"].apply_decision(result)
+        if not isinstance(result, Faz13CoreOutput) or not isinstance(result.meta, dict):
+            raise TypeError("FAZ23 returned an invalid analysis payload")
+        # With opt-in persistence, never show an unrecorded NBA prediction.
+        ledger = context.application.bot_data.get("nba_prediction_ledger")
+        if league.upper() == "NBA" and ledger is not None:
+            from prematch_ledger_bridge import record_faz13_for_espn_fixture
+            if result.meta.get("input_snapshot_status") != "CAPTURED":
+                raise ValueError("NBA ledger requires original replayable inputs")
+            home_ref = await adapter.resolve_team(home)
+            away_ref = await adapter.resolve_team(away)
+            if not home_ref or not away_ref:
+                raise ValueError("NBA ledger team identities unavailable")
+            record_faz13_for_espn_fixture(
+                ledger, result, fixture,
+                resolved_home_team_id=str(home_ref["id"]),
+                resolved_away_team_id=str(away_ref["id"]),
+            )
+
+        await context.application.bot_data["faz23"].record_snapshot(result)
 
         await update.message.reply_text(
             result.render_html(),
+            parse_mode="HTML",
             disable_web_page_preview=True,
         )
 
@@ -248,9 +300,12 @@ def build_app() -> Application:
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     baseline_store = TeamBaselineStore(base_dir=os.getenv("BASELINE_DIR", "data/baselines"))
+    # Estimated pace is accepted only with replayable ESPN boxscore evidence.
+    # Keep opt-in disabled until provider coverage and provenance are verified.
+    espn_estimated_pace = os.getenv("ESPN_ESTIMATED_PACE_ENABLED", "false").strip().lower() == "true"
     bootstrapper = TeamBaselineBootstrapper(
         store=baseline_store,
-        adapters=[ESPNAdapter()],
+        adapters=[ESPNAdapter(allow_estimated_pace=espn_estimated_pace)],
     )
 
     faz13 = Faz13Engine(
@@ -261,12 +316,26 @@ def build_app() -> Application:
 
     app.bot_data["baseline_store"] = baseline_store
     app.bot_data["baseline_bootstrapper"] = bootstrapper
+    app.bot_data["nba_fixture_adapter"] = ESPNAdapter()
     app.bot_data["faz13"] = faz13
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine(storage_path=os.getenv("FAZ23_STORAGE", "faz23_storage.sqlite"))
 
+    # Explicit opt-in. /analyze persists verified NBA projections when enabled.
+    ledger_enabled = os.getenv("NBA_LEDGER_ENABLED", "false").strip().lower() == "true"
+    ledger_path = resolve_prediction_ledger_path(
+        enabled=ledger_enabled,
+        configured_path=os.getenv("NBA_LEDGER_PATH"),
+    )
+    if ledger_path is not None:
+        app.bot_data["nba_prediction_ledger"] = PredictionLedger(ledger_path)
+        app.bot_data["nba_espn_adapter"] = ESPNAdapter()
+        logger.info("NBA prediction ledger enabled for verified /analyze projections")
+
+
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
+    app.add_handler(CommandHandler("nba", nba_command))
     return app
 
 async def main_async():

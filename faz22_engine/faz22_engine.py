@@ -195,6 +195,18 @@ class Faz22Engine:
 
         profile = get_league_profile(str(league or meta.get("league") or "EUROLEAGUE"))
         meta["league_profile"] = profile.name
+        meta["calibration_status"] = "NOT_ESTABLISHED"
+        meta["confidence_interpretation"] = "HEURISTIC_SCORE_NOT_WIN_PROBABILITY"
+        # Manual/unknown baseline quality cannot be promoted by live or force
+        # overrides. Calculated projections remain available for exploration.
+        if meta.get("data_quality") != "VERIFIED_BASELINE":
+            meta.update(analysis_status="NO_STRONG_SIGNAL", confidence_lock=True,
+                        lock_reason="BASELINE_NOT_VERIFIED", final_confidence=0.0,
+                        strong_signals=[], force_enabled=False,
+                        decision_phase="LIVE" if meta.get("live_edge_flag") else "PRE")
+            core.meta = meta
+            core.notes = ["⚠️ Temel veri doğrulanmadı; güçlü sinyal üretimi kilitli."]
+            return core
 
         # -------------------------
         # INPUTS (FAZ-13 çıktıları)
@@ -338,9 +350,14 @@ class Faz22Engine:
         # SEGMENT ANALYSIS
         # =================================================
         market_ms = market_total
-        market_1h = self._sf(meta.get("market_1h")) or market_total / 2.0
-        market_2h = self._sf(meta.get("market_2h")) or market_total / 2.0
-        market_q = market_total / 4.0
+        market_1h = self._sf(meta.get("market_1h"))
+        market_2h = self._sf(meta.get("market_2h"))
+        # A full-game total is not a quoted quarter market. Require an
+        # explicit, independently supplied line for each quarter.
+        market_q1 = self._sf(meta.get("market_q1"))
+        market_q2 = self._sf(meta.get("market_q2"))
+        market_q3 = self._sf(meta.get("market_q3"))
+        market_q4 = self._sf(meta.get("market_q4"))
 
         exp_ms = self._sf(meta.get("expected_total"))
         exp_1h = self._sf(meta.get("expected_1h"))
@@ -361,13 +378,13 @@ class Faz22Engine:
             ("MS", exp_ms, market_ms, std_ms),
             ("1Y", exp_1h, market_1h, std_1h),
             ("2Y", exp_2h, market_2h, std_2h),
-            ("Q1", exp_q1, market_q, std_q),
-            ("Q2", exp_q2, market_q, std_q),
-            ("Q3", exp_q3, market_q, std_q),
-            ("Q4", exp_q4, market_q, std_q),
+            ("Q1", exp_q1, market_q1, std_q),
+            ("Q2", exp_q2, market_q2, std_q),
+            ("Q3", exp_q3, market_q3, std_q),
+            ("Q4", exp_q4, market_q4, std_q),
         ]:
             r = self._eval_segment(seg, exp, mkt, std, final_conf, notes)
-            if r:
+            if r and not confidence_lock:
                 strong.append(r)
 
         # =================================================

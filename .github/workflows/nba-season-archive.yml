@@ -1,0 +1,123 @@
+name: NBA 2026-27 actual game archive
+on:
+  push:
+    branches: [feature/nba-command-20261104]
+    paths:
+      - .github/workflows/nba-season-archive.yml
+      - tools/archive_europe_2026_27.py
+      - tools/archive_europe_official_2026_27.py
+      - tools/archive_nba_official_crosscheck.py
+      - scenario_evidence_contract.py
+      - tests/test_scenario_evidence_contract.py
+      - news_evidence_contract.py
+      - tests/test_news_evidence_contract.py
+      - tools/archive_nba_2026_27.py
+      - tests/test_archive_europe_2026_27.py
+      - tests/test_archive_europe_official_2026_27.py
+      - tests/test_archive_nba_official_crosscheck.py
+  workflow_dispatch:
+  schedule:
+    - cron: '15 8 * * *'
+permissions:
+  contents: write
+jobs:
+  nba-archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install ESPN HTTP dependency
+        run: python -m pip install 'aiohttp>=3,<4'
+      - name: Fetch completed 2026-27 NBA games
+        run: python -m tools.archive_nba_2026_27 --database data/archive/nba_2026_27.sqlite
+      - name: Verify actual archive rows
+        run: |
+          python - <<'PY'
+          import sqlite3
+          db=sqlite3.connect('data/archive/nba_2026_27.sqlite')
+          games=db.execute('select count(*) from games').fetchone()[0]
+          days=db.execute('select count(*) from scan_days').fetchone()[0]
+          print(f'ARCHIVED_GAMES={games} SCANNED_DAYS={days}')
+          if games == 0 or days == 0:
+              raise SystemExit('No actual games archived')
+          PY
+      - name: Upload verified NBA archive
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nba-2026-27-completed-games-sqlite
+          path: data/archive/nba_2026_27.sqlite
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Persist verified archive on development branch
+        if: success() && github.ref == 'refs/heads/feature/nba-command-20261104'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f data/archive/nba_2026_27.sqlite
+          if git diff --cached --quiet; then
+            echo "ARCHIVE_UNCHANGED"
+          else
+            git commit -m "data: persist verified NBA 2026-27 completed games [skip ci]"
+            git push origin HEAD:feature/nba-command-20261104
+          fi
+  euro-official-archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'aiohttp>=3,<4'
+      - name: Test scenario evidence and pre-tipoff controls
+        run: python -m unittest tests.test_scenario_evidence_contract tests.test_news_evidence_contract
+      - name: Test official European feed parser
+        run: python -m unittest tests.test_archive_europe_official_2026_27
+      - name: Fetch official EuroLeague and EuroCup 2026-27 results
+        run: python -m tools.archive_europe_official_2026_27
+      - name: Upload official feed archive and provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: europe-2026-27-official-sqlite
+          path: data/archive/europe_official_2026_27.sqlite
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Persist verified European archive on development branch
+        if: success() && github.ref == 'refs/heads/feature/nba-command-20261104'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f data/archive/europe_official_2026_27.sqlite
+          if git diff --cached --quiet; then
+            echo "EUROPE_ARCHIVE_UNCHANGED"
+          else
+            git commit -m "data: persist official European results [skip ci]"
+            git pull --rebase origin feature/nba-command-20261104
+            git push origin HEAD:feature/nba-command-20261104
+          fi
+  nba-official-crosscheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'aiohttp>=3,<4'
+      - name: Test NBA official scoreboard parser (offline)
+        run: python -m unittest tests.test_archive_nba_official_crosscheck
+      - name: Fetch independent official NBA results
+        run: python -m tools.archive_nba_official_crosscheck
+      - name: Upload NBA official-source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nba-2026-27-official-crosscheck-sqlite
+          path: data/archive/nba_official_crosscheck_2026_27.sqlite
+          if-no-files-found: warn
+          retention-days: 90

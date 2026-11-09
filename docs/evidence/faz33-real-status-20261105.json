@@ -1,0 +1,30 @@
+{
+  "cuts_by_horizon": {},
+  "distinct_games": 0,
+  "eligible_training_examples": 0,
+  "implementation_state": "FAZ33 working tree before commit",
+  "integrity": "ok",
+  "local_test_seconds": 32.491,
+  "local_tests": 673,
+  "missing_data": {},
+  "mode": "PROSPECTIVE",
+  "new_cloud_session_restore_tested": false,
+  "new_tests": 27,
+  "original_predictions_modified": false,
+  "production_scheduler_enabled": false,
+  "prospective_cuts": 0,
+  "ready_unique_feature_label_games": 0,
+  "reason_no_real_cuts": "At actual discovery time 2 T24H cuts missed and 52 cuts not due; no backdating",
+  "shadow_statuses": {},
+  "source_version_base": "bd8871f8d9c29fa69e108926f6502808e8f78b92",
+  "synthetic_cuts": 0,
+  "synthetic_eligible_examples": 0,
+  "synthetic_validation": {
+    "one_final_one_horizon_training_example": true,
+    "real_performance_claim": false,
+    "successful_no_model_abstention": true,
+    "three_cuts_one_distinct_game": true
+  },
+  "training_horizon": "T60M",
+  "verified_final_games": 0
+}

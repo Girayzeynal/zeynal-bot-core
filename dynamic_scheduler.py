@@ -22,6 +22,29 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 TZ = ZoneInfo("Europe/Istanbul")
 DB_PATH = os.environ.get("SCHEDULER_DB", "scheduler_cache.sqlite")
 PAUSED = False
+# Cache successful fixture lists; pause provider calls after an explicit quota error.
+# These controls affect only API-Sports discovery, not prediction persistence.
+FIXTURE_CACHE_TTL = timedelta(minutes=15)
+QUOTA_BACKOFF = timedelta(hours=1)
+_fixture_cache = {}
+_quota_retry_at = None
+
+
+def api_sports_quota_exhausted(payload):
+    if not isinstance(payload, dict):
+        return False
+    errors = payload.get("errors")
+    if isinstance(errors, dict):
+        messages = " ".join(str(value) for value in errors.values())
+    elif isinstance(errors, (list, str)):
+        messages = str(errors)
+    else:
+        return False
+    message = messages.lower()
+    return any(phrase in message for phrase in (
+        "request limit", "quota exceeded", "rate limit", "too many requests"
+    ))
+
 
 ANALYSIS_STAGES = [
     {"offset": timedelta(hours=24), "use_odds": False},
@@ -59,33 +82,53 @@ def get_vol_factor(team):
 
 # --- API HELPERS (Fly.io Optimized) ---
 async def fetch_games(league_id, date, session):
-    url = os.getenv("API_SPORTS_BASE", "https://v1.basketball.api-sports.io") + "/games"
+    global _quota_retry_at
+    now = datetime.now(timezone.utc)
+    cache_key = (league_id, date)
+    cached = _fixture_cache.get(cache_key)
+    if cached is not None and now - cached[0] < FIXTURE_CACHE_TTL:
+        return list(cached[1])
+    if _quota_retry_at is not None and now < _quota_retry_at:
+        return []
+
+    url = os.getenv("API_SPORTS_BASE", "https://v1.basketball.api-sports.io").rstrip("/") + "/games"
     headers = {"x-apisports-key": os.getenv("API_SPORTS_KEY")}
     params = {"league": league_id, "date": date, "timezone": "UTC"}
-    
+
     try:
         async with session.get(url, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            if resp.status == 429:
+                _quota_retry_at = datetime.now(timezone.utc) + QUOTA_BACKOFF
+                log.warning("API-Sports rate limit (HTTP 429); pausing fixture requests for %s", QUOTA_BACKOFF)
+                return []
             resp.raise_for_status()
             js = await resp.json()
-            if not isinstance(js, dict) or not isinstance(js.get("response"), list):
+            if api_sports_quota_exhausted(js):
+                _quota_retry_at = datetime.now(timezone.utc) + QUOTA_BACKOFF
+                log.warning("API-Sports quota exhausted; pausing fixture requests for %s", QUOTA_BACKOFF)
+                return []
+            if not isinstance(js, dict) or js.get("errors"):
+                log.error("API-Sports returned provider errors; fixture data not accepted")
+                return []
+            if not isinstance(js.get("response"), list):
                 raise ValueError("API-Sports response missing games list")
             out = []
-            for g in js.get("response", []):
+            for g in js["response"]:
                 try:
                     out.append({
                         "id": str(g["id"]),
-                        "start": datetime.fromisoformat(g["date"].replace("Z","+00:00")),
+                        "start": datetime.fromisoformat(g["date"].replace("Z", "+00:00")),
                         "home": g["teams"]["home"]["name"],
                         "away": g["teams"]["away"]["name"],
                         "status": g["status"]["short"],
-                        "scores": g.get("scores", {})
+                        "scores": g.get("scores", {}),
                     })
                 except (KeyError, TypeError, ValueError, AttributeError):
                     log.warning("Skipping malformed API-Sports fixture", exc_info=True)
-                    continue
-            return out
-    except Exception as e:
-        log.error(f"Games fetch failed: {e}")
+            _fixture_cache[cache_key] = (datetime.now(timezone.utc), out)
+            return list(out)
+    except Exception as exc:
+        log.error("Games fetch failed: %s", exc)
         return []
 
 # --- CORE ANALYSIS PIPELINE ---

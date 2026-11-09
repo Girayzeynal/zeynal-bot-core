@@ -27,6 +27,8 @@ class Faz16LiveResult:
     live_edge_flag: str
     confidence_boost: float
     notes: str
+    model_scope: str = "REGULATION_ONLY"
+    calibration_status: str = "NOT_ESTABLISHED"
 
 
 # ============================
@@ -103,7 +105,7 @@ def faz16_live_recalibrate(
     """
     FAZ-16 LIVE RECALIBRATION (LEAGUE-AWARE)
 
-    - Uses league clock (NBA 12m, others 10m) deterministically
+    - Uses registered league clock (NBA 12m, EuroLeague 10m) deterministically
     - Updates mean via weighted blend prematch vs live pace projection
     - Updates std via controlled blend:
         std_live = sqrt( (1-w)*std_pre^2 + w*std_obs^2 ) * inflate(drift)
@@ -111,7 +113,8 @@ def faz16_live_recalibrate(
     """
 
     # Reject malformed or unsupported live inputs before any projection.
-    get_league_profile(league)
+    profile = get_league_profile(league)
+    league = profile.name
     prematch_sim_mean = float(prematch_sim_mean)
     prematch_sim_std = float(prematch_sim_std)
     if not math.isfinite(prematch_sim_mean) or prematch_sim_mean <= 0:
@@ -126,12 +129,29 @@ def faz16_live_recalibrate(
             raise ValueError("market_total must be finite and positive")
 
     periods, period_sec = _game_clock(league)
-    if not 1 <= int(snapshot.period) <= periods:
+    for name, value in (("snapshot.period", snapshot.period),
+                        ("sec_elapsed_in_period", snapshot.sec_elapsed_in_period),
+                        ("points_total_so_far", snapshot.points_total_so_far),
+                        ("early_guard_sec", early_guard_sec)):
+        if type(value) is not int:
+            raise ValueError(f"{name} must be an integer")
+    if not 1 <= snapshot.period <= periods:
         raise ValueError(f"snapshot.period must be between 1 and {periods}")
-    if not 0 <= int(snapshot.sec_elapsed_in_period) <= period_sec:
+    if not 0 <= snapshot.sec_elapsed_in_period <= period_sec:
         raise ValueError(f"sec_elapsed_in_period must be between 0 and {period_sec}")
-    if int(snapshot.points_total_so_far) < 0:
+    if snapshot.points_total_so_far < 0:
         raise ValueError("points_total_so_far cannot be negative")
+    if not 0 <= early_guard_sec <= period_sec:
+        raise ValueError("early_guard_sec must be within the first period")
+    if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
+           for v in (drift_soft_pct, drift_trigger_pct)):
+        raise ValueError("drift thresholds must be finite numbers")
+    if not 0 <= drift_soft_pct < drift_trigger_pct:
+        raise ValueError("drift thresholds require 0 <= soft < trigger")
+    if snapshot.period == 1 and snapshot.sec_elapsed_in_period == 0 and snapshot.points_total_so_far:
+        raise ValueError("nonzero points at zero elapsed time")
+    if snapshot.period == periods and snapshot.sec_elapsed_in_period == period_sec:
+        raise ValueError("regulation clock complete; live projection requires an in-progress clock")
     total_game_seconds = periods * period_sec
 
     sec_elapsed_total = _seconds_elapsed_total(snapshot.period, snapshot.sec_elapsed_in_period, period_sec)
@@ -191,7 +211,7 @@ def faz16_live_recalibrate(
             mean_shift=round(mean_shift, 2),
             live_edge_flag="STILL_NO_EDGE",
             confidence_boost=0.0,
-            notes="LIVE: market yok. Tempo + dağılım güncellendi.",
+            notes="LIVE: market yok. Skor hızı tahmini güncellendi; pozisyon temposu ölçülmedi.",
         )
 
     market_total_f = float(market_total)

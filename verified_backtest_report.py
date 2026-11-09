@@ -28,6 +28,7 @@ def report(db_path: str, league: str = "NBA") -> dict:
     if foreign:
         raise ValueError("non-ESPN verified fixtures present; mixed-provider report refused")
     audit = ledger.audit_provenance(league)
+    audit["prediction_input_binding"] = ledger.audit_prediction_inputs(league)
     count = audit["provider_consistent_prematch_pairs"]
     audit["excluded_matched_pairs"] = audit["matched"] - count
     # Counts overlap: a fixture may fail more than one validation gate.

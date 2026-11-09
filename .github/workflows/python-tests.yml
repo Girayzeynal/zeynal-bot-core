@@ -6,9 +6,12 @@ on:
       - main
       - "dev/**"
       - "fix/**"
+      - "feature/**"
   pull_request:
     branches:
       - main
+      - "fix/**"
+      - "feature/**"
 
 jobs:
   unit-tests:

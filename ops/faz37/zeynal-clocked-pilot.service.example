@@ -1,0 +1,10 @@
+# Development template only: never installed/activated by this task.
+[Unit]
+Description=Zeynal clock-guarded NBA development pilot
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/ABSOLUTE/DEVELOPMENT/CHECKOUT
+ExecStart=/ABSOLUTE/VENV/bin/python -m faz37 pilot /ABSOLUTE/PILOT/pilot-config.json
+TimeoutStartSec=240

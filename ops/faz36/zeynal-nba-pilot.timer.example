@@ -1,0 +1,11 @@
+# Requires an authorized persistent host/state target. Not activated here.
+[Unit]
+Description=Check NBA prospective cuts once per minute
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=60s
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=false
+Unit=zeynal-nba-pilot.service

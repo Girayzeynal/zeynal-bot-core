@@ -28,13 +28,6 @@
     "enabled_schedule": true
   },
   {
-    "name": "BCL",
-    "api_sports_league_id": 0,
-    "odds_sport_key": null,
-    "enabled_odds": false,
-    "enabled_schedule": false
-  },
-  {
     "name": "Spain ACB",
     "api_sports_league_id": 117,
     "odds_sport_key": null,

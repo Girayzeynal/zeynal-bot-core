@@ -1,0 +1,16 @@
+{
+  "coverage": {
+    "distinct_games": 81,
+    "earliest_source_observed_utc": 1793810383,
+    "latest_ingested_utc": 1793862906,
+    "observations": 120,
+    "original_prospective_forecasts_created": 0,
+    "pace_supported_observations": 120,
+    "seasons": [
+      2027
+    ],
+    "source_after_own_tipoff_games": 81
+  },
+  "new_observations": 13,
+  "status": "HISTORY_REFRESHED"
+}

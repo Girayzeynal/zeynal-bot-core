@@ -1,0 +1,879 @@
+{
+  "competition": {
+    "name": "Euroleague",
+    "code": "E"
+  },
+  "season": {
+    "name": "EuroLeague 2026-27",
+    "code": "E2026",
+    "alias": "2026-27",
+    "competitionCode": "E",
+    "year": 2026,
+    "startDate": "2026-07-01T00:00:00",
+    "activationDate": "2026-07-01T00:00:00",
+    "endDate": "2027-06-30T23:59:59",
+    "winner": null
+  },
+  "game": {
+    "id": "3240915c-63cf-4f1e-9e75-450d9903527a",
+    "identifier": "E2026_1",
+    "gameCode": 1,
+    "season": {
+      "name": "EuroLeague 2026-27",
+      "code": "E2026",
+      "alias": "2026-27",
+      "competitionCode": "E",
+      "year": 2026,
+      "startDate": "2026-07-01T00:00:00"
+    },
+    "confirmedDate": true,
+    "confirmedHour": true,
+    "gameStatus": "Confirmed",
+    "played": true,
+    "utcDate": "2026-09-24T18:00:00Z",
+    "phaseType": {
+      "code": "RS",
+      "alias": "REGULAR SEASON",
+      "name": "Regular Season",
+      "isGroupPhase": true
+    },
+    "local": {
+      "score": 77,
+      "partials": {
+        "partials1": 21,
+        "partials2": 24,
+        "partials3": 12,
+        "partials4": 20,
+        "extraPeriods": {}
+      },
+      "club": {
+        "code": "RED",
+        "name": "Crvena Zvezda Meridianbet Belgrade",
+        "isVirtual": false
+      }
+    },
+    "road": {
+      "score": 83,
+      "partials": {
+        "partials1": 28,
+        "partials2": 15,
+        "partials3": 16,
+        "partials4": 24,
+        "extraPeriods": {}
+      },
+      "club": {
+        "code": "ZAL",
+        "name": "Zalgiris Kaunas",
+        "isVirtual": false
+      }
+    }
+  },
+  "stats": {
+    "local": {
+      "total": {
+        "points": 77.0,
+        "fieldGoalsMade2": 17.0,
+        "fieldGoalsAttempted2": 44.0,
+        "fieldGoalsMade3": 10.0,
+        "fieldGoalsAttempted3": 29.0,
+        "fieldGoalsMadeTotal": 27.0,
+        "fieldGoalsAttemptedTotal": 73.0,
+        "freeThrowsMade": 13.0,
+        "freeThrowsAttempted": 19.0,
+        "offensiveRebounds": 15.0,
+        "turnovers": 14.0,
+        "timePlayed": 2400.0
+      },
+      "team": {
+        "points": 0.0,
+        "fieldGoalsMade2": 0.0,
+        "fieldGoalsAttempted2": 0.0,
+        "fieldGoalsMade3": 0.0,
+        "fieldGoalsAttempted3": 0.0,
+        "fieldGoalsMadeTotal": 0.0,
+        "fieldGoalsAttemptedTotal": 0.0,
+        "freeThrowsMade": 0.0,
+        "freeThrowsAttempted": 0.0,
+        "offensiveRebounds": 1.0,
+        "turnovers": 0.0
+      },
+      "players": [
+        {
+          "player": {
+            "person": {
+              "code": "014163"
+            },
+            "club": {
+              "code": "RED"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 11.0,
+            "fieldGoalsMade2": 1.0,
+            "fieldGoalsAttempted2": 4.0,
+            "fieldGoalsMade3": 3.0,
+            "fieldGoalsAttempted3": 7.0,
+            "fieldGoalsMadeTotal": 4.0,
+            "fieldGoalsAttemptedTotal": 11.0,
+            "freeThrowsMade": 0.0,
+            "freeThrowsAttempted": 0.0,
+            "offensiveRebounds": 1.0,
+            "turnovers": 1.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "011305"
+            },
+            "club": {
+              "code": "RED"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 3.0,
+            "fieldGoalsMade2": 0.0,
+            "fieldGoalsAttempted2": 1.0,
+            "fieldGoalsMade3": 1.0,
+            "fieldGoalsAttempted3": 3.0,
+            "fieldGoalsMadeTotal": 1.0,
+            "fieldGoalsAttemptedTotal": 4.0,
+            "freeThrowsMade": 0.0,
+            "freeThrowsAttempted": 0.0,
+            "offensiveRebounds": 0.0,
+            "turnovers": 1.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "004007"
+            },
+            "club": {
+              "code": "RED"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 0.0,
+            "fieldGoalsMade2": 0.0,
+            "fieldGoalsAttempted2": 0.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 1.0,
+            "fieldGoalsMadeTotal": 0.0,
+            "fieldGoalsAttemptedTotal": 1.0,
+            "freeThrowsMade": 0.0,
+            "freeThrowsAttempted": 0.0,
+            "offensiveRebounds": 1.0,
+            "turnovers": 0.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "014029"
+            },
+            "club": {
+              "code": "RED"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 7.0,
+            "fieldGoalsMade2": 2.0,
+            "fieldGoalsAttempted2": 6.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 0.0,
+            "fieldGoalsMadeTotal": 2.0,
+            "fieldGoalsAttemptedTotal": 6.0,
+            "freeThrowsMade": 3.0,
+            "freeThrowsAttempted": 4.0,
+            "offensiveRebounds": 4.0,
+            "turnovers": 0.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "010568"
+            },
+            "club": {
+              "code": "RED"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 15.0,
+            "fieldGoalsMade2": 5.0,
+            "fieldGoalsAttempted2": 6.0,
+            "fieldGoalsMade3": 1.0,
+            "fieldGoalsAttempted3": 2.0,
+            "fieldGoalsMadeTotal": 6.0,
+            "fieldGoalsAttemptedTotal": 8.0,
+            "freeThrowsMade": 2.0,
+            "freeThrowsAttempted": 2.0,
+            "offensiveRebounds": 1.0,
+            "turnovers": 0.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "006482"
+            },
+            "club": {
+              "code": "RED"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 11.0,
+            "fieldGoalsMade2": 0.0,
+            "fieldGoalsAttempted2": 2.0,
+            "fieldGoalsMade3": 3.0,
+            "fieldGoalsAttempted3": 5.0,
+            "fieldGoalsMadeTotal": 3.0,
+            "fieldGoalsAttemptedTotal": 7.0,
+            "freeThrowsMade": 2.0,
+            "freeThrowsAttempted": 2.0,
+            "offensiveRebounds": 0.0,
+            "turnovers": 0.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "014094"
+            },
+            "club": {
+              "code": "RED"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 0.0,
+            "fieldGoalsMade2": 0.0,
+            "fieldGoalsAttempted2": 0.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 0.0,
+            "fieldGoalsMadeTotal": 0.0,
+            "fieldGoalsAttemptedTotal": 0.0,
+            "freeThrowsMade": 0.0,
+            "freeThrowsAttempted": 0.0,
+            "offensiveRebounds": 0.0,
+            "turnovers": 0.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "012201"
+            },
+            "club": {
+              "code": "RED"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 9.0,
+            "fieldGoalsMade2": 4.0,
+            "fieldGoalsAttempted2": 5.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 4.0,
+            "fieldGoalsMadeTotal": 4.0,
+            "fieldGoalsAttemptedTotal": 9.0,
+            "freeThrowsMade": 1.0,
+            "freeThrowsAttempted": 2.0,
+            "offensiveRebounds": 3.0,
+            "turnovers": 0.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "011157"
+            },
+            "club": {
+              "code": "RED"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 2.0,
+            "fieldGoalsMade2": 1.0,
+            "fieldGoalsAttempted2": 5.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 2.0,
+            "fieldGoalsMadeTotal": 1.0,
+            "fieldGoalsAttemptedTotal": 7.0,
+            "freeThrowsMade": 0.0,
+            "freeThrowsAttempted": 0.0,
+            "offensiveRebounds": 0.0,
+            "turnovers": 6.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "013363"
+            },
+            "club": {
+              "code": "RED"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 10.0,
+            "fieldGoalsMade2": 3.0,
+            "fieldGoalsAttempted2": 8.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 1.0,
+            "fieldGoalsMadeTotal": 3.0,
+            "fieldGoalsAttemptedTotal": 9.0,
+            "freeThrowsMade": 4.0,
+            "freeThrowsAttempted": 6.0,
+            "offensiveRebounds": 1.0,
+            "turnovers": 1.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "011982"
+            },
+            "club": {
+              "code": "RED"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 9.0,
+            "fieldGoalsMade2": 1.0,
+            "fieldGoalsAttempted2": 4.0,
+            "fieldGoalsMade3": 2.0,
+            "fieldGoalsAttempted3": 3.0,
+            "fieldGoalsMadeTotal": 3.0,
+            "fieldGoalsAttemptedTotal": 7.0,
+            "freeThrowsMade": 1.0,
+            "freeThrowsAttempted": 3.0,
+            "offensiveRebounds": 2.0,
+            "turnovers": 1.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "010391"
+            },
+            "club": {
+              "code": "RED"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 0.0,
+            "fieldGoalsMade2": 0.0,
+            "fieldGoalsAttempted2": 3.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 1.0,
+            "fieldGoalsMadeTotal": 0.0,
+            "fieldGoalsAttemptedTotal": 4.0,
+            "freeThrowsMade": 0.0,
+            "freeThrowsAttempted": 0.0,
+            "offensiveRebounds": 1.0,
+            "turnovers": 4.0
+          }
+        }
+      ]
+    },
+    "road": {
+      "total": {
+        "points": 83.0,
+        "fieldGoalsMade2": 20.0,
+        "fieldGoalsAttempted2": 43.0,
+        "fieldGoalsMade3": 8.0,
+        "fieldGoalsAttempted3": 20.0,
+        "fieldGoalsMadeTotal": 28.0,
+        "fieldGoalsAttemptedTotal": 63.0,
+        "freeThrowsMade": 19.0,
+        "freeThrowsAttempted": 27.0,
+        "offensiveRebounds": 13.0,
+        "turnovers": 16.0,
+        "timePlayed": 2400.0
+      },
+      "team": {
+        "points": 0.0,
+        "fieldGoalsMade2": 0.0,
+        "fieldGoalsAttempted2": 0.0,
+        "fieldGoalsMade3": 0.0,
+        "fieldGoalsAttempted3": 0.0,
+        "fieldGoalsMadeTotal": 0.0,
+        "fieldGoalsAttemptedTotal": 0.0,
+        "freeThrowsMade": 0.0,
+        "freeThrowsAttempted": 0.0,
+        "offensiveRebounds": 3.0,
+        "turnovers": 1.0
+      },
+      "players": [
+        {
+          "player": {
+            "person": {
+              "code": "008186"
+            },
+            "club": {
+              "code": "ZAL"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 5.0,
+            "fieldGoalsMade2": 2.0,
+            "fieldGoalsAttempted2": 4.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 0.0,
+            "fieldGoalsMadeTotal": 2.0,
+            "fieldGoalsAttemptedTotal": 4.0,
+            "freeThrowsMade": 1.0,
+            "freeThrowsAttempted": 2.0,
+            "offensiveRebounds": 0.0,
+            "turnovers": 3.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "012720"
+            },
+            "club": {
+              "code": "ZAL"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 10.0,
+            "fieldGoalsMade2": 0.0,
+            "fieldGoalsAttempted2": 0.0,
+            "fieldGoalsMade3": 2.0,
+            "fieldGoalsAttempted3": 3.0,
+            "fieldGoalsMadeTotal": 2.0,
+            "fieldGoalsAttemptedTotal": 3.0,
+            "freeThrowsMade": 4.0,
+            "freeThrowsAttempted": 4.0,
+            "offensiveRebounds": 0.0,
+            "turnovers": 0.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "002676"
+            },
+            "club": {
+              "code": "ZAL"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 0.0,
+            "fieldGoalsMade2": 0.0,
+            "fieldGoalsAttempted2": 0.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 0.0,
+            "fieldGoalsMadeTotal": 0.0,
+            "fieldGoalsAttemptedTotal": 0.0,
+            "freeThrowsMade": 0.0,
+            "freeThrowsAttempted": 0.0,
+            "offensiveRebounds": 4.0,
+            "turnovers": 0.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "011987"
+            },
+            "club": {
+              "code": "ZAL"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 13.0,
+            "fieldGoalsMade2": 2.0,
+            "fieldGoalsAttempted2": 5.0,
+            "fieldGoalsMade3": 2.0,
+            "fieldGoalsAttempted3": 6.0,
+            "fieldGoalsMadeTotal": 4.0,
+            "fieldGoalsAttemptedTotal": 11.0,
+            "freeThrowsMade": 3.0,
+            "freeThrowsAttempted": 3.0,
+            "offensiveRebounds": 0.0,
+            "turnovers": 1.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "007513"
+            },
+            "club": {
+              "code": "ZAL"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 0.0,
+            "fieldGoalsMade2": 0.0,
+            "fieldGoalsAttempted2": 0.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 0.0,
+            "fieldGoalsMadeTotal": 0.0,
+            "fieldGoalsAttemptedTotal": 0.0,
+            "freeThrowsMade": 0.0,
+            "freeThrowsAttempted": 0.0,
+            "offensiveRebounds": 0.0,
+            "turnovers": 1.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "002328"
+            },
+            "club": {
+              "code": "ZAL"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 2.0,
+            "fieldGoalsMade2": 1.0,
+            "fieldGoalsAttempted2": 4.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 1.0,
+            "fieldGoalsMadeTotal": 1.0,
+            "fieldGoalsAttemptedTotal": 5.0,
+            "freeThrowsMade": 0.0,
+            "freeThrowsAttempted": 0.0,
+            "offensiveRebounds": 0.0,
+            "turnovers": 1.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "007032"
+            },
+            "club": {
+              "code": "ZAL"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 3.0,
+            "fieldGoalsMade2": 0.0,
+            "fieldGoalsAttempted2": 1.0,
+            "fieldGoalsMade3": 1.0,
+            "fieldGoalsAttempted3": 2.0,
+            "fieldGoalsMadeTotal": 1.0,
+            "fieldGoalsAttemptedTotal": 3.0,
+            "freeThrowsMade": 0.0,
+            "freeThrowsAttempted": 0.0,
+            "offensiveRebounds": 0.0,
+            "turnovers": 3.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "011927"
+            },
+            "club": {
+              "code": "ZAL"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 7.0,
+            "fieldGoalsMade2": 0.0,
+            "fieldGoalsAttempted2": 0.0,
+            "fieldGoalsMade3": 2.0,
+            "fieldGoalsAttempted3": 3.0,
+            "fieldGoalsMadeTotal": 2.0,
+            "fieldGoalsAttemptedTotal": 3.0,
+            "freeThrowsMade": 1.0,
+            "freeThrowsAttempted": 4.0,
+            "offensiveRebounds": 2.0,
+            "turnovers": 0.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "008192"
+            },
+            "club": {
+              "code": "ZAL"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 10.0,
+            "fieldGoalsMade2": 4.0,
+            "fieldGoalsAttempted2": 8.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 2.0,
+            "fieldGoalsMadeTotal": 4.0,
+            "fieldGoalsAttemptedTotal": 10.0,
+            "freeThrowsMade": 2.0,
+            "freeThrowsAttempted": 4.0,
+            "offensiveRebounds": 3.0,
+            "turnovers": 1.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "002329"
+            },
+            "club": {
+              "code": "ZAL"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 6.0,
+            "fieldGoalsMade2": 0.0,
+            "fieldGoalsAttempted2": 1.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 1.0,
+            "fieldGoalsMadeTotal": 0.0,
+            "fieldGoalsAttemptedTotal": 2.0,
+            "freeThrowsMade": 6.0,
+            "freeThrowsAttempted": 8.0,
+            "offensiveRebounds": 0.0,
+            "turnovers": 1.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "000898"
+            },
+            "club": {
+              "code": "ZAL"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 13.0,
+            "fieldGoalsMade2": 6.0,
+            "fieldGoalsAttempted2": 9.0,
+            "fieldGoalsMade3": 0.0,
+            "fieldGoalsAttempted3": 0.0,
+            "fieldGoalsMadeTotal": 6.0,
+            "fieldGoalsAttemptedTotal": 9.0,
+            "freeThrowsMade": 1.0,
+            "freeThrowsAttempted": 1.0,
+            "offensiveRebounds": 1.0,
+            "turnovers": 1.0
+          }
+        },
+        {
+          "player": {
+            "person": {
+              "code": "007982"
+            },
+            "club": {
+              "code": "ZAL"
+            },
+            "season": {
+              "name": "EuroLeague 2026-27",
+              "code": "E2026",
+              "alias": "2026-27",
+              "competitionCode": "E",
+              "year": 2026,
+              "startDate": "2026-07-01T00:00:00"
+            }
+          },
+          "stats": {
+            "points": 14.0,
+            "fieldGoalsMade2": 5.0,
+            "fieldGoalsAttempted2": 11.0,
+            "fieldGoalsMade3": 1.0,
+            "fieldGoalsAttempted3": 2.0,
+            "fieldGoalsMadeTotal": 6.0,
+            "fieldGoalsAttemptedTotal": 13.0,
+            "freeThrowsMade": 1.0,
+            "freeThrowsAttempted": 1.0,
+            "offensiveRebounds": 0.0,
+            "turnovers": 3.0
+          }
+        }
+      ]
+    }
+  }
+}

@@ -7,6 +7,7 @@ import logging
 import pathlib
 import types
 import unittest
+from zoneinfo import ZoneInfo
 from unittest.mock import AsyncMock
 from typing import Any, Tuple
 
@@ -23,11 +24,14 @@ def load_handler():
                and any(isinstance(t, ast.Name) and t.id == "BASELINE_REASON_TR"
                        for t in node.targets)]
     namespace = {"Any": Any, "Update": Any, "ContextTypes": types.SimpleNamespace(DEFAULT_TYPE=Any), "math": __import__("math"), "html": html,
-                 "datetime": datetime.datetime, "timezone": datetime.timezone, "Tuple": Tuple,
+                 "datetime": datetime.datetime, "timezone": datetime.timezone, "ZoneInfo": ZoneInfo, "Tuple": Tuple,
                  "logger": logging.getLogger("telegram-test")}
     exec(compile(ast.fix_missing_locations(
         ast.Module(body=reasons + functions, type_ignores=[])), str(path), "exec"),
          namespace)
+    async def fake_fixture(_adapter, _date, _home, _away):
+        return {"provider_fixture_id": "401909924"}
+    namespace["resolve_nba_fixture"] = fake_fixture
     return namespace["analyze_command"]
 
 
@@ -35,13 +39,14 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
     def test_missing_baseline_never_calls_engine(self):
         async def scenario():
             handler = load_handler()
-            today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+            today = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
+                     + datetime.timedelta(days=1)).isoformat()
             update = types.SimpleNamespace(message=types.SimpleNamespace(
                 text=f"/analyze NBA {today} Home vs Away", reply_text=AsyncMock()))
             bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock(return_value=None))
             engine = types.SimpleNamespace(run_prematch=AsyncMock())
             context = types.SimpleNamespace(application=types.SimpleNamespace(
-                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper}))
+                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper, "nba_fixture_adapter": object()}))
             await handler(update, context)
             engine.run_prematch.assert_not_awaited()
             self.assertIn("Analiz oluşturulmadı", update.message.reply_text.await_args.args[0])
@@ -50,7 +55,7 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
     def test_past_fixture_never_calls_provider_or_engine(self):
         async def scenario():
             handler = load_handler()
-            yesterday = (datetime.datetime.now(datetime.timezone.utc).date()
+            yesterday = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
                          - datetime.timedelta(days=1)).isoformat()
             update = types.SimpleNamespace(message=types.SimpleNamespace(
                 text=f"/analyze NBA {yesterday} Home vs Away",
@@ -58,7 +63,7 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
             bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock())
             engine = types.SimpleNamespace(run_prematch=AsyncMock())
             context = types.SimpleNamespace(application=types.SimpleNamespace(
-                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper}))
+                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper, "nba_fixture_adapter": object()}))
             await handler(update, context)
             bootstrapper.ensure_async.assert_not_awaited()
             engine.run_prematch.assert_not_awaited()
@@ -73,24 +78,172 @@ class TelegramAnalyzeFailClosedTests(unittest.TestCase):
             bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock())
             engine = types.SimpleNamespace(run_prematch=AsyncMock())
             context = types.SimpleNamespace(application=types.SimpleNamespace(
-                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper}))
+                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper, "nba_fixture_adapter": object()}))
             await handler(update, context)
             bootstrapper.ensure_async.assert_not_awaited()
             engine.run_prematch.assert_not_awaited()
             self.assertIn("Parametre hatasi", update.message.reply_text.await_args.args[0])
         asyncio.run(scenario())
 
+    def test_opt_in_ledger_refuses_missing_input_snapshot(self):
+        async def scenario():
+            handler = load_handler()
+            handler.__globals__["PrematchRequest"] = lambda **kwargs: types.SimpleNamespace(**kwargs)
+            handler.__globals__["Faz13CoreOutput"] = types.SimpleNamespace
+            handler.__globals__["baseline_quality_reason"] = lambda *_args: "usable"
+            tomorrow = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
+                        + datetime.timedelta(days=1)).isoformat()
+            update = types.SimpleNamespace(message=types.SimpleNamespace(
+                text=f"/analyze NBA {tomorrow} Home vs Away", reply_text=AsyncMock()))
+            bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock(return_value=object()))
+            result = types.SimpleNamespace(meta={"data_quality": "VERIFIED_BASELINE"}, render_html=lambda: "not recorded")
+            faz23 = types.SimpleNamespace(apply_decision=lambda core: core, record_snapshot=AsyncMock())
+            engine = types.SimpleNamespace(run_prematch=AsyncMock(return_value=result))
+            context = types.SimpleNamespace(application=types.SimpleNamespace(bot_data={
+                "nba_fixture_adapter": object(), "nba_prediction_ledger": object(),
+                "faz13": engine, "baseline_bootstrapper": bootstrapper,
+                "faz22": types.SimpleNamespace(score_and_finalize=lambda core: core), "faz23": faz23,
+            }))
+            await handler(update, context)
+            faz23.record_snapshot.assert_not_awaited()
+            self.assertNotIn("not recorded", update.message.reply_text.await_args.args[0])
+            self.assertIn("dahili bir hata", update.message.reply_text.await_args.args[0])
+        asyncio.run(scenario())
+
+    def test_opt_in_ledger_records_verified_projection_before_reply(self):
+        async def scenario():
+            import sys
+            from unittest.mock import Mock, patch
+            handler = load_handler()
+            handler.__globals__["PrematchRequest"] = lambda **kwargs: types.SimpleNamespace(**kwargs)
+            handler.__globals__["Faz13CoreOutput"] = types.SimpleNamespace
+            handler.__globals__["baseline_quality_reason"] = lambda *_args: "usable"
+            tomorrow = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
+                        + datetime.timedelta(days=1)).isoformat()
+            update = types.SimpleNamespace(message=types.SimpleNamespace(
+                text=f"/analyze NBA {tomorrow} Home vs Away", reply_text=AsyncMock()))
+            result = types.SimpleNamespace(meta={
+                "data_quality": "VERIFIED_BASELINE", "input_snapshot_status": "CAPTURED"
+            }, render_html=lambda: "<b>recorded</b>")
+            adapter = types.SimpleNamespace(resolve_team=AsyncMock(side_effect=[
+                {"id": "1"}, {"id": "2"}]))
+            ledger = object()
+            faz23 = types.SimpleNamespace(apply_decision=lambda core: core, record_snapshot=AsyncMock())
+            context = types.SimpleNamespace(application=types.SimpleNamespace(bot_data={
+                "nba_fixture_adapter": adapter, "nba_prediction_ledger": ledger,
+                "faz13": types.SimpleNamespace(run_prematch=AsyncMock(return_value=result)),
+                "baseline_bootstrapper": types.SimpleNamespace(ensure_async=AsyncMock(return_value=object())),
+                "faz22": types.SimpleNamespace(score_and_finalize=lambda core: core), "faz23": faz23,
+            }))
+            recorded = Mock(return_value=True)
+            def check_recorded(*args, **kwargs):
+                self.assertEqual(args[:2], (ledger, result))
+                self.assertEqual(kwargs["resolved_home_team_id"], "1")
+                self.assertEqual(kwargs["resolved_away_team_id"], "2")
+                update.message.reply_text.assert_not_awaited()
+                return recorded(*args, **kwargs)
+            with patch("prematch_ledger_bridge.record_faz13_for_espn_fixture", side_effect=check_recorded):
+                await handler(update, context)
+            recorded.assert_called_once()
+            faz23.record_snapshot.assert_awaited_once_with(result)
+            self.assertEqual(update.message.reply_text.await_args.args[0], "<b>recorded</b>")
+        asyncio.run(scenario())
+
+    def test_success_renders_telegram_html(self):
+        async def scenario():
+            handler = load_handler()
+            handler.__globals__["PrematchRequest"] = lambda **kwargs: types.SimpleNamespace(**kwargs)
+            handler.__globals__["Faz13CoreOutput"] = types.SimpleNamespace
+            tomorrow = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
+                        + datetime.timedelta(days=1)).isoformat()
+            update = types.SimpleNamespace(message=types.SimpleNamespace(
+                text=f"/analyze NBA {tomorrow} Home vs Away", reply_text=AsyncMock()))
+            baseline = types.SimpleNamespace(
+                games_played=10, updated_at=datetime.datetime.now(datetime.timezone.utc).timestamp(),
+                source="verified")
+            bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock(return_value=baseline))
+            result = types.SimpleNamespace(meta={"data_quality": "VERIFIED"}, render_html=lambda: "<b>Verified</b>")
+            faz22 = types.SimpleNamespace(score_and_finalize=lambda core: core)
+            faz23 = types.SimpleNamespace(apply_decision=lambda core: core, record_snapshot=AsyncMock())
+            engine = types.SimpleNamespace(run_prematch=AsyncMock(return_value=result))
+            context = types.SimpleNamespace(application=types.SimpleNamespace(
+                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper,
+                          "nba_fixture_adapter": object(),
+                          "faz22": faz22, "faz23": faz23}))
+            # Isolate the presentation contract from baseline quality policy.
+            handler.__globals__["baseline_quality_reason"] = lambda *_args: "usable"
+            await handler(update, context)
+            engine.run_prematch.assert_awaited_once()
+            faz23.record_snapshot.assert_awaited_once_with(result)
+            self.assertEqual(update.message.reply_text.await_args.args[0], "<b>Verified</b>")
+            self.assertEqual(update.message.reply_text.await_args.kwargs["parse_mode"], "HTML")
+        asyncio.run(scenario())
+
+    def test_missing_quality_provenance_blocks_downstream_engines(self):
+        async def scenario():
+            handler = load_handler()
+            handler.__globals__["PrematchRequest"] = lambda **kwargs: types.SimpleNamespace(**kwargs)
+            handler.__globals__["Faz13CoreOutput"] = types.SimpleNamespace
+            handler.__globals__["baseline_quality_reason"] = lambda *_args: "usable"
+            tomorrow = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
+                        + datetime.timedelta(days=1)).isoformat()
+            update = types.SimpleNamespace(message=types.SimpleNamespace(
+                text=f"/analyze NBA {tomorrow} Home vs Away", reply_text=AsyncMock()))
+            bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock(return_value=object()))
+            engine = types.SimpleNamespace(run_prematch=AsyncMock(return_value=types.SimpleNamespace(meta={})))
+            faz22 = types.SimpleNamespace(score_and_finalize=unittest.mock.Mock())
+            faz23 = types.SimpleNamespace(apply_decision=unittest.mock.Mock(), record_snapshot=AsyncMock())
+            context = types.SimpleNamespace(application=types.SimpleNamespace(bot_data={
+                "nba_fixture_adapter": object(),
+                "faz13": engine, "baseline_bootstrapper": bootstrapper,
+                "faz22": faz22, "faz23": faz23,
+            }))
+            await handler(update, context)
+            engine.run_prematch.assert_awaited_once()
+            faz22.score_and_finalize.assert_not_called()
+            faz23.apply_decision.assert_not_called()
+            faz23.record_snapshot.assert_not_awaited()
+            self.assertIn("dahili bir hata", update.message.reply_text.await_args.args[0])
+        asyncio.run(scenario())
+
+    def test_invalid_faz22_output_blocks_snapshot_and_reply(self):
+        async def scenario():
+            handler = load_handler()
+            handler.__globals__["PrematchRequest"] = lambda **kwargs: types.SimpleNamespace(**kwargs)
+            handler.__globals__["Faz13CoreOutput"] = types.SimpleNamespace
+            handler.__globals__["baseline_quality_reason"] = lambda *_args: "usable"
+            tomorrow = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
+                        + datetime.timedelta(days=1)).isoformat()
+            update = types.SimpleNamespace(message=types.SimpleNamespace(
+                text=f"/analyze NBA {tomorrow} Home vs Away", reply_text=AsyncMock()))
+            core = types.SimpleNamespace(meta={"data_quality": "VERIFIED"})
+            engine = types.SimpleNamespace(run_prematch=AsyncMock(return_value=core))
+            faz22 = types.SimpleNamespace(score_and_finalize=lambda _core: None)
+            faz23 = types.SimpleNamespace(apply_decision=unittest.mock.Mock(), record_snapshot=AsyncMock())
+            context = types.SimpleNamespace(application=types.SimpleNamespace(bot_data={
+                "faz13": engine,
+                "nba_fixture_adapter": object(),
+                "baseline_bootstrapper": types.SimpleNamespace(ensure_async=AsyncMock(return_value=object())),
+                "faz22": faz22, "faz23": faz23,
+            }))
+            await handler(update, context)
+            faz23.apply_decision.assert_not_called()
+            faz23.record_snapshot.assert_not_awaited()
+            self.assertIn("dahili bir hata", update.message.reply_text.await_args.args[0])
+        asyncio.run(scenario())
+
     def test_provider_exception_never_calls_engine(self):
         async def scenario():
             handler = load_handler()
-            today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+            today = (datetime.datetime.now(ZoneInfo("Europe/Istanbul")).date()
+                     + datetime.timedelta(days=1)).isoformat()
             update = types.SimpleNamespace(message=types.SimpleNamespace(
                 text=f"/analyze NBA {today} Home vs Away", reply_text=AsyncMock()))
             bootstrapper = types.SimpleNamespace(ensure_async=AsyncMock(
                 side_effect=RuntimeError("provider unavailable")))
             engine = types.SimpleNamespace(run_prematch=AsyncMock())
             context = types.SimpleNamespace(application=types.SimpleNamespace(
-                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper}))
+                bot_data={"faz13": engine, "baseline_bootstrapper": bootstrapper, "nba_fixture_adapter": object()}))
             await handler(update, context)
             engine.run_prematch.assert_not_awaited()
             self.assertIn("Veri sağlayıcısı hatası", update.message.reply_text.await_args.args[0])
