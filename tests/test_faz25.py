@@ -41,6 +41,23 @@ class Faz25Tests(unittest.IsolatedAsyncioTestCase):
                 self.folder.cleanup()
                 return
             except OSError as exc:
+                if exc.errno == 39:
+                    root = Path(self.folder.name)
+                    # Print names only: no private contents, no production paths.
+                    try:
+                        remaining = sorted(
+                            str(p.relative_to(root)) + ("/" if p.is_dir() else "")
+                            for p in root.rglob("*")
+                        ) if root.exists() else []
+                    except OSError as scan_error:
+                        remaining = ["SCAN_ERROR:" + type(scan_error).__name__]
+                    print(
+                        "FAZ25_CLEANUP_DIAGNOSTIC",
+                        "attempt=", attempt + 1,
+                        "remaining=", repr(remaining[:40]),
+                        "total=", len(remaining),
+                        flush=True,
+                    )
                 if exc.errno != 39 or attempt == 7:
                     raise
                 time.sleep(0.05 * (attempt + 1))
