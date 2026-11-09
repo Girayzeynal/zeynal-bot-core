@@ -44,6 +44,16 @@ class TelegramTestReadinessTests(unittest.TestCase):
         self.assertIn("PRODUCTION_FAZ23_PATH_NOT_ALLOWED_FOR_TEST",
                       self.assess().blockers)
 
+    def test_production_baseline_traversal_alias_is_blocked(self):
+        self.env["BASELINE_DIR"] = "/data/test/../baselines"
+        self.assertIn("PRODUCTION_BASELINE_PATH_NOT_ALLOWED_FOR_TEST",
+                      self.assess().blockers)
+
+    def test_production_faz23_traversal_alias_is_blocked(self):
+        self.env["FAZ23_STORAGE"] = "/data/test/../faz23_storage.sqlite"
+        self.assertIn("PRODUCTION_FAZ23_PATH_NOT_ALLOWED_FOR_TEST",
+                      self.assess().blockers)
+
     def test_missing_test_token_proof_is_blocked(self):
         self.assertIn("SEPARATE_TEST_TELEGRAM_TOKEN_NOT_VERIFIED",
                       self.assess(test_token_present=False).blockers)
