@@ -226,7 +226,7 @@ async def accuracy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(
             "Performans raporu kullanılamıyor: arşiv bütünlüğü veya erişim hatası.")
         return
-    if report["status"] != "EVALUATED":
+    if report["status"] == "INSUFFICIENT_VERIFIED_PAIRS":
         await update.effective_message.reply_text(
             "NBA performans raporu: doğrulanmış maç çifti bulunamadı. "
             f"Arşivdeki tahmin: {report['total_predictions']}; "
@@ -234,7 +234,9 @@ async def accuracy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Başarı oranı hesaplanmadı.")
         return
     await update.effective_message.reply_text(
-        "NBA doğrulanmış performans (tarihsel)\n"
+        ("NBA doğrulanmış performans (tarihsel)\n"
+         if report["status"] == "EVALUATED" else
+         "NBA performans: DÜŞÜK ÖRNEKLEM (n<30)\n")
         f"Doğrulanmış maç: {report['verified']} / {report['total_predictions']}\n"
         f"Toplam skor MAE: {report['total_mae']:.2f}\n"
         f"Skor farkı MAE: {report['margin_mae']:.2f}\n"
