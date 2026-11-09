@@ -240,6 +240,10 @@ async def accuracy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         + f"Doğrulanmış maç: {report['verified']} / {report['total_predictions']}\n"
         f"Toplam skor MAE: {report['total_mae']:.2f}\n"
         f"Skor farkı MAE: {report['margin_mae']:.2f}\n"
+        f"Toplam skor sapması (+ yüksek tahmin): {report['total_bias']:+.2f}\n"
+        f"Skor farkı sapması (ev sahibi - deplasman): {report['margin_bias']:+.2f}\n"
+        f"Toplam skor RMSE: {report['total_rmse']:.2f}\n"
+        f"Skor farkı RMSE: {report['margin_rmse']:.2f}\n"
         + (f"Kazanan yönü isabeti: {report['winner_accuracy'] * 100:.1f}% "
            f"(n={report['winner_sample']})\n"
            if report["winner_accuracy"] is not None
