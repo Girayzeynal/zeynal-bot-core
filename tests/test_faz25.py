@@ -26,6 +26,8 @@ class Faz25Tests(unittest.IsolatedAsyncioTestCase):
         self.folder=tempfile.TemporaryDirectory()
         self.addCleanup(self._cleanup_test_folder)
         self.db=str(Path(self.folder.name)/'ledger.sqlite');self.poller=Poller(self.db,timeout=.1)
+        self.schedule=AsyncMock(return_value=[payload()]);self.collect=AsyncMock(return_value={'inserted':True})
+        self.reconcile=AsyncMock(return_value={'status':'awaiting_final'})
 
     def _cleanup_test_folder(self):
         """Retry only transient Android/overlayfs directory-not-empty races.
@@ -41,8 +43,6 @@ class Faz25Tests(unittest.IsolatedAsyncioTestCase):
                     raise
                 time.sleep(0.05 * (attempt + 1))
 
-        self.schedule=AsyncMock(return_value=[payload()]);self.collect=AsyncMock(return_value={'inserted':True})
-        self.reconcile=AsyncMock(return_value={'status':'awaiting_final'})
 
     async def tick(self):
         return await self.poller.tick(schedule=self.schedule,collect=self.collect,reconcile=self.reconcile)
