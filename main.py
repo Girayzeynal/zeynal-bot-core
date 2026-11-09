@@ -196,14 +196,14 @@ async def auditstatus_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     path = ledger.db_path if ledger is not None else None
     report = await asyncio.to_thread(ledger_operational_status, path)
     if report["status"] != "READABLE":
-        message = f"NBA arşiv durumu: {report['status']}\\nOtomatik kalibrasyon: DOĞRULANMADI"
+        message = f"NBA arşiv durumu: {report['status']}\nOtomatik kalibrasyon: DOĞRULANMADI"
     else:
         message = (
-            f"NBA arşiv durumu: OK\\n"
-            f"Tahmin kayıtları: {report['predictions']}\\n"
-            f"Sonuç kayıtları: {report['outcomes']}\\n"
-            f"Zaman/kapsam uyumlu eşleşmeler: {report['paired']}\\n"
-            "Not: Eşleşme sayısı doğrulanmış performans metriği değildir.\\n"
+            f"NBA arşiv durumu: OK\n"
+            f"Tahmin kayıtları: {report['predictions']}\n"
+            f"Sonuç kayıtları: {report['outcomes']}\n"
+            f"Zaman/kapsam uyumlu eşleşmeler: {report['paired']}\n"
+            "Not: Eşleşme sayısı doğrulanmış performans metriği değildir.\n"
             "Otomatik kalibrasyon: DOĞRULANMADI"
         )
     await update.effective_message.reply_text(message)
