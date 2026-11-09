@@ -26,6 +26,7 @@ from faz23_engine import Faz23Engine
 from aiohttp import web
 from dynamic_scheduler import scheduler_loop
 from nba_command import nba_command
+from telegram_newscheck import newscheck_command
 from faz17_engine import Faz17Engine
 
 # ============================
@@ -180,6 +181,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Analiz biçimi:\n"
             "/analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman\n\n"
             "Karşılaştırma: /compare NBA ESPN_MAC_ID\n"
+            "Haber denetimi: /newscheck NBA ESPN_MAC_ID\n"
             "Yeterli doğrulanabilir takım verisi yoksa tahmin üretilmez."
         )
 
@@ -375,6 +377,7 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("analyze", analyze_command))
     app.add_handler(CommandHandler("nba", nba_command))
     app.add_handler(CommandHandler("compare", compare_command))
+    app.add_handler(CommandHandler("newscheck", newscheck_command))
     return app
 
 async def main_async():
