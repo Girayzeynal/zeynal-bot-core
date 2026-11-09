@@ -29,6 +29,18 @@ class DeploymentLedgerPreflightTests(unittest.TestCase):
             is_mount=lambda path: True)
         self.assertTrue(any(p.startswith("missing module:") for p in problems))
 
+    def test_ledger_outside_volume_fails(self):
+        problems = inspect(
+            env={"NBA_LEDGER_ENABLED": "true", "NBA_LEDGER_PATH": "/tmp/nba_prediction_ledger.sqlite"},
+            exists=lambda path: True, is_mount=lambda path: True)
+        self.assertIn("NBA_LEDGER_PATH must resolve inside /data", problems)
+
+    def test_parent_traversal_fails(self):
+        problems = inspect(
+            env={"NBA_LEDGER_ENABLED": "true", "NBA_LEDGER_PATH": "/data/../tmp/nba_prediction_ledger.sqlite"},
+            exists=lambda path: True, is_mount=lambda path: True)
+        self.assertIn("NBA_LEDGER_PATH must resolve inside /data", problems)
+
     def test_ready_configuration_passes(self):
         problems = inspect(
             env={"NBA_LEDGER_ENABLED": "true", "NBA_LEDGER_PATH": "/data/nba_prediction_ledger.sqlite"},
