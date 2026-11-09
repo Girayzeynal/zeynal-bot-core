@@ -23,7 +23,9 @@ def payload():
 
 class Faz25Tests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.folder=tempfile.TemporaryDirectory()
+        # Android/UserLAnd /tmp may race directory removal after SQLite file operations.
+        # Use the same home filesystem as the checked-out repository for test isolation.
+        self.folder=tempfile.TemporaryDirectory(prefix='faz25-test-', dir=Path.home())
         self.addCleanup(self._cleanup_test_folder)
         self.db=str(Path(self.folder.name)/'ledger.sqlite');self.poller=Poller(self.db,timeout=.1)
         self.schedule=AsyncMock(return_value=[payload()]);self.collect=AsyncMock(return_value={'inserted':True})
