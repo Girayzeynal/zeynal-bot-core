@@ -75,8 +75,16 @@ def compare_fixture(db_path: str, fixture_id: str, league: str = "NBA") -> dict:
         return {"status": "UNVERIFIED_FINAL", "fixture_id": fixture_id}
 
     values = (home, away)
-    if any(not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0 for v in values):
-        raise ValueError("Invalid stored prediction")
+    if any(type(v) not in (int, float) or not math.isfinite(v) or v < 0 for v in values):
+        return {"status": "INVALID_STORED_SCORE", "fixture_id": fixture_id}
+    if any(type(v) is not int or v < 0 for v in (actual_home, actual_away)):
+        return {"status": "INVALID_STORED_SCORE", "fixture_id": fixture_id}
+    if probability is not None and (
+        type(probability) not in (int, float)
+        or not math.isfinite(probability)
+        or not 0 <= probability <= 1
+    ):
+        return {"status": "INVALID_STORED_PROBABILITY", "fixture_id": fixture_id}
     predicted_total, actual_total = home + away, actual_home + actual_away
     predicted_margin, actual_margin = home - away, actual_home - actual_away
     return {
