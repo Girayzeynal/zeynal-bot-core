@@ -11,7 +11,9 @@ from pathlib import Path
 from telegram_result_audit import compare_fixture
 
 
-def verified_nba_accuracy(db_path: str) -> dict:
+def verified_nba_accuracy(db_path: str, *, minimum_sample: int = 30) -> dict:
+    if type(minimum_sample) is not int or minimum_sample < 1:
+        raise ValueError("minimum_sample must be a positive integer")
     path = Path(db_path).resolve(strict=True)
     if not path.is_file():
         raise ValueError("Ledger path is not a file")
@@ -39,7 +41,8 @@ def verified_nba_accuracy(db_path: str) -> dict:
     margin_mae = math.fsum(abs(r["signed_errors"]["margin"]) for r in evaluated) / count
     directional = [r["winner_direction_correct"] for r in evaluated
                    if r["winner_direction_correct"] is not None]
-    return {"status": "EVALUATED", "verified": count,
+    return {"status": ("EVALUATED" if count >= minimum_sample
+                       else "LOW_VERIFIED_SAMPLE"), "verified": count,
             "total_predictions": len(ids), "excluded": excluded,
             "total_mae": total_mae, "margin_mae": margin_mae,
             "winner_accuracy": (sum(directional) / len(directional)
