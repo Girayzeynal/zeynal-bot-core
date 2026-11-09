@@ -1,7 +1,7 @@
 """Regression tests for read-only Telegram result audit."""
 import sqlite3
 
-import pytest
+import unittest
 
 from prediction_ledger import PredictionLedger, PredictionRecord, OutcomeRecord
 from telegram_result_audit import compare_fixture, format_comparison
@@ -47,8 +47,12 @@ def test_post_tipoff_prediction_is_not_accepted(tmp_path):
 
 def test_invalid_league_rejected(tmp_path):
     path = _ledger(tmp_path)
-    with pytest.raises(ValueError):
+    try:
         compare_fixture(str(path), "401909922", "EUROLEAGUE")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Invalid league must be rejected")
 
 
 def test_plain_text_report(tmp_path):
