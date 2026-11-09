@@ -22,7 +22,21 @@ class TelegramTestReadinessTests(unittest.TestCase):
 
     def test_production_volume_path_is_blocked(self):
         self.env["NBA_LEDGER_PATH"] = "/data/nba_prediction_ledger.sqlite"
-        self.assertIn("PRODUCTION_VOLUME_PATH_NOT_ALLOWED_FOR_TEST",
+        self.assertIn("PRODUCTION_LEDGER_FILENAME_NOT_ALLOWED_FOR_TEST",
+                      self.assess().blockers)
+
+    def test_dedicated_test_volume_path_is_eligible(self):
+        self.env["NBA_LEDGER_PATH"] = "/data/test_nba_prediction_ledger.sqlite"
+        self.assertEqual(self.assess().status, "READY_FOR_ISOLATED_TEST")
+
+    def test_production_baseline_path_is_blocked(self):
+        self.env["BASELINE_DIR"] = "/data/baselines"
+        self.assertIn("PRODUCTION_BASELINE_PATH_NOT_ALLOWED_FOR_TEST",
+                      self.assess().blockers)
+
+    def test_production_faz23_path_is_blocked(self):
+        self.env["FAZ23_STORAGE"] = "/data/faz23_storage.sqlite"
+        self.assertIn("PRODUCTION_FAZ23_PATH_NOT_ALLOWED_FOR_TEST",
                       self.assess().blockers)
 
     def test_missing_test_token_proof_is_blocked(self):
