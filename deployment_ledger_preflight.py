@@ -19,6 +19,12 @@ def inspect(env=None, exists=None, is_mount=None):
         problems.append("NBA_LEDGER_ENABLED is not true")
     if not path.is_absolute() or path.suffix != ".sqlite":
         problems.append("NBA_LEDGER_PATH must be an absolute .sqlite path")
+    else:
+        # Reject paths escaping the volume, including ../ and symlink escapes.
+        resolved = path.resolve(strict=False)
+        volume = Path("/data").resolve(strict=False)
+        if volume not in resolved.parents:
+            problems.append("NBA_LEDGER_PATH must resolve inside /data")
     if not is_mount("/data"):
         problems.append("/data is not a mounted persistent volume")
     if not exists(path.parent):
