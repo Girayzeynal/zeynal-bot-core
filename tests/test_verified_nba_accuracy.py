@@ -39,12 +39,16 @@ class VerifiedNbaAccuracyTests(unittest.TestCase):
                         "winner_direction_correct": fid == "a"}
             with patch("verified_nba_accuracy.compare_fixture", side_effect=compare):
                 result = verified_nba_accuracy(path)
+            self.assertEqual(result["status"], "LOW_VERIFIED_SAMPLE")
             self.assertEqual(result["verified"], 2)
             self.assertEqual(result["total_mae"], 7)
             self.assertEqual(result["margin_mae"], 4)
             self.assertEqual(result["winner_accuracy"], 0.5)
             self.assertEqual(result["winner_sample"], 2)
             self.assertEqual(result["calibration"], "NOT_VERIFIED")
+            with patch("verified_nba_accuracy.compare_fixture", side_effect=compare):
+                sufficient = verified_nba_accuracy(path, minimum_sample=2)
+            self.assertEqual(sufficient["status"], "EVALUATED")
 
 
 if __name__ == "__main__":
