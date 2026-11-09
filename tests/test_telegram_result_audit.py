@@ -9,7 +9,9 @@ from telegram_result_audit import compare_fixture, format_comparison
 
 def _ledger(tmp_path):
     path = tmp_path / "ledger.sqlite"
-    PredictionLedger(str(path))
+    ledger = PredictionLedger(str(path))
+    ledger.record_fixture_start("NBA", "_schema_init", 1)
+    ledger.record_fixture_provenance("NBA", "_schema_init", "ESPN", "_schema_init", 1)
     return path
 
 
@@ -80,3 +82,8 @@ def test_mismatched_scope_is_rejected(tmp_path):
         db.execute("INSERT INTO prediction_inputs VALUES (?,?,?,?)",
                    ("NBA", "401909922", "{}", "placeholder"))
     assert compare_fixture(str(path), "401909922")["status"] == "INCOMPATIBLE_SCOPE"
+
+def test_legacy_ledger_without_provenance_tables_fails_closed(tmp_path):
+    path = tmp_path / "legacy.sqlite"
+    PredictionLedger(str(path))
+    assert compare_fixture(str(path), "401909922")["status"] == "LEDGER_SCHEMA_INCOMPLETE"
