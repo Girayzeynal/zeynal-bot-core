@@ -11,6 +11,21 @@ from pathlib import Path
 from telegram_result_audit import compare_fixture
 
 
+def _validated_evaluated_result(result: dict) -> dict:
+    """Reject malformed metric payloads instead of polluting published accuracy."""
+    errors = result.get("signed_errors")
+    if not isinstance(errors, dict):
+        raise ValueError("Verified comparison missing signed errors")
+    for key in ("total", "margin"):
+        value = errors.get(key)
+        if type(value) not in (int, float) or not math.isfinite(value):
+            raise ValueError("Verified comparison contains invalid signed error")
+    direction = result.get("winner_direction_correct")
+    if direction is not None and type(direction) is not bool:
+        raise ValueError("Verified comparison contains invalid winner direction")
+    return result
+
+
 def verified_nba_accuracy(db_path: str, *, minimum_sample: int = 30) -> dict:
     if type(minimum_sample) is not int or minimum_sample < 1:
         raise ValueError("minimum_sample must be a positive integer")
@@ -30,7 +45,7 @@ def verified_nba_accuracy(db_path: str, *, minimum_sample: int = 30) -> dict:
             status = result["status"]
             excluded[status] = excluded.get(status, 0) + 1
             continue
-        evaluated.append(result)
+        evaluated.append(_validated_evaluated_result(result))
     count = len(evaluated)
     if not count:
         return {"status": "INSUFFICIENT_VERIFIED_PAIRS", "verified": 0,
