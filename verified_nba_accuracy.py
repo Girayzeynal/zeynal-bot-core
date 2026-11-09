@@ -50,16 +50,27 @@ def verified_nba_accuracy(db_path: str, *, minimum_sample: int = 30) -> dict:
     if not count:
         return {"status": "INSUFFICIENT_VERIFIED_PAIRS", "verified": 0,
                 "total_predictions": len(ids), "excluded": excluded,
-                "total_mae": None, "margin_mae": None, "winner_accuracy": None,
+                "total_mae": None, "margin_mae": None,
+                "total_bias": None, "margin_bias": None,
+                "total_rmse": None, "margin_rmse": None,
+                "winner_accuracy": None,
                 "winner_sample": 0, "calibration": "NOT_VERIFIED"}
     total_mae = math.fsum(abs(r["signed_errors"]["total"]) for r in evaluated) / count
     margin_mae = math.fsum(abs(r["signed_errors"]["margin"]) for r in evaluated) / count
+    total_bias = math.fsum(r["signed_errors"]["total"] for r in evaluated) / count
+    margin_bias = math.fsum(r["signed_errors"]["margin"] for r in evaluated) / count
+    total_rmse = math.sqrt(math.fsum(
+        r["signed_errors"]["total"] ** 2 for r in evaluated) / count)
+    margin_rmse = math.sqrt(math.fsum(
+        r["signed_errors"]["margin"] ** 2 for r in evaluated) / count)
     directional = [r["winner_direction_correct"] for r in evaluated
                    if r["winner_direction_correct"] is not None]
     return {"status": ("EVALUATED" if count >= minimum_sample
                        else "LOW_VERIFIED_SAMPLE"), "verified": count,
             "total_predictions": len(ids), "excluded": excluded,
             "total_mae": total_mae, "margin_mae": margin_mae,
+            "total_bias": total_bias, "margin_bias": margin_bias,
+            "total_rmse": total_rmse, "margin_rmse": margin_rmse,
             "winner_accuracy": (sum(directional) / len(directional)
                                 if directional else None),
             "winner_sample": len(directional),
