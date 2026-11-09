@@ -39,6 +39,7 @@ jobs:
       - name: Archive, Telegram and staging offline regressions
         run: |
           python -m pytest -q \
+            tests/test_faz25.py \
             tests/test_telegram_result_audit.py \
             tests/test_telegram_newscheck.py \
             tests/test_bot_ledger_startup.py \
