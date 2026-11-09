@@ -17,8 +17,8 @@ class FlyStagingIsolationTests(unittest.TestCase):
         self.assertNotEqual(self.prod["app"], self.stage["app"])
 
     def test_staging_volume_is_not_production(self):
-        self.assertNotEqual(self.prod["mounts"][0]["source"],
-                            self.stage["mounts"][0]["source"])
+        self.assertNotEqual(self.prod["mounts"]["source"],
+                            self.stage["mounts"]["source"])
 
     def test_all_stateful_paths_are_isolated(self):
         for name in ("BASELINE_DIR", "FAZ23_STORAGE", "SCHEDULER_DB", "NBA_LEDGER_PATH"):
