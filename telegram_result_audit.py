@@ -87,6 +87,12 @@ def compare_fixture(db_path: str, fixture_id: str, league: str = "NBA") -> dict:
         return {"status": "INVALID_STORED_PROBABILITY", "fixture_id": fixture_id}
     predicted_total, actual_total = home + away, actual_home + actual_away
     predicted_margin, actual_margin = home - away, actual_home - actual_away
+    # Finite inputs can still overflow during addition or subtraction.
+    if not all(math.isfinite(value) for value in (
+        predicted_total, predicted_margin, predicted_total - actual_total,
+        predicted_margin - actual_margin,
+    )):
+        return {"status": "INVALID_STORED_SCORE", "fixture_id": fixture_id}
     return {
         "status": "EVALUATED", "fixture_id": fixture_id,
         "predicted": {"home": home, "away": away, "total": predicted_total},
