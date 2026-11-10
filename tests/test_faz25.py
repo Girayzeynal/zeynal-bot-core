@@ -23,10 +23,50 @@ def payload():
 
 class Faz25Tests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.folder=tempfile.TemporaryDirectory();self.addCleanup(self.folder.cleanup)
+        # Android/UserLAnd /tmp may race directory removal after SQLite file operations.
+        # Use the same home filesystem as the checked-out repository for test isolation.
+        self.folder=tempfile.TemporaryDirectory(prefix='faz25-test-', dir=Path.home())
+        self.addCleanup(self._cleanup_test_folder)
         self.db=str(Path(self.folder.name)/'ledger.sqlite');self.poller=Poller(self.db,timeout=.1)
         self.schedule=AsyncMock(return_value=[payload()]);self.collect=AsyncMock(return_value={'inserted':True})
         self.reconcile=AsyncMock(return_value={'status':'awaiting_final'})
+
+    def _cleanup_test_folder(self):
+        """Remove test artifacts; disclose Android's empty-directory rmdir bug.
+
+        A verified empty directory may be left behind if the filesystem refuses
+        rmdir with ENOTEMPTY. Never ignore remaining files or other errors.
+        """
+        import os
+        import warnings
+
+        root = Path(self.folder.name)
+        for attempt in range(8):
+            try:
+                self.folder.cleanup()
+                return
+            except OSError as exc:
+                if exc.errno != 39:
+                    raise
+                # os.scandir, unlike Path.rglob, also sees hidden entries.
+                if not root.exists():
+                    return
+                with os.scandir(root) as entries:
+                    remaining = [entry.name for entry in entries]
+                if remaining:
+                    if attempt == 7:
+                        raise RuntimeError(
+                            "FAZ25 test artifacts remain: " + repr(remaining[:20])
+                        ) from exc
+                elif attempt == 7:
+                    warnings.warn(
+                        "FAZ25_ANDROID_EMPTY_DIRECTORY_RMDIR_FAILED: "
+                        + str(root) + " (directory contains no files)",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+                    return
+                time.sleep(0.05 * (attempt + 1))
 
     async def tick(self):
         return await self.poller.tick(schedule=self.schedule,collect=self.collect,reconcile=self.reconcile)
@@ -100,6 +140,30 @@ class Faz25Tests(unittest.IsolatedAsyncioTestCase):
         before=path.read_bytes()
         with self.assertRaises(FileExistsError):backup(self.db,path)
         self.assertEqual(before,path.read_bytes())
+
+    async def test_backup_leaves_no_staging_files(self):
+        destination = Path(self.folder.name) / "clean-backup.sqlite"
+        backup(self.db, destination)
+        self.assertTrue(destination.is_file())
+        self.assertEqual(
+            list(Path(self.folder.name).glob(".faz25-backup-*")), [])
+
+    async def test_backup_no_clobber_cleans_staging_file(self):
+        destination = Path(self.folder.name) / "existing.sqlite"
+        destination.write_bytes(b"original")
+        with self.assertRaises(FileExistsError):
+            backup(self.db, destination)
+        self.assertEqual(destination.read_bytes(), b"original")
+        self.assertEqual(
+            list(Path(self.folder.name).glob(".faz25-backup-*")), [])
+
+    async def test_backup_invalid_timeout_does_not_create_file(self):
+        destination = Path(self.folder.name) / "invalid.sqlite"
+        with self.assertRaises(ValueError):
+            backup(self.db, destination, timeout_seconds=0)
+        self.assertFalse(destination.exists())
+        self.assertEqual(
+            list(Path(self.folder.name).glob(".faz25-backup-*")), [])
 
     async def test_crash_after_atomic_commit_does_not_recollect(self):
         row=validate_schedule([payload()])[0]

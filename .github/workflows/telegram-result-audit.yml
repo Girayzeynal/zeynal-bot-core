@@ -1,0 +1,35 @@
+name: Telegram result audit regression
+on:
+  pull_request:
+    paths:
+      - 'telegram_result_audit.py'
+      - 'tests/test_telegram_result_audit.py'
+      - 'main.py'
+      - '.github/workflows/telegram-result-audit.yml'
+  push:
+    branches:
+      - 'feature/telegram-result-audit-issue74'
+    paths:
+      - 'telegram_result_audit.py'
+      - 'tests/test_telegram_result_audit.py'
+      - 'main.py'
+      - '.github/workflows/telegram-result-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  telegram-result-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install regression dependencies
+        run: python -m pip install pytest aiohttp
+      - name: Verify syntax
+        run: python -m py_compile telegram_result_audit.py tests/test_telegram_result_audit.py main.py
+      - name: Run isolated regression tests
+        run: python -m pytest -q tests/test_telegram_result_audit.py

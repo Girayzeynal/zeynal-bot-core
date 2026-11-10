@@ -1,0 +1,39 @@
+# Isolated staging configuration. Does not create or deploy a Fly app.
+# Before use: create separate app, volume and Telegram test bot.
+app = "zeynal-bot-core-staging"
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+primary_region = "ams"
+
+[build]
+dockerfile = "Dockerfile"
+
+[env]
+PYTHONUNBUFFERED = "1"
+API_SPORTS_BASE = "https://v1.basketball.api-sports.io"
+ODDS_BASE = "https://api.the-odds-api.com/v4"
+ODDS_REGIONS = "us,eu"
+ODDS_MARKETS = "totals"
+ODDS_FORMAT = "decimal"
+BASELINE_DIR = "/data/test_baselines"
+FAZ23_STORAGE = "/data/test_faz23_storage.sqlite"
+SCHEDULER_DB = "/data/test_scheduler_cache.sqlite"
+NBA_LEDGER_ENABLED = "true"
+NBA_LEDGER_PATH = "/data/test_nba_prediction_ledger.sqlite"
+
+[http_service]
+internal_port = 8080
+force_https = true
+auto_start_machines = true
+auto_stop_machines = false
+min_machines_running = 1
+
+[[http_service.checks]]
+interval = "10s"
+timeout = "2s"
+method = "GET"
+path = "/ready"
+
+[mounts]
+source = "zeynal_test_data"
+destination = "/data"

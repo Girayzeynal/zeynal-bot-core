@@ -5,6 +5,7 @@ import html
 import logging
 import math
 import asyncio
+import sqlite3
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from typing import Any, Dict, Tuple
@@ -25,6 +26,7 @@ from faz23_engine import Faz23Engine
 from aiohttp import web
 from dynamic_scheduler import scheduler_loop
 from nba_command import nba_command
+from telegram_newscheck import newscheck_command
 from faz17_engine import Faz17Engine
 
 # ============================
@@ -140,18 +142,121 @@ def baseline_failure_message(home_reason: str, away_reason: str) -> str:
 # ============================
 # TELEGRAM COMMANDS
 # ============================
+async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Read-only comparison; never fetch current baselines or regenerate forecasts."""
+    args = context.args or []
+    if len(args) != 2 or args[0].upper() != "NBA" or not args[1].isascii() or not args[1].isdigit():
+        await update.effective_message.reply_text("Kullanım: /compare NBA ESPN_MAC_ID")
+        return
+    ledger = context.application.bot_data.get("nba_prediction_ledger")
+    if ledger is None:
+        await update.effective_message.reply_text(
+            "Karşılaştırma kullanılamıyor: kalıcı NBA tahmin arşivi etkin değil."
+        )
+        return
+    try:
+        from telegram_result_audit import compare_fixture, format_comparison
+        result = await asyncio.to_thread(compare_fixture, ledger.db_path, args[1])
+        labels = {
+            "NO_PREMATCH_PREDICTION": "Maç öncesi kayıtlı tahmin bulunamadı.",
+            "UNVERIFIED_PROVENANCE": "Maç kimliği ve kaynak kanıtı doğrulanamadı.",
+            "INVALID_PREGAME_TIME": "Tahmin maç başlamadan önce kaydedilmemiş.",
+            "AWAITING_VERIFIED_FINAL": "Doğrulanmış maç sonucu henüz arşivde yok.",
+            "INCOMPATIBLE_SCOPE": "Tahmin ve sonuç kapsamları uyuşmuyor.",
+            "UNVERIFIED_FINAL": "Sonuç kanıtı doğrulanamadı.",
+            "LEDGER_SCHEMA_INCOMPLETE": "Arşiv şeması eksik; doğrulanmış karşılaştırma yapılamıyor.",
+        }
+        message = (format_comparison(result) if result["status"] == "EVALUATED"
+                   else f"NBA {args[1]}: {labels.get(result['status'], 'Karşılaştırma kullanılamıyor.')}")
+    except (ValueError, OSError, sqlite3.Error):
+        logger.exception("Read-only NBA comparison failed")
+        message = "Karşılaştırma yapılamadı: arşiv bütünlüğü veya erişim hatası."
+    await update.effective_message.reply_text(message)
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_message:
         await update.effective_message.reply_text(
             "Zeynal Bot Core aktif. NBA fikstürü: /nba veya /nba YYYY-MM-DD\n"
             "Analiz biçimi:\n"
             "/analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman\n\n"
+            "Karşılaştırma: /compare NBA ESPN_MAC_ID\n"
+            "Arşiv durumu: /auditstatus | Performans: /accuracy\n"
+            "Haber denetimi: /newscheck NBA ESPN_MAC_ID\n"
             "Yeterli doğrulanabilir takım verisi yoksa tahmin üretilmez."
         )
 
 # ============================
 # ANALYZE COMMAND
 # ============================
+async def auditstatus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Read-only archive health; never conflate stored rows with model calibration."""
+    from ledger_operational_status import ledger_operational_status
+
+    ledger = context.application.bot_data.get("nba_prediction_ledger")
+    path = ledger.db_path if ledger is not None else None
+    report = await asyncio.to_thread(ledger_operational_status, path)
+    if report["status"] != "READABLE":
+        message = f"NBA arşiv durumu: {report['status']}\nOtomatik kalibrasyon: DOĞRULANMADI"
+    else:
+        message = (
+            f"NBA arşiv durumu: OK\n"
+            f"Tahmin kayıtları: {report['predictions']}\n"
+            f"Sonuç kayıtları: {report['outcomes']}\n"
+            f"Zaman/kapsam uyumlu eşleşmeler: {report['paired']}\n"
+            "Not: Eşleşme sayısı doğrulanmış performans metriği değildir.\n"
+            "Otomatik kalibrasyon: DOĞRULANMADI"
+        )
+    await update.effective_message.reply_text(message)
+
+
+async def accuracy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Verified historical accuracy only; no inference or calibration writes."""
+    from verified_nba_accuracy import verified_nba_accuracy
+
+    ledger = context.application.bot_data.get("nba_prediction_ledger")
+    if ledger is None:
+        await update.effective_message.reply_text(
+            "NBA doğrulanmış performans raporu kullanılamıyor: arşiv etkin değil.")
+        return
+    try:
+        report = await asyncio.to_thread(verified_nba_accuracy, ledger.db_path)
+    except (ValueError, OSError, sqlite3.Error):
+        logger.exception("Verified NBA accuracy unavailable")
+        await update.effective_message.reply_text(
+            "Performans raporu kullanılamıyor: arşiv bütünlüğü veya erişim hatası.")
+        return
+    if report["status"] == "INSUFFICIENT_VERIFIED_PAIRS":
+        await update.effective_message.reply_text(
+            "NBA performans raporu: doğrulanmış maç çifti bulunamadı. "
+            f"Arşivdeki tahmin: {report['total_predictions']}; "
+            "doğrulanmış karşılaştırma: 0. "
+            "Başarı oranı hesaplanmadı.")
+        return
+    await update.effective_message.reply_text(
+        ("NBA doğrulanmış performans (tarihsel)\n"
+         if report["status"] == "EVALUATED" else
+         "NBA performans: DÜŞÜK ÖRNEKLEM (n<30)\n")
+        + f"Doğrulanmış maç: {report['verified']} / {report['total_predictions']}\n"
+        f"Toplam skor MAE: {report['total_mae']:.2f}\n"
+        f"Skor farkı MAE: {report['margin_mae']:.2f}\n"
+        f"Toplam skor sapması (+ yüksek tahmin): {report['total_bias']:+.2f}\n"
+        f"Skor farkı sapması (ev sahibi - deplasman): {report['margin_bias']:+.2f}\n"
+        f"Toplam skor RMSE: {report['total_rmse']:.2f}\n"
+        f"Skor farkı RMSE: {report['margin_rmse']:.2f}\n"
+        f"En büyük toplam skor hatası: {report['max_total_abs_error']:.2f}\n"
+        f"En büyük skor farkı hatası: {report['max_margin_abs_error']:.2f}\n"
+        f"Toplam skor hatası >10: {report['total_error_over_10']} maç\n"
+        f"Toplam skor hatası >20: {report['total_error_over_20']} maç\n"
+        + (f"Kazanan yönü isabeti: {report['winner_accuracy'] * 100:.1f}% "
+           f"(n={report['winner_sample']})\n"
+           if report["winner_accuracy"] is not None
+           else "Kazanan yönü isabeti: hesaplanamadı\n")
+        + f"Hariç tutulan: {sum(report['excluded'].values())}\n"
+        "Otomatik kalibrasyon: DOĞRULANMADI"
+    )
+
+
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text or ""
 
@@ -249,11 +354,15 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             away_ref = await adapter.resolve_team(away)
             if not home_ref or not away_ref:
                 raise ValueError("NBA ledger team identities unavailable")
-            record_faz13_for_espn_fixture(
+            inserted = record_faz13_for_espn_fixture(
                 ledger, result, fixture,
                 resolved_home_team_id=str(home_ref["id"]),
                 resolved_away_team_id=str(away_ref["id"]),
             )
+            # A duplicate means this invocation did not archive its forecast.
+            # Never display a newly computed forecast as if it were persisted.
+            if inserted is not True:
+                raise ValueError("NBA prematch forecast was not newly archived")
 
         await context.application.bot_data["faz23"].record_snapshot(result)
 
@@ -336,6 +445,10 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
     app.add_handler(CommandHandler("nba", nba_command))
+    app.add_handler(CommandHandler("compare", compare_command))
+    app.add_handler(CommandHandler("auditstatus", auditstatus_command))
+    app.add_handler(CommandHandler("accuracy", accuracy_command))
+    app.add_handler(CommandHandler("newscheck", newscheck_command))
     return app
 
 async def main_async():

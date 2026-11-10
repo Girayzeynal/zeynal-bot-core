@@ -1,0 +1,62 @@
+name: PR75 archive and Telegram integration gate
+on:
+  pull_request:
+    paths:
+      - 'main.py'
+      - 'prediction_ledger.py'
+      - 'ledger_operational_status.py'
+      - 'verified_nba_accuracy.py'
+      - 'tests/test_verified_nba_accuracy.py'
+      - 'tests/test_ledger_operational_status.py'
+      - 'prediction_inputs.py'
+      - 'prematch_ledger_bridge.py'
+      - 'telegram_result_audit.py'
+      - 'telegram_newscheck.py'
+      - 'prediction_news_ledger.py'
+      - 'prediction_news_audit.py'
+      - 'news_context_snapshot.py'
+      - 'tests/**'
+      - '.github/workflows/pr75-integration-gate.yml'
+  push:
+    branches:
+      - 'feature/telegram-result-audit-issue74'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install runtime and test dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install pytest
+      - name: Syntax validation
+        run: |
+          python -m compileall -q main.py prediction_ledger.py prediction_inputs.py prematch_ledger_bridge.py telegram_result_audit.py telegram_newscheck.py prediction_news_ledger.py prediction_news_audit.py news_context_snapshot.py tests
+      - name: Archive, Telegram and staging offline regressions
+        run: |
+          python -m pytest -q \
+            tests/test_verified_nba_accuracy.py \
+            tests/test_ledger_operational_status.py \
+            tests/test_faz25.py \
+            tests/test_telegram_result_audit.py \
+            tests/test_telegram_newscheck.py \
+            tests/test_bot_ledger_startup.py \
+            tests/test_prematch_ledger_sqlite_integration.py \
+            tests/test_prediction_news_ledger.py \
+            tests/test_prediction_news_audit.py \
+            tests/test_news_context_snapshot.py \
+            tests/test_deployment_ledger_preflight.py \
+            tests/test_telegram_test_readiness.py \
+            tests/test_fly_staging_isolation.py
+      - name: Scope disclosure
+        run: |
+          echo 'Offline regression only. No live ESPN, Telegram, staging or production test performed.'
+          echo 'No evidence of automatic final-result ingestion or live calibration from this workflow.'
