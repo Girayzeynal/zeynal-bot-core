@@ -38,7 +38,13 @@ class TelegramCommandContractTests(unittest.TestCase):
         for command, handler in expected.items():
             with self.subTest(command=command):
                 self.assertEqual(registrations.get(command), handler)
-                function(handler)
+                if handler == "nba_command":
+                    imports = [n for n in SOURCE.body if isinstance(n, ast.ImportFrom)
+                               and n.module == "nba_command"]
+                    self.assertTrue(any(any(alias.name == handler for alias in n.names)
+                                        for n in imports), "NBA handler must be imported")
+                else:
+                    function(handler)
 
     def test_compare_replies_on_invalid_input_and_missing_ledger(self):
         node = function("compare_command")
