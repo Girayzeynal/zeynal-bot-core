@@ -1,0 +1,1906 @@
+{
+  "schema": "HISTORICAL_LEARNING_SCOPE_AUDIT_V1",
+  "created_at_utc": "2026-11-11T18:47:03.744141+00:00",
+  "base_commit": "b2387fbfa57308ac5ddeaaca66391064f5413190",
+  "model_source_sha256": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+  "source_collection_sha256": "b3ebdc724a80951cb588c616f25d18d136a3352f2d95f2faf7208c5a795a56d3",
+  "source_collection_body_sha256": "b9e24e337d85178327d747bebdbd7d7c2a81c16be3505cc6358d658e5e097c3e",
+  "current_season_source_census": {
+    "EuroLeague": {
+      "failed_documents": 0,
+      "independently_complete_season": false,
+      "known_completed_games": 100,
+      "known_with_periods": 100,
+      "missing_fields": [
+        "team_statistics",
+        "player_statistics",
+        "pace",
+        "efficiency",
+        "lineups",
+        "rotation",
+        "injuries"
+      ],
+      "provider_calendar_dates": null,
+      "provider_calendar_days_checked": null,
+      "provider_calendar_scan_complete": false,
+      "source_documents": 1
+    },
+    "NBA": {
+      "failed_documents": 0,
+      "independently_complete_season": false,
+      "known_completed_games": 160,
+      "known_with_periods": 160,
+      "missing_fields": [
+        "team_statistics",
+        "player_statistics",
+        "pace",
+        "efficiency",
+        "lineups",
+        "rotation",
+        "injuries"
+      ],
+      "provider_calendar_dates": 36,
+      "provider_calendar_days_checked": 36,
+      "provider_calendar_scan_complete": true,
+      "source_documents": 36
+    }
+  },
+  "current_season_source_census_stage": "RAW_COLLECTION_BEFORE_STAT_NORMALIZATION_SEE_NORMALIZED_STATISTICS",
+  "normalized_statistics": {
+    "EuroLeague 2025/2026": {
+      "games": 380,
+      "partial_team_statistics": 0
+    },
+    "EuroLeague 2026/2027": {
+      "games": 100,
+      "partial_team_statistics": 0
+    },
+    "NBA 2026/2027": {
+      "games": 160,
+      "partial_team_statistics": 160
+    }
+  },
+  "previous_season": {
+    "league": "EuroLeague",
+    "season": "2025/2026",
+    "known_completed_games": 380,
+    "known_with_periods": 380,
+    "excluded_non_regular": 22,
+    "catalog_sha256": "fa45432c4ee049bcc901e2ba44bfcbf3be8b9a3dada2db73bcab42963ca2f05e"
+  },
+  "current_season_receipts": [
+    {
+      "body_sha256": "7b16160dac7735218e1fde9fa0d296a703d99829396744e91fc1a076e6d0fa7d",
+      "catalog_sha256": "da25d537b70b25ff5052bf737136c748fc0c11eb62b1851fc2b307596a22146a",
+      "document_sha256": "8aaa3a920e8ac0f9a186ee2289162086fadf10222819066a498db0d11b8ed922",
+      "http_status": 200,
+      "ingested_at_utc": 1794421932,
+      "observed_at_utc": 1794421932,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261110&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "430ab893beab7b98fafd79027e797cd3fcfae1a4e41441d63f96cbb34e0e739a",
+      "catalog_sha256": "17f1c1e3d94b92274c29dd50ab555223167ec940e9b785e3f04f62127b0b9dc8",
+      "document_sha256": "753c317262a63e05f4dc0a6c5cade4ba2f3e3ed015e095fe9d7da07ad0d5c85c",
+      "http_status": 200,
+      "ingested_at_utc": 1794421932,
+      "observed_at_utc": 1794421932,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261003&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "bbc57f5cb1fd211185d36f0a2e4f5c948fd558efd43acf59bf1127805a0e816a",
+      "catalog_sha256": "eedef80c7890893f18c3a033cc0232d5879c6d1da4fd3df550844426632f8ecc",
+      "document_sha256": "04ebc113870900c8dbd9b8bcd5fca6aa4692fd4784250cd9fa6b1a036cb96e6a",
+      "http_status": 200,
+      "ingested_at_utc": 1794421937,
+      "observed_at_utc": 1794421937,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261004&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "f26db75f6d0d54c34273fb9c5d710e09b93e590b639eb0240b897ea338948592",
+      "catalog_sha256": "c904f47adc2fc961b0290fee97cfcdff4b9dc45b095318072b3b86c9603ff382",
+      "document_sha256": "7a5896094ddab5ab5d60004d8ec11781638ceec1110d5f7f39454f10670bd6c8",
+      "http_status": 200,
+      "ingested_at_utc": 1794421938,
+      "observed_at_utc": 1794421938,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261005&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "c95d90b79194e346a003775753ba6db9e47072b9d9377d491b764c73d3a434dd",
+      "catalog_sha256": "bd5455e2d4ef94fb4663553bef9c1740ad85e5aee3a8c70858d465087d488865",
+      "document_sha256": "a4894af63499aa323ff05f74388041c46a74d84e1b468ec310ad12041d0efb8b",
+      "http_status": 200,
+      "ingested_at_utc": 1794421938,
+      "observed_at_utc": 1794421938,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261006&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "ea4edae270863a826e81683e60c179613ffa73d707c8775276bdb5a315a8a14d",
+      "catalog_sha256": "13a320c49765b2620ea3061188ebb83812b6d6127bbd9ab6c5c349087cbbd5f2",
+      "document_sha256": "edeb5c29cc34bbabb513440b1bd1c56c3f0714a1f50f6e9c87e2373b4ae73362",
+      "http_status": 200,
+      "ingested_at_utc": 1794421938,
+      "observed_at_utc": 1794421938,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261007&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "f8174e574ac02a56f1b904f63e44508321f951948ef89631d182b95bddabde95",
+      "catalog_sha256": "b1991038b393cc7eceb5ce9241903c101cc35af08b11fbe65aad71a74bd75b0e",
+      "document_sha256": "740db5343eac3adddb5ff836dcd1d7ebb4802842577e9b62b887493264653ccb",
+      "http_status": 200,
+      "ingested_at_utc": 1794421938,
+      "observed_at_utc": 1794421938,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261008&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "1e696469478275011a8da3e9ebf22ca636618fd84568128294c7f98870221c31",
+      "catalog_sha256": "d2d56579e4812f3316caa79e6ea2fd110887084933272d01d99f71f6bdbc6208",
+      "document_sha256": "d23d20b83076ff57c5267c6c38061cd263a723afd4d569a8d6e2b0403f6e16ad",
+      "http_status": 200,
+      "ingested_at_utc": 1794421939,
+      "observed_at_utc": 1794421939,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261009&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "3385a3fab9ece380e0beaeae0df125fa4cb80ec26c7cec68da69f6c49dffaca1",
+      "catalog_sha256": "ae84bd8f140c3e06463fca993127ccc27e00a163f09e56de6ed4ae754063b34a",
+      "document_sha256": "e85511449a62618b5c14307de5fbf3bf32a8a8e1653bf544b7141d86d5dbbca6",
+      "http_status": 200,
+      "ingested_at_utc": 1794421939,
+      "observed_at_utc": 1794421939,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261010&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "758e9090b73b15b5560109e9400bc1c05bbf43025103ac3dab8d9b747b416c85",
+      "catalog_sha256": "eb654e166548e3314aa41a3fe0636c7f7d9e356d04f0095d1c4af488de2a5ee3",
+      "document_sha256": "08cde98bba35985aad6deb75d40263d6d017182b54be6b7269d7fc6fec7f91c5",
+      "http_status": 200,
+      "ingested_at_utc": 1794421939,
+      "observed_at_utc": 1794421939,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261011&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "74f383496277119603eda422ac10b296fd99a099afb859a9f13f115ad14c5e50",
+      "catalog_sha256": "fd49bf77202e2ef44050ec4be26e49c25a476773be280d5d111fb6e8731f1c3b",
+      "document_sha256": "ecbcf836832c88eebaacc9c1d6eab1feac66ca2d98640fd2e79a36f514a5dd9f",
+      "http_status": 200,
+      "ingested_at_utc": 1794421939,
+      "observed_at_utc": 1794421939,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261012&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "7eb674f07b488756a4d5da7da9f6e088fd1bea96bebc7dff8b2934681acda815",
+      "catalog_sha256": "abcb63caf8b1ef0a952f7f28e0ae5fd1f113aa422d8e75334a9ebd73dce53006",
+      "document_sha256": "687554e5dae98787a440742afbcb52396850da9d70378387331d46cb64426a5e",
+      "http_status": 200,
+      "ingested_at_utc": 1794421939,
+      "observed_at_utc": 1794421939,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261013&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "8f419ba24a807a361fed48711e23ec84b70a9f323f08dfd371db78645dc8ebea",
+      "catalog_sha256": "724db4f467abe6a3fefeafbb6bf3403191260edc4ee2899b93eee2744921a011",
+      "document_sha256": "a905aa1f0ac75bf1f7bc222e74088c7380d806b7d208377d70a35177c4734493",
+      "http_status": 200,
+      "ingested_at_utc": 1794421940,
+      "observed_at_utc": 1794421940,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261014&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "50a712c16bac02ca1618323c4b8674562f53be5ea0146a567d30fbb977b32519",
+      "catalog_sha256": "289ebb932b55c04a095200e7a0922f6a0b75fee0615d72c3082d478937209f94",
+      "document_sha256": "2d2d38796787c001d07ed5a8af1c71c2c1c98d1e7a4241b1d536afab73a19efa",
+      "http_status": 200,
+      "ingested_at_utc": 1794421940,
+      "observed_at_utc": 1794421940,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261015&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "2a24f7df248c7cba2a846c1683adcd4a8ef6a5b44556c3c484073fc1e3f45f0e",
+      "catalog_sha256": "489911340726e840a2912f8bab2afe3860e47f154478375c868b33e7efcf3efd",
+      "document_sha256": "115cc34cd85683bc160c88b0107d225b4295a650894daba2a05bc1296983f934",
+      "http_status": 200,
+      "ingested_at_utc": 1794421940,
+      "observed_at_utc": 1794421940,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261016&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "ed91292b89cbf407b993fd513d3b09bc3df09056d0f388d4a6636a58547801a8",
+      "catalog_sha256": "2946f785fbf2d99a993c9eef81058b24ea3db6870cc546f80fb87e4bad640a7b",
+      "document_sha256": "522a32e46a2ab3f8252430314be162f175d6cae44f3db0596d9cebec7fe74679",
+      "http_status": 200,
+      "ingested_at_utc": 1794421940,
+      "observed_at_utc": 1794421940,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261020&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "9170858315116ea678a090d1d3c576a592278add103695d505eb55a49ee2c3e2",
+      "catalog_sha256": "b1128a32cddde726a4b5cbc15d82a3a17b3fd9e4de0fe7439b46701a0f76ad9c",
+      "document_sha256": "566b32de09d6e9d5625191b0ddecf31f73f84ff3219a89656803138bd957586b",
+      "http_status": 200,
+      "ingested_at_utc": 1794421940,
+      "observed_at_utc": 1794421940,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261021&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "52737fe6bceddd4b1eb18b7f2b40236207ed6e89fddda4f769dcdd47ec4757bc",
+      "catalog_sha256": "ff79f0ff969bd7e253dbd38c50a4ed7f79a926753776fed1e8553b19b8ed4de3",
+      "document_sha256": "14fc193645e2c9d57c4652a02595d3807afe3e49845b1cd8bd78dca34112c447",
+      "http_status": 200,
+      "ingested_at_utc": 1794421941,
+      "observed_at_utc": 1794421941,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261022&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "0aa045a0a401baa737c75f8d89f35541689c9b02f9585a9999bb257443faa3db",
+      "catalog_sha256": "59b3a841c4822138964cef1922731fa715d31bfea79208348d22b5fa271ed175",
+      "document_sha256": "b904601d23512a283bc652209830a0a11a32bf38df626626074c9135f94d46cd",
+      "http_status": 200,
+      "ingested_at_utc": 1794421941,
+      "observed_at_utc": 1794421941,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261023&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "8d8734e751e4c79b67ed08cf8915251813ca2313d98e61523940ad08339a6c46",
+      "catalog_sha256": "fb883eb85b78b159b00a9952ea27acc494b34f961900d285e27d85b9f09f216e",
+      "document_sha256": "fc61a7044eaae6bcdf538167858affb4bcfee47c1a46a746372f21e783590b79",
+      "http_status": 200,
+      "ingested_at_utc": 1794421941,
+      "observed_at_utc": 1794421941,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261024&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "eb8bea5f05b2dab73779b8f7bba70f3b2c3b1cdaad86ba243704d6c1adba4cae",
+      "catalog_sha256": "1ba5a206fcc0abf80f0b8cdce89e0d396e61ad043894779627f0daa8fa8ad72a",
+      "document_sha256": "e49a93005e01113f63524ffae3ca02f37c85edca94447d215ab703584e500db3",
+      "http_status": 200,
+      "ingested_at_utc": 1794421941,
+      "observed_at_utc": 1794421941,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261025&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "cfa113b145191ee09d6ff7fc3c5152af2450894a03bfd652bdfa4773896a5767",
+      "catalog_sha256": "f42fc479e659db2d459d56d513a983b37d89c61bee14f7d069bc76af54238563",
+      "document_sha256": "fd7d8971ae7a7ecf15b97340095026b4f5108281ce195e1e3253e59f87b10c60",
+      "http_status": 200,
+      "ingested_at_utc": 1794421941,
+      "observed_at_utc": 1794421941,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261026&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "68f60f916542f6b99469875c3c82d4ee9fab9fa06c72b16cae8f14aea157d27b",
+      "catalog_sha256": "3418a4c13d65fafe4ff0a0b6a26cc414fdbe5f328b70161aaba5c11b303a8d8c",
+      "document_sha256": "9807ccf0c2e0ab9895b19c7760a5fce76df2891e889c5bb6a9530d65e5e672a6",
+      "http_status": 200,
+      "ingested_at_utc": 1794421942,
+      "observed_at_utc": 1794421942,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261027&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "a059bfecce60f2d7e6141138cc4aea778b6395f90deb8175e329ea3c8d2acfd4",
+      "catalog_sha256": "8b7f3122f07f4671348c20823b2d780e992d9e72073c567ea9cea2f5b10195ab",
+      "document_sha256": "e83fdc01b9d2fd3aba9adf4bf7066724d4f1e801d76ff634e85f9177fda12e72",
+      "http_status": 200,
+      "ingested_at_utc": 1794421942,
+      "observed_at_utc": 1794421942,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261028&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "1e7413d4bd1e83b2c0d5aae404e35463e319ed0fffd84204b812566117f29b2e",
+      "catalog_sha256": "7fa289f757a2163595aca67e04c808617f90eb6786f7033b5219bc5522251b59",
+      "document_sha256": "a6cd85603191f11ae7789367575689ea367158347cd6220609ac0bf026a293e1",
+      "http_status": 200,
+      "ingested_at_utc": 1794421942,
+      "observed_at_utc": 1794421942,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261029&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "0f0f869f32bc3c0b7d312776cde8501a85023120ee7d3c7b3895340e8addd1aa",
+      "catalog_sha256": "8f3677399de4dcdb9af94162cbcd14ba6e6b9f6c41a2f080ddc78d2d9d6160f9",
+      "document_sha256": "4a057803d702a8151ba20bea519c2d8221e34cf426326cb3734597f988474097",
+      "http_status": 200,
+      "ingested_at_utc": 1794421942,
+      "observed_at_utc": 1794421942,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261030&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "b8d74b977f7edc9f4acd768bb5e8a35ca382784ee38fb7d80ce5102b71cdd829",
+      "catalog_sha256": "6feadb4ce67455e9d31eb8ce0cc2653871187fb1e3ab34d2e0c73ce07d2f9178",
+      "document_sha256": "f5c13644d9f5e3b59b9c2dc7359fcb97ba2d7ae8ec9189198bb2ce83fdfa3963",
+      "http_status": 200,
+      "ingested_at_utc": 1794421943,
+      "observed_at_utc": 1794421943,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261031&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "23193dfa60786ad4e3dd2c9a88099432becd8ccff3aa8832744c71e797b2f469",
+      "catalog_sha256": "bc32f54d455b03d89620e070ca23ba6130e1b779d4470c0a123290a99f2d3be7",
+      "document_sha256": "f4399e9776272246b0565f067a247bb98b514e7d4b901731ae93eeca8a2bbeb1",
+      "http_status": 200,
+      "ingested_at_utc": 1794421943,
+      "observed_at_utc": 1794421943,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261101&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "b9e34f1b5f740adc37223c7f270ab570d88d864815f6db0d0dfdb9ccf17c48f5",
+      "catalog_sha256": "500319f5e817e9a72f52b9431e904f91806283c4760066544a3d3fd65c33df5c",
+      "document_sha256": "dec5781bdf8257b5d3d27d63648ce78c4a0104ba78207cc35b5724847e0e4c29",
+      "http_status": 200,
+      "ingested_at_utc": 1794421943,
+      "observed_at_utc": 1794421943,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261102&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "5bdec89bebe1b08612107f840f40603311627bcdfd4313111d3391bde89ad258",
+      "catalog_sha256": "ba6fe13fd1450f96ea87fd76ac949eea45260a23501b77595a2cd089e11b3471",
+      "document_sha256": "e20fafa7f1b5a7c8dfe613692512a6f5ddfbca9a3a5991d17cff3763f844e497",
+      "http_status": 200,
+      "ingested_at_utc": 1794421943,
+      "observed_at_utc": 1794421943,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261104&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "bd35dd3725cf7678c199b83a76a63dd8c08e3ebb4c09b5ab4481b4c0f6fb0e65",
+      "catalog_sha256": "40e37a43b7d1a3c4b0efa31372dc327d1e7fed75a3ea7f70a1cbe5219a34b310",
+      "document_sha256": "0b4fbd90f34d4aec9f443119c9e6bf0fa1e9b8017c9c2b10fe7910503dddf5ae",
+      "http_status": 200,
+      "ingested_at_utc": 1794421944,
+      "observed_at_utc": 1794421944,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261105&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "66658d053e49fde7a37239acef68e787303992887278796eeb5f91eb6844f1a9",
+      "catalog_sha256": "86c4c3b6eaad2c548bbdf68d12dd6315f569c50cdbcc2ca91e260bd4a8b8cbae",
+      "document_sha256": "5aef66c08a32f02feb82776a0e1c5b999fc56fa8d00ea99c23c3ab946b983ada",
+      "http_status": 200,
+      "ingested_at_utc": 1794421944,
+      "observed_at_utc": 1794421944,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261106&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "b7bea98bec7fa54fb97058494b35fbf9e96ab432fda96fa2461e355f04803444",
+      "catalog_sha256": "666e004fd2e85703e51a45f79c2884fb3ba30d5b542b8b193478fb7f8c8d2f33",
+      "document_sha256": "c0387c4efee04e4530eeee12229fc75a2b2e31e1c38e1c6a372a5b99f06eb9f2",
+      "http_status": 200,
+      "ingested_at_utc": 1794421944,
+      "observed_at_utc": 1794421944,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261107&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "5caeae06f022c376d6dde15e08d9661e3eca3acee61d36fea3295cd45b61030b",
+      "catalog_sha256": "4f6cb44de5b31f7a82f1d0ee5fcade9d36bc838f56649c3372f05ffbe118b288",
+      "document_sha256": "cc1773622bfdb7957580d65ccca72e3a880c6a7810884a0dc7fd6122697c47fd",
+      "http_status": 200,
+      "ingested_at_utc": 1794421944,
+      "observed_at_utc": 1794421944,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261108&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "f008fe5366c752a6e8693af07eee5563a039a97c7aa32ca2f8065cb1968d0faa",
+      "catalog_sha256": "d84a6f694b146cf27efdd302822cf049d64f8b27a47e033f207884e56537c755",
+      "document_sha256": "066b0d41b38dd10384b34d2e99e37a1d237750ce532f5114689def065ac8f40b",
+      "http_status": 200,
+      "ingested_at_utc": 1794421944,
+      "observed_at_utc": 1794421944,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261109&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "fe6e749a3a747bfc622a95544efd89acce22649dfeebaf90ddf4964160cc2449",
+      "catalog_sha256": "f7a6ff4db8d70adcdca19c985516b71223a2bfe88e886c7f6b8de73e2038b08f",
+      "document_sha256": "c5a100fc9e8ff5ed5e568ed29203c3e7adaf5956848bf85f2d36245de698edda",
+      "http_status": 200,
+      "ingested_at_utc": 1794421945,
+      "observed_at_utc": 1794421945,
+      "provider": "ESPN",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261111&limit=1000",
+      "status": "DOCUMENT_RECEIVED"
+    },
+    {
+      "body_sha256": "a13a5cb62be1ceebb685818476e4ad6f029340f001d94aa1eb9f57c1e6aff8f1",
+      "catalog_sha256": "7005512183d44e70092d5721ce0d17ad488d46cec972e467823c600dee251c08",
+      "document_sha256": "b87f0429b6122d5008c03fa6b3708b90dbbc05e19455433ee1f8bcc004ba5c45",
+      "http_status": 200,
+      "ingested_at_utc": 1794421945,
+      "observed_at_utc": 1794421945,
+      "provider": "EUROLEAGUE_LIVE",
+      "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games",
+      "status": "DOCUMENT_RECEIVED"
+    }
+  ],
+  "previous_season_receipt": {
+    "provider": "EUROLEAGUE_LIVE",
+    "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2025/games",
+    "http_status": 200,
+    "status": "DOCUMENT_RECEIVED",
+    "observed_at_utc": 1794422277,
+    "ingested_at_utc": 1794422277,
+    "body_sha256": "5aa4937a6915219985ae2eab1a30bbecf670c16c87f13d4ce5f83a1f6874950e",
+    "document_sha256": "8425896c27cb89f50b1624025138d2e09fb346a48651ef2aedee888da0d79544",
+    "raw_rows": 402,
+    "phase_counts": {
+      "FF": 3,
+      "PO": 16,
+      "PI": 3,
+      "RS": 380
+    },
+    "catalog_error": "regular_season_required"
+  },
+  "total_new_http_requests": 38,
+  "record_counts": {
+    "HISTORICAL_DATA": 640,
+    "BACKTEST_SIMULATION": 1280,
+    "LIVE_PREMATCH_PREDICTION": 0
+  },
+  "independent_historical_games": 640,
+  "strict": {
+    "evaluated": 0,
+    "abstained": 640,
+    "reason": "SOURCE_OBSERVATION_AND_INGESTION_AFTER_HISTORICAL_CUTOFF",
+    "metrics": null
+  },
+  "assumed_research": {
+    "evaluated": 424,
+    "abstained": 216,
+    "availability_policy": "EVENT_TIME_24H_ASSUMPTION",
+    "actual_live_or_proven_historical_performance": false,
+    "report": {
+      "groups": [
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "metrics": {
+            "n_games": 320,
+            "score_mae": 8.193882688492064,
+            "score_rmse": 10.301863718698801,
+            "total_mae": 13.29363715277778,
+            "total_rmse": 16.63011052920885,
+            "home_win_brier": null,
+            "home_win_log_loss": null,
+            "n_probability_games": 0,
+            "total_bias": -0.23787574404762016,
+            "home_score_bias": -2.0244909474206354,
+            "away_score_bias": 1.7866152033730156,
+            "margin_mae": 9.702994791666667,
+            "margin_rmse": 12.163593552107356,
+            "margin_bias": -3.811106150793651,
+            "home_mae": 8.465657862103175,
+            "home_rmse": 10.582219371122099,
+            "away_mae": 7.9221075148809526,
+            "away_rmse": 10.013661934513946,
+            "winner_direction_n": 305,
+            "winner_direction_accuracy": 0.5967213114754099
+          },
+          "calibration_curve": [
+            {
+              "lower": 0.0,
+              "upper": 0.1,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.1,
+              "upper": 0.2,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.2,
+              "upper": 0.3,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.3,
+              "upper": 0.4,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.4,
+              "upper": 0.5,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.5,
+              "upper": 0.6,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.6,
+              "upper": 0.7,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.7,
+              "upper": 0.8,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.8,
+              "upper": 0.9,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.9,
+              "upper": 1.0,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            }
+          ],
+          "period_metrics": {
+            "1Q": {
+              "n_team_scores": 640,
+              "mae": 4.012389632936508,
+              "rmse": 4.972095972263779,
+              "bias": -0.028771701388888776
+            },
+            "2Q": {
+              "n_team_scores": 640,
+              "mae": 4.150571056547619,
+              "rmse": 5.2315247539673315,
+              "bias": -0.21506696428571437
+            },
+            "3Q": {
+              "n_team_scores": 640,
+              "mae": 4.189205109126984,
+              "rmse": 5.290697867656449,
+              "bias": 0.06423363095238097
+            },
+            "4Q": {
+              "n_team_scores": 640,
+              "mae": 4.470963541666666,
+              "rmse": 5.535375662986223,
+              "bias": 0.060667162698412734
+            },
+            "1H": {
+              "n_team_scores": 640,
+              "mae": 5.693302951388889,
+              "rmse": 7.109524532505409,
+              "bias": -0.24383866567460322
+            },
+            "2H": {
+              "n_team_scores": 640,
+              "mae": 5.996271701388888,
+              "rmse": 7.56149964463999,
+              "bias": 0.12490079365079364
+            }
+          },
+          "pace_stratification": "PACE_NOT_AVAILABLE",
+          "actual_live_prematch_performance": false,
+          "automatic_model_update_permitted": false
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "metrics": {
+            "n_games": 40,
+            "score_mae": 8.891790674603175,
+            "score_rmse": 11.096691898800264,
+            "total_mae": 15.029017857142856,
+            "total_rmse": 18.680993899699057,
+            "home_win_brier": null,
+            "home_win_log_loss": null,
+            "n_probability_games": 0,
+            "total_bias": 0.4594246031746003,
+            "home_score_bias": -0.9702132936507943,
+            "away_score_bias": 1.4296378968253964,
+            "margin_mae": 9.756646825396825,
+            "margin_rmse": 11.98193437250448,
+            "margin_bias": -2.3998511904761908,
+            "home_mae": 8.675074404761904,
+            "home_rmse": 11.29549743610027,
+            "away_mae": 9.108506944444445,
+            "away_rmse": 10.894259032391833,
+            "winner_direction_n": 37,
+            "winner_direction_accuracy": 0.7297297297297297
+          },
+          "calibration_curve": [
+            {
+              "lower": 0.0,
+              "upper": 0.1,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.1,
+              "upper": 0.2,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.2,
+              "upper": 0.3,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.3,
+              "upper": 0.4,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.4,
+              "upper": 0.5,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.5,
+              "upper": 0.6,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.6,
+              "upper": 0.7,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.7,
+              "upper": 0.8,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.8,
+              "upper": 0.9,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.9,
+              "upper": 1.0,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            }
+          ],
+          "period_metrics": {
+            "1Q": {
+              "n_team_scores": 80,
+              "mae": 3.9897321428571426,
+              "rmse": 5.2613910227262135,
+              "bias": 0.6486855158730158
+            },
+            "2Q": {
+              "n_team_scores": 80,
+              "mae": 4.362797619047619,
+              "rmse": 5.463586055799638,
+              "bias": 0.3480654761904759
+            },
+            "3Q": {
+              "n_team_scores": 80,
+              "mae": 4.452678571428572,
+              "rmse": 5.503195894977777,
+              "bias": -0.1385912698412699
+            },
+            "4Q": {
+              "n_team_scores": 80,
+              "mae": 4.130753968253968,
+              "rmse": 5.197204787038798,
+              "bias": -0.6284474206349205
+            },
+            "1H": {
+              "n_team_scores": 80,
+              "mae": 6.480109126984127,
+              "rmse": 8.06418332318348,
+              "bias": 0.9967509920634915
+            },
+            "2H": {
+              "n_team_scores": 80,
+              "mae": 6.281225198412699,
+              "rmse": 7.861389994129177,
+              "bias": -0.7670386904761907
+            }
+          },
+          "pace_stratification": "PACE_NOT_AVAILABLE",
+          "actual_live_prematch_performance": false,
+          "automatic_model_update_permitted": false
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "metrics": {
+            "n_games": 64,
+            "score_mae": 9.301844618055556,
+            "score_rmse": 11.507831131816909,
+            "total_mae": 13.412785218253969,
+            "total_rmse": 16.270668660039153,
+            "home_win_brier": null,
+            "home_win_log_loss": null,
+            "n_probability_games": 0,
+            "total_bias": 2.321775793650795,
+            "home_score_bias": 0.3822234623015879,
+            "away_score_bias": 1.9395523313492065,
+            "margin_mae": 12.546564980158731,
+            "margin_rmse": 16.278392143847547,
+            "margin_bias": -1.5573288690476188,
+            "home_mae": 9.89527529761905,
+            "home_rmse": 11.81327558632739,
+            "away_mae": 8.708413938492065,
+            "away_rmse": 11.194055325855336,
+            "winner_direction_n": 60,
+            "winner_direction_accuracy": 0.7
+          },
+          "calibration_curve": [
+            {
+              "lower": 0.0,
+              "upper": 0.1,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.1,
+              "upper": 0.2,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.2,
+              "upper": 0.3,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.3,
+              "upper": 0.4,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.4,
+              "upper": 0.5,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.5,
+              "upper": 0.6,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.6,
+              "upper": 0.7,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.7,
+              "upper": 0.8,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.8,
+              "upper": 0.9,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            },
+            {
+              "lower": 0.9,
+              "upper": 1.0,
+              "n": 0,
+              "mean_probability": null,
+              "observed_frequency": null
+            }
+          ],
+          "period_metrics": {
+            "1Q": {
+              "n_team_scores": 128,
+              "mae": 4.319253782242063,
+              "rmse": 5.534599848747363,
+              "bias": 0.6152824280753968
+            },
+            "2Q": {
+              "n_team_scores": 128,
+              "mae": 4.943965463789683,
+              "rmse": 6.214147284207722,
+              "bias": -0.39235646081349207
+            },
+            "3Q": {
+              "n_team_scores": 128,
+              "mae": 5.2347129216269845,
+              "rmse": 6.557629385862349,
+              "bias": 0.7129402281746032
+            },
+            "4Q": {
+              "n_team_scores": 128,
+              "mae": 4.925762648809523,
+              "rmse": 6.170849099308873,
+              "bias": 0.22502170138888883
+            },
+            "1H": {
+              "n_team_scores": 128,
+              "mae": 6.726112971230158,
+              "rmse": 8.422593594403882,
+              "bias": 0.22292596726190483
+            },
+            "2H": {
+              "n_team_scores": 128,
+              "mae": 6.979932415674603,
+              "rmse": 8.59895885174093,
+              "bias": 0.937961929563492
+            }
+          },
+          "pace_stratification": "PACE_NOT_AVAILABLE",
+          "actual_live_prematch_performance": false,
+          "automatic_model_update_permitted": false
+        }
+      ],
+      "teams": [
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "ASV",
+          "n": 32,
+          "mae": 7.876066468253967,
+          "rmse": 10.263238040657908,
+          "bias": 3.810441468253968
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "BAR",
+          "n": 32,
+          "mae": 8.957465277777777,
+          "rmse": 10.394258444131312,
+          "bias": 2.3418402777777763
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "BAS",
+          "n": 32,
+          "mae": 8.108674355158733,
+          "rmse": 10.147533123374709,
+          "bias": -2.321174355158732
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "DUB",
+          "n": 32,
+          "mae": 9.127864583333334,
+          "rmse": 10.704909168000395,
+          "bias": -1.8778645833333334
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "HTA",
+          "n": 32,
+          "mae": 9.540637400793653,
+          "rmse": 12.603574300849635,
+          "bias": -0.27724454365079243
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "IST",
+          "n": 32,
+          "mae": 9.63141121031746,
+          "rmse": 11.388635153941996,
+          "bias": 4.000508432539682
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "MAD",
+          "n": 32,
+          "mae": 7.858134920634921,
+          "rmse": 9.461028019915469,
+          "bias": -1.6838293650793656
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "MCO",
+          "n": 32,
+          "mae": 9.0511470734127,
+          "rmse": 11.554317028958092,
+          "bias": -3.446285962301588
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "MIL",
+          "n": 32,
+          "mae": 6.981070188492064,
+          "rmse": 8.54638775363542,
+          "bias": -0.684108382936508
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "MUN",
+          "n": 32,
+          "mae": 8.35656001984127,
+          "rmse": 9.829418830926285,
+          "bias": 1.9201760912698407
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "OLY",
+          "n": 32,
+          "mae": 8.737667410714288,
+          "rmse": 11.187130421048886,
+          "bias": -2.5092075892857157
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "PAM",
+          "n": 32,
+          "mae": 7.220262896825396,
+          "rmse": 9.192797378395932,
+          "bias": -2.001959325396825
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "PAN",
+          "n": 32,
+          "mae": 8.434809027777778,
+          "rmse": 10.911280886694685,
+          "bias": -1.3613715277777798
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "PAR",
+          "n": 32,
+          "mae": 7.597036210317459,
+          "rmse": 9.101542655430706,
+          "bias": 2.912661210317458
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "PRS",
+          "n": 32,
+          "mae": 8.108438740079366,
+          "rmse": 10.399104686961907,
+          "bias": -2.6714223710317455
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "RED",
+          "n": 32,
+          "mae": 7.51791294642857,
+          "rmse": 9.454144504604049,
+          "bias": -0.7343191964285718
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "TEL",
+          "n": 32,
+          "mae": 6.700961061507937,
+          "rmse": 8.912137383978074,
+          "bias": -1.6533916170634928
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "ULK",
+          "n": 32,
+          "mae": 7.257924107142857,
+          "rmse": 9.59909194261641,
+          "bias": 2.2954241071428574
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "VIR",
+          "n": 32,
+          "mae": 8.186427331349206,
+          "rmse": 10.17110628072864,
+          "bias": 2.342330109126984
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "ZAL",
+          "n": 32,
+          "mae": 8.627182539682542,
+          "rmse": 11.238648203554007,
+          "bias": -0.7799603174603167
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "ASV",
+          "n": 4,
+          "mae": 2.5691964285714306,
+          "rmse": 2.8810419266140794,
+          "bias": -1.2120535714285694
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "BAR",
+          "n": 4,
+          "mae": 4.8390376984126995,
+          "rmse": 5.547079901795323,
+          "bias": -2.0116567460317434
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "BAS",
+          "n": 4,
+          "mae": 6.44717261904762,
+          "rmse": 8.90191270646231,
+          "bias": 6.19717261904762
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "BES",
+          "n": 4,
+          "mae": 14.519345238095234,
+          "rmse": 15.066173774088861,
+          "bias": 6.956845238095234
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "DUB",
+          "n": 4,
+          "mae": 9.925347222222221,
+          "rmse": 11.85225699403381,
+          "bias": -9.925347222222221
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "HTA",
+          "n": 4,
+          "mae": 9.851438492063494,
+          "rmse": 15.787993406074923,
+          "bias": -6.632688492063494
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "IST",
+          "n": 4,
+          "mae": 2.821676587301585,
+          "rmse": 3.0213098201763744,
+          "bias": -2.821676587301585
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "MAD",
+          "n": 4,
+          "mae": 14.227430555555557,
+          "rmse": 15.061208466861256,
+          "bias": -14.227430555555557
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "MIL",
+          "n": 4,
+          "mae": 6.4511408730158735,
+          "rmse": 7.423719242327569,
+          "bias": 6.4511408730158735
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "MUN",
+          "n": 4,
+          "mae": 7.059027777777779,
+          "rmse": 7.547767764399529,
+          "bias": -1.2465277777777786
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "OLY",
+          "n": 4,
+          "mae": 15.837797619047617,
+          "rmse": 17.901691703034626,
+          "bias": 15.837797619047617
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "PAM",
+          "n": 4,
+          "mae": 5.620783730158728,
+          "rmse": 6.947244634564654,
+          "bias": -0.9818948412698418
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "PAN",
+          "n": 4,
+          "mae": 12.5890376984127,
+          "rmse": 13.572664687524348,
+          "bias": 5.227926587301585
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "PAR",
+          "n": 4,
+          "mae": 4.166666666666668,
+          "rmse": 6.169199930118798,
+          "bias": 3.166666666666668
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "PRS",
+          "n": 4,
+          "mae": 9.263144841269842,
+          "rmse": 9.801784118280523,
+          "bias": -9.263144841269842
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "RED",
+          "n": 4,
+          "mae": 13.63268849206349,
+          "rmse": 14.890719818604845,
+          "bias": -0.5771329365079403
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "TEL",
+          "n": 4,
+          "mae": 9.141865079365083,
+          "rmse": 10.538139984710995,
+          "bias": 0.6001984126984112
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "ULK",
+          "n": 4,
+          "mae": 10.17782738095238,
+          "rmse": 12.264583853330684,
+          "bias": 10.17782738095238
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "VIR",
+          "n": 4,
+          "mae": 10.625248015873016,
+          "rmse": 10.973111915065152,
+          "bias": 4.031498015873016
+        },
+        {
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "ZAL",
+          "n": 4,
+          "mae": 8.069940476190474,
+          "rmse": 9.430837589165659,
+          "bias": -5.15327380952381
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "1",
+          "n": 5,
+          "mae": 11.026865079365077,
+          "rmse": 13.727030725955826,
+          "bias": -6.68686507936508
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "10",
+          "n": 4,
+          "mae": 8.894593253968253,
+          "rmse": 11.207402883954243,
+          "bias": 8.894593253968253
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "11",
+          "n": 4,
+          "mae": 8.982242063492066,
+          "rmse": 9.62771371378275,
+          "bias": 2.8322420634920604
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "12",
+          "n": 4,
+          "mae": 12.779513888888893,
+          "rmse": 15.446995708168597,
+          "bias": -5.762152777777779
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "13",
+          "n": 5,
+          "mae": 9.48579365079365,
+          "rmse": 10.269379943822658,
+          "bias": -6.528650793650795
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "14",
+          "n": 5,
+          "mae": 6.332817460317463,
+          "rmse": 8.836632700486543,
+          "bias": 6.179484126984121
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "15",
+          "n": 5,
+          "mae": 10.712222222222223,
+          "rmse": 12.10208649285212,
+          "bias": 10.712222222222223
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "16",
+          "n": 4,
+          "mae": 4.416617063492069,
+          "rmse": 5.766996915808914,
+          "bias": 1.885367063492069
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "17",
+          "n": 4,
+          "mae": 12.682390873015876,
+          "rmse": 13.265291923767347,
+          "bias": 3.6439980158730165
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "18",
+          "n": 4,
+          "mae": 7.278174603174605,
+          "rmse": 9.634820316676567,
+          "bias": -2.0281746031746053
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "19",
+          "n": 3,
+          "mae": 7.538888888888891,
+          "rmse": 9.443050550733263,
+          "bias": 7.038888888888891
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "2",
+          "n": 5,
+          "mae": 10.024682539682539,
+          "rmse": 11.72260810774721,
+          "bias": 2.2991269841269855
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "20",
+          "n": 5,
+          "mae": 9.149166666666668,
+          "rmse": 10.23906109439099,
+          "bias": 0.7958333333333314
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "21",
+          "n": 3,
+          "mae": 13.929894179894186,
+          "rmse": 14.56728477079921,
+          "bias": 1.1660052910052912
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "22",
+          "n": 3,
+          "mae": 7.7421296296296305,
+          "rmse": 9.434114582977443,
+          "bias": 0.1685846560846566
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "23",
+          "n": 5,
+          "mae": 6.742341269841267,
+          "rmse": 7.834538567101305,
+          "bias": 4.800674603174599
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "24",
+          "n": 5,
+          "mae": 5.14369047619048,
+          "rmse": 6.235521432634811,
+          "bias": -4.315119047619047
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "25",
+          "n": 5,
+          "mae": 10.2340873015873,
+          "rmse": 11.58233849495225,
+          "bias": -6.238531746031748
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "26",
+          "n": 5,
+          "mae": 7.409484126984131,
+          "rmse": 7.8954371162432055,
+          "bias": 7.409484126984131
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "27",
+          "n": 5,
+          "mae": 15.722579365079373,
+          "rmse": 19.28269817297349,
+          "bias": 5.235357142857145
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "28",
+          "n": 4,
+          "mae": 7.495287698412696,
+          "rmse": 8.57261415744679,
+          "bias": 2.526537698412696
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "29",
+          "n": 4,
+          "mae": 10.392609126984127,
+          "rmse": 11.997390392835891,
+          "bias": 5.906498015873012
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "3",
+          "n": 5,
+          "mae": 12.810396825396825,
+          "rmse": 15.354021255379076,
+          "bias": 4.963174603174608
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "30",
+          "n": 4,
+          "mae": 13.097519841269843,
+          "rmse": 15.629233057866399,
+          "bias": 3.3975198412698404
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "4",
+          "n": 3,
+          "mae": 5.974404761904765,
+          "rmse": 7.3243061273132675,
+          "bias": -1.950595238095237
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "5",
+          "n": 5,
+          "mae": 5.410753968253974,
+          "rmse": 7.455105681741781,
+          "bias": 1.0409126984127028
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "6",
+          "n": 5,
+          "mae": 10.649126984126983,
+          "rmse": 13.445110174598046,
+          "bias": -1.3907936507936456
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "7",
+          "n": 3,
+          "mae": 9.10085978835979,
+          "rmse": 11.378495147188133,
+          "bias": -2.3091931216931223
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "8",
+          "n": 4,
+          "mae": 7.891071428571426,
+          "rmse": 9.580971287213309,
+          "bias": -6.64553571428571
+        },
+        {
+          "league": "NBA",
+          "season": "2026/2027",
+          "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+          "evaluation_class": "AVAILABILITY_ASSUMED_RESEARCH",
+          "scope": "REGULATION_ONLY",
+          "team_id": "9",
+          "n": 3,
+          "mae": 9.289153439153438,
+          "rmse": 12.568722560629636,
+          "bias": -4.577513227513227
+        }
+      ],
+      "automatic_model_update_permitted": false
+    }
+  },
+  "chronological_plan": {
+    "periods": {
+      "TRAIN": {
+        "targets": 554,
+        "evaluated": 0,
+        "report": {
+          "groups": [],
+          "teams": [],
+          "automatic_model_update_permitted": false
+        }
+      },
+      "VALIDATION": {
+        "targets": 43,
+        "evaluated": 0,
+        "report": {
+          "groups": [],
+          "teams": [],
+          "automatic_model_update_permitted": false
+        }
+      },
+      "TEST": {
+        "targets": 43,
+        "evaluated": 0,
+        "report": {
+          "groups": [],
+          "teams": [],
+          "automatic_model_update_permitted": false
+        }
+      }
+    },
+    "adequacy": [
+      {
+        "league": "EuroLeague",
+        "season": "2025/2026",
+        "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+        "proven_counts": {
+          "TRAIN": 0,
+          "VALIDATION": 0,
+          "TEST": 0
+        },
+        "threshold_met": false
+      },
+      {
+        "league": "EuroLeague",
+        "season": "2026/2027",
+        "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+        "proven_counts": {
+          "TRAIN": 0,
+          "VALIDATION": 0,
+          "TEST": 0
+        },
+        "threshold_met": false
+      },
+      {
+        "league": "NBA",
+        "season": "2026/2027",
+        "model_version": "RESEARCH_SCORE_MATCHUP_V1:310489b676d1:w10:n6",
+        "proven_counts": {
+          "TRAIN": 0,
+          "VALIDATION": 0,
+          "TEST": 0
+        },
+        "threshold_met": false
+      }
+    ],
+    "model_fitting_performed": false,
+    "automatic_model_update_permitted": false,
+    "note": "Fixed rolling reference; no coefficients fitted or promoted."
+  },
+  "source_collection_unchanged": true,
+  "second_replay_idempotent": true,
+  "local_artifacts": {
+    "collection.json": {
+      "bytes": 6705273,
+      "sha256": "b9e24e337d85178327d747bebdbd7d7c2a81c16be3505cc6358d658e5e097c3e"
+    },
+    "euroleague-2025-regular-catalog.json": {
+      "bytes": 1245276,
+      "sha256": "2bbd9e8c1a47fd025086721e53d817c488f7053ddca8545c1f2d8e0f1061c43e"
+    },
+    "research-audit-final.sqlite": {
+      "bytes": 5185536,
+      "sha256": "3546a46d6edab7de86b6feb8d475c3c9d10bb2e61378f6b40845c0019a840f07"
+    },
+    "strict-simulation-final.json": {
+      "bytes": 592878,
+      "sha256": "e1f581539feda477827e6cd6c00f867aff542712adbaff8aed1c8525a51c019d"
+    },
+    "assumed-simulation-final.json": {
+      "bytes": 2753194,
+      "sha256": "64e6da88cb4595a020b9ea88e980c65c86e455141507b2a9ce7473fbc3477906"
+    }
+  },
+  "tests": {
+    "focused": {
+      "tests": 24,
+      "failures": 0,
+      "sha256": "a787f5bba02dde40fc5d50c3dca6272ba2a78e047a2ce07729b019f802728552"
+    },
+    "full": {
+      "tests": 357,
+      "failures": 0,
+      "sha256": "fd4ffd9bb50a59b930421e8cb2e24c74aaca760052fbac5f6268a19b3e0915d9"
+    }
+  },
+  "source_permission": "NOT_ESTABLISHED",
+  "source_attestation": "LOCAL_HASH_NOT_INDEPENDENT_ATTESTATION",
+  "point_in_time_calibration_eligible_pairs": 0,
+  "new_real_live_predictions": 0,
+  "existing_production_pairs": "NOT_REQUERIED",
+  "production_database_accessed": false,
+  "production_model_changed": false,
+  "model_fitting_performed": false,
+  "automatic_model_update_permitted": false,
+  "independent_cloud_persistence": "NOT_VERIFIED",
+  "raw_archives_uploaded_to_github": false
+}
