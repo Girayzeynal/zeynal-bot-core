@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "purpose": "REF_RECOVERY_AND_RESEARCH_COLLECTION_NOT_MODEL_CALIBRATION",
+  "created_utc": "2026-11-11T17:20:08.916956+00:00",
+  "branch": "dev/season-fixture-audit-20261111",
+  "pr": 80,
+  "previous_checkpoint": "3742d05c353d596270f3b67088b1beb80d3c9602",
+  "inspected_main_sha": "0e634083ccd1da87c7313710a17aa6e63fb5abe2",
+  "pr79_sha": "c847b04da89fa14d8771fa544daf44f7ac5852a7",
+  "pr_dependency": "79_IS_ANCESTOR_OF_80",
+  "merge_order_if_separately_approved": [
+    79,
+    80
+  ],
+  "merges_performed": 0,
+  "initial_ci": {
+    "pr79_push": 43052328146,
+    "pr79_pr": 43052355993,
+    "pr80_push": 43059223973,
+    "pr80_pr": 43059311306,
+    "all_conclusions": "success"
+  },
+  "file_sha256": {
+    "tools/sync_review_refs.py": "be08aa94918da7ea740e2997198ef4b8b21c706f75d4f409acadfd7b5217dccd",
+    "season_archive_collect.py": "2117e57d4b679e3a5c58ffdda49c46c670b8f50f3cb5fb516543a85f664fcf49",
+    "tests/test_review_ref_sync.py": "4b2a982a4a1021a8383577d516d0757270b856b7dbf09cf6c4da788dd0ca98bc",
+    "tests/test_season_archive_collect.py": "ff6340aabda1d4cb7ee2ad389f1112b6ca29f32a9a8ce1fa1f94aa17328f42f1",
+    "docs/master-continuation-20261111.md": "00f5d5a1c58df0612619a293b5265949bb540890dd091960f227b270390e163b"
+  },
+  "prior_committed_files_unchanged": true,
+  "cloud_ref_repair": {
+    "before": {
+      "dev/archive-calibration-orchestration-20261111": "c847b04da89fa14d8771fa544daf44f7ac5852a7",
+      "dev/season-fixture-audit-20261111": "3742d05c353d596270f3b67088b1beb80d3c9602",
+      "main": "0e634083ccd1da87c7313710a17aa6e63fb5abe2"
+    },
+    "checkout_performed": false,
+    "fetch_config_changed": true,
+    "fetch_refspecs": [
+      "+refs/heads/main:refs/remotes/origin/main",
+      "+refs/heads/dev/archive-calibration-orchestration-20261111:refs/remotes/origin/dev/archive-calibration-orchestration-20261111",
+      "+refs/heads/dev/season-fixture-audit-20261111:refs/remotes/origin/dev/season-fixture-audit-20261111"
+    ],
+    "fly_toml_sha256": "be55cd27dc9cf43bd6e496745edcc642bb85653ac7a8ac5423ec33ec3ef7aa8e",
+    "head_index_tracked_diff_and_fly_unchanged": true,
+    "missing": [],
+    "refs": {
+      "dev/archive-calibration-orchestration-20261111": "c847b04da89fa14d8771fa544daf44f7ac5852a7",
+      "dev/season-fixture-audit-20261111": "3742d05c353d596270f3b67088b1beb80d3c9602",
+      "main": "0e634083ccd1da87c7313710a17aa6e63fb5abe2"
+    },
+    "status": "REFS_SYNCHRONIZED"
+  },
+  "userland": {
+    "proof_type": "USER_PROVIDED_TERMINAL_SCREENSHOTS_NOT_REMOTE_EXECUTION",
+    "original_fetch_refspec": "+refs/heads/main:refs/remotes/origin/main",
+    "repaired_refs": {
+      "PR79": "c847b04da89fa14d8771fa544daf44f7ac5852a7",
+      "PR80_at_repair": "3742d05c353d596270f3b67088b1beb80d3c9602"
+    },
+    "fetch_refspec_count_after": 3,
+    "fly_toml_sha256_before_and_after_config": "218f33c6aa9032ae2ad73ccafa9dfc213ddd27e23d9d98df914aff5a8b600b73",
+    "fly_toml_remains_modified": true,
+    "source_files_checkout_or_reset_performed": false,
+    "default_fetch_after_next_push": "NOT_YET_VERIFIED_ON_DEVICE"
+  },
+  "user_reported_production_checkpoint": {
+    "machine": "830932f77d2598",
+    "health": "passing",
+    "predictions": 2,
+    "outcomes": 2,
+    "current_counts_independently_requeried": false,
+    "counts_not_used_as_calibration_eligibility": true
+  },
+  "local_real_source_replay": {
+    "purpose": "PRIOR_REAL_DOCUMENT_LOCAL_REPLAY_NOT_NEW_LIVE_OBSERVATION",
+    "source_files_sha256": {
+      "/workspace/scratch/season-source-probe-20261111/espn.json": "c130d97b8545f8e925bf9444e90e6d17037caa0ecbdc8cc31009fa2004e11f1d",
+      "/workspace/scratch/season-source-probe-20261111/euroleague_live.json": "a13a5cb62be1ceebb685818476e4ad6f029340f001d94aa1eb9f57c1e6aff8f1"
+    },
+    "collection_sha256": "538533d662ee7919445afd771c061bde69e9569e29fcfbfd5afdf9e9ab682fad",
+    "artifact_file_sha256": "02b46e44480a5832a4c7d0305141cb3188a6b5d80f1185bf0ab76931f40a3c12",
+    "leagues": {
+      "NBA": {
+        "requested_documents": 1,
+        "successful_documents": 1,
+        "failed_documents": 0,
+        "known_independent_fixtures": 6,
+        "known_completed_fixtures": 6,
+        "known_completed_with_periods": 6,
+        "coverage": "KNOWN_SUBSET_ONLY"
+      },
+      "EuroLeague": {
+        "requested_documents": 1,
+        "successful_documents": 1,
+        "failed_documents": 0,
+        "known_independent_fixtures": 380,
+        "known_completed_fixtures": 100,
+        "known_completed_with_periods": 100,
+        "coverage": "KNOWN_SUBSET_ONLY"
+      }
+    },
+    "first_publication": {
+      "path": "/workspace/scratch/master-collection-final-replay/archive-collection-538533d662ee7919445afd771c061bde69e9569e29fcfbfd5afdf9e9ab682fad.json",
+      "created": true,
+      "sha256": "538533d662ee7919445afd771c061bde69e9569e29fcfbfd5afdf9e9ab682fad"
+    },
+    "second_publication": {
+      "path": "/workspace/scratch/master-collection-final-replay/archive-collection-538533d662ee7919445afd771c061bde69e9569e29fcfbfd5afdf9e9ab682fad.json",
+      "created": false,
+      "sha256": "538533d662ee7919445afd771c061bde69e9569e29fcfbfd5afdf9e9ab682fad"
+    },
+    "replay_verified": true,
+    "source_files_unchanged": true,
+    "new_provider_requests": 0,
+    "new_predictions": 0,
+    "independent_cloud_recovery": "NOT_VERIFIED",
+    "model_metrics": null,
+    "calibration_status": "NOT_ESTABLISHED"
+  },
+  "new_provider_http_requests": 0,
+  "new_prospective_predictions": 0,
+  "production_database_accessed": false,
+  "production_database_modified": false,
+  "volume_operations": 0,
+  "secrets_changed": false,
+  "deployments": 0,
+  "tests": {
+    "baseline_previous_checkpoint": 281,
+    "new_test_methods": 22,
+    "logs": {
+      "focused": {
+        "local_path": "/workspace/scratch/master-continuation-focused-final.log",
+        "sha256": "7b062682e6bdb5041408e77a6cc9d33071972e3e35e0557ebec53ebb94395c16",
+        "tests": 22,
+        "failures": 0
+      },
+      "full": {
+        "local_path": "/workspace/scratch/master-continuation-full-final.log",
+        "sha256": "cc5aed452a8f6924dfb52c5be8fab014100797aa2292b076a5a64226bced0016",
+        "tests": 303,
+        "failures": 0
+      }
+    },
+    "final_failures": 0
+  },
+  "calibration_status": "NOT_ESTABLISHED",
+  "performance_metrics": null,
+  "independent_cloud_recovery": "NOT_VERIFIED",
+  "external_durable_storage": "NOT_CONFIGURED",
+  "raw_provider_documents_uploaded": false,
+  "ci_for_new_commit": "Verify exact new SHA after commit/push in PR #80",
+  "remaining_gaps": [
+    "Current production ledger contents not independently re-read",
+    "Full season expected fixture universe remains unverified",
+    "New live collector default HTTP path tested with synthetic error fixtures; real end-to-end proof uses archived local documents",
+    "Missing player/rotation/pace and source/model/PIT proof",
+    "No calibrated challenger model or chronological out-of-sample superiority proof",
+    "No production scheduler activation or independent-runtime storage restoration"
+  ]
+}
