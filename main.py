@@ -15,13 +15,13 @@ from providers.espn_adapter import ESPNAdapter
 from nba_command import nba_command
 from core.league_identity import resolve_league
 from universal_analysis import UniversalAnalyzeService,render_preflight
+from verified_analysis import production_service
 
 from faz13_engine import Faz13Engine, PrematchRequest
 from faz22_engine import Faz22Engine
 from faz23_engine import Faz23Engine
 
 from aiohttp import web
-from dynamic_scheduler import scheduler_loop
 from faz17_engine import Faz17Engine
 
 # ============================
@@ -49,8 +49,6 @@ PORT = int(os.getenv("PORT", "8080"))
 
 if not TELEGRAM_BOT_TOKEN:
     raise RuntimeError("TELEGRAM_BOT_TOKEN missing")
-if not API_SPORTS_KEY:
-    raise RuntimeError("API_SPORTS_KEY missing")
 
 # ============================
 # HELPERS
@@ -113,6 +111,11 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Historical requests require point-in-time snapshots. Current baselines
     # would leak post-game information into a retrospective prediction.
+    release_service=context.application.bot_data.get('verified_analysis_service')
+    if release_service is not None:
+        report=await release_service.analyze(league,date_str,home,away)
+        await update.message.reply_text(report['html'],parse_mode='HTML',disable_web_page_preview=True)
+        return
     try:
         league=resolve_league(league).code
     except ValueError:
@@ -439,7 +442,7 @@ async def start_health(app: Application):
     async def ready(_: web.Request):
         updater = app.updater
         running = bool(app.running and updater is not None and updater.running)
-        return web.json_response({"ready": running}, status=200 if running else 503)
+        return web.json_response({"ready": running,"release_sha":os.getenv('ZEYNAL_RELEASE_SHA','UNKNOWN')}, status=200 if running else 503)
 
     async def health(_: web.Request):
         return web.json_response({"ok": True})
@@ -473,6 +476,8 @@ def build_app() -> Application:
 
     app.bot_data["baseline_store"] = baseline_store
     app.bot_data['team_identity_service']=UniversalAnalyzeService()
+    app.bot_data['verified_analysis_service']=production_service()
+    app.bot_data['nba_fixture_loader']=app.bot_data['verified_analysis_service'].list_nba_games
     app.bot_data["baseline_bootstrapper"] = bootstrapper
     app.bot_data["faz13"] = faz13
     app.bot_data["faz17"] = Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE"))
@@ -483,6 +488,16 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("analyze", analyze_command))
     app.add_handler(CommandHandler("nba", nba_command))
     return app
+
+async def scheduler_loop(engines):
+    # Manual verified commands do not depend on the legacy API-Sports scheduler.
+    # No scheduler is enabled by deploying this release candidate.
+    if os.getenv('ENABLE_LEGACY_SCHEDULER','0')=='1':
+        from dynamic_scheduler import scheduler_loop as legacy_loop
+        await legacy_loop(engines)
+    else:
+        await asyncio.Event().wait()
+
 
 async def main_async():
     app = build_app()

@@ -174,8 +174,12 @@ async def nba_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.effective_message.reply_text(str(exc))
         return
     source = "API-Sports"
+    loader=context.application.bot_data.get('nba_fixture_loader') if hasattr(context,'application') else None
     try:
-        games = await load_nba_games(day)
+        if callable(loader):
+            games=await loader(day)
+            source='ESPN'
+        else:games = await load_nba_games(day)
     except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, RuntimeError) as primary_exc:
         logger.warning("NBA primary fixture provider failed; date=%s reason=%s", day, type(primary_exc).__name__)
         try:
