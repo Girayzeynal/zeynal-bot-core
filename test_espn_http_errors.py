@@ -40,5 +40,20 @@ class ProviderAccessTests(unittest.TestCase):
         importer.assert_not_called()
 
 
+    def test_cli_returns_nonzero_on_provider_access_denied(self):
+        with patch.object(espn_outcome_sync, "run", return_value={
+            "mode": "dry_run", "scanned": 1,
+            "results": [{"event_id": "401909960", "status": "PROVIDER_ACCESS_DENIED", "http_status": 403}]
+        }):
+            self.assertEqual(espn_outcome_sync.main(["/unused.sqlite"]), 1)
+
+    def test_cli_returns_zero_for_verified_dry_run(self):
+        with patch.object(espn_outcome_sync, "run", return_value={
+            "mode": "dry_run", "scanned": 1,
+            "results": [{"event_id": "401909960", "status": "VERIFIED_DRY_RUN"}]
+        }):
+            self.assertEqual(espn_outcome_sync.main(["/unused.sqlite"]), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
