@@ -181,7 +181,15 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if league.upper() == "NBA":
         from nba_command import load_espn_nba_games, load_nba_games
         def match_key(value):
-            return "".join(c for c in value.casefold() if c.isalnum())
+            normalized = "".join(c for c in value.casefold() if c.isalnum())
+            aliases = {
+                "lalakers": "losangeleslakers",
+                "laclippers": "losangelesclippers",
+                "nyknicks": "newyorkknicks",
+                "gswarriors": "goldenstatewarriors",
+                "saspurs": "sanantoniospurs",
+            }
+            return aliases.get(normalized, normalized)
         verified = []
         for loader in (load_espn_nba_games, load_nba_games):
             try:
