@@ -88,14 +88,14 @@ def _nba(event, year, observed):
     return pid, start, ids, final, scores, parts
 
 
-def _euro(game, year, observed):
+def _euro(game, year, observed, competition='E'):
     season = game['season']
-    _require(season['code'] == f'E{year}' and season['competitionCode'] == 'E' and
+    _require(season['code'] == f'{competition}{year}' and season['competitionCode'] == competition and
              type(season['year']) is int and season['year'] == year and
              season['alias'] == f'{year}-{str(year+1)[-2:]}', 'euroleague_season_identity_required')
     _require(game['phaseType']['code'] == 'RS', 'regular_season_required')
     number = game['gameCode']
-    _require(type(number) is int and number > 0 and game['identifier'] == f'E{year}_{number}', 'provider_id_conflict')
+    _require(type(number) is int and number > 0 and game['identifier'] == f'{competition}{year}_{number}', 'provider_id_conflict')
     _require(game['confirmedDate'] is True and game['confirmedHour'] is True and game['gameStatus'] == 'Confirmed', 'confirmed_fixture_required')
     start = _utc(game['utcDate'])
     ids = [game[s]['club']['code'] for s in ('local', 'road')]
@@ -121,10 +121,11 @@ def _euro(game, year, observed):
     return game['identifier'], start, ids, final, scores, parts
 
 
-def archive_catalog(raw, *, provider, observed_at_utc, ingested_at_utc, season_start_year=2026):
+def archive_catalog(raw, *, provider, observed_at_utc, ingested_at_utc, season_start_year=2026, competition_code=None):
     """Validate one native document; never claim full-season or source permission."""
     try:
         _require(provider in ('ESPN', 'EUROLEAGUE_LIVE'), 'unsupported_archive_provider')
+        _require(competition_code in (None,'E','U') and (provider!='ESPN' or competition_code is None), 'unsupported_archive_competition')
         _require(type(season_start_year) is int and 2000 <= season_start_year <= 2100, 'invalid_season')
         _require(type(observed_at_utc) is int and type(ingested_at_utc) is int and
                  0 < observed_at_utc <= ingested_at_utc <= int(time.time()), 'invalid_source_clocks')
@@ -133,10 +134,10 @@ def archive_catalog(raw, *, provider, observed_at_utc, ingested_at_utc, season_s
         _require(type(rows) is list and len(rows) <= 5000, 'bounded_catalog_required')
         if provider == 'EUROLEAGUE_LIVE':
             _require(type(raw['total']) is int and raw['total'] == len(rows), 'incomplete_catalog_page')
-        league = 'NBA' if provider == 'ESPN' else 'EuroLeague'
+        league = 'NBA' if provider == 'ESPN' else 'EuroCup' if competition_code=='U' else 'EuroLeague'
         fixtures, aliases, slots = {}, {}, {}
         for row in rows:
-            pid, start, ids, final, scores, parts = (_nba if provider == 'ESPN' else _euro)(row, season_start_year, observed_at_utc)
+            pid, start, ids, final, scores, parts = _nba(row,season_start_year,observed_at_utc) if provider=='ESPN' else _euro(row,season_start_year,observed_at_utc,competition_code or 'E')
             _require(int(datetime(season_start_year, 7, 1, tzinfo=timezone.utc).timestamp()) <= start <
                      int(datetime(season_start_year+1, 7, 1, tzinfo=timezone.utc).timestamp()), 'fixture_outside_season_years')
             identity = dict(provider=provider, league=league, season_start_year=season_start_year,
@@ -165,6 +166,7 @@ def archive_catalog(raw, *, provider, observed_at_utc, ingested_at_utc, season_s
             source_permission='NOT_ESTABLISHED', source_attestation='PINNED_LOCAL_BYTES_NOT_INDEPENDENT_ATTESTATION',
             player_statistics='NOT_COLLECTED', point_in_time_training_eligible=False,
             prospective_predictions_created=0)
+        if competition_code is not None: payload['competition_code']=competition_code
         return {'payload': payload, 'sha256': _hash(payload)}
     except (KeyError, TypeError, AttributeError, OverflowError) as exc:
         raise ValueError('malformed_archive_source') from exc
@@ -175,7 +177,7 @@ def validate_catalog(bundle, *, trusted_sha256):
         _require(type(bundle) is dict and set(bundle) == {'payload', 'sha256'} and
                  bundle['sha256'] == trusted_sha256 == _hash(bundle['payload']), 'trusted_archive_pin_mismatch')
         p = bundle['payload']
-        rebuilt = archive_catalog(p['raw'], **{k: p[k] for k in ('provider', 'observed_at_utc', 'ingested_at_utc', 'season_start_year')})
+        rebuilt = archive_catalog(p['raw'],competition_code=p.get('competition_code'), **{k: p[k] for k in ('provider', 'observed_at_utc', 'ingested_at_utc', 'season_start_year')})
         _require(rebuilt == bundle, 'archive_cannot_replay')
         return rebuilt['payload']
     except (KeyError, TypeError, AttributeError) as exc:

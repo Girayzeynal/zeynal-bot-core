@@ -13,6 +13,8 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 from baseline.team_baseline_store import TeamBaselineStore, TeamBaselineBootstrapper
 from providers.espn_adapter import ESPNAdapter
 from nba_command import nba_command
+from core.league_identity import resolve_league
+from universal_analysis import UniversalAnalyzeService,render_preflight
 
 from faz13_engine import Faz13Engine, PrematchRequest
 from faz22_engine import Faz22Engine
@@ -111,6 +113,22 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Historical requests require point-in-time snapshots. Current baselines
     # would leak post-game information into a retrospective prediction.
+    try:
+        league=resolve_league(league).code
+    except ValueError:
+        await update.message.reply_text('Lig doğrulanamadı: UNKNOWN_OR_AMBIGUOUS_LEAGUE. Tahmin üretilmedi.')
+        return
+    identity_report=None
+    identity_service=context.application.bot_data.get('team_identity_service')
+    if identity_service is not None:
+        identity_report=await identity_service.preflight(league,date_str,home,away)
+        if league!='NBA' or identity_report['status']!='VERIFIED_NBA_FIXTURE':
+            await update.message.reply_text(render_preflight(identity_report))
+            return
+        home=identity_report['home']['official_name'];away=identity_report['away']['official_name']
+    elif league!='NBA':
+        await update.message.reply_text('Aşama: PROVIDER. Lig için sezon kimlik/veri adaptörü yapılandırılmamış. Tahmin üretilmedi.')
+        return
     requested_day = datetime.strptime(date_str, "%Y-%m-%d").date()
     utc_today = datetime.now(timezone.utc).date()
     if requested_day < utc_today:
@@ -125,7 +143,15 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     fixture_start_utc = None
     fixture_provider = None
     fixture_provider_id = None
-    if league.upper() == "NBA":
+    if identity_report is not None:
+        fixture_start_utc=identity_report['fixture']['start_ts_utc']
+        fixture_provider=identity_report['provider']
+        aliases=identity_report['fixture']['provider_fixture_ids']
+        if len(aliases)!=1:
+            await update.message.reply_text('Fikstür sağlayıcı kimliği belirsiz. Tahmin üretilmedi.')
+            return
+        fixture_provider_id=aliases[0]
+    if league.upper() == "NBA" and identity_report is None:
         from nba_command import load_espn_nba_games, load_nba_games
         from zoneinfo import ZoneInfo
         local_today = datetime.now(ZoneInfo("Europe/Istanbul")).date()
@@ -246,6 +272,11 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # 🔥 DOĞRU ÇAĞRI
         result = await faz13.run_prematch(req)
+        if fixture_start_utc is not None and int(datetime.now(timezone.utc).timestamp())>=fixture_start_utc:
+            await update.message.reply_text('Analiz sırasında maç başlangıcına ulaşıldı. Tahmin arşivlenmedi veya gönderilmedi.')
+            return
+        if identity_report is not None:
+            result.meta['team_identity']={k:identity_report[k] for k in ('home','away','participant_snapshot_sha256','source_catalog_sha256')}
 
         # Market is optional. A verified current line is NOT an opening price or sharp signal.
         if league.upper() == "NBA":
@@ -441,6 +472,7 @@ def build_app() -> Application:
     )
 
     app.bot_data["baseline_store"] = baseline_store
+    app.bot_data['team_identity_service']=UniversalAnalyzeService()
     app.bot_data["baseline_bootstrapper"] = bootstrapper
     app.bot_data["faz13"] = faz13
     app.bot_data["faz17"] = Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE"))
