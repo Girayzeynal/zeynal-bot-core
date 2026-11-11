@@ -1,0 +1,530 @@
+{
+  "schema": "UNIVERSAL_TEAM_IDENTITY_AUDIT_V1",
+  "created_at_utc": "2026-11-11T18:20:39.322143+00:00",
+  "base_commit": "542cec080fda7ef0b05ebe14a269f78ca9b34325",
+  "coverage": {
+    "year": 2026,
+    "leagues": {
+      "NBA": {
+        "provider": "ESPN",
+        "participants": 30,
+        "official_names_matched": 30,
+        "ambiguous_alias_keys": 0,
+        "status": "SEASON_PARTICIPANTS_DISCOVERED",
+        "snapshot_sha256": "1954f8971c229410201a148464ad360a5d0dcdbca8c91fa87af6fe021d71f04e",
+        "source_pins": {
+          "membership": {
+            "url": "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2027/teams?limit=100",
+            "document_sha256": "82f32ad2852323b1e7a4b45684359be5eea307c6a8f24d7313f25472c421a8fa",
+            "observed_at_utc": 1794418791,
+            "ingested_at_utc": 1794418791
+          },
+          "names": {
+            "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams?limit=100",
+            "document_sha256": "9133e21f5de866c269df1d9e6e49bf20cf84b9e856313cabfbdb4e1845895e99",
+            "observed_at_utc": 1794418679,
+            "ingested_at_utc": 1794418679
+          }
+        }
+      },
+      "EUROLEAGUE": {
+        "provider": "EUROLEAGUE_LIVE",
+        "participants": 20,
+        "official_names_matched": 20,
+        "ambiguous_alias_keys": 0,
+        "status": "SEASON_PARTICIPANTS_DISCOVERED",
+        "snapshot_sha256": "9bb9e26e63d1acd838583d32602649bec66f5951511d5afc6cd9065e0159f450",
+        "source_pins": {
+          "season": {
+            "url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026",
+            "document_sha256": "e10cfd04d40cc26aa0abd7df0c95888a8794c96834b74ddafd2c097e405537bb",
+            "observed_at_utc": 1794418792,
+            "ingested_at_utc": 1794418792
+          },
+          "clubs": {
+            "url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/clubs",
+            "document_sha256": "7a45f6a67fbb0f08ea021c89c903186617cb7e29ddce2361bbedc44675b1752f",
+            "observed_at_utc": 1794418679,
+            "ingested_at_utc": 1794418679
+          }
+        }
+      },
+      "EUROCUP": {
+        "provider": "EUROLEAGUE_LIVE",
+        "participants": 32,
+        "official_names_matched": 32,
+        "ambiguous_alias_keys": 0,
+        "status": "SEASON_PARTICIPANTS_DISCOVERED",
+        "snapshot_sha256": "3033f010f76fa92cb3d42fbdebadf52a8b6924b3ac5a658877d4710033412ec9",
+        "source_pins": {
+          "season": {
+            "url": "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026",
+            "document_sha256": "49d1882af74f2a07f094768385ab05c295be8536c03b4fdaf80e3ea2492962f3",
+            "observed_at_utc": 1794418791,
+            "ingested_at_utc": 1794418791
+          },
+          "clubs": {
+            "url": "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026/clubs",
+            "document_sha256": "9a2d5432b6d1fe0c9770c72c26d523fc22e40951938dc1ea54854962f31e1f6b",
+            "observed_at_utc": 1794418679,
+            "ingested_at_utc": 1794418679
+          }
+        }
+      },
+      "FIBA_EUROCUP": {
+        "provider": null,
+        "participants": null,
+        "official_names_matched": null,
+        "ambiguous_alias_keys": null,
+        "status": "PARTICIPANT_ADAPTER_NOT_CONFIGURED"
+      },
+      "BCL": {
+        "provider": null,
+        "participants": null,
+        "official_names_matched": null,
+        "ambiguous_alias_keys": null,
+        "status": "PARTICIPANT_ADAPTER_NOT_CONFIGURED"
+      },
+      "ACB": {
+        "provider": null,
+        "participants": null,
+        "official_names_matched": null,
+        "ambiguous_alias_keys": null,
+        "status": "PARTICIPANT_ADAPTER_NOT_CONFIGURED"
+      },
+      "LBA": {
+        "provider": null,
+        "participants": null,
+        "official_names_matched": null,
+        "ambiguous_alias_keys": null,
+        "status": "PARTICIPANT_ADAPTER_NOT_CONFIGURED"
+      },
+      "BSL": {
+        "provider": null,
+        "participants": null,
+        "official_names_matched": null,
+        "ambiguous_alias_keys": null,
+        "status": "PARTICIPANT_ADAPTER_NOT_CONFIGURED"
+      },
+      "GBL": {
+        "provider": null,
+        "participants": null,
+        "official_names_matched": null,
+        "ambiguous_alias_keys": null,
+        "status": "PARTICIPANT_ADAPTER_NOT_CONFIGURED"
+      },
+      "BBL": {
+        "provider": null,
+        "participants": null,
+        "official_names_matched": null,
+        "ambiguous_alias_keys": null,
+        "status": "PARTICIPANT_ADAPTER_NOT_CONFIGURED"
+      },
+      "LNB": {
+        "provider": null,
+        "participants": null,
+        "official_names_matched": null,
+        "ambiguous_alias_keys": null,
+        "status": "PARTICIPANT_ADAPTER_NOT_CONFIGURED"
+      },
+      "NBL": {
+        "provider": null,
+        "participants": null,
+        "official_names_matched": null,
+        "ambiguous_alias_keys": null,
+        "status": "PARTICIPANT_ADAPTER_NOT_CONFIGURED"
+      },
+      "CBA": {
+        "provider": null,
+        "participants": null,
+        "official_names_matched": null,
+        "ambiguous_alias_keys": null,
+        "status": "PARTICIPANT_ADAPTER_NOT_CONFIGURED"
+      },
+      "KBL": {
+        "provider": null,
+        "participants": null,
+        "official_names_matched": null,
+        "ambiguous_alias_keys": null,
+        "status": "PARTICIPANT_ADAPTER_NOT_CONFIGURED"
+      },
+      "SBL": {
+        "provider": null,
+        "participants": null,
+        "official_names_matched": null,
+        "ambiguous_alias_keys": null,
+        "status": "PARTICIPANT_ADAPTER_NOT_CONFIGURED"
+      }
+    },
+    "match_coverage_is_not_prediction_accuracy": true,
+    "prospective_predictions_created": 0,
+    "production_database_accessed": false,
+    "calibration_status": "NOT_ESTABLISHED"
+  },
+  "participant_source_probes": [
+    {
+      "name": "nba_participants",
+      "url": "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2027/types/2/teams?limit=100",
+      "requested_utc": "2026-11-11T17:37:58.822071+00:00",
+      "http_status": 404,
+      "observed_utc": "2026-11-11T17:37:59.154520+00:00",
+      "ingested_utc": "2026-11-11T17:37:59.154546+00:00",
+      "sha256": "59b8d1943a7fc40e3e044d0cea94f61a0e35be976af0e83c623114966c7109f9",
+      "bytes": 52
+    },
+    {
+      "name": "nba_names",
+      "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams?limit=100",
+      "requested_utc": "2026-11-11T17:37:59.154551+00:00",
+      "http_status": 200,
+      "observed_utc": "2026-11-11T17:37:59.356062+00:00",
+      "ingested_utc": "2026-11-11T17:37:59.360365+00:00",
+      "sha256": "9133e21f5de866c269df1d9e6e49bf20cf84b9e856313cabfbdb4e1845895e99",
+      "bytes": 134851
+    },
+    {
+      "name": "euroleague_clubs",
+      "url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/clubs",
+      "requested_utc": "2026-11-11T17:37:59.360377+00:00",
+      "http_status": 200,
+      "observed_utc": "2026-11-11T17:37:59.674220+00:00",
+      "ingested_utc": "2026-11-11T17:37:59.674984+00:00",
+      "sha256": "00d8fe3052e5d479807da321a00036a2422d22b7a074510cb1456db0079b0143",
+      "bytes": 13698
+    },
+    {
+      "name": "eurocup_clubs",
+      "url": "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026/clubs",
+      "requested_utc": "2026-11-11T17:37:59.674993+00:00",
+      "http_status": 200,
+      "observed_utc": "2026-11-11T17:37:59.995775+00:00",
+      "ingested_utc": "2026-11-11T17:37:59.996264+00:00",
+      "sha256": "e55040a09f7278e8aaa1979861dda86fc9b2ee6d67c9e1d86d6e0f311ebd0b4a",
+      "bytes": 21940
+    },
+    {
+      "name": "nba_season_teams",
+      "url": "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2027/teams?limit=100",
+      "requested_utc": "2026-11-11T17:39:51.217202+00:00",
+      "http_status": 200,
+      "observed_utc": "2026-11-11T17:39:51.567867+00:00",
+      "ingested_utc": "2026-11-11T17:39:51.568156+00:00",
+      "sha256": "94bfb4396ddb5a411fe002307b3d38c412658902363ba9213e9e4c8c669ebdb3",
+      "bytes": 3536
+    },
+    {
+      "name": "eurocup_season",
+      "url": "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026",
+      "requested_utc": "2026-11-11T17:39:51.568161+00:00",
+      "http_status": 200,
+      "observed_utc": "2026-11-11T17:39:51.902630+00:00",
+      "ingested_utc": "2026-11-11T17:39:51.903058+00:00",
+      "sha256": "13a5b9ab1ba3e1c55f48a2a79f00694d75c1fbfc9ef4437d65a284e12dc26b6a",
+      "bytes": 212
+    },
+    {
+      "name": "euroleague_season",
+      "url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026",
+      "requested_utc": "2026-11-11T17:39:51.903064+00:00",
+      "http_status": 200,
+      "observed_utc": "2026-11-11T17:39:52.150684+00:00",
+      "ingested_utc": "2026-11-11T17:39:52.151196+00:00",
+      "sha256": "49e85069110e61b5a76dc5d36973e1da4ee724bd85e34ed5dae4611e8bbd414e",
+      "bytes": 215
+    },
+    {
+      "name": "nba_team_detail",
+      "url": "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2027/teams/1",
+      "http_status": 200,
+      "observed_utc": "2026-11-11T17:42:41.359967+00:00",
+      "ingested_utc": "2026-11-11T17:42:41.360491+00:00",
+      "sha256": "9b8d0ff6afa06fcd4b4a68ecd01a5c44b9106e36080dd73b2fdd5f150f5fbb9a"
+    },
+    {
+      "name": "eurocup_games",
+      "url": "https://api-live.euroleague.net/v2/competitions/U/seasons/U2026/games",
+      "http_status": 200,
+      "observed_utc": "2026-11-11T17:42:41.668936+00:00",
+      "ingested_utc": "2026-11-11T17:42:41.681171+00:00",
+      "sha256": "c7d1c35c69b8079cbc52d06a00be4355527e50c0c0ce8a700ca3b3a0aa7776b4"
+    }
+  ],
+  "participant_source_probe_requests": 9,
+  "participant_source_probe_http_200": 8,
+  "coverage_replay_http_requests": 0,
+  "current_euroleague_preflight": {
+    "purpose": "CURRENT_REAL_SOURCE_PREFLIGHT_NOT_A_PREDICTION",
+    "began_utc": "2026-11-11T18:18:29.525361+00:00",
+    "completed_utc": "2026-11-11T18:18:30.861782+00:00",
+    "receipts": [
+      {
+        "provider": "EUROLEAGUE_LIVE",
+        "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794421109,
+        "ingested_at_utc": 1794421109,
+        "body_sha256": "49e85069110e61b5a76dc5d36973e1da4ee724bd85e34ed5dae4611e8bbd414e",
+        "document_sha256": "e10cfd04d40cc26aa0abd7df0c95888a8794c96834b74ddafd2c097e405537bb"
+      },
+      {
+        "provider": "EUROLEAGUE_LIVE",
+        "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/clubs",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794421110,
+        "ingested_at_utc": 1794421110,
+        "body_sha256": "00d8fe3052e5d479807da321a00036a2422d22b7a074510cb1456db0079b0143",
+        "document_sha256": "7a45f6a67fbb0f08ea021c89c903186617cb7e29ddce2361bbedc44675b1752f"
+      },
+      {
+        "provider": "EUROLEAGUE_LIVE",
+        "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794421110,
+        "ingested_at_utc": 1794421110,
+        "body_sha256": "a13a5cb62be1ceebb685818476e4ad6f029340f001d94aa1eb9f57c1e6aff8f1",
+        "document_sha256": "b87f0429b6122d5008c03fa6b3708b90dbbc05e19455433ee1f8bcc004ba5c45"
+      },
+      {
+        "provider": "EUROLEAGUE_LIVE",
+        "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794421110,
+        "ingested_at_utc": 1794421110,
+        "body_sha256": "a13a5cb62be1ceebb685818476e4ad6f029340f001d94aa1eb9f57c1e6aff8f1",
+        "document_sha256": "b87f0429b6122d5008c03fa6b3708b90dbbc05e19455433ee1f8bcc004ba5c45"
+      }
+    ],
+    "examples": [
+      {
+        "status": "ABSTAIN",
+        "stage": "MODEL_INPUTS",
+        "provider": "EUROLEAGUE_LIVE",
+        "prediction": null,
+        "prospective_records_created": 0,
+        "league": "EUROLEAGUE",
+        "season_id": "2026/2027",
+        "participant_count": 20,
+        "participant_snapshot_sha256": "f9027483255434812d394ba3ec2c1904990fd9e7e5f7c0b04296a33e78232c41",
+        "home": {
+          "internal_id": "140877fa-be44-59a0-a8cf-97e1b705ec96",
+          "official_name": "Paris Basketball",
+          "provider_id": "PRS"
+        },
+        "away": {
+          "internal_id": "615a9ccb-42f2-5535-b761-6607d3b93ece",
+          "official_name": "Fenerbahce Tarfin Istanbul",
+          "provider_id": "ULK"
+        },
+        "fixture": {
+          "provider": "EUROLEAGUE_LIVE",
+          "league": "EuroLeague",
+          "season_start_year": 2026,
+          "start_ts_utc": 1794426300,
+          "home_team_id": "PRS",
+          "away_team_id": "ULK",
+          "canonical_id": "fe10c2a9b4d86dc2485275cf4199c118f78e29e7707c33214bdbb4bfd5116e92",
+          "completed": false,
+          "final_scores": null,
+          "periods": null,
+          "provider_fixture_ids": [
+            "E2026_101"
+          ]
+        },
+        "source_catalog_sha256": [
+          "a5ddd87e6470ae56a589024261354917f8b58e3f9039c3f3a24ff2c83125165e"
+        ],
+        "history": {
+          "home": {
+            "n_games": 10,
+            "game_ids": [
+              "74d2e784be9b21a61c84e50cf27edcc4cd8c069a38cf1371b47ad62af1325f03",
+              "11809d4eb662fa62d1939d7b8708dc8f86aea59beae0815d8bb57d9a845270ad",
+              "700440fafc88ed295232ee865c7f388c5850c02483a8fc91dcb2bcc27249f220",
+              "2e02efd60d21b1f5afc6bc2621bc82bd7b95b9f77cee81f73c88525e03ae1499",
+              "da4324168bc2aa0a59223827624f3d8f0535880eecf69b852f29ef1aa779179a",
+              "3161bd9f720e93cb62a52477774c275826d0501a196fd123eb759438e54a4dc3",
+              "b636158a62c9224b84c36a90f6c4a35d05505e8deb67872c61c547aec730c5f1",
+              "4ea882d2f2550b13600ce63734b2abd05b89b1afa3eacaf28d3d90053cad24ce",
+              "ee228e75cb025483a228bb081acd3551f5be7eeab75754ebdacdbd5259df093d",
+              "8c5bc5af9d1b67466c6e86f25d52b1620fb9cfe4b93e6dc6a8fb4a6b4415915d"
+            ],
+            "scope": "REGULATION_ONLY",
+            "points_for": 89,
+            "points_against": 92.6,
+            "pace": null,
+            "injuries": null,
+            "rotation": null,
+            "player_minutes": null
+          },
+          "away": {
+            "n_games": 10,
+            "game_ids": [
+              "a3238acb046f6b7efca6fae1d129ea8830d7d27ce59e5457ae4ec3d19faf2245",
+              "d2cd309080447d5d26dc4d0c0b28b76c16de9ce4f60371b40a6d3fd888e859fd",
+              "99e5db492fca2df0b4d78ecca7e4f4e383965e18fcd530ec98a15ee8ed14a121",
+              "87cad476afa92e65f5dbe76652250f46dc5ea4b0f560537571172b36e6557ff2",
+              "af58818c7513b8803041009e44138d155fbbe03c2b877caa6ae8ae3025679ef0",
+              "0f6484ef5f7a839bb4f0957c486383636b38e76fef504842766dc011345366f9",
+              "65c3c119362f1181cb5c212f8571968d778b9743935b75d099e95349071358df",
+              "3ac0cb54e1d2cae318783189a9e09a87f641ab16de28527cc78d694eedca158a",
+              "ac08a61f62940febc5b7f02a3540654c2f6869f3c98f3fc9606ffc2a411a34fa",
+              "d0510b214c7abf4b13f72fc384a66bbfa8a79fdf59b90a8b38d2614c0fa46bad"
+            ],
+            "scope": "REGULATION_ONLY",
+            "points_for": 80.3,
+            "points_against": 75.4,
+            "pace": null,
+            "injuries": null,
+            "rotation": null,
+            "player_minutes": null
+          }
+        },
+        "reason": "VERIFIED_PACE_AND_PROSPECTIVE_MODEL_ARCHIVE_NOT_CONFIGURED"
+      },
+      {
+        "status": "ABSTAIN",
+        "stage": "MODEL_INPUTS",
+        "provider": "EUROLEAGUE_LIVE",
+        "prediction": null,
+        "prospective_records_created": 0,
+        "league": "EUROLEAGUE",
+        "season_id": "2026/2027",
+        "participant_count": 20,
+        "participant_snapshot_sha256": "f9027483255434812d394ba3ec2c1904990fd9e7e5f7c0b04296a33e78232c41",
+        "home": {
+          "internal_id": "d2590496-6d93-50f1-b06b-691925600532",
+          "official_name": "Partizan Mozzart Bet Belgrade",
+          "provider_id": "PAR"
+        },
+        "away": {
+          "internal_id": "355bf92f-c4db-5b00-800c-994b0b5285e4",
+          "official_name": "Kosner Baskonia Vitoria-Gasteiz",
+          "provider_id": "BAS"
+        },
+        "fixture": {
+          "provider": "EUROLEAGUE_LIVE",
+          "league": "EuroLeague",
+          "season_start_year": 2026,
+          "start_ts_utc": 1794426300,
+          "home_team_id": "PAR",
+          "away_team_id": "BAS",
+          "canonical_id": "9bece29eb4c96da1cc0fc3d664ae58704b0a430db15491d05709fd4a4ae5b8e1",
+          "completed": false,
+          "final_scores": null,
+          "periods": null,
+          "provider_fixture_ids": [
+            "E2026_102"
+          ]
+        },
+        "source_catalog_sha256": [
+          "a5ddd87e6470ae56a589024261354917f8b58e3f9039c3f3a24ff2c83125165e"
+        ],
+        "history": {
+          "home": {
+            "n_games": 10,
+            "game_ids": [
+              "65f558018e0afb9f6afe82b6b6029ea626903624fa17833c2ce41341656dc782",
+              "11809d4eb662fa62d1939d7b8708dc8f86aea59beae0815d8bb57d9a845270ad",
+              "143ce56acb4ecc05fa08b8fed2d988a1a77f2f9f3d4554802fa0d3a0627b93c5",
+              "e932043a91f30fb9e003943c02a076e3a4ac9b678b76cee075c6f78c95bd50c9",
+              "34ab6c6a57774744d90789174e66f2d62c42e788574e77721b7eec962114bca0",
+              "0f6484ef5f7a839bb4f0957c486383636b38e76fef504842766dc011345366f9",
+              "40b45ad29cd2a4b589a386c2781aec1296b9c8948a2f70200c5a49a857056702",
+              "5abc97dd1122d62994438124e54ba2a2db60b33255ec59704f71f027abea68d5",
+              "33b74c18ae29c3307bbe0fa240dbb25753d6821b910b6b6cd8d5de0d0d299763",
+              "ad33b9aac63e2568dece2febf2613ff5d5419aa64b49862ab09917b1862f6658"
+            ],
+            "scope": "REGULATION_ONLY",
+            "points_for": 78.4,
+            "points_against": 78.2,
+            "pace": null,
+            "injuries": null,
+            "rotation": null,
+            "player_minutes": null
+          },
+          "away": {
+            "n_games": 10,
+            "game_ids": [
+              "5efd8d866e878dbae63b1d54704e2abc7570401a634aedf005afb2e780bbd311",
+              "36f02f6c8b0553d9f0d4a2cc29ae76d8a86e7b6cc6026b5fd5d8b61c1f37d5ac",
+              "4a1506623cec0dd2c4ef09f2c2b8a2f6f86f5f962b7ff5fbe8c40976f88880de",
+              "31047a98e56c37fbe8d80bf59cc230504667a4f0f3796c778f5e0011aad98378",
+              "9a20729b734f37ed8fc9936b65af232c1c38009dcbeee3e147d850f4bb05cbeb",
+              "f26b29ae0f16d4beb3f47a9f13beb8c884a599c9144021ac25dc8ccc000b8bd8",
+              "7e70c6a64c009b55dcd9f06d566494b9570d84359eb61d95ce23ff617ab4a7c5",
+              "90d2718182c8df25283224d61c8a6bd15ebad296e9f4b57d7d3b22aeedaf06b2",
+              "5c0865c572c02c515197ac6c0b8d339203145f5d621ed92ea1f0b2e9387b6040",
+              "d0510b214c7abf4b13f72fc384a66bbfa8a79fdf59b90a8b38d2614c0fa46bad"
+            ],
+            "scope": "REGULATION_ONLY",
+            "points_for": 81.3,
+            "points_against": 93.1,
+            "pace": null,
+            "injuries": null,
+            "rotation": null,
+            "player_minutes": null
+          }
+        },
+        "reason": "VERIFIED_PACE_AND_PROSPECTIVE_MODEL_ARCHIVE_NOT_CONFIGURED"
+      }
+    ],
+    "network_requests": 4,
+    "new_predictions": 0,
+    "production_database_accessed": false
+  },
+  "original_source_body_sha256": {
+    "nba_names.json": "9133e21f5de866c269df1d9e6e49bf20cf84b9e856313cabfbdb4e1845895e99",
+    "euroleague_clubs.json": "00d8fe3052e5d479807da321a00036a2422d22b7a074510cb1456db0079b0143",
+    "eurocup_clubs.json": "e55040a09f7278e8aaa1979861dda86fc9b2ee6d67c9e1d86d6e0f311ebd0b4a",
+    "nba_season_teams.json": "94bfb4396ddb5a411fe002307b3d38c412658902363ba9213e9e4c8c669ebdb3",
+    "eurocup_season.json": "13a5b9ab1ba3e1c55f48a2a79f00694d75c1fbfc9ef4437d65a284e12dc26b6a",
+    "euroleague_season.json": "49e85069110e61b5a76dc5d36973e1da4ee724bd85e34ed5dae4611e8bbd414e",
+    "nba_team_detail.json": "9b8d0ff6afa06fcd4b4a68ecd01a5c44b9106e36080dd73b2fdd5f150f5fbb9a",
+    "eurocup_games.json": "c7d1c35c69b8079cbc52d06a00be4355527e50c0c0ce8a700ca3b3a0aa7776b4",
+    "euroleague_live.json": "a13a5cb62be1ceebb685818476e4ad6f029340f001d94aa1eb9f57c1e6aff8f1"
+  },
+  "prior_archive_replay_preserved": true,
+  "source_files_unchanged": true,
+  "tests": {
+    "focused": {
+      "tests": 30,
+      "failures": 0,
+      "sha256": "3696651e2b27aed685b51faca6f266c90e5130cbadba796073d9fa9bd201ed08",
+      "synthetic_regression_not_prediction_performance": true
+    },
+    "full": {
+      "tests": 333,
+      "failures": 0,
+      "sha256": "7c4920b86bc1c9a6aa6f2d7e07fa94426835a3b0c2607368a06e0710a4562a15",
+      "synthetic_regression_not_prediction_performance": true
+    }
+  },
+  "new_predictions": 0,
+  "production_database_accessed": false,
+  "real_prediction_result_pairs": "NOT_REQUERIED_NO_PRODUCTION_ACCESS",
+  "production_previous_user_report": {
+    "predictions": 2,
+    "results": 2,
+    "independently_rechecked_this_phase": false
+  },
+  "calibration_metrics": null,
+  "calibration_status": "NOT_ESTABLISHED",
+  "aliases_validity": "OBSERVED_FROM_COLLECTION_NOT_ACTUAL_SPONSOR_EFFECTIVE_DATE",
+  "source_attestation": "LOCAL_DIGEST_NOT_INDEPENDENT_OR_PROVIDER_SIGNED_ATTESTATION",
+  "missing": [
+    "12_LEAGUE_PARTICIPANT_ADAPTERS",
+    "OTHER_LEAGUE_SEASON_CALENDARS",
+    "VERIFIED_PACE",
+    "PLAYER_MINUTES_LINEUPS_ROTATIONS_INJURIES",
+    "NON_NBA_MODEL_AND_IMMUTABLE_PREDICTION_ARCHIVE",
+    "DURABLE_TEAM_REGISTRY_RESTORE",
+    "CROSS_PROVIDER_ID_CROSSWALKS",
+    "SOURCE_TRAINING_PERMISSION",
+    "REAL_PROSPECTIVE_CALIBRATION_COHORT",
+    "USERLAND_LIVE_ARCHIVE_OUTPUT"
+  ]
+}
