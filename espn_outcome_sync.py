@@ -10,6 +10,7 @@ import json
 import os
 import sqlite3
 import time
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from espn_final_parser import parse_espn_regulation_final
@@ -82,6 +83,8 @@ def run(path: str, apply: bool = False, limit: int = 20) -> dict:
             else:
                 results.append({"event_id": event_id, "status": "VERIFIED_DRY_RUN",
                                 "regulation_home": parsed["home"], "regulation_away": parsed["away"]})
+        except HTTPError as exc:
+            results.append({"event_id": event_id, "status": "PROVIDER_ACCESS_DENIED" if exc.code == 403 else "PROVIDER_HTTP_ERROR", "http_status": exc.code})
         except (OSError, ValueError, KeyError, TypeError, sqlite3.Error) as exc:
             results.append({"event_id": event_id, "status": "ERROR", "error_type": type(exc).__name__})
     return {"mode": "apply" if apply else "dry_run", "scanned": len(results), "results": results}
