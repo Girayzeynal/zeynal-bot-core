@@ -106,6 +106,29 @@ class AtomicLiveLedgerTests(TestCase):
         with self.assertRaisesRegex(ValueError,'TYPE_BINDING'):self.ledger.commit(p)
         self.assertEqual(self.ledger.integrity()['snapshots'],0)
 
+    def test_200444_start_200512_commit_is_missed_cut_not_live_success(self):
+        base=int(datetime(2026,11,5,20,tzinfo=timezone.utc).timestamp())
+        p=live_payload(base+6*3600);p['record_deadline_utc']=base+300
+        p['input_clocks']=[dict(observed_at_utc=base+280,ingested_at_utc=base+281)]
+        confirm=self.ledger._confirm_commit
+        def slow_commit(saved):
+            with patch('time.time',return_value=base+312):return confirm(saved)
+        with patch('time.time',return_value=base+284),patch.object(self.ledger,'_confirm_commit',side_effect=slow_commit):
+            with self.assertRaisesRegex(ValueError,'MISSED_CUT'):self.ledger.commit(p)
+        audit=self.ledger.integrity()
+        self.assertEqual(audit['snapshots'],0);self.assertEqual(audit['unconfirmed_snapshots'],1)
+        self.assertEqual(self.ledger.commit_proofs(),[])
+
+    def test_restart_confirms_only_before_original_deadline_without_rewriting_prediction(self):
+        p=live_payload()
+        with patch.object(self.ledger,'_confirm_commit',side_effect=OSError('crash after durable snapshot')):
+            with self.assertRaises(OSError):self.ledger.commit(p)
+        self.assertEqual(self.ledger.integrity()['unconfirmed_snapshots'],1)
+        with patch('time.time',return_value=NOW+10):saved=self.ledger.get(p['league'],p['fixture_id'],p['model_digest'])
+        self.assertEqual(saved['created_at_utc'],NOW)
+        self.assertEqual(self.ledger.integrity()['snapshots'],1)
+        self.assertEqual(self.ledger.commit_proofs()[0]['completed_utc'],NOW+10)
+
     def test_concurrent_same_match_records_exactly_once(self):
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=4) as pool:values=list(pool.map(lambda _:self.ledger.commit(live_payload()),range(4)))
@@ -133,6 +156,11 @@ class AtomicLiveLedgerTests(TestCase):
         p['fixture_id']=b['payload']['fixtures'][0]['canonical_id']
         saved,_=self.ledger.commit(p)
         with patch('time.time',return_value=NOW+10000):
+            unfinished=deepcopy(e)
+            for status in (unfinished['status'],unfinished['competitions'][0]['status']):
+                status['type'].update(state='pre',completed=False,name='STATUS_SCHEDULED')
+            pending=archive_catalog({'events':[unfinished]},provider='ESPN',observed_at_utc=NOW+7200,ingested_at_utc=NOW+7200)
+            self.assertEqual(self.ledger.reconcile(pending,trusted_sha256=pending['sha256']),0)
             self.assertEqual(self.ledger.reconcile(b,trusted_sha256=b['sha256']),1)
             self.assertEqual(self.ledger.reconcile(b,trusted_sha256=b['sha256']),0)
         self.assertEqual(self.ledger.get('NBA',p['fixture_id'],MODEL_DIGEST),saved)

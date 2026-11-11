@@ -28,6 +28,14 @@ class LiveAnalysisLedger:
               CREATE TABLE IF NOT EXISTS verified_analysis_results (
                 league TEXT NOT NULL,fixture_id TEXT NOT NULL,scope TEXT NOT NULL,
                 payload TEXT NOT NULL,sha256 TEXT NOT NULL,PRIMARY KEY(league,fixture_id,scope));
+              CREATE TABLE IF NOT EXISTS live_analysis_commit_receipts (
+                league TEXT NOT NULL,fixture_id TEXT NOT NULL,model_digest TEXT NOT NULL,
+                snapshot_sha256 TEXT NOT NULL,completed_utc INTEGER NOT NULL,
+                PRIMARY KEY(league,fixture_id,model_digest));
+              CREATE TRIGGER IF NOT EXISTS live_receipt_no_update BEFORE UPDATE ON live_analysis_commit_receipts
+                BEGIN SELECT RAISE(ABORT,'IMMUTABLE_COMMIT_RECEIPT'); END;
+              CREATE TRIGGER IF NOT EXISTS live_receipt_no_delete BEFORE DELETE ON live_analysis_commit_receipts
+                BEGIN SELECT RAISE(ABORT,'IMMUTABLE_COMMIT_RECEIPT'); END;
               CREATE TRIGGER IF NOT EXISTS live_analysis_no_update BEFORE UPDATE ON live_analysis_snapshots
                 BEGIN SELECT RAISE(ABORT,'IMMUTABLE_LIVE_SNAPSHOT'); END;
               CREATE TRIGGER IF NOT EXISTS live_analysis_no_delete BEFORE DELETE ON live_analysis_snapshots
@@ -59,28 +67,52 @@ class LiveAnalysisLedger:
         with self.connect() as db:
             row=db.execute('SELECT payload,sha256 FROM live_analysis_snapshots WHERE league=? AND fixture_id=? AND model_digest=?',
                            (league,fixture_id,model_digest)).fetchone()
-        return None if row is None else self._decode(*row,expected=(league,fixture_id,model_digest))
+        return None if row is None else self._confirm_commit(self._decode(*row,expected=(league,fixture_id,model_digest)))
+
+    def _confirm_commit(self,p):
+        """Observe the durable snapshot AFTER commit, never backdate completion.
+
+        Crash/late completion leaves an unconfirmed intent excluded from live
+        counts and result evaluation. A restart may confirm it only before its
+        original deadline; the original prediction is never rewritten.
+        """
+        key=(p['league'],p['fixture_id'],p['model_digest']);deadline=p.get('record_deadline_utc',p['fixture_start_utc'])
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            receipt=db.execute('SELECT snapshot_sha256,completed_utc FROM live_analysis_commit_receipts WHERE league=? AND fixture_id=? AND model_digest=?',key).fetchone()
+            if receipt:
+                if receipt[0]!=digest(p) or not p['created_at_utc']<=receipt[1]<deadline:raise ValueError('COMMIT_RECEIPT_CONFLICT')
+                return p
+            completed=int(time.time())
+            if completed<p['created_at_utc']:raise ValueError('CLOCK_MOVED_BACKWARDS_DURING_COMMIT')
+            if completed>=deadline:raise ValueError('MISSED_CUT_NO_DURABLE_COMMIT_PROOF')
+            db.execute('INSERT INTO live_analysis_commit_receipts VALUES(?,?,?,?,?)',(*key,digest(p),completed))
+        return p
 
     def commit(self,payload):
         p=deepcopy(payload)
+        created=False
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             # Both checks use real time after any SQLite lock wait.
             now=int(time.time())
-            if now>=p['fixture_start_utc']:raise ValueError('TIPOFF_BEFORE_ATOMIC_COMMIT')
+            deadline=p.get('record_deadline_utc',p['fixture_start_utc'])
+            if type(deadline) is not int or not now<deadline<=p['fixture_start_utc']:raise ValueError('TIPOFF_BEFORE_ATOMIC_COMMIT')
             old=db.execute('SELECT payload,sha256 FROM live_analysis_snapshots WHERE league=? AND fixture_id=? AND model_digest=?',
                 (p['league'],p['fixture_id'],p['model_digest'])).fetchone()
-            if old:return self._decode(*old,expected=(p['league'],p['fixture_id'],p['model_digest'])),False
-            p.update(created_at_utc=now,cutoff_utc=now)
-            validate_record(LIVE_PREMATCH_PREDICTION,p,now)
-            if now-min(pin['observed_at_utc'] for pin in p['input_clocks'])>300:raise ValueError('SOURCE_STALE_BEFORE_COMMIT')
-            text=json.dumps(p,sort_keys=True,allow_nan=False)
-            db.execute('INSERT INTO live_analysis_snapshots VALUES(?,?,?,?,?,?)',
-                (p['league'],p['fixture_id'],p['model_digest'],now,text,digest(p)))
-            if int(time.time())>=p['fixture_start_utc']:raise ValueError('TIPOFF_DURING_ATOMIC_COMMIT')
+            if old:p=self._decode(*old,expected=(p['league'],p['fixture_id'],p['model_digest']))
+            else:
+                p.update(created_at_utc=now,cutoff_utc=now)
+                validate_record(LIVE_PREMATCH_PREDICTION,p,now)
+                if now-min(pin['observed_at_utc'] for pin in p['input_clocks'])>300:raise ValueError('SOURCE_STALE_BEFORE_COMMIT')
+                text=json.dumps(p,sort_keys=True,allow_nan=False)
+                db.execute('INSERT INTO live_analysis_snapshots VALUES(?,?,?,?,?,?)',
+                    (p['league'],p['fixture_id'],p['model_digest'],now,text,digest(p)))
+                if int(time.time())>=deadline:raise ValueError('TIPOFF_DURING_ATOMIC_COMMIT')
+                p=json.loads(text);created=True
         # Return the exact persisted JSON representation (tuples become lists),
         # so the first response and a later idempotent read are identical.
-        return self._decode(text,digest(p)),True
+        return self._confirm_commit(p),created
 
     def reconcile(self,catalog,*,trusted_sha256):
         c=validate_catalog(catalog,trusted_sha256=trusted_sha256)
@@ -88,9 +120,9 @@ class LiveAnalysisLedger:
         inserted=0
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            snapshots=db.execute('SELECT payload,sha256 FROM live_analysis_snapshots').fetchall()
+            snapshots=db.execute('SELECT s.payload,s.sha256 FROM live_analysis_snapshots s JOIN live_analysis_commit_receipts r USING(league,fixture_id,model_digest)').fetchall()
             for raw,pin in snapshots:
-                p=self._decode(raw,pin);g=games.get(p['fixture_id'])
+                p=self._decode(raw,pin);self._confirm_existing_receipt(db,p);g=games.get(p['fixture_id'])
                 if g is None or not set(g['provider_fixture_ids'])&set(p['provider_fixture_ids']):continue
                 if (g['start_ts_utc']!=p['fixture_start_utc'] or g['home_team_id']!=p['home']['provider_id'] or
                         g['away_team_id']!=p['away']['provider_id']):raise ValueError('RESULT_FIXTURE_CONFLICT')
@@ -118,8 +150,27 @@ class LiveAnalysisLedger:
             status=db.execute('PRAGMA integrity_check').fetchone()[0]
             rows=db.execute('SELECT payload,sha256 FROM live_analysis_snapshots').fetchall()
             outcomes=db.execute('SELECT payload,sha256 FROM verified_analysis_results').fetchall()
+            receipts=db.execute('SELECT league,fixture_id,model_digest,snapshot_sha256,completed_utc FROM live_analysis_commit_receipts').fetchall()
         if status!='ok':raise ValueError('SQLITE_INTEGRITY_FAILED')
-        for raw,pin in rows:self._decode(raw,pin)
+        decoded={}
+        for raw,pin in rows:
+            p=self._decode(raw,pin);decoded[(p['league'],p['fixture_id'],p['model_digest'])]=p
+        for league,fixture,model,pin,completed in receipts:
+            p=decoded.get((league,fixture,model))
+            if p is None or digest(p)!=pin or not p['created_at_utc']<=completed<p.get('record_deadline_utc',p['fixture_start_utc']):
+                raise ValueError('COMMIT_RECEIPT_CONFLICT')
         for raw,pin in outcomes:
             if digest(json.loads(raw))!=pin:raise ValueError('RESULT_HASH_MISMATCH')
-        return dict(sqlite=status,snapshots=len(rows),verified_results=len(outcomes))
+        return dict(sqlite=status,snapshots=len(receipts),unconfirmed_snapshots=len(rows)-len(receipts),verified_results=len(outcomes))
+
+    def commit_proofs(self):
+        with self.connect() as db:
+            rows=db.execute('SELECT league,fixture_id,model_digest,snapshot_sha256,completed_utc FROM live_analysis_commit_receipts ORDER BY league,fixture_id').fetchall()
+        return [dict(zip(('league','fixture_id','model_digest','snapshot_sha256','completed_utc'),r)) for r in rows]
+
+    @staticmethod
+    def _confirm_existing_receipt(db,p):
+        r=db.execute('SELECT snapshot_sha256,completed_utc FROM live_analysis_commit_receipts WHERE league=? AND fixture_id=? AND model_digest=?',
+            (p['league'],p['fixture_id'],p['model_digest'])).fetchone()
+        if not r or r[0]!=digest(p) or not p['created_at_utc']<=r[1]<p.get('record_deadline_utc',p['fixture_start_utc']):
+            raise ValueError('COMMIT_RECEIPT_CONFLICT')

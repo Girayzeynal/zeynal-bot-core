@@ -88,6 +88,7 @@ async def run_acceptance(directory):
     messages.append(dict(command='/nba',text=reply.call_args.args[0],transport='LOCAL_CAPTURE_NOT_TELEGRAM_API'))
     report=dict(created_at_utc=datetime.now(timezone.utc).isoformat(),cases=results,messages=messages,receipts=receipts,
         integrity=ledger.integrity(),production_database_accessed=False,telegram_api_delivery_verified=False,
+        commit_receipts=ledger.commit_proofs(),
         functional_checks_ok=all(r['result']['status']=='ANALYSIS_OK' for r in results),
         production_release_permitted=False,release_blockers=blockers)
     path=root/'report.json';path.write_text(json.dumps(report,indent=2));return path,report

@@ -154,6 +154,7 @@ class VerifiedAnalyzeService:
             payload=dict(record_type='LIVE_PREMATCH_PREDICTION',evaluation_class='LIVE_RECORDED',actual=None,
                 league=code,season=report['season_id'],fixture_id=g['canonical_id'],provider_fixture_ids=g['provider_fixture_ids'],
                 fixture_start_utc=g['start_ts_utc'],home=report['home'],away=report['away'],scope='REGULATION_ONLY',
+                record_deadline_utc=g['start_ts_utc'],
                 model_version=MODEL_VERSION,model_digest=MODEL_DIGEST,release_sha=self.release_sha,
                 runtime_python=platform.python_version(),
                 prediction=prediction,history=series,input_clocks=pins,source_digest=digest(pins),provider=report['provider'],
