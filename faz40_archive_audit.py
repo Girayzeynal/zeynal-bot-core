@@ -65,10 +65,16 @@ def run(nba_database,*,euro_evidence=None,season_end_year=2027,simulations=10000
         extra,src=load_euro(euro_evidence,usage=usage);records+=extra;sources.append(src)
     reports={}
     for league in ('NBA','EUROLEAGUE','EUROCUP'):
-        reports[league]={mode:walk_forward(records,league=league,season_end_year=season_end_year,
-            mode=mode,simulations=simulations) for mode in ('INGESTION_TIME','ARCHIVED_SOURCE_CLOCK')}
+        if usage=='SYNTHETIC_TEST':
+            reports[league]={mode:walk_forward(records,league=league,season_end_year=season_end_year,
+                mode=mode,simulations=simulations) for mode in ('INGESTION_TIME','ARCHIVED_SOURCE_CLOCK')}
+        else:
+            games=len({r['payload']['facts']['canonical_id'] for r in records if r['payload']['league']==league and r['payload']['season_end_year']==season_end_year})
+            reports[league]={mode:dict(status='ABSTAIN_SOURCE_BOUND_HISTORY_REQUIRED',input_games=games,evaluated_games=0,
+                metrics=None,folds=[],availability_policy=mode,usage=usage,prospective_records_created=0,
+                migration='Use pinned v2 source evidence through faz47_readiness') for mode in ('INGESTION_TIME','ARCHIVED_SOURCE_CLOCK')}
     for src in sources:require(file_sha(src['source'])==src['sha256'],'SOURCE_ARCHIVE_CHANGED')
-    return dict(status='READ_ONLY_RESEARCH_AUDIT_COMPLETE',sources=sources,reports=reports,
+    return dict(status='READ_ONLY_RESEARCH_AUDIT_COMPLETE' if usage=='SYNTHETIC_TEST' else 'ABSTAIN_SOURCE_BOUND_HISTORY_REQUIRED',sources=sources,reports=reports,usage=usage,
                 simulations_per_eligible_game=simulations,prospective_records_created=0,
                 source_attestation='NOT_INDEPENDENTLY_VERIFIED',production_coefficients_changed=False,
                 historical_source_clock_is_not_live_performance=True)

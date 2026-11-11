@@ -12,6 +12,20 @@ from faz41_adapters import replay
 from faz41_news import replay_rss
 
 
+def _player_keys(players,provider):
+    """Compare identities in the bound provider namespace, never rewrite evidence."""
+    require(type(players) is list,'CANONICAL_PLAYER_IDS_REQUIRED')
+    keys=[]
+    for player in players:
+        require(type(player) is str and player and player==player.strip(),'CANONICAL_PLAYER_IDS_REQUIRED')
+        # Strip only the already validated source's prefix, exactly once.
+        # Foreign/repeated prefixes and whitespace are rejected, not repaired.
+        pid=player.removeprefix(provider+':')
+        require(re.fullmatch(r'[A-Za-z0-9_-]{1,64}',pid) is not None,'CANONICAL_PLAYER_IDS_REQUIRED')
+        keys.append((provider,pid))
+    return keys
+
+
 def _announcement(p):
     raw=p['raw'];require(type(raw) is dict and raw.get('format')=='EXPLICIT_TEAM_ANNOUNCEMENT_V1','EXPLICIT_TEAM_ANNOUNCEMENT_REQUIRED')
     f=p['fixture'];team=raw['team_id'];players=raw['players'];five=raw['starting_five']
@@ -25,9 +39,9 @@ def _announcement(p):
             raw['provider_fixture_id']==p['provider_fixture_id'] and raw['status']=='CONFIRMED' and
             team in (f['home_team_id'],f['away_team_id']) and p['published_at_utc']==raw['published_at_utc'],
             'EXPLICIT_TEAM_ANNOUNCEMENT_REQUIRED')
-    require(type(players) is list and type(five) is list and
-            all(type(pid) is str and pid and pid==pid.strip() for pid in players+five),
-            'CANONICAL_PLAYER_IDS_REQUIRED')
+    for identities in (players,five):
+        keys=_player_keys(identities,provider)
+        require(len(keys)==len(set(keys)),'ANNOUNCEMENT_PLAYER_ID_CONFLICT')
     roster=seal_roster_observation(fixture_id=f['canonical_id'],observed_at_utc=p['observed_at_utc'],
         source=p['source_url'],players=players,starting_five=five,status='CONFIRMED')
     require(raw['published_at_utc']<=p['observed_at_utc']<f['start_utc'],'ANNOUNCEMENT_NOT_PREMATCH')
@@ -74,8 +88,7 @@ def prematch_context(observations, *, fixture,cutoff_utc,maximum_age_seconds=360
         else:replay(o,**validation)
         if p['data_type'] in ('OFFICIAL_LINEUP','ROSTER'):
             team=p['claims']['team_id']
-            for player in p['claims']['players']:
-                pid=player.removeprefix(p['provider']+':');key=(p['provider'],pid)
+            for key in _player_keys(p['claims']['players'],p['provider']):
                 require(key not in memberships or memberships[key]==team,'CROSS_TEAM_PLAYER_ID_CONFLICT');memberships[key]=team
         rows.append(p)
     # Include team namespace in lineup keys: home and away rosters are not conflicting claims.
@@ -124,11 +137,21 @@ def historical_player_features(observations, *, target,cutoff_utc,maximum_age_se
 
 
 def research_with_context(records,observations,*,target,cutoff_utc,registry=REGISTRY,registry_pin=REGISTRY_PIN,
-                          news_bindings=None,news_bindings_pin=None,**research_options):
+                          news_bindings=None,news_bindings_pin=None,history_evidence=None,**research_options):
     from faz40_research import project
+    from faz40_archive import replay_game
     context=prematch_context(observations,fixture=target,cutoff_utc=cutoff_utc,registry=registry,registry_pin=registry_pin,
                              news_bindings=news_bindings,news_bindings_pin=news_bindings_pin)
-    prediction=project(records,target,cutoff_utc,**research_options)
-    require(context['payload']['usage'] in ('NO_EVIDENCE',prediction['usage']), 'MIXED_SYNTHETIC_REAL_EVIDENCE')
+    require(type(records) is list,'ARCHIVE_LIST_REQUIRED')
+    categories={replay_game(r)['usage']=='SYNTHETIC_TEST' for r in records};usage=context['payload']['usage']
+    require(len(categories)<=1 and (usage=='NO_EVIDENCE' or not categories or (usage=='SYNTHETIC_TEST') in categories),'MIXED_SYNTHETIC_REAL_EVIDENCE')
+    require(history_evidence is not None or categories!={False},'SOURCE_BOUND_HISTORY_REQUIRED')
+    binding=None
+    if history_evidence is not None:
+        from faz47_history_binding import bound_projection
+        prediction,binding=bound_projection(records,history_evidence,target,cutoff_utc,registry=registry,registry_pin=registry_pin,**research_options)
+    else:prediction=project(records,target,cutoff_utc,**research_options)
+    require(usage=='NO_EVIDENCE' or (usage=='SYNTHETIC_TEST')==(prediction['usage']=='SYNTHETIC_TEST'),'MIXED_SYNTHETIC_REAL_EVIDENCE')
     p=dict(reference=prediction,evidence=context,evidence_applied_to_coefficients=False,prospective_records_created=0)
+    if binding is not None:p['history_source_binding']=binding
     return dict(payload=p,sha256=digest(p))
