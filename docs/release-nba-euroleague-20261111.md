@@ -15,6 +15,7 @@ UserLAnd/Fly volume durumu ve resmî NBA çapraz doğrulaması ayrı kabul kapı
 | PR #81 | #80'i içerir | `b2387fbfa57308ac5ddeaaca66391064f5413190` |
 | PR #82 | #81'i içerir | `ada95c5147b6a9c1f5be2653f9d57274553f7cef` |
 | Entegrasyon kod checkpoint'i | Tek release dalı | `fec9ad387bc6a5571097d2c1727c2d121e4daee8` |
+| Commit completion / Git bağımlılığı düzeltmesi | Docker'da doğrulanan işlevsel kod | `c8dcb80ca3d94804c5896aa6f7e9bc2e6300abc5` |
 
 #77'nin merge commit'i ve main, dalın ataları olarak Git üzerinden doğrulandı.
 Değişiklikleri tekrar cherry-pick etmek veya tamamlanmış işleri yeniden yazmak
@@ -113,6 +114,54 @@ kullanılmayan imaj/cache'i temizlendi. vfs çoğaltmasını azaltmak için mkdi
 öncesine taşındı; Git test bağımlılığı eklendi ve testler tekrar çalıştırıldı.
 İlk gerçek idempotency denemesi tuple/list JSON dönüşümünü yakaladı; ilk yanıt
 da kalıcı JSON'dan döndürülerek düzeltildi ve regresyonla korundu.
+
+## Son gerçek kaynak ve Docker doğrulaması
+
+Yerelde **382/382**, Python 3.11 Docker imajında **382/382**, odaklı release
+testlerinde **25/25** başarılı; son denemelerde hata/skip yoktur. Docker testleri
+ağsız çalıştırıldı. Ardından aynı işlevsel kodun container'ında gerçek sağlayıcı
+istekleriyle /nba ve iki /analyze handler'ı çalıştırıldı. Telegram reply'ları
+yerelde yakalandı; hesapta mesaj görüldüğü iddia edilmez.
+
+| Alan | NBA | EuroLeague |
+|---|---|---|
+| Karşılaşma | Indiana Pacers – Washington Wizards | Maccabi Rapyd – Hapoel IBI Tel Aviv |
+| Başlangıç, TSİ | 12.11.2026 03:00 | 12.11.2026 22:05 |
+| Skor projeksiyonu | 111,65 – 110,40 | 86,30 – 93,05 |
+| Toplam | 222,05 | 179,35 |
+| Ev sahibi farkı | +1,25 | −6,75 |
+| 1H | 56,90 – 57,15 | 41,60 – 46,20 |
+| 1Q | 28,55 – 28,65 | 21,10 – 24,30 |
+| 2Q | 28,35 – 28,50 | 20,50 – 21,90 |
+| 3Q | 27,30 – 26,70 | 22,25 – 22,90 |
+| 4Q | 27,45 – 26,55 | 22,45 – 23,95 |
+| P05–P95 toplam | 190–254 | 153–206 |
+| Geçmiş / senaryo | 10 + 10 maç / 10.000 | 10 + 10 maç / 10.000 |
+| Kayıt, TSİ | 12.11.2026 00:36:55 | 12.11.2026 00:36:56 |
+
+İki gerçek yerel LIVE_PREMATCH_PREDICTION, iki durable completion receipt,
+0 onaysız intent, 0 canlı tahmin–final çifti. Tekrar çağrıda yeni kayıt yoktur.
+Bunlar manuel komut kayıtlarıdır; T−24/T−6 zamanlayıcı kesiti sayılmaz.
+Üretim ledger'ına yeni kayıt eklenmedi. Eski yerel QA prototipleri de silinmedi;
+bağımsız maç örneklemi artırmak için birleştirilmez.
+
+Paris–Fenerbahçe: 82,20–86,45; Partizan–Baskonia: 85,75–79,75, yalnızca
+BACKTEST_SIMULATION. Kaynak kesiti 19:45 UTC başlangıçlarından önce alınmıştı;
+tahminlerin kendisi sonradan üretildi. Güncel resmî kaynakta Partizan–Baskonia
+finali 80–66 olarak doğrulandı ve ayrı tarihsel değerlendirme verisine bağlandı;
+Paris finali bu kesitte doğrulanmadı. Bu 1 tarihsel simülasyon–sonuç çifti gerçek
+maç öncesi performans veya kalibrasyon kanıtı değildir; canlı çift sayısı hâlâ 0.
+
+[Tam snapshot, kaynak pinleri ve test kanıtı](evidence/release-nba-euroleague-20261111.json).
+Önceki yerel ve son Docker kesitlerinin kaynak hash/zamanları farklıdır;
+tablo son Docker kaydına aittir, eski tahminler değiştirilmemiştir.
+
+Üretim /health ve /ready, 11 Kasım 21:34:56 UTC'de HTTP 200 döndü. Bu, mevcut
+botun readiness durumudur; yeni adayın dağıtıldığı veya üretim analizinin
+doğrulandığı anlamına gelmez. Güncel image/volume/DB verileri UserLAnd çıktısı bekler.
+Resmî NBA CDN'i HTTP 403; stats.nba.com denemesi ağ hatası verdi. NBA analizinde
+erişilebilir ESPN kullanıldı, resmî çapraz doğrulama tamamlanmış gösterilmedi.
+Bu nedenle production_release_permitted=false; PR taslak kalır.
 
 ## UserLAnd: önce salt okunur kontrol
 
