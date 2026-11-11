@@ -27,5 +27,18 @@ class ProviderAccessTests(unittest.TestCase):
         self.assertEqual(result["results"][0]["http_status"], 503)
 
 
+    def test_denied_event_does_not_block_remaining_events(self):
+        denied = HTTPError("https://example.invalid", 403, "Forbidden", {}, None)
+        with patch.object(espn_outcome_sync, "eligible_espn_ids", return_value=["401909960", "401909961"]), \\
+             patch.object(espn_outcome_sync, "fetch_espn_event", side_effect=[denied, {"id": "401909961"}]), \\
+             patch.object(espn_outcome_sync, "parse_espn_regulation_final", return_value=None), \\
+             patch.object(espn_outcome_sync, "import_verified_espn_outcome") as importer:
+            result = espn_outcome_sync.run("/unused.sqlite", apply=True)
+        self.assertEqual(result["scanned"], 2)
+        self.assertEqual([item["status"] for item in result["results"]],
+                         ["PROVIDER_ACCESS_DENIED", "NOT_VERIFIED_FINAL"])
+        importer.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
