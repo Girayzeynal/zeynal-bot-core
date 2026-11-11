@@ -1,0 +1,229 @@
+{
+  "schema_version": 1,
+  "purpose": "REAL_SOURCE_CENSUS_AND_SYNTHETIC_AUDIT_REGRESSION_NOT_MODEL_ACCURACY",
+  "created_utc": "2026-11-11T16:30:33.760159+00:00",
+  "branch": "dev/season-fixture-audit-20261111",
+  "base_pr": 79,
+  "base_pr_sha": "c847b04da89fa14d8771fa544daf44f7ac5852a7",
+  "inspected_main_sha": "0e634083ccd1da87c7313710a17aa6e63fb5abe2",
+  "initial_github_ci": {
+    "main": {
+      "run": 43052263137,
+      "unit_tests": "success",
+      "docker_build": "success"
+    },
+    "pr79_push": {
+      "run": 43052328146,
+      "unit_tests": "success",
+      "docker_build": "success"
+    },
+    "pr79_pr": {
+      "run": 43052355993,
+      "unit_tests": "success",
+      "docker_build": "success",
+      "unit_log_tests": 253
+    }
+  },
+  "file_sha256": {
+    "season_archive_inventory.py": "09aab026c382d0fd6bb2c09ea47cae359d6d635588ff892269869acd5a32b880",
+    "season_ledger_audit.py": "2d723329ecf70fcddeb6f7e9298c8a4d00dd06d08d9933e55ae591f1838ba1c0",
+    "calibration_safety_gate.py": "fbc5e814a5d0b85004f1b765e8df9420df4e10764489a016feb981620d8f7986",
+    "tests/test_calibration_safety_gate.py": "4d932696273fd91ab051561032d8c38ad0ba3b07e255ac5e342f7762207778be",
+    "tests/test_season_archive_audit.py": "075368f9ed2674ab62485e117e796bd6d5d550e6e3fd7dca49531c730559049e",
+    "docs/season-archive-audit-20261111.md": "1c0b7534d430521df53c9ef41663d4e8b69e43d82e0d6822c210858e3b8472d3"
+  },
+  "source_receipts": [
+    {
+      "provider": "ESPN",
+      "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261110&limit=1000",
+      "requested_utc": "2026-11-11T16:12:59.910759+00:00",
+      "source_permission": "NOT_ESTABLISHED",
+      "production_writes": 0,
+      "http_status": 200,
+      "observed_utc": "2026-11-11T16:13:00.104477+00:00",
+      "body_bytes": 139392,
+      "body_sha256": "c130d97b8545f8e925bf9444e90e6d17037caa0ecbdc8cc31009fa2004e11f1d",
+      "status": "DOCUMENT_RECEIVED",
+      "json_shape": [
+        "leagues",
+        "events",
+        "provider"
+      ],
+      "raw_events": 6,
+      "season": null,
+      "ingested_utc": "2026-11-11T16:13:00.107373+00:00"
+    },
+    {
+      "provider": "NBA",
+      "url": "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json",
+      "requested_utc": "2026-11-11T16:13:00.107387+00:00",
+      "source_permission": "NOT_ESTABLISHED",
+      "production_writes": 0,
+      "http_status": 403,
+      "observed_utc": "2026-11-11T16:13:00.404284+00:00",
+      "body_bytes": 425,
+      "body_sha256": "091c57773957a559f17c1b094c64e684b2a3b93a2528452f7ad5a7bb5f5a08ee",
+      "status": "PROVIDER_ACCESS_BLOCKED",
+      "ingested_utc": "2026-11-11T16:13:00.404310+00:00"
+    },
+    {
+      "provider": "EUROLEAGUE_LIVE",
+      "url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games",
+      "requested_utc": "2026-11-11T16:13:00.404314+00:00",
+      "source_permission": "NOT_ESTABLISHED",
+      "production_writes": 0,
+      "http_status": 200,
+      "observed_utc": "2026-11-11T16:13:00.634380+00:00",
+      "body_bytes": 732935,
+      "body_sha256": "a13a5cb62be1ceebb685818476e4ad6f029340f001d94aa1eb9f57c1e6aff8f1",
+      "status": "DOCUMENT_RECEIVED",
+      "json_shape": [
+        "data",
+        "total"
+      ],
+      "raw_games": null,
+      "ingested_utc": "2026-11-11T16:13:00.643844+00:00"
+    },
+    {
+      "provider": "ESPN",
+      "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261101-20261110&limit=1000&seasontype=2",
+      "local_file": "espn-window.json",
+      "requested_utc": "2026-11-11T16:27:47.456725+00:00",
+      "source_permission": "NOT_ESTABLISHED",
+      "http_status": 400,
+      "observed_utc": "2026-11-11T16:27:47.790105+00:00",
+      "body_bytes": 55,
+      "body_sha256": "5ca0ff4c797098c7b38245f4603588b1eb556ce62656fa22ce7bca02f30f3cc7",
+      "status": "HTTP_ERROR",
+      "ingested_utc": "2026-11-11T16:27:47.790133+00:00"
+    }
+  ],
+  "source_catalogs": [
+    {
+      "provider": "ESPN",
+      "league": "NBA",
+      "season_start_year": 2026,
+      "raw_records": 6,
+      "independent_fixtures": 6,
+      "completed_fixtures": 6,
+      "completed_with_periods": 6,
+      "season_archive_complete": false,
+      "source_permission": "NOT_ESTABLISHED",
+      "player_statistics": "NOT_COLLECTED",
+      "point_in_time_training_eligible": false
+    },
+    {
+      "provider": "EUROLEAGUE_LIVE",
+      "league": "EuroLeague",
+      "season_start_year": 2026,
+      "raw_records": 380,
+      "independent_fixtures": 380,
+      "completed_fixtures": 100,
+      "completed_with_periods": 100,
+      "season_archive_complete": false,
+      "source_permission": "NOT_ESTABLISHED",
+      "player_statistics": "NOT_COLLECTED",
+      "point_in_time_training_eligible": false
+    }
+  ],
+  "catalog_payload_pins": {
+    "NBA": "3091e177482c0d094b44d61963943198264dfc4d727c98b499413dada83931bc",
+    "EuroLeague": "2373beae9aaf98da24e45e455027ed69e0aaaa98d489729841bb5ae7c4c08fcf"
+  },
+  "source_documents_unchanged": true,
+  "raw_source_documents_uploaded": false,
+  "production_database_accessed": false,
+  "production_schema_migrations": 0,
+  "real_prediction_result_pairs": "NOT_VERIFIED_NO_LOCAL_PRODUCTION_SNAPSHOT",
+  "real_model_metrics": null,
+  "calibration_status": "NOT_ESTABLISHED",
+  "automatic_model_update_permitted": false,
+  "new_predictions": 0,
+  "local_missing_snapshot_result": {
+    "status": "blocked",
+    "minimum_independent_fixtures": 100,
+    "leagues": {
+      "NBA": {
+        "audit": {
+          "status": "blocked",
+          "league": "NBA",
+          "reason": "ledger_not_found",
+          "counts": null,
+          "independent_candidate_fixtures": null,
+          "source_matched_independent_fixtures": null,
+          "candidate_prediction_versions": null,
+          "verified_prematch_fixtures": null,
+          "season_start_year": 2026,
+          "season_assignment": "MATCHED_SOURCE_CATALOG_ONLY",
+          "metrics": null,
+          "calibration_status": "NOT_ESTABLISHED",
+          "automatic_model_update_permitted": false,
+          "prospective_predictions_created": 0,
+          "production_database_accessed": false
+        },
+        "status": "blocked",
+        "reason": "ledger_not_found",
+        "candidate_sample_threshold_met": false
+      },
+      "EuroLeague": {
+        "audit": {
+          "status": "blocked",
+          "league": "EuroLeague",
+          "reason": "ledger_not_found",
+          "counts": null,
+          "independent_candidate_fixtures": null,
+          "source_matched_independent_fixtures": null,
+          "candidate_prediction_versions": null,
+          "verified_prematch_fixtures": null,
+          "season_start_year": 2026,
+          "season_assignment": "MATCHED_SOURCE_CATALOG_ONLY",
+          "metrics": null,
+          "calibration_status": "NOT_ESTABLISHED",
+          "automatic_model_update_permitted": false,
+          "prospective_predictions_created": 0,
+          "production_database_accessed": false
+        },
+        "status": "blocked",
+        "reason": "ledger_not_found",
+        "candidate_sample_threshold_met": false
+      }
+    },
+    "automatic_model_update_permitted": false
+  },
+  "synthetic_tests": {
+    "new_test_methods": 28,
+    "logs": {
+      "baseline": {
+        "local_path": "/workspace/scratch/season-audit-baseline-20261111.log",
+        "sha256": "a521d792fb2258b99ad2b6d4b0b82a4c6c2141c66d846e704ee8d16287c843f2",
+        "tests": 253,
+        "failures": 0
+      },
+      "focused": {
+        "local_path": "/workspace/scratch/season-audit-focused-final-20261111.log",
+        "sha256": "09af33e12868d7bc6107580c47f2a83221ac68167eee9739fa4912d536508c83",
+        "tests": 31,
+        "failures": 0
+      },
+      "full": {
+        "local_path": "/workspace/scratch/season-audit-full-20261111.log",
+        "sha256": "23af0eb394626708eb3b6b7c8b1f368623acad2dfaef0cba8a294630dadba017",
+        "tests": 281,
+        "failures": 0
+      }
+    },
+    "initial_focused_failure": "One overtime test fixture used a repeated mutable dict; corrected to independent quarter objects",
+    "final_failures": 0
+  },
+  "ci_for_new_commit": "Verify exact committed SHA after push and record run links in draft PR",
+  "remaining_gaps": [
+    "Independent full-season expected fixture universe not established",
+    "NBA official CDN request blocked with 403",
+    "ESPN range query returned HTTP 400; only one provider date is inventoried",
+    "Current production ledger contents not inspected",
+    "Ledger lacks canonical teams season/model/source/PIT feature proof",
+    "Player minutes lineups rotation injury and pace not collected",
+    "Source training permissions and independent outcome attestation not established",
+    "No chronological challenger/champion out-of-sample proof or calibrated model"
+  ]
+}

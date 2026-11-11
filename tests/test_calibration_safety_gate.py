@@ -7,7 +7,7 @@ import calibration_safety_gate
 
 class CalibrationSafetyGateTests(unittest.TestCase):
     def test_nonempty_versions_never_authorize_training(self):
-        with patch.object(calibration_safety_gate, "audit_calibration_readiness",
+        with patch.object(calibration_safety_gate, "audit_ledger_fixtures",
                           return_value={"status": "ready", "verified_versions": 200}):
             result = calibration_safety_gate.evaluate("/fake/ledger.sqlite")
         self.assertFalse(result["automatic_model_update_permitted"])
@@ -15,7 +15,7 @@ class CalibrationSafetyGateTests(unittest.TestCase):
         self.assertEqual(set(result["leagues"]), {"NBA", "EuroLeague"})
 
     def test_missing_ledger_fails_closed(self):
-        with patch.object(calibration_safety_gate, "audit_calibration_readiness",
+        with patch.object(calibration_safety_gate, "audit_ledger_fixtures",
                           return_value={"status": "blocked", "reason": "ledger_not_found"}):
             result = calibration_safety_gate.evaluate("/missing.sqlite")
         self.assertEqual(result["leagues"]["NBA"]["reason"], "ledger_not_found")
