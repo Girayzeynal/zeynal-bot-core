@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "purpose": "READ_ONLY_LINEUP_ADAPTER_TESTS_NOT_MODEL_PERFORMANCE",
+  "created_utc": "2026-11-11T15:39:20.245997+00:00",
+  "baseline_sha": "ece685aeefa244a0513356d3be3a26de276bf434",
+  "branch": "feature/faz47-source-bound-research-20261106",
+  "pr_number": 26,
+  "interrupted_untracked_work_preserved": true,
+  "source_authority": "EXISTING_FAZ46_PREMATCH_CONTEXT_NOT_REPLACED",
+  "file_sha256": {
+    "faz47_lineup_view.py": "a892aceea9b8277849adde64ca60b859c18b38ef34cd49f5014023193e97497e",
+    "tests/test_faz47_lineup_view.py": "2d87f30799e9a1f76cfc14a0640804aa3d85c853ef2c332f45487124a82e018f",
+    "docs/faz47-read-only-lineup-view.md": "752a344fc526a4a493a53d21d8c6315dcf27c8ae4f549e81eddd1a373a018fac"
+  },
+  "new_test_methods": 21,
+  "validation": {
+    "focused_adapter": {
+      "local_path": "/workspace/scratch/faz47-lineup-view-focused.log",
+      "sha256": "3bedd7e501387b5eca2405e853d689f1717d1f13e0037dfd824c8884b1c8a639",
+      "tests": 21,
+      "failures": 0
+    },
+    "focused_compatibility_resumed": {
+      "local_path": "/workspace/scratch/faz47-lineup-view-focused-20261111.log",
+      "sha256": "b10674d4986fbb2fd10a86291e3a3f3a46d7e71183b39c663847e2c2784169ed",
+      "tests": 101,
+      "failures": 0
+    },
+    "full_resumed": {
+      "local_path": "/workspace/scratch/faz47-lineup-view-full-20261111.log",
+      "sha256": "f3c22f813236b5f60f7f0ec26bce72b350cb799f59f63e4e2b8a0ec573d28665",
+      "tests": 1107,
+      "failures": 0
+    }
+  },
+  "checks": [
+    "UNAVAILABLE for absent or unconfirmed roster",
+    "OFFICIAL only after full source/PIT replay",
+    "No inferred PROJECTED five",
+    "Unknown injury or eligibility stays None",
+    "Model reference pin and chronology; no execution attestation",
+    "Canonical team/provider aliases and fixture mismatches reject",
+    "Rehashed status/model/source/cutoff claims reject on replay",
+    "JSON hash detects bool/int equality ambiguity",
+    "Immutable inputs and idempotent source order/duplicates",
+    "Historical read never creates prospective record",
+    "HTTP SQLite model and Monte Carlo calls patched to refuse execution"
+  ],
+  "preservation": {
+    "prior_evidence": {
+      "files_verified": 85,
+      "changed_files": [],
+      "snapshot_mapping_sha256": "1d3479182f954c460828f956446bb3dea0d295d7aad01c0dcf9ca4ce14e8bc30"
+    },
+    "local_databases_and_readiness": {
+      "files_verified": 51,
+      "changed_files": [],
+      "snapshot_mapping_sha256": "e190c2daf2f70d71ba0f492f46d68081eac10be8748e416da0507a22ae51507e"
+    }
+  },
+  "prior_real_source_bundles_unchanged": {
+    "/workspace/scratch/faz44-inputs-real-20261106-stage2.json": "5f460111c28498ef81e137c5571bfa5390d6c8b05fa73817e1594ae395e98c50",
+    "/workspace/scratch/faz45-support-real-20261106.json": "b6abaced5d81221e8d7da2eef2d2f7d288fff8b2fe4fcda74a83dd609799c547",
+    "/workspace/scratch/faz46-prematch-real-20261106.json": "9eb05e6e0097a8a007d35a0b1c866dd147d78eb8d61aa23b5daadda47e88cb51"
+  },
+  "prior_real_audit": {
+    "audit_file_sha256": "9eb05e6e0097a8a007d35a0b1c866dd147d78eb8d61aa23b5daadda47e88cb51",
+    "trusted_audit_sha256": "b95295ae3df980dda74b287fd87eb34a1930fe22ffb205e1d351e4ed46e9a768",
+    "created_at_utc": 1793986074,
+    "description": "Prior archived source inventory; not a live refresh or real OFFICIAL adapter example",
+    "audits": [
+      {
+        "league": "NBA",
+        "provider": "ESPN",
+        "status": "ABSTAIN_ROSTER_NOT_PUBLISHED",
+        "observations": 0
+      },
+      {
+        "league": "EUROLEAGUE",
+        "provider": "EUROLEAGUE_LIVE",
+        "status": "ABSTAIN_ROSTER_NOT_PUBLISHED",
+        "observations": 0
+      },
+      {
+        "league": "EUROCUP",
+        "provider": "EUROLEAGUE_LIVE",
+        "status": "ABSTAIN_ROSTER_NOT_PUBLISHED",
+        "observations": 0
+      }
+    ],
+    "roster_observations": 0,
+    "confirmed_lineups": 0
+  },
+  "prior_readiness": {
+    "artifact_sha256": "88f452a41567dc9014848a0c7ca9c23a32b953b8e699e78c095339bbab85a1a1",
+    "artifact_model_sha": "c3684df35e0eadf53285ea6743aaf141b28fd80d",
+    "note": "Prior real readiness results preserved; not newly evaluated performance",
+    "real_prediction_result_pairs": 0,
+    "prospective_records_created": 0,
+    "calibration": "NOT_ESTABLISHED"
+  },
+  "model_binding": "PINNED_REFERENCE_NOT_EXECUTION_ATTESTATION",
+  "faz39_candidate_imported": false,
+  "production_integrated": false,
+  "production_coefficients_changed": false,
+  "source_permissions_changed": false,
+  "network_provider_requests": 0,
+  "external_uploads": 0,
+  "new_prospective_predictions": 0,
+  "independent_cloud_recovery": "NOT_VERIFIED",
+  "ci_evidence": "Exact committed SHA push/PR unit-tests/docker-build verified after push in PR #26; local success is not CI proof",
+  "remaining_blockers": [
+    "No real permitted timed lineup/PROJECTED source adapter",
+    "Prior real roster observation count is zero",
+    "Development view not wired into reports or prediction generation",
+    "Zero real performance pairs; no established calibration",
+    "External durable storage and independent second Cloud recovery not verified"
+  ]
+}
