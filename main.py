@@ -120,6 +120,65 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Resolve fixture identity before expensive baseline calls. All /nba dates
+    # are Europe/Istanbul dates; reject started games even on the same day.
+    fixture_start_utc = None
+    fixture_provider = None
+    fixture_provider_id = None
+    if league.upper() == "NBA":
+        from nba_command import load_espn_nba_games, load_nba_games
+        from zoneinfo import ZoneInfo
+        local_today = datetime.now(ZoneInfo("Europe/Istanbul")).date()
+        if requested_day < local_today:
+            await update.message.reply_text(
+                "Maç tarihi Türkiye saatine göre geçmişte. Maç öncesi tahmin üretilmedi."
+            )
+            return
+
+        def match_key(value):
+            return "".join(c for c in value.casefold() if c.isalnum())
+
+        verified = []
+        provider_success = False
+        available = []
+        for loader in (load_espn_nba_games, load_nba_games):
+            try:
+                fixtures = await loader(date_str)
+                provider_success = True
+                available = fixtures
+                matches = [
+                    g for g in fixtures
+                    if match_key(g["home"]) == match_key(home)
+                    and match_key(g["away"]) == match_key(away)
+                ]
+                if len(matches) == 1:
+                    verified = matches
+                    fixture_provider = "ESPN" if loader is load_espn_nba_games else "API-Sports"
+                    fixture_provider_id = str(matches[0].get("id") or "").strip()
+                    break
+            except Exception as exc:
+                logger.warning("NBA fixture lookup failed: provider=%s error=%s",
+                               loader.__name__, type(exc).__name__)
+        if len(verified) != 1:
+            if provider_success:
+                await update.message.reply_text(
+                    "Bu tarih için belirtilen ev sahibi/deplasman eşleşmesi doğrulanamadı. "
+                    "Takım adlarını ve ev sahibi sırasını /nba YYYY-MM-DD fikstüründen kontrol et. "
+                    "Tahmin üretilmedi."
+                )
+            else:
+                await update.message.reply_text(
+                    "NBA fikstür sağlayıcılarına erişilemedi. Başlangıç saati doğrulanamadı; "
+                    "tahmin üretilmedi."
+                )
+            return
+        fixture_start_utc = int(verified[0]["start"].timestamp())
+        if fixture_start_utc <= int(datetime.now(timezone.utc).timestamp()):
+            await update.message.reply_text(
+                "Bu maç başlamış veya tamamlanmış. Maç öncesi tahmin üretilmedi."
+            )
+            return
+
     faz13: Faz13Engine = context.application.bot_data["faz13"]
     bootstrapper: TeamBaselineBootstrapper = context.application.bot_data["baseline_bootstrapper"]
 
@@ -173,38 +232,6 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Bind strict historical cutoff to an independently fetched, unambiguous
-    # fixture. Do not infer a tipoff timestamp from a date-only command.
-    fixture_start_utc = None
-    fixture_provider = None
-    fixture_provider_id = None
-    if league.upper() == "NBA":
-        from nba_command import load_espn_nba_games, load_nba_games
-        def match_key(value):
-            return "".join(c for c in value.casefold() if c.isalnum())
-        verified = []
-        for loader in (load_espn_nba_games, load_nba_games):
-            try:
-                fixtures = await loader(date_str)
-                matches = [
-                    g for g in fixtures
-                    if match_key(g["home"]) == match_key(home)
-                    and match_key(g["away"]) == match_key(away)
-                ]
-                if len(matches) == 1:
-                    verified = matches
-                    fixture_provider = "ESPN" if loader is load_espn_nba_games else "API-Sports"
-                    fixture_provider_id = str(matches[0].get("id") or "").strip()
-                    break
-            except Exception as exc:
-                logger.warning("NBA fixture tipoff lookup failed: provider=%s error=%s",
-                               loader.__name__, type(exc).__name__)
-        if len(verified) != 1:
-            await update.message.reply_text(
-                "NBA maç başlangıcı doğrulanamadı; tarih kesiti güvenli değil. Tahmin üretilmedi."
-            )
-            return
-        fixture_start_utc = int(verified[0]["start"].timestamp())
 
     try:
         req = PrematchRequest(
