@@ -227,6 +227,11 @@ class ReleaseCommandTests(IsolatedAsyncioTestCase):
         with patch('nba_command.load_nba_games',side_effect=AssertionError('PAID_PROVIDER_NOT_ALLOWED')):
             await nba_command(SimpleNamespace(effective_message=msg),ctx)
         loader.assert_awaited_once()
+        loader.side_effect=ValueError('SOURCE_ACCESS_DENIED')
+        with patch('nba_command.load_espn_nba_games',side_effect=AssertionError('BLOCKED_PROVIDER_MUST_NOT_BE_RETRIED')):
+            await nba_command(SimpleNamespace(effective_message=msg),ctx)
+        self.assertIn('SOURCE_ACCESS_DENIED',reply.call_args.args[0])
+        self.assertNotIn('iki bağımsız',reply.call_args.args[0])
 
     async def test_default_runtime_never_enables_legacy_paid_scheduler(self):
         with patch.dict(os.environ,{'TELEGRAM_BOT_TOKEN':'123456:SYNTHETIC','ENABLE_LEGACY_SCHEDULER':'0'}):
