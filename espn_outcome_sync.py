@@ -102,7 +102,11 @@ def main(argv=None) -> int:
         print(json.dumps({"status": "error", "error_type": type(exc).__name__, "reason": str(exc)}))
         return 2
     print(json.dumps(report, sort_keys=True))
-    return 0
+    # Provider failures must be visible to schedulers and monitoring.
+    # An HTTP 403 is not a successful synchronization.
+    failure_statuses = {"PROVIDER_ACCESS_DENIED", "PROVIDER_HTTP_ERROR", "ERROR"}
+    return 1 if any(item.get("status") in failure_statuses
+                    for item in report["results"]) else 0
 
 
 if __name__ == "__main__":
