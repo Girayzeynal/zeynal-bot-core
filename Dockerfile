@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -9,6 +10,7 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
+        git \
         curl \
         ca-certificates \
     && apt-get clean \
@@ -16,19 +18,22 @@ RUN apt-get update && \
 
 # Python deps
 COPY requirements.txt .
-RUN pip install --upgrade pip && \
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then export PIP_CERT=/run/secrets/proxy_ca; fi && \
+    pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# App code
+# Prepare writable directories before COPY so code-only rebuilds do not create
+# several full filesystem copies on Docker's vfs storage driver.
+RUN mkdir -p /app/data/baselines/series /app/logs
+
+# App code; runtime records and local config are excluded by .dockerignore.
 COPY . .
-
-# Create runtime baseline directories without requiring tracked data files.
-RUN mkdir -p /app/data/baselines/series
-
-# Writable dirs
-RUN mkdir -p /app/logs
 
 EXPOSE 8080
 STOPSIGNAL SIGINT
+
+ARG RELEASE_SHA=UNKNOWN
+ENV ZEYNAL_RELEASE_SHA=$RELEASE_SHA
 
 CMD ["python", "-u", "main.py"]

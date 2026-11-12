@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+**/__pycache__
+**/*.pyc
+**/*.sqlite
+**/*.sqlite-*
+**/*.db
+.venv
+venv
+.release-checkpoints
+.qa
+fly.local.toml

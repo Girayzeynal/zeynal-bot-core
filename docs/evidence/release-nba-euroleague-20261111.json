@@ -1,0 +1,1775 @@
+{
+  "schema": "NBA_EUROLEAGUE_RELEASE_ACCEPTANCE_V1",
+  "tested_code_commit": "c8dcb80ca3d94804c5896aa6f7e9bc2e6300abc5",
+  "validation_environment": "LOCAL_DOCKER_PYTHON_3_11_NOT_FLY_OR_TELEGRAM",
+  "functional_acceptance": {
+    "created_at_utc": "2026-11-11T21:36:56.624313+00:00",
+    "cases": [
+      {
+        "command": "/analyze NBA 2026-11-12 Indiana Pacers vs Washington Wizards",
+        "result": {
+          "status": "ANALYSIS_OK",
+          "snapshot": {
+            "actual": null,
+            "away": {
+              "internal_id": "88f17df3-eb3a-5b05-a4f7-60cc3c076f54",
+              "official_name": "Washington Wizards",
+              "provider_id": "27"
+            },
+            "calibration_status": "NOT_CALIBRATED",
+            "created_at_utc": 1794433015,
+            "cutoff_utc": 1794433015,
+            "evaluation_class": "LIVE_RECORDED",
+            "fixture_id": "db07534b9ea567fd6f151cd8484c3240634734ec59ee43e99009cff920a5c8c3",
+            "fixture_start_utc": 1794441600,
+            "history": {
+              "away": {
+                "game_ids": [
+                  "7702997eb31c1cc34277f75ef677c091bd0af979bcb92e94bcf6eff22dd5a6ee",
+                  "6513432ae1fbbf3697d2e2bc968ace5516875cb7b194f719fa3bb02550f9798c",
+                  "5f04e0cd744d9d2befa41bea91183ecc41697bfa63b2e09a47d15d83c5c08ae1",
+                  "f659b968f772a98c4a53999ec3c59a992843ce5982eaefbff6c34cb8d751bf33",
+                  "d0d0c00897b187020fbcdf76db4f8c0c458ed3abec15b3547c0726671f42148d",
+                  "56585259ef790f0d39127775cace8ac519a376febc1bb64edc61b9aae02c1d93",
+                  "5d6e8d4011280e1f295c35ed54477a4ea744a225d0a8f8c3f759b5a778bbd04f",
+                  "e420bd385a8ff162aa275d2971f2a836886d8d74914497240ca73935c2b00aeb",
+                  "48f1ccda8ba067d28ff39da3baac59b7d6338257389bf3d877a24f1a35855869",
+                  "5a766cc07981c96b859f5b89cfbc727731cbb0bd6d7b7f04a36f71b6542c8044"
+                ],
+                "n_games": 10,
+                "points_against": 113.1,
+                "points_for": 106.1,
+                "points_for_std": 14.720394016465727,
+                "provider_game_ids": [
+                  [
+                    "401909846"
+                  ],
+                  [
+                    "401909857"
+                  ],
+                  [
+                    "401909868"
+                  ],
+                  [
+                    "401909882"
+                  ],
+                  [
+                    "401909277"
+                  ],
+                  [
+                    "401909911"
+                  ],
+                  [
+                    "401909923"
+                  ],
+                  [
+                    "401909287"
+                  ],
+                  [
+                    "401909941"
+                  ],
+                  [
+                    "401909954"
+                  ]
+                ],
+                "quarters_against": [
+                  29.4,
+                  30.5,
+                  25.4,
+                  27.8
+                ],
+                "quarters_for": [
+                  27.7,
+                  27,
+                  27,
+                  24.4
+                ]
+              },
+              "home": {
+                "game_ids": [
+                  "8fc8a5e298352b6ea71794051e15b3ba31659f2066ea1fe2cf040b64d15afb0e",
+                  "a0150435362fa92786248cfc93387bf806f18a1a39d48295efa8767ac1f27b19",
+                  "04f7224cc1dfd50def8636a26a3c96c5c56c1f96fde95afb3825b9c28617283d",
+                  "a13efebf9158346319adc8c88bfe0f8bd81f2888797aca20be04cec6b5193506",
+                  "724f19797654140c95b15d7eb08d2b0d93dc5ace5188e4cbf31b841da4fa56f7",
+                  "bfe090fa71f38c11762576a16ff6e5f93a5047ed085979598c622233aedb6df1",
+                  "b0ef6e0065fde7203bee2d97ea9cae50fab62f5924385279b18dd28cc888f6cf",
+                  "e74e33d6a8017bd10ed2168c4b5128445d199061b9472e1a998594a7c9c7e2da",
+                  "1e5ce1fa1772899a74251fbda80ed6ca451210ff30f9b6ccddd74347298df8da",
+                  "f4350157907b177908e007ef667036fc0423eea36cd6ae392ea7a0ecaab382f9"
+                ],
+                "n_games": 10,
+                "points_against": 114.7,
+                "points_for": 110.2,
+                "points_for_std": 12.820296408429877,
+                "provider_game_ids": [
+                  [
+                    "401909844"
+                  ],
+                  [
+                    "401909862"
+                  ],
+                  [
+                    "401909872"
+                  ],
+                  [
+                    "401909884"
+                  ],
+                  [
+                    "401909282"
+                  ],
+                  [
+                    "401909904"
+                  ],
+                  [
+                    "401909909"
+                  ],
+                  [
+                    "401909927"
+                  ],
+                  [
+                    "401909938"
+                  ],
+                  [
+                    "401909956"
+                  ]
+                ],
+                "quarters_against": [
+                  29.6,
+                  30,
+                  26.4,
+                  28.7
+                ],
+                "quarters_for": [
+                  27.7,
+                  26.2,
+                  29.2,
+                  27.1
+                ]
+              }
+            },
+            "home": {
+              "internal_id": "c1b84341-9948-5371-9be3-eac6a51accf9",
+              "official_name": "Indiana Pacers",
+              "provider_id": "11"
+            },
+            "input_clocks": [
+              {
+                "body_sha256": "e94f00e7278fc6a5897fbf368280e1c266614c465a71cb4bd53b1877d21ba78d",
+                "document_sha256": "02d941b26baa7421287ff78029b084a2b430af9b5a23181a7fa6aedca25f1e35",
+                "http_status": 200,
+                "ingested_at_utc": 1794433010,
+                "observed_at_utc": 1794433010,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909938",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "1df69d07e8b3fa3bf1ce71639be6db8713dd19e49571125a4123bb5d1f1eff45",
+                "document_sha256": "df9bf1f74ed29c4bf775dc8211a50ca5a3dc7448c1db66d4f6f18868688c159d",
+                "http_status": 200,
+                "ingested_at_utc": 1794433011,
+                "observed_at_utc": 1794433011,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909909",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "8c074734ab882564dc420679a6205b4021efbbc875fc6f27b82e1ab302e7e92c",
+                "document_sha256": "8faed99eb20fb2c08d195dbeea6234f350ba8ec8df037cf6082115664a8dc843",
+                "http_status": 200,
+                "ingested_at_utc": 1794433014,
+                "observed_at_utc": 1794433014,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909846",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "37a6d3874f1726c721b305688b8289e7dceffe4fcd264f5ae02e18b96a15805c",
+                "document_sha256": "67450775781186e02a27fa0944e603179c95082ee780b9164c785839b0d8f0ae",
+                "http_status": 200,
+                "ingested_at_utc": 1794433014,
+                "observed_at_utc": 1794433014,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909882",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "cd7774a15afc7e605785c3824e271506558c8418b8d7af7d62efa21b99101283",
+                "document_sha256": "6101ccbec0805fb1e33be242aa5d157440328710bbcf3867a305ba4e8dbf2d26",
+                "http_status": 200,
+                "ingested_at_utc": 1794433010,
+                "observed_at_utc": 1794433010,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909927",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "25ce4e52fb65fdb6ea92187110ed9bebd03951b44e59b7cbba2638a07f4bc5bc",
+                "document_sha256": "950f59316fa4373ba57715a6b675c389a472aa4baad60a050cd11c22d2037eea",
+                "http_status": 200,
+                "ingested_at_utc": 1794433011,
+                "observed_at_utc": 1794433011,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909872",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "a2e102f6ce72ae1af96a9e4033ff403512f639acf9ba98901e33c25e00433a7e",
+                "document_sha256": "91e281844d7a9cc3d790603c02a254cb5e8182df00f9c2ad61b753ab566b39e9",
+                "http_status": 200,
+                "ingested_at_utc": 1794433013,
+                "observed_at_utc": 1794433013,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909923",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "a22a38b3130b0e4b127269409f44b0bae284be2cacca05e0bfdfc91a1110bffe",
+                "document_sha256": "2e4effb5ec0ec9a8ee37a654a3ff77e20f11ef65baf7f5bef828d583cc4f158f",
+                "http_status": 200,
+                "ingested_at_utc": 1794433011,
+                "observed_at_utc": 1794433011,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909884",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "e47ba71989666ec503d16e692c46cd1fcb586926f6b300e4d342059c4f05dbf2",
+                "document_sha256": "5246bb80edc11d44c38e876647836d5cc9d68f4c346be0f485ef81159fbc6823",
+                "http_status": 200,
+                "ingested_at_utc": 1794433014,
+                "observed_at_utc": 1794433014,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909857",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "document_sha256": "82f32ad2852323b1e7a4b45684359be5eea307c6a8f24d7313f25472c421a8fa",
+                "ingested_at_utc": 1794433009,
+                "observed_at_utc": 1794433009,
+                "url": "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2027/teams?limit=100"
+              },
+              {
+                "body_sha256": "9133e21f5de866c269df1d9e6e49bf20cf84b9e856313cabfbdb4e1845895e99",
+                "document_sha256": "9133e21f5de866c269df1d9e6e49bf20cf84b9e856313cabfbdb4e1845895e99",
+                "http_status": 200,
+                "ingested_at_utc": 1794433009,
+                "observed_at_utc": 1794433009,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams?limit=100",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "3433682d5390231cc8b5d3e14f9d20838650fec08424599ffc5d55996f7841ff",
+                "document_sha256": "756d834340fe680f15523c5c424614f6f9921efd9aa3f633c4cb8f11c238853d",
+                "http_status": 200,
+                "ingested_at_utc": 1794433013,
+                "observed_at_utc": 1794433013,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909277",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "3eca00753705b90a50cf9bd8ca4e007ea2bd678015db8acd7b69a71cf405704b",
+                "document_sha256": "75f571adddd1bb586cca2f162ae195967db544b037329f0ecfa99f9aef0ad1b0",
+                "http_status": 200,
+                "ingested_at_utc": 1794433012,
+                "observed_at_utc": 1794433012,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909862",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "document_sha256": "9133e21f5de866c269df1d9e6e49bf20cf84b9e856313cabfbdb4e1845895e99",
+                "ingested_at_utc": 1794433009,
+                "observed_at_utc": 1794433009,
+                "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams?limit=100"
+              },
+              {
+                "body_sha256": "7203a4889ab4b0ddf00416ec83d5e1595dedd4d3e8970298f6d02d3afedadc22",
+                "document_sha256": "d6f10a5881589ae4afc1de1d6e16dd30e762092be17689a24336819b734b04da",
+                "http_status": 200,
+                "ingested_at_utc": 1794433012,
+                "observed_at_utc": 1794433012,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909954",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "39185750f4b5753a595a1522685f6968be7e8f0daf466763a2d9283e3226004d",
+                "document_sha256": "4f4d7633e5809dabf9ec8f9aff130fc5f5f6e85cb49b2f583d3158cd04658f86",
+                "http_status": 200,
+                "ingested_at_utc": 1794433015,
+                "observed_at_utc": 1794433015,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&limit=1000",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "834e67ffcd9fd3df3840f6d7d6bbb0e62e3fc97601d8238ebf3cc16f078d0715",
+                "document_sha256": "52aa43c2c428968e08994bf4454dbd7913e1ac170878fe6480149c017a9bccbc",
+                "http_status": 200,
+                "ingested_at_utc": 1794433013,
+                "observed_at_utc": 1794433013,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909287",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "1ae69c180b3d784cfdf5713ba098c55b915b221254d503abe01a8a9871541c4c",
+                "document_sha256": "69476bc6bccf5cf0e13d60569bf3c37afdc83ba9bd6736e86627f051629147bd",
+                "http_status": 200,
+                "ingested_at_utc": 1794433008,
+                "observed_at_utc": 1794433008,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261111&limit=1000",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "1a300b51448d80f84a95a89c69eec050bb525e21a1409e5cf1a7b42308439546",
+                "document_sha256": "5901819ef9a8363464d80d02807dd84a249498ca80136f887edb19d6f56b0abf",
+                "http_status": 200,
+                "ingested_at_utc": 1794433011,
+                "observed_at_utc": 1794433011,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909282",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "36fdbbbf28a7bf8aef593379f94e690d5dad2eaf54bd2c1a3bbb3f3118c6b1b9",
+                "document_sha256": "dba556ac7d837bccb20be3fd172f2c13bbf8168c8a88c81cfdaf2798271cff25",
+                "http_status": 200,
+                "ingested_at_utc": 1794433013,
+                "observed_at_utc": 1794433013,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909941",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "b671f4e9d57daa3f9d169f8f64f27b67613c9323b75fde2795598f9aa61f9fed",
+                "document_sha256": "9d0b9ea18244d898d9f55975c540d3640780024f7212d88c4c2b140b8a3d51ca",
+                "http_status": 200,
+                "ingested_at_utc": 1794433010,
+                "observed_at_utc": 1794433010,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909956",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "1ae69c180b3d784cfdf5713ba098c55b915b221254d503abe01a8a9871541c4c",
+                "document_sha256": "69476bc6bccf5cf0e13d60569bf3c37afdc83ba9bd6736e86627f051629147bd",
+                "http_status": 200,
+                "ingested_at_utc": 1794433014,
+                "observed_at_utc": 1794433014,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261111&limit=1000",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "b9d342a802ab97ec76d8c61f8c02fd2d62d61154367fb55f92baf34bfbffa5fd",
+                "document_sha256": "f146910ca3736667f381a9e8627a1a071eac0a7cfbbe1f9812c2f7ae21a674cc",
+                "http_status": 200,
+                "ingested_at_utc": 1794433013,
+                "observed_at_utc": 1794433013,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909911",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "e5f0e88e383d3cde9777d49c1afb0b1abb4e498bf22a509b59657e95552f3636",
+                "document_sha256": "a082fdd17a33f1eab7814a428e8867b046aba3575a9b29110bfe5225d92a8e66",
+                "http_status": 200,
+                "ingested_at_utc": 1794433011,
+                "observed_at_utc": 1794433011,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909904",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "39185750f4b5753a595a1522685f6968be7e8f0daf466763a2d9283e3226004d",
+                "document_sha256": "4f4d7633e5809dabf9ec8f9aff130fc5f5f6e85cb49b2f583d3158cd04658f86",
+                "http_status": 200,
+                "ingested_at_utc": 1794433008,
+                "observed_at_utc": 1794433008,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&limit=1000",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "e1329fae8c240d05c83f7129b2bb1b2d1ad25b7dfceff9767c0d43384e3d20fd",
+                "document_sha256": "ed0f2ec5c44f5a5205cbf7927a69ce8f918445fe23cb80a8e1323690d0fccf98",
+                "http_status": 200,
+                "ingested_at_utc": 1794433014,
+                "observed_at_utc": 1794433014,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909868",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "f44c57d1b1f7441ccb789e1068ec6d35875123da4d2ce7d34f1d84e826295e13",
+                "document_sha256": "6ac5e1aacf97dcfd887a64ea0164edecac4154164eb232b6152429c12ed87f05",
+                "http_status": 200,
+                "ingested_at_utc": 1794433012,
+                "observed_at_utc": 1794433012,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909844",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "94bfb4396ddb5a411fe002307b3d38c412658902363ba9213e9e4c8c669ebdb3",
+                "document_sha256": "82f32ad2852323b1e7a4b45684359be5eea307c6a8f24d7313f25472c421a8fa",
+                "http_status": 200,
+                "ingested_at_utc": 1794433009,
+                "observed_at_utc": 1794433009,
+                "provider": "ESPN",
+                "source_url": "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2027/teams?limit=100",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "223fcd05cb49ba0a9a4cedc43891dd13fc7b80e13f6372464a5399200f3ed6ec",
+                "document_sha256": "fa561ea19fcd38d50d417582c6a289014b2427df51ba2d37909af6b0e15bf154",
+                "http_status": 200,
+                "ingested_at_utc": 1794433010,
+                "observed_at_utc": 1794433010,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/11/schedule?season=2027&seasontype=2",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "body_sha256": "36209e6ea3d84b2fb3e69dda85c46c0dd0cff4381f903b7008b897ba41cef389",
+                "document_sha256": "11250f9b7661892c26831d8fb35124e45eda757f00bf901369fcd7c66c59ee32",
+                "http_status": 200,
+                "ingested_at_utc": 1794433012,
+                "observed_at_utc": 1794433012,
+                "provider": "ESPN",
+                "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/27/schedule?season=2027&seasontype=2",
+                "status": "DOCUMENT_RECEIVED"
+              }
+            ],
+            "league": "NBA",
+            "missing_data": [
+              "pace",
+              "injuries",
+              "lineups",
+              "rotation",
+              "market"
+            ],
+            "model_digest": "402b40da9592ae6e9150554988ac5773c30a8c6be2ef5aac9d24e24c6e408da6",
+            "model_version": "FAZ13_SCORE_MATCHUP_PERIODS_V1",
+            "prediction": {
+              "away": 110.4,
+              "halves": {
+                "away": [
+                  57.15,
+                  53.25
+                ],
+                "home": [
+                  56.9,
+                  54.75
+                ]
+              },
+              "home": 111.65,
+              "home_handicap": -1.25,
+              "home_win_probability": 0.5092,
+              "margin": 1.25,
+              "quarters": {
+                "away": [
+                  28.65,
+                  28.5,
+                  26.7,
+                  26.549999999999997
+                ],
+                "home": [
+                  28.549999999999997,
+                  28.35,
+                  27.299999999999997,
+                  27.450000000000003
+                ]
+              },
+              "simulation": {
+                "away_regulation_win_probability": 0.4686,
+                "expected_away_score": 110.4971,
+                "expected_home_score": 111.5352,
+                "expected_margin": 1.0381,
+                "expected_total": 222.0323,
+                "first_half_expected_total": 110.7531,
+                "first_half_line_over_probabilities": {},
+                "home_regulation_win_probability": 0.5092,
+                "model_scope": "REGULATION_ONLY",
+                "observed_away_std": 14.585362237188352,
+                "observed_home_std": 12.926212165982733,
+                "observed_score_correlation": 0.001801547755642046,
+                "over_probability": null,
+                "period_away_means": [
+                  27.527,
+                  27.535,
+                  27.787,
+                  27.648
+                ],
+                "period_home_means": [
+                  27.883,
+                  27.808,
+                  27.851,
+                  27.994
+                ],
+                "push_probability": null,
+                "regulation_tie_probability": 0.0222,
+                "seed": 20261108,
+                "simulations": 10000,
+                "total_line_over_probabilities": {},
+                "total_quantiles": {
+                  "p05": 190.0,
+                  "p25": 209.0,
+                  "p50": 222.0,
+                  "p75": 235.0,
+                  "p95": 254.0
+                },
+                "total_std": 19.506385024140172,
+                "under_probability": null
+              },
+              "total": 222.05
+            },
+            "provider": "ESPN",
+            "provider_fixture_ids": [
+              "401909966"
+            ],
+            "record_deadline_utc": 1794441600,
+            "record_type": "LIVE_PREMATCH_PREDICTION",
+            "release_sha": "c8dcb80ca3d94804c5896aa6f7e9bc2e6300abc5",
+            "runtime_python": "3.11.18",
+            "scope": "REGULATION_ONLY",
+            "season": "2026/2027",
+            "source_digest": "8dfae1c8da4bf763dd6c7e96f8bff8695be19f843a2f3dba2067fc75a92ca6f6"
+          },
+          "new_record": true,
+          "html": "<b>🏀 NBA | MAÇ ÖNCESİ ANALİZ</b>\nIndiana Pacers – Washington Wizards\nBaşlangıç: 12.11.2026 03:00 TSİ | Normal süre: 48 dk\n<b>Skor: 111.65 – 110.40 | Toplam: 222.05</b>\nEv sahibi farkı: +1.25 | Model handikabı (ev): -1.25\n1H: 56.90 – 57.15\n2H: 54.75 – 53.25\n1Q: 28.55 – 28.65\n2Q: 28.35 – 28.50\n3Q: 27.30 – 26.70\n4Q: 27.45 – 26.55\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal süre: Ev %50.9 | Dep %46.9 | Eşitlik %2.2\nToplam P05–P95: 190.0–254.0\nGeçmiş maç: Ev 10 | Dep 10\nKaynak: ESPN | Tempo, kadro, sakatlık, rotasyon ve piyasa doğrulanmadı.\nSkor modeli geçmiş atılan/yenilen sayıları kullanır; çeyrekler geçmiş periyot ortalamalarıdır.\nOlasılıklar kalibre edilmedi; skor korelasyonu 0 varsayımıdır. Uzatma dahil değil.\nKayıt: 12.11.2026 00:36:55 TSİ | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 8dfae1c8da4b | Kayıt SHA: 9489fef1b2d2"
+        }
+      },
+      {
+        "command": "/analyze EUROLEAGUE 2026-11-12 Maccabi Rapyd Tel Aviv vs Hapoel IBI Tel Aviv",
+        "result": {
+          "status": "ANALYSIS_OK",
+          "snapshot": {
+            "actual": null,
+            "away": {
+              "internal_id": "155dcc7c-7eef-58f2-b79a-6760c4273e5c",
+              "official_name": "Hapoel IBI Tel Aviv",
+              "provider_id": "HTA"
+            },
+            "calibration_status": "NOT_CALIBRATED",
+            "created_at_utc": 1794433016,
+            "cutoff_utc": 1794433016,
+            "evaluation_class": "LIVE_RECORDED",
+            "fixture_id": "7dc62200844a67b244ba36d48427a972f49a387cff873a8cda6756d2dc5f721e",
+            "fixture_start_utc": 1794510300,
+            "history": {
+              "away": {
+                "game_ids": [
+                  "a170182a1ee641f7fe1ee55a1fcb8e108733b186e233303ba71177c03fc247ea",
+                  "80018c7806196ec195eead0b3486f61493e7a6694d268c84d5e320b56e07d8d6",
+                  "67a07c293db6236dcaf9bdc46ffddc14df34d1d573ed897c37f0410afbb324f5",
+                  "5fc591ca8b1a1e133233cd3ca94f61b26008c0276c6ca160241bf1a187d91e6e",
+                  "66f53aa42a772ce4c00753c252132a5ca827a768300a11c750e3b0b86dc7bf3c",
+                  "1f243a79e14ae52bafb791880d14a911111501ed1aa8f6d1b72854fd857e9f4a",
+                  "662635b6fc1f20dfaa2041217d8b948093d7fd82bbe7315488fe82274f2fb2ca",
+                  "dae4d17acbaa81be7f107c88870f647d5d9f8ff8dda3a8ea53cbe35efc801129",
+                  "3d7af3401ad6aa7eb3ad4815bc533ee69503e2b881a2bb1991088115dd22102f",
+                  "86ffb3b61069ddbf5c221c4418adb3ad9e9d197f9e42c0b69b39357f801f43b1"
+                ],
+                "n_games": 10,
+                "points_against": 87.9,
+                "points_for": 92.1,
+                "points_for_std": 11.022250223978768,
+                "provider_game_ids": [
+                  [
+                    "E2026_3"
+                  ],
+                  [
+                    "E2026_12"
+                  ],
+                  [
+                    "E2026_22"
+                  ],
+                  [
+                    "E2026_34"
+                  ],
+                  [
+                    "E2026_48"
+                  ],
+                  [
+                    "E2026_60"
+                  ],
+                  [
+                    "E2026_61"
+                  ],
+                  [
+                    "E2026_77"
+                  ],
+                  [
+                    "E2026_84"
+                  ],
+                  [
+                    "E2026_93"
+                  ]
+                ],
+                "quarters_against": [
+                  21,
+                  22.4,
+                  22.6,
+                  21.9
+                ],
+                "quarters_for": [
+                  23.9,
+                  22.4,
+                  21.4,
+                  24.4
+                ]
+              },
+              "home": {
+                "game_ids": [
+                  "c0322df95ee64ad04dc4e8d03c553470d01bda8a38d2021b8ead63bf67ffcb3e",
+                  "6c8192d95bcd91d3def3d6c9b7249a7af095de04ea1ad713432e1348d9570990",
+                  "8ac336949685f9658c293b1703e77b4041a7cf3fac810d0e799e0ccfe2e14c06",
+                  "004ae3e1d7f81d6dc88f0a47ed2e1db88bdfec9d5f5aa2bd4e7161d12d79f037",
+                  "23a6275396b89f241460e8e8ffdf14518578a67ab3e7b5c69c27b9ca09fe9b05",
+                  "be3fb50130d807baf7aa52c0aa965aa802389a3f92e6ae8dfb653563eedca57a",
+                  "67cf1b9544ebbee418c7c2b038019bbec8feefb216788cde141eeefbad863f26",
+                  "47efe7988a0920448577eb432dd14d9eaee88883cb385a330a11ba152d6fc817",
+                  "ee228e75cb025483a228bb081acd3551f5be7eeab75754ebdacdbd5259df093d",
+                  "ad33b9aac63e2568dece2febf2613ff5d5419aa64b49862ab09917b1862f6658"
+                ],
+                "n_games": 10,
+                "points_against": 94,
+                "points_for": 84.7,
+                "points_for_std": 11.584903970253702,
+                "provider_game_ids": [
+                  [
+                    "E2026_6"
+                  ],
+                  [
+                    "E2026_19"
+                  ],
+                  [
+                    "E2026_30"
+                  ],
+                  [
+                    "E2026_32"
+                  ],
+                  [
+                    "E2026_44"
+                  ],
+                  [
+                    "E2026_52"
+                  ],
+                  [
+                    "E2026_62"
+                  ],
+                  [
+                    "E2026_71"
+                  ],
+                  [
+                    "E2026_82"
+                  ],
+                  [
+                    "E2026_99"
+                  ]
+                ],
+                "quarters_against": [
+                  24.7,
+                  21.4,
+                  24.4,
+                  23.5
+                ],
+                "quarters_for": [
+                  21.2,
+                  18.6,
+                  21.9,
+                  23
+                ]
+              }
+            },
+            "home": {
+              "internal_id": "e8fe24df-ea31-5443-810d-503553977e7b",
+              "official_name": "Maccabi Rapyd Tel Aviv",
+              "provider_id": "TEL"
+            },
+            "input_clocks": [
+              {
+                "body_sha256": "dfc164f8421b8a31cfd8e300bfae88391c23c523f1271930ac865f88a5b82bf1",
+                "document_sha256": "11b354ee8cf6055168fa4637f27625420d2868910c10a4baac4221ae2298b024",
+                "http_status": 200,
+                "ingested_at_utc": 1794433015,
+                "observed_at_utc": 1794433015,
+                "provider": "EUROLEAGUE_LIVE",
+                "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games",
+                "status": "DOCUMENT_RECEIVED"
+              },
+              {
+                "document_sha256": "7a45f6a67fbb0f08ea021c89c903186617cb7e29ddce2361bbedc44675b1752f",
+                "ingested_at_utc": 1794433009,
+                "observed_at_utc": 1794433009,
+                "url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/clubs"
+              },
+              {
+                "document_sha256": "e10cfd04d40cc26aa0abd7df0c95888a8794c96834b74ddafd2c097e405537bb",
+                "ingested_at_utc": 1794433009,
+                "observed_at_utc": 1794433009,
+                "url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026"
+              }
+            ],
+            "league": "EUROLEAGUE",
+            "missing_data": [
+              "pace",
+              "injuries",
+              "lineups",
+              "rotation",
+              "market"
+            ],
+            "model_digest": "402b40da9592ae6e9150554988ac5773c30a8c6be2ef5aac9d24e24c6e408da6",
+            "model_version": "FAZ13_SCORE_MATCHUP_PERIODS_V1",
+            "prediction": {
+              "away": 93.05,
+              "halves": {
+                "away": [
+                  46.199999999999996,
+                  46.849999999999994
+                ],
+                "home": [
+                  41.6,
+                  44.7
+                ]
+              },
+              "home": 86.30000000000001,
+              "home_handicap": 6.749999999999986,
+              "home_win_probability": 0.3182,
+              "margin": -6.749999999999986,
+              "quarters": {
+                "away": [
+                  24.299999999999997,
+                  21.9,
+                  22.9,
+                  23.95
+                ],
+                "home": [
+                  21.1,
+                  20.5,
+                  22.25,
+                  22.45
+                ]
+              },
+              "simulation": {
+                "away_regulation_win_probability": 0.6604,
+                "expected_away_score": 93.1267,
+                "expected_home_score": 86.1958,
+                "expected_margin": -6.9309,
+                "expected_total": 179.3225,
+                "first_half_expected_total": 89.45,
+                "first_half_line_over_probabilities": {},
+                "home_regulation_win_probability": 0.3182,
+                "model_scope": "REGULATION_ONLY",
+                "observed_away_std": 10.927362312561984,
+                "observed_home_std": 11.68465927445041,
+                "observed_score_correlation": 0.0017871840727251135,
+                "over_probability": null,
+                "period_away_means": [
+                  23.195,
+                  23.214,
+                  23.415,
+                  23.303
+                ],
+                "period_home_means": [
+                  21.551,
+                  21.49,
+                  21.52,
+                  21.635
+                ],
+                "push_probability": null,
+                "regulation_tie_probability": 0.0214,
+                "seed": 20261108,
+                "simulations": 10000,
+                "total_line_over_probabilities": {},
+                "total_quantiles": {
+                  "p05": 153.0,
+                  "p25": 169.0,
+                  "p50": 179.0,
+                  "p75": 190.0,
+                  "p95": 206.0
+                },
+                "total_std": 16.012335674410526,
+                "under_probability": null
+              },
+              "total": 179.35000000000002
+            },
+            "provider": "EUROLEAGUE_LIVE",
+            "provider_fixture_ids": [
+              "E2026_103"
+            ],
+            "record_deadline_utc": 1794510300,
+            "record_type": "LIVE_PREMATCH_PREDICTION",
+            "release_sha": "c8dcb80ca3d94804c5896aa6f7e9bc2e6300abc5",
+            "runtime_python": "3.11.18",
+            "scope": "REGULATION_ONLY",
+            "season": "2026/2027",
+            "source_digest": "4ddc2ee50d5f86a2e1f9a6c96d0c1e484c2d078527b890d1b8f2706c87f99ffa"
+          },
+          "new_record": true,
+          "html": "<b>🏀 EUROLEAGUE | MAÇ ÖNCESİ ANALİZ</b>\nMaccabi Rapyd Tel Aviv – Hapoel IBI Tel Aviv\nBaşlangıç: 12.11.2026 22:05 TSİ | Normal süre: 40 dk\n<b>Skor: 86.30 – 93.05 | Toplam: 179.35</b>\nEv sahibi farkı: -6.75 | Model handikabı (ev): +6.75\n1H: 41.60 – 46.20\n2H: 44.70 – 46.85\n1Q: 21.10 – 24.30\n2Q: 20.50 – 21.90\n3Q: 22.25 – 22.90\n4Q: 22.45 – 23.95\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal süre: Ev %31.8 | Dep %66.0 | Eşitlik %2.1\nToplam P05–P95: 153.0–206.0\nGeçmiş maç: Ev 10 | Dep 10\nKaynak: EUROLEAGUE_LIVE | Tempo, kadro, sakatlık, rotasyon ve piyasa doğrulanmadı.\nSkor modeli geçmiş atılan/yenilen sayıları kullanır; çeyrekler geçmiş periyot ortalamalarıdır.\nOlasılıklar kalibre edilmedi; skor korelasyonu 0 varsayımıdır. Uzatma dahil değil.\nKayıt: 12.11.2026 00:36:56 TSİ | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 4ddc2ee50d5f | Kayıt SHA: a55099cc838e"
+        }
+      }
+    ],
+    "messages": [
+      {
+        "command": "/analyze NBA 2026-11-12 Indiana Pacers vs Washington Wizards",
+        "text": "<b>🏀 NBA | MAÇ ÖNCESİ ANALİZ</b>\nIndiana Pacers – Washington Wizards\nBaşlangıç: 12.11.2026 03:00 TSİ | Normal süre: 48 dk\n<b>Skor: 111.65 – 110.40 | Toplam: 222.05</b>\nEv sahibi farkı: +1.25 | Model handikabı (ev): -1.25\n1H: 56.90 – 57.15\n2H: 54.75 – 53.25\n1Q: 28.55 – 28.65\n2Q: 28.35 – 28.50\n3Q: 27.30 – 26.70\n4Q: 27.45 – 26.55\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal süre: Ev %50.9 | Dep %46.9 | Eşitlik %2.2\nToplam P05–P95: 190.0–254.0\nGeçmiş maç: Ev 10 | Dep 10\nKaynak: ESPN | Tempo, kadro, sakatlık, rotasyon ve piyasa doğrulanmadı.\nSkor modeli geçmiş atılan/yenilen sayıları kullanır; çeyrekler geçmiş periyot ortalamalarıdır.\nOlasılıklar kalibre edilmedi; skor korelasyonu 0 varsayımıdır. Uzatma dahil değil.\nKayıt: 12.11.2026 00:36:55 TSİ | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 8dfae1c8da4b | Kayıt SHA: 9489fef1b2d2",
+        "kwargs": {
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        },
+        "transport": "LOCAL_CAPTURE_NOT_TELEGRAM_API"
+      },
+      {
+        "command": "/analyze EUROLEAGUE 2026-11-12 Maccabi Rapyd Tel Aviv vs Hapoel IBI Tel Aviv",
+        "text": "<b>🏀 EUROLEAGUE | MAÇ ÖNCESİ ANALİZ</b>\nMaccabi Rapyd Tel Aviv – Hapoel IBI Tel Aviv\nBaşlangıç: 12.11.2026 22:05 TSİ | Normal süre: 40 dk\n<b>Skor: 86.30 – 93.05 | Toplam: 179.35</b>\nEv sahibi farkı: -6.75 | Model handikabı (ev): +6.75\n1H: 41.60 – 46.20\n2H: 44.70 – 46.85\n1Q: 21.10 – 24.30\n2Q: 20.50 – 21.90\n3Q: 22.25 – 22.90\n4Q: 22.45 – 23.95\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal süre: Ev %31.8 | Dep %66.0 | Eşitlik %2.1\nToplam P05–P95: 153.0–206.0\nGeçmiş maç: Ev 10 | Dep 10\nKaynak: EUROLEAGUE_LIVE | Tempo, kadro, sakatlık, rotasyon ve piyasa doğrulanmadı.\nSkor modeli geçmiş atılan/yenilen sayıları kullanır; çeyrekler geçmiş periyot ortalamalarıdır.\nOlasılıklar kalibre edilmedi; skor korelasyonu 0 varsayımıdır. Uzatma dahil değil.\nKayıt: 12.11.2026 00:36:56 TSİ | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 4ddc2ee50d5f | Kayıt SHA: a55099cc838e",
+        "kwargs": {
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        },
+        "transport": "LOCAL_CAPTURE_NOT_TELEGRAM_API"
+      },
+      {
+        "command": "/nba",
+        "text": "NBA | 2026-11-12 | Türkiye saati\nKaynak: ESPN | Fikstür (tahmin değil)\n03:00 | Indiana Pacers - Washington Wizards | Başlamadı\n03:00 | New York Knicks - Cleveland Cavaliers | Başlamadı\n03:00 | Toronto Raptors - Boston Celtics | Başlamadı\n04:00 | Chicago Bulls - San Antonio Spurs | Başlamadı\n04:00 | Memphis Grizzlies - Denver Nuggets | Başlamadı\n04:00 | Milwaukee Bucks - Los Angeles Lakers | Başlamadı\n04:00 | New Orleans Pelicans - Brooklyn Nets | Başlamadı\n05:00 | Utah Jazz - Orlando Magic | Başlamadı\n05:30 | Houston Rockets - Golden State Warriors | Başlamadı\n06:00 | Portland Trail Blazers - Oklahoma City Thunder | Başlamadı\nAnaliz: /analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman",
+        "transport": "LOCAL_CAPTURE_NOT_TELEGRAM_API"
+      }
+    ],
+    "receipts": [
+      {
+        "provider": "NBA_OFFICIAL",
+        "source_url": "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json",
+        "http_status": 403,
+        "status": "SOURCE_ACCESS_DENIED"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261111&limit=1000",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433008,
+        "ingested_at_utc": 1794433008,
+        "body_sha256": "1ae69c180b3d784cfdf5713ba098c55b915b221254d503abe01a8a9871541c4c",
+        "document_sha256": "69476bc6bccf5cf0e13d60569bf3c37afdc83ba9bd6736e86627f051629147bd"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&limit=1000",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433008,
+        "ingested_at_utc": 1794433008,
+        "body_sha256": "39185750f4b5753a595a1522685f6968be7e8f0daf466763a2d9283e3226004d",
+        "document_sha256": "4f4d7633e5809dabf9ec8f9aff130fc5f5f6e85cb49b2f583d3158cd04658f86"
+      },
+      {
+        "provider": "EUROLEAGUE_LIVE",
+        "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433008,
+        "ingested_at_utc": 1794433008,
+        "body_sha256": "dfc164f8421b8a31cfd8e300bfae88391c23c523f1271930ac865f88a5b82bf1",
+        "document_sha256": "11b354ee8cf6055168fa4637f27625420d2868910c10a4baac4221ae2298b024"
+      },
+      {
+        "provider": "EUROLEAGUE_LIVE",
+        "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433009,
+        "ingested_at_utc": 1794433009,
+        "body_sha256": "49e85069110e61b5a76dc5d36973e1da4ee724bd85e34ed5dae4611e8bbd414e",
+        "document_sha256": "e10cfd04d40cc26aa0abd7df0c95888a8794c96834b74ddafd2c097e405537bb"
+      },
+      {
+        "provider": "EUROLEAGUE_LIVE",
+        "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/clubs",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433009,
+        "ingested_at_utc": 1794433009,
+        "body_sha256": "00d8fe3052e5d479807da321a00036a2422d22b7a074510cb1456db0079b0143",
+        "document_sha256": "7a45f6a67fbb0f08ea021c89c903186617cb7e29ddce2361bbedc44675b1752f"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2027/teams?limit=100",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433009,
+        "ingested_at_utc": 1794433009,
+        "body_sha256": "94bfb4396ddb5a411fe002307b3d38c412658902363ba9213e9e4c8c669ebdb3",
+        "document_sha256": "82f32ad2852323b1e7a4b45684359be5eea307c6a8f24d7313f25472c421a8fa"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams?limit=100",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433009,
+        "ingested_at_utc": 1794433009,
+        "body_sha256": "9133e21f5de866c269df1d9e6e49bf20cf84b9e856313cabfbdb4e1845895e99",
+        "document_sha256": "9133e21f5de866c269df1d9e6e49bf20cf84b9e856313cabfbdb4e1845895e99"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/11/schedule?season=2027&seasontype=2",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433010,
+        "ingested_at_utc": 1794433010,
+        "body_sha256": "223fcd05cb49ba0a9a4cedc43891dd13fc7b80e13f6372464a5399200f3ed6ec",
+        "document_sha256": "fa561ea19fcd38d50d417582c6a289014b2427df51ba2d37909af6b0e15bf154"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909956",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433010,
+        "ingested_at_utc": 1794433010,
+        "body_sha256": "b671f4e9d57daa3f9d169f8f64f27b67613c9323b75fde2795598f9aa61f9fed",
+        "document_sha256": "9d0b9ea18244d898d9f55975c540d3640780024f7212d88c4c2b140b8a3d51ca"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909938",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433010,
+        "ingested_at_utc": 1794433010,
+        "body_sha256": "e94f00e7278fc6a5897fbf368280e1c266614c465a71cb4bd53b1877d21ba78d",
+        "document_sha256": "02d941b26baa7421287ff78029b084a2b430af9b5a23181a7fa6aedca25f1e35"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909927",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433010,
+        "ingested_at_utc": 1794433010,
+        "body_sha256": "cd7774a15afc7e605785c3824e271506558c8418b8d7af7d62efa21b99101283",
+        "document_sha256": "6101ccbec0805fb1e33be242aa5d157440328710bbcf3867a305ba4e8dbf2d26"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909909",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433011,
+        "ingested_at_utc": 1794433011,
+        "body_sha256": "1df69d07e8b3fa3bf1ce71639be6db8713dd19e49571125a4123bb5d1f1eff45",
+        "document_sha256": "df9bf1f74ed29c4bf775dc8211a50ca5a3dc7448c1db66d4f6f18868688c159d"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909904",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433011,
+        "ingested_at_utc": 1794433011,
+        "body_sha256": "e5f0e88e383d3cde9777d49c1afb0b1abb4e498bf22a509b59657e95552f3636",
+        "document_sha256": "a082fdd17a33f1eab7814a428e8867b046aba3575a9b29110bfe5225d92a8e66"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909282",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433011,
+        "ingested_at_utc": 1794433011,
+        "body_sha256": "1a300b51448d80f84a95a89c69eec050bb525e21a1409e5cf1a7b42308439546",
+        "document_sha256": "5901819ef9a8363464d80d02807dd84a249498ca80136f887edb19d6f56b0abf"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909884",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433011,
+        "ingested_at_utc": 1794433011,
+        "body_sha256": "a22a38b3130b0e4b127269409f44b0bae284be2cacca05e0bfdfc91a1110bffe",
+        "document_sha256": "2e4effb5ec0ec9a8ee37a654a3ff77e20f11ef65baf7f5bef828d583cc4f158f"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909872",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433011,
+        "ingested_at_utc": 1794433011,
+        "body_sha256": "25ce4e52fb65fdb6ea92187110ed9bebd03951b44e59b7cbba2638a07f4bc5bc",
+        "document_sha256": "950f59316fa4373ba57715a6b675c389a472aa4baad60a050cd11c22d2037eea"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909862",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433012,
+        "ingested_at_utc": 1794433012,
+        "body_sha256": "3eca00753705b90a50cf9bd8ca4e007ea2bd678015db8acd7b69a71cf405704b",
+        "document_sha256": "75f571adddd1bb586cca2f162ae195967db544b037329f0ecfa99f9aef0ad1b0"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909844",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433012,
+        "ingested_at_utc": 1794433012,
+        "body_sha256": "f44c57d1b1f7441ccb789e1068ec6d35875123da4d2ce7d34f1d84e826295e13",
+        "document_sha256": "6ac5e1aacf97dcfd887a64ea0164edecac4154164eb232b6152429c12ed87f05"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/27/schedule?season=2027&seasontype=2",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433012,
+        "ingested_at_utc": 1794433012,
+        "body_sha256": "36209e6ea3d84b2fb3e69dda85c46c0dd0cff4381f903b7008b897ba41cef389",
+        "document_sha256": "11250f9b7661892c26831d8fb35124e45eda757f00bf901369fcd7c66c59ee32"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909954",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433012,
+        "ingested_at_utc": 1794433012,
+        "body_sha256": "7203a4889ab4b0ddf00416ec83d5e1595dedd4d3e8970298f6d02d3afedadc22",
+        "document_sha256": "d6f10a5881589ae4afc1de1d6e16dd30e762092be17689a24336819b734b04da"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909941",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433013,
+        "ingested_at_utc": 1794433013,
+        "body_sha256": "36fdbbbf28a7bf8aef593379f94e690d5dad2eaf54bd2c1a3bbb3f3118c6b1b9",
+        "document_sha256": "dba556ac7d837bccb20be3fd172f2c13bbf8168c8a88c81cfdaf2798271cff25"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909287",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433013,
+        "ingested_at_utc": 1794433013,
+        "body_sha256": "834e67ffcd9fd3df3840f6d7d6bbb0e62e3fc97601d8238ebf3cc16f078d0715",
+        "document_sha256": "52aa43c2c428968e08994bf4454dbd7913e1ac170878fe6480149c017a9bccbc"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909923",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433013,
+        "ingested_at_utc": 1794433013,
+        "body_sha256": "a2e102f6ce72ae1af96a9e4033ff403512f639acf9ba98901e33c25e00433a7e",
+        "document_sha256": "91e281844d7a9cc3d790603c02a254cb5e8182df00f9c2ad61b753ab566b39e9"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909911",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433013,
+        "ingested_at_utc": 1794433013,
+        "body_sha256": "b9d342a802ab97ec76d8c61f8c02fd2d62d61154367fb55f92baf34bfbffa5fd",
+        "document_sha256": "f146910ca3736667f381a9e8627a1a071eac0a7cfbbe1f9812c2f7ae21a674cc"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909277",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433013,
+        "ingested_at_utc": 1794433013,
+        "body_sha256": "3433682d5390231cc8b5d3e14f9d20838650fec08424599ffc5d55996f7841ff",
+        "document_sha256": "756d834340fe680f15523c5c424614f6f9921efd9aa3f633c4cb8f11c238853d"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909882",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433014,
+        "ingested_at_utc": 1794433014,
+        "body_sha256": "37a6d3874f1726c721b305688b8289e7dceffe4fcd264f5ae02e18b96a15805c",
+        "document_sha256": "67450775781186e02a27fa0944e603179c95082ee780b9164c785839b0d8f0ae"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909868",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433014,
+        "ingested_at_utc": 1794433014,
+        "body_sha256": "e1329fae8c240d05c83f7129b2bb1b2d1ad25b7dfceff9767c0d43384e3d20fd",
+        "document_sha256": "ed0f2ec5c44f5a5205cbf7927a69ce8f918445fe23cb80a8e1323690d0fccf98"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909857",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433014,
+        "ingested_at_utc": 1794433014,
+        "body_sha256": "e47ba71989666ec503d16e692c46cd1fcb586926f6b300e4d342059c4f05dbf2",
+        "document_sha256": "5246bb80edc11d44c38e876647836d5cc9d68f4c346be0f485ef81159fbc6823"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909846",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433014,
+        "ingested_at_utc": 1794433014,
+        "body_sha256": "8c074734ab882564dc420679a6205b4021efbbc875fc6f27b82e1ab302e7e92c",
+        "document_sha256": "8faed99eb20fb2c08d195dbeea6234f350ba8ec8df037cf6082115664a8dc843"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261111&limit=1000",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433014,
+        "ingested_at_utc": 1794433014,
+        "body_sha256": "1ae69c180b3d784cfdf5713ba098c55b915b221254d503abe01a8a9871541c4c",
+        "document_sha256": "69476bc6bccf5cf0e13d60569bf3c37afdc83ba9bd6736e86627f051629147bd"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&limit=1000",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433015,
+        "ingested_at_utc": 1794433015,
+        "body_sha256": "39185750f4b5753a595a1522685f6968be7e8f0daf466763a2d9283e3226004d",
+        "document_sha256": "4f4d7633e5809dabf9ec8f9aff130fc5f5f6e85cb49b2f583d3158cd04658f86"
+      },
+      {
+        "provider": "EUROLEAGUE_LIVE",
+        "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433015,
+        "ingested_at_utc": 1794433015,
+        "body_sha256": "dfc164f8421b8a31cfd8e300bfae88391c23c523f1271930ac865f88a5b82bf1",
+        "document_sha256": "11b354ee8cf6055168fa4637f27625420d2868910c10a4baac4221ae2298b024"
+      },
+      {
+        "provider": "EUROLEAGUE_LIVE",
+        "source_url": "https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433015,
+        "ingested_at_utc": 1794433015,
+        "body_sha256": "dfc164f8421b8a31cfd8e300bfae88391c23c523f1271930ac865f88a5b82bf1",
+        "document_sha256": "11b354ee8cf6055168fa4637f27625420d2868910c10a4baac4221ae2298b024"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261111&limit=1000",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433016,
+        "ingested_at_utc": 1794433016,
+        "body_sha256": "1ae69c180b3d784cfdf5713ba098c55b915b221254d503abe01a8a9871541c4c",
+        "document_sha256": "69476bc6bccf5cf0e13d60569bf3c37afdc83ba9bd6736e86627f051629147bd"
+      },
+      {
+        "provider": "ESPN",
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&limit=1000",
+        "http_status": 200,
+        "status": "DOCUMENT_RECEIVED",
+        "observed_at_utc": 1794433016,
+        "ingested_at_utc": 1794433016,
+        "body_sha256": "39185750f4b5753a595a1522685f6968be7e8f0daf466763a2d9283e3226004d",
+        "document_sha256": "4f4d7633e5809dabf9ec8f9aff130fc5f5f6e85cb49b2f583d3158cd04658f86"
+      }
+    ],
+    "integrity": {
+      "sqlite": "ok",
+      "snapshots": 2,
+      "unconfirmed_snapshots": 0,
+      "verified_results": 0
+    },
+    "production_database_accessed": false,
+    "telegram_api_delivery_verified": false,
+    "commit_receipts": [
+      {
+        "league": "EUROLEAGUE",
+        "fixture_id": "7dc62200844a67b244ba36d48427a972f49a387cff873a8cda6756d2dc5f721e",
+        "model_digest": "402b40da9592ae6e9150554988ac5773c30a8c6be2ef5aac9d24e24c6e408da6",
+        "snapshot_sha256": "a55099cc838e1f079b559fafe2971b89bbaf49e560f5ad79780e0adc42f4697f",
+        "completed_utc": 1794433016
+      },
+      {
+        "league": "NBA",
+        "fixture_id": "db07534b9ea567fd6f151cd8484c3240634734ec59ee43e99009cff920a5c8c3",
+        "model_digest": "402b40da9592ae6e9150554988ac5773c30a8c6be2ef5aac9d24e24c6e408da6",
+        "snapshot_sha256": "9489fef1b2d21080fd3da0b45f485221caaf2d4a165ada76a5442d9d45284bc4",
+        "completed_utc": 1794433015
+      }
+    ],
+    "functional_checks_ok": true,
+    "production_release_permitted": false,
+    "release_blockers": [
+      "REAL_TELEGRAM_DELIVERY_NOT_TESTED",
+      "USERLAND_VOLUME_AND_PRODUCTION_LEDGER_NOT_AUDITED",
+      "NBA_OFFICIAL_CROSSCHECK_NOT_VERIFIED:SOURCE_ACCESS_DENIED"
+    ]
+  },
+  "source_code_sha256": {
+    "verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b",
+    "verified_history.py": "a67e5268cc8aaca83715b4c983dfd8bb3457e46d2487b258e5e8bfa2ece0f6fa",
+    "prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2"
+  },
+  "tests": {
+    "local": {
+      "tests": 382,
+      "failures": 0,
+      "sha256": "1e993c4d69f17a200565b5e500677afe4d3a1aceacc9bdeef16fab55bfbd9e2e"
+    },
+    "focused": {
+      "tests": 25,
+      "failures": 0,
+      "sha256": "071087e6f14daaed6ad211708e7c0bbb1fc2dca0b40fe806b924b1efb6fe31e1"
+    },
+    "docker": {
+      "tests": 382,
+      "failures": 0,
+      "sha256": "57dc50b607c56d4217785dcfca5a37229ee632a11200846148cd4b9d31aef81e"
+    }
+  },
+  "docker_build_log_sha256": "d4fda049b63f7b536c73c03083157a92296465b51fc1a4a7990c2da1fe1c04cd",
+  "historical_examples": [
+    {
+      "provider_fixture_id": "E2026_101",
+      "simulation": {
+        "record_type": "BACKTEST_SIMULATION",
+        "evaluation_class": "PIT_PROVEN_BACKTEST",
+        "league": "EuroLeague",
+        "season": "2026/2027",
+        "fixture_id": "fe10c2a9b4d86dc2485275cf4199c118f78e29e7707c33214bdbb4bfd5116e92",
+        "fixture_start_utc": 1794426300,
+        "cutoff_utc": 1794426299,
+        "generated_at_utc": 1794433145,
+        "source_observed_at_utc": 1794421945,
+        "source_ingested_at_utc": 1794421945,
+        "source_catalog_sha256": "7005512183d44e70092d5721ce0d17ad488d46cec972e467823c600dee251c08",
+        "model_version": "FAZ13_SCORE_MATCHUP_PERIODS_V1",
+        "model_digest": "402b40da9592ae6e9150554988ac5773c30a8c6be2ef5aac9d24e24c6e408da6",
+        "prediction": {
+          "home": 82.2,
+          "away": 86.44999999999999,
+          "total": 168.64999999999998,
+          "margin": -4.249999999999986,
+          "home_handicap": 4.249999999999986,
+          "quarters": {
+            "home": [
+              19.95,
+              19.45,
+              19.9,
+              22.9
+            ],
+            "away": [
+              22.5,
+              18.9,
+              22.8,
+              22.25
+            ]
+          },
+          "halves": {
+            "home": [
+              39.4,
+              42.8
+            ],
+            "away": [
+              41.4,
+              45.05
+            ]
+          },
+          "simulation": {
+            "simulations": 10000,
+            "seed": 20261108,
+            "model_scope": "REGULATION_ONLY",
+            "home_regulation_win_probability": 0.3602,
+            "away_regulation_win_probability": 0.6144,
+            "regulation_tie_probability": 0.0254,
+            "observed_score_correlation": 0.0023641476558379977,
+            "observed_home_std": 9.186368978002136,
+            "observed_away_std": 10.604761665874438,
+            "expected_home_score": 82.115,
+            "expected_away_score": 86.5251,
+            "expected_total": 168.6401,
+            "total_std": 14.046742397794587,
+            "total_quantiles": {
+              "p05": 146.0,
+              "p25": 159.0,
+              "p50": 169.0,
+              "p75": 178.0,
+              "p95": 192.0
+            },
+            "expected_margin": -4.4101,
+            "period_home_means": [
+              20.53,
+              20.471,
+              20.499,
+              20.615
+            ],
+            "period_away_means": [
+              21.547,
+              21.571,
+              21.761,
+              21.645
+            ],
+            "over_probability": null,
+            "under_probability": null,
+            "push_probability": null,
+            "total_line_over_probabilities": {},
+            "first_half_line_over_probabilities": {},
+            "first_half_expected_total": 84.1195
+          },
+          "home_win_probability": 0.3602
+        },
+        "history": {
+          "home": {
+            "n_games": 10,
+            "game_ids": [
+              "74d2e784be9b21a61c84e50cf27edcc4cd8c069a38cf1371b47ad62af1325f03",
+              "11809d4eb662fa62d1939d7b8708dc8f86aea59beae0815d8bb57d9a845270ad",
+              "700440fafc88ed295232ee865c7f388c5850c02483a8fc91dcb2bcc27249f220",
+              "2e02efd60d21b1f5afc6bc2621bc82bd7b95b9f77cee81f73c88525e03ae1499",
+              "da4324168bc2aa0a59223827624f3d8f0535880eecf69b852f29ef1aa779179a",
+              "3161bd9f720e93cb62a52477774c275826d0501a196fd123eb759438e54a4dc3",
+              "b636158a62c9224b84c36a90f6c4a35d05505e8deb67872c61c547aec730c5f1",
+              "4ea882d2f2550b13600ce63734b2abd05b89b1afa3eacaf28d3d90053cad24ce",
+              "ee228e75cb025483a228bb081acd3551f5be7eeab75754ebdacdbd5259df093d",
+              "8c5bc5af9d1b67466c6e86f25d52b1620fb9cfe4b93e6dc6a8fb4a6b4415915d"
+            ],
+            "provider_game_ids": [
+              [
+                "E2026_7"
+              ],
+              [
+                "E2026_18"
+              ],
+              [
+                "E2026_24"
+              ],
+              [
+                "E2026_31"
+              ],
+              [
+                "E2026_50"
+              ],
+              [
+                "E2026_56"
+              ],
+              [
+                "E2026_69"
+              ],
+              [
+                "E2026_72"
+              ],
+              [
+                "E2026_82"
+              ],
+              [
+                "E2026_95"
+              ]
+            ],
+            "points_for": 89,
+            "points_against": 92.6,
+            "points_for_std": 9.09945053286186,
+            "quarters_for": [
+              21.4,
+              20,
+              22.8,
+              24.8
+            ],
+            "quarters_against": [
+              23.3,
+              20.5,
+              25.6,
+              23.2
+            ]
+          },
+          "away": {
+            "n_games": 10,
+            "game_ids": [
+              "a3238acb046f6b7efca6fae1d129ea8830d7d27ce59e5457ae4ec3d19faf2245",
+              "d2cd309080447d5d26dc4d0c0b28b76c16de9ce4f60371b40a6d3fd888e859fd",
+              "99e5db492fca2df0b4d78ecca7e4f4e383965e18fcd530ec98a15ee8ed14a121",
+              "87cad476afa92e65f5dbe76652250f46dc5ea4b0f560537571172b36e6557ff2",
+              "af58818c7513b8803041009e44138d155fbbe03c2b877caa6ae8ae3025679ef0",
+              "0f6484ef5f7a839bb4f0957c486383636b38e76fef504842766dc011345366f9",
+              "65c3c119362f1181cb5c212f8571968d778b9743935b75d099e95349071358df",
+              "3ac0cb54e1d2cae318783189a9e09a87f641ab16de28527cc78d694eedca158a",
+              "ac08a61f62940febc5b7f02a3540654c2f6869f3c98f3fc9606ffc2a411a34fa",
+              "d0510b214c7abf4b13f72fc384a66bbfa8a79fdf59b90a8b38d2614c0fa46bad"
+            ],
+            "provider_game_ids": [
+              [
+                "E2026_9"
+              ],
+              [
+                "E2026_17"
+              ],
+              [
+                "E2026_29"
+              ],
+              [
+                "E2026_36"
+              ],
+              [
+                "E2026_46"
+              ],
+              [
+                "E2026_54"
+              ],
+              [
+                "E2026_70"
+              ],
+              [
+                "E2026_75"
+              ],
+              [
+                "E2026_83"
+              ],
+              [
+                "E2026_92"
+              ]
+            ],
+            "points_for": 80.3,
+            "points_against": 75.4,
+            "points_for_std": 10.696261028976433,
+            "quarters_for": [
+              21.7,
+              17.3,
+              20,
+              21.3
+            ],
+            "quarters_against": [
+              18.5,
+              18.9,
+              17,
+              21
+            ]
+          }
+        },
+        "actual": null,
+        "live_prediction_created": false,
+        "proof_scope": "PINNED_LOCAL_SOURCE_CUT_NOT_PROVIDER_SIGNED_OR_LIVE_PREDICTION"
+      },
+      "verified_result": null
+    },
+    {
+      "provider_fixture_id": "E2026_102",
+      "simulation": {
+        "record_type": "BACKTEST_SIMULATION",
+        "evaluation_class": "PIT_PROVEN_BACKTEST",
+        "league": "EuroLeague",
+        "season": "2026/2027",
+        "fixture_id": "9bece29eb4c96da1cc0fc3d664ae58704b0a430db15491d05709fd4a4ae5b8e1",
+        "fixture_start_utc": 1794426300,
+        "cutoff_utc": 1794426299,
+        "generated_at_utc": 1794433145,
+        "source_observed_at_utc": 1794421945,
+        "source_ingested_at_utc": 1794421945,
+        "source_catalog_sha256": "7005512183d44e70092d5721ce0d17ad488d46cec972e467823c600dee251c08",
+        "model_version": "FAZ13_SCORE_MATCHUP_PERIODS_V1",
+        "model_digest": "402b40da9592ae6e9150554988ac5773c30a8c6be2ef5aac9d24e24c6e408da6",
+        "prediction": {
+          "home": 85.75,
+          "away": 79.75,
+          "total": 165.5,
+          "margin": 6.0,
+          "home_handicap": -6.0,
+          "quarters": {
+            "home": [
+              23.7,
+              20.4,
+              20.65,
+              21.0
+            ],
+            "away": [
+              20.15,
+              19.7,
+              19.75,
+              20.15
+            ]
+          },
+          "halves": {
+            "home": [
+              44.099999999999994,
+              41.65
+            ],
+            "away": [
+              39.849999999999994,
+              39.9
+            ]
+          },
+          "simulation": {
+            "simulations": 10000,
+            "seed": 20261108,
+            "model_scope": "REGULATION_ONLY",
+            "home_regulation_win_probability": 0.657,
+            "away_regulation_win_probability": 0.3158,
+            "regulation_tie_probability": 0.0272,
+            "observed_score_correlation": 0.0027319505241966587,
+            "observed_home_std": 11.405870893535486,
+            "observed_away_std": 6.636917043326668,
+            "expected_home_score": 85.6446,
+            "expected_away_score": 79.7904,
+            "expected_total": 165.435,
+            "total_std": 13.211970897636734,
+            "total_quantiles": {
+              "p05": 144.0,
+              "p25": 157.0,
+              "p50": 165.0,
+              "p75": 174.0,
+              "p95": 187.0
+            },
+            "expected_margin": 5.8542,
+            "period_home_means": [
+              21.411,
+              21.355,
+              21.382,
+              21.497
+            ],
+            "period_away_means": [
+              19.877,
+              19.893,
+              20.059,
+              19.961
+            ],
+            "over_probability": null,
+            "under_probability": null,
+            "push_probability": null,
+            "total_line_over_probabilities": {},
+            "first_half_line_over_probabilities": {},
+            "first_half_expected_total": 82.5363
+          },
+          "home_win_probability": 0.657
+        },
+        "history": {
+          "home": {
+            "n_games": 10,
+            "game_ids": [
+              "65f558018e0afb9f6afe82b6b6029ea626903624fa17833c2ce41341656dc782",
+              "11809d4eb662fa62d1939d7b8708dc8f86aea59beae0815d8bb57d9a845270ad",
+              "143ce56acb4ecc05fa08b8fed2d988a1a77f2f9f3d4554802fa0d3a0627b93c5",
+              "e932043a91f30fb9e003943c02a076e3a4ac9b678b76cee075c6f78c95bd50c9",
+              "34ab6c6a57774744d90789174e66f2d62c42e788574e77721b7eec962114bca0",
+              "0f6484ef5f7a839bb4f0957c486383636b38e76fef504842766dc011345366f9",
+              "40b45ad29cd2a4b589a386c2781aec1296b9c8948a2f70200c5a49a857056702",
+              "5abc97dd1122d62994438124e54ba2a2db60b33255ec59704f71f027abea68d5",
+              "33b74c18ae29c3307bbe0fa240dbb25753d6821b910b6b6cd8d5de0d0d299763",
+              "ad33b9aac63e2568dece2febf2613ff5d5419aa64b49862ab09917b1862f6658"
+            ],
+            "provider_game_ids": [
+              [
+                "E2026_10"
+              ],
+              [
+                "E2026_18"
+              ],
+              [
+                "E2026_28"
+              ],
+              [
+                "E2026_35"
+              ],
+              [
+                "E2026_47"
+              ],
+              [
+                "E2026_54"
+              ],
+              [
+                "E2026_66"
+              ],
+              [
+                "E2026_78"
+              ],
+              [
+                "E2026_86"
+              ],
+              [
+                "E2026_99"
+              ]
+            ],
+            "points_for": 78.4,
+            "points_against": 78.2,
+            "points_for_std": 11.306635220082056,
+            "quarters_for": [
+              21,
+              18.9,
+              17.8,
+              20.7
+            ],
+            "quarters_against": [
+              20.9,
+              18,
+              20.9,
+              18.4
+            ]
+          },
+          "away": {
+            "n_games": 10,
+            "game_ids": [
+              "5efd8d866e878dbae63b1d54704e2abc7570401a634aedf005afb2e780bbd311",
+              "36f02f6c8b0553d9f0d4a2cc29ae76d8a86e7b6cc6026b5fd5d8b61c1f37d5ac",
+              "4a1506623cec0dd2c4ef09f2c2b8a2f6f86f5f962b7ff5fbe8c40976f88880de",
+              "31047a98e56c37fbe8d80bf59cc230504667a4f0f3796c778f5e0011aad98378",
+              "9a20729b734f37ed8fc9936b65af232c1c38009dcbeee3e147d850f4bb05cbeb",
+              "f26b29ae0f16d4beb3f47a9f13beb8c884a599c9144021ac25dc8ccc000b8bd8",
+              "7e70c6a64c009b55dcd9f06d566494b9570d84359eb61d95ce23ff617ab4a7c5",
+              "90d2718182c8df25283224d61c8a6bd15ebad296e9f4b57d7d3b22aeedaf06b2",
+              "5c0865c572c02c515197ac6c0b8d339203145f5d621ed92ea1f0b2e9387b6040",
+              "d0510b214c7abf4b13f72fc384a66bbfa8a79fdf59b90a8b38d2614c0fa46bad"
+            ],
+            "provider_game_ids": [
+              [
+                "E2026_5"
+              ],
+              [
+                "E2026_15"
+              ],
+              [
+                "E2026_27"
+              ],
+              [
+                "E2026_38"
+              ],
+              [
+                "E2026_42"
+              ],
+              [
+                "E2026_59"
+              ],
+              [
+                "E2026_67"
+              ],
+              [
+                "E2026_73"
+              ],
+              [
+                "E2026_85"
+              ],
+              [
+                "E2026_92"
+              ]
+            ],
+            "points_for": 81.3,
+            "points_against": 93.1,
+            "points_for_std": 6.694027188471825,
+            "quarters_for": [
+              19.4,
+              21.4,
+              18.6,
+              21.9
+            ],
+            "quarters_against": [
+              26.4,
+              21.9,
+              23.5,
+              21.3
+            ]
+          }
+        },
+        "actual": null,
+        "live_prediction_created": false,
+        "proof_scope": "PINNED_LOCAL_SOURCE_CUT_NOT_PROVIDER_SIGNED_OR_LIVE_PREDICTION"
+      },
+      "verified_result": {
+        "final_with_ot": [
+          80,
+          66
+        ],
+        "regulation_scores": [
+          80,
+          66
+        ],
+        "source_catalog_sha256": "7b1db154b9a0e8da1418bd528c7d257c70f0634d2469d2ac4df3541082b43872",
+        "source_observed_at_utc": 1794433015
+      }
+    }
+  ],
+  "verified_historical_simulation_result_pairs": 1,
+  "new_local_prematch_snapshots": 2,
+  "new_production_predictions": 0,
+  "verified_live_prediction_result_pairs": 0,
+  "production_public_health": [
+    {
+      "url": "https://zeynal-bot-core.fly.dev/health",
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "body_sha256": "6bc0da1f42f96fc37b8bd7ed20ba57606d2a0da5cda2b135c7854fbdc985b8a3",
+      "observed_at_utc": "2026-11-11T21:34:56.401053+00:00"
+    },
+    {
+      "url": "https://zeynal-bot-core.fly.dev/ready",
+      "status": 200,
+      "body": {
+        "ready": true
+      },
+      "body_sha256": "6d160fff74b6c0c19b7d52a992b4d2d277977f90b48f3f546e0a9d36f973008b",
+      "observed_at_utc": "2026-11-11T21:34:56.728488+00:00"
+    }
+  ],
+  "production_ledger": "NOT_OPENED_OR_MODIFIED",
+  "existing_production_prediction_result_counts": "NOT_REQUERIED",
+  "production_release_permitted": false,
+  "release_blockers": [
+    "REAL_TELEGRAM_DELIVERY_NOT_TESTED",
+    "USERLAND_VOLUME_AND_PRODUCTION_LEDGER_NOT_AUDITED",
+    "NBA_OFFICIAL_CROSSCHECK_NOT_VERIFIED:SOURCE_ACCESS_DENIED"
+  ],
+  "main_merged": false,
+  "fly_deployed": false,
+  "secrets_changed": false,
+  "earlier_failed_attempts": [
+    {
+      "stage": "Docker container startup",
+      "reason": "VFS copies exhausted Cloud disk; removed only own unused images/cache"
+    },
+    {
+      "stage": "Docker full unit suite before git dependency",
+      "errors": 6,
+      "reason": "git executable absent; fixed without skipping tests",
+      "original_full_log_retained": false
+    },
+    {
+      "stage": "First source idempotency probe",
+      "reason": "First response tuples vs stored JSON lists; canonical persisted JSON returned"
+    }
+  ],
+  "local_artifact_pins": {
+    "report.json": {
+      "bytes": 57772,
+      "sha256": "64bd64f250e7526d3246d7177de0d4a43ce93a895951eb92b962ce9cba87dde7"
+    },
+    "acceptance.sqlite": {
+      "bytes": 49152,
+      "sha256": "cef8c5d5214d5f5fd36b33987ba1e31a77ed24b8e14d2a4006aaf112a5ac52d0"
+    }
+  }
+}

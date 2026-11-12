@@ -174,10 +174,21 @@ async def nba_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.effective_message.reply_text(str(exc))
         return
     source = "API-Sports"
+    loader=context.application.bot_data.get('nba_fixture_loader') if hasattr(context,'application') else None
     try:
-        games = await load_nba_games(day)
+        if callable(loader):
+            games=await loader(day)
+            source='ESPN'
+        else:games = await load_nba_games(day)
     except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, RuntimeError) as primary_exc:
         logger.warning("NBA primary fixture provider failed; date=%s reason=%s", day, type(primary_exc).__name__)
+        if callable(loader):
+            # The verified route uses one free provider. Do not retry an access
+            # block or claim two independent providers were checked.
+            reason=next((r for r in ('SOURCE_ACCESS_DENIED','SOURCE_RATE_LIMITED','SOURCE_NETWORK_ERROR')
+                         if r in str(primary_exc)),'SOURCE_VALIDATION_FAILED')
+            await update.effective_message.reply_text('NBA fikstürü doğrulanamadı. Kaynak: ESPN. '+reason)
+            return
         try:
             games = await load_espn_nba_games(day)
             source = "ESPN"
