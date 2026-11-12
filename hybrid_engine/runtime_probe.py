@@ -13,7 +13,15 @@ import tempfile
 import time
 
 
-async def run(fixture_path, mode, repetitions, exercise_v1=False):
+def memory_status():
+    fields={}
+    for line in Path('/proc/self/status').read_text().splitlines():
+        name,_,value=line.partition(':')
+        if name in ('VmSize','VmPeak','VmRSS','VmHWM'):fields[name+'_mib']=int(value.split()[0])/1024
+    return fields
+
+
+async def run(fixture_path, mode, repetitions, exercise_v1=False, telegram_errors=False):
     import asyncio
     import hashlib
     from datetime import datetime, timezone
@@ -43,6 +51,7 @@ async def run(fixture_path, mode, repetitions, exercise_v1=False):
     bayes.duration = 48; bayes.coefficients = np.asarray(p['coefficients']); bayes.covariance = np.asarray(p['covariance'])
     bayes.noise_variance = p['noise_variance']; bayes.training_ids = p['training_ids']; bayes.artifact_digest = document['bayes']['sha256']; bayes.fitted = True
     received = []; latencies = []; polls = 0; decisions = []; report_start_hash = None
+    injected_errors = []; handler_errors = []; analyze_sends = 0
     clock = None
     if exercise_v1:
         from tests.test_season_archive_audit import NOW
@@ -57,15 +66,23 @@ async def run(fixture_path, mode, repetitions, exercise_v1=False):
         chat=dict(id=17, type='private'), **{'from': dict(id=23, is_bot=False, first_name='Audit')}, text=text,
         entities=[dict(type='bot_command', offset=0, length=len(text.split()[0]))])) for i, text in enumerate(commands)]
     async def telegram_api(request):
-        nonlocal polls, report_start_hash
+        nonlocal polls, report_start_hash, analyze_sends
         method = request.path.rsplit('/', 1)[-1]
         if method == 'getMe': result = dict(id=123456, is_bot=True, first_name='Audit', username='zeynal_audit_bot')
         elif method == 'getUpdates':
             polls += 1; result = updates[:] if polls == 1 else []
             if polls != 1: await asyncio.sleep(.05)
         elif method == 'sendMessage':
-            value = dict(await request.post()); received.append(value['text'])
-            if exercise_v1 and len(received)==len(commands)-2:
+            value = dict(await request.post())
+            if telegram_errors and 'MAÇ ÖNCESİ ANALİZ' in value['text']:
+                analyze_sends += 1
+                if analyze_sends in (1, 2):
+                    code = 429 if analyze_sends == 1 else 503
+                    injected_errors.append(code)
+                    return web.json_response(dict(ok=False,error_code=code,description='Synthetic delivery failure',
+                        **({'parameters':dict(retry_after=1)} if code==429 else {})),status=code)
+            received.append(value['text'])
+            if exercise_v1 and len(received)==len(commands)-2-len(injected_errors):
                 report_start_hash=hashlib.sha256(isolated_path.read_bytes()).hexdigest()
             result = dict(message_id=1000+len(received), date=int(time.time()), chat=dict(id=17, type='private'), text=value['text'])
         else: result = True
@@ -82,6 +99,9 @@ async def run(fixture_path, mode, repetitions, exercise_v1=False):
     os.environ['PREDICTION_LEDGER_DB'] = str(Path.cwd()/'isolated-ledger.sqlite')
     import main
     with patch.object(main, 'Application', LocalApplication): app = main.build_app()
+    async def collect_error(update, context):
+        handler_errors.append(type(context.error).__name__)
+    app.add_error_handler(collect_error)
     main.PORT = 0
     cache_service = app.bot_data['verified_analysis_service']
     cache_sources = document.get('cache_source_documents', [])
@@ -151,8 +171,12 @@ async def run(fixture_path, mode, repetitions, exercise_v1=False):
                 ready = await response.json()
                 if response.status != 200 or not ready['ready']: raise ValueError('TELEGRAM_POLLING_NOT_READY')
         deadline = time.monotonic()+30
-        while len(received) < len(commands) and time.monotonic() < deadline: await asyncio.sleep(.01)
-        if len(received) != len(commands): raise ValueError('LOCAL_TELEGRAM_REPLY_COUNT_MISMATCH')
+        expected=len(commands)-(2 if telegram_errors else 0)
+        while len(received) < expected and time.monotonic() < deadline: await asyncio.sleep(.01)
+        if len(received) != expected: raise ValueError('LOCAL_TELEGRAM_REPLY_COUNT_MISMATCH')
+        if telegram_errors and (injected_errors!=[429,503] or len(handler_errors)!=2):
+            raise ValueError('DELIVERY_FAILURE_NOT_OBSERVED')
+        if not telegram_errors and handler_errors: raise ValueError('UNEXPECTED_TELEGRAM_HANDLER_ERROR')
         if any('Güven endeksi' in value or (not exercise_v1 and '%' in value) for value in received[1:]): raise ValueError('UNVERIFIED_CONFIDENCE_DISPLAYED')
         if exercise_v1:
             if sum(d['status']=='ANALYSIS_OK' for d in decisions)!=repetitions+1 or decisions[-1]['status']!='ABSTAIN':
@@ -172,7 +196,11 @@ async def run(fixture_path, mode, repetitions, exercise_v1=False):
             native_ml_libraries_loaded=sorted(n for n in ('scipy', 'sklearn', 'lightgbm', 'catboost') if n in sys.modules),
             address_space_limit_bytes=list(resource.getrlimit(resource.RLIMIT_AS)),
             cpu_affinity=sorted(os.sched_getaffinity(0)), peak_rss_mib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024,
+            allocator_arena_limit=os.environ.get('MALLOC_ARENA_MAX'),process_memory=memory_status(),
             requests=len(commands), analyze_replies=len(latencies), nba_replies=1, health_ready=ready,
+            successful_message_deliveries=len(received), injected_delivery_errors=injected_errors,
+            observed_handler_errors=handler_errors,
+            delivery_recovery='LATER_USER_COMMAND_REUSES_COMMITTED_SNAPSHOT_NO_AUTOMATIC_DELIVERY_RETRY' if telegram_errors else 'NOT_EXERCISED',
             accuracy_replies=int(exercise_v1),compare_replies=int(exercise_v1),actual_v1_analysis=exercise_v1,
             v1_decisions=decisions,isolated_ledger_integrity=integrity,
             reports_read_only_verified=exercise_v1,legacy_records_preserved=exercise_v1,
@@ -197,21 +225,37 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--fixture', required=True); parser.add_argument('--mode', choices=['portable', 'native-import-control'], default='portable')
     parser.add_argument('--repetitions', type=int, default=20)
-    parser.add_argument('--exercise-v1', action='store_true'); args = parser.parse_args()
+    parser.add_argument('--exercise-v1', action='store_true')
+    parser.add_argument('--telegram-errors', action='store_true'); args = parser.parse_args()
+    if args.telegram_errors and not args.exercise_v1: raise ValueError('FAILURE_PROBE_REQUIRES_V1_FLOW')
     if not 1 <= args.repetitions <= 50: raise ValueError('BOUNDED_REPETITIONS_REQUIRED')
     resource.setrlimit(resource.RLIMIT_AS, (256*1024*1024, 256*1024*1024))
     os.sched_setaffinity(0, {min(os.sched_getaffinity(0))})
     original = Path.cwd()
     try:
         import asyncio
+        import gc
         with tempfile.TemporaryDirectory(prefix='zeynal-telegram-memory-') as directory:
             os.chdir(directory)
-            report = asyncio.run(run(args.fixture, args.mode, args.repetitions, args.exercise_v1))
+            # Dispose completed workload/exception cycles before Runner creates its
+            # executor-shutdown helper thread. The peak metrics above include the
+            # entire workload; collection does not hide an inference memory peak.
+            with asyncio.Runner() as runner:
+                report = runner.run(run(args.fixture, args.mode, args.repetitions, args.exercise_v1, args.telegram_errors))
+                gc.collect()
+                report['post_collection_process_memory']=memory_status()
+            report['workload_peak_rss_mib']=report['peak_rss_mib']
+            report['peak_rss_mib']=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024
+            report['post_shutdown_process_memory']=memory_status()
+            report['shutdown_completed']=True
         print(json.dumps(report, allow_nan=False))
     except Exception as exc:
+        import traceback
+        traceback.print_exc(file=sys.stderr)
         print(json.dumps(dict(status='FAILED', mode=args.mode, error_type=type(exc).__name__, reason=str(exc)[:300],
             address_space_limit_bytes=list(resource.getrlimit(resource.RLIMIT_AS)),
-            peak_rss_mib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024)))
+            peak_rss_mib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024,
+            allocator_arena_limit=os.environ.get('MALLOC_ARENA_MAX'),process_memory=memory_status())))
         raise SystemExit(2)
     finally: os.chdir(original)
 

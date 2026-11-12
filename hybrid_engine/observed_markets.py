@@ -24,6 +24,17 @@ def decimal_price(american):
     return 1+x/100 if x>0 else 1+100/abs(x)
 
 
+def implied_prices(over_or_home, under_or_away):
+    """Two-sided proportional de-vig, conditional on no push; not fair-value proof."""
+    prices = [number(over_or_home), number(under_or_away)]
+    if min(prices) <= 1: raise ValueError('DECIMAL_PRICE_MUST_EXCEED_ONE')
+    raw = [1/p for p in prices]; mass = sum(raw)
+    return dict(over_or_home=raw[0]/mass, under_or_away=raw[1]/mass,
+        implied_mass=mass, overround=mass-1,
+        method='PROPORTIONAL_TWO_SIDED_NO_PUSH_CONDITIONAL_NOT_CALIBRATED',
+        evidence='OBSERVED_PRICES_NOT_PROVEN_TRUE_PROBABILITIES')
+
+
 def observe_espn(receipt, *, now_utc):
     """The provider field named close means observed value, not proven closing time.
 
@@ -85,10 +96,14 @@ def evaluate_observation(quote,forecast,*,trusted_sha256,model_digest,prediction
     if prediction_utc-p['observed_at_utc']>300:result['reasons'].append('STALE_BOOKMAKER_OBSERVATION')
     if p['settlement_scope']!='REGULATION_ONLY':result['reasons'].append('MARKET_SCOPE_UNVERIFIED_WITH_REGULATION_MODEL')
     raw=result.pop('raw_probabilities')
+    prices=implied_prices(p['decimal_over_or_home_cover'],p['decimal_under_or_away_cover'])
     result.update(quote_sha256=trusted_sha256,bookmaker=p['bookmaker'],observed_at_utc=p['observed_at_utc'],
         conditional_regulation_probabilities=raw,conditional_probability_is_settlement_probability=False,
         conditional_direction=None if raw is None or raw['under']==raw['over'] else 'OVER' if raw['over']>raw['under'] else 'UNDER',
-        recommended_direction=None,risk_level='NOT_ESTIMABLE',verified_confidence_index=None)
+        recommended_direction=None,risk_level='NOT_ESTIMABLE',verified_confidence_index=None,
+        observed_price_probabilities=prices,
+        comparable_model_market_edge=None,
+        comparison_status='NOT_COMPARABLE_WITHOUT_MATCHED_SETTLEMENT_AND_CALIBRATION')
     if result['reasons']:
         result.update(status='ABSTAIN',confidence_index=None,calibrated_probabilities=None)
     return result

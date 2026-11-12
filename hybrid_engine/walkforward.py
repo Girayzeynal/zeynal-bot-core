@@ -19,6 +19,12 @@ from hybrid_engine.availability import effective_time, effective_box_time
 
 MODELS = ('FAZ13_MC', 'FAZ13_QMC', 'FAZ13_ANALYTIC', 'POSSESSION_MC', 'POSSESSION_ANALYTIC', 'BAYES_QMC', 'LIGHTGBM', 'CATBOOST')
 BASELINES = ('LEAGUE_MEAN', 'RECENT_POINTS_FOR')
+LINE_MARKETS = ('1Q', '2Q', '3Q', '4Q', '1H', '2H', 'TOTAL', 'HOME', 'AWAY', 'HOME_HANDICAP')
+
+
+def line_offsets(market):
+    # Research scenarios only; retain every existing center and narrow-band width.
+    return (-2.5, 0., 2.5) if market in ('1Q', '2Q', '3Q', '4Q') else (-5., 0., 5.)
 
 
 def rolling_folds(examples):
@@ -92,15 +98,15 @@ def serialize(cut, forecast, row, seconds, fold, source_version, fixture_evidenc
         fit_cutoff=(forecast.metadata or {}).get('fit_cutoff_utc'), fold=fold, evidence_class=STRICT)
     lines = {}; p = reference(cut); q = forecast.quarter_means
     centers = dict(TOTAL=p['total'], HOME=p['home'], AWAY=p['away'], HOME_HANDICAP=-p['margin'],
-        **{'1Q': sum(p['quarters'][s][0] for s in ('home', 'away')),
-           '1H': sum(p['halves'][s][0] for s in ('home', 'away'))})
+        **{str(i+1)+'Q': sum(p['quarters'][s][i] for s in ('home', 'away')) for i in range(4)},
+        **{str(i+1)+'H': sum(p['halves'][s][i] for s in ('home', 'away')) for i in range(2)})
     actual = result['actual']; aq = np.asarray(result['actual_quarters'])
     outcomes = dict(TOTAL=sum(actual), HOME=actual[0], AWAY=actual[1], HOME_HANDICAP=actual[0]-actual[1],
-        **{'1Q': int(aq[0].sum()), '1H': int(aq[:2].sum())})
+        **{str(i+1)+'Q': int(aq[i].sum()) for i in range(4)},
+        **{str(i+1)+'H': int(aq[2*i:2*i+2].sum()) for i in range(2)})
     result['line_grid'] = []
     for market, center in centers.items():
-        width = 2.5 if market == '1Q' else 5.
-        for offset in (-width, 0., width):
+        for offset in line_offsets(market):
             line = center+offset
             comparison_line = -line if market == 'HOME_HANDICAP' else line
             try: probabilities = forecast.market('MARGIN' if market == 'HOME_HANDICAP' else market, comparison_line)
@@ -199,18 +205,18 @@ def evaluate(cohort, provenance, *, progress=None):
         target['all_requested_models_common_games'] = len(common)
         target['common_cohort_metrics'] = {n: summarize([r for r in rows[n] if r['fixture_id'] in common]) for n in MODELS}
         target['paired_vs_faz13'] = {n: paired_cluster_interval(rows['FAZ13_MC'], data) for n, data in rows.items() if n != 'FAZ13_MC'}
-        target['coverage_only_market_metrics_not_rankable'] = {n: {m: {str(o): market_metrics(data, m, o) for o in ((-2.5, 0., 2.5) if m == '1Q' else (-5., 0., 5.))}
-            for m in ('1Q', '1H', 'TOTAL', 'HOME', 'AWAY', 'HOME_HANDICAP')} for n, data in rows.items()}
+        target['coverage_only_market_metrics_not_rankable'] = {n: {m: {str(o): market_metrics(data, m, o) for o in line_offsets(m)}
+            for m in LINE_MARKETS} for n, data in rows.items()}
         target['market_common_cohort_metrics'] = {}
-        for market in ('1Q', '1H', 'TOTAL', 'HOME', 'AWAY', 'HOME_HANDICAP'):
+        for market in LINE_MARKETS:
             target['market_common_cohort_metrics'][market] = {}
-            for offset in ((-2.5, 0., 2.5) if market == '1Q' else (-5., 0., 5.)):
+            for offset in line_offsets(market):
                 ids = set.intersection(*(set(r['fixture_id'] for r in rows[n] if any(m['market'] == market and m['offset'] == offset and m['probabilities'] is not None for m in r['line_grid'])) for n in MODELS))
                 target['market_common_cohort_metrics'][market][str(offset)] = dict(n_common=len(ids),
                     models={n: market_metrics([r for r in rows[n] if r['fixture_id'] in ids], market, offset) for n in MODELS})
         target['market_paired_vs_faz13'] = {n: {m: {str(o): paired_market_interval(rows['FAZ13_MC'], data, m, o)
-            for o in ((-2.5, 0., 2.5) if m == '1Q' else (-5., 0., 5.))}
-            for m in ('1Q', '1H', 'TOTAL', 'HOME', 'AWAY', 'HOME_HANDICAP')} for n, data in rows.items() if n != 'FAZ13_MC'}
+            for o in line_offsets(m)}
+            for m in LINE_MARKETS} for n, data in rows.items() if n != 'FAZ13_MC'}
     report['acceptance'] = dict(status='BLOCKED', production_default='FAZ13', main_merge_permitted=False,
         production_deploy_permitted=False, strict_test_games=sum(len(c.get('model_rows', {}).get('FAZ13_MC', [])) for c in report['cohorts'].values()),
         blockers=['NO_PROVEN_STRICT_OUT_OF_SAMPLE_IMPROVEMENT', 'NO_VERIFIED_MARKET_CALIBRATION_PROFILE',

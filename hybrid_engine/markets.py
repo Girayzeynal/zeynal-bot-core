@@ -11,7 +11,7 @@ import numpy as np
 from core.team_identity import digest
 from hybrid_engine.data import STRICT, Abstain
 
-MARKETS = ('1Q', '1H', 'TOTAL', 'HOME', 'AWAY', 'MARGIN', 'HOME_HANDICAP')
+MARKETS = ('1Q', '2Q', '3Q', '4Q', '1H', '2H', 'TOTAL', 'HOME', 'AWAY', 'MARGIN', 'HOME_HANDICAP')
 
 
 def wilson(successes, count, z=1.959963984540054):

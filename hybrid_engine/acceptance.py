@@ -13,6 +13,8 @@ from hybrid_engine.walkforward import run_walkforward
 def verified_runtime(runtime, source_pins):
     decisions=runtime.get('v1_decisions',[])
     return (runtime.get('status')=='PASS' and runtime.get('address_space_limit_bytes')==[268435456]*2
+        and not runtime.get('injected_delivery_errors') and not runtime.get('observed_handler_errors')
+        and runtime.get('successful_message_deliveries',runtime.get('requests',0))>=25
         and 0<runtime.get('peak_rss_mib',1e9)<256 and runtime.get('requests',0)>=25
         and runtime.get('analyze_replies',0)>=22 and runtime.get('health_ready',{}).get('ready') is True
         and runtime.get('accuracy_replies',0)>=1 and runtime.get('compare_replies',0)>=1

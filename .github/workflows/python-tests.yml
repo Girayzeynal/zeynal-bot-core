@@ -36,3 +36,5 @@ jobs:
         uses: actions/checkout@v4
       - name: Build deployment image
         run: docker build --tag zeynal-bot-core:ci .
+      - name: Run regression suite inside deployment image
+        run: docker run --rm --network none zeynal-bot-core:ci python -m unittest discover -s tests -v

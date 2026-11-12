@@ -17,7 +17,7 @@ def calibration_curve(probabilities, outcomes, *, bins=10):
     return result
 
 
-def paired_cluster_interval(baseline, candidate, *, iterations=2000, seed=20261112, family_size=7):
+def paired_cluster_interval(baseline, candidate, *, iterations=2000, seed=20261112, family_size=13):
     """Resample TSİ game-day clusters, not individual team rows or individual lines.
 
     Shared-team dependence across dates is not fully solved by this estimator.
@@ -33,9 +33,13 @@ def paired_cluster_interval(baseline, candidate, *, iterations=2000, seed=202611
         return np.array([np.abs(np.array([p['home'], p['away']])-a).mean(),
             (np.array([p['home'], p['away']])-a).dot(np.array([p['home'], p['away']])-a)/2,
             np.abs(q[0]-aq[0]).mean(), np.abs(q[:2].sum(axis=0)-aq[:2].sum(axis=0)).mean(),
-            abs(p['total']-a.sum()), abs(p['margin']-(a[0]-a[1]))])
+            abs(p['total']-a.sum()), abs(p['margin']-(a[0]-a[1])),
+            *[np.abs(q[i]-aq[i]).mean() for i in range(1, 4)],
+            np.abs(q[2:].sum(axis=0)-aq[2:].sum(axis=0)).mean(),
+            abs(p['home']-a[0]), abs(p['away']-a[1])])
     bl = np.array([loss(b[i]) for i in ids]); ca = np.array([loss(c[i]) for i in ids]); errors = ca-bl
-    names = ('team_mae', 'team_mse', 'first_quarter_mae', 'first_half_mae', 'total_mae', 'margin_mae')
+    names = ('team_mae', 'team_mse', 'first_quarter_mae', 'first_half_mae', 'total_mae', 'margin_mae',
+             'second_quarter_mae', 'third_quarter_mae', 'fourth_quarter_mae', 'second_half_mae', 'home_mae', 'away_mae')
     result = dict(status='EXPLORATORY_CLUSTER_INTERVAL', n=len(ids), day_clusters=len(days),
         unit='PAIRED_TSI_GAME_DAY_CLUSTER', family_size=family_size,
         dependence_limit='CROSS_DAY_REPEATED_TEAM_DEPENDENCE_NOT_FULLY_MODELED', metrics={})
@@ -70,7 +74,7 @@ def market_metrics(rows, market, offset):
     return result
 
 
-def paired_market_interval(baseline, candidate, market, offset, *, seed=20261112, iterations=1000, family_size=18):
+def paired_market_interval(baseline, candidate, market, offset, *, seed=20261112, iterations=1000, family_size=30):
     def collect(rows):
         out = {}
         for row in rows:
@@ -83,11 +87,13 @@ def paired_market_interval(baseline, candidate, market, offset, *, seed=20261112
     def loss(entry):
         p = np.array([entry['probabilities'][k] for k in ('under', 'push', 'over')]); truth = np.eye(3)[entry['outcome']]
         return [np.sum((p-truth)**2), -np.log(max(1e-15, p[entry['outcome']]))]
-    if any(b[i][1]['line'] != c[i][1]['line'] or b[i][1]['outcome'] != c[i][1]['outcome'] for i in ids):
+    if any(b[i][1]['line'] != c[i][1]['line'] or b[i][1]['outcome'] != c[i][1]['outcome'] or
+           b[i][0]['start_utc'] != c[i][0]['start_utc'] for i in ids):
         raise ValueError('PAIRED_MARKET_REQUIRES_IDENTICAL_FIXTURE_LINE_AND_OUTCOME')
     bl = np.array([loss(b[i][1]) for i in ids]); ca = np.array([loss(c[i][1]) for i in ids]); diff = ca-bl
     result = dict(n=len(ids), day_clusters=len(days), market=market, offset=offset,
-        interval_family='18_MARKET_LINE_CELLS_PER_METRIC_AND_MODEL_NOT_ALL_MODELS_JOINTLY',
+        family_size=family_size,
+        interval_family=f'{family_size}_MARKET_LINE_CELLS_PER_METRIC_AND_MODEL_NOT_ALL_MODELS_JOINTLY',
         status='INSUFFICIENT_DAY_CLUSTERS_FOR_CLAIM' if len(days) < 8 else 'EXPLORATORY_CLUSTER_INTERVAL', metrics={})
     intervals = [None, None]
     if len(days) >= 8:
@@ -101,4 +107,21 @@ def paired_market_interval(baseline, candidate, market, offset, *, seed=20261112
     for j, metric in enumerate(('brier', 'log_loss')):
         result['metrics'][metric] = dict(baseline=float(bl[:, j].mean()), candidate=float(ca[:, j].mean()),
             difference=float(diff[:, j].mean()), familywise_interval=intervals[j])
+    return result
+
+
+def paired_winner_interval(baseline, candidate, *, iterations=2000):
+    def transform(rows):
+        out=[]
+        for r in rows:
+            p=r['prediction']['winner']
+            if p is None:continue
+            a=r['actual'];y=0 if a[0]>a[1] else 1 if a[0]==a[1] else 2
+            out.append(dict(r,line_grid=[dict(market='WINNER',offset=0.,line=0.,outcome=y,
+                probabilities=dict(zip(('under','push','over'),p)))]))
+        return out
+    result=paired_market_interval(transform(baseline),transform(candidate),'WINNER',0.,
+        iterations=iterations,family_size=2)
+    result['probability_order']='HOME_REGULATION_WIN_TIE_AWAY_REGULATION_WIN'
+    result['interval_family']='2_WINNER_LOSSES_PER_MODEL_NOT_ALL_MODELS_JOINTLY'
     return result

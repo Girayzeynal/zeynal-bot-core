@@ -11,6 +11,7 @@ from hybrid_engine.availability import effective_time
 from hybrid_engine.data import load_manifest, local_path
 from hybrid_engine.evaluation import summarize
 from hybrid_engine.statistics import market_metrics
+from hybrid_engine.walkforward import LINE_MARKETS, line_offsets
 
 
 PANELS = dict(
@@ -25,8 +26,8 @@ def matched_panels(rows):
         ids=set.intersection(*({r['fixture_id'] for r in rows[n]} for n in names))
         output[panel]=dict(n=len(ids), fixture_ids=sorted(ids),
             models={n:summarize([r for r in rows[n] if r['fixture_id'] in ids]) for n in names},markets={})
-        for market in ('1Q','1H','TOTAL','HOME','AWAY','HOME_HANDICAP'):
-            for offset in ((-2.5,0.,2.5) if market=='1Q' else (-5.,0.,5.)):
+        for market in LINE_MARKETS:
+            for offset in line_offsets(market):
                 common=ids.copy()
                 for n in names:
                     common &= {r['fixture_id'] for r in rows[n] if any(m['market']==market and m['offset']==offset and m['probabilities'] is not None for m in r['line_grid'])}
