@@ -73,6 +73,9 @@ def load_manifest(path):
             box = boxes.get((row['league'], row['fixture_id']))
             if box:
                 if (box['source_digest'] != digest(box['source']) or
+                        box['season'] != row['season'] or
+                        any(type(box['source'][k]) is not int for k in ('observed_at_utc', 'ingested_at_utc')) or
+                        not row['fixture_start_utc'] < box['source']['observed_at_utc'] <= box['source']['ingested_at_utc'] or
                         [box['teams'][s]['points'] for s in ('home', 'away')] != row['final_scores'] or
                         box['home_team_id'] != row['home_team_id'] or box['away_team_id'] != row['away_team_id'] or
                         box['fixture_start_utc'] != row['fixture_start_utc']):
@@ -155,7 +158,7 @@ def feature_cut(cohort, target, *, mode=STRICT, minimum=6, window=10):
             box = r.get('box')
             if box and len(r['periods']['home']) == len(r['periods']['away']) == 4:
                 source = box['source']
-                if mode == ASSUMED or source['ingested_at_utc'] <= target['fixture_start_utc'] - 1:
+                if mode == ASSUMED or max(source['observed_at_utc'], source['ingested_at_utc']) <= target['fixture_start_utc'] - 1:
                     boxes.append((r, box, own, other))
                     pins.append(dict(box_source=source, fixture_id=r['fixture_id']))
         features[side] = dict(team_id=tid, n_games=len(recent), points_for=mean(pf), points_against=mean(pa),

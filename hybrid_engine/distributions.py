@@ -90,7 +90,7 @@ class Forecast:
         return [float(np.mean(margin < 0)), float(np.mean(margin == 0)), float(np.mean(margin > 0))]
 
     def market(self, kind, line):
-        if self.law is not None and kind in ('TOTAL', 'HOME', 'AWAY', 'MARGIN'):
+        if self.law is not None:
             return self.law.market(kind, line)
         if self.samples is None:
             raise Abstain('NO_DISTRIBUTION_FOR_REQUESTED_MARKET')
@@ -168,7 +168,7 @@ class DiscreteNormalLaw:
             index = np.arange(len(p))
             return {k: float(p[mask].sum()) for k, mask in
                     [('under', index < line), ('push', index == line), ('over', index > line)]}
-        if kind != 'MARGIN': raise ValueError('UNKNOWN_ANALYTIC_MARKET')
+        if kind != 'MARGIN': raise Abstain('ANALYTIC_QUARTER_LAW_NOT_AVAILABLE')
         h, a = self.pmf; index = np.arange(len(a)); values = dict(under=0., push=0., over=0.)
         for score, weight in enumerate(h):
             for key, mask in [('under', score-index < line), ('push', score-index == line), ('over', score-index > line)]:
@@ -188,7 +188,10 @@ def gaussian_forecast(means, stds, weights, *, method='MC', budget=Budget(), mod
     weights = np.asarray(weights, dtype=float)
     # Validate weights even on the analytic path.
     periods_for_scores(np.array([[1, 1]], dtype=int), weights)
-    q = weights/weights.sum(axis=0)*means
+    # Report the expected *rounded/clipped* scores, including the lower-tail mass at zero.
+    # The latent normal locations can differ substantially near zero with high variance.
+    expected_scores = np.array([np.dot(np.arange(len(p)), p) for p in law.pmf])
+    q = weights/weights.sum(axis=0)*expected_scores
     samples = None
     if method in ('MC', 'RQMC_HALTON'):
         if method == 'MC': z = np.random.default_rng(budget.seed).standard_normal((budget.scenarios, 2))
@@ -206,5 +209,6 @@ def gaussian_forecast(means, stds, weights, *, method='MC', budget=Budget(), mod
     return Forecast(model, q, samples=samples, law=law if method == 'ANALYTIC' else None,
         metadata=dict(method=method, scenarios=0 if samples is None else budget.scenarios, seed=budget.seed,
             correlation_assumption=correlation, distribution='ROUNDED_CLIPPED_NORMAL',
+            latent_normal_locations=means.tolist(),
             quarter_allocation='LARGEST_REMAINDER_HISTORICAL_WEIGHTS_NOT_PBP',
             elapsed_seconds=time.perf_counter()-began, player_effect='NOT_AVAILABLE'))
