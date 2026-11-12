@@ -1,6 +1,5 @@
 """Quantiles of actual frozen sample paths, distinct from empirical coverage."""
 import hashlib
-import ast
 import inspect
 import json
 import time
@@ -87,8 +86,11 @@ def assert_frozen_sampler_sources(record):
             raise ValueError('FROZEN_SAMPLER_SOURCE_CHANGED:'+name)
     # evaluation.py also contains reporting code whose margin-bias sign was fixed.
     # Pin only its unchanged native sampler bridge, not the reporting function.
-    nodes=[ast.dump(ast.parse(inspect.getsource(obj)).body[0],include_attributes=False) for obj in (evaluation.V1Law,evaluation.v1_forecast)]
-    if hashlib.sha256('\n'.join(nodes).encode()).hexdigest()!='9cdd586e5e14317194cdc7a66f5e2a215264d454b828a9f5d899f98112a62237':
+    # Pin verbatim source, verified equal to the d2f88ba bridge. AST dump text
+    # changes between Python 3.11 and 3.12 (e.g. type_params=[]), even for the
+    # same source. The exact text pin rejects actual sampler edits on both.
+    sources=[inspect.getsource(obj) for obj in (evaluation.V1Law,evaluation.v1_forecast)]
+    if hashlib.sha256('\n'.join(sources).encode()).hexdigest()!='9395cf47ac364b1a254c14f57858f19892383deeb6a33a6bbaf3a645e0944d40':
         raise ValueError('FROZEN_V1_SAMPLER_BRIDGE_CHANGED')
 
 

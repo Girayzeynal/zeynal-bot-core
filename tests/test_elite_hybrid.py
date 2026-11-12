@@ -59,6 +59,13 @@ class IntervalTests(TestCase):
         archive=FrozenArchive(ARCHIVE)
         for r in archive.records.values():assert_frozen_sampler_sources(r)
 
+    def test_verbatim_bridge_pin_still_rejects_source_mutation(self):
+        import inspect
+        archive=FrozenArchive(ARCHIVE);record=next(iter(archive.records.values()))
+        source=inspect.getsource
+        with patch('hybrid_engine.intervals.inspect.getsource',side_effect=lambda obj:source(obj)+'# altered sampler\n'):
+            with self.assertRaisesRegex(ValueError,'FROZEN_V1_SAMPLER_BRIDGE_CHANGED'):assert_frozen_sampler_sources(record)
+
     def test_chunk_reader_refuses_decompression_over_budget(self):
         import gzip
         with TemporaryDirectory() as tmp:

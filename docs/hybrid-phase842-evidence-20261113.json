@@ -2,7 +2,7 @@
   "format": "PHASE842_ELITE_ACCEPTANCE_EVIDENCE_V1",
   "base_commit": "d2f88ba0fd6e0a88bdb2af7260432437d411fcb4",
   "report_day_tsi": "2026-11-13",
-  "generated_at_utc": 1794523365,
+  "generated_at_utc": 1794523673,
   "decision": "NO_GO",
   "production_default": "FAZ13",
   "recovery": {
@@ -21,13 +21,13 @@
     }
   },
   "tests": {
-    "passed": 541,
+    "passed": 542,
     "failed": 0,
     "previous_482_preserved": true,
     "log": {
       "path": "/workspace/research-artifacts/phase842-20261112/all-tests-final.log",
-      "sha256": "b335751dd0aaa15e158092d3875913130b0340612be733badc1e78c1dacc6e4c",
-      "bytes": 89015
+      "sha256": "17570469751a4161656cf3fb15e9254477c0b7e79c9d75a383e131bb820f2a5c",
+      "bytes": 89166
     },
     "command_scenario_matrix": {
       "commands": 4,
@@ -8392,17 +8392,17 @@
     "cpu_affinity": [
       0
     ],
-    "peak_rss_mib": 157.33984375,
-    "elapsed_seconds": 6.1774295439972775,
-    "reply_interval_p95_seconds": 0.3429279931966448,
+    "peak_rss_mib": 157.0234375,
+    "elapsed_seconds": 5.366120407998096,
+    "reply_interval_p95_seconds": 0.33059629630079135,
     "latency_scope": "SEQUENTIAL_LOCAL_HTTP_REPLY_INTERVAL_INCLUDES_HANDLER_AND_SEND_NOT_INTERNET_LATENCY",
     "cache_serialized_bytes": 15768035,
     "python_version": "3.12.14",
     "native_ml_libraries_loaded": [],
     "timeline_events": [
       {
-        "attempted_at_utc": 1794523068,
-        "message_sha256": "2f5ecc555015fafb5d33a9f20502f07725d5fed11cadcf3069be4f881974a116",
+        "attempted_at_utc": 1794523642,
+        "message_sha256": "9b0a2ef6d2d9fe4b600664331d4aa0c63dfa2358eec407587e56d36639f80a85",
         "part_count": 1,
         "part_index": 0,
         "record_type": "TELEGRAM_ANALYSIS_DELIVERY",
@@ -8412,8 +8412,8 @@
         "timeline": {
           "first_archived_at_utc": null,
           "prediction_generated_at_utc": null,
-          "replay_completed_at_utc": 1794523068,
-          "response_prepared_at_utc": 1794523068,
+          "replay_completed_at_utc": 1794523642,
+          "response_prepared_at_utc": 1794523642,
           "reused_forecast": true,
           "snapshot_created_at_utc": 1794508986,
           "snapshot_sha256": "0baa4e2b3cb54554f9b5d0667717cbee61e5cdf0367e99b909139ae4611d6a8f",
@@ -8422,21 +8422,21 @@
         "update_id": 2
       },
       {
-        "attempted_at_utc": 1794523068,
-        "message_sha256": "2f5ecc555015fafb5d33a9f20502f07725d5fed11cadcf3069be4f881974a116",
+        "attempted_at_utc": 1794523642,
+        "message_sha256": "9b0a2ef6d2d9fe4b600664331d4aa0c63dfa2358eec407587e56d36639f80a85",
         "part_count": 1,
         "part_index": 0,
         "record_type": "TELEGRAM_ANALYSIS_DELIVERY",
         "request_sha256": "a816f4a58a2e65bd24a9b5ff96b193d030641a8a11108ccb15d596bec5c12ccd",
         "status": "TELEGRAM_ACCEPTED",
-        "telegram_ack_at_utc": 1794523068,
+        "telegram_ack_at_utc": 1794523642,
         "telegram_message_id": 1002,
-        "telegram_sent_at_utc": 1794523068,
+        "telegram_sent_at_utc": 1794523642,
         "timeline": {
           "first_archived_at_utc": null,
           "prediction_generated_at_utc": null,
-          "replay_completed_at_utc": 1794523068,
-          "response_prepared_at_utc": 1794523068,
+          "replay_completed_at_utc": 1794523642,
+          "response_prepared_at_utc": 1794523642,
           "reused_forecast": true,
           "snapshot_created_at_utc": 1794508986,
           "snapshot_sha256": "0baa4e2b3cb54554f9b5d0667717cbee61e5cdf0367e99b909139ae4611d6a8f",
@@ -8445,8 +8445,8 @@
         "update_id": 2
       },
       {
-        "attempted_at_utc": 1794523068,
-        "message_sha256": "2f5ecc555015fafb5d33a9f20502f07725d5fed11cadcf3069be4f881974a116",
+        "attempted_at_utc": 1794523642,
+        "message_sha256": "9b0a2ef6d2d9fe4b600664331d4aa0c63dfa2358eec407587e56d36639f80a85",
         "part_count": 1,
         "part_index": 0,
         "record_type": "TELEGRAM_ANALYSIS_DELIVERY",
@@ -8456,8 +8456,8 @@
         "timeline": {
           "first_archived_at_utc": null,
           "prediction_generated_at_utc": null,
-          "replay_completed_at_utc": 1794523068,
-          "response_prepared_at_utc": 1794523068,
+          "replay_completed_at_utc": 1794523642,
+          "response_prepared_at_utc": 1794523642,
           "reused_forecast": true,
           "snapshot_created_at_utc": 1794508986,
           "snapshot_sha256": "0baa4e2b3cb54554f9b5d0667717cbee61e5cdf0367e99b909139ae4611d6a8f",
@@ -8466,21 +8466,21 @@
         "update_id": 3
       },
       {
-        "attempted_at_utc": 1794523068,
-        "message_sha256": "2f5ecc555015fafb5d33a9f20502f07725d5fed11cadcf3069be4f881974a116",
+        "attempted_at_utc": 1794523642,
+        "message_sha256": "9b0a2ef6d2d9fe4b600664331d4aa0c63dfa2358eec407587e56d36639f80a85",
         "part_count": 1,
         "part_index": 0,
         "record_type": "TELEGRAM_ANALYSIS_DELIVERY",
         "request_sha256": "a816f4a58a2e65bd24a9b5ff96b193d030641a8a11108ccb15d596bec5c12ccd",
         "status": "TELEGRAM_ACCEPTED",
-        "telegram_ack_at_utc": 1794523068,
+        "telegram_ack_at_utc": 1794523642,
         "telegram_message_id": 1003,
-        "telegram_sent_at_utc": 1794523068,
+        "telegram_sent_at_utc": 1794523642,
         "timeline": {
           "first_archived_at_utc": null,
           "prediction_generated_at_utc": null,
-          "replay_completed_at_utc": 1794523068,
-          "response_prepared_at_utc": 1794523068,
+          "replay_completed_at_utc": 1794523642,
+          "response_prepared_at_utc": 1794523642,
           "reused_forecast": true,
           "snapshot_created_at_utc": 1794508986,
           "snapshot_sha256": "0baa4e2b3cb54554f9b5d0667717cbee61e5cdf0367e99b909139ae4611d6a8f",
@@ -8491,8 +8491,8 @@
     ],
     "command_examples": [
       "NBA | 2026-11-11 | T\u00fcrkiye saati\nDo\u011frulanm\u0131\u015f ma\u00e7 kayd\u0131 bulunamad\u0131. Bu, kesin olarak ma\u00e7 olmad\u0131\u011f\u0131 anlam\u0131na gelmez.",
-      "<b>ZEYNAL BOT CORE | ELITE HYBRID PRO</b>\n\ud83c\udfc0 EuroLeague\nMaccabi Rapyd Tel Aviv \u2013 Hapoel IBI Tel Aviv\n12.11.2026 22:05:00 TS\u0130\n<b>Dondurulmu\u015f tahminin tekrar\u0131</b> | Normal s\u00fcre; uzatma hari\u00e7\n\n<b>SKOR PROJEKS\u0130YONU</b>\nEv / deplasman: 87.04 \u2013 92.45\nToplam: 179.49\nFark (ev): -5.40\nKazanma olas\u0131l\u0131klar\u0131: kalibrasyon do\u011frulanmad\u0131; g\u00f6sterilmiyor.\n\n<b>TAHM\u0130N ARALIKLARI</b>\nMa\u00e7 toplam\u0131: P50 179.0\nDar P25\u2013P75: 168.0\u2013191.0 | Risk P05\u2013P95: 152.0\u2013207.0\nEv toplam\u0131: P50 87.0\nDar P25\u2013P75: 79.0\u201395.0 | Risk P05\u2013P95: 67.0\u2013107.0\nDeplasman toplam\u0131: P50 92.0\nDar P25\u2013P75: 84.0\u2013100.0 | Risk P05\u2013P95: 73.0\u2013112.0\nMa\u00e7 fark\u0131: P50 -5.0\nDar P25\u2013P75: -17.0\u20136.0 | Risk P05\u2013P95: -33.0\u201322.0\nModel ev handikab\u0131: P50 5.0\nDar P25\u2013P75: -6.0\u201317.0 | Risk P05\u2013P95: -22.0\u201333.0\nDetay P10\u2013P90 (ma\u00e7 toplam\u0131): 158.0\u2013201.0\nAral\u0131klar ham model da\u011f\u0131l\u0131m\u0131ndand\u0131r; ger\u00e7ekle\u015fen kapsama veya g\u00fcven garantisi de\u011fildir.\n\n<b>PER\u0130YOT ANAL\u0130Z\u0130</b>\n1Q: 21.18 \u2013 24.22 | Toplam 45.40\nP25\u2013P75 43.0\u201348.0 | P05\u2013P95 38.0\u201352.0\n2Q: 20.72 \u2013 21.73 | Toplam 42.45\nP25\u2013P75 40.0\u201345.0 | P05\u2013P95 36.0\u201349.0\n3Q: 22.40 \u2013 22.71 | Toplam 45.11\nP25\u2013P75 42.0\u201348.0 | P05\u2013P95 38.0\u201352.0\n4Q: 22.75 \u2013 23.79 | Toplam 46.53\nP25\u2013P75 44.0\u201350.0 | P05\u2013P95 39.0\u201354.0\n1H: 41.90 \u2013 45.96 | Toplam 87.85\nP25\u2013P75 82.0\u201393.0 | P05\u2013P95 74.0\u2013101.0\n2H: 45.15 \u2013 46.49 | Toplam 91.64\nP25\u2013P75 86.0\u201398.0 | P05\u2013P95 77.0\u2013106.0\n\n<b>P\u0130YASA KAR\u015eILA\u015eTIRMASI</b>\nPiyasa verisi do\u011frulanamad\u0131.\nToplam, tak\u0131m toplam\u0131 ve handikap i\u00e7in \u00e7izgi/edge/alt\u2013\u00fcst y\u00f6n\u00fc \u00fcretilmedi.\n\n<b>MODEL DENET\u0130M\u0130</b>\nG\u00fcven endeksi: hesaplanamad\u0131\nKalibrasyon: do\u011frulanmad\u0131.\nKadro, sakatl\u0131k, rotasyon ve ger\u00e7ek tempo do\u011frulanmad\u0131.\nY\u00f6ntem: RQMC_HALTON | Ger\u00e7ek \u00f6rnek: 10,000\nSeed: 20261112\nModel: BAYES_TEAM_ATTACK_DEFENSE_V1\nSHA: 028266acfb8d\nKaynak: https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games\nVeri zaman\u0131: 12.11.2026 21:43:06 TS\u0130\n\u0130lk snapshot: 12.11.2026 21:43:06 TS\u0130\nAyr\u0131 \u00fcretim/ar\u015fiv biti\u015f saatleri eski kay\u0131tta yok; geriye d\u00f6n\u00fck doldurulmad\u0131.\nPREMATCH tahmini de\u011fildir: yeni \u00fcretim de\u011fil, kay\u0131t/girdi tekrar\u0131d\u0131r.\nEnsemble do\u011frulanmad\u0131; g\u00f6sterilen bile\u015fen Bayesian/QMC.\nMevcut tahmin yeniden g\u00f6steriliyor; yeniden \u00fcretilmedi.\n\u00dcretim: ayr\u0131 kaydedilmemi\u015f / bilinmiyor\n\u0130lk kal\u0131c\u0131 ar\u015fiv: ayr\u0131 kaydedilmemi\u015f / bilinmiyor\nYan\u0131t haz\u0131rland\u0131: 13.11.2026 01:37:48 TS\u0130\nTelegram g\u00f6nderim zaman\u0131: ba\u015far\u0131l\u0131 API yan\u0131t\u0131nda ayr\u0131 teslim kayd\u0131na al\u0131n\u0131r.",
-      "<b>ZEYNAL BOT CORE | ELITE HYBRID PRO</b>\n\ud83c\udfc0 EuroLeague\nMaccabi Rapyd Tel Aviv \u2013 Hapoel IBI Tel Aviv\n12.11.2026 22:05:00 TS\u0130\n<b>Dondurulmu\u015f tahminin tekrar\u0131</b> | Normal s\u00fcre; uzatma hari\u00e7\n\n<b>SKOR PROJEKS\u0130YONU</b>\nEv / deplasman: 87.04 \u2013 92.45\nToplam: 179.49\nFark (ev): -5.40\nKazanma olas\u0131l\u0131klar\u0131: kalibrasyon do\u011frulanmad\u0131; g\u00f6sterilmiyor.\n\n<b>TAHM\u0130N ARALIKLARI</b>\nMa\u00e7 toplam\u0131: P50 179.0\nDar P25\u2013P75: 168.0\u2013191.0 | Risk P05\u2013P95: 152.0\u2013207.0\nEv toplam\u0131: P50 87.0\nDar P25\u2013P75: 79.0\u201395.0 | Risk P05\u2013P95: 67.0\u2013107.0\nDeplasman toplam\u0131: P50 92.0\nDar P25\u2013P75: 84.0\u2013100.0 | Risk P05\u2013P95: 73.0\u2013112.0\nMa\u00e7 fark\u0131: P50 -5.0\nDar P25\u2013P75: -17.0\u20136.0 | Risk P05\u2013P95: -33.0\u201322.0\nModel ev handikab\u0131: P50 5.0\nDar P25\u2013P75: -6.0\u201317.0 | Risk P05\u2013P95: -22.0\u201333.0\nDetay P10\u2013P90 (ma\u00e7 toplam\u0131): 158.0\u2013201.0\nAral\u0131klar ham model da\u011f\u0131l\u0131m\u0131ndand\u0131r; ger\u00e7ekle\u015fen kapsama veya g\u00fcven garantisi de\u011fildir.\n\n<b>PER\u0130YOT ANAL\u0130Z\u0130</b>\n1Q: 21.18 \u2013 24.22 | Toplam 45.40\nP25\u2013P75 43.0\u201348.0 | P05\u2013P95 38.0\u201352.0\n2Q: 20.72 \u2013 21.73 | Toplam 42.45\nP25\u2013P75 40.0\u201345.0 | P05\u2013P95 36.0\u201349.0\n3Q: 22.40 \u2013 22.71 | Toplam 45.11\nP25\u2013P75 42.0\u201348.0 | P05\u2013P95 38.0\u201352.0\n4Q: 22.75 \u2013 23.79 | Toplam 46.53\nP25\u2013P75 44.0\u201350.0 | P05\u2013P95 39.0\u201354.0\n1H: 41.90 \u2013 45.96 | Toplam 87.85\nP25\u2013P75 82.0\u201393.0 | P05\u2013P95 74.0\u2013101.0\n2H: 45.15 \u2013 46.49 | Toplam 91.64\nP25\u2013P75 86.0\u201398.0 | P05\u2013P95 77.0\u2013106.0\n\n<b>P\u0130YASA KAR\u015eILA\u015eTIRMASI</b>\nPiyasa verisi do\u011frulanamad\u0131.\nToplam, tak\u0131m toplam\u0131 ve handikap i\u00e7in \u00e7izgi/edge/alt\u2013\u00fcst y\u00f6n\u00fc \u00fcretilmedi.\n\n<b>MODEL DENET\u0130M\u0130</b>\nG\u00fcven endeksi: hesaplanamad\u0131\nKalibrasyon: do\u011frulanmad\u0131.\nKadro, sakatl\u0131k, rotasyon ve ger\u00e7ek tempo do\u011frulanmad\u0131.\nY\u00f6ntem: RQMC_HALTON | Ger\u00e7ek \u00f6rnek: 10,000\nSeed: 20261112\nModel: BAYES_TEAM_ATTACK_DEFENSE_V1\nSHA: 028266acfb8d\nKaynak: https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games\nVeri zaman\u0131: 12.11.2026 21:43:06 TS\u0130\n\u0130lk snapshot: 12.11.2026 21:43:06 TS\u0130\nAyr\u0131 \u00fcretim/ar\u015fiv biti\u015f saatleri eski kay\u0131tta yok; geriye d\u00f6n\u00fck doldurulmad\u0131.\nPREMATCH tahmini de\u011fildir: yeni \u00fcretim de\u011fil, kay\u0131t/girdi tekrar\u0131d\u0131r.\nEnsemble do\u011frulanmad\u0131; g\u00f6sterilen bile\u015fen Bayesian/QMC.\nMevcut tahmin yeniden g\u00f6steriliyor; yeniden \u00fcretilmedi.\n\u00dcretim: ayr\u0131 kaydedilmemi\u015f / bilinmiyor\n\u0130lk kal\u0131c\u0131 ar\u015fiv: ayr\u0131 kaydedilmemi\u015f / bilinmiyor\nYan\u0131t haz\u0131rland\u0131: 13.11.2026 01:37:48 TS\u0130\nTelegram g\u00f6nderim zaman\u0131: ba\u015far\u0131l\u0131 API yan\u0131t\u0131nda ayr\u0131 teslim kayd\u0131na al\u0131n\u0131r.",
+      "<b>ZEYNAL BOT CORE | ELITE HYBRID PRO</b>\n\ud83c\udfc0 EuroLeague\nMaccabi Rapyd Tel Aviv \u2013 Hapoel IBI Tel Aviv\n12.11.2026 22:05:00 TS\u0130\n<b>Dondurulmu\u015f tahminin tekrar\u0131</b> | Normal s\u00fcre; uzatma hari\u00e7\n\n<b>SKOR PROJEKS\u0130YONU</b>\nEv / deplasman: 87.04 \u2013 92.45\nToplam: 179.49\nFark (ev): -5.40\nKazanma olas\u0131l\u0131klar\u0131: kalibrasyon do\u011frulanmad\u0131; g\u00f6sterilmiyor.\n\n<b>TAHM\u0130N ARALIKLARI</b>\nMa\u00e7 toplam\u0131: P50 179.0\nDar P25\u2013P75: 168.0\u2013191.0 | Risk P05\u2013P95: 152.0\u2013207.0\nEv toplam\u0131: P50 87.0\nDar P25\u2013P75: 79.0\u201395.0 | Risk P05\u2013P95: 67.0\u2013107.0\nDeplasman toplam\u0131: P50 92.0\nDar P25\u2013P75: 84.0\u2013100.0 | Risk P05\u2013P95: 73.0\u2013112.0\nMa\u00e7 fark\u0131: P50 -5.0\nDar P25\u2013P75: -17.0\u20136.0 | Risk P05\u2013P95: -33.0\u201322.0\nModel ev handikab\u0131: P50 5.0\nDar P25\u2013P75: -6.0\u201317.0 | Risk P05\u2013P95: -22.0\u201333.0\nDetay P10\u2013P90 (ma\u00e7 toplam\u0131): 158.0\u2013201.0\nAral\u0131klar ham model da\u011f\u0131l\u0131m\u0131ndand\u0131r; ger\u00e7ekle\u015fen kapsama veya g\u00fcven garantisi de\u011fildir.\n\n<b>PER\u0130YOT ANAL\u0130Z\u0130</b>\n1Q: 21.18 \u2013 24.22 | Toplam 45.40\nP25\u2013P75 43.0\u201348.0 | P05\u2013P95 38.0\u201352.0\n2Q: 20.72 \u2013 21.73 | Toplam 42.45\nP25\u2013P75 40.0\u201345.0 | P05\u2013P95 36.0\u201349.0\n3Q: 22.40 \u2013 22.71 | Toplam 45.11\nP25\u2013P75 42.0\u201348.0 | P05\u2013P95 38.0\u201352.0\n4Q: 22.75 \u2013 23.79 | Toplam 46.53\nP25\u2013P75 44.0\u201350.0 | P05\u2013P95 39.0\u201354.0\n1H: 41.90 \u2013 45.96 | Toplam 87.85\nP25\u2013P75 82.0\u201393.0 | P05\u2013P95 74.0\u2013101.0\n2H: 45.15 \u2013 46.49 | Toplam 91.64\nP25\u2013P75 86.0\u201398.0 | P05\u2013P95 77.0\u2013106.0\n\n<b>P\u0130YASA KAR\u015eILA\u015eTIRMASI</b>\nPiyasa verisi do\u011frulanamad\u0131.\nToplam, tak\u0131m toplam\u0131 ve handikap i\u00e7in \u00e7izgi/edge/alt\u2013\u00fcst y\u00f6n\u00fc \u00fcretilmedi.\n\n<b>MODEL DENET\u0130M\u0130</b>\nG\u00fcven endeksi: hesaplanamad\u0131\nKalibrasyon: do\u011frulanmad\u0131.\nKadro, sakatl\u0131k, rotasyon ve ger\u00e7ek tempo do\u011frulanmad\u0131.\nY\u00f6ntem: RQMC_HALTON | Ger\u00e7ek \u00f6rnek: 10,000\nSeed: 20261112\nModel: BAYES_TEAM_ATTACK_DEFENSE_V1\nSHA: 028266acfb8d\nKaynak: https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games\nVeri zaman\u0131: 12.11.2026 21:43:06 TS\u0130\n\u0130lk snapshot: 12.11.2026 21:43:06 TS\u0130\nAyr\u0131 \u00fcretim/ar\u015fiv biti\u015f saatleri eski kay\u0131tta yok; geriye d\u00f6n\u00fck doldurulmad\u0131.\nPREMATCH tahmini de\u011fildir: yeni \u00fcretim de\u011fil, kay\u0131t/girdi tekrar\u0131d\u0131r.\nEnsemble do\u011frulanmad\u0131; g\u00f6sterilen bile\u015fen Bayesian/QMC.\nMevcut tahmin yeniden g\u00f6steriliyor; yeniden \u00fcretilmedi.\n\u00dcretim: ayr\u0131 kaydedilmemi\u015f / bilinmiyor\n\u0130lk kal\u0131c\u0131 ar\u015fiv: ayr\u0131 kaydedilmemi\u015f / bilinmiyor\nYan\u0131t haz\u0131rland\u0131: 13.11.2026 01:47:22 TS\u0130\nTelegram g\u00f6nderim zaman\u0131: ba\u015far\u0131l\u0131 API yan\u0131t\u0131nda ayr\u0131 teslim kayd\u0131na al\u0131n\u0131r.",
+      "<b>ZEYNAL BOT CORE | ELITE HYBRID PRO</b>\n\ud83c\udfc0 EuroLeague\nMaccabi Rapyd Tel Aviv \u2013 Hapoel IBI Tel Aviv\n12.11.2026 22:05:00 TS\u0130\n<b>Dondurulmu\u015f tahminin tekrar\u0131</b> | Normal s\u00fcre; uzatma hari\u00e7\n\n<b>SKOR PROJEKS\u0130YONU</b>\nEv / deplasman: 87.04 \u2013 92.45\nToplam: 179.49\nFark (ev): -5.40\nKazanma olas\u0131l\u0131klar\u0131: kalibrasyon do\u011frulanmad\u0131; g\u00f6sterilmiyor.\n\n<b>TAHM\u0130N ARALIKLARI</b>\nMa\u00e7 toplam\u0131: P50 179.0\nDar P25\u2013P75: 168.0\u2013191.0 | Risk P05\u2013P95: 152.0\u2013207.0\nEv toplam\u0131: P50 87.0\nDar P25\u2013P75: 79.0\u201395.0 | Risk P05\u2013P95: 67.0\u2013107.0\nDeplasman toplam\u0131: P50 92.0\nDar P25\u2013P75: 84.0\u2013100.0 | Risk P05\u2013P95: 73.0\u2013112.0\nMa\u00e7 fark\u0131: P50 -5.0\nDar P25\u2013P75: -17.0\u20136.0 | Risk P05\u2013P95: -33.0\u201322.0\nModel ev handikab\u0131: P50 5.0\nDar P25\u2013P75: -6.0\u201317.0 | Risk P05\u2013P95: -22.0\u201333.0\nDetay P10\u2013P90 (ma\u00e7 toplam\u0131): 158.0\u2013201.0\nAral\u0131klar ham model da\u011f\u0131l\u0131m\u0131ndand\u0131r; ger\u00e7ekle\u015fen kapsama veya g\u00fcven garantisi de\u011fildir.\n\n<b>PER\u0130YOT ANAL\u0130Z\u0130</b>\n1Q: 21.18 \u2013 24.22 | Toplam 45.40\nP25\u2013P75 43.0\u201348.0 | P05\u2013P95 38.0\u201352.0\n2Q: 20.72 \u2013 21.73 | Toplam 42.45\nP25\u2013P75 40.0\u201345.0 | P05\u2013P95 36.0\u201349.0\n3Q: 22.40 \u2013 22.71 | Toplam 45.11\nP25\u2013P75 42.0\u201348.0 | P05\u2013P95 38.0\u201352.0\n4Q: 22.75 \u2013 23.79 | Toplam 46.53\nP25\u2013P75 44.0\u201350.0 | P05\u2013P95 39.0\u201354.0\n1H: 41.90 \u2013 45.96 | Toplam 87.85\nP25\u2013P75 82.0\u201393.0 | P05\u2013P95 74.0\u2013101.0\n2H: 45.15 \u2013 46.49 | Toplam 91.64\nP25\u2013P75 86.0\u201398.0 | P05\u2013P95 77.0\u2013106.0\n\n<b>P\u0130YASA KAR\u015eILA\u015eTIRMASI</b>\nPiyasa verisi do\u011frulanamad\u0131.\nToplam, tak\u0131m toplam\u0131 ve handikap i\u00e7in \u00e7izgi/edge/alt\u2013\u00fcst y\u00f6n\u00fc \u00fcretilmedi.\n\n<b>MODEL DENET\u0130M\u0130</b>\nG\u00fcven endeksi: hesaplanamad\u0131\nKalibrasyon: do\u011frulanmad\u0131.\nKadro, sakatl\u0131k, rotasyon ve ger\u00e7ek tempo do\u011frulanmad\u0131.\nY\u00f6ntem: RQMC_HALTON | Ger\u00e7ek \u00f6rnek: 10,000\nSeed: 20261112\nModel: BAYES_TEAM_ATTACK_DEFENSE_V1\nSHA: 028266acfb8d\nKaynak: https://api-live.euroleague.net/v2/competitions/E/seasons/E2026/games\nVeri zaman\u0131: 12.11.2026 21:43:06 TS\u0130\n\u0130lk snapshot: 12.11.2026 21:43:06 TS\u0130\nAyr\u0131 \u00fcretim/ar\u015fiv biti\u015f saatleri eski kay\u0131tta yok; geriye d\u00f6n\u00fck doldurulmad\u0131.\nPREMATCH tahmini de\u011fildir: yeni \u00fcretim de\u011fil, kay\u0131t/girdi tekrar\u0131d\u0131r.\nEnsemble do\u011frulanmad\u0131; g\u00f6sterilen bile\u015fen Bayesian/QMC.\nMevcut tahmin yeniden g\u00f6steriliyor; yeniden \u00fcretilmedi.\n\u00dcretim: ayr\u0131 kaydedilmemi\u015f / bilinmiyor\n\u0130lk kal\u0131c\u0131 ar\u015fiv: ayr\u0131 kaydedilmemi\u015f / bilinmiyor\nYan\u0131t haz\u0131rland\u0131: 13.11.2026 01:47:22 TS\u0130\nTelegram g\u00f6nderim zaman\u0131: ba\u015far\u0131l\u0131 API yan\u0131t\u0131nda ayr\u0131 teslim kayd\u0131na al\u0131n\u0131r.",
       "ZEYNAL | \u0130ZOLE PROSPEKT\u0130F ARA\u015eTIRMA | Normal s\u00fcre\nSonu\u00e7lanan ma\u00e7: 0 | Bekleyen: 5\nDo\u011frulanm\u0131\u015f final yok; performans ve kalibrasyon hesaplanmad\u0131.\nAra\u015ft\u0131rma kay\u0131tlar\u0131d\u0131r; \u00fcretim ba\u015far\u0131 oran\u0131 veya do\u011frulanm\u0131\u015f g\u00fcven y\u00fczdesi de\u011fildir.",
       "ZEYNAL | DONDURULMU\u015e MODEL KAR\u015eILA\u015eTIRMASI | Ara\u015ft\u0131rma\nBAYES_QMC | 87.04 \u2013 92.45 | Sonu\u00e7 bekleniyor\nFAZ13_MC | 86.30 \u2013 93.05 | Sonu\u00e7 bekleniyor\nPOSSESSION_ANALYTIC | 84.24 \u2013 91.55 | Sonu\u00e7 bekleniyor\nPOSSESSION_MC | 84.24 \u2013 91.55 | Sonu\u00e7 bekleniyor"
     ],
@@ -8502,7 +8502,7 @@
       "prospective_results.py": "4a0c01a43fb2c1bdd7d864fe91e86e509ea8b8cf284eb6abbae66e19d6db48cc",
       "frozen_archive.py": "4502744351eb06fb7887f0c2cae723f730b395b5c14a97ff57a3f9f10a0bda66",
       "preparation.py": "f51077c6e2b504c86aac4500be7913eaf7c8b461fc6f610fbf2fff976a42c025",
-      "intervals.py": "4126e18ef4ba4d4ef269681caa7eda8b60d3f08b2eeee09ec62d675bbe992ec9",
+      "intervals.py": "fb1eaa081f5939f137c92df929cbf7fa6155638273405267291011679907f861",
       "acceptance.py": "52621cb8019b8d913df5482e090c73e85ac363723f83f0d6a49575854ab0f5c2",
       "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
       "markets.py": "56a3a13c97daf4b2403273d0c3ec7169304bc638e8d28f4392d73be5e310ef35",
@@ -8538,17 +8538,17 @@
       "../Dockerfile": "80b1f58128bf033779311e79f62d049f85954e5bff7155d849a3dd0403212bac"
     },
     "post_collection_process_memory": {
-      "VmPeak_mib": 239.34375,
-      "VmSize_mib": 182.34375,
-      "VmHWM_mib": 157.33984375,
-      "VmRSS_mib": 100.6640625
+      "VmPeak_mib": 239.078125,
+      "VmSize_mib": 178.5625,
+      "VmHWM_mib": 157.0234375,
+      "VmRSS_mib": 96.6875
     },
-    "workload_peak_rss_mib": 157.33984375,
+    "workload_peak_rss_mib": 157.0234375,
     "post_shutdown_process_memory": {
-      "VmPeak_mib": 239.34375,
-      "VmSize_mib": 190.33203125,
-      "VmHWM_mib": 157.33984375,
-      "VmRSS_mib": 100.6875
+      "VmPeak_mib": 239.078125,
+      "VmSize_mib": 186.55078125,
+      "VmHWM_mib": 157.0234375,
+      "VmRSS_mib": 96.7109375
     },
     "shutdown_completed": true
   },
@@ -8572,7 +8572,19 @@
       "path": "/workspace/research-artifacts/phase842-20261112/all-tests-missing-test-import.log",
       "sha256": "60df45f7fe96e248c619e38a1cf3d1c3c3d5757b83afe89297e9c9c677835557",
       "bytes": 89693
-    }
+    },
+    "first_ci_python311_ast_pin_failure": [
+      {
+        "path": "/workspace/research-artifacts/phase842-20261112/ci-first-131547527571.log",
+        "sha256": "a57d2f75f185dd041c3f584ff314d64915fb6d9440020e6aeaf1549b553e64d3",
+        "bytes": 130900
+      },
+      {
+        "path": "/workspace/research-artifacts/phase842-20261112/ci-first-131547528284.log",
+        "sha256": "ce854d7dd1fcd89c166614b5a1b33e4a8ad3bff5d3b59e7c8b98d7474f24af1f",
+        "bytes": 188586
+      }
+    ]
   },
   "ci": "FINAL_HEAD_GITHUB_ACTIONS_LOGS_ARE_AUTHORITATIVE;SEE_PR84_CHECKS",
   "ci_docker_runtime_scope": "ONE_CPU_RLIMIT_AS_256_MIB_READ_ONLY_ROOT_NETWORK_NONE_NO_NATIVE_CACHE_STRESS",
@@ -8599,8 +8611,8 @@
     },
     "hybrid-phase842-runtime-20261113.json": {
       "path": "/workspace/zeynal-hybrid-research/docs/hybrid-phase842-runtime-20261113.json",
-      "sha256": "d601d1cb2f3f3c013d4d3d34df2da5a93a1b80748764041bf95ada1f7583f94f",
-      "bytes": 15180
+      "sha256": "3e45383f73bc2c5ca2485039715e94f0e7849d8bccb99db5af7c120d27bb0d13",
+      "bytes": 15175
     },
     "hybrid-phase842-engine-audit-20261113.json": {
       "path": "/workspace/zeynal-hybrid-research/docs/hybrid-phase842-engine-audit-20261113.json",
@@ -8615,13 +8627,13 @@
   },
   "official_result_packet": {
     "path": "/workspace/zeynal-hybrid-research/docs/evidence/hybrid-phase842-official-results-20261113.tar.gz",
-    "sha256": "0be86527c9fbace035d3786f589d75a0b43e0d581f0b24a2905d9c2ab95ae1fa",
+    "sha256": "b2781d7ebadf58b216f39eb115e5074e863bd0921548d42fbd0a137631e6b029",
     "bytes": 233515
   },
   "evidence_capsule": {
     "path": "/workspace/research-artifacts/hybrid-phase842-evidence-20261113.tar.gz",
-    "sha256": "2c4f2fb4d4939e46e18ab9be092613048c691ecf2170ae65f894636db0e53dfd",
-    "bytes": 735644
+    "sha256": "f97c24fda612e7b9be3c5160f14fa7b943a7b5ec438790c61625fcd4dc38d0ba",
+    "bytes": 794152
   },
   "base_raw_input_capsule": {
     "path": "/workspace/research-artifacts/hybrid-phase841-inputs-20261112.tar.gz",
