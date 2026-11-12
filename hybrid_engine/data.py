@@ -11,6 +11,7 @@ from statistics import mean, pstdev
 from core.team_identity import digest
 from historical_research import historical_rows, reference_predict
 from season_archive_collect import validate_collection
+from hybrid_engine.availability import effective_time, effective_box_time
 
 STRICT = "PIT_PROVEN_BACKTEST"
 ASSUMED = "AVAILABILITY_ASSUMED_RESEARCH"
@@ -33,7 +34,7 @@ def load_manifest(path):
     manifest = json.loads(local_path(path).read_text())
     if manifest.get('format') != 'HYBRID_DATASET_MANIFEST_V1':
         raise ValueError('DATASET_MANIFEST_REQUIRED')
-    catalogs, boxes, pins = [], {}, []
+    catalogs, boxes, pins, archive_items = [], {}, [], []
     for item in manifest['files']:
         p = local_path(item['path'])
         if p.stat().st_size > 128 * 1024 * 1024:
@@ -64,6 +65,9 @@ def load_manifest(path):
                 if key in boxes and boxes[key] != box:
                     raise ValueError('CONFLICTING_BOX_ARCHIVE')
                 boxes[key] = box
+        elif item['kind'] == 'PUBLIC_ARCHIVE_INPUTS':
+            if document.get('format') != 'PUBLIC_ARCHIVE_INPUTS_V1': raise ValueError('PUBLIC_ARCHIVE_INPUT_FORMAT')
+            archive_items.extend(document['sources'])
         else:
             raise ValueError('UNKNOWN_DATASET_FILE_KIND')
         pins.append(dict(kind=item['kind'], sha256=item['sha256']))
@@ -91,9 +95,21 @@ def load_manifest(path):
                 away_team_id=fixture['away_team_id'], provider=fixture['provider'],
                 observed_at_utc=payload['observed_at_utc'], ingested_at_utc=payload['ingested_at_utc'],
                 source_catalog_sha256=catalog['sha256']))
-    return cohort, dict(manifest_sha256=digest(manifest), source_pins=pins, fixture_knowledge=knowledge,
+    provenance = dict(manifest_sha256=digest(manifest), source_pins=pins, fixture_knowledge=knowledge,
                         data_class=manifest.get('data_class', 'UNVERIFIED'),
                         source_permission=manifest.get('source_permission', 'NOT_ESTABLISHED'))
+    if archive_items:
+        from hybrid_engine.archive_sources import bind_archives
+        names = {}
+        for catalog in catalogs:
+            p = catalog['payload']
+            if p['provider'] != 'EUROLEAGUE_LIVE': continue
+            for game in p['raw']['data']:
+                for side in ('local','road'):
+                    club = game[side]['club']; key = (p['league'], f"{p['season_start_year']}/{p['season_start_year']+1}", club['code'])
+                    names[key] = [v for k,v in club.items() if k in ('name','abbreviatedName','editorialName') and isinstance(v,str)]
+        cohort, provenance = bind_archives(cohort, provenance, archive_items, names)
+    return cohort, provenance
 
 
 def metadata(row):
@@ -108,7 +124,7 @@ def regulation(row):
 
 def available_at(row, mode):
     if mode == STRICT:
-        return max(row['observed_at_utc'], row['ingested_at_utc'])
+        return effective_time(row, 'CORE')
     if mode == ASSUMED:
         # This is an explicit research assumption, never an availability attestation.
         return row['fixture_start_utc'] + 86400
@@ -123,7 +139,7 @@ def prior_rows(cohort, target, mode=STRICT):
                     and r['fixture_id'] != target['fixture_id'] and r['fixture_start_utc'] < cutoff
                     and regulation(r) is not None and available_at(r, mode) <= cutoff]
         if eligible:
-            r = min(eligible, key=lambda x: (x['ingested_at_utc'], x['source_catalog_sha256']))
+            r = max(eligible, key=lambda x: (available_at(x, mode), x['source_catalog_sha256']))
             if not 0 < r['observed_at_utc'] <= r['ingested_at_utc']:
                 raise ValueError('INVALID_SOURCE_CLOCK')
             result.append(r)
@@ -151,6 +167,7 @@ def feature_cut(cohort, target, *, mode=STRICT, minimum=6, window=10):
     features = {}
     pins = [dict(fixture_id=r['fixture_id'], catalog=r['source_catalog_sha256'],
         observed_at_utc=r['observed_at_utc'], ingested_at_utc=r['ingested_at_utc'],
+        available_at_utc=available_at(r, mode), archive_evidence=r.get('archive_evidence'),
         regulation_scores=regulation(r)) for r in rows]
     league_mean = mean(sum(regulation(r)) / 2 for r in rows) if rows else None
     for side in ('home', 'away'):
@@ -170,12 +187,15 @@ def feature_cut(cohort, target, *, mode=STRICT, minimum=6, window=10):
             adjusted.append(pf[-1] - mean(conceded) + league_mean)
             pins.append(dict(fixture_id=r['fixture_id'], catalog=r['source_catalog_sha256'],
                              observed_at_utc=r['observed_at_utc'], ingested_at_utc=r['ingested_at_utc']))
-            box = r.get('box')
+            candidates = r.get('box_versions', [r.get('box')])
+            candidates = [b for b in candidates if b and (mode == ASSUMED or effective_box_time(b) <= target['fixture_start_utc']-1)
+                and (not b.get('teams') or [b['teams'][s]['points'] for s in ('home','away')] == r['final_scores'])]
+            box = max(candidates,key=lambda b:effective_box_time(b)) if candidates else None
             if box and len(r['periods']['home']) == len(r['periods']['away']) == 4:
                 source = box['source']
-                if mode == ASSUMED or max(source['observed_at_utc'], source['ingested_at_utc']) <= target['fixture_start_utc'] - 1:
+                if mode == ASSUMED or effective_box_time(box) <= target['fixture_start_utc'] - 1:
                     boxes.append((r, box, own, other))
-                    pins.append(dict(box_source=source, fixture_id=r['fixture_id']))
+                    pins.append(dict(box_source=source, fixture_id=r['fixture_id'], available_at_utc=effective_box_time(box), archive_evidence=box.get('archive_evidence')))
         features[side] = dict(team_id=tid, n_games=len(recent), points_for=mean(pf), points_against=mean(pa),
                               points_for_std=pstdev(pf), points_against_std=pstdev(pa),
                               quarters_for=[mean(v[q] for v in qf) for q in range(4)],

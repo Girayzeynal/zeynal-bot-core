@@ -1,5 +1,8 @@
 # PR #84 — sıkı kabul denetimi, 12 Kasım 2026
 
+> Bu önceki 640 maçlık kesitin raporudur. Sonraki [kök neden ve arşiv tanığı çalışması](hybrid-root-cause-20261112.md),
+> yeni 652 maçlık kesitte 84 gerçek OOS test maçı açtı. Üstünlük kanıtlanmadı; kabul hâlâ engelli.
+
 **Karar: kabul engelli; Faz13 varsayılan kalır. Main merge/deploy yapılmaz.**
 Başlangıç commit'i `962e16d0d9b748bf877e89f6d34935a4ddea7f11`.
 Bu çalışma yalnızca araştırma dalını günceller; main, V1 komut kayıtları,

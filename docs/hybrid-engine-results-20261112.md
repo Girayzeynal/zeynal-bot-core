@@ -1,5 +1,7 @@
 # Hibrit motor araştırma sonucu — 12 Kasım 2026
 
+Güncel arşiv tanığı ve gerçek OOS sonucu: [hybrid-root-cause-20261112.md](hybrid-root-cause-20261112.md).
+
 Sonraki sıkı kabul denetimi: [hybrid-acceptance-20261112.md](hybrid-acceptance-20261112.md).
 Bu dosyadaki varsayımlı sonuçlar `962e16d` deneyinin tarihsel kaydıdır.
 

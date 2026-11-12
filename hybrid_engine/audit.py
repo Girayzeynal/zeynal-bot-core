@@ -3,21 +3,23 @@ from collections import Counter
 from datetime import datetime, timezone
 
 from hybrid_engine.data import STRICT, Abstain, feature_cut, inventory
+from hybrid_engine.availability import effective_time
 
 
 def known_fixture(target, observations, cutoff):
     eligible = [o for o in observations if o['fixture_id'] == target['fixture_id'] and o['league'] == target['league'] and o['season'] == target['season']
         and all(o[k] == target[k] for k in ('fixture_start_utc', 'home_team_id', 'away_team_id'))
-        and 0 < o['observed_at_utc'] <= o['ingested_at_utc'] <= cutoff]
+        and 0 < o['observed_at_utc'] <= o['ingested_at_utc'] and effective_time(o, 'FIXTURE') <= cutoff]
     if not eligible: raise Abstain('NO_PRE_CUTOFF_FIXTURE_KNOWLEDGE')
-    return min(eligible, key=lambda o: (o['ingested_at_utc'], o['source_catalog_sha256']))
+    return max(eligible, key=lambda o: (effective_time(o, 'FIXTURE'), o['source_catalog_sha256']))
 
 
 def source_audit(cohort, provenance):
     report = dict(inventory=inventory(cohort), cohorts={},
-        publication_time_policy='ONLY_OBSERVED_AND_INGESTED_CLOCKS_NO_START_PLUS_DELAY_IMPUTATION',
+        publication_time_policy='LOCAL_OBSERVATION_OR_FIELD_BOUND_PUBLIC_ARCHIVE_WITNESS_NO_START_PLUS_DELAY_IMPUTATION',
         season_completeness='NOT_INFERRED_FROM_OBSERVED_GAME_COUNT',
-        source_clock_attestation='LOCAL_PINNED_RECEIPTS_NOT_INDEPENDENT_TIMESTAMP_AUTHORITY')
+        source_clock_attestation=('NATIVE_API_ARCHIVE_VERSION_WITNESSES_PLUS_CURRENT_LOCAL_RECEIPTS'
+            if provenance.get('archive_binding') else 'LOCAL_PINNED_RECEIPTS_NOT_INDEPENDENT_TIMESTAMP_AUTHORITY'))
     for versions in cohort:
         row = versions[0]; key = row['league']+' '+row['season']
         group = report['cohorts'].setdefault(key, dict(start=[], score_observed=[], score_ingested=[],
