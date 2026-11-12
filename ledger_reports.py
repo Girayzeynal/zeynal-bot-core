@@ -144,8 +144,10 @@ async def compare_command(update,context):
 async def _reply(update,context,league,fixture,renderer):
     import asyncio
     service=context.application.bot_data['ledger_reports']
-    try:report=await asyncio.to_thread(service.read,league,fixture);text=renderer(report)
-    except (ValueError,KeyError,TypeError,sqlite3.Error,OSError):
+    try:
+        report=await asyncio.to_thread(service.read,league,fixture)
+        text=getattr(service,renderer.__name__,renderer)(report)
+    except (ValueError,KeyError,TypeError,sqlite3.Error,OSError,RuntimeError):
         text='Arşiv doğrulanamadı veya istek geçersiz. Performans sonucu üretilmedi.'
     await update.effective_message.reply_text(text,disable_web_page_preview=True)
 

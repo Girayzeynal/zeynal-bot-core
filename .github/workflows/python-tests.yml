@@ -38,3 +38,8 @@ jobs:
         run: docker build --tag zeynal-bot-core:ci .
       - name: Run regression suite inside deployment image
         run: docker run --rm --network none zeynal-bot-core:ci python -m unittest discover -s tests -v
+      - name: Run bounded isolated hybrid command flow
+        run: >-
+          docker run --rm --network none --read-only --tmpfs /tmp:rw,size=96m
+          zeynal-bot-core:ci python -m hybrid_engine.runtime_probe --exercise-hybrid
+          --fixture /app/docs/prospective/euroleague-20261112/index-c87489f84f5efa2c3abfae51f641bc066a6ab875f44c94bc197a0a49588b03d1.json

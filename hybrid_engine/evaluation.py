@@ -168,7 +168,7 @@ def summarize(rows):
     result = dict(n=len(rows), team_scores=point_metrics(scores-actual),
         home=point_metrics(scores[:, 0]-actual[:, 0]), away=point_metrics(scores[:, 1]-actual[:, 1]),
         total=point_metrics(scores.sum(axis=1)-actual.sum(axis=1)),
-        margin=point_metrics(np.diff(scores, axis=1)-np.diff(actual, axis=1)),
+        margin=point_metrics((scores[:, 0]-scores[:, 1])-(actual[:, 0]-actual[:, 1])),
         periods={str(i+1)+'Q': point_metrics(q[:, i]-actual_q[:, i]) for i in range(4)},
         halves={str(i+1)+'H': point_metrics(q[:, 2*i:2*i+2].sum(axis=1)-actual_q[:, 2*i:2*i+2].sum(axis=1)) for i in range(2)},
         runtime_seconds=dict(p50=float(np.median([r['seconds'] for r in rows])),
