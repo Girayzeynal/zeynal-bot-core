@@ -1,0 +1,5 @@
+# Offline research / CI only. Never added to the Telegram image requirements.
+scipy==1.15.3
+scikit-learn==1.7.2
+lightgbm==4.6.0
+catboost==1.2.8
