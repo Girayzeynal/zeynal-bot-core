@@ -76,6 +76,7 @@ def timeline(report,service,now):
             archived=row[1]
     return dict(prediction_generated_at_utc=p.get('prediction_generated_at_utc'),
         snapshot_created_at_utc=p['created_at_utc'],first_archived_at_utc=archived,
+        archive_published_at_utc=archived,tipoff_utc=p.get('fixture_start_utc'),telegram_reply_at_utc=None,
         response_prepared_at_utc=now,telegram_sent_at_utc=None,
         snapshot_sha256=digest(p),reused_forecast=report.get('new_record') is False)
 
@@ -127,6 +128,6 @@ async def reply_analysis(update,context,report,service):
             stamp=int(date.timestamp()) if isinstance(date,datetime) and date.tzinfo is not None else None
             await asyncio.to_thread(journal.append,part_key+':result',dict(event,
                 status='TELEGRAM_ACCEPTED' if stamp is not None else 'SERVER_DATE_UNAVAILABLE',
-                telegram_sent_at_utc=stamp,telegram_ack_at_utc=int(time.time()),
+                telegram_sent_at_utc=stamp,telegram_reply_at_utc=stamp,telegram_ack_at_utc=int(time.time()),
                 telegram_message_id=getattr(sent,'message_id',None)))
     return sent

@@ -227,6 +227,7 @@ def main():
     parser.add_argument('--repetitions', type=int, default=20)
     parser.add_argument('--exercise-v1', action='store_true')
     parser.add_argument('--exercise-hybrid', action='store_true')
+    parser.add_argument('--exercise-live-nba', action='store_true')
     parser.add_argument('--telegram-errors', action='store_true'); args = parser.parse_args()
     if args.telegram_errors and not args.exercise_v1: raise ValueError('FAILURE_PROBE_REQUIRES_V1_FLOW')
     if not 1 <= args.repetitions <= 50: raise ValueError('BOUNDED_REPETITIONS_REQUIRED')
@@ -242,7 +243,10 @@ def main():
             # executor-shutdown helper thread. The peak metrics above include the
             # entire workload; collection does not hide an inference memory peak.
             with asyncio.Runner() as runner:
-                if args.exercise_hybrid:
+                if args.exercise_live_nba:
+                    from hybrid_engine.live_runtime import run as run_live
+                    report=runner.run(run_live(args.fixture,args.repetitions))
+                elif args.exercise_hybrid:
                     from hybrid_engine.hybrid_runtime import run as run_hybrid
                     report=runner.run(run_hybrid(args.fixture,args.repetitions))
                 else:report = runner.run(run(args.fixture, args.mode, args.repetitions, args.exercise_v1, args.telegram_errors))

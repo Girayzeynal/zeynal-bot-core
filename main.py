@@ -119,7 +119,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             report=await release_service.analyze(league,date_str,home,away)
         except Exception as exc:
             logger.error('Analysis service failed: %s',type(exc).__name__)
-            await update.message.reply_text('Analiz hizmeti kullanılamıyor veya süre aşıldı. Yeni tahmin kaydedilmedi.')
+            await update.message.reply_text('Analiz hizmeti kullanılamıyor veya süre aşıldı. Arşiv durumu doğrulanamadı.')
             return
         await reply_analysis(update,context,report,release_service)
         return

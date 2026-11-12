@@ -1,0 +1,1 @@
+{"status": "NOT_CONFIGURED", "missing": ["ZEYNAL_TEST_BOT_TOKEN", "ZEYNAL_TEST_BOT_ID", "ZEYNAL_TEST_BOT_USERNAME", "ZEYNAL_TEST_CHAT_ID"], "actual_telegram_delivery_verified": false}

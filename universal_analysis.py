@@ -42,7 +42,11 @@ class UniversalAnalyzeService:
             spec=resolve_league(league);report.update(league=spec.code,provider=spec.provider)
             if not spec.provider: return dict(report,stage='PROVIDER',participant_count=None,reason='PARTICIPANT_ADAPTER_NOT_CONFIGURED')
             requested=datetime.strptime(day,'%Y-%m-%d').date()
-            if requested<datetime.fromtimestamp(time.time(),ISTANBUL).date():
+            today=datetime.fromtimestamp(time.time(),ISTANBUL).date()
+            # ESPN's NBA scoreboard date is a US basketball-day partition,
+            # whereas the command date is Istanbul's calendar day. For yesterday
+            # only, resolve the fixture before diagnosing this common mismatch.
+            if requested<today and (spec.code!='NBA' or requested<today-timedelta(days=1)):
                 return dict(report,stage='TIME',reason='HISTORICAL_PIT_SNAPSHOT_REQUIRED')
             year=requested.year if requested.month>=7 else requested.year-1
             stage='SEASON_PARTICIPANTS';report['season_id']=f'{year}/{year+1}'
@@ -82,7 +86,21 @@ class UniversalAnalyzeService:
                     games[cid]=g
             targets=[g for g in games.values() if g['home_team_id']==h.provider_ids[0][1] and
                 g['away_team_id']==a.provider_ids[0][1] and datetime.fromtimestamp(g['start_ts_utc'],ISTANBUL).date()==requested]
-            if len(targets)!=1: return dict(report,stage=stage,reason='FIXTURE_NOT_UNIQUELY_VERIFIED')
+            if len(targets)!=1:
+                adjacent=[g for g in games.values() if g['home_team_id']==h.provider_ids[0][1] and
+                    g['away_team_id']==a.provider_ids[0][1] and
+                    abs((datetime.fromtimestamp(g['start_ts_utc'],ISTANBUL).date()-requested).days)==1]
+                if spec.code=='NBA' and not targets and len(adjacent)==1:
+                    g=adjacent[0];start=datetime.fromtimestamp(g['start_ts_utc'],ISTANBUL)
+                    scheduled=[e['competitions'][0]['status']['type'].get('name') for c in catalogs
+                        for e in c['payload']['raw']['events'] if e['id'] in g['provider_fixture_ids']]
+                    return dict(report,stage='TIME',reason='FIXTURE_LOCAL_DATE_MISMATCH',date_diagnostic=dict(
+                        requested_day=day,command_timezone='Europe/Istanbul',expected_day=start.date().isoformat(),
+                        tipoff_utc=g['start_ts_utc'],tipoff_tsi=start.isoformat(),provider_fixture_ids=g['provider_fixture_ids'],
+                        suggested_command=(f'/analyze NBA {start.date().isoformat()} {h.official_name} vs {a.official_name}'
+                            if not g['completed'] and g['start_ts_utc']>int(time.time()) and scheduled and
+                            all(s=='STATUS_SCHEDULED' for s in scheduled) else None)))
+                return dict(report,stage=stage,reason='FIXTURE_NOT_UNIQUELY_VERIFIED')
             fixture=targets[0];report.update(fixture=fixture,source_catalog_sha256=[c['sha256'] for c in catalogs])
             if fixture['completed'] or fixture['start_ts_utc']<=int(time.time()):
                 return dict(report,stage='TIME',reason='FIXTURE_ALREADY_STARTED_OR_COMPLETED')
@@ -125,5 +143,12 @@ def render_preflight(report):
     if 'participant_count' in report: lines.append('Sezon katılımcısı: '+str(report['participant_count']))
     if 'history' in report:
         lines.append('Doğrulanmış geçmiş: Ev '+str(report['history']['home']['n_games'])+' / Dep '+str(report['history']['away']['n_games']))
+    if report.get('date_diagnostic'):
+        d=report['date_diagnostic']
+        lines.extend(['Komut tarihi Türkiye takvim günüdür (Europe/Istanbul); ESPN sorgu günü farklı olabilir.',
+            'Doğrulanmış başlangıç (UTC): '+datetime.fromtimestamp(d['tipoff_utc'],timezone.utc).isoformat(),
+            'Doğrulanmış başlangıç (TSİ): '+d['tipoff_tsi'],
+            'ESPN maç kimliği: '+', '.join(d['provider_fixture_ids'])])
+        if d.get('suggested_command'):lines.append('Tarihi kontrol ederek yeniden gönderin: '+d['suggested_command'])
     lines.append('Tahmin üretilmedi; mevcut tahmin kayıtları değiştirilmedi.')
     return '\n'.join(lines)

@@ -155,5 +155,6 @@ class FrozenHybridService:
         self.last_latency_seconds=time.perf_counter()-began
         return dict(status='FROZEN_REPLAY_OK',html=parts[0],html_parts=parts,bands=bands,confidence=quality,new_record=False,
             timeline=dict(prediction_generated_at_utc=None,snapshot_created_at_utc=r['created_at_utc'],
-                first_archived_at_utc=None,telegram_sent_at_utc=None,replay_completed_at_utc=int(time.time()),
+                first_archived_at_utc=None,archive_published_at_utc=None,tipoff_utc=r['fixture']['start_ts_utc'],
+                telegram_reply_at_utc=None,telegram_sent_at_utc=None,replay_completed_at_utc=int(time.time()),
                 snapshot_sha256=digest(r),reused_forecast=True),record=r)

@@ -49,17 +49,36 @@ class AuditedRequest(HTTPXRequest):
             data=json.loads(body)
             if status==200 and data.get('ok'):
                 r=data['result'];event=dict(kind='DELIVERY_ACCEPTED',update_id=_update.get(),telegram_sent_at_utc=r['date'],
+                    telegram_reply_at_utc=r['date'],
                     telegram_message_id=r['message_id'],chat_id=r['chat']['id'],ack_at_utc=int(time.time()),
                     message_sha256=digest(r.get('text','')))
                 await asyncio.to_thread(self.journal.append,digest(dict(chat=event['chat_id'],message=event['telegram_message_id'])),event)
         return status,body
 
 
-def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None):
+def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None):
     root=local_path(data_directory);root.mkdir(parents=True,exist_ok=True)
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');results=ProspectiveResults(archive,root/'official-results')
-    app.bot_data['verified_analysis_service']=FrozenHybridService(archive)
-    app.bot_data['ledger_reports']=ResearchReports(results);app.bot_data['delivery_journal']=journal
+    frozen=FrozenHybridService(archive)
+    if nba_service is not None:
+        from ledger_reports import LedgerReports,render_accuracy,render_compare
+        class Dispatch:
+            ledger=nba_service.ledger
+            async def analyze(self,league,*args):
+                return await (nba_service if league.upper()=='NBA' else frozen).analyze(league,*args)
+        class Reports:
+            def __init__(self):self.live=LedgerReports(nba_service.ledger.path);self.frozen=ResearchReports(results)
+            def read(self,league=None,fixture_id=None):
+                live=league is None or league.upper()=='NBA'
+                return dict(live=live,report=(self.live if live else self.frozen).read('NBA' if live else league,fixture_id))
+            def render_accuracy(self,r):
+                return ('İZOLE NBA HİBRİT ARAŞTIRMA — ÜRETİM DEĞİL\n'+render_accuracy(r['report'])) if r['live'] else self.frozen.render_accuracy(r['report'])
+            def render_compare(self,r):
+                return ('İZOLE NBA HİBRİT ARAŞTIRMA — ÜRETİM DEĞİL\n'+render_compare(r['report'])) if r['live'] else self.frozen.render_compare(r['report'])
+        app.bot_data['verified_analysis_service']=Dispatch();app.bot_data['ledger_reports']=Reports()
+    else:
+        app.bot_data['verified_analysis_service']=frozen;app.bot_data['ledger_reports']=ResearchReports(results)
+    app.bot_data['delivery_journal']=journal
     fetch=transport or ControlledTransport(fetch_document)
     app.bot_data['nba_fixture_loader']=VerifiedAnalyzeService(None,fetcher=fetch).list_nba_games
     async def authorized(update,context):
@@ -79,10 +98,13 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--preflight',action='store_true')
     parser.add_argument('--archive-directory');parser.add_argument('--data-directory');parser.add_argument('--result-poll-seconds',type=int,default=300)
+    parser.add_argument('--nba-model');parser.add_argument('--nba-model-sha')
     args=parser.parse_args();config=configuration(os.environ)
     if args.preflight or config['status']=='NOT_CONFIGURED':print(json.dumps(config));return
     if not args.archive_directory or not args.data_directory:raise ValueError('ISOLATED_DIRECTORIES_REQUIRED')
     if args.result_poll_seconds<60:raise ValueError('BOUNDED_RESULT_POLL_INTERVAL_REQUIRED')
+    if bool(args.nba_model)!=bool(args.nba_model_sha):raise ValueError('EXPLICIT_NBA_MODEL_AND_TRUSTED_PIN_REQUIRED')
+    nba_model_path=local_path(args.nba_model) if args.nba_model else None
     archive=FrozenArchive(args.archive_directory);root=local_path(args.data_directory);root.mkdir(parents=True,exist_ok=True)
     os.environ['TELEGRAM_BOT_TOKEN']=os.environ['ZEYNAL_TEST_BOT_TOKEN']
     os.environ['PREDICTION_LEDGER_DB']=str(root/'unused-live-ledger.sqlite')
@@ -117,7 +139,11 @@ def main():
     application.Application=IsolatedApplication
     try:app=application.build_app()
     finally:application.Application=original
-    _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport)
+    nba_service=None
+    if args.nba_model:
+        from hybrid_engine.live_nba import PreparedBayes,LiveNBAHybridService
+        nba_service=LiveNBAHybridService(root/'live-nba',PreparedBayes(nba_model_path,trusted_sha256=args.nba_model_sha))
+    _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport,nba_service=nba_service)
     app.bot_data['test_results']=results
     # Commands must arrive from the authorized HUMAN test chat; bot self-messages
     # are never counted as real command-input E2E evidence.
