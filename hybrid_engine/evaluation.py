@@ -2,6 +2,8 @@
 from collections import Counter
 import math
 import time
+from threading import RLock
+from unittest.mock import patch
 
 import numpy as np
 
@@ -12,27 +14,42 @@ from hybrid_engine.distributions import Budget, Forecast, gaussian_forecast, qua
 from hybrid_engine.models import BoostedScores, HierarchicalStrength
 from hybrid_engine.possession import PossessionModel
 from prematch_monte_carlo import PrematchMonteCarloEngine, PrematchSimulationInput
+import prematch_monte_carlo as v1_module
+
+_v1_trace_lock = RLock()
 
 
 class V1Law:
     def __init__(self, cut, line):
         p = reference(cut)
         self.line = line
-        self.result = PrematchMonteCarloEngine().simulate(PrematchSimulationInput(
+        samples = np.empty((10000, 4, 2), dtype=np.int32); cursor = 0
+        original_allocate = None
+        def traced(total, periods, rng):
+            nonlocal cursor
+            allocation = original_allocate(total, periods, rng)
+            samples[cursor//2, :, cursor % 2] = allocation; cursor += 1
+            return allocation
+        request = PrematchSimulationInput(
             home_mean=p['home'], away_mean=p['away'],
             home_std=cut.features['home']['points_for_std'],
             away_std=cut.features['away']['points_for_std'],
-            score_correlation=0., simulations=10000, seed=20261108, market_total=line))
+            score_correlation=0., simulations=10000, seed=20261108, market_total=line)
+        # Offline/sandbox adapter only. Preserve the original sampler, RNG sequence and
+        # returned periods; don't replace production code with a research reimplementation.
+        with _v1_trace_lock:
+            original_allocate = v1_module._allocate_periods
+            with patch.object(v1_module, '_allocate_periods', new=traced):
+                self.result = PrematchMonteCarloEngine().simulate(request)
+        if cursor != 20000: raise ValueError('V1_NATIVE_PERIOD_TRACE_INCOMPLETE')
+        self.paths = Forecast('V1_NATIVE_GAMMA_PERIOD_PATHS', np.array([p['quarters'][s] for s in ('home', 'away')]).T, samples=samples)
 
     def winner(self):
         r = self.result
         return [r.home_regulation_win_probability, r.regulation_tie_probability, r.away_regulation_win_probability]
 
     def market(self, kind, line):
-        if kind != 'TOTAL' or line != self.line:
-            raise Abstain('V1_REPLAY_ONLY_WINNER_AND_PREDECLARED_TOTAL_LINE')
-        r = self.result
-        return dict(under=r.under_probability, push=r.push_probability, over=r.over_probability)
+        return self.paths.market(kind, line)
 
 
 def v1_forecast(cut):
@@ -41,7 +58,7 @@ def v1_forecast(cut):
     return Forecast('FAZ13_V1_REFERENCE', np.array([p['quarters'][s] for s in ('home', 'away')]).T,
         law=law, metadata=dict(method='EXISTING_PRODUCTION_MC', scenarios=10000 if law else 0,
             seed=20261108, score_formula='REUSED_HISTORICAL_REFERENCE',
-            quarter_probabilities='NOT_EXPOSED_BY_V1_REPLAY'))
+            quarter_probabilities='ACTUAL_EXISTING_GAMMA18_ALLOCATOR_TRACE_NOT_POINT_PROFILE_UNCERTAINTY'))
 
 
 def chronological_split(examples):
@@ -130,7 +147,7 @@ def calibration(probabilities, observations):
 
 def probability_metrics(p, y):
     p = np.array(p); y = np.array(y)
-    if (p.ndim != 2 or p.shape[1] != 3 or len(y) != len(p) or not len(p) or
+    if (p.ndim != 2 or p.shape[1] != 3 or y.ndim != 1 or not np.issubdtype(y.dtype, np.integer) or np.any(y < 0) or np.any(y > 2) or len(y) != len(p) or not len(p) or
             not np.isfinite(p).all() or np.any(p < 0) or not np.allclose(p.sum(axis=1), 1)):
         raise ValueError('NORMALIZED_THREE_CLASS_PROBABILITIES_REQUIRED')
     truth = np.eye(3)[y]

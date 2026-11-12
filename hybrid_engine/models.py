@@ -185,7 +185,7 @@ class BoostedScores:
         if (cut.target['league'], cut.target['season']) != self.identity or cut.evaluation_class != self.evidence_class or cut.cutoff_utc < self.cutoff:
             raise ValueError('ML_PREDICTION_SCOPE_OR_CUTOFF_CONFLICT')
         x = np.array([ml_vector(cut)])
-        out = np.array([(m.booster_.predict(x, num_threads=1) if self.backend == 'LIGHTGBM' else m.predict(x))[0]
+        out = np.array([(m.booster_.predict(x, num_threads=1) if self.backend == 'LIGHTGBM' else m.predict(x, thread_count=1))[0]
                         for m in self.estimators])
         if not np.isfinite(out).all() or np.any(out <= 0) or np.any(out > 300):
             raise Abstain('ML_SCORE_OUT_OF_RANGE')

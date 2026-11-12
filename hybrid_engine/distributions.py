@@ -144,6 +144,7 @@ class DiscreteNormalLaw:
     """
     def __init__(self, means, stds):
         self.pmf = []
+        self.period_marginals = None
         for mu, sd in zip(means, stds):
             if not math.isfinite(mu) or not math.isfinite(sd) or not 0 < mu <= 300 or not 0 < sd <= 80:
                 raise ValueError('INVALID_GAUSSIAN_PARAMETERS')
@@ -154,6 +155,22 @@ class DiscreteNormalLaw:
             self.pmf.append(mass)
         self.total = np.convolve(*self.pmf)
 
+    def allocate_periods(self, weights):
+        """Exact pushforward of the integer team-score law through the same allocation."""
+        self.period_marginals = []; means = np.empty((4, 2))
+        for side, mass in enumerate(self.pmf):
+            scores = np.zeros((len(mass), 2), dtype=np.int32); scores[:, side] = np.arange(len(mass))
+            allocated = periods_for_scores(scores, weights)[:, :, side]
+            marginals = {}
+            for quarter in range(4):
+                values = allocated[:, quarter]
+                marginals[str(quarter+1)+'Q'] = np.bincount(values, weights=mass)
+                means[quarter, side] = np.dot(values, mass)
+            marginals['1H'] = np.bincount(allocated[:, :2].sum(axis=1), weights=mass)
+            marginals['2H'] = np.bincount(allocated[:, 2:].sum(axis=1), weights=mass)
+            self.period_marginals.append(marginals)
+        return means
+
     def winner(self):
         h, a = self.pmf
         cdf = np.r_[0., np.cumsum(a)]
@@ -163,6 +180,11 @@ class DiscreteNormalLaw:
 
     def market(self, kind, line):
         if not math.isfinite(float(line)): raise ValueError('FINITE_EVALUATION_LINE_REQUIRED')
+        if kind in ('1Q', '2Q', '3Q', '4Q', '1H', '2H'):
+            if self.period_marginals is None: raise Abstain('ANALYTIC_PERIOD_WEIGHTS_NOT_CONFIGURED')
+            p = np.convolve(self.period_marginals[0][kind], self.period_marginals[1][kind]); index = np.arange(len(p))
+            return {k: float(p[mask].sum()) for k, mask in
+                    [('under', index < line), ('push', index == line), ('over', index > line)]}
         if kind in ('TOTAL', 'HOME', 'AWAY'):
             p = self.total if kind == 'TOTAL' else self.pmf[0 if kind == 'HOME' else 1]
             index = np.arange(len(p))
@@ -190,8 +212,7 @@ def gaussian_forecast(means, stds, weights, *, method='MC', budget=Budget(), mod
     periods_for_scores(np.array([[1, 1]], dtype=int), weights)
     # Report the expected *rounded/clipped* scores, including the lower-tail mass at zero.
     # The latent normal locations can differ substantially near zero with high variance.
-    expected_scores = np.array([np.dot(np.arange(len(p)), p) for p in law.pmf])
-    q = weights/weights.sum(axis=0)*expected_scores
+    q = law.allocate_periods(weights)
     samples = None
     if method in ('MC', 'RQMC_HALTON'):
         if method == 'MC': z = np.random.default_rng(budget.seed).standard_normal((budget.scenarios, 2))

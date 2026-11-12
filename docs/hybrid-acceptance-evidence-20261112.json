@@ -1,0 +1,420 @@
+{
+  "artifacts": [
+    {
+      "file_sha256": "113e9622746cf81d664adce94540d64e394fa5f3361062c196e0eae052affa30",
+      "path": "/workspace/scratch/hybrid-20261112/acceptance-reports/strict-acceptance-52ed1bf78d9b9de78533ede55903011ec753adafea96024af5a858b9cbb56957.json"
+    },
+    {
+      "file_sha256": "af69008df87fc761331c38b9b03a5792708040923222baa8ecc6b7bf8676e397",
+      "path": "/workspace/scratch/hybrid-20261112/acceptance-manifest.json"
+    },
+    {
+      "file_sha256": "6c04257e9eb870cb115db64474cbdc2cd348c10b2460f8a4a6e96a8ae6ef4e64",
+      "path": "/workspace/scratch/hybrid-20261112/runtime-acceptance-final.json"
+    },
+    {
+      "file_sha256": "fe3af5bf27320fcdb5fb047e3c83733451087cd5866e9467cac9da8fc647d145",
+      "path": "/workspace/scratch/hybrid-20261112/runtime-native-control.log"
+    },
+    {
+      "file_sha256": "47cff2d99ca72bd9f8b62c2439f3e8c9ba7f6fcd3e91d7ca24c60a5404f96226",
+      "path": "/workspace/scratch/hybrid-20261112/runtime-acceptance-warm/fixture.json"
+    },
+    {
+      "file_sha256": "b18ac0e396cd2cb00c858e159376b97bc36ef72b5b36696e9837c3cb74e3e83f",
+      "path": "/workspace/scratch/hybrid-20261112/acceptance-verified-full-tests.log"
+    }
+  ],
+  "base_commit": "962e16d0d9b748bf877e89f6d34935a4ddea7f11",
+  "code_digest": "542dab65d73182eed3c90a5b1522e465608a72767263442d9b975cf8d13164bc",
+  "data_audit": {
+    "cohorts": {
+      "EuroLeague 2025/2026": {
+        "box_ingested_range_utc": [
+          "2026-11-12T06:13:28+00:00",
+          "2026-11-12T06:37:47+00:00"
+        ],
+        "box_observed_range_utc": [
+          "2026-11-12T06:13:28+00:00",
+          "2026-11-12T06:37:47+00:00"
+        ],
+        "fixture_known_before_tipoff": 0,
+        "missing": {
+          "CONTEXT_TRANSITION_ANNOTATIONS": 380,
+          "INJURIES": 380,
+          "PREMATCH_LINEUP": 380
+        },
+        "score_ingested_range_utc": [
+          "2026-11-11T18:37:57+00:00",
+          "2026-11-11T18:37:57+00:00"
+        ],
+        "score_observed_range_utc": [
+          "2026-11-11T18:37:57+00:00",
+          "2026-11-11T18:37:57+00:00"
+        ],
+        "score_source_lag_hours": {
+          "maximum": 9770.6325,
+          "minimum": 4992.1325
+        },
+        "start_range_utc": [
+          "2025-09-30T16:00:00+00:00",
+          "2026-04-17T18:30:00+00:00"
+        ],
+        "strict_feature_abstentions": {
+          "INSUFFICIENT_PRE_CUTOFF_TEAM_HISTORY": 380
+        },
+        "strict_feature_eligible": 0,
+        "strict_joint_eligible": 0
+      },
+      "EuroLeague 2026/2027": {
+        "box_ingested_range_utc": [
+          "2026-11-12T06:13:28+00:00",
+          "2026-11-12T06:39:22+00:00"
+        ],
+        "box_observed_range_utc": [
+          "2026-11-12T06:13:28+00:00",
+          "2026-11-12T06:39:22+00:00"
+        ],
+        "fixture_known_before_tipoff": 0,
+        "missing": {
+          "CONTEXT_TRANSITION_ANNOTATIONS": 100,
+          "INJURIES": 100,
+          "PREMATCH_LINEUP": 100
+        },
+        "score_ingested_range_utc": [
+          "2026-11-11T16:13:00+00:00",
+          "2026-11-11T16:13:00+00:00"
+        ],
+        "score_observed_range_utc": [
+          "2026-11-11T16:13:00+00:00",
+          "2026-11-11T16:13:00+00:00"
+        ],
+        "score_source_lag_hours": {
+          "maximum": 1152.2166666666667,
+          "minimum": 116.46666666666667
+        },
+        "start_range_utc": [
+          "2026-09-24T16:00:00+00:00",
+          "2026-11-06T19:45:00+00:00"
+        ],
+        "strict_feature_abstentions": {
+          "INSUFFICIENT_PRE_CUTOFF_TEAM_HISTORY": 100
+        },
+        "strict_feature_eligible": 0,
+        "strict_joint_eligible": 0
+      },
+      "NBA 2026/2027": {
+        "box_ingested_range_utc": [
+          "2026-11-12T06:13:29+00:00",
+          "2026-11-12T06:14:35+00:00"
+        ],
+        "box_observed_range_utc": [
+          "2026-11-12T06:13:29+00:00",
+          "2026-11-12T06:14:35+00:00"
+        ],
+        "fixture_known_before_tipoff": 0,
+        "missing": {
+          "CONTEXT_TRANSITION_ANNOTATIONS": 160,
+          "INJURIES": 160,
+          "PREMATCH_LINEUP": 160
+        },
+        "score_ingested_range_utc": [
+          "2026-11-11T16:13:00+00:00",
+          "2026-11-11T18:32:24+00:00"
+        ],
+        "score_observed_range_utc": [
+          "2026-11-11T16:13:00+00:00",
+          "2026-11-11T18:32:24+00:00"
+        ],
+        "score_source_lag_hours": {
+          "maximum": 527.5388888888889,
+          "minimum": 12.216666666666667
+        },
+        "start_range_utc": [
+          "2026-10-20T19:00:00+00:00",
+          "2026-11-11T04:00:00+00:00"
+        ],
+        "strict_feature_abstentions": {
+          "INSUFFICIENT_PRE_CUTOFF_TEAM_HISTORY": 160
+        },
+        "strict_feature_eligible": 0,
+        "strict_joint_eligible": 0
+      }
+    },
+    "inventory": {
+      "EuroLeague 2025/2026": {
+        "games": 380,
+        "overtime_games": 15,
+        "with_box_statistics": 380,
+        "with_periods": 380,
+        "with_player_box_statistics": 380
+      },
+      "EuroLeague 2026/2027": {
+        "games": 100,
+        "overtime_games": 4,
+        "with_box_statistics": 100,
+        "with_periods": 100,
+        "with_player_box_statistics": 100
+      },
+      "NBA 2026/2027": {
+        "games": 160,
+        "overtime_games": 8,
+        "with_box_statistics": 160,
+        "with_periods": 160,
+        "with_player_box_statistics": 160
+      }
+    },
+    "publication_time_policy": "ONLY_OBSERVED_AND_INGESTED_CLOCKS_NO_START_PLUS_DELAY_IMPUTATION",
+    "season_completeness": "NOT_INFERRED_FROM_OBSERVED_GAME_COUNT",
+    "source_clock_attestation": "LOCAL_PINNED_RECEIPTS_NOT_INDEPENDENT_TIMESTAMP_AUTHORITY"
+  },
+  "decision": {
+    "blockers": [
+      "NO_PROVEN_STRICT_OUT_OF_SAMPLE_IMPROVEMENT",
+      "NO_VERIFIED_MARKET_CALIBRATION_PROFILE",
+      "NO_PRE_CUTOFF_FIXTURE_AND_HISTORY_COHORT"
+    ],
+    "main_merge_permitted": false,
+    "production_default": "FAZ13",
+    "production_deploy_permitted": false,
+    "qualifying_primary_experiments": [],
+    "safety": "NO_PRODUCTION_RESOURCE_DATABASE_SECRET_OR_SNAPSHOT_ACCESS",
+    "status": "BLOCKED",
+    "strict_test_games": 0
+  },
+  "format": "HYBRID_STRICT_ACCEPTANCE_EVIDENCE_V1",
+  "local_tests": {
+    "native_golden_oracles_in_ci": true,
+    "optional_ml_backends_exercised": true,
+    "result": "PASS",
+    "tests": 424
+  },
+  "market_quote_coverage": 0,
+  "markets": [
+    "1Q",
+    "1H",
+    "TOTAL",
+    "HOME",
+    "AWAY",
+    "HOME_HANDICAP"
+  ],
+  "model_performance": {
+    "BAYES_QMC": {
+      "brier": null,
+      "calibration_curve": null,
+      "confidence_interval": null,
+      "log_loss": null,
+      "mae": null,
+      "n": 0,
+      "rmse": null,
+      "status": "NOT_EVALUABLE_NO_STRICT_PIT_CASES"
+    },
+    "CATBOOST": {
+      "brier": null,
+      "calibration_curve": null,
+      "confidence_interval": null,
+      "log_loss": null,
+      "mae": null,
+      "n": 0,
+      "rmse": null,
+      "status": "NOT_EVALUABLE_NO_STRICT_PIT_CASES"
+    },
+    "ENSEMBLE": {
+      "brier": null,
+      "calibration_curve": null,
+      "confidence_interval": null,
+      "log_loss": null,
+      "mae": null,
+      "n": 0,
+      "rmse": null,
+      "status": "NOT_EVALUABLE_NO_STRICT_PIT_CASES"
+    },
+    "FAZ13_ANALYTIC": {
+      "brier": null,
+      "calibration_curve": null,
+      "confidence_interval": null,
+      "log_loss": null,
+      "mae": null,
+      "n": 0,
+      "rmse": null,
+      "status": "NOT_EVALUABLE_NO_STRICT_PIT_CASES"
+    },
+    "FAZ13_MC": {
+      "brier": null,
+      "calibration_curve": null,
+      "confidence_interval": null,
+      "log_loss": null,
+      "mae": null,
+      "n": 0,
+      "rmse": null,
+      "status": "NOT_EVALUABLE_NO_STRICT_PIT_CASES"
+    },
+    "FAZ13_QMC": {
+      "brier": null,
+      "calibration_curve": null,
+      "confidence_interval": null,
+      "log_loss": null,
+      "mae": null,
+      "n": 0,
+      "rmse": null,
+      "status": "NOT_EVALUABLE_NO_STRICT_PIT_CASES"
+    },
+    "LIGHTGBM": {
+      "brier": null,
+      "calibration_curve": null,
+      "confidence_interval": null,
+      "log_loss": null,
+      "mae": null,
+      "n": 0,
+      "rmse": null,
+      "status": "NOT_EVALUABLE_NO_STRICT_PIT_CASES"
+    },
+    "POSSESSION_ANALYTIC": {
+      "brier": null,
+      "calibration_curve": null,
+      "confidence_interval": null,
+      "log_loss": null,
+      "mae": null,
+      "n": 0,
+      "rmse": null,
+      "status": "NOT_EVALUABLE_NO_STRICT_PIT_CASES"
+    },
+    "POSSESSION_MC": {
+      "brier": null,
+      "calibration_curve": null,
+      "confidence_interval": null,
+      "log_loss": null,
+      "mae": null,
+      "n": 0,
+      "rmse": null,
+      "status": "NOT_EVALUABLE_NO_STRICT_PIT_CASES"
+    }
+  },
+  "native_control": {
+    "address_space_limit_bytes": [
+      268435456,
+      268435456
+    ],
+    "error_type": "MemoryError",
+    "mode": "native-import-control",
+    "peak_rss_mib": 105.73046875,
+    "reason": "",
+    "status": "FAILED"
+  },
+  "production_main": "8974ec4ff90154675bfa545d3b0125eb8b0da756",
+  "protected_file_hashes": {
+    "Dockerfile": "3b60143939b1c510a65ac243abece8d56de2b46b206f6bd027f31ad5f7766cd8",
+    "live_analysis_ledger.py": "559a37b965f4c9a2ebed64f779b7166ed861240817bd9ef4acdf7a0584ce7964",
+    "main.py": "8121f6e8ef8562dc040f863b54431120ee10215485e0c0568dd5279ef6c641fc",
+    "requirements.txt": "41bde19190b8616800bb227c224966566c1484504c8c172fa57fcd685bebf23d",
+    "verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b"
+  },
+  "real_calibration_profiles": 0,
+  "runtime": {
+    "evidence": {
+      "actual_telegram_delivery_verified": false,
+      "address_space_limit_bytes": [
+        268435456,
+        268435456
+      ],
+      "analyze_replies": 20,
+      "cache_stress": "NATIVE_PAYLOAD_MEMORY_REPLAY_NOT_HISTORICAL_OR_LIVE_EVIDENCE",
+      "cpu_affinity": [
+        0
+      ],
+      "format": "TELEGRAM_PORTABLE_ML_RUNTIME_PROBE_V1",
+      "health_ready": {
+        "ready": true,
+        "release_sha": "UNKNOWN"
+      },
+      "latency_p95_seconds": 0.26347934229634123,
+      "message_example": "<b>H\u0130BR\u0130T ARA\u015eTIRMA \u2014 \u00dcRET\u0130M V1 DE\u011e\u0130L</b>\n\u0130lk \u00e7eyrek toplam\u0131 | Barem 50.5 | Tahmin yok: do\u011frulanm\u0131\u015f g\u00fcven ko\u015fullar\u0131 sa\u011flanmad\u0131.\n\u0130lk yar\u0131 toplam\u0131 | Barem 100.5 | Tahmin yok: do\u011frulanm\u0131\u015f g\u00fcven ko\u015fullar\u0131 sa\u011flanmad\u0131.\nMa\u00e7 toplam\u0131 | Barem 200.5 | Tahmin yok: do\u011frulanm\u0131\u015f g\u00fcven ko\u015fullar\u0131 sa\u011flanmad\u0131.\nEv sahibi toplam\u0131 | Barem 100.5 | Tahmin yok: do\u011frulanm\u0131\u015f g\u00fcven ko\u015fullar\u0131 sa\u011flanmad\u0131.\nDeplasman toplam\u0131 | Barem 100.5 | Tahmin yok: do\u011frulanm\u0131\u015f g\u00fcven ko\u015fullar\u0131 sa\u011flanmad\u0131.\nEv sahibi handikab\u0131 | Barem -5.5 | Tahmin yok: do\u011frulanm\u0131\u015f g\u00fcven ko\u015fullar\u0131 sa\u011flanmad\u0131.\nModel: CATBOOST_SCORE_V1\nVeri zaman\u0131: 17.03.2026 02:59:58 TS\u0130\nTahmin zaman\u0131: 17.03.2026 02:59:59 TS\u0130\nKaynak: SYNTHETIC_RESOURCE_FIXTURE\nKaynak SHA: afab3c36505a",
+      "mode": "portable",
+      "models_resident": [
+        "LIGHTGBM_PORTABLE",
+        "CATBOOST_PORTABLE",
+        "BAYES",
+        "POSSESSION",
+        "FAZ13_MC"
+      ],
+      "native_ml_libraries_loaded": [],
+      "nba_replies": 1,
+      "numpy_version": "1.26.4",
+      "peak_rss_mib": 143.03515625,
+      "production_default_changed": false,
+      "python_version": "3.12.14",
+      "requests": 21,
+      "resource_fixture": "SYNTHETIC_NOT_MODEL_PERFORMANCE_EVIDENCE",
+      "runtime_source_pins": {
+        "../historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+        "../main.py": "8121f6e8ef8562dc040f863b54431120ee10215485e0c0568dd5279ef6c641fc",
+        "../prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2",
+        "../verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b",
+        "__init__.py": "8d3f97c99d8ff6ec21deb8daa93d789e656dc99fb1f5fc8b258ed2b71a1de73a",
+        "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
+        "acceptance.py": "bbf5c5899b08bc5995944e9ec86f24d828ce113cadfc2ae790c0aecce5b9b127",
+        "audit.py": "4d26a4caec46b70b836c35e4b2ba22ef0a67ea68890e1488fe65c56077decccc",
+        "benchmark.py": "38cdbc13962fc952ea4051f40103321dc8496d6ba6a74dd2e102a5862391dbc4",
+        "boxes.py": "2297a1c08e6b35c5705aca67779e7bcae5cc01edb77c469990b3eecd8fedbb51",
+        "data.py": "1cf3c3b1f3948199cb81bfb3ca288b1bf961ae5fce23feeefb2c59fe76c6d00b",
+        "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+        "evaluation.py": "e7ad5518c4eab4e8dc53019a3376be4b805f27dd68023a9259ec70becf648a2b",
+        "markets.py": "f6d7f967296de6a8ee9dbda595cec0c40761bdc70e9ae64824a35b95e2b6c965",
+        "models.py": "cb34d58bc2e5240da675c376fa20d07adaa4a0a39dcfd5195c126aba30b5e320",
+        "portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+        "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+        "runtime_fixture.py": "cda7fe6de8fc8f2f0a5051cee5686878eeca0054b26347db92e5dd947a780fd3",
+        "runtime_probe.py": "9cdd5fd4477116568d7808d3bb19d752399b6838c372b07c757990a91e96ebff",
+        "statistics.py": "128f609fd39a90031dee4c3d22ddc0c93e14cff08de65104d1219f79c42fd074",
+        "walkforward.py": "b68620d9ada392ab8bfc2ea354a431834e5acff53f1691ec9dc4dae2291dd526"
+      },
+      "source_pins": {
+        "CATBOOST": {
+          "max_absolute_error": 0.0,
+          "n": 48
+        },
+        "LIGHTGBM": {
+          "max_absolute_error": 0.0,
+          "n": 48
+        }
+      },
+      "status": "PASS",
+      "transport": "REAL_HTTP_LOCAL_TELEGRAM_API_DOUBLE",
+      "v1_cache_entries": 32,
+      "v1_cache_serialized_bytes": 16457497
+    },
+    "file_sha256": "6c04257e9eb870cb115db64474cbdc2cd348c10b2460f8a4a6e96a8ae6ef4e64",
+    "limitation": "LOCAL_API_DOUBLE_AND_HOST_MOUNTED_RUNTIME_NOT_REAL_FLY_OR_TELEGRAM_DELIVERY",
+    "passed": true
+  },
+  "source_file_pins": {
+    "../historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+    "../prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2",
+    "../verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b",
+    "__init__.py": "8d3f97c99d8ff6ec21deb8daa93d789e656dc99fb1f5fc8b258ed2b71a1de73a",
+    "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
+    "acceptance.py": "bbf5c5899b08bc5995944e9ec86f24d828ce113cadfc2ae790c0aecce5b9b127",
+    "audit.py": "4d26a4caec46b70b836c35e4b2ba22ef0a67ea68890e1488fe65c56077decccc",
+    "benchmark.py": "38cdbc13962fc952ea4051f40103321dc8496d6ba6a74dd2e102a5862391dbc4",
+    "boxes.py": "2297a1c08e6b35c5705aca67779e7bcae5cc01edb77c469990b3eecd8fedbb51",
+    "data.py": "1cf3c3b1f3948199cb81bfb3ca288b1bf961ae5fce23feeefb2c59fe76c6d00b",
+    "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+    "evaluation.py": "e7ad5518c4eab4e8dc53019a3376be4b805f27dd68023a9259ec70becf648a2b",
+    "markets.py": "f6d7f967296de6a8ee9dbda595cec0c40761bdc70e9ae64824a35b95e2b6c965",
+    "models.py": "cb34d58bc2e5240da675c376fa20d07adaa4a0a39dcfd5195c126aba30b5e320",
+    "portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+    "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+    "runtime_fixture.py": "cda7fe6de8fc8f2f0a5051cee5686878eeca0054b26347db92e5dd947a780fd3",
+    "runtime_probe.py": "9cdd5fd4477116568d7808d3bb19d752399b6838c372b07c757990a91e96ebff",
+    "statistics.py": "128f609fd39a90031dee4c3d22ddc0c93e14cff08de65104d1219f79c42fd074",
+    "walkforward.py": "b68620d9ada392ab8bfc2ea354a431834e5acff53f1691ec9dc4dae2291dd526"
+  },
+  "validation_limits": [
+    "NO_REAL_STRICT_OOS_CASES",
+    "NO_TRUE_HISTORICAL_MARKET_QUOTES",
+    "NO_REAL_CALIBRATION_OR_PREMATCH_ROSTER_EVIDENCE",
+    "LOCAL_API_DOUBLE_NOT_REAL_TELEGRAM_DELIVERY",
+    "HOST_MOUNTED_RUNTIME_NOT_EXACT_FLY_IMAGE",
+    "NATIVE_IMPORT_CONTROL_VIRTUAL_LIMIT_FAILURE_NOT_RSS_PROOF"
+  ]
+}

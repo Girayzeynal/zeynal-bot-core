@@ -81,7 +81,17 @@ def load_manifest(path):
                         box['fixture_start_utc'] != row['fixture_start_utc']):
                     raise ValueError('BOX_IDENTITY_OR_SOURCE_CONFLICT')
                 row['box'] = deepcopy(box)
-    return cohort, dict(manifest_sha256=digest(manifest), source_pins=pins,
+    knowledge = []
+    for catalog in catalogs:
+        payload = catalog['payload']
+        for fixture in payload['fixtures']:
+            knowledge.append(dict(league=fixture['league'], fixture_id=fixture['canonical_id'],
+                season=f"{fixture['season_start_year']}/{fixture['season_start_year']+1}",
+                fixture_start_utc=fixture['start_ts_utc'], home_team_id=fixture['home_team_id'],
+                away_team_id=fixture['away_team_id'], provider=fixture['provider'],
+                observed_at_utc=payload['observed_at_utc'], ingested_at_utc=payload['ingested_at_utc'],
+                source_catalog_sha256=catalog['sha256']))
+    return cohort, dict(manifest_sha256=digest(manifest), source_pins=pins, fixture_knowledge=knowledge,
                         data_class=manifest.get('data_class', 'UNVERIFIED'),
                         source_permission=manifest.get('source_permission', 'NOT_ESTABLISHED'))
 
@@ -136,7 +146,12 @@ def feature_cut(cohort, target, *, mode=STRICT, minimum=6, window=10):
         raise ValueError('INVALID_HISTORY_WINDOW')
     target = metadata(target)  # Deliberately discard labels, periods and current-game statistics.
     rows = prior_rows(cohort, target, mode)
-    features, pins = {}, []
+    # League/opponent adjustments use more than each team's most recent games.
+    # Trace ALL contributing history, not only the two recent-team subsets.
+    features = {}
+    pins = [dict(fixture_id=r['fixture_id'], catalog=r['source_catalog_sha256'],
+        observed_at_utc=r['observed_at_utc'], ingested_at_utc=r['ingested_at_utc'],
+        regulation_scores=regulation(r)) for r in rows]
     league_mean = mean(sum(regulation(r)) / 2 for r in rows) if rows else None
     for side in ('home', 'away'):
         tid = target[side + '_team_id']
@@ -170,7 +185,9 @@ def feature_cut(cohort, target, *, mode=STRICT, minimum=6, window=10):
                               start_gap_kind='START_TIME_GAP_PROXY_NOT_VERIFIED_REST', boxes=boxes,
                               recent_game_ids=[r['fixture_id'] for r in recent],
                               player_effect_status='NO_VERIFIED_PREMATCH_MINUTE_EXPOSURES')
-    return Cut(target, target['fixture_start_utc']-1, mode, tuple(rows), features, digest(sorted(pins, key=digest)))
+    numeric = {side: {k: v for k, v in f.items() if k != 'boxes'} for side, f in features.items()}
+    return Cut(target, target['fixture_start_utc']-1, mode, tuple(rows), features,
+        digest(dict(target=target, mode=mode, sources=sorted(pins, key=digest), features=numeric)))
 
 
 def reference(cut):

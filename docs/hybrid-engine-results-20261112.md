@@ -1,5 +1,8 @@
 # Hibrit motor araştırma sonucu — 12 Kasım 2026
 
+Sonraki sıkı kabul denetimi: [hybrid-acceptance-20261112.md](hybrid-acceptance-20261112.md).
+Bu dosyadaki varsayımlı sonuçlar `962e16d` deneyinin tarihsel kaydıdır.
+
 **Karar: üretim V1 değişmeyecek.** Yeni motor ayrı araştırma dalındadır.
 Kabul koşulunu karşılayan, doğrulanmış üstünlük gösterilemedi. Main merge,
 Fly deploy, yeni kaynak, secret veya üretim SQLite işlemi yapılmadı.

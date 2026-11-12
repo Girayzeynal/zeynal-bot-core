@@ -29,6 +29,7 @@ def synthetic_cohort(n=100):
             final_scores=scores, periods={s: [scores[j]//4]*4 for j, s in enumerate(('home', 'away'))},
             observed_at_utc=start+10800, ingested_at_utc=start+10801, source_catalog_sha256='synthetic')
         row['box'] = dict(league='NBA', fixture_id=str(i), teams=teams, regulation_eligible=True,
+            missing=['PREMATCH_LINEUP', 'INJURIES', 'CONTEXT_TRANSITION_ANNOTATIONS'],
             source=dict(observed_at_utc=start+10800, ingested_at_utc=start+10801))
         cohort.append([row])
     return cohort
