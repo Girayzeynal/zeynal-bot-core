@@ -65,15 +65,18 @@ def pair(value):
 def url_for(row):
     ids = row['provider_fixture_ids']
     if row['provider'] == 'ESPN':
+        if row['league']!='NBA': raise ValueError('NBA_PROVIDER_LEAGUE_REQUIRED')
         if len(ids) != 1 or not re.fullmatch(r'[0-9]+', ids[0]):
             raise ValueError('NBA_BOX_ID_REQUIRED')
         return 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=' + ids[0]
-    matches = [re.fullmatch(r'(E)(20[0-9]{2})_([0-9]+)', s) for s in ids]
+    competition = {'EuroLeague':'E','EuroCup':'U'}.get(row['league'])
+    if competition is None: raise ValueError('EURO_COMPETITION_ID_REQUIRED')
+    matches = [re.fullmatch(r'('+competition+r')(20[0-9]{2})_([0-9]+)', s) for s in ids]
     matches = [m for m in matches if m]
     if len(matches) != 1 or matches[0][2] != row['season'].split('/')[0]:
         raise ValueError('EUROLEAGUE_BOX_ID_REQUIRED')
     m = matches[0]
-    return f'https://api-live.euroleague.net/v2/competitions/E/seasons/E{m[2]}/games/{m[3]}/stats'
+    return f'https://api-live.euroleague.net/v2/competitions/{m[1]}/seasons/{m[1]}{m[2]}/games/{m[3]}/stats'
 
 
 def checked_stats(s):
@@ -150,7 +153,8 @@ def normalize_box(row, receipt):
                 fta=s['freeThrowsAttempted'], orb=s['offensiveRebounds'], drb=s['defensiveRebounds'],
                 tov=s['turnovers'], fouls=s['foulsCommited'], points=s['points']))
             for p in d[native]['players']:
-                if p['player']['club']['code'] != row[side+'_team_id'] or p['player']['season']['code'] != 'E'+row['season'].split('/')[0]:
+                code = 'U' if row['league']=='EuroCup' else 'E'
+                if p['player']['club']['code'] != row[side+'_team_id'] or p['player']['season']['code'] != code+row['season'].split('/')[0]:
                     raise ValueError('EURO_PLAYER_TEAM_OR_SEASON_CONFLICT')
                 players.append(dict(player_id=p['player']['person']['code'], team_id=row[side+'_team_id'], side=side,
                     seconds_played=seconds(p['stats']['timePlayed']),

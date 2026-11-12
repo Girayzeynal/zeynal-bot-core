@@ -192,6 +192,38 @@ def nba_boxes(raw, diagnostics=None):
     return groups
 
 
+def euro_public_games(raw, *, competition, year):
+    """Read JSON constants only; never execute JS or import its predictions/aggregates."""
+    if competition!='U':raise ValueError('PUBLIC_GAME_COMPETITION_NOT_CONFIGURED')
+    text=raw.decode('utf-8');values={}
+    for line in text.splitlines():
+        m=re.fullmatch(r'const (SEASON|GAMES) = (.*);',line)
+        if m:
+            if m[1] in values:raise ValueError('DUPLICATE_PUBLIC_GAME_CONSTANT')
+            values[m[1]]=json.loads(m[2])
+    if values.get('SEASON')!=f'{year}-{str(year+1)[-2:]}' or not isinstance(values.get('GAMES'),list):
+        raise ValueError('PUBLIC_GAME_SEASON_OR_JSON_REQUIRED')
+    if len(values['GAMES'])>5000:raise ValueError('PUBLIC_GAME_COUNT_BUDGET')
+    for g in values['GAMES']:
+        if not isinstance(g['utc'],str) or not g['utc'].endswith('Z'):raise ValueError('PUBLIC_GAME_EXPLICIT_UTC_REQUIRED')
+        if any(not isinstance(g[s],str) or not re.fullmatch(r'[A-Z0-9]{1,8}',g[s]) for s in ('home','away')) or g['home']==g['away']:
+            raise ValueError('PUBLIC_GAME_TEAM_ID_REQUIRED')
+        record=dict(pid=f'U{year}_{count(g["code"],10000)}',league='EuroCup',season=f'{year}/{year+1}',
+            fixture_start_utc=utc(g['utc']),home_team_id=g['home'],away_team_id=g['away'],final_scores=None,periods=None)
+        if g.get('score') is not None:
+            scores=g['score'];quarters=g.get('quarters')
+            if not isinstance(scores,list) or len(scores)!=2 or not isinstance(quarters,list) or len(quarters)!=2:
+                raise ValueError('PUBLIC_GAME_FINAL_PERIODS_REQUIRED')
+            scores=[count(v) for v in scores]
+            parts={s:[count(v) for v in quarters[i]] for i,s in enumerate(('home','away'))}
+            if not 4<=len(parts['home'])==len(parts['away'])<=12 or [sum(parts[s]) for s in ('home','away')]!=scores:
+                raise ValueError('PUBLIC_GAME_PERIOD_FINAL_CONFLICT')
+            if any(sum(parts['home'][:n])!=sum(parts['away'][:n]) for n in range(4,len(parts['home']))):
+                raise ValueError('PUBLIC_GAME_OVERTIME_WITHOUT_TIE')
+            record.update(final_scores=scores,periods=parts)
+        yield record
+
+
 # Explicit research crosswalk; no fuzzy matching and no production identity changes.
 WIKI_ALIASES = {'ULK':['Fenerbahçe Beko'], 'PAN':['Panathinaikos AKTOR'], 'MUN':['Bayern Munich'],
     'PAR':['Partizan Mozzart Bet'], 'RED':['Crvena zvezda Meridianbet'], 'MIL':['EA7 Emporio Armani Milano','Olimpia Milano'],
@@ -217,6 +249,10 @@ def bind_archives(cohort, provenance, archive_items, team_names):
                 records = list(nba_schedule(raw, counters)); decoded.append((records, source))
                 for record in records: schedule[(item['commit'], record['pid'])] = record
             elif item['kind'] == 'NBA_BOX': boxes.append((nba_boxes(raw, counters), source))
+            elif item['kind'] == 'EURO_PUBLIC_GAMES':
+                if item['repo']!='tomlebedev-cloud/eurocup' or item['repo_file']!='js/data.js':
+                    raise ValueError('PUBLIC_GAME_SOURCE_NOT_CONFIGURED')
+                decoded.append((list(euro_public_games(raw,competition=item['competition'],year=item['year'])),source))
             elif item['kind'] in ('NBA_QUOTES','EURO_PLAYERS'):
                 counters[item['kind']+'_ARCHIVE_VERIFIED_NOT_CORE_CLOCK'] += 1
             else: raise ValueError('UNKNOWN_PUBLIC_ARCHIVE_ADAPTER')
@@ -233,7 +269,7 @@ def bind_archives(cohort, provenance, archive_items, team_names):
         truth = group[0]
         if record['fixture_start_utc'] != truth['fixture_start_utc']:
             reject('ARCHIVED_SCHEDULE_TIME_DIFFERS_FROM_FINAL', record, source, truth); return None
-        if record['league'] == 'NBA':
+        if 'home_team_id' in record:
             valid = all(record[s+'_team_id'] == truth[s+'_team_id'] for s in ('home','away'))
         else:
             valid = True
@@ -261,14 +297,15 @@ def bind_archives(cohort, provenance, archive_items, team_names):
             if source['at'] <= record['fixture_start_utc']:
                 counters['ARCHIVE_FINAL_BEFORE_GAME_START_REJECTED'] += 1; continue
             score_fields = dict(final_scores=record['final_scores'], periods=record['periods'])
-            if source['authority'] == 'WIKIMEDIA_IMMUTABLE_REVISION':
+            if source['authority'] == 'WIKIMEDIA_IMMUTABLE_REVISION' or source.get('kind')=='EURO_PUBLIC_GAMES':
                 # A basketball template has no primary final-status flag. Reject
                 # intraday/live revisions and require the archived score/periods to
                 # match the adjudicated native final; never copy late values back.
+                prefix='WIKI' if source['authority']=='WIKIMEDIA_IMMUTABLE_REVISION' else 'PUBLIC_GAME'
                 if source['at']//86400 <= record['fixture_start_utc']//86400:
-                    reject('WIKI_INTRADAY_FINAL_STATUS_UNPROVEN', record, source, truth); continue
+                    reject(prefix+'_INTRADAY_FINAL_STATUS_UNPROVEN', record, source, truth); continue
                 if any(score_fields[k] != truth[k] for k in score_fields):
-                    reject('WIKI_FINAL_NATIVE_RECONCILIATION_CONFLICT', record, source, truth); continue
+                    reject(prefix+'_FINAL_NATIVE_RECONCILIATION_CONFLICT', record, source, truth); continue
             if all(score_fields[k] == truth[k] for k in score_fields):
                 counters['ARCHIVED_CORE_MATCHES_CURRENT_TRUTH'] += 1
             else:

@@ -42,6 +42,16 @@ def example(cohort, i, role):
 
 
 class HybridPossessionTests(TestCase):
+    def test_bounded_bayesian_workspace_preserves_scores_and_market_probabilities(self):
+        c=synthetic_cohort(80);cut=feature_cut(c,c[70][0])
+        model=HierarchicalStrength().fit([r[0] for r in c[:50]],cutoff_utc=c[55][0]['fixture_start_utc'],mode=STRICT)
+        native=model.predict(cut,method='RQMC_HALTON')
+        bounded=model.predict(cut,method='RQMC_HALTON',bounded_workspace=True)
+        np.testing.assert_allclose(native.scores,bounded.scores,rtol=0,atol=1e-12)
+        np.testing.assert_allclose(native.quarter_means,bounded.quarter_means,rtol=0,atol=1e-12)
+        for market,line in [('TOTAL',210.5),('1Q',50.5),('1H',105.5),('MARGIN',3.5)]:
+            np.testing.assert_allclose(list(native.market(market,line).values()),list(bounded.market(market,line).values()),rtol=0,atol=1e-12)
+
     def test_absorbing_reward_and_rebound_continuation(self):
         base = Rates((.1, .1, .5, .2, .1), .5, .35, .8, .2)
         reward = base.reward()

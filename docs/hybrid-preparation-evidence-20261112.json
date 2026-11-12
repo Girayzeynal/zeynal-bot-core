@@ -1,0 +1,1791 @@
+{
+  "format": "PR84_PREPARATION_EVIDENCE_V1",
+  "base_commit": "9a020b120f967711d906160f54832a9ec8cd9e8b",
+  "generated_at_utc": 1794505369,
+  "decision": {
+    "blockers": [
+      "NO_PROVEN_STRICT_OUT_OF_SAMPLE_IMPROVEMENT",
+      "NO_VERIFIED_MARKET_CALIBRATION_PROFILE"
+    ],
+    "main_merge_permitted": false,
+    "production_default": "FAZ13",
+    "production_deploy_permitted": false,
+    "qualifying_primary_experiments": [],
+    "safety": "NO_PRODUCTION_RESOURCE_DATABASE_SECRET_OR_SNAPSHOT_ACCESS",
+    "status": "BLOCKED",
+    "strict_test_games": 84
+  },
+  "tests": {
+    "count": 472,
+    "result": "PASS",
+    "previous_437_preserved": true,
+    "local_log": {
+      "path": "/workspace/scratch/continuation-tests-final.log",
+      "sha256": "19efca387155609d64b8ef521b96e4dd099881852b12020cf1bb085be06080c5",
+      "bytes": 3069
+    }
+  },
+  "data_audit": {
+    "cohorts": {
+      "EuroCup 2025/2026": {
+        "box_ingested_range_utc": [
+          "2026-11-12T16:43:17+00:00",
+          "2026-11-12T16:44:47+00:00"
+        ],
+        "box_observed_range_utc": [
+          "2026-11-12T16:43:17+00:00",
+          "2026-11-12T16:44:47+00:00"
+        ],
+        "fixture_known_before_tipoff": 0,
+        "missing": {
+          "CONTEXT_TRANSITION_ANNOTATIONS": 180,
+          "INJURIES": 180,
+          "PREMATCH_LINEUP": 180
+        },
+        "score_ingested_range_utc": [
+          "2026-11-12T16:38:26+00:00",
+          "2026-11-12T16:38:26+00:00"
+        ],
+        "score_observed_range_utc": [
+          "2026-11-12T16:38:26+00:00",
+          "2026-11-12T16:38:26+00:00"
+        ],
+        "score_source_lag_hours": {
+          "maximum": 9792.640555555556,
+          "minimum": 6573.140555555556
+        },
+        "start_range_utc": [
+          "2025-09-30T16:00:00+00:00",
+          "2026-02-11T19:30:00+00:00"
+        ],
+        "strict_feature_abstentions": {
+          "INSUFFICIENT_PRE_CUTOFF_TEAM_HISTORY": 180
+        },
+        "strict_feature_eligible": 0,
+        "strict_joint_eligible": 0
+      },
+      "EuroCup 2026/2027": {
+        "box_ingested_range_utc": [
+          "2026-11-12T16:44:47+00:00",
+          "2026-11-12T16:45:46+00:00"
+        ],
+        "box_observed_range_utc": [
+          "2026-11-12T16:44:47+00:00",
+          "2026-11-12T16:45:46+00:00"
+        ],
+        "fixture_known_before_tipoff": 7,
+        "missing": {
+          "CONTEXT_TRANSITION_ANNOTATIONS": 111,
+          "INJURIES": 111,
+          "PREMATCH_LINEUP": 111
+        },
+        "score_ingested_range_utc": [
+          "2026-11-12T16:38:27+00:00",
+          "2026-11-12T16:38:27+00:00"
+        ],
+        "score_observed_range_utc": [
+          "2026-11-12T16:38:27+00:00",
+          "2026-11-12T16:38:27+00:00"
+        ],
+        "score_source_lag_hours": {
+          "maximum": 1056.6408333333334,
+          "minimum": 21.640833333333333
+        },
+        "start_range_utc": [
+          "2026-09-29T16:00:00+00:00",
+          "2026-11-11T19:00:00+00:00"
+        ],
+        "strict_feature_abstentions": {
+          "INSUFFICIENT_PRE_CUTOFF_TEAM_HISTORY": 104
+        },
+        "strict_feature_eligible": 7,
+        "strict_joint_eligible": 7
+      },
+      "EuroLeague 2025/2026": {
+        "box_ingested_range_utc": [
+          "2026-11-12T16:59:49+00:00",
+          "2026-11-12T17:02:58+00:00"
+        ],
+        "box_observed_range_utc": [
+          "2026-11-12T16:59:49+00:00",
+          "2026-11-12T17:02:58+00:00"
+        ],
+        "fixture_known_before_tipoff": 267,
+        "missing": {
+          "CONTEXT_TRANSITION_ANNOTATIONS": 380,
+          "INJURIES": 380,
+          "PREMATCH_LINEUP": 380
+        },
+        "score_ingested_range_utc": [
+          "2026-11-12T15:38:48+00:00",
+          "2026-11-12T15:38:48+00:00"
+        ],
+        "score_observed_range_utc": [
+          "2026-11-12T15:38:48+00:00",
+          "2026-11-12T15:38:48+00:00"
+        ],
+        "score_source_lag_hours": {
+          "maximum": 9791.646666666667,
+          "minimum": 5013.1466666666665
+        },
+        "start_range_utc": [
+          "2025-09-30T16:00:00+00:00",
+          "2026-04-17T18:30:00+00:00"
+        ],
+        "strict_feature_abstentions": {
+          "INSUFFICIENT_PRE_CUTOFF_TEAM_HISTORY": 80
+        },
+        "strict_feature_eligible": 300,
+        "strict_joint_eligible": 254
+      },
+      "EuroLeague 2026/2027": {
+        "box_ingested_range_utc": [
+          "2026-11-12T17:03:00+00:00",
+          "2026-11-12T17:03:50+00:00"
+        ],
+        "box_observed_range_utc": [
+          "2026-11-12T17:03:00+00:00",
+          "2026-11-12T17:03:50+00:00"
+        ],
+        "fixture_known_before_tipoff": 14,
+        "missing": {
+          "CONTEXT_TRANSITION_ANNOTATIONS": 102,
+          "INJURIES": 102,
+          "PREMATCH_LINEUP": 102
+        },
+        "score_ingested_range_utc": [
+          "2026-11-12T15:38:45+00:00",
+          "2026-11-12T15:38:45+00:00"
+        ],
+        "score_observed_range_utc": [
+          "2026-11-12T15:38:45+00:00",
+          "2026-11-12T15:38:45+00:00"
+        ],
+        "score_source_lag_hours": {
+          "maximum": 1175.6458333333333,
+          "minimum": 19.895833333333332
+        },
+        "start_range_utc": [
+          "2026-09-24T16:00:00+00:00",
+          "2026-11-11T19:45:00+00:00"
+        ],
+        "strict_feature_abstentions": {
+          "INSUFFICIENT_PRE_CUTOFF_TEAM_HISTORY": 92
+        },
+        "strict_feature_eligible": 10,
+        "strict_joint_eligible": 0
+      },
+      "NBA 2026/2027": {
+        "box_ingested_range_utc": [
+          "2026-11-12T16:45:46+00:00",
+          "2026-11-12T17:25:46+00:00"
+        ],
+        "box_observed_range_utc": [
+          "2026-11-12T15:46:31+00:00",
+          "2026-11-12T16:46:01+00:00"
+        ],
+        "fixture_known_before_tipoff": 169,
+        "missing": {
+          "CONTEXT_TRANSITION_ANNOTATIONS": 170,
+          "INJURIES": 170,
+          "PREMATCH_LINEUP": 170
+        },
+        "score_ingested_range_utc": [
+          "2026-11-12T15:38:26+00:00",
+          "2026-11-12T15:38:44+00:00"
+        ],
+        "score_observed_range_utc": [
+          "2026-11-12T15:38:26+00:00",
+          "2026-11-12T15:38:44+00:00"
+        ],
+        "score_source_lag_hours": {
+          "maximum": 548.6405555555556,
+          "minimum": 12.645555555555555
+        },
+        "start_range_utc": [
+          "2026-10-20T19:00:00+00:00",
+          "2026-11-12T03:00:00+00:00"
+        ],
+        "strict_feature_abstentions": {
+          "INSUFFICIENT_PRE_CUTOFF_TEAM_HISTORY": 99
+        },
+        "strict_feature_eligible": 71,
+        "strict_joint_eligible": 71
+      }
+    },
+    "inventory": {
+      "EuroCup 2025/2026": {
+        "games": 180,
+        "overtime_games": 8,
+        "with_box_statistics": 180,
+        "with_periods": 180,
+        "with_player_box_statistics": 180
+      },
+      "EuroCup 2026/2027": {
+        "games": 111,
+        "overtime_games": 4,
+        "with_box_statistics": 111,
+        "with_periods": 111,
+        "with_player_box_statistics": 111
+      },
+      "EuroLeague 2025/2026": {
+        "games": 380,
+        "overtime_games": 15,
+        "with_box_statistics": 380,
+        "with_periods": 380,
+        "with_player_box_statistics": 380
+      },
+      "EuroLeague 2026/2027": {
+        "games": 102,
+        "overtime_games": 5,
+        "with_box_statistics": 102,
+        "with_periods": 102,
+        "with_player_box_statistics": 102
+      },
+      "NBA 2026/2027": {
+        "games": 170,
+        "overtime_games": 8,
+        "with_box_statistics": 170,
+        "with_periods": 170,
+        "with_player_box_statistics": 32
+      }
+    },
+    "manifest_sha256": "752d3ebe9e1117a5f1dab10f87fd4220f5c8e945f018bb93485900d1326e8185",
+    "production_changed": false,
+    "production_default": "FAZ13",
+    "publication_time_policy": "LOCAL_OBSERVATION_OR_FIELD_BOUND_PUBLIC_ARCHIVE_WITNESS_NO_START_PLUS_DELAY_IMPUTATION",
+    "season_completeness": "NOT_INFERRED_FROM_OBSERVED_GAME_COUNT",
+    "source_clock_attestation": "NATIVE_API_ARCHIVE_VERSION_WITNESSES_PLUS_CURRENT_LOCAL_RECEIPTS"
+  },
+  "archive_binding": {
+    "counters": {
+      "NBA_TBD_TEAM_SLOT_EXCLUDED": 48,
+      "NBA_QUOTES_ARCHIVE_VERIFIED_NOT_CORE_CLOCK": 8,
+      "NBA_BOX_TOTAL_TURNOVER_CONFLICT:401909962": 1,
+      "EURO_PLAYERS_ARCHIVE_VERIFIED_NOT_CORE_CLOCK": 2,
+      "ARCHIVE_GAME_OUTSIDE_CURRENT_LABEL_COHORT": 8353,
+      "ARCHIVED_FIXTURE_VERSIONS": 3696,
+      "ARCHIVED_SCHEDULE_TIME_DIFFERS_FROM_FINAL": 233,
+      "ARCHIVED_CORE_MATCHES_CURRENT_TRUTH": 2241,
+      "WIKI_INTRADAY_FINAL_STATUS_UNPROVEN": 12,
+      "WIKI_FINAL_NATIVE_RECONCILIATION_CONFLICT": 3,
+      "UNREGISTERED_WIKI_TEAM_ALIAS:ULK:Fenerbah\u00e7e Tarfin": 18,
+      "ARCHIVE_TEAM_IDENTITY_CONFLICT": 21,
+      "UNREGISTERED_WIKI_TEAM_ALIAS:PAN:Panathianikos AKTOR": 2,
+      "UNREGISTERED_WIKI_TEAM_ALIAS:RED:Crvena zvezda Meridanbet": 1,
+      "PUBLIC_GAME_INTRADAY_FINAL_STATUS_UNPROVEN": 6,
+      "ARCHIVED_BOX_VERSIONS": 798
+    },
+    "sampled_exclusions": [
+      {
+        "reason": "ARCHIVE_GAME_OUTSIDE_CURRENT_LABEL_COHORT",
+        "archived": {
+          "pid": "401910945",
+          "league": "NBA",
+          "season": "2026/2027",
+          "fixture_start_utc": 1807489800,
+          "home_team_id": "6",
+          "away_team_id": "29",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://github.com/sportsdataverse/hoopR-nba-data/actions/runs/39422421940",
+        "native": null
+      },
+      {
+        "reason": "ARCHIVE_GAME_OUTSIDE_CURRENT_LABEL_COHORT",
+        "archived": {
+          "pid": "401910946",
+          "league": "NBA",
+          "season": "2026/2027",
+          "fixture_start_utc": 1807489800,
+          "home_team_id": "16",
+          "away_team_id": "10",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://github.com/sportsdataverse/hoopR-nba-data/actions/runs/39422421940",
+        "native": null
+      },
+      {
+        "reason": "ARCHIVE_GAME_OUTSIDE_CURRENT_LABEL_COHORT",
+        "archived": {
+          "pid": "401910947",
+          "league": "NBA",
+          "season": "2026/2027",
+          "fixture_start_utc": 1807489800,
+          "home_team_id": "24",
+          "away_team_id": "22",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://github.com/sportsdataverse/hoopR-nba-data/actions/runs/39422421940",
+        "native": null
+      },
+      {
+        "reason": "ARCHIVED_SCHEDULE_TIME_DIFFERS_FROM_FINAL",
+        "archived": {
+          "pid": "401909893",
+          "league": "NBA",
+          "season": "2026/2027",
+          "fixture_start_utc": 1793314800,
+          "home_team_id": "1",
+          "away_team_id": "5",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://github.com/sportsdataverse/hoopR-nba-data/actions/runs/39422421940",
+        "native": {
+          "fixture_id": "b59f59546478748cf7ef5e4d170b4b26b6d48196caf65e72ee93cb7e6c55bff4",
+          "fixture_start_utc": 1793318400,
+          "home_team_id": "1",
+          "away_team_id": "5",
+          "final_scores": [
+            114,
+            111
+          ],
+          "periods": {
+            "home": [
+              16,
+              30,
+              43,
+              25
+            ],
+            "away": [
+              28,
+              16,
+              38,
+              29
+            ]
+          }
+        }
+      },
+      {
+        "reason": "ARCHIVED_SCHEDULE_TIME_DIFFERS_FROM_FINAL",
+        "archived": {
+          "pid": "401909090",
+          "league": "NBA",
+          "season": "2026/2027",
+          "fixture_start_utc": 1792546200,
+          "home_team_id": "24",
+          "away_team_id": "25",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://github.com/sportsdataverse/hoopR-nba-data/actions/runs/39422421940",
+        "native": {
+          "fixture_id": "8915c4b6e308059d4498471dd0ba446a7447358ce40c94438c3105e9c232572f",
+          "fixture_start_utc": 1792547400,
+          "home_team_id": "24",
+          "away_team_id": "25",
+          "final_scores": [
+            104,
+            116
+          ],
+          "periods": {
+            "home": [
+              28,
+              16,
+              36,
+              24
+            ],
+            "away": [
+              34,
+              31,
+              28,
+              23
+            ]
+          }
+        }
+      },
+      {
+        "reason": "ARCHIVED_SCHEDULE_TIME_DIFFERS_FROM_FINAL",
+        "archived": {
+          "pid": "E2025_84",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1762444800,
+          "home_name": "Dubai Basketball",
+          "away_name": "Hapoel IBI Tel Aviv",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1319848813",
+        "native": {
+          "fixture_id": "577c2c4278c15d138344f08f81ddad82ceea9059f0e78c1c0fe8e2d02699e71d",
+          "fixture_start_utc": 1762452000,
+          "home_team_id": "DUB",
+          "away_team_id": "HTA",
+          "final_scores": [
+            97,
+            109
+          ],
+          "periods": {
+            "home": [
+              26,
+              22,
+              19,
+              30
+            ],
+            "away": [
+              25,
+              22,
+              35,
+              27
+            ]
+          }
+        }
+      },
+      {
+        "reason": "WIKI_INTRADAY_FINAL_STATUS_UNPROVEN",
+        "archived": {
+          "pid": "E2025_182",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1767121500,
+          "home_name": "Hapoel IBI Tel Aviv",
+          "away_name": "\u017dalgiris",
+          "final_scores": [
+            80,
+            93
+          ],
+          "periods": {
+            "home": [
+              25,
+              15,
+              13,
+              27
+            ],
+            "away": [
+              18,
+              21,
+              24,
+              30
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1330345339",
+        "native": {
+          "fixture_id": "5de66bacea949110637a244d67d34a8302578bcd9dba9dcfe8f8f309d18f1b30",
+          "fixture_start_utc": 1767121500,
+          "home_team_id": "HTA",
+          "away_team_id": "ZAL",
+          "final_scores": [
+            80,
+            93
+          ],
+          "periods": {
+            "home": [
+              25,
+              15,
+              13,
+              27
+            ],
+            "away": [
+              18,
+              21,
+              24,
+              30
+            ]
+          }
+        }
+      },
+      {
+        "reason": "WIKI_INTRADAY_FINAL_STATUS_UNPROVEN",
+        "archived": {
+          "pid": "E2025_183",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1767122100,
+          "home_name": "LDLC ASVEL",
+          "away_name": "Paris Basketball",
+          "final_scores": [
+            94,
+            89
+          ],
+          "periods": {
+            "home": [
+              20,
+              21,
+              20,
+              33
+            ],
+            "away": [
+              23,
+              23,
+              18,
+              25
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1330345339",
+        "native": {
+          "fixture_id": "df7685b972657ec44678186decf48cf0eb2fa3a7388ea3567c4a2983b06e7683",
+          "fixture_start_utc": 1767122100,
+          "home_team_id": "ASV",
+          "away_team_id": "PRS",
+          "final_scores": [
+            94,
+            89
+          ],
+          "periods": {
+            "home": [
+              20,
+              21,
+              20,
+              33
+            ],
+            "away": [
+              23,
+              23,
+              18,
+              25
+            ]
+          }
+        }
+      },
+      {
+        "reason": "WIKI_INTRADAY_FINAL_STATUS_UNPROVEN",
+        "archived": {
+          "pid": "E2025_184",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1767123000,
+          "home_name": "Valencia Basket",
+          "away_name": "Partizan Mozzart Bet",
+          "final_scores": [
+            86,
+            73
+          ],
+          "periods": {
+            "home": [
+              18,
+              25,
+              22,
+              21
+            ],
+            "away": [
+              22,
+              21,
+              20,
+              10
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1330345339",
+        "native": {
+          "fixture_id": "296872aeb940b233637c547972ab058f14a2595312f19b79dc0ac69c44747d56",
+          "fixture_start_utc": 1767123000,
+          "home_team_id": "PAM",
+          "away_team_id": "PAR",
+          "final_scores": [
+            86,
+            73
+          ],
+          "periods": {
+            "home": [
+              18,
+              25,
+              22,
+              21
+            ],
+            "away": [
+              22,
+              21,
+              20,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "reason": "WIKI_FINAL_NATIVE_RECONCILIATION_CONFLICT",
+        "archived": {
+          "pid": "E2025_201",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1767888000,
+          "home_name": "Dubai Basketball",
+          "away_name": "Fenerbah\u00e7e Beko",
+          "final_scores": [
+            92,
+            81
+          ],
+          "periods": {
+            "home": [
+              24,
+              27,
+              22,
+              19
+            ],
+            "away": [
+              22,
+              20,
+              20,
+              19
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1335817125",
+        "native": {
+          "fixture_id": "45471e84ce414c9ae80cf3438ea6471b7a785927c4440d1387e1e1f29dbea3af",
+          "fixture_start_utc": 1767888000,
+          "home_team_id": "DUB",
+          "away_team_id": "ULK",
+          "final_scores": [
+            92,
+            81
+          ],
+          "periods": {
+            "home": [
+              24,
+              27,
+              22,
+              19
+            ],
+            "away": [
+              20,
+              22,
+              20,
+              19
+            ]
+          }
+        }
+      },
+      {
+        "reason": "WIKI_FINAL_NATIVE_RECONCILIATION_CONFLICT",
+        "archived": {
+          "pid": "E2025_201",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1767888000,
+          "home_name": "Dubai Basketball",
+          "away_name": "Fenerbah\u00e7e Beko",
+          "final_scores": [
+            92,
+            81
+          ],
+          "periods": {
+            "home": [
+              24,
+              27,
+              22,
+              19
+            ],
+            "away": [
+              22,
+              20,
+              20,
+              19
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1340810898",
+        "native": {
+          "fixture_id": "45471e84ce414c9ae80cf3438ea6471b7a785927c4440d1387e1e1f29dbea3af",
+          "fixture_start_utc": 1767888000,
+          "home_team_id": "DUB",
+          "away_team_id": "ULK",
+          "final_scores": [
+            92,
+            81
+          ],
+          "periods": {
+            "home": [
+              24,
+              27,
+              22,
+              19
+            ],
+            "away": [
+              20,
+              22,
+              20,
+              19
+            ]
+          }
+        }
+      },
+      {
+        "reason": "WIKI_FINAL_NATIVE_RECONCILIATION_CONFLICT",
+        "archived": {
+          "pid": "E2025_201",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1767888000,
+          "home_name": "Dubai Basketball",
+          "away_name": "Fenerbah\u00e7e Beko",
+          "final_scores": [
+            92,
+            81
+          ],
+          "periods": {
+            "home": [
+              24,
+              27,
+              22,
+              19
+            ],
+            "away": [
+              22,
+              20,
+              20,
+              19
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1346598623",
+        "native": {
+          "fixture_id": "45471e84ce414c9ae80cf3438ea6471b7a785927c4440d1387e1e1f29dbea3af",
+          "fixture_start_utc": 1767888000,
+          "home_team_id": "DUB",
+          "away_team_id": "ULK",
+          "final_scores": [
+            92,
+            81
+          ],
+          "periods": {
+            "home": [
+              24,
+              27,
+              22,
+              19
+            ],
+            "away": [
+              20,
+              22,
+              20,
+              19
+            ]
+          }
+        }
+      },
+      {
+        "reason": "UNREGISTERED_WIKI_TEAM_ALIAS:ULK:Fenerbah\u00e7e Tarfin",
+        "archived": {
+          "pid": "E2026_9",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1790358300,
+          "home_name": "Fenerbah\u00e7e Tarfin",
+          "away_name": "Virtus Bologna",
+          "final_scores": [
+            78,
+            68
+          ],
+          "periods": {
+            "home": [
+              23,
+              16,
+              20,
+              19
+            ],
+            "away": [
+              17,
+              21,
+              17,
+              13
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1377902618",
+        "native": {
+          "fixture_id": "a3238acb046f6b7efca6fae1d129ea8830d7d27ce59e5457ae4ec3d19faf2245",
+          "fixture_start_utc": 1790358300,
+          "home_team_id": "ULK",
+          "away_team_id": "VIR",
+          "final_scores": [
+            78,
+            68
+          ],
+          "periods": {
+            "home": [
+              23,
+              16,
+              20,
+              19
+            ],
+            "away": [
+              17,
+              21,
+              17,
+              13
+            ]
+          }
+        }
+      },
+      {
+        "reason": "ARCHIVE_TEAM_IDENTITY_CONFLICT",
+        "archived": {
+          "pid": "E2026_9",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1790358300,
+          "home_name": "Fenerbah\u00e7e Tarfin",
+          "away_name": "Virtus Bologna",
+          "final_scores": [
+            78,
+            68
+          ],
+          "periods": {
+            "home": [
+              23,
+              16,
+              20,
+              19
+            ],
+            "away": [
+              17,
+              21,
+              17,
+              13
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1377902618",
+        "native": {
+          "fixture_id": "a3238acb046f6b7efca6fae1d129ea8830d7d27ce59e5457ae4ec3d19faf2245",
+          "fixture_start_utc": 1790358300,
+          "home_team_id": "ULK",
+          "away_team_id": "VIR",
+          "final_scores": [
+            78,
+            68
+          ],
+          "periods": {
+            "home": [
+              23,
+              16,
+              20,
+              19
+            ],
+            "away": [
+              17,
+              21,
+              17,
+              13
+            ]
+          }
+        }
+      },
+      {
+        "reason": "UNREGISTERED_WIKI_TEAM_ALIAS:ULK:Fenerbah\u00e7e Tarfin",
+        "archived": {
+          "pid": "E2026_17",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1790703900,
+          "home_name": "Fenerbah\u00e7e Tarfin",
+          "away_name": "Bayern Munich",
+          "final_scores": [
+            100,
+            76
+          ],
+          "periods": {
+            "home": [
+              31,
+              19,
+              25,
+              25
+            ],
+            "away": [
+              15,
+              16,
+              20,
+              25
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1377902618",
+        "native": {
+          "fixture_id": "d2cd309080447d5d26dc4d0c0b28b76c16de9ce4f60371b40a6d3fd888e859fd",
+          "fixture_start_utc": 1790703900,
+          "home_team_id": "ULK",
+          "away_team_id": "MUN",
+          "final_scores": [
+            100,
+            76
+          ],
+          "periods": {
+            "home": [
+              31,
+              19,
+              25,
+              25
+            ],
+            "away": [
+              15,
+              16,
+              20,
+              25
+            ]
+          }
+        }
+      },
+      {
+        "reason": "ARCHIVE_TEAM_IDENTITY_CONFLICT",
+        "archived": {
+          "pid": "E2026_17",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1790703900,
+          "home_name": "Fenerbah\u00e7e Tarfin",
+          "away_name": "Bayern Munich",
+          "final_scores": [
+            100,
+            76
+          ],
+          "periods": {
+            "home": [
+              31,
+              19,
+              25,
+              25
+            ],
+            "away": [
+              15,
+              16,
+              20,
+              25
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1377902618",
+        "native": {
+          "fixture_id": "d2cd309080447d5d26dc4d0c0b28b76c16de9ce4f60371b40a6d3fd888e859fd",
+          "fixture_start_utc": 1790703900,
+          "home_team_id": "ULK",
+          "away_team_id": "MUN",
+          "final_scores": [
+            100,
+            76
+          ],
+          "periods": {
+            "home": [
+              31,
+              19,
+              25,
+              25
+            ],
+            "away": [
+              15,
+              16,
+              20,
+              25
+            ]
+          }
+        }
+      },
+      {
+        "reason": "UNREGISTERED_WIKI_TEAM_ALIAS:ULK:Fenerbah\u00e7e Tarfin",
+        "archived": {
+          "pid": "E2026_29",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1790963100,
+          "home_name": "Fenerbah\u00e7e Tarfin",
+          "away_name": "Dubai Basketball",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1377902618",
+        "native": {
+          "fixture_id": "99e5db492fca2df0b4d78ecca7e4f4e383965e18fcd530ec98a15ee8ed14a121",
+          "fixture_start_utc": 1790963100,
+          "home_team_id": "ULK",
+          "away_team_id": "DUB",
+          "final_scores": [
+            76,
+            66
+          ],
+          "periods": {
+            "home": [
+              26,
+              16,
+              13,
+              21
+            ],
+            "away": [
+              14,
+              25,
+              12,
+              15
+            ]
+          }
+        }
+      },
+      {
+        "reason": "ARCHIVE_TEAM_IDENTITY_CONFLICT",
+        "archived": {
+          "pid": "E2026_29",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1790963100,
+          "home_name": "Fenerbah\u00e7e Tarfin",
+          "away_name": "Dubai Basketball",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1377902618",
+        "native": {
+          "fixture_id": "99e5db492fca2df0b4d78ecca7e4f4e383965e18fcd530ec98a15ee8ed14a121",
+          "fixture_start_utc": 1790963100,
+          "home_team_id": "ULK",
+          "away_team_id": "DUB",
+          "final_scores": [
+            76,
+            66
+          ],
+          "periods": {
+            "home": [
+              26,
+              16,
+              13,
+              21
+            ],
+            "away": [
+              14,
+              25,
+              12,
+              15
+            ]
+          }
+        }
+      },
+      {
+        "reason": "UNREGISTERED_WIKI_TEAM_ALIAS:PAN:Panathianikos AKTOR",
+        "archived": {
+          "pid": "E2026_47",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1791916200,
+          "home_name": "Partizan Mozzart Bet",
+          "away_name": "Panathianikos AKTOR",
+          "final_scores": [
+            55,
+            72
+          ],
+          "periods": {
+            "home": [
+              16,
+              12,
+              8,
+              19
+            ],
+            "away": [
+              16,
+              19,
+              20,
+              17
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1380285911",
+        "native": {
+          "fixture_id": "34ab6c6a57774744d90789174e66f2d62c42e788574e77721b7eec962114bca0",
+          "fixture_start_utc": 1791916200,
+          "home_team_id": "PAR",
+          "away_team_id": "PAN",
+          "final_scores": [
+            55,
+            72
+          ],
+          "periods": {
+            "home": [
+              16,
+              12,
+              8,
+              19
+            ],
+            "away": [
+              16,
+              19,
+              20,
+              17
+            ]
+          }
+        }
+      },
+      {
+        "reason": "UNREGISTERED_WIKI_TEAM_ALIAS:PAN:Panathianikos AKTOR",
+        "archived": {
+          "pid": "E2026_47",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1791916200,
+          "home_name": "Partizan Mozzart Bet",
+          "away_name": "Panathianikos AKTOR",
+          "final_scores": [
+            55,
+            72
+          ],
+          "periods": {
+            "home": [
+              16,
+              12,
+              8,
+              19
+            ],
+            "away": [
+              16,
+              19,
+              20,
+              17
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1383021579",
+        "native": {
+          "fixture_id": "34ab6c6a57774744d90789174e66f2d62c42e788574e77721b7eec962114bca0",
+          "fixture_start_utc": 1791916200,
+          "home_team_id": "PAR",
+          "away_team_id": "PAN",
+          "final_scores": [
+            55,
+            72
+          ],
+          "periods": {
+            "home": [
+              16,
+              12,
+              8,
+              19
+            ],
+            "away": [
+              16,
+              19,
+              20,
+              17
+            ]
+          }
+        }
+      },
+      {
+        "reason": "UNREGISTERED_WIKI_TEAM_ALIAS:RED:Crvena zvezda Meridanbet",
+        "archived": {
+          "pid": "E2026_81",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1793300400,
+          "home_name": "Crvena zvezda Meridanbet",
+          "away_name": "Bayern Munich",
+          "final_scores": [
+            103,
+            73
+          ],
+          "periods": {
+            "home": [
+              19,
+              29,
+              31,
+              24
+            ],
+            "away": [
+              15,
+              16,
+              23,
+              19
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1383021579",
+        "native": {
+          "fixture_id": "f6876e01635562ff6ee7c2a23bcda0518d0cdb8a0af6320cca3094ccb77bdbc3",
+          "fixture_start_utc": 1793300400,
+          "home_team_id": "RED",
+          "away_team_id": "MUN",
+          "final_scores": [
+            103,
+            73
+          ],
+          "periods": {
+            "home": [
+              19,
+              29,
+              31,
+              24
+            ],
+            "away": [
+              15,
+              16,
+              23,
+              19
+            ]
+          }
+        }
+      },
+      {
+        "reason": "PUBLIC_GAME_INTRADAY_FINAL_STATUS_UNPROVEN",
+        "archived": {
+          "pid": "U2026_111",
+          "league": "EuroCup",
+          "season": "2026/2027",
+          "fixture_start_utc": 1794330000,
+          "home_team_id": "BLK",
+          "away_team_id": "PAO",
+          "final_scores": [
+            56,
+            79
+          ],
+          "periods": {
+            "home": [
+              12,
+              20,
+              9,
+              15
+            ],
+            "away": [
+              19,
+              34,
+              19,
+              7
+            ]
+          }
+        },
+        "evidence_id": "https://github.com/tomlebedev-cloud/eurocup/actions/runs/42908379933",
+        "native": {
+          "fixture_id": "8303bcf7e2761018ee6fec4f5c59719283e76e483d94e257d7ef04e1dcc249d5",
+          "fixture_start_utc": 1794330000,
+          "home_team_id": "BLK",
+          "away_team_id": "PAO",
+          "final_scores": [
+            56,
+            79
+          ],
+          "periods": {
+            "home": [
+              12,
+              20,
+              9,
+              15
+            ],
+            "away": [
+              19,
+              34,
+              19,
+              7
+            ]
+          }
+        }
+      },
+      {
+        "reason": "PUBLIC_GAME_INTRADAY_FINAL_STATUS_UNPROVEN",
+        "archived": {
+          "pid": "U2026_105",
+          "league": "EuroCup",
+          "season": "2026/2027",
+          "fixture_start_utc": 1794330000,
+          "home_team_id": "KLA",
+          "away_team_id": "WRO",
+          "final_scores": [
+            90,
+            82
+          ],
+          "periods": {
+            "home": [
+              21,
+              17,
+              30,
+              22
+            ],
+            "away": [
+              18,
+              20,
+              26,
+              18
+            ]
+          }
+        },
+        "evidence_id": "https://github.com/tomlebedev-cloud/eurocup/actions/runs/42908379933",
+        "native": {
+          "fixture_id": "906b6bb3de2e137e2b8dd2d56c3b83afb687f32b805656ff264c929bc5c73d2d",
+          "fixture_start_utc": 1794330000,
+          "home_team_id": "KLA",
+          "away_team_id": "WRO",
+          "final_scores": [
+            90,
+            82
+          ],
+          "periods": {
+            "home": [
+              21,
+              17,
+              30,
+              22
+            ],
+            "away": [
+              18,
+              20,
+              26,
+              18
+            ]
+          }
+        }
+      },
+      {
+        "reason": "PUBLIC_GAME_INTRADAY_FINAL_STATUS_UNPROVEN",
+        "archived": {
+          "pid": "U2026_104",
+          "league": "EuroCup",
+          "season": "2026/2027",
+          "fixture_start_utc": 1794330000,
+          "home_team_id": "CLU",
+          "away_team_id": "TTK",
+          "final_scores": [
+            81,
+            89
+          ],
+          "periods": {
+            "home": [
+              19,
+              14,
+              30,
+              18
+            ],
+            "away": [
+              21,
+              31,
+              21,
+              16
+            ]
+          }
+        },
+        "evidence_id": "https://github.com/tomlebedev-cloud/eurocup/actions/runs/42908379933",
+        "native": {
+          "fixture_id": "2566cc4c213ca2e143bb873fb8830502e72f2ea229e87178ec13690d26fd8cdf",
+          "fixture_start_utc": 1794330000,
+          "home_team_id": "CLU",
+          "away_team_id": "TTK",
+          "final_scores": [
+            81,
+            89
+          ],
+          "periods": {
+            "home": [
+              19,
+              14,
+              30,
+              18
+            ],
+            "away": [
+              21,
+              31,
+              21,
+              16
+            ]
+          }
+        }
+      }
+    ],
+    "independent_sources": 36,
+    "source_time_policy": "PUBLIC_ARCHIVE_VERSION_WITNESS_NOT_LOCAL_RETRIEVAL",
+    "current_truth_preserved": true
+  },
+  "cup_membership": {
+    "2025": {
+      "members": 20,
+      "fixture_teams": 20,
+      "unknown_team_ids": [],
+      "participant_snapshot": {
+        "path": "/workspace/scratch/continuation-20261112/cup2025-participants.json",
+        "sha256": "36592b950aec0a5230852b85f9f5abd17f7f34adc3b92fdb96760999720dc097",
+        "bytes": 40379
+      }
+    },
+    "2026": {
+      "members": 32,
+      "fixture_teams": 32,
+      "unknown_team_ids": [],
+      "participant_snapshot": {
+        "path": "/workspace/scratch/continuation-20261112/cup2026-participants.json",
+        "sha256": "db9b4cbb668c9b09405c9f540f49a28bc077dc21dcde1bfe06434e658e567420",
+        "bytes": 62251
+      }
+    }
+  },
+  "same_prior_oos_predictions": {
+    "rows": 732,
+    "point_and_winner_values_identical": true,
+    "all_market_line_grids_identical": true
+  },
+  "runtime": {
+    "format": "TELEGRAM_PORTABLE_ML_RUNTIME_PROBE_V1",
+    "status": "PASS",
+    "mode": "portable",
+    "resource_fixture": "SYNTHETIC_NOT_MODEL_PERFORMANCE_EVIDENCE",
+    "transport": "REAL_HTTP_LOCAL_TELEGRAM_API_DOUBLE",
+    "actual_telegram_delivery_verified": false,
+    "production_default_changed": false,
+    "python_version": "3.11.18",
+    "numpy_version": "1.26.4",
+    "native_ml_libraries_loaded": [],
+    "address_space_limit_bytes": [
+      268435456,
+      268435456
+    ],
+    "cpu_affinity": [
+      0
+    ],
+    "peak_rss_mib": 159.45703125,
+    "requests": 25,
+    "analyze_replies": 22,
+    "nba_replies": 1,
+    "health_ready": {
+      "ready": true,
+      "release_sha": "UNKNOWN"
+    },
+    "accuracy_replies": 1,
+    "compare_replies": 1,
+    "actual_v1_analysis": true,
+    "v1_decisions": [
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": true
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "EUROLEAGUE",
+        "status": "ANALYSIS_OK",
+        "new_record": true
+      },
+      {
+        "league": "EUROCUP",
+        "status": "ABSTAIN",
+        "new_record": null
+      }
+    ],
+    "isolated_ledger_integrity": {
+      "sqlite": "ok",
+      "snapshots": 2,
+      "unconfirmed_snapshots": 0,
+      "verified_results": 0
+    },
+    "reports_read_only_verified": true,
+    "legacy_records_preserved": true,
+    "latency_p95_seconds": 0.3526743107001493,
+    "models_resident": [
+      "LIGHTGBM_PORTABLE",
+      "CATBOOST_PORTABLE",
+      "BAYES",
+      "POSSESSION",
+      "FAZ13_MC"
+    ],
+    "v1_cache_entries": 32,
+    "v1_cache_serialized_bytes": 15768035,
+    "cache_stress": "NATIVE_PAYLOAD_MEMORY_REPLAY_NOT_HISTORICAL_OR_LIVE_EVIDENCE",
+    "source_pins": {
+      "CATBOOST": {
+        "max_absolute_error": 0.0,
+        "n": 48
+      },
+      "LIGHTGBM": {
+        "max_absolute_error": 0.0,
+        "n": 48
+      }
+    },
+    "message_example": "ZEYNAL | KAYITLI MODEL KAR\u015eILA\u015eTIRMASI | Normal s\u00fcre\nSynthetic Hawks \u2013 Synthetic Bears\nFAZ13_SCORE_MATCHUP_PERIODS_V1 | 402b40da9592 | Skor 118.50 \u2013 112.50 | Sonu\u00e7 bekleniyor\nTek kay\u0131tl\u0131 model; kar\u015f\u0131la\u015ft\u0131r\u0131lacak ikinci do\u011frulanm\u0131\u015f s\u00fcr\u00fcm yok.\nKay\u0131tl\u0131 olmayan hibrit modeller i\u00e7in sonu\u00e7 \u00fcretilmedi. Model \u00fcst\u00fcnl\u00fc\u011f\u00fc \u00e7\u0131kar\u0131lamaz.",
+    "telegram_command_examples": [
+      "NBA | 2026-11-11 | T\u00fcrkiye saati\nKaynak: ESPN | Fikst\u00fcr (tahmin de\u011fil)\n23:00 | Synthetic Hawks - Synthetic Bears | Ba\u015flamad\u0131\nAnaliz: /analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: e6d77de75487",
+      "<b>\ud83c\udfc0 EUROLEAGUE | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nParis Basketball \u2013 Fenerbahce New Sponsor Istanbul\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 40 dk\n<b>Skor: 85.00 \u2013 80.00 | Toplam: 165.00</b>\nEv sahibi fark\u0131: +5.00 | Model handikab\u0131 (ev): -5.00\n1H: 42.00 \u2013 39.00\n2H: 43.00 \u2013 41.00\n1Q: 20.00 \u2013 19.00\n2Q: 22.00 \u2013 20.00\n3Q: 20.00 \u2013 20.00\n4Q: 23.00 \u2013 21.00\nMonte Carlo: do\u011frulanm\u0131\u015f skor varyans\u0131 yetersiz; hesaplanmad\u0131.\nGe\u00e7mi\u015f ma\u00e7: Ev 7 | Dep 7\nKaynak: EUROLEAGUE_LIVE | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 90e14d9a4bf4 | Kay\u0131t SHA: 106dca58623a",
+      "Bu lig i\u00e7in do\u011frulanm\u0131\u015f analiz motoru hen\u00fcz ba\u011fl\u0131 de\u011fil. LEAGUE_MODEL_NOT_CONFIGURED",
+      "ZEYNAL | DO\u011eRULANMI\u015e CANLI PERFORMANS | Normal s\u00fcre\nKay\u0131tl\u0131 ma\u00e7: 1 | Sonucu beklenen tahmin: 1\nDo\u011frulanm\u0131\u015f sonu\u00e7: 0. Ba\u015far\u0131 oran\u0131 ve kalibrasyon hesaplanamad\u0131.\nAra\u015ft\u0131rma backtestleri dahil de\u011fil. Bu de\u011ferler model \u00fcst\u00fcnl\u00fc\u011f\u00fc veya g\u00fcven y\u00fczdesi de\u011fildir.",
+      "ZEYNAL | KAYITLI MODEL KAR\u015eILA\u015eTIRMASI | Normal s\u00fcre\nSynthetic Hawks \u2013 Synthetic Bears\nFAZ13_SCORE_MATCHUP_PERIODS_V1 | 402b40da9592 | Skor 118.50 \u2013 112.50 | Sonu\u00e7 bekleniyor\nTek kay\u0131tl\u0131 model; kar\u015f\u0131la\u015ft\u0131r\u0131lacak ikinci do\u011frulanm\u0131\u015f s\u00fcr\u00fcm yok.\nKay\u0131tl\u0131 olmayan hibrit modeller i\u00e7in sonu\u00e7 \u00fcretilmedi. Model \u00fcst\u00fcnl\u00fc\u011f\u00fc \u00e7\u0131kar\u0131lamaz."
+    ],
+    "runtime_source_pins": {
+      "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
+      "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+      "preparation.py": "f51077c6e2b504c86aac4500be7913eaf7c8b461fc6f610fbf2fff976a42c025",
+      "acceptance.py": "ff6e95a588f387691d008d4d86d7087bc92b7650533e82f93de39bd586bd14ce",
+      "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+      "markets.py": "f6d7f967296de6a8ee9dbda595cec0c40761bdc70e9ae64824a35b95e2b6c965",
+      "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+      "walkforward.py": "e762110e8612b11fe3ebb50134b9b5f203cc42c93439b0a16b7173d1c8aed994",
+      "availability.py": "33e92959bd3d3a2699d4fa6a7b73bba3aa4db914f144970b13d2cfc2e3551eca",
+      "archive_sources.py": "d73f047912d9a360e0015a2eddb52789850b1642279e285bff1b42c91cd7630d",
+      "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+      "root_cause.py": "0764fc098e77fb569490e4ed307bad7def76c03846bce148a35277963eba07aa",
+      "observed_markets.py": "1e5d02fea7cd4addd3fe7c5a5c6b02ebdbde1177c237d9e63cce4270b5db52ce",
+      "evaluation.py": "e7ad5518c4eab4e8dc53019a3376be4b805f27dd68023a9259ec70becf648a2b",
+      "statistics.py": "128f609fd39a90031dee4c3d22ddc0c93e14cff08de65104d1219f79c42fd074",
+      "__init__.py": "8d3f97c99d8ff6ec21deb8daa93d789e656dc99fb1f5fc8b258ed2b71a1de73a",
+      "runtime_fixture.py": "cda7fe6de8fc8f2f0a5051cee5686878eeca0054b26347db92e5dd947a780fd3",
+      "runtime_probe.py": "d293c12c94a2d8896d7320e5e6bfbb8ae8fdb6a67b153c79b448206122208fbf",
+      "audit.py": "c6107ecae0d3d738d654196691b8fe89552f7533ff4cff24e70573ffd8436a17",
+      "portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+      "benchmark.py": "38cdbc13962fc952ea4051f40103321dc8496d6ba6a74dd2e102a5862391dbc4",
+      "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+      "../main.py": "a2b23419c345dac835840a4497f2648c25985df02d275ede1c4a230d405950f8",
+      "../historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+      "../prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2",
+      "../verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b",
+      "../ledger_reports.py": "0b2c7ce785b10df819d8905b02682c0b70e720c6e1f94784d0fb2777008f3bde",
+      "../season_archive_inventory.py": "f5dab3a2f3605d1f1591d9b3b0a74ad96797a3db8f1bfb38c6bcd0a70b1c9e6f",
+      "../Dockerfile": "1237c9fcc5a72af8757ba33e26d627edc8d116cefe2c19c92907244a930677b1"
+    }
+  },
+  "local_docker_image": "sha256:9eb9f55efa05bfe1c6f3ee33eb22d817b3e4674d99b73cd0910179916d6dab57",
+  "docker_enforcement": {
+    "cgroup_memory_supported": false,
+    "kernel_process_RLIMIT_AS_enforced": true,
+    "cpu_affinity": [
+      0
+    ],
+    "network": "none",
+    "root_filesystem": "read_only",
+    "provider_mode": "SYNTHETIC_NATIVE_DOCUMENTS_LOCAL_TELEGRAM_API_DOUBLE",
+    "real_fly_or_internet_telegram_delivery_verified": false
+  },
+  "observed_markets": {
+    "quote_count": 8,
+    "quoted_fixtures": 4,
+    "native_fixture_count": 13,
+    "missing_quote_fixture_ids": [
+      "401909296",
+      "401909297",
+      "401909298",
+      "401909299",
+      "401909300",
+      "401909301",
+      "401909302",
+      "401909303",
+      "401909304"
+    ],
+    "source_pins": [
+      {
+        "file_sha256": "d206c98d68c1fd3c3c09a3c5451a70f9f6262a1ae08c03e326633c81fec43938",
+        "ingested_at_utc": 1794504342,
+        "observed_at_utc": 1794504342,
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&limit=1000"
+      },
+      {
+        "file_sha256": "2138ee5299ba15acc66f8c92ffc6646305351758e490664e6203126a29cbb821",
+        "ingested_at_utc": 1794504343,
+        "observed_at_utc": 1794504343,
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261113&limit=1000"
+      }
+    ],
+    "prospective_fixtures": 4,
+    "settled_oos_market_games": 0,
+    "verified_calibration_profiles": 0,
+    "verified_settlement_scope_quotes": 0,
+    "recommendations_emitted": 0,
+    "verified_confidence_indices_emitted": 0,
+    "limitations": [
+      "ESPN_ATTRIBUTED_DRAFTKINGS_OBSERVATION_NOT_DIRECT_EXECUTABLE_PRICE",
+      "LOCAL_RECEIPT_TIME_DOES_NOT_PROVE_BOOKMAKER_UPSTREAM_QUOTE_AGE",
+      "REGULATION_MODEL_VERSUS_UNKNOWN_OVERTIME_SETTLEMENT",
+      "MISSING_VERIFIED_PREMATCH_ROSTER_AND_CALIBRATION"
+    ]
+  },
+  "prediction_verification": {
+    "status": "PASS",
+    "checks": {
+      "past_label_versions": 734,
+      "prediction_traces": 732,
+      "normalized_market_lines": 13140
+    },
+    "meaning": "MECHANICAL_AUDIT_NOT_AN_INDEPENDENT_ACCURACY_TEST"
+  },
+  "source_file_pins": {
+    "../Dockerfile": "1237c9fcc5a72af8757ba33e26d627edc8d116cefe2c19c92907244a930677b1",
+    "../historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+    "../ledger_reports.py": "0b2c7ce785b10df819d8905b02682c0b70e720c6e1f94784d0fb2777008f3bde",
+    "../main.py": "a2b23419c345dac835840a4497f2648c25985df02d275ede1c4a230d405950f8",
+    "../prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2",
+    "../season_archive_inventory.py": "f5dab3a2f3605d1f1591d9b3b0a74ad96797a3db8f1bfb38c6bcd0a70b1c9e6f",
+    "../verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b",
+    "__init__.py": "8d3f97c99d8ff6ec21deb8daa93d789e656dc99fb1f5fc8b258ed2b71a1de73a",
+    "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
+    "acceptance.py": "ff6e95a588f387691d008d4d86d7087bc92b7650533e82f93de39bd586bd14ce",
+    "archive_sources.py": "d73f047912d9a360e0015a2eddb52789850b1642279e285bff1b42c91cd7630d",
+    "audit.py": "c6107ecae0d3d738d654196691b8fe89552f7533ff4cff24e70573ffd8436a17",
+    "availability.py": "33e92959bd3d3a2699d4fa6a7b73bba3aa4db914f144970b13d2cfc2e3551eca",
+    "benchmark.py": "38cdbc13962fc952ea4051f40103321dc8496d6ba6a74dd2e102a5862391dbc4",
+    "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+    "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+    "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+    "evaluation.py": "e7ad5518c4eab4e8dc53019a3376be4b805f27dd68023a9259ec70becf648a2b",
+    "markets.py": "f6d7f967296de6a8ee9dbda595cec0c40761bdc70e9ae64824a35b95e2b6c965",
+    "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+    "observed_markets.py": "1e5d02fea7cd4addd3fe7c5a5c6b02ebdbde1177c237d9e63cce4270b5db52ce",
+    "portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+    "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+    "preparation.py": "f51077c6e2b504c86aac4500be7913eaf7c8b461fc6f610fbf2fff976a42c025",
+    "root_cause.py": "0764fc098e77fb569490e4ed307bad7def76c03846bce148a35277963eba07aa",
+    "runtime_fixture.py": "cda7fe6de8fc8f2f0a5051cee5686878eeca0054b26347db92e5dd947a780fd3",
+    "runtime_probe.py": "d293c12c94a2d8896d7320e5e6bfbb8ae8fdb6a67b153c79b448206122208fbf",
+    "statistics.py": "128f609fd39a90031dee4c3d22ddc0c93e14cff08de65104d1219f79c42fd074",
+    "walkforward.py": "e762110e8612b11fe3ebb50134b9b5f203cc42c93439b0a16b7173d1c8aed994"
+  },
+  "protected_files_unchanged": {
+    "verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b",
+    "prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2",
+    "historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+    "hybrid_engine/markets.py": "f6d7f967296de6a8ee9dbda595cec0c40761bdc70e9ae64824a35b95e2b6c965",
+    "hybrid_engine/distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+    "hybrid_engine/evaluation.py": "e7ad5518c4eab4e8dc53019a3376be4b805f27dd68023a9259ec70becf648a2b",
+    "hybrid_engine/possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+    "hybrid_engine/portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+    "requirements.txt": "41bde19190b8616800bb227c224966566c1484504c8c172fa57fcd685bebf23d",
+    "fly.toml": "be55cd27dc9cf43bd6e496745edcc642bb85653ac7a8ac5423ec33ec3ef7aa8e"
+  },
+  "input_capsule": {
+    "path": "/workspace/research-artifacts/hybrid-preparation-inputs-20261112.tar.gz",
+    "sha256": "7d7f60444af9f894da12bfb0ab91e35c3b7c90b3bfde0ec5272180079921e323",
+    "bytes": 9173435
+  },
+  "capsule_files": 907,
+  "reports": {
+    "hybrid-preparation-walkforward-20261112.json.gz": {
+      "path": "/workspace/zeynal-hybrid-research/docs/hybrid-preparation-walkforward-20261112.json.gz",
+      "sha256": "8ff1f1077ef1a14236d2b2004f42151053e9d55ef5768c4e8146f3bd133b4c23",
+      "bytes": 1215391
+    },
+    "hybrid-preparation-panels-20261112.json.gz": {
+      "path": "/workspace/zeynal-hybrid-research/docs/hybrid-preparation-panels-20261112.json.gz",
+      "sha256": "faede6daeac0ee4f65357231a4e995cc3413ae0f86573f95cf7beff8d5ee235c",
+      "bytes": 178507
+    },
+    "hybrid-preparation-markets-20261112.json.gz": {
+      "path": "/workspace/zeynal-hybrid-research/docs/hybrid-preparation-markets-20261112.json.gz",
+      "sha256": "8d2b48117a9f94d424f829d43211a8f0caf21cf90402d8d0851e4d47a751cb32",
+      "bytes": 8519
+    }
+  },
+  "runtime_report": {
+    "path": "/workspace/zeynal-hybrid-research/docs/hybrid-preparation-runtime-20261112.json",
+    "sha256": "57ca243c27a2fcef8896ff0e8e623860c1d0b0b3c07148f5aed13a0622e2ecaf",
+    "bytes": 32524
+  },
+  "production_safety": {
+    "main_merge": false,
+    "production_deploy": false,
+    "registry_push": false,
+    "fly_resource_access": false,
+    "production_sqlite_or_snapshot_access": false,
+    "secret_changes": false,
+    "production_default": "FAZ13"
+  },
+  "limitations": [
+    "NOT_PROVEN_BETTER_THAN_FAZ13",
+    "EUROCUP_TOO_FEW_DISTINCT_KICKOFFS_FOR_WALK_FORWARD",
+    "NO_HISTORICAL_REAL_BOOKMAKER_OOS_VALIDATION",
+    "NO_CURRENT_PRODUCTION_TELEGRAM_DELIVERY_TEST",
+    "PUBLIC_ARCHIVE_RECONCILIATION_SELECTION_BIAS_AND_REPEATED_TEAM_DEPENDENCE"
+  ]
+}

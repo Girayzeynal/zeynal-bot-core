@@ -16,6 +16,7 @@ from nba_command import nba_command
 from core.league_identity import resolve_league
 from universal_analysis import UniversalAnalyzeService,render_preflight
 from verified_analysis import production_service
+from ledger_reports import accuracy_command, compare_command, production_reports
 
 from faz13_engine import Faz13Engine, PrematchRequest
 from faz22_engine import Faz22Engine
@@ -483,10 +484,13 @@ def build_app() -> Application:
     app.bot_data["faz17"] = Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE"))
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine()
+    app.bot_data['ledger_reports'] = production_reports()
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
     app.add_handler(CommandHandler("nba", nba_command))
+    app.add_handler(CommandHandler("accuracy", accuracy_command))
+    app.add_handler(CommandHandler("compare", compare_command))
     return app
 
 async def scheduler_loop(engines):

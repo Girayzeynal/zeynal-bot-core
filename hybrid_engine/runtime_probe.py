@@ -13,7 +13,7 @@ import tempfile
 import time
 
 
-async def run(fixture_path, mode, repetitions):
+async def run(fixture_path, mode, repetitions, exercise_v1=False):
     import asyncio
     import hashlib
     from datetime import datetime, timezone
@@ -42,13 +42,22 @@ async def run(fixture_path, mode, repetitions):
     bayes.players = p['players']; bayes.player_index = {v: i for i, v in enumerate(p['players'])}
     bayes.duration = 48; bayes.coefficients = np.asarray(p['coefficients']); bayes.covariance = np.asarray(p['covariance'])
     bayes.noise_variance = p['noise_variance']; bayes.training_ids = p['training_ids']; bayes.artifact_digest = document['bayes']['sha256']; bayes.fitted = True
-    received = []; latencies = []; polls = 0
-    commands = ['/nba']+['/analyze NBA 2025-01-01 Synthetic Home vs Synthetic Away']*repetitions
+    received = []; latencies = []; polls = 0; decisions = []; report_start_hash = None
+    clock = None
+    if exercise_v1:
+        from tests.test_season_archive_audit import NOW
+        clock = patch('time.time', return_value=NOW); clock.start()
+        commands = ['/nba 2026-11-11']+['/analyze NBA 2026-11-11 Synthetic Hawks vs Synthetic Bears']*repetitions
+        commands += ['/analyze EUROLEAGUE 2026-11-11 Paris Basketball vs Fenerbahce Beko',
+            '/analyze EUROCUP 2026-11-11 Synthetic Home vs Synthetic Away',
+            '/accuracy NBA','/compare NBA 401000123']
+    else:
+        commands = ['/nba']+['/analyze NBA 2025-01-01 Synthetic Home vs Synthetic Away']*repetitions
     updates = [dict(update_id=i+1, message=dict(message_id=i+1, date=int(time.time()),
         chat=dict(id=17, type='private'), **{'from': dict(id=23, is_bot=False, first_name='Audit')}, text=text,
         entities=[dict(type='bot_command', offset=0, length=len(text.split()[0]))])) for i, text in enumerate(commands)]
     async def telegram_api(request):
-        nonlocal polls
+        nonlocal polls, report_start_hash
         method = request.path.rsplit('/', 1)[-1]
         if method == 'getMe': result = dict(id=123456, is_bot=True, first_name='Audit', username='zeynal_audit_bot')
         elif method == 'getUpdates':
@@ -56,6 +65,8 @@ async def run(fixture_path, mode, repetitions):
             if polls != 1: await asyncio.sleep(.05)
         elif method == 'sendMessage':
             value = dict(await request.post()); received.append(value['text'])
+            if exercise_v1 and len(received)==len(commands)-2:
+                report_start_hash=hashlib.sha256(isolated_path.read_bytes()).hexdigest()
             result = dict(message_id=1000+len(received), date=int(time.time()), chat=dict(id=17, type='private'), text=value['text'])
         else: result = True
         return web.json_response(dict(ok=True, result=result))
@@ -85,24 +96,53 @@ async def run(fixture_path, mode, repetitions):
     cache_service.transport = resource_transport
     for i in range(len(cache_sources)): cache_service.fetch('SYNTHETIC_MEMORY_REPLAY', 'http://local.fixture/'+str(i))
     app.bot_data['resource_v1_cache_resident'] = cache_service
+    if exercise_v1:
+        import sqlite3
+        from live_analysis_ledger import LiveAnalysisLedger
+        from prediction_ledger import PredictionLedger, PredictionRecord
+        from verified_analysis import VerifiedAnalyzeService
+        from tests.test_release_integration import nba_fetcher
+        from tests.test_universal_analysis import fetcher
+        isolated_path=Path(os.environ['PREDICTION_LEDGER_DB'])
+        PredictionLedger(str(isolated_path)).record_prediction(PredictionRecord('preserved-synthetic-legacy','NBA',NOW-10000,100,100,None))
+        ledger=LiveAnalysisLedger(isolated_path,require_legacy=True)
+        base=nba_fetcher()
+        def nba_native(provider,url):
+            receipt=base(provider,url)
+            if '/scoreboard?' in url:
+                for event in receipt['document'].get('events',[]):
+                    for team in event['competitions'][0]['competitors']:
+                        team['team']['displayName']={'1':'Synthetic Hawks','2':'Synthetic Bears'}[team['team']['id']]
+                receipt['document_sha256']=digest(receipt['document'])
+            return receipt
+        v1_nba=VerifiedAnalyzeService(ledger,nba_native,release_sha='0'*40)
+        v1_euro=VerifiedAnalyzeService(ledger,fetcher(),release_sha='0'*40)
+        with sqlite3.connect(isolated_path) as db:
+            legacy_before=db.execute('SELECT * FROM predictions').fetchall()
     class ShadowService:
         async def analyze(self, *args):
             began = time.perf_counter()
             if cache_sources:
                 cache_service.fetch('SYNTHETIC_MEMORY_REPLAY', 'http://local.fixture/'+str(32+len(latencies)))
             forecasts = [m.predict(cut, method='RQMC_HALTON') for m in models.values()]
-            forecasts += [bayes.predict(cut, method='RQMC_HALTON'), PossessionModel().predict(cut), v1_forecast(cut)]
+            forecasts += [bayes.predict(cut, method='RQMC_HALTON', bounded_workspace=True), PossessionModel().predict(cut), v1_forecast(cut)]
             # No verified calibration/roster => no confidence percentage in Telegram.
             forecast = forecasts[0]
             grid = market_grid(forecast, {'1Q': [50.5], '1H': [100.5], 'TOTAL': [200.5], 'HOME': [100.5], 'AWAY': [100.5], 'HOME_HANDICAP': [-5.5]},
                 model_digest='SYNTHETIC_RESOURCE', prediction_utc=cut.cutoff_utc)
             trace = dict(model_version=forecast.model, data_time_utc=cut.cutoff_utc-1,
                 prediction_utc=cut.cutoff_utc, source='SYNTHETIC_RESOURCE_FIXTURE', inputs_digest=cut.inputs_digest)
+            if exercise_v1:
+                service=v1_nba if args[0]=='NBA' else v1_euro
+                result=await service.analyze(*args)
+                decisions.append(dict(league=args[0],status=result['status'],new_record=result.get('new_record')))
+            else: result=dict(html=render_research(grid, trace))
             latencies.append(time.perf_counter()-began)
-            return dict(html=render_research(grid, trace))
+            return result
     async def nba_loader(day):
         return [dict(id=str(i), start=datetime.now(timezone.utc), home='Synthetic Home '+str(i), away='Synthetic Away '+str(i), status='Scheduled') for i in range(10)]
-    app.bot_data['verified_analysis_service'] = ShadowService(); app.bot_data['nba_fixture_loader'] = nba_loader
+    app.bot_data['verified_analysis_service'] = ShadowService()
+    app.bot_data['nba_fixture_loader'] = v1_nba.list_nba_games if exercise_v1 else nba_loader
     health = await main.start_health(app); health_port = next(iter(health.sites))._server.sockets[0].getsockname()[1]
     try:
         await app.initialize(); await app.start(); await app.updater.start_polling(poll_interval=.01, timeout=1, bootstrap_retries=0)
@@ -113,7 +153,18 @@ async def run(fixture_path, mode, repetitions):
         deadline = time.monotonic()+30
         while len(received) < len(commands) and time.monotonic() < deadline: await asyncio.sleep(.01)
         if len(received) != len(commands): raise ValueError('LOCAL_TELEGRAM_REPLY_COUNT_MISMATCH')
-        if any('Güven endeksi' in value or '%' in value for value in received[1:]): raise ValueError('UNVERIFIED_CONFIDENCE_DISPLAYED')
+        if any('Güven endeksi' in value or (not exercise_v1 and '%' in value) for value in received[1:]): raise ValueError('UNVERIFIED_CONFIDENCE_DISPLAYED')
+        if exercise_v1:
+            if sum(d['status']=='ANALYSIS_OK' for d in decisions)!=repetitions+1 or decisions[-1]['status']!='ABSTAIN':
+                raise ValueError('ACTUAL_V1_NATIVE_ANALYSIS_NOT_VERIFIED')
+            if 'DOĞRULANMIŞ CANLI PERFORMANS' not in received[-2] or 'KAYITLI MODEL KARŞILAŞTIRMASI' not in received[-1]:
+                raise ValueError('METRICS_COMMAND_REPLY_MISSING')
+            if report_start_hash!=hashlib.sha256(isolated_path.read_bytes()).hexdigest():raise ValueError('REPORT_COMMAND_MUTATED_SQLITE')
+            integrity=ledger.integrity()
+            if integrity['snapshots']!=2 or integrity['verified_results']!=0:raise ValueError('V1_IDEMPOTENCE_COUNTS')
+            with sqlite3.connect(isolated_path) as db:
+                if db.execute('SELECT * FROM predictions').fetchall()!=legacy_before:raise ValueError('LEGACY_ROWS_MUTATED')
+        else: integrity=None
         report = dict(format='TELEGRAM_PORTABLE_ML_RUNTIME_PROBE_V1', status='PASS', mode=mode,
             resource_fixture='SYNTHETIC_NOT_MODEL_PERFORMANCE_EVIDENCE', transport='REAL_HTTP_LOCAL_TELEGRAM_API_DOUBLE',
             actual_telegram_delivery_verified=False, production_default_changed=False,
@@ -122,25 +173,31 @@ async def run(fixture_path, mode, repetitions):
             address_space_limit_bytes=list(resource.getrlimit(resource.RLIMIT_AS)),
             cpu_affinity=sorted(os.sched_getaffinity(0)), peak_rss_mib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024,
             requests=len(commands), analyze_replies=len(latencies), nba_replies=1, health_ready=ready,
+            accuracy_replies=int(exercise_v1),compare_replies=int(exercise_v1),actual_v1_analysis=exercise_v1,
+            v1_decisions=decisions,isolated_ledger_integrity=integrity,
+            reports_read_only_verified=exercise_v1,legacy_records_preserved=exercise_v1,
             latency_p95_seconds=float(np.quantile(latencies, .95)),
             models_resident=['LIGHTGBM_PORTABLE', 'CATBOOST_PORTABLE', 'BAYES', 'POSSESSION', 'FAZ13_MC'],
             v1_cache_entries=len(cache_service.cache), v1_cache_serialized_bytes=sum(cache_service.cache_sizes.values()),
             cache_stress='NATIVE_PAYLOAD_MEMORY_REPLAY_NOT_HISTORICAL_OR_LIVE_EVIDENCE',
-            source_pins=document['native_portable_checks'], message_example=received[-1])
+            source_pins=document['native_portable_checks'], message_example=received[-1],
+            telegram_command_examples=received if exercise_v1 else None)
         report['runtime_source_pins'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in Path(__file__).parent.glob('*.py')}
-        for name in ('main.py', 'historical_research.py', 'prematch_monte_carlo.py', 'verified_analysis.py'):
+        for name in ('main.py', 'historical_research.py', 'prematch_monte_carlo.py', 'verified_analysis.py','ledger_reports.py','season_archive_inventory.py','Dockerfile'):
             report['runtime_source_pins']['../'+name] = hashlib.sha256((Path(__file__).parent.parent/name).read_bytes()).hexdigest()
         return report
     finally:
         if app.updater.running: await app.updater.stop()
         if app.running: await app.stop()
         await app.shutdown(); await health.cleanup(); await api_runner.cleanup()
+        if clock is not None:clock.stop()
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--fixture', required=True); parser.add_argument('--mode', choices=['portable', 'native-import-control'], default='portable')
-    parser.add_argument('--repetitions', type=int, default=20); args = parser.parse_args()
+    parser.add_argument('--repetitions', type=int, default=20)
+    parser.add_argument('--exercise-v1', action='store_true'); args = parser.parse_args()
     if not 1 <= args.repetitions <= 50: raise ValueError('BOUNDED_REPETITIONS_REQUIRED')
     resource.setrlimit(resource.RLIMIT_AS, (256*1024*1024, 256*1024*1024))
     os.sched_setaffinity(0, {min(os.sched_getaffinity(0))})
@@ -149,7 +206,7 @@ def main():
         import asyncio
         with tempfile.TemporaryDirectory(prefix='zeynal-telegram-memory-') as directory:
             os.chdir(directory)
-            report = asyncio.run(run(args.fixture, args.mode, args.repetitions))
+            report = asyncio.run(run(args.fixture, args.mode, args.repetitions, args.exercise_v1))
         print(json.dumps(report, allow_nan=False))
     except Exception as exc:
         print(json.dumps(dict(status='FAILED', mode=args.mode, error_type=type(exc).__name__, reason=str(exc)[:300],

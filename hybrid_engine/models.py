@@ -97,7 +97,7 @@ class HierarchicalStrength:
                 else: extra_variance += self.player_prior_sd**2*weight*weight
         return v, extra_variance
 
-    def predict(self, cut, *, budget=Budget(), method='MC', projected_exposure=None):
+    def predict(self, cut, *, budget=Budget(), method='MC', projected_exposure=None, bounded_workspace=False):
         if not self.fitted: raise Abstain('NO_HIERARCHICAL_MODEL')
         if (cut.target['league'], cut.target['season']) != self.identity or cut.cutoff_utc < self.cutoff or cut.evaluation_class != self.mode:
             raise ValueError('MODEL_SEASON_OR_CUTOFF_CONFLICT')
@@ -110,7 +110,11 @@ class HierarchicalStrength:
             v, e = self._vector(cut.target[side+'_team_id'], cut.target[other+'_team_id'], side == 'home', None if exposures is None else exposures[side])
             vectors.append(v); extra.append(e)
         x = np.array(vectors); means = x@self.coefficients
-        covariance = x@self.covariance@x.T+np.diag(self.noise_variance+np.array(extra))
+        # Same posterior quadratic form. The bounded runtime path avoids lazy
+        # BLAS GEMM workspace allocation under a hard process address-space cap.
+        projected = (np.einsum('ij,jk,lk->il', x, self.covariance, x, optimize=False)
+            if bounded_workspace else x@self.covariance@x.T)
+        covariance = projected+np.diag(self.noise_variance+np.array(extra))
         std = np.sqrt(np.diag(covariance)); rho = float(covariance[0, 1]/np.prod(std))
         if np.any(means <= 0) or np.any(means > 300): raise Abstain('HIERARCHICAL_SCORE_OUT_OF_RANGE')
         f = gaussian_forecast(means, std, quarter_weights(cut), budget=budget, method=method,

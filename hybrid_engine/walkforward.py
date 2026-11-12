@@ -119,7 +119,8 @@ def evaluate(cohort, provenance, *, progress=None):
         actual_market_quote_coverage=0, confidence_policy='NO_NUMERIC_CONFIDENCE_WITHOUT_DISJOINT_PAST_CALIBRATION_AUDIT',
         production_default='FAZ13', production_changed=False)
     source_files = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in Path(__file__).parent.glob('*.py')}
-    for name in ('historical_research.py', 'prematch_monte_carlo.py', 'verified_analysis.py'):
+    for name in ('historical_research.py', 'prematch_monte_carlo.py', 'verified_analysis.py',
+                 'main.py','ledger_reports.py','season_archive_inventory.py','Dockerfile'):
         source_files['../'+name] = hashlib.sha256((Path(__file__).parent.parent/name).read_bytes()).hexdigest()
     report['code_digest'] = digest(source_files); report['source_file_pins'] = source_files
     groups = {}; rejected = Counter()

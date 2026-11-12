@@ -85,6 +85,7 @@ def load_manifest(path):
                         box['fixture_start_utc'] != row['fixture_start_utc']):
                     raise ValueError('BOX_IDENTITY_OR_SOURCE_CONFLICT')
                 row['box'] = deepcopy(box)
+                row['box_versions'] = [deepcopy(box)]
     knowledge = []
     for catalog in catalogs:
         payload = catalog['payload']

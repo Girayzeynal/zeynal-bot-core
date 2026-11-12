@@ -1,5 +1,8 @@
 # PR #84 — sıfır örnek kök nedeni ve gerçek walk-forward, 12 Kasım 2026
 
+> Devam çalışması: [üç lig / piyasa / birleşik Telegram hazırlığı](hybrid-preparation-20261112.md).
+> Envanter 943'e, yerel testler 472'ye çıktı. Eski 84 OOS maçın çıktıları korundu; üretim kabulü hâlâ engelli.
+
 **Karar: kabul engelli. Faz13 varsayılan kalır; main merge ve production deploy yapılmaz.**
 `962e16d` üzerinden başlayan araştırmanın `09e044e` sonrası devamıdır.
 Skor formülleri, mevcut skor dağılımları, dar bantlar ve V1 Telegram routing'i değiştirilmedi.
