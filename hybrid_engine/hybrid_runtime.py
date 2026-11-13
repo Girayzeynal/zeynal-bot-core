@@ -10,7 +10,7 @@ import time
 from unittest.mock import patch
 
 
-async def run(fixture_path,repetitions=20):
+async def run(fixture_path,repetitions=20,*,nba_archive=False):
     from concurrent.futures import ThreadPoolExecutor
     asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=1,thread_name_prefix='hybrid-test'))
     import numpy as np
@@ -27,6 +27,13 @@ async def run(fixture_path,repetitions=20):
     def command(r):
         g=r['fixture'];return '/analyze EUROLEAGUE 2026-11-12 '+g['home_name']+' vs '+g['away_name']
     commands=['/nba 2026-11-11']+[command(records[0])]*repetitions+[command(r) for r in records[1:]]+['/accuracy EUROLEAGUE','/compare EUROLEAGUE E2026_103']
+    replay=None
+    if nba_archive:
+        from hybrid_engine.nba_replay import NBAReplayArchive
+        replay=NBAReplayArchive();cases=replay.cases()
+        nba_command=lambda c:'/analyze NBA 2026-11-13 '+c['home']+' vs '+c['away']
+        commands=['/nba 2026-11-13']+[nba_command(c) for c in cases]+[nba_command(cases[0])]*repetitions+[
+            nba_command(cases[0]).replace('2026-11-13','2026-11-12'),command(records[0]),'/accuracy EUROLEAGUE','/compare EUROLEAGUE E2026_103']
     updates=[dict(update_id=i+1,message=dict(message_id=i+1,date=int(time.time()),chat=dict(id=17,type='private'),
         **{'from':dict(id=23,is_bot=False,first_name='Synthetic audit')},text=c,
         entities=[dict(type='bot_command',offset=0,length=len(c.split()[0]))])) for i,c in enumerate(commands)]
@@ -59,7 +66,7 @@ async def run(fixture_path,repetitions=20):
     native=nba_fetcher()
     def synthetic_transport(provider,url):
         r=native(provider,url);r['observed_at_utc']=int(time.time());r['ingested_at_utc']=int(time.time());return r
-    _,results=install_isolated_services(app,archive,root,chat_id=17,transport=synthetic_transport)
+    _,results=install_isolated_services(app,archive,root,chat_id=17,transport=synthetic_transport,nba_replay=replay,replay_only=nba_archive)
     resident=app.bot_data['resource_cache_resident']=main.production_service()
     fixture=json.loads(Path(fixture_path).read_text())
     for i,item in enumerate(fixture.get('cache_source_documents',[])):
@@ -79,22 +86,29 @@ async def run(fixture_path,repetitions=20):
             delivered={e['update_id'] for e in journal.read() if e.get('kind')=='DELIVERY_ACCEPTED'}
             if len(delivered)==len(commands):break
             await asyncio.sleep(.02)
+        await app.update_queue.join()
         events=journal.read();inputs=[e for e in events if e.get('kind')=='COMMAND_RECEIVED'];sends=[e for e in events if e.get('kind')=='DELIVERY_ACCEPTED']
         errors=[e for e in events if e.get('kind') in ('HANDLER_ERROR','SEND_UNCONFIRMED')]
         if errors or len(inputs)!=len(commands) or len({e['update_id'] for e in sends})!=len(commands):raise ValueError('HYBRID_JOURNAL_ERRORS_OR_COUNTS')
         if any(e['update_id']==0 for e in inputs+sends):raise ValueError('UNAUTHORIZED_CHAT_WAS_PROCESSED')
         if not any('PREMATCH tahmini değildir' in s for s in received):raise ValueError('REPLAY_NOT_LABELED')
         if not any('Güven endeksi: hesaplanamadı' in s for s in received):raise ValueError('UNCALIBRATED_CONFIDENCE_GUARD')
-        if sum('ELITE HYBRID PRO' in s for s in received)!=repetitions+4 or any('Analiz hizmeti kullanılamıyor' in s for s in received):
+        if sum('ELITE HYBRID PRO' in s for s in received)!=(1 if nba_archive else repetitions+4) or any('Analiz hizmeti kullanılamıyor' in s for s in received):
             raise ValueError('HYBRID_INFERENCE_OR_RENDER_FAILURE')
+        if nba_archive:
+            if sum('NBA ARŞİV REPLAY' in s for s in received)!=4+repetitions or not any('FIXTURE_LOCAL_DATE_MISMATCH' in s for s in received):
+                raise ValueError('NBA_REPLAY_COMMAND_OR_DATE_ROUTING')
+            if len({e['update_id'] for e in sends if e.get('transport')=='OFFICIAL_TELEGRAM_BOT_API'}):raise ValueError('MOCK_MISLABELED_AS_REAL_TELEGRAM')
         if any(hashlib.sha256(p.read_bytes()).hexdigest()!=h for p,h in originals.items()):raise ValueError('FROZEN_ARCHIVE_MUTATED')
         if results.comparison()['settled_games']!=0:raise ValueError('INVENTED_REAL_RESULT')
         source_pins={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in Path(__file__).parent.glob('*.py')}
         for name in ('main.py','verified_analysis.py','ledger_reports.py','telegram_delivery.py','projection_integrity.py','Dockerfile'):
             source_pins['../'+name]=hashlib.sha256((Path(__file__).parent.parent/name).read_bytes()).hexdigest()
-        return dict(format='HYBRID_TEST_BOT_RUNTIME_V1',status='PASS',actual_telegram_delivery_verified=False,
+        cgroup={name:(Path('/sys/fs/cgroup')/name).read_text().strip() for name in ('memory.max','memory.peak','cpu.max') if (Path('/sys/fs/cgroup')/name).exists()}
+        return dict(format='NBA_ARCHIVE_REPLAY_RUNTIME_V1' if nba_archive else 'HYBRID_TEST_BOT_RUNTIME_V1',status='PASS',actual_telegram_delivery_verified=False,
             transport='LOCAL_HTTP_API_DOUBLE_NOT_REAL_TELEGRAM',requests=len(commands),successful_message_deliveries=len(received),
-            nba_source='SYNTHETIC_NATIVE_SCHEMA_FOR_RESOURCE_TEST_ONLY',
+            nba_source='PINNED_FAZ843_NATIVE_ARCHIVE' if nba_archive else 'SYNTHETIC_NATIVE_SCHEMA_FOR_RESOURCE_TEST_ONLY',
+            nba_replay_records=4 if nba_archive else 0,observed_cgroup=cgroup,
             command_names=sorted({e['command'] for e in inputs}),unauthorized_chat_rejected=True,
             frozen_records=5,frozen_components=20,archive_unchanged=True,new_prematch_records_created=0,
             inference_components=['BAYES_QMC','POSSESSION_ANALYTIC','POSSESSION_MC','FAZ13_MC'],online_training=False,

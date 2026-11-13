@@ -229,6 +229,7 @@ def main():
     parser.add_argument('--exercise-hybrid', action='store_true')
     parser.add_argument('--exercise-live-nba', action='store_true')
     parser.add_argument('--exercise-decision', action='store_true')
+    parser.add_argument('--exercise-nba-replay', action='store_true')
     parser.add_argument('--require-cgroup-limits', action='store_true')
     parser.add_argument('--telegram-errors', action='store_true'); args = parser.parse_args()
     if args.telegram_errors and not args.exercise_v1: raise ValueError('FAILURE_PROBE_REQUIRES_V1_FLOW')
@@ -250,7 +251,10 @@ def main():
             # executor-shutdown helper thread. The peak metrics above include the
             # entire workload; collection does not hide an inference memory peak.
             with asyncio.Runner() as runner:
-                if args.exercise_decision:
+                if args.exercise_nba_replay:
+                    from hybrid_engine.hybrid_runtime import run as run_replay
+                    report=runner.run(run_replay(args.fixture,args.repetitions,nba_archive=True))
+                elif args.exercise_decision:
                     from hybrid_engine.live_runtime import run as run_decision
                     report=runner.run(run_decision(args.fixture,args.repetitions,decisions=True))
                 elif args.exercise_live_nba:

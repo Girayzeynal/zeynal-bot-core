@@ -53,3 +53,8 @@ jobs:
           docker run --rm --network none --read-only --cpus=1 --memory=256m --memory-swap=256m --tmpfs /tmp:rw,size=128m zeynal-bot-core:ci sh -c '
             python -m hybrid_engine.live_runtime --packet /app/docs/evidence/nba-phase843-resource-inputs-20261113.tar.gz --output-directory /tmp/nba-native &&
             python -m hybrid_engine.runtime_probe --exercise-decision --require-cgroup-limits --fixture /tmp/nba-native/fixture.json'
+      - name: Run read-only NBA and EuroLeague replay under container resource limits
+        run: >-
+          docker run --rm --network none --read-only --cpus=1 --memory=256m --memory-swap=256m --tmpfs /tmp:rw,size=96m
+          zeynal-bot-core:ci python -m hybrid_engine.runtime_probe --exercise-nba-replay --require-cgroup-limits
+          --fixture /app/docs/prospective/euroleague-20261112/index-c87489f84f5efa2c3abfae51f641bc066a6ab875f44c94bc197a0a49588b03d1.json

@@ -75,7 +75,11 @@ class AuditedRequest(HTTPXRequest):
         return status,body
 
 
-def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None):
+def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None,nba_replay=None,replay_only=False):
+    if replay_only and nba_service is not None:raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_NBA_SERVICE')
+    if nba_replay is None and nba_service is None:
+        from hybrid_engine.nba_replay import NBAReplayArchive
+        nba_replay=NBAReplayArchive()
     root=local_path(data_directory);root.mkdir(parents=True,exist_ok=True)
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');results=ProspectiveResults(archive,root/'official-results')
     frozen=FrozenHybridService(archive)
@@ -104,8 +108,17 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         app.bot_data['verified_analysis_service']=DecisionService(app.bot_data['verified_analysis_service'],archive,decisions,nba_service=nba_service)
         app.bot_data['ledger_reports']=DecisionReports(app.bot_data['ledger_reports'],decisions,audit_report=audit_report)
         app.bot_data['decision_journal']=decisions
+    if nba_replay is not None:
+        base=app.bot_data['verified_analysis_service']
+        class ReplayDispatch:
+            ledger=getattr(base,'ledger',None)
+            async def analyze(self,league,day,home,away):
+                if league.upper()=='NBA' and (replay_only or nba_service is None or nba_replay.has_pair(home,away)):
+                    return await nba_replay.analyze(league,day,home,away)
+                return await base.analyze(league,day,home,away)
+        app.bot_data['verified_analysis_service']=ReplayDispatch()
     fetch=transport or ControlledTransport(fetch_document)
-    app.bot_data['nba_fixture_loader']=VerifiedAnalyzeService(None,fetcher=fetch).list_nba_games
+    app.bot_data['nba_fixture_loader']=nba_replay.list_nba_games if replay_only else VerifiedAnalyzeService(None,fetcher=fetch).list_nba_games
     async def authorized(update,context):
         if update.effective_chat is None or update.effective_chat.id!=chat_id:raise ApplicationHandlerStop
         _update.set(update.update_id)
@@ -128,9 +141,14 @@ def main():
     parser.add_argument('--nba-model');parser.add_argument('--nba-model-sha')
     parser.add_argument('--decision-layer',action='store_true');parser.add_argument('--decision-audit');parser.add_argument('--decision-audit-sha')
     parser.add_argument('--forward-euroleague-directory');parser.add_argument('--forward-nba-ledger')
+    parser.add_argument('--nba-replay-packet');parser.add_argument('--replay-only',action='store_true')
     args=parser.parse_args();config=configuration(os.environ)
     if args.preflight or config['status']=='NOT_CONFIGURED':print(json.dumps(config));return
     if not args.archive_directory or not args.data_directory:raise ValueError('ISOLATED_DIRECTORIES_REQUIRED')
+    if args.replay_only and (args.nba_model or args.nba_model_sha or args.forward_euroleague_directory or args.forward_nba_ledger):
+        raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_MODELS_AND_RESULT_COLLECTION')
+    from hybrid_engine.nba_replay import NBAReplayArchive,DEFAULT_PACKET
+    nba_replay=NBAReplayArchive(local_path(args.nba_replay_packet) if args.nba_replay_packet else DEFAULT_PACKET)
     if args.result_poll_seconds<60:raise ValueError('BOUNDED_RESULT_POLL_INTERVAL_REQUIRED')
     if bool(args.nba_model)!=bool(args.nba_model_sha):raise ValueError('EXPLICIT_NBA_MODEL_AND_TRUSTED_PIN_REQUIRED')
     nba_model_path=local_path(args.nba_model) if args.nba_model else None
@@ -176,7 +194,7 @@ def main():
                     await asyncio.to_thread(journal.append,digest(dict(kind='RESULT_POLL_FAILED',at=int(time.time()))),
                         dict(kind='RESULT_POLL_FAILED',error_type=type(exc).__name__,observed_at_utc=int(time.time())))
                 await asyncio.sleep(args.result_poll_seconds)
-        tasks.append(asyncio.create_task(collect()))
+        if not args.replay_only:tasks.append(asyncio.create_task(collect()))
     async def stop(app):
         for task in tasks:task.cancel()
         await asyncio.gather(*tasks,return_exceptions=True)
@@ -191,7 +209,7 @@ def main():
         from hybrid_engine.live_nba import PreparedBayes,LiveNBAHybridService
         nba_service=LiveNBAHybridService(root/'live-nba',PreparedBayes(nba_model_path,trusted_sha256=args.nba_model_sha))
     _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport,nba_service=nba_service,
-        decision_layer=args.decision_layer,audit_report=audit_report)
+        decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only)
     app.bot_data['test_results']=results
     # Commands must arrive from the authorized HUMAN test chat; bot self-messages
     # are never counted as real command-input E2E evidence.
