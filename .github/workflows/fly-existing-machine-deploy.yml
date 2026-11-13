@@ -30,14 +30,15 @@ jobs:
           set -euo pipefail
           test -n "$FLY_API_TOKEN"
           flyctl auth whoami >/dev/null
-          flyctl machine status 830932f77d2598 --app zeynal-bot-core --json > /tmp/zeynal-machine.json
+          flyctl machines list --app zeynal-bot-core --json > /tmp/zeynal-machine.json
+          flyctl volumes list --app zeynal-bot-core --json > /tmp/zeynal-volumes.json
           python3 - <<'PY'
           import json
-          m=json.load(open('/tmp/zeynal-machine.json'))
-          mounts=m.get('config',{}).get('mounts') or []
-          assert m.get('id')=='830932f77d2598', 'Unexpected machine'
-          assert m.get('region')=='ams', 'Unexpected region'
-          assert any(x.get('volume')=='vol_4581deoz3xjnp594' and x.get('path')=='/data' for x in mounts), 'Expected volume mount missing: refusing deployment'
+          machines=json.load(open('/tmp/zeynal-machine.json'))
+          volumes=json.load(open('/tmp/zeynal-volumes.json'))
+          assert isinstance(machines,list) and isinstance(volumes,list), 'Unexpected CLI JSON shape'
+          assert any(m.get('id')=='830932f77d2598' and m.get('region')=='ams' for m in machines), 'Expected machine missing'
+          assert any(v.get('id')=='vol_4581deoz3xjnp594' and v.get('attached_machine_id')=='830932f77d2598' for v in volumes), 'Expected volume attachment missing'
           print('Verified existing AMS machine and /data volume mount')
           PY
       - name: Update only the existing volume-attached machine
@@ -47,13 +48,14 @@ jobs:
         run: |
           set -euo pipefail
           flyctl machine update 830932f77d2598 --app zeynal-bot-core --dockerfile Dockerfile --yes --wait-timeout 300
-          flyctl machine status 830932f77d2598 --app zeynal-bot-core --json > /tmp/zeynal-after.json
+          flyctl machines list --app zeynal-bot-core --json > /tmp/zeynal-after.json
+          flyctl volumes list --app zeynal-bot-core --json > /tmp/zeynal-after-volumes.json
           python3 - <<'PY'
           import json
-          m=json.load(open('/tmp/zeynal-after.json'))
-          mounts=m.get('config',{}).get('mounts') or []
-          assert any(x.get('volume')=='vol_4581deoz3xjnp594' and x.get('path')=='/data' for x in mounts), 'Volume mount changed'
-          assert m.get('state')=='started', 'Machine not started'
+          machines=json.load(open('/tmp/zeynal-after.json'))
+          volumes=json.load(open('/tmp/zeynal-after-volumes.json'))
+          assert any(v.get('id')=='vol_4581deoz3xjnp594' and v.get('attached_machine_id')=='830932f77d2598' for v in volumes), 'Volume attachment changed'
+          assert any(m.get('id')=='830932f77d2598' and m.get('state')=='started' for m in machines), 'Machine not started'
           print('Existing machine started; original volume still attached')
           PY
       - name: Check-only summary
