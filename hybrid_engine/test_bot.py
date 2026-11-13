@@ -121,10 +121,10 @@ class NBAReplayReadOnlyReports:
     def render_accuracy(self,r):
         if r['source']=='fallback':
             return self.fallback.render_accuracy(r['report'])
-        return ('ZEYNAL | NBA ARŞİV REPLAY DENETİMİ | ÜRETİM DEĞİL\\n'
-            f"Arşiv tahmini: {r['total_archived']} | Doğrulanmış final: 0\\n"
+        return ('ZEYNAL | NBA ARŞİV REPLAY DENETİMİ | ÜRETİM DEĞİL\n'
+            f"Arşiv tahmini: {r['total_archived']} | Doğrulanmış final: 0\n"
             'Final sonuçları bu izole replay modunda toplanmıyor. '
-            'Bekleyen/sonuçlanan canlı tahmin sayısı ve başarı oranı hesaplanmadı.\\n'
+            'Bekleyen/sonuçlanan canlı tahmin sayısı ve başarı oranı hesaplanmadı.\n'
             'Arşiv replay kayıtları ileriye dönük doğrulanmış performans değildir.')
 
     def render_compare(self,r):
@@ -133,11 +133,11 @@ class NBAReplayReadOnlyReports:
         if not r['rows']:
             return 'Bu kimlik için doğrulanmış NBA replay tahmini bulunamadı.'
         row=r['rows'][0]
-        return ('ZEYNAL | NBA ARŞİV REPLAY KARŞILAŞTIRMASI | ÜRETİM DEĞİL\\n'
-            f"{row['home']} – {row['away']}\\n"
-            f"Maç kimliği: {row['fixture_id']}\\n"
-            f"Orijinal skor: {row['home_score']:.2f} – {row['away_score']:.2f}\\n"
-            'Gerçek final: doğrulanmadı / bu replay moduna aktarılmadı.\\n'
+        return ('ZEYNAL | NBA ARŞİV REPLAY KARŞILAŞTIRMASI | ÜRETİM DEĞİL\n'
+            f"{row['home']} – {row['away']}\n"
+            f"Maç kimliği: {row['fixture_id']}\n"
+            f"Orijinal skor: {row['home_score']:.2f} – {row['away_score']:.2f}\n"
+            'Gerçek final: doğrulanmadı / bu replay moduna aktarılmadı.\n'
             'MAE, RMSE ve başarı yüzdesi hesaplanmadı. '
             'Orijinal arşiv kaydı değiştirilmedi.')
 
