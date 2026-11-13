@@ -125,7 +125,7 @@ class NBAReplayReadOnlyReports:
             f"Arşiv tahmini: {r['total_archived']} | Doğrulanmış final: 0\n"
             'Final sonuçları bu izole replay modunda toplanmıyor. '
             'Bekleyen/sonuçlanan canlı tahmin sayısı ve başarı oranı hesaplanmadı.\n'
-            'Arşiv replay kayıtları ileriye dönük doğrulanmış performans değildir.')
+            'Arşiv replay kayıtları ileriye dönük doğrulanmış performans değildir.\n'\n            'Karşılaştırma için doğrulanmış maç kimlikleri:\n'\n            + '\n'.join(f"{row['home']} – {row['away']}: /compare NBA {row['fixture_id']}"\n                for row in r['rows']))
 
     def render_compare(self,r):
         if r['source']=='fallback':
