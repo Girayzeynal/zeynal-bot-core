@@ -1,0 +1,112 @@
+{
+  "payload": {
+    "format": "PHASE845_NEW_PROSPECTIVE_BATCH_V1",
+    "records": [
+      {
+        "league": "EuroLeague",
+        "fixture_id": "495804e13f27ccbd5f1082539776c20318a959ee1ad0650acdecdef468b60e7d",
+        "provider_fixture_ids": [
+          "E2026_109"
+        ],
+        "home": "Anadolu Efes Istanbul",
+        "away": "Virtus Bologna",
+        "tipoff_utc": 1794591000,
+        "forecast_sha256": "1a5305176940adfae6dae9aa8b15cccfa8196c64325eb24e44c512ed7f1cbe63",
+        "generated_utc": 1794561165,
+        "archived_utc": 1794561165,
+        "file": "forecast-1a5305176940adfae6dae9aa8b15cccfa8196c64325eb24e44c512ed7f1cbe63.json",
+        "file_sha256": "7380d8cdeb80d7468e7ac4b979aada9befc4d2328c5d5c569f7adfd706254bca",
+        "projection": [
+          88.1225476623376,
+          84.57922774754701
+        ],
+        "total": 172.7017754098846,
+        "components": {
+          "BAYES_QMC": "FORECAST_CREATED",
+          "FAZ13_MC": "FORECAST_CREATED",
+          "POSSESSION_ANALYTIC": "ABSTAIN",
+          "POSSESSION_MC": "ABSTAIN"
+        },
+        "result_status": "PENDING_FINAL"
+      },
+      {
+        "league": "EuroLeague",
+        "fixture_id": "79b4bace0d1da2aceca7d895ad2a3d8edc937f72e528f240a337e6562972e368",
+        "provider_fixture_ids": [
+          "E2026_108"
+        ],
+        "home": "LDLC ASVEL Villeurbanne",
+        "away": "Besiktas Istanbul",
+        "tipoff_utc": 1794598200,
+        "forecast_sha256": "5143baef3eee74b4f037730cf959fa6ad60489f0c30b2a8623ac404a50895b66",
+        "generated_utc": 1794561166,
+        "archived_utc": 1794561166,
+        "file": "forecast-5143baef3eee74b4f037730cf959fa6ad60489f0c30b2a8623ac404a50895b66.json",
+        "file_sha256": "a3c68cfda224b4f5ab3b8569c9941d56971f60b7543c9216b0e5fed0503cd916",
+        "projection": [
+          90.58792735435253,
+          89.32088868906484
+        ],
+        "total": 179.90881604341737,
+        "components": {
+          "BAYES_QMC": "FORECAST_CREATED",
+          "FAZ13_MC": "FORECAST_CREATED",
+          "POSSESSION_ANALYTIC": "ABSTAIN",
+          "POSSESSION_MC": "ABSTAIN"
+        },
+        "result_status": "PENDING_FINAL"
+      },
+      {
+        "league": "EuroLeague",
+        "fixture_id": "e1242c6f0467f784d944cf7518283fb443512e14b2684fec71838f0d8ad8c366",
+        "provider_fixture_ids": [
+          "E2026_110"
+        ],
+        "home": "Panathinaikos AKTOR Athens",
+        "away": "FC Barcelona",
+        "tipoff_utc": 1794597300,
+        "forecast_sha256": "c19572ee7acab747a682ff3c5290643d3b3ed801e8c3633ca7e865580d48f674",
+        "generated_utc": 1794561165,
+        "archived_utc": 1794561165,
+        "file": "forecast-c19572ee7acab747a682ff3c5290643d3b3ed801e8c3633ca7e865580d48f674.json",
+        "file_sha256": "cc9260ce2696682d0872f817bedc41a722ce68794715378efb9dd95e88ed5292",
+        "projection": [
+          86.92228238907873,
+          82.65726269217018
+        ],
+        "total": 169.5795450812489,
+        "components": {
+          "BAYES_QMC": "FORECAST_CREATED",
+          "FAZ13_MC": "FORECAST_CREATED",
+          "POSSESSION_ANALYTIC": "ABSTAIN",
+          "POSSESSION_MC": "ABSTAIN"
+        },
+        "result_status": "PENDING_FINAL"
+      },
+      {
+        "league": "NBA",
+        "fixture_id": "cdad176004a6ccb19013c9104a5f8e67a107799cefb694d36aa8b6e9bf8bd6af",
+        "provider_fixture_ids": [
+          "401909296"
+        ],
+        "home": "Indiana Pacers",
+        "away": "New York Knicks",
+        "tipoff_utc": 1794614400,
+        "forecast_sha256": "709a4af2d17ab441077009148f0b285a4d5db8403dd3792fe50ec3387cf2bf32",
+        "generated_utc": 1794561087,
+        "file": "nba-709a4af2d17ab441077009148f0b285a4d5db8403dd3792fe50ec3387cf2bf32.json",
+        "file_sha256": "4168acf3d4858b7ff76c943f77403522437add648be962eae7ff53f55bdc1310",
+        "projection": [
+          107.25365156863954,
+          110.86712601913888
+        ],
+        "total": 218.12077758777843,
+        "result_status": "PENDING_FINAL"
+      }
+    ],
+    "production": false,
+    "actual": null,
+    "earlier_archives_modified": false
+  },
+  "sha256": "9c71fe6ec632d5946846b80f8ad5a33d3f80021b4c6913fa6a20cabee3ddaca0"
+}

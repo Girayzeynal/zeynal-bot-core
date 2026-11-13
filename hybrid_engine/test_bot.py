@@ -3,6 +3,7 @@ import argparse
 import asyncio
 from contextvars import ContextVar
 import json
+import logging
 import os
 from pathlib import Path
 import time
@@ -36,7 +37,11 @@ def configuration(env):
 
 
 class AuditedRequest(HTTPXRequest):
-    def __init__(self,journal,**kwargs):super().__init__(**kwargs);self.journal=journal
+    def __init__(self,journal,*,expected_identity=None,**kwargs):
+        super().__init__(**kwargs);self.journal=journal;self.expected_identity=expected_identity;self.identity_verified=False
+        # HTTPX INFO request lines contain the Bot API token in the URL path.
+        logging.getLogger('httpx').setLevel(logging.ERROR)
+        logging.getLogger('httpcore').setLevel(logging.ERROR)
     async def do_request(self,url,method,**kwargs):
         name=url.rsplit('/',1)[-1]
         try:status,body=await super().do_request(url,method,**kwargs)
@@ -45,6 +50,13 @@ class AuditedRequest(HTTPXRequest):
                 await asyncio.to_thread(self.journal.append,digest(dict(update=_update.get(),kind='SEND_UNCONFIRMED')),
                     dict(kind='SEND_UNCONFIRMED',update_id=_update.get(),error_type=type(exc).__name__,observed_at_utc=int(time.time())))
             raise
+        from hybrid_engine.telegram_evidence import official_endpoint,plaintext
+        identity=self.expected_identity or {}
+        official=official_endpoint(url,identity.get('bot_id'),name)
+        if name=='getMe' and official:
+            data=json.loads(body);r=data.get('result',{})
+            self.identity_verified=bool(status==200 and data.get('ok') is True and r.get('id')==identity.get('bot_id') and
+                r.get('username')==identity.get('username') and r.get('is_bot') is True)
         if name=='sendMessage':
             data=json.loads(body)
             if status==200 and data.get('ok'):
@@ -52,6 +64,13 @@ class AuditedRequest(HTTPXRequest):
                     telegram_reply_at_utc=r['date'],
                     telegram_message_id=r['message_id'],chat_id=r['chat']['id'],ack_at_utc=int(time.time()),
                     message_sha256=digest(r.get('text','')))
+                request_data=kwargs.get('request_data');parameters=getattr(request_data,'parameters',{}) or {}
+                event.update(transport='OFFICIAL_TELEGRAM_BOT_API' if official else 'MOCK_OR_UNATTESTED_ENDPOINT',
+                    dedicated_bot_identity_verified=self.identity_verified and official,
+                    expected_chat_matches=r['chat']['id']==identity.get('chat_id'),
+                    response_content_matches_request=(type(parameters.get('text')) is str and
+                        plaintext(parameters['text'],parameters.get('parse_mode'))==r.get('text')),
+                    response_sha256=digest(data),request_text_sha256=digest(parameters.get('text','')))
                 await asyncio.to_thread(self.journal.append,digest(dict(chat=event['chat_id'],message=event['telegram_message_id'])),event)
         return status,body
 
@@ -93,7 +112,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         message=update.effective_message
         if message and message.text:
             await asyncio.to_thread(journal.append,'received:'+str(update.update_id),dict(kind='COMMAND_RECEIVED',update_id=update.update_id,
-                command=message.text.split()[0],user_message_at_utc=int(message.date.timestamp()),received_at_utc=int(time.time())))
+                command=message.text.split()[0].split('@')[0],chat_id=update.effective_chat.id,
+                is_bot=getattr(update.effective_user,'is_bot',None),
+                user_message_at_utc=int(message.date.timestamp()),received_at_utc=int(time.time())))
     async def error(update,context):
         await asyncio.to_thread(journal.append,digest(dict(update=getattr(update,'update_id',None),kind='HANDLER_ERROR')),
             dict(kind='HANDLER_ERROR',update_id=getattr(update,'update_id',None),error_type=type(context.error).__name__,observed_at_utc=int(time.time())))
@@ -106,12 +127,18 @@ def main():
     parser.add_argument('--archive-directory');parser.add_argument('--data-directory');parser.add_argument('--result-poll-seconds',type=int,default=300)
     parser.add_argument('--nba-model');parser.add_argument('--nba-model-sha')
     parser.add_argument('--decision-layer',action='store_true');parser.add_argument('--decision-audit');parser.add_argument('--decision-audit-sha')
+    parser.add_argument('--forward-euroleague-directory');parser.add_argument('--forward-nba-ledger')
     args=parser.parse_args();config=configuration(os.environ)
     if args.preflight or config['status']=='NOT_CONFIGURED':print(json.dumps(config));return
     if not args.archive_directory or not args.data_directory:raise ValueError('ISOLATED_DIRECTORIES_REQUIRED')
     if args.result_poll_seconds<60:raise ValueError('BOUNDED_RESULT_POLL_INTERVAL_REQUIRED')
     if bool(args.nba_model)!=bool(args.nba_model_sha):raise ValueError('EXPLICIT_NBA_MODEL_AND_TRUSTED_PIN_REQUIRED')
     nba_model_path=local_path(args.nba_model) if args.nba_model else None
+    forward_el=None
+    if args.forward_euroleague_directory:
+        from hybrid_engine.forward_validation import ForwardRegistry
+        forward_el=ForwardRegistry(local_path(args.forward_euroleague_directory))
+    forward_nba=local_path(args.forward_nba_ledger) if args.forward_nba_ledger else None
     if bool(args.decision_audit)!=bool(args.decision_audit_sha):raise ValueError('EXPLICIT_AUDIT_PATH_AND_PIN_REQUIRED')
     audit_report=None
     if args.decision_audit:
@@ -138,6 +165,13 @@ def main():
                 try:
                     receipt=await asyncio.to_thread(transport,'EUROLEAGUE_LIVE',OFFICIAL)
                     await asyncio.to_thread(app.bot_data['test_results'].ingest,receipt)
+                    if forward_el is not None:
+                        from hybrid_engine.forward_nba_results import report_euroleague
+                        await asyncio.to_thread(forward_el.settle,receipt)
+                        await asyncio.to_thread(report_euroleague,forward_el)
+                    if forward_nba is not None:
+                        from hybrid_engine.forward_nba_results import collect as collect_forward_nba
+                        await asyncio.to_thread(collect_forward_nba,forward_nba,root/'forward-nba-results')
                 except (ValueError,OSError) as exc:
                     await asyncio.to_thread(journal.append,digest(dict(kind='RESULT_POLL_FAILED',at=int(time.time()))),
                         dict(kind='RESULT_POLL_FAILED',error_type=type(exc).__name__,observed_at_utc=int(time.time())))
@@ -148,7 +182,7 @@ def main():
         await asyncio.gather(*tasks,return_exceptions=True)
     class IsolatedApplication:
         @staticmethod
-        def builder():return Application.builder().request(AuditedRequest(journal)).post_init(ready).post_shutdown(stop)
+        def builder():return Application.builder().request(AuditedRequest(journal,expected_identity=config)).post_init(ready).post_shutdown(stop)
     application.Application=IsolatedApplication
     try:app=application.build_app()
     finally:application.Application=original
