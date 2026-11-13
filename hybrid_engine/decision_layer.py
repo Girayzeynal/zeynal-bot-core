@@ -1,6 +1,8 @@
 """Research decision interface. Frozen paths, observed prices, explicit settlement; no forced picks."""
 from dataclasses import dataclass
+import hashlib
 import math
+from pathlib import Path
 from urllib.parse import urlparse
 import time
 
@@ -16,7 +18,7 @@ KINDS=('TOTAL','HOME','AWAY','HOME_HANDICAP','WINNER')
 POLICY=dict(version='ELITE_DECISION_GUARD_V1',minimum_raw_ev=0.,quote_max_age_seconds=300,
     recommendations_enabled=False,calibration_auto_update=False,
     probability_order=['under_or_away','push_or_regulation_draw','over_or_home'])
-POLICY_SHA=digest(POLICY)
+POLICY_SHA=digest(dict(policy=POLICY,implementation_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()))
 
 
 def finite(value):
@@ -44,8 +46,13 @@ class RuleEvidence:
     def validate(d):
         if (d.get('format')!='EXPLICIT_BOOK_SETTLEMENT_V1' or d.get('period') not in PERIODS or d.get('market') not in KINDS or
             type(d.get('include_overtime')) is not bool or type(d.get('bookmaker_id')) is not str or not 1<=len(d['bookmaker_id'])<=128 or
+            type(d.get('league')) is not str or not d['league'].strip() or len(d['league'])>128 or
             d.get('stake_rule')!='WHOLE_STAKE_WIN_LOSS_PUSH' or d.get('tie_policy')!='PUSH'):
             raise ValueError('EXPLICIT_SUPPORTED_SETTLEMENT_REQUIRED')
+        if (type(d.get('effective_from_utc')) is not int or d['effective_from_utc']<=0 or
+            'effective_until_utc' not in d or (d['effective_until_utc'] is not None and
+            (type(d['effective_until_utc']) is not int or d['effective_until_utc']<=d['effective_from_utc']))):
+            raise ValueError('EXPLICIT_SETTLEMENT_VALIDITY_REQUIRED')
 
     @classmethod
     def admit(cls,receipt,*,expected_url,trusted_document_sha256):
@@ -166,7 +173,10 @@ def evaluate_quote(distribution,quote=None,rule=None,*,asof_utc,calibration=None
     r=rule.payload
     if digest(r)!=rule.sha256:raise ValueError('SETTLEMENT_RULE_PAYLOAD_MUTATED')
     RuleEvidence.validate(r)
-    if any(r[k]!=q[k] for k in ('bookmaker_id','period','market')) or not 0<r['observed_at_utc']<=r['ingested_at_utc']<=trace['prediction_utc']:
+    if (any(r[k]!=q[k] for k in ('league','bookmaker_id','period','market')) or
+        not 0<r['observed_at_utc']<=r['ingested_at_utc']<=trace['prediction_utc'] or
+        r['effective_from_utc']>trace['prediction_utc'] or
+        (r['effective_until_utc'] is not None and trace['prediction_utc']>=r['effective_until_utc'])):
         result['reasons'].append('SETTLEMENT_SCOPE_OR_CLOCK_CONFLICT');return result
     if not float(2*q['line']).is_integer():result['reasons'].append('SPLIT_STAKE_ASIAN_QUARTER_LINE_UNSUPPORTED');return result
     try:values=distribution.values(q['period'],q['market'],include_overtime=r['include_overtime'])

@@ -3,14 +3,14 @@
   "base_commit": "c95e4ccafffbb451933c31a9f9262f43aa9f7c47",
   "task_comment": "https://github.com/Girayzeynal/zeynal-bot-core/pull/84#issuecomment-6843642834",
   "tests": {
-    "passed": 608,
+    "passed": 609,
     "failed": 0,
     "preserved_previous": 565,
-    "added": 43,
+    "added": 44,
     "log": {
       "path": "/workspace/research-artifacts/phase844-20261113/all-tests-final.log",
-      "sha256": "bb02ece7f04540ee0f015361e3c71c559f8a0158a935602e09df641df49eaa1d",
-      "bytes": 99399
+      "sha256": "2dff7851f0b847a5d1d01a5bb5b1afc1779cb9268535f564e8c6ef5b7687289b",
+      "bytes": 99560
     }
   },
   "frozen_forecast_files": {
@@ -1285,9 +1285,9 @@
     "cpu_affinity": [
       0
     ],
-    "peak_rss_mib": 100.76953125,
-    "elapsed_seconds": 21.799288835994957,
-    "reply_interval_p95_seconds": 2.5908226823503346,
+    "peak_rss_mib": 101.13671875,
+    "elapsed_seconds": 22.31794211700617,
+    "reply_interval_p95_seconds": 2.8236281094494187,
     "native_ml_libraries_loaded": [],
     "isolated_sqlite_integrity": {
       "sqlite": "ok",
@@ -1309,7 +1309,7 @@
     },
     "source_pins": {
       "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
-      "decision_layer.py": "d590843ed0a349973eff9e970dd0c76551d3c4706d3dd3115686d87cd75c17a7",
+      "decision_layer.py": "bfaf6039ff102729d98c19f03b634763021cbc4c6ce741337cb13e74a62e14b2",
       "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
       "live_runtime.py": "85bd8aaf4f704f9700582972b8dce0eb24eafd9c168a8764db35b4eeeb4a469d",
       "prospective_results.py": "4a0c01a43fb2c1bdd7d864fe91e86e509ea8b8cf284eb6abbae66e19d6db48cc",
@@ -1350,17 +1350,17 @@
       "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891"
     },
     "post_collection_process_memory": {
-      "VmPeak_mib": 214.65625,
-      "VmSize_mib": 212.9453125,
-      "VmHWM_mib": 100.76953125,
-      "VmRSS_mib": 99.55078125
+      "VmPeak_mib": 214.5625,
+      "VmSize_mib": 211.40625,
+      "VmHWM_mib": 101.13671875,
+      "VmRSS_mib": 98.2734375
     },
-    "workload_peak_rss_mib": 100.76953125,
+    "workload_peak_rss_mib": 101.13671875,
     "post_shutdown_process_memory": {
-      "VmPeak_mib": 220.96484375,
-      "VmSize_mib": 220.93359375,
-      "VmHWM_mib": 100.76953125,
-      "VmRSS_mib": 99.5546875
+      "VmPeak_mib": 219.42578125,
+      "VmSize_mib": 219.39453125,
+      "VmHWM_mib": 101.13671875,
+      "VmRSS_mib": 98.27734375
     },
     "shutdown_completed": true
   },
@@ -1368,11 +1368,11 @@
   "ci_requires_cgroup_memory_bytes": 268435456,
   "ci_requires_cgroup_cpu_quota_at_most_one": true,
   "ci": "EXACT_HEAD_GITHUB_ACTIONS_LOGS_REQUIRED;SEE_PR84_CHECKS",
-  "audit_sha256": "2e020e529fa4c1a62dc2dfdbc3ff61e16a326ef02dc68143d48ad8b138bfb333",
+  "audit_sha256": "3c95c8eeaf9d655b2ab5f57b13896e4c6ba825b13b76eb15ed2d2715d77d1ed0",
   "plan_sha256": "6a5e38e7e93e92c142acc80cf830512ee9eceb33876ac38b303c42b689703be4",
   "source_pins": {
     "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
-    "decision_layer.py": "d590843ed0a349973eff9e970dd0c76551d3c4706d3dd3115686d87cd75c17a7",
+    "decision_layer.py": "bfaf6039ff102729d98c19f03b634763021cbc4c6ce741337cb13e74a62e14b2",
     "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
     "live_runtime.py": "85bd8aaf4f704f9700582972b8dce0eb24eafd9c168a8764db35b4eeeb4a469d",
     "prospective_results.py": "4a0c01a43fb2c1bdd7d864fe91e86e509ea8b8cf284eb6abbae66e19d6db48cc",
@@ -1414,13 +1414,13 @@
   },
   "result_packet": {
     "path": "/workspace/zeynal-hybrid-research/docs/evidence/phase844-append-only-nba-results-20261113.tar.gz",
-    "sha256": "ffbe6f3a97653afe25f23ce1c5e95763d05b14b8eebb113cd9ac49c766fa3d3d",
+    "sha256": "0efe3ee4f4162d9b8066062cdff9a030336fddc5ba34d39e8a9996a40daafa20",
     "bytes": 343924
   },
   "evidence_capsule": {
     "path": "/workspace/research-artifacts/hybrid-phase844-evidence-20261113.tar.gz",
-    "sha256": "96517daaf077294784ebbc44b94ad675afb01bafebff6ba0e86c7f49e7c7de9e",
-    "bytes": 630099
+    "sha256": "858e2f3f90420b17d7d07471d883b940640e8d811821abbb5ed85ab3c99cbf83",
+    "bytes": 646856
   },
   "safety": {
     "main_merge": false,

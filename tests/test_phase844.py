@@ -43,6 +43,7 @@ def quote_and_rule(*,market='TOTAL',period='FULL',line=198.,prices=None,ot=False
         tipoff_utc=NOW+3600,bookmaker_id='SYNTHETIC_ONLY',period=period,market=market,line=line,
         prices={'over':2.,'under':2.} if prices is None else prices)
     rule=dict(format='EXPLICIT_BOOK_SETTLEMENT_V1',bookmaker_id='SYNTHETIC_ONLY',period=period,market=market,
+        league='NBA',effective_from_utc=NOW-100,effective_until_utc=None,
         include_overtime=ot,stake_rule='WHOLE_STAKE_WIN_LOSS_PUSH',tie_policy='PUSH')
     qr=capture(q,'https://synthetic.example.test/quotes');rr=capture(rule,'https://synthetic.example.test/rules')
     return (QuoteEvidence.admit_feed(qr,expected_url=qr['source_url'],trusted_document_sha256=qr['document_sha256']),
@@ -90,6 +91,17 @@ class DecisionMathTests(TestCase):
     def test_overtime_market_requires_actual_overtime_paths(self):
         q,r=quote_and_rule(ot=True);v=evaluate_quote(self.d,q,r,asof_utc=NOW)
         self.assertEqual(v['status'],'INSUFFICIENT_DATA');self.assertIn('NO_VERIFIED_OVERTIME_SIMULATION_PATHS',v['reasons'])
+
+    def test_settlement_cannot_cross_leagues_or_validity_boundaries(self):
+        q,r=quote_and_rule()
+        for change in (dict(league='EUROLEAGUE'),dict(effective_from_utc=NOW+1),dict(effective_until_utc=NOW)):
+            with self.subTest(change=change):
+                payload=dict(r.payload,**change);other=RuleEvidence(payload,digest(payload))
+                v=evaluate_quote(self.d,q,other,asof_utc=NOW)
+                self.assertEqual(v['status'],'INSUFFICIENT_DATA');self.assertIsNone(v['expected_value'])
+                self.assertIn('SETTLEMENT_SCOPE_OR_CLOCK_CONFLICT',v['reasons'])
+        for change in (dict(effective_from_utc=True),dict(effective_until_utc=NOW-101),dict(league='')):
+            with self.subTest(invalid=change),self.assertRaises(ValueError):RuleEvidence.validate(dict(r.payload,**change))
 
     def test_real_path_scope_and_overtime_coherence(self):
         ot=np.zeros((10000,2),dtype=np.int32);ot[5000:8000]=[6,4]
