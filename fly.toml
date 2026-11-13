@@ -18,6 +18,10 @@ ODDS_FORMAT = "decimal"
 BASELINE_DIR = "data/baselines"
 FAZ23_STORAGE = "faz23_storage.sqlite"
 
+[[mounts]]
+source = "zeynal_data"
+destination = "/data"
+
 [http_service]
 internal_port = 8080
 force_https = true
