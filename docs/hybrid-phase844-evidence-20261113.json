@@ -1,0 +1,1439 @@
+{
+  "format": "PHASE844_DECISION_CALIBRATION_GUARD_EVIDENCE_V1",
+  "base_commit": "c95e4ccafffbb451933c31a9f9262f43aa9f7c47",
+  "task_comment": "https://github.com/Girayzeynal/zeynal-bot-core/pull/84#issuecomment-6843642834",
+  "tests": {
+    "passed": 608,
+    "failed": 0,
+    "preserved_previous": 565,
+    "added": 43,
+    "log": {
+      "path": "/workspace/research-artifacts/phase844-20261113/all-tests-final.log",
+      "sha256": "bb02ece7f04540ee0f015361e3c71c559f8a0158a935602e09df641df49eaa1d",
+      "bytes": 99399
+    }
+  },
+  "frozen_forecast_files": {
+    "docs/prospective/euroleague-20261112/0914956095da0ba9884454b69f8e5bfe6a7599289a5db2ed02670543b497d907.json": "8064720da55d0f72fa8bc34e903e2c71232a05eb1934b2804d0f15c12b4f1268",
+    "docs/prospective/euroleague-20261112/0baa4e2b3cb54554f9b5d0667717cbee61e5cdf0367e99b909139ae4611d6a8f.json": "b3c1b44b07ee6209f3f0e53166973e07cda05d40c3f8c2e26775eb930c3191ef",
+    "docs/prospective/euroleague-20261112/1cc7909d262d9ddebf26ec8f4a2b08acdc212b5334d222dcb6f38b5bc819b8c9.json": "0c48317d566b1c9909e2505906a62ad0eac15f66f64f3354544988f54146ecfb",
+    "docs/prospective/euroleague-20261112/2aed77cda2f34fbaed9ed0d378b249eefa2784d36ff285f2ea9dd44c4663ce43.json": "48c5e8f8592993176f1d0295b0bbbd96a394d7b850f60dee592d8322d6c0ffb0",
+    "docs/prospective/euroleague-20261112/4693553816c60ba15e09e0d34e08504e4e1f076cf706454a1d09f9b0fd063283.json": "ed9fb6366af6053fc3df0bdc4d48bf0ec6b6a010a925819519854b6e60880110",
+    "docs/prospective/euroleague-20261112/README.md": "287ff40f42cbdb7f828c292c9e5ae6de547dc43e8120669c9e7d4889fd6ef0fb",
+    "docs/prospective/euroleague-20261112/bayes-a117b1b488659b3827d93f6456079a54f33a85b5b9b61a5e23321d49599c5b9c.json": "eb99aece26cdb609beca763776a2b16e87eca5beb7e4ebeb5930457b0efe2293",
+    "docs/prospective/euroleague-20261112/index-c87489f84f5efa2c3abfae51f641bc066a6ab875f44c94bc197a0a49588b03d1.json": "441ecda168b7b0d6137141d9bf732ae6de53c2fe5f5db247b253eccdf93a9ede",
+    "docs/prospective/euroleague-20261112/inputs-2fa9e2e2b66eb0c8e9b03caa80b25683ef197d2f2eb1e6e31c55f90e55ed95e3.json.gz": "2fa9e2e2b66eb0c8e9b03caa80b25683ef197d2f2eb1e6e31c55f90e55ed95e3",
+    "docs/prospective/euroleague-20261112/inputs-32dcfa63d681da2b27b50e307ccc8e9dfb19418caec9c75ec8a8602714acd740.json.gz": "32dcfa63d681da2b27b50e307ccc8e9dfb19418caec9c75ec8a8602714acd740",
+    "docs/prospective/euroleague-20261112/inputs-a666a45427528cb710dc50445552cd27845b1341f9ea72bb6d4bd40cde2cdd69.json.gz": "a666a45427528cb710dc50445552cd27845b1341f9ea72bb6d4bd40cde2cdd69",
+    "docs/prospective/euroleague-20261112/inputs-cc98636467566ac3caa4fa30b06f3a3d78123ce6228e66801095c0cb21cb3559.json.gz": "cc98636467566ac3caa4fa30b06f3a3d78123ce6228e66801095c0cb21cb3559",
+    "docs/prospective/euroleague-20261112/inputs-d9d2f0e7e879af2e0712468bf220ff0ad98a10fafb249095faee3e2bacbc36b5.json.gz": "d9d2f0e7e879af2e0712468bf220ff0ad98a10fafb249095faee3e2bacbc36b5",
+    "docs/prospective/euroleague-20261112/official-5e5f9416e880b9f4c04da69ae1712f5a5cd9cf4bf27d4f2c9ba74f5407aa2cd6.json.gz": "5e5f9416e880b9f4c04da69ae1712f5a5cd9cf4bf27d4f2c9ba74f5407aa2cd6",
+    "docs/prospective/euroleague-20261112/verification-e358ecf01cd564820f7631ce7cc48c9deaf62f865961e869755985c9da916921.json": "17ed453c5193c2e04e9934cf0bf5acce26deed6b64f0cd367b53a947e7029eef",
+    "docs/prospective/nba-20261113/60d544d323b152373731f959f6cb808d48505f8c3cd7336a3cab4143927b514c.json": "6f7ea6354d4a21b74ec63c400a1314b0a3e9e1de657f68bab0beab9b1e4e48c0",
+    "docs/prospective/nba-20261113/7085c7f0ef432f2775ce0fb626e232b6a01eda9d357241e48d862fafc8fd02ba.json": "03590ecfe216f6935dbe04c00f32d530d0e5646e3b6d555dd58c682d67e7a937",
+    "docs/prospective/nba-20261113/7631a34a939f6b0e659e910b58fd2bb629c0d8a3387b221ddb91c4034f7f2bf4.json": "df7e48357406e7110b1a9cc24a61f6589599fb9bf19119f5badb5284e96069ad",
+    "docs/prospective/nba-20261113/76e02080dc085562e5092fc425dab75140d6c05a32d852775041cb499b787256.json": "7afa65d1555cffc4d17517e4b6f76641b95c3465c487cef053c1ea490dd3ad54",
+    "docs/prospective/nba-20261113/772f2792c1be21dcedcdf7ce8eb9db07abf99786ab24c114238cb3f092727156.json": "3b9d139b4b57416cd64f11c456bb42bcd49b76d84f9d380afe1fe939e5ceac09",
+    "docs/prospective/nba-20261113/959ee75565ce4334ebfc02732133e7fd1b3196c6c490b86a33196b5d49d4b388.json": "01faee75e7127a4f2589e238f59b5152306e9973dfce5318792755feb88d4926",
+    "docs/prospective/nba-20261113/b736deff32be2ab295d1ab7427ee1c610de6a637cf1fa3870d89eb1f38f5fdce.json": "6181d27b4699641229527f1b414aab613755251caf05191ada9d7ca57bc57c05",
+    "docs/prospective/nba-20261113/bc5cd09829c97c5ebfd94c5e3aa7ae758d0126cdfc5e36ce46010e16fbeacd9e.json": "8b4b3bee68126e789acad9041d1348e2fb246b1cf48737c79caeb878e779ef72",
+    "docs/prospective/nba-20261113/index-b59c2c465800bbddd0a1c133ada2150500ec9b7390ef9bd5a82d012fd0d4255b.json": "dd4ccdf754372d9bb0ec04de03e7965db8a3969704d26c4bfb74922d79e2f175"
+  },
+  "protected_engine_files": {
+    "verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b",
+    "verified_history.py": "a67e5268cc8aaca83715b4c983dfd8bb3457e46d2487b258e5e8bfa2ece0f6fa",
+    "prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2",
+    "historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+    "universal_analysis.py": "a5f7260970faad35de87b4a492a9aace761f606260b3f39e5ce86f90f772ade2",
+    "hybrid_engine/models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+    "hybrid_engine/data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+    "hybrid_engine/distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+    "hybrid_engine/possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+    "hybrid_engine/live_nba.py": "40c347e5b47adbf58e720383da4d6df30aa6046e3cd30249d665b66c768ac6c2",
+    "hybrid_engine/confidence.py": "7193b8c60cc12df67248dcad0f14159b7fcfc98fe51a17e6621f8edbcfd5d6c6",
+    "hybrid_engine/elite_render.py": "1747970c86f3019c302b8dc497b0f887242361b0580fc7965b5c67ee78b1726a",
+    "live_analysis_ledger.py": "559a37b965f4c9a2ebed64f779b7166ed861240817bd9ef4acdf7a0584ce7964",
+    "research_record_store.py": "bc5869e2529a7ef704cde5f00b303a7016f83403189a0fac1bc0596def2075fa",
+    "requirements.txt": "41bde19190b8616800bb227c224966566c1484504c8c172fa57fcd685bebf23d",
+    "Dockerfile": "80b1f58128bf033779311e79f62d049f85954e5bff7155d849a3dd0403212bac",
+    "fly.toml": "be55cd27dc9cf43bd6e496745edcc642bb85653ac7a8ac5423ec33ec3ef7aa8e"
+  },
+  "observed_forecasts": 4,
+  "snapshot_variants": 8,
+  "settled_forecasts": 4,
+  "verified_price_observations": 16,
+  "verified_settlement_rules": 0,
+  "selected_lines": 0,
+  "market_calibration_cases": 0,
+  "closing_lines_verified": 0,
+  "metrics": [
+    {
+      "calibration_verified": false,
+      "error_uncertainty": {
+        "brier_interval_95": null,
+        "day_clusters": 1,
+        "mae_interval_95": null,
+        "status": "DESCRIPTIVE_ONLY_NO_SMALL_COHORT_SUPERIORITY_CLAIM"
+      },
+      "full_game_ot_probability_metrics": null,
+      "interval_coverage": {
+        "cross_game_dependence_not_corrected": true,
+        "intervals_assume_independent_games": true,
+        "markets": {
+          "1H": {
+            "P05_P95": {
+              "hits": 4,
+              "mean_width": 30.75,
+              "n": 4,
+              "nominal_mass": 0.9,
+              "observed_coverage": 1.0,
+              "wilson_95": [
+                0.5101091635454027,
+                1.0
+              ]
+            },
+            "P10_P90": {
+              "hits": 3,
+              "mean_width": 24.0,
+              "n": 4,
+              "nominal_mass": 0.8,
+              "observed_coverage": 0.75,
+              "wilson_95": [
+                0.30064184258240184,
+                0.9544127391902995
+              ]
+            },
+            "P25_P75": {
+              "hits": 2,
+              "mean_width": 12.75,
+              "n": 4,
+              "nominal_mass": 0.5,
+              "observed_coverage": 0.5,
+              "wilson_95": [
+                0.15003898915214947,
+                0.8499610108478506
+              ]
+            }
+          },
+          "1Q": {
+            "P05_P95": {
+              "hits": 3,
+              "mean_width": 15.0,
+              "n": 4,
+              "nominal_mass": 0.9,
+              "observed_coverage": 0.75,
+              "wilson_95": [
+                0.30064184258240184,
+                0.9544127391902995
+              ]
+            },
+            "P10_P90": {
+              "hits": 3,
+              "mean_width": 11.5,
+              "n": 4,
+              "nominal_mass": 0.8,
+              "observed_coverage": 0.75,
+              "wilson_95": [
+                0.30064184258240184,
+                0.9544127391902995
+              ]
+            },
+            "P25_P75": {
+              "hits": 1,
+              "mean_width": 6.25,
+              "n": 4,
+              "nominal_mass": 0.5,
+              "observed_coverage": 0.25,
+              "wilson_95": [
+                0.04558726080970055,
+                0.6993581574175981
+              ]
+            }
+          },
+          "2H": {
+            "P05_P95": {
+              "hits": 3,
+              "mean_width": 29.75,
+              "n": 4,
+              "nominal_mass": 0.9,
+              "observed_coverage": 0.75,
+              "wilson_95": [
+                0.30064184258240184,
+                0.9544127391902995
+              ]
+            },
+            "P10_P90": {
+              "hits": 3,
+              "mean_width": 23.25,
+              "n": 4,
+              "nominal_mass": 0.8,
+              "observed_coverage": 0.75,
+              "wilson_95": [
+                0.30064184258240184,
+                0.9544127391902995
+              ]
+            },
+            "P25_P75": {
+              "hits": 2,
+              "mean_width": 12.25,
+              "n": 4,
+              "nominal_mass": 0.5,
+              "observed_coverage": 0.5,
+              "wilson_95": [
+                0.15003898915214947,
+                0.8499610108478506
+              ]
+            }
+          },
+          "2Q": {
+            "P05_P95": {
+              "hits": 4,
+              "mean_width": 15.75,
+              "n": 4,
+              "nominal_mass": 0.9,
+              "observed_coverage": 1.0,
+              "wilson_95": [
+                0.5101091635454027,
+                1.0
+              ]
+            },
+            "P10_P90": {
+              "hits": 4,
+              "mean_width": 12.25,
+              "n": 4,
+              "nominal_mass": 0.8,
+              "observed_coverage": 1.0,
+              "wilson_95": [
+                0.5101091635454027,
+                1.0
+              ]
+            },
+            "P25_P75": {
+              "hits": 2,
+              "mean_width": 6.5,
+              "n": 4,
+              "nominal_mass": 0.5,
+              "observed_coverage": 0.5,
+              "wilson_95": [
+                0.15003898915214947,
+                0.8499610108478506
+              ]
+            }
+          },
+          "3Q": {
+            "P05_P95": {
+              "hits": 2,
+              "mean_width": 15.5,
+              "n": 4,
+              "nominal_mass": 0.9,
+              "observed_coverage": 0.5,
+              "wilson_95": [
+                0.15003898915214947,
+                0.8499610108478506
+              ]
+            },
+            "P10_P90": {
+              "hits": 2,
+              "mean_width": 11.75,
+              "n": 4,
+              "nominal_mass": 0.8,
+              "observed_coverage": 0.5,
+              "wilson_95": [
+                0.15003898915214947,
+                0.8499610108478506
+              ]
+            },
+            "P25_P75": {
+              "hits": 2,
+              "mean_width": 6.25,
+              "n": 4,
+              "nominal_mass": 0.5,
+              "observed_coverage": 0.5,
+              "wilson_95": [
+                0.15003898915214947,
+                0.8499610108478506
+              ]
+            }
+          },
+          "4Q": {
+            "P05_P95": {
+              "hits": 4,
+              "mean_width": 15.0,
+              "n": 4,
+              "nominal_mass": 0.9,
+              "observed_coverage": 1.0,
+              "wilson_95": [
+                0.5101091635454027,
+                1.0
+              ]
+            },
+            "P10_P90": {
+              "hits": 4,
+              "mean_width": 11.0,
+              "n": 4,
+              "nominal_mass": 0.8,
+              "observed_coverage": 1.0,
+              "wilson_95": [
+                0.5101091635454027,
+                1.0
+              ]
+            },
+            "P25_P75": {
+              "hits": 3,
+              "mean_width": 6.25,
+              "n": 4,
+              "nominal_mass": 0.5,
+              "observed_coverage": 0.75,
+              "wilson_95": [
+                0.30064184258240184,
+                0.9544127391902995
+              ]
+            }
+          },
+          "AWAY": {
+            "P05_P95": {
+              "hits": 4,
+              "mean_width": 42.76249999999999,
+              "n": 4,
+              "nominal_mass": 0.9,
+              "observed_coverage": 1.0,
+              "wilson_95": [
+                0.5101091635454027,
+                1.0
+              ]
+            },
+            "P10_P90": {
+              "hits": 4,
+              "mean_width": 33.25,
+              "n": 4,
+              "nominal_mass": 0.8,
+              "observed_coverage": 1.0,
+              "wilson_95": [
+                0.5101091635454027,
+                1.0
+              ]
+            },
+            "P25_P75": {
+              "hits": 2,
+              "mean_width": 17.75,
+              "n": 4,
+              "nominal_mass": 0.5,
+              "observed_coverage": 0.5,
+              "wilson_95": [
+                0.15003898915214947,
+                0.8499610108478506
+              ]
+            }
+          },
+          "HOME": {
+            "P05_P95": {
+              "hits": 4,
+              "mean_width": 42.5,
+              "n": 4,
+              "nominal_mass": 0.9,
+              "observed_coverage": 1.0,
+              "wilson_95": [
+                0.5101091635454027,
+                1.0
+              ]
+            },
+            "P10_P90": {
+              "hits": 3,
+              "mean_width": 33.5,
+              "n": 4,
+              "nominal_mass": 0.8,
+              "observed_coverage": 0.75,
+              "wilson_95": [
+                0.30064184258240184,
+                0.9544127391902995
+              ]
+            },
+            "P25_P75": {
+              "hits": 0,
+              "mean_width": 17.75,
+              "n": 4,
+              "nominal_mass": 0.5,
+              "observed_coverage": 0.0,
+              "wilson_95": [
+                0.0,
+                0.4898908364545973
+              ]
+            }
+          },
+          "HOME_HANDICAP": {
+            "P05_P95": {
+              "hits": 3,
+              "mean_width": 60.0,
+              "n": 4,
+              "nominal_mass": 0.9,
+              "observed_coverage": 0.75,
+              "wilson_95": [
+                0.30064184258240184,
+                0.9544127391902995
+              ]
+            },
+            "P10_P90": {
+              "hits": 3,
+              "mean_width": 47.5,
+              "n": 4,
+              "nominal_mass": 0.8,
+              "observed_coverage": 0.75,
+              "wilson_95": [
+                0.30064184258240184,
+                0.9544127391902995
+              ]
+            },
+            "P25_P75": {
+              "hits": 3,
+              "mean_width": 24.5,
+              "n": 4,
+              "nominal_mass": 0.5,
+              "observed_coverage": 0.75,
+              "wilson_95": [
+                0.30064184258240184,
+                0.9544127391902995
+              ]
+            }
+          },
+          "MARGIN": {
+            "P05_P95": {
+              "hits": 3,
+              "mean_width": 60.0,
+              "n": 4,
+              "nominal_mass": 0.9,
+              "observed_coverage": 0.75,
+              "wilson_95": [
+                0.30064184258240184,
+                0.9544127391902995
+              ]
+            },
+            "P10_P90": {
+              "hits": 3,
+              "mean_width": 47.5,
+              "n": 4,
+              "nominal_mass": 0.8,
+              "observed_coverage": 0.75,
+              "wilson_95": [
+                0.30064184258240184,
+                0.9544127391902995
+              ]
+            },
+            "P25_P75": {
+              "hits": 3,
+              "mean_width": 24.5,
+              "n": 4,
+              "nominal_mass": 0.5,
+              "observed_coverage": 0.75,
+              "wilson_95": [
+                0.30064184258240184,
+                0.9544127391902995
+              ]
+            }
+          },
+          "TOTAL": {
+            "P05_P95": {
+              "hits": 4,
+              "mean_width": 60.75,
+              "n": 4,
+              "nominal_mass": 0.9,
+              "observed_coverage": 1.0,
+              "wilson_95": [
+                0.5101091635454027,
+                1.0
+              ]
+            },
+            "P10_P90": {
+              "hits": 4,
+              "mean_width": 47.25,
+              "n": 4,
+              "nominal_mass": 0.8,
+              "observed_coverage": 1.0,
+              "wilson_95": [
+                0.5101091635454027,
+                1.0
+              ]
+            },
+            "P25_P75": {
+              "hits": 2,
+              "mean_width": 24.8125,
+              "n": 4,
+              "nominal_mass": 0.5,
+              "observed_coverage": 0.5,
+              "wilson_95": [
+                0.15003898915214947,
+                0.8499610108478506
+              ]
+            }
+          }
+        },
+        "status": "DESCRIPTIVE_NOT_CALIBRATION_PROOF"
+      },
+      "league": "NBA",
+      "metrics": {
+        "away": {
+          "bias": 4.611330267089432,
+          "mae": 8.756845254778835,
+          "rmse": 10.327525261313813
+        },
+        "evaluation_line_markets": {},
+        "halves": {
+          "1H": {
+            "bias": -2.392119913980115,
+            "mae": 4.879322237238193,
+            "rmse": 5.512510986842407
+          },
+          "2H": {
+            "bias": 0.5995901351700166,
+            "mae": 7.433468220352626,
+            "rmse": 8.36328101780009
+          }
+        },
+        "home": {
+          "bias": -8.196389824709634,
+          "mae": 14.193887502721175,
+          "rmse": 14.489590962700255
+        },
+        "margin": {
+          "bias": -12.807720091799066,
+          "mae": 13.33404967594377,
+          "rmse": 18.517331874271083
+        },
+        "n": 4,
+        "periods": {
+          "1Q": {
+            "bias": -1.1676089288337135,
+            "mae": 3.5471783690618306,
+            "rmse": 3.976856220380716
+          },
+          "2Q": {
+            "bias": -1.2245109851464018,
+            "mae": 2.564433478386309,
+            "rmse": 3.1164841315443477
+          },
+          "3Q": {
+            "bias": 0.6062811757553948,
+            "mae": 5.467144472584854,
+            "rmse": 7.067890026070034
+          },
+          "4Q": {
+            "bias": -0.006691040585377728,
+            "mae": 2.5789599124496174,
+            "rmse": 3.0876595015116375
+          }
+        },
+        "team_scores": {
+          "bias": -1.792529778810101,
+          "mae": 11.475366378750005,
+          "rmse": 12.581852492567219
+        },
+        "total": {
+          "bias": -3.5850595576202053,
+          "mae": 15.053725329498583,
+          "rmse": 17.038793056932878
+        },
+        "winner": {
+          "brier": 0.646847885,
+          "home_or_under_calibration": {
+            "bins": [
+              {
+                "count": 0,
+                "observed": null,
+                "predicted": null
+              },
+              {
+                "count": 0,
+                "observed": null,
+                "predicted": null
+              },
+              {
+                "count": 0,
+                "observed": null,
+                "predicted": null
+              },
+              {
+                "count": 1,
+                "observed": 0.0,
+                "predicted": 0.3498
+              },
+              {
+                "count": 1,
+                "observed": 1.0,
+                "predicted": 0.4915
+              },
+              {
+                "count": 1,
+                "observed": 1.0,
+                "predicted": 0.5808
+              },
+              {
+                "count": 1,
+                "observed": 1.0,
+                "predicted": 0.6184
+              },
+              {
+                "count": 0,
+                "observed": null,
+                "predicted": null
+              },
+              {
+                "count": 0,
+                "observed": null,
+                "predicted": null
+              },
+              {
+                "count": 0,
+                "observed": null,
+                "predicted": null
+              }
+            ],
+            "ece": 0.414775
+          },
+          "log_loss": 1.4140838194642598,
+          "n": 4
+        },
+        "winner_direction": {
+          "correct": 3,
+          "n": 4,
+          "rate": 0.75,
+          "scope": "REGULATION_ONLY",
+          "wilson_95": [
+            0.30064184258240184,
+            0.9544127391902995
+          ]
+        },
+        "winner_reliability": {
+          "away": [
+            {
+              "bin": [
+                0.0,
+                0.1
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.1,
+                0.2
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.2,
+                0.3
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.3,
+                0.4
+              ],
+              "n": 2,
+              "observed": 0.0,
+              "observed_wilson_95": [
+                0.0,
+                0.6576197724933469
+              ],
+              "predicted": 0.3796
+            },
+            {
+              "bin": [
+                0.4,
+                0.5
+              ],
+              "n": 1,
+              "observed": 0.0,
+              "observed_wilson_95": [
+                0.0,
+                0.7934506856227626
+              ],
+              "predicted": 0.4865
+            },
+            {
+              "bin": [
+                0.5,
+                0.6
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.6,
+                0.7
+              ],
+              "n": 1,
+              "observed": 0.0,
+              "observed_wilson_95": [
+                0.0,
+                0.7934506856227626
+              ],
+              "predicted": 0.6304
+            },
+            {
+              "bin": [
+                0.7,
+                0.8
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.8,
+                0.9
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.9,
+                1.0
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            }
+          ],
+          "home": [
+            {
+              "bin": [
+                0.0,
+                0.1
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.1,
+                0.2
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.2,
+                0.3
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.3,
+                0.4
+              ],
+              "n": 1,
+              "observed": 0.0,
+              "observed_wilson_95": [
+                0.0,
+                0.7934506856227626
+              ],
+              "predicted": 0.3498
+            },
+            {
+              "bin": [
+                0.4,
+                0.5
+              ],
+              "n": 1,
+              "observed": 1.0,
+              "observed_wilson_95": [
+                0.20654931437723745,
+                1.0
+              ],
+              "predicted": 0.4915
+            },
+            {
+              "bin": [
+                0.5,
+                0.6
+              ],
+              "n": 1,
+              "observed": 1.0,
+              "observed_wilson_95": [
+                0.20654931437723745,
+                1.0
+              ],
+              "predicted": 0.5808
+            },
+            {
+              "bin": [
+                0.6,
+                0.7
+              ],
+              "n": 1,
+              "observed": 1.0,
+              "observed_wilson_95": [
+                0.20654931437723745,
+                1.0
+              ],
+              "predicted": 0.6184
+            },
+            {
+              "bin": [
+                0.7,
+                0.8
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.8,
+                0.9
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.9,
+                1.0
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            }
+          ],
+          "tie": [
+            {
+              "bin": [
+                0.0,
+                0.1
+              ],
+              "n": 4,
+              "observed": 0.25,
+              "observed_wilson_95": [
+                0.04558726080970055,
+                0.6993581574175981
+              ],
+              "predicted": 0.02085
+            },
+            {
+              "bin": [
+                0.1,
+                0.2
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.2,
+                0.3
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.3,
+                0.4
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.4,
+                0.5
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.5,
+                0.6
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.6,
+                0.7
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.7,
+                0.8
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.8,
+                0.9
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            },
+            {
+              "bin": [
+                0.9,
+                1.0
+              ],
+              "n": 0,
+              "observed": null,
+              "observed_wilson_95": [
+                0.0,
+                1.0
+              ],
+              "predicted": null
+            }
+          ]
+        }
+      },
+      "model_version": "ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
+      "settlement_scope": "REGULATION_ONLY"
+    }
+  ],
+  "per_fixture": [
+    {
+      "final_with_ot": [
+        123,
+        112
+      ],
+      "fixture_id": "0442c0be1880765a14cf154f5a11e117292ef0ce4874a6779fdcf11496787f9e",
+      "label_available_utc": 1794543741,
+      "overtime_periods": 0,
+      "periods": {
+        "away": [
+          33,
+          27,
+          27,
+          25
+        ],
+        "home": [
+          24,
+          36,
+          36,
+          27
+        ]
+      },
+      "prediction": [
+        111.33928824902318,
+        111.25116696305017
+      ],
+      "prediction_utc": 1794525778,
+      "provider_fixture_ids": [
+        "401909976"
+      ],
+      "regulation": [
+        123,
+        112
+      ],
+      "snapshot_sha256": "60d544d323b152373731f959f6cb808d48505f8c3cd7336a3cab4143927b514c",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909976",
+      "tipoff_utc": 1794528000
+    },
+    {
+      "final_with_ot": [
+        140,
+        144
+      ],
+      "fixture_id": "5cee3424844555aa6768d56a6bf85f31beb28fc2f24026995f08e5a70af6bb68",
+      "label_available_utc": 1794543741,
+      "overtime_periods": 2,
+      "periods": {
+        "away": [
+          33,
+          31,
+          30,
+          27,
+          11,
+          12
+        ],
+        "home": [
+          32,
+          29,
+          29,
+          31,
+          11,
+          8
+        ]
+      },
+      "prediction": [
+        106.83579096256724,
+        113.45780306157103
+      ],
+      "prediction_utc": 1794525787,
+      "provider_fixture_ids": [
+        "401909977"
+      ],
+      "regulation": [
+        121,
+        121
+      ],
+      "snapshot_sha256": "bc5cd09829c97c5ebfd94c5e3aa7ae758d0126cdfc5e36ce46010e16fbeacd9e",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909977",
+      "tipoff_utc": 1794528000
+    },
+    {
+      "final_with_ot": [
+        133,
+        94
+      ],
+      "fixture_id": "2d152b6ee1338ea28275acbcea97f3a7033993e07bcd4c5f4520b564263f4827",
+      "label_available_utc": 1794543741,
+      "overtime_periods": 0,
+      "periods": {
+        "away": [
+          26,
+          26,
+          17,
+          25
+        ],
+        "home": [
+          34,
+          33,
+          36,
+          30
+        ]
+      },
+      "prediction": [
+        114.04436613354795,
+        109.79401485600286
+      ],
+      "prediction_utc": 1794525796,
+      "provider_fixture_ids": [
+        "401909978"
+      ],
+      "regulation": [
+        133,
+        94
+      ],
+      "snapshot_sha256": "76e02080dc085562e5092fc425dab75140d6c05a32d852775041cb499b787256",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909978",
+      "tipoff_utc": 1794531600
+    },
+    {
+      "final_with_ot": [
+        101,
+        96
+      ],
+      "fixture_id": "56c40a15cbeffdf7eac23c7532276fbd478625512c9f57d5b8bcf3b204c49a1a",
+      "label_available_utc": 1794544439,
+      "overtime_periods": 0,
+      "periods": {
+        "away": [
+          22,
+          28,
+          26,
+          20
+        ],
+        "home": [
+          28,
+          27,
+          17,
+          29
+        ]
+      },
+      "prediction": [
+        112.99499535602308,
+        106.94233618773367
+      ],
+      "prediction_utc": 1794525805,
+      "provider_fixture_ids": [
+        "401909979"
+      ],
+      "regulation": [
+        101,
+        96
+      ],
+      "snapshot_sha256": "772f2792c1be21dcedcdf7ce8eb9db07abf99786ab24c114238cb3f092727156",
+      "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401909979",
+      "tipoff_utc": 1794535200
+    }
+  ],
+  "review": {
+    "automatic_promotion": false,
+    "automatic_refit": false,
+    "groups": [
+      {
+        "automatic_promotion": false,
+        "automatic_refit": false,
+        "cohort": [
+          "NBA",
+          "ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
+          "FULL",
+          "WINNER",
+          "REGULATION_ONLY",
+          0.0,
+          ""
+        ],
+        "confidence_index": null,
+        "independent_forecasts": 4,
+        "next_checkpoint": 100,
+        "reached_review_checkpoints": [],
+        "status": "INSUFFICIENT_DATA"
+      }
+    ],
+    "independent_unit": "FIXTURE_WITHIN_LEAGUE_MODEL_VERSION_AND_EXACT_SCOPE_NOT_SNAPSHOT_OR_LINE",
+    "plan_sha256": "6a5e38e7e93e92c142acc80cf830512ee9eceb33876ac38b303c42b689703be4"
+  },
+  "shadow": {
+    "automatic_model_update": false,
+    "candidate_sha256": "3d4c240709c582f3d21e8ab24a07b21ad2f3fbe3016d4ac63919ab0e8c9fff83",
+    "candidate_version": "SHADOW_DIRICHLET_RELIABILITY_V1",
+    "deployment_decision": "NO_GO_EXPLICIT_RELEASE_APPROVAL_REQUIRED",
+    "explicit_approval_present": false,
+    "format": "OFFLINE_SHADOW_CALIBRATION_REPORT_V1",
+    "groups": [
+      {
+        "cohort": [
+          "NBA",
+          "ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
+          "FULL",
+          "WINNER",
+          "REGULATION_ONLY",
+          0.0,
+          ""
+        ],
+        "eligible_for_explicit_user_review": false,
+        "evaluated_count": 0,
+        "evaluations": [],
+        "folds": [],
+        "observed_count": 4,
+        "post_plan_target_count": 0,
+        "predeclared_thresholds_met": false,
+        "real_data_only": true,
+        "uncertainty": {
+          "cross_day_team_dependence_not_fully_corrected": true,
+          "day_clusters": 0,
+          "family_size": 66,
+          "interval": null,
+          "n": 0,
+          "status": "INSUFFICIENT_DATA",
+          "unit": "TSI_GAME_DAY_CLUSTER"
+        }
+      }
+    ],
+    "plan_sha256": "6a5e38e7e93e92c142acc80cf830512ee9eceb33876ac38b303c42b689703be4",
+    "registration_attestation": "LOCAL_APPEND_ONLY_PLAN_NOT_INDEPENDENT_PUBLIC_PREREGISTRATION",
+    "score_and_interval_models_changed": false
+  },
+  "drift": [
+    {
+      "cohort": [
+        "NBA",
+        "ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
+        "FULL",
+        "WINNER",
+        "REGULATION_ONLY",
+        0.0,
+        ""
+      ],
+      "report": {
+        "alerts": [],
+        "calibration_fit": false,
+        "model_update": false,
+        "n": 4,
+        "raw_brier": 0.646847885,
+        "status": "INSUFFICIENT_DATA"
+      }
+    }
+  ],
+  "calibrated_confidence_index": null,
+  "production_default": "FAZ13",
+  "decision": "NO_GO",
+  "real_telegram": {
+    "status": "BLOCKED",
+    "configuration": {
+      "status": "NOT_CONFIGURED",
+      "missing": [
+        "ZEYNAL_TEST_BOT_TOKEN",
+        "ZEYNAL_TEST_BOT_ID",
+        "ZEYNAL_TEST_BOT_USERNAME",
+        "ZEYNAL_TEST_CHAT_ID"
+      ],
+      "actual_telegram_delivery_verified": false
+    }
+  },
+  "runtime": {
+    "format": "NBA_NATIVE_PAYLOAD_RESOURCE_REPLAY_V1",
+    "status": "PASS",
+    "actual_telegram_delivery_verified": false,
+    "evidence_class": "MOCK_CLOCK_NATIVE_SOURCE_REPLAY_NOT_NEW_PROSPECTIVE_FORECASTS",
+    "transport": "LOCAL_HTTP_BOT_API_DOUBLE",
+    "requests": 29,
+    "messages": 54,
+    "unique_nba_snapshots": 4,
+    "original_prospective_archive_modified": false,
+    "online_training": false,
+    "native_payload_urls": 84,
+    "address_space_limit_bytes": [
+      268435456,
+      268435456
+    ],
+    "cpu_affinity": [
+      0
+    ],
+    "peak_rss_mib": 100.76953125,
+    "elapsed_seconds": 21.799288835994957,
+    "reply_interval_p95_seconds": 2.5908226823503346,
+    "native_ml_libraries_loaded": [],
+    "isolated_sqlite_integrity": {
+      "sqlite": "ok",
+      "snapshots": 4,
+      "unconfirmed_snapshots": 0,
+      "verified_results": 0
+    },
+    "decision_layer_enabled": true,
+    "decision_batches": 5,
+    "selected_market_lines": 0,
+    "observed_cgroup": {
+      "memory.max": "8589934592",
+      "memory.peak": "5306224640",
+      "cpu.max": "200000 100000"
+    },
+    "health_ready": {
+      "ready": true,
+      "release_sha": "UNKNOWN"
+    },
+    "source_pins": {
+      "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
+      "decision_layer.py": "d590843ed0a349973eff9e970dd0c76551d3c4706d3dd3115686d87cd75c17a7",
+      "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+      "live_runtime.py": "85bd8aaf4f704f9700582972b8dce0eb24eafd9c168a8764db35b4eeeb4a469d",
+      "prospective_results.py": "4a0c01a43fb2c1bdd7d864fe91e86e509ea8b8cf284eb6abbae66e19d6db48cc",
+      "frozen_archive.py": "95e7cc6d2f793be5faf48e86b17075ebe68e848df7be7f650a4c82575fcb3c67",
+      "preparation.py": "f51077c6e2b504c86aac4500be7913eaf7c8b461fc6f610fbf2fff976a42c025",
+      "intervals.py": "fb1eaa081f5939f137c92df929cbf7fa6155638273405267291011679907f861",
+      "acceptance.py": "52621cb8019b8d913df5482e090c73e85ac363723f83f0d6a49575854ab0f5c2",
+      "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+      "calibration_guard.py": "571f0995b5c3b312c4b6c3ca613082735d383ac55a5dc5882847ab2695c8ad0c",
+      "markets.py": "56a3a13c97daf4b2403273d0c3ec7169304bc638e8d28f4392d73be5e310ef35",
+      "source_policy.py": "61f5df8e0d0afeae340ec9b7f858959d91d90c85e13ea3094939ab8578150bf5",
+      "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+      "walkforward.py": "805ea4a1119e0e798a63f5955960ad8815f3d9158914fa7a9fa5a2420ec3196e",
+      "availability.py": "33e92959bd3d3a2699d4fa6a7b73bba3aa4db914f144970b13d2cfc2e3551eca",
+      "live_nba.py": "40c347e5b47adbf58e720383da4d6df30aa6046e3cd30249d665b66c768ac6c2",
+      "archive_sources.py": "d73f047912d9a360e0015a2eddb52789850b1642279e285bff1b42c91cd7630d",
+      "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+      "root_cause.py": "786c328a29b5a2ee59fe7e7dfc1dda28cb4332f27320ec3d0d958f5fdbeccd65",
+      "observed_markets.py": "b7b4234561c11c886b9cb42294b19f337e480d810d0db8b3a1ffccc7ebcd4af8",
+      "evaluation.py": "c985a9d1fc40e86575dc4bda674eea3fbe714553c34d311aaaad63c08a0dfc87",
+      "engine_audit.py": "a195fce4e04af6544dad4a3619c379cd235b367567164ba90a3a3cd9a844f3a4",
+      "statistics.py": "3a8ae0f994da53a1aed6ebb845906f55fdf1f864ad829dc9fe6bbf5a21118df6",
+      "hybrid_runtime.py": "a786130ff02445f7c9ccba6c92809bdaafd70554dc1e4c01f2ccc93e2b9fa75a",
+      "__init__.py": "8d3f97c99d8ff6ec21deb8daa93d789e656dc99fb1f5fc8b258ed2b71a1de73a",
+      "elite_render.py": "1747970c86f3019c302b8dc497b0f887242361b0580fc7965b5c67ee78b1726a",
+      "confidence.py": "7193b8c60cc12df67248dcad0f14159b7fcfc98fe51a17e6621f8edbcfd5d6c6",
+      "prequential.py": "397c4549025983c3ae4bf99e3a257d2c5e85542dadb129fff2e2bebc370d1d3e",
+      "decision_audit.py": "c9696255bdb852beb4215deee05d6664f2e46aa0f5a4c73504941c70ad22e83c",
+      "runtime_fixture.py": "cda7fe6de8fc8f2f0a5051cee5686878eeca0054b26347db92e5dd947a780fd3",
+      "runtime_probe.py": "bfd676d2904cdbb0eb08fe2ce630d69db7b47d7575d8d56184a045cea96c8483",
+      "audit.py": "c6107ecae0d3d738d654196691b8fe89552f7533ff4cff24e70573ffd8436a17",
+      "portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+      "decision_metrics.py": "3fdd88a854d3caa94ef0dfbc7ac30493043790336718c2055a61fa82559493f8",
+      "benchmark.py": "38cdbc13962fc952ea4051f40103321dc8496d6ba6a74dd2e102a5862391dbc4",
+      "diagnostics.py": "4e721cb47afc4d6ffc5fe62696ed3d821ffbd08ca77b9bb9e10715174e681ca0",
+      "decision_integration.py": "d8a7383a0d5a93d2e142c044d14f97caecac98e63f33d13dfd98f878c3b483bb",
+      "test_bot.py": "984ac2c7519eb49bff22e9a9001ee4bd670bdeae918e057befce7d7d20550594",
+      "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891"
+    },
+    "post_collection_process_memory": {
+      "VmPeak_mib": 214.65625,
+      "VmSize_mib": 212.9453125,
+      "VmHWM_mib": 100.76953125,
+      "VmRSS_mib": 99.55078125
+    },
+    "workload_peak_rss_mib": 100.76953125,
+    "post_shutdown_process_memory": {
+      "VmPeak_mib": 220.96484375,
+      "VmSize_mib": 220.93359375,
+      "VmHWM_mib": 100.76953125,
+      "VmRSS_mib": 99.5546875
+    },
+    "shutdown_completed": true
+  },
+  "host_cgroup_limit_is_not_256_mib": true,
+  "ci_requires_cgroup_memory_bytes": 268435456,
+  "ci_requires_cgroup_cpu_quota_at_most_one": true,
+  "ci": "EXACT_HEAD_GITHUB_ACTIONS_LOGS_REQUIRED;SEE_PR84_CHECKS",
+  "audit_sha256": "2e020e529fa4c1a62dc2dfdbc3ff61e16a326ef02dc68143d48ad8b138bfb333",
+  "plan_sha256": "6a5e38e7e93e92c142acc80cf830512ee9eceb33876ac38b303c42b689703be4",
+  "source_pins": {
+    "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
+    "decision_layer.py": "d590843ed0a349973eff9e970dd0c76551d3c4706d3dd3115686d87cd75c17a7",
+    "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+    "live_runtime.py": "85bd8aaf4f704f9700582972b8dce0eb24eafd9c168a8764db35b4eeeb4a469d",
+    "prospective_results.py": "4a0c01a43fb2c1bdd7d864fe91e86e509ea8b8cf284eb6abbae66e19d6db48cc",
+    "frozen_archive.py": "95e7cc6d2f793be5faf48e86b17075ebe68e848df7be7f650a4c82575fcb3c67",
+    "preparation.py": "f51077c6e2b504c86aac4500be7913eaf7c8b461fc6f610fbf2fff976a42c025",
+    "intervals.py": "fb1eaa081f5939f137c92df929cbf7fa6155638273405267291011679907f861",
+    "acceptance.py": "52621cb8019b8d913df5482e090c73e85ac363723f83f0d6a49575854ab0f5c2",
+    "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+    "calibration_guard.py": "571f0995b5c3b312c4b6c3ca613082735d383ac55a5dc5882847ab2695c8ad0c",
+    "markets.py": "56a3a13c97daf4b2403273d0c3ec7169304bc638e8d28f4392d73be5e310ef35",
+    "source_policy.py": "61f5df8e0d0afeae340ec9b7f858959d91d90c85e13ea3094939ab8578150bf5",
+    "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+    "walkforward.py": "805ea4a1119e0e798a63f5955960ad8815f3d9158914fa7a9fa5a2420ec3196e",
+    "availability.py": "33e92959bd3d3a2699d4fa6a7b73bba3aa4db914f144970b13d2cfc2e3551eca",
+    "live_nba.py": "40c347e5b47adbf58e720383da4d6df30aa6046e3cd30249d665b66c768ac6c2",
+    "archive_sources.py": "d73f047912d9a360e0015a2eddb52789850b1642279e285bff1b42c91cd7630d",
+    "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+    "root_cause.py": "786c328a29b5a2ee59fe7e7dfc1dda28cb4332f27320ec3d0d958f5fdbeccd65",
+    "observed_markets.py": "b7b4234561c11c886b9cb42294b19f337e480d810d0db8b3a1ffccc7ebcd4af8",
+    "evaluation.py": "c985a9d1fc40e86575dc4bda674eea3fbe714553c34d311aaaad63c08a0dfc87",
+    "engine_audit.py": "a195fce4e04af6544dad4a3619c379cd235b367567164ba90a3a3cd9a844f3a4",
+    "statistics.py": "3a8ae0f994da53a1aed6ebb845906f55fdf1f864ad829dc9fe6bbf5a21118df6",
+    "hybrid_runtime.py": "a786130ff02445f7c9ccba6c92809bdaafd70554dc1e4c01f2ccc93e2b9fa75a",
+    "__init__.py": "8d3f97c99d8ff6ec21deb8daa93d789e656dc99fb1f5fc8b258ed2b71a1de73a",
+    "elite_render.py": "1747970c86f3019c302b8dc497b0f887242361b0580fc7965b5c67ee78b1726a",
+    "confidence.py": "7193b8c60cc12df67248dcad0f14159b7fcfc98fe51a17e6621f8edbcfd5d6c6",
+    "prequential.py": "397c4549025983c3ae4bf99e3a257d2c5e85542dadb129fff2e2bebc370d1d3e",
+    "decision_audit.py": "c9696255bdb852beb4215deee05d6664f2e46aa0f5a4c73504941c70ad22e83c",
+    "runtime_fixture.py": "cda7fe6de8fc8f2f0a5051cee5686878eeca0054b26347db92e5dd947a780fd3",
+    "runtime_probe.py": "bfd676d2904cdbb0eb08fe2ce630d69db7b47d7575d8d56184a045cea96c8483",
+    "audit.py": "c6107ecae0d3d738d654196691b8fe89552f7533ff4cff24e70573ffd8436a17",
+    "portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+    "decision_metrics.py": "3fdd88a854d3caa94ef0dfbc7ac30493043790336718c2055a61fa82559493f8",
+    "benchmark.py": "38cdbc13962fc952ea4051f40103321dc8496d6ba6a74dd2e102a5862391dbc4",
+    "diagnostics.py": "4e721cb47afc4d6ffc5fe62696ed3d821ffbd08ca77b9bb9e10715174e681ca0",
+    "decision_integration.py": "d8a7383a0d5a93d2e142c044d14f97caecac98e63f33d13dfd98f878c3b483bb",
+    "test_bot.py": "984ac2c7519eb49bff22e9a9001ee4bd670bdeae918e057befce7d7d20550594",
+    "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891"
+  },
+  "result_packet": {
+    "path": "/workspace/zeynal-hybrid-research/docs/evidence/phase844-append-only-nba-results-20261113.tar.gz",
+    "sha256": "ffbe6f3a97653afe25f23ce1c5e95763d05b14b8eebb113cd9ac49c766fa3d3d",
+    "bytes": 343924
+  },
+  "evidence_capsule": {
+    "path": "/workspace/research-artifacts/hybrid-phase844-evidence-20261113.tar.gz",
+    "sha256": "96517daaf077294784ebbc44b94ad675afb01bafebff6ba0e86c7f49e7c7de9e",
+    "bytes": 630099
+  },
+  "safety": {
+    "main_merge": false,
+    "production_deploy": false,
+    "production_disk_snapshot_secret_access": false,
+    "paid_service": false
+  },
+  "blockers": [
+    "REAL_TEST_TELEGRAM_CREDENTIALS_MISSING",
+    "BOOKMAKER_OVERTIME_SETTLEMENT_RULES_UNVERIFIED",
+    "ONLY_FOUR_INDEPENDENT_SCORED_FORECASTS",
+    "NO_POST_PLAN_CONFIRMATORY_CALIBRATION_CASES",
+    "NO_CREDIBLE_FAZ13_SUPERIORITY_PROOF",
+    "INJURY_ROTATION_AND_MEASURED_PACE_NOT_VERIFIED"
+  ]
+}

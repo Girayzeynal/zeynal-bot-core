@@ -56,7 +56,7 @@ class AuditedRequest(HTTPXRequest):
         return status,body
 
 
-def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None):
+def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None):
     root=local_path(data_directory);root.mkdir(parents=True,exist_ok=True)
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');results=ProspectiveResults(archive,root/'official-results')
     frozen=FrozenHybridService(archive)
@@ -79,6 +79,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
     else:
         app.bot_data['verified_analysis_service']=frozen;app.bot_data['ledger_reports']=ResearchReports(results)
     app.bot_data['delivery_journal']=journal
+    if decision_layer:
+        from hybrid_engine.decision_integration import DecisionJournal,DecisionService,DecisionReports
+        decisions=DecisionJournal(root/'decision-audit.sqlite')
+        app.bot_data['verified_analysis_service']=DecisionService(app.bot_data['verified_analysis_service'],archive,decisions,nba_service=nba_service)
+        app.bot_data['ledger_reports']=DecisionReports(app.bot_data['ledger_reports'],decisions,audit_report=audit_report)
+        app.bot_data['decision_journal']=decisions
     fetch=transport or ControlledTransport(fetch_document)
     app.bot_data['nba_fixture_loader']=VerifiedAnalyzeService(None,fetcher=fetch).list_nba_games
     async def authorized(update,context):
@@ -99,12 +105,19 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--preflight',action='store_true')
     parser.add_argument('--archive-directory');parser.add_argument('--data-directory');parser.add_argument('--result-poll-seconds',type=int,default=300)
     parser.add_argument('--nba-model');parser.add_argument('--nba-model-sha')
+    parser.add_argument('--decision-layer',action='store_true');parser.add_argument('--decision-audit');parser.add_argument('--decision-audit-sha')
     args=parser.parse_args();config=configuration(os.environ)
     if args.preflight or config['status']=='NOT_CONFIGURED':print(json.dumps(config));return
     if not args.archive_directory or not args.data_directory:raise ValueError('ISOLATED_DIRECTORIES_REQUIRED')
     if args.result_poll_seconds<60:raise ValueError('BOUNDED_RESULT_POLL_INTERVAL_REQUIRED')
     if bool(args.nba_model)!=bool(args.nba_model_sha):raise ValueError('EXPLICIT_NBA_MODEL_AND_TRUSTED_PIN_REQUIRED')
     nba_model_path=local_path(args.nba_model) if args.nba_model else None
+    if bool(args.decision_audit)!=bool(args.decision_audit_sha):raise ValueError('EXPLICIT_AUDIT_PATH_AND_PIN_REQUIRED')
+    audit_report=None
+    if args.decision_audit:
+        from hybrid_engine.decision_integration import read_audit_report
+        if not args.decision_layer:raise ValueError('AUDIT_REQUIRES_DECISION_LAYER')
+        audit_report=read_audit_report(local_path(args.decision_audit),args.decision_audit_sha)
     archive=FrozenArchive(args.archive_directory);root=local_path(args.data_directory);root.mkdir(parents=True,exist_ok=True)
     os.environ['TELEGRAM_BOT_TOKEN']=os.environ['ZEYNAL_TEST_BOT_TOKEN']
     os.environ['PREDICTION_LEDGER_DB']=str(root/'unused-live-ledger.sqlite')
@@ -143,7 +156,8 @@ def main():
     if args.nba_model:
         from hybrid_engine.live_nba import PreparedBayes,LiveNBAHybridService
         nba_service=LiveNBAHybridService(root/'live-nba',PreparedBayes(nba_model_path,trusted_sha256=args.nba_model_sha))
-    _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport,nba_service=nba_service)
+    _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport,nba_service=nba_service,
+        decision_layer=args.decision_layer,audit_report=audit_report)
     app.bot_data['test_results']=results
     # Commands must arrive from the authorized HUMAN test chat; bot self-messages
     # are never counted as real command-input E2E evidence.

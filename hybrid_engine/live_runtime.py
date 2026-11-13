@@ -9,7 +9,7 @@ import time
 from unittest.mock import patch
 
 
-async def run(fixture_path,repetitions=20):
+async def run(fixture_path,repetitions=20,*,decisions=False):
     from concurrent.futures import ThreadPoolExecutor
     from aiohttp import web,ClientSession
     from telegram.ext import Application
@@ -60,7 +60,7 @@ async def run(fixture_path,repetitions=20):
         @staticmethod
         def builder():return Application.builder().base_url(f'http://127.0.0.1:{port}/bot').request(AuditedRequest(journal))
     with patch.object(main,'Application',Local):app=main.build_app()
-    install_isolated_services(app,archive,root,chat_id=17,transport=transport,nba_service=service)
+    install_isolated_services(app,archive,root,chat_id=17,transport=transport,nba_service=service,decision_layer=decisions)
     main.PORT=0;health=await main.start_health(app)
     health_port=next(iter(health.sites))._server.sockets[0].getsockname()[1]
     began=time.perf_counter()
@@ -74,6 +74,7 @@ async def run(fixture_path,repetitions=20):
                 delivered={e['update_id'] for e in journal.read() if e.get('kind')=='DELIVERY_ACCEPTED'}
                 if len(delivered)==len(commands):break
                 await asyncio.sleep(.02)
+        await app.update_queue.join()
         events=journal.read();errors=[e for e in events if e.get('kind') in ('HANDLER_ERROR','SEND_UNCONFIRMED')]
         from ledger_reports import LedgerReports
         report=LedgerReports(service.ledger.path).read('NBA')
@@ -82,8 +83,16 @@ async def run(fixture_path,repetitions=20):
         if not any('FIXTURE_LOCAL_DATE_MISMATCH' in s for s in received):raise ValueError('DATE_DIAGNOSTIC_NOT_SENT')
         if report['groups'] or report['pending']!=4:raise ValueError('INVENTED_FINAL_OR_METRIC')
         if sum('Gerçek maç öncesi tahmin' in s for s in received)!=4+repetitions:raise ValueError('LIVE_RENDER_NOT_DELIVERED')
+        decision_records=app.bot_data['decision_journal'].read() if decisions else []
+        if decisions:
+            if len(decision_records)!=5 or any(e['selected'] for b in decision_records for e in b['evaluations']):raise ValueError('DECISION_DEDUP_OR_SELECTION_GUARD')
+            if not any('ELITE KARAR VE KALİBRASYON' in s for s in received):raise ValueError('DECISION_RENDER_NOT_SENT')
         import numpy as np
         import sys
+        cgroup={}
+        for name in ('memory.max','memory.peak','cpu.max'):
+            path=Path('/sys/fs/cgroup')/name
+            if path.exists():cgroup[name]=path.read_text().strip()
         return dict(format='NBA_NATIVE_PAYLOAD_RESOURCE_REPLAY_V1',status='PASS',actual_telegram_delivery_verified=False,
             evidence_class='MOCK_CLOCK_NATIVE_SOURCE_REPLAY_NOT_NEW_PROSPECTIVE_FORECASTS',
             transport='LOCAL_HTTP_BOT_API_DOUBLE',requests=len(commands),messages=len(received),unique_nba_snapshots=4,
@@ -93,6 +102,8 @@ async def run(fixture_path,repetitions=20):
             reply_interval_p95_seconds=float(np.quantile(intervals,.95)),
             native_ml_libraries_loaded=[n for n in ('scipy','sklearn','lightgbm','catboost') if n in sys.modules],
             isolated_sqlite_integrity=service.ledger.integrity(),
+            decision_layer_enabled=decisions,decision_batches=len(decision_records),selected_market_lines=0,
+            observed_cgroup=cgroup,
             health_ready=ready,
             source_pins={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in Path(__file__).parent.glob('*.py')})
     finally:

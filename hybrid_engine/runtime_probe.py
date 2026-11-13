@@ -228,6 +228,8 @@ def main():
     parser.add_argument('--exercise-v1', action='store_true')
     parser.add_argument('--exercise-hybrid', action='store_true')
     parser.add_argument('--exercise-live-nba', action='store_true')
+    parser.add_argument('--exercise-decision', action='store_true')
+    parser.add_argument('--require-cgroup-limits', action='store_true')
     parser.add_argument('--telegram-errors', action='store_true'); args = parser.parse_args()
     if args.telegram_errors and not args.exercise_v1: raise ValueError('FAILURE_PROBE_REQUIRES_V1_FLOW')
     if not 1 <= args.repetitions <= 50: raise ValueError('BOUNDED_REPETITIONS_REQUIRED')
@@ -235,6 +237,11 @@ def main():
     os.sched_setaffinity(0, {min(os.sched_getaffinity(0))})
     original = Path.cwd()
     try:
+        if args.require_cgroup_limits:
+            memory=(Path('/sys/fs/cgroup')/'memory.max').read_text().strip()
+            quota,period=(Path('/sys/fs/cgroup')/'cpu.max').read_text().split()
+            if memory!='268435456' or quota=='max' or int(quota)>int(period):
+                raise ValueError('REQUIRED_DOCKER_256_MIB_ONE_CPU_CGROUP_NOT_ENFORCED')
         import asyncio
         import gc
         with tempfile.TemporaryDirectory(prefix='zeynal-telegram-memory-') as directory:
@@ -243,7 +250,10 @@ def main():
             # executor-shutdown helper thread. The peak metrics above include the
             # entire workload; collection does not hide an inference memory peak.
             with asyncio.Runner() as runner:
-                if args.exercise_live_nba:
+                if args.exercise_decision:
+                    from hybrid_engine.live_runtime import run as run_decision
+                    report=runner.run(run_decision(args.fixture,args.repetitions,decisions=True))
+                elif args.exercise_live_nba:
                     from hybrid_engine.live_runtime import run as run_live
                     report=runner.run(run_live(args.fixture,args.repetitions))
                 elif args.exercise_hybrid:
