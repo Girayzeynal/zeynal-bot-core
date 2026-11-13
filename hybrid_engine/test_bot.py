@@ -23,6 +23,19 @@ from verified_analysis import VerifiedAnalyzeService
 
 _update=ContextVar('isolated_test_update_id',default=None)
 REQUIRED=('ZEYNAL_TEST_BOT_TOKEN','ZEYNAL_TEST_BOT_ID','ZEYNAL_TEST_BOT_USERNAME','ZEYNAL_TEST_CHAT_ID')
+SAFE_FAILURE_CODES=frozenset(('TEST_BOT_SERVER_IDENTITY_MISMATCH','TEST_BOT_HAS_WEBHOOK_POLLING_NOT_STARTED',
+    'DEDICATED_TEST_BOT_IDENTITY_REQUIRED','EXPLICIT_TEST_IDENTITY_REQUIRED','ISOLATED_DIRECTORIES_REQUIRED',
+    'REPLAY_ONLY_FORBIDS_LIVE_MODELS_AND_RESULT_COLLECTION','BOUNDED_RESULT_POLL_INTERVAL_REQUIRED',
+    'NBA_REPLAY_PACKET_REQUIRED_OR_TOO_LARGE','NBA_REPLAY_PACKET_SHA256','NBA_REPLAY_CAPTURE_PIN_OR_COUNT',
+    'NBA_REPLAY_NATIVE_FIXTURE_IDENTITY'))
+
+
+def failure_report(exc):
+    # Only fixed internal codes may leave the process. API exception strings can
+    # contain credential-bearing URLs; never echo them as diagnostic detail.
+    text=str(exc)
+    return dict(status='FAILED',error_type=type(exc).__name__,
+        reason=text if text in SAFE_FAILURE_CODES else 'ISOLATED_TEST_BOT_FAILED',actual_telegram_delivery_verified=False)
 
 
 def configuration(env):
@@ -222,5 +235,5 @@ def main():
 if __name__=='__main__':
     try:main()
     except Exception as exc:
-        print(json.dumps(dict(status='FAILED',error_type=type(exc).__name__,actual_telegram_delivery_verified=False)))
+        print(json.dumps(failure_report(exc)))
         raise SystemExit(2)

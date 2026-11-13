@@ -53,7 +53,7 @@ Telegram test kullanıcısının göndereceği komutlar:
 
 ## Test sonucu ve güvenlik
 
-**663 başarılı / 0 başarısız**; önceki 642 test + 21 yeni regresyon. Dört NBA komutu parser → test-bot dispatch → replay → Telegram reply handler yolunda ayrı ayrı test edildi. Bu testlerde `requests.get`, Bayesian `fit/predict` ve canlı NBA ledger kurucusu çağrılırsa hata verecek biçimde kapatıldı: hiçbirine gidilmedi. Bozuk paket/snapshot SHA, geç kaynak, tipoff sınırı, sahte kalibrasyon, yanlış isim/tarih, HTML bütçesi, mutasyonsuz tekrar ve EuroLeague dispatch koruması denetlendi.
+İlk bağlantı teslimatı (`26c5f34`): **663 başarılı / 0 başarısız**; önceki 642 test + 21 yeni regresyon. Dört NBA komutu parser → test-bot dispatch → replay → Telegram reply handler yolunda ayrı ayrı test edildi. Bu testlerde `requests.get`, Bayesian `fit/predict` ve canlı NBA ledger kurucusu çağrılırsa hata verecek biçimde kapatıldı: hiçbirine gidilmedi. Bozuk paket/snapshot SHA, geç kaynak, tipoff sınırı, sahte kalibrasyon, yanlış isim/tarih, HTML bütçesi, mutasyonsuz tekrar ve EuroLeague dispatch koruması denetlendi.
 
 Yerel birleşik PTB/HTTP taklit akışı **PASS**: 29 komut, dört NBA kaydı, bir EuroLeague replay isteği, tekrarlar ve tarih hatası; yeni PREMATCH=0. Tek CPU / 256 MiB process adres alanında tepe RSS **88,13 MiB**. Yetkisiz chat reddedildi. Paket doğrulama başlangıcı RSS'ye dahildir; gecikme ölçümü başlatılmış yerel akışa aittir. Bu host cgroup testi veya gerçek Telegram teslimatı değildir.
 
@@ -62,3 +62,18 @@ GitHub Actions'a aynı NBA + EuroLeague replay yolunu `--cpus=1 --memory=256m --
 Önceden izlenen arşiv/paket dosyaları başlangıç commit'iyle bayt düzeyinde karşılaştırıldı; SHA'lar [makine kanıtında](nba-archive-replay-evidence-20261113.json). Üretim motorları, skor matematiği, geçmiş tahminler, disk/snapshot/secret ve Fly yapılandırması değiştirilmedi.
 
 **Karar:** NBA + EuroLeague izole replay bağlantısı testlerde çalışıyor. Gerçek Telegram E2E bu ortamda test kimlikleri bulunmadığından yeniden çalıştırılmadı; kullanıcı bildirimi API/chat/mesaj kanıtı yerine geçmez. Üretim geçişi hâlâ **NO-GO**.
+
+## CLI başlangıcı devam denetimi
+
+Yeni `test_test_bot_bootstrap.py`, doğrudan `test_bot.main()` komut satırı yolunu gerçek PTB builder/servis kurulumu ve yalnızca loopback HTTP Bot API taklidiyle çalıştırır. Uzun süren `run_polling` döngüsü kontrollü bir sürücüyle değiştirilir; gerçek ağ polling akışı önceki ayrı kaynak testinde sınanmıştır. Bu yeni testler gerçek Telegram E2E değildir.
+
+- CLI kurulumu ve `post_init` sonrasında dört NBA + bir EuroLeague komutu doğru handler'a gider.
+- Bot ID/kullanıcı adı doğrulaması başarısızsa hiçbir mesaj gönderilmez.
+- Mevcut webhook varsa silinmez, üzerine yazılmaz ve komutlar başlatılmaz.
+- `--replay-only --nba-model ...` API çağrısı yapılmadan reddedilir.
+- Replay modunda kaynak/sonuç indirmesi ve tahmin-ledger dosyası oluşturma gerçekleşmez.
+- Başlangıç hata çıktısı yalnızca sabit, izin verilen hata kodlarını gösterir; keyfî API hata metni veya token içeren URL stdout'a geçirilmez.
+
+Yeni hata kodları: `TEST_BOT_SERVER_IDENTITY_MISMATCH`, `TEST_BOT_HAS_WEBHOOK_POLLING_NOT_STARTED`, `NBA_REPLAY_PACKET_SHA256`. Diğer açıklanmaması gereken hatalar `ISOLATED_TEST_BOT_FAILED` olur. Webhook korumasını geçmek için otomatik silme eklenmedi; doğru ayrı test botu kullanılmalıdır.
+
+Bu devam aşamasının güncel koşu sonucu ve kaynak hash'leri [CLI başlangıç kanıtında](nba-replay-bootstrap-evidence-20261113.json) bulunur. Önceki 663 testlik rapor tarihsel kanıt olarak korunur; yeni koşu onun yerine geçirilmez.
