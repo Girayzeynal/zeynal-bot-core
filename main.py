@@ -16,6 +16,8 @@ from nba_command import nba_command
 from core.league_identity import resolve_league
 from universal_analysis import UniversalAnalyzeService,render_preflight
 from verified_analysis import production_service
+from ledger_reports import accuracy_command, compare_command, production_reports
+from telegram_delivery import reply_analysis
 
 from faz13_engine import Faz13Engine, PrematchRequest
 from faz22_engine import Faz22Engine
@@ -113,8 +115,13 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # would leak post-game information into a retrospective prediction.
     release_service=context.application.bot_data.get('verified_analysis_service')
     if release_service is not None:
-        report=await release_service.analyze(league,date_str,home,away)
-        await update.message.reply_text(report['html'],parse_mode='HTML',disable_web_page_preview=True)
+        try:
+            report=await release_service.analyze(league,date_str,home,away)
+        except Exception as exc:
+            logger.error('Analysis service failed: %s',type(exc).__name__)
+            await update.message.reply_text('Analiz hizmeti kullanılamıyor veya süre aşıldı. Arşiv durumu doğrulanamadı.')
+            return
+        await reply_analysis(update,context,report,release_service)
         return
     try:
         league=resolve_league(league).code
@@ -389,7 +396,6 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 from market_snapshot_store import MarketSnapshotStore
                 from sharp_guard import audit_market
                 import time
-                import html
                 market_path = os.getenv("MARKET_SNAPSHOT_DB", "/data/market_snapshots.sqlite").strip()
                 safe_path = os.path.realpath(market_path) if market_path else ""
                 if (safe_path and os.path.ismount("/data")
@@ -483,10 +489,13 @@ def build_app() -> Application:
     app.bot_data["faz17"] = Faz17Engine(os.getenv("ODDS_API_KEY"), os.getenv("ODDS_BASE"))
     app.bot_data["faz22"] = Faz22Engine()
     app.bot_data["faz23"] = Faz23Engine()
+    app.bot_data['ledger_reports'] = production_reports()
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
     app.add_handler(CommandHandler("nba", nba_command))
+    app.add_handler(CommandHandler("accuracy", accuracy_command))
+    app.add_handler(CommandHandler("compare", compare_command))
     return app
 
 async def scheduler_loop(engines):

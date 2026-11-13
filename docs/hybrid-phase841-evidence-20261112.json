@@ -1,0 +1,1274 @@
+{
+  "format": "FAZ84_1_ACCEPTANCE_EVIDENCE_V1",
+  "base_commit": "31b7849873f2d8b57c0d1e1e36f334018f43b20b",
+  "generated_at_utc": 1794507887,
+  "decision": "NO_GO",
+  "production_default": "FAZ13",
+  "allocator_change": {
+    "previous_fault_probe": {
+      "status": "FAILED",
+      "mode": "portable",
+      "error_type": "RuntimeError",
+      "reason": "can't start new thread",
+      "address_space_limit_bytes": [
+        268435456,
+        268435456
+      ],
+      "peak_rss_mib": 149.4375
+    },
+    "research_docker_env": "MALLOC_ARENA_MAX=1",
+    "production_config_changed": false,
+    "arena_limit_alone_not_sufficient": true,
+    "failed_with_arena_limit": {
+      "status": "FAILED",
+      "mode": "portable",
+      "error_type": "RuntimeError",
+      "reason": "can't start new thread",
+      "address_space_limit_bytes": [
+        268435456,
+        268435456
+      ],
+      "peak_rss_mib": 150.23828125,
+      "allocator_arena_limit": "1",
+      "process_memory": {
+        "VmPeak_mib": 250.01953125,
+        "VmSize_mib": 248.75390625,
+        "VmHWM_mib": 150.23828125,
+        "VmRSS_mib": 149.76953125
+      }
+    },
+    "harness_fix": "COLLECT_COMPLETED_WORKLOAD_CYCLES_BEFORE_EXECUTOR_SHUTDOWN_HELPER"
+  },
+  "tests": {
+    "passed": 482,
+    "failed": 0,
+    "previous_472_preserved": true,
+    "log": {
+      "path": "/workspace/scratch/phase841-tests-final.log",
+      "sha256": "ca3c7fc2b4cd78b971f966f2bf60869e21860a9adf3cbbf357cad62833fd4d28",
+      "bytes": 79885
+    }
+  },
+  "historical_games": 943,
+  "source_audit": {
+    "inventory": {
+      "EuroCup 2025/2026": {
+        "games": 180,
+        "with_periods": 180,
+        "overtime_games": 8,
+        "with_box_statistics": 180,
+        "with_player_box_statistics": 180
+      },
+      "EuroCup 2026/2027": {
+        "games": 111,
+        "with_periods": 111,
+        "overtime_games": 4,
+        "with_box_statistics": 111,
+        "with_player_box_statistics": 111
+      },
+      "EuroLeague 2025/2026": {
+        "games": 380,
+        "with_periods": 380,
+        "overtime_games": 15,
+        "with_box_statistics": 380,
+        "with_player_box_statistics": 380
+      },
+      "EuroLeague 2026/2027": {
+        "games": 102,
+        "with_periods": 102,
+        "overtime_games": 5,
+        "with_box_statistics": 102,
+        "with_player_box_statistics": 102
+      },
+      "NBA 2026/2027": {
+        "games": 170,
+        "with_periods": 170,
+        "overtime_games": 8,
+        "with_box_statistics": 170,
+        "with_player_box_statistics": 32
+      }
+    },
+    "cohorts": {
+      "EuroCup 2025/2026": {
+        "missing": {
+          "PREMATCH_LINEUP": 180,
+          "INJURIES": 180,
+          "CONTEXT_TRANSITION_ANNOTATIONS": 180
+        },
+        "strict_feature_abstentions": {
+          "INSUFFICIENT_PRE_CUTOFF_TEAM_HISTORY": 180
+        },
+        "strict_feature_eligible": 0,
+        "fixture_known_before_tipoff": 0,
+        "strict_joint_eligible": 0,
+        "start_range_utc": [
+          "2025-09-30T16:00:00+00:00",
+          "2026-02-11T19:30:00+00:00"
+        ],
+        "score_observed_range_utc": [
+          "2026-11-12T16:38:26+00:00",
+          "2026-11-12T16:38:26+00:00"
+        ],
+        "score_ingested_range_utc": [
+          "2026-11-12T16:38:26+00:00",
+          "2026-11-12T16:38:26+00:00"
+        ],
+        "box_observed_range_utc": [
+          "2026-11-12T16:43:17+00:00",
+          "2026-11-12T16:44:47+00:00"
+        ],
+        "box_ingested_range_utc": [
+          "2026-11-12T16:43:17+00:00",
+          "2026-11-12T16:44:47+00:00"
+        ],
+        "score_source_lag_hours": {
+          "minimum": 6573.140555555556,
+          "maximum": 9792.640555555556
+        }
+      },
+      "EuroLeague 2025/2026": {
+        "missing": {
+          "PREMATCH_LINEUP": 380,
+          "INJURIES": 380,
+          "CONTEXT_TRANSITION_ANNOTATIONS": 380
+        },
+        "strict_feature_abstentions": {
+          "INSUFFICIENT_PRE_CUTOFF_TEAM_HISTORY": 80
+        },
+        "strict_feature_eligible": 300,
+        "fixture_known_before_tipoff": 267,
+        "strict_joint_eligible": 254,
+        "start_range_utc": [
+          "2025-09-30T16:00:00+00:00",
+          "2026-04-17T18:30:00+00:00"
+        ],
+        "score_observed_range_utc": [
+          "2026-11-12T15:38:48+00:00",
+          "2026-11-12T15:38:48+00:00"
+        ],
+        "score_ingested_range_utc": [
+          "2026-11-12T15:38:48+00:00",
+          "2026-11-12T15:38:48+00:00"
+        ],
+        "box_observed_range_utc": [
+          "2026-11-12T16:59:49+00:00",
+          "2026-11-12T17:02:58+00:00"
+        ],
+        "box_ingested_range_utc": [
+          "2026-11-12T16:59:49+00:00",
+          "2026-11-12T17:02:58+00:00"
+        ],
+        "score_source_lag_hours": {
+          "minimum": 5013.1466666666665,
+          "maximum": 9791.646666666667
+        }
+      },
+      "EuroLeague 2026/2027": {
+        "missing": {
+          "PREMATCH_LINEUP": 102,
+          "INJURIES": 102,
+          "CONTEXT_TRANSITION_ANNOTATIONS": 102
+        },
+        "strict_feature_abstentions": {
+          "INSUFFICIENT_PRE_CUTOFF_TEAM_HISTORY": 92
+        },
+        "strict_feature_eligible": 10,
+        "fixture_known_before_tipoff": 14,
+        "strict_joint_eligible": 0,
+        "start_range_utc": [
+          "2026-09-24T16:00:00+00:00",
+          "2026-11-11T19:45:00+00:00"
+        ],
+        "score_observed_range_utc": [
+          "2026-11-12T15:38:45+00:00",
+          "2026-11-12T15:38:45+00:00"
+        ],
+        "score_ingested_range_utc": [
+          "2026-11-12T15:38:45+00:00",
+          "2026-11-12T15:38:45+00:00"
+        ],
+        "box_observed_range_utc": [
+          "2026-11-12T17:03:00+00:00",
+          "2026-11-12T17:03:50+00:00"
+        ],
+        "box_ingested_range_utc": [
+          "2026-11-12T17:03:00+00:00",
+          "2026-11-12T17:03:50+00:00"
+        ],
+        "score_source_lag_hours": {
+          "minimum": 19.895833333333332,
+          "maximum": 1175.6458333333333
+        }
+      },
+      "EuroCup 2026/2027": {
+        "missing": {
+          "PREMATCH_LINEUP": 111,
+          "INJURIES": 111,
+          "CONTEXT_TRANSITION_ANNOTATIONS": 111
+        },
+        "strict_feature_abstentions": {
+          "INSUFFICIENT_PRE_CUTOFF_TEAM_HISTORY": 96
+        },
+        "strict_feature_eligible": 15,
+        "fixture_known_before_tipoff": 58,
+        "strict_joint_eligible": 15,
+        "start_range_utc": [
+          "2026-09-29T16:00:00+00:00",
+          "2026-11-11T19:00:00+00:00"
+        ],
+        "score_observed_range_utc": [
+          "2026-11-12T16:38:27+00:00",
+          "2026-11-12T16:38:27+00:00"
+        ],
+        "score_ingested_range_utc": [
+          "2026-11-12T16:38:27+00:00",
+          "2026-11-12T16:38:27+00:00"
+        ],
+        "box_observed_range_utc": [
+          "2026-11-12T16:44:47+00:00",
+          "2026-11-12T16:45:46+00:00"
+        ],
+        "box_ingested_range_utc": [
+          "2026-11-12T16:44:47+00:00",
+          "2026-11-12T16:45:46+00:00"
+        ],
+        "score_source_lag_hours": {
+          "minimum": 21.640833333333333,
+          "maximum": 1056.6408333333334
+        }
+      },
+      "NBA 2026/2027": {
+        "missing": {
+          "PREMATCH_LINEUP": 170,
+          "INJURIES": 170,
+          "CONTEXT_TRANSITION_ANNOTATIONS": 170
+        },
+        "strict_feature_abstentions": {
+          "INSUFFICIENT_PRE_CUTOFF_TEAM_HISTORY": 99
+        },
+        "strict_feature_eligible": 71,
+        "fixture_known_before_tipoff": 169,
+        "strict_joint_eligible": 71,
+        "start_range_utc": [
+          "2026-10-20T19:00:00+00:00",
+          "2026-11-12T03:00:00+00:00"
+        ],
+        "score_observed_range_utc": [
+          "2026-11-12T15:38:26+00:00",
+          "2026-11-12T15:38:44+00:00"
+        ],
+        "score_ingested_range_utc": [
+          "2026-11-12T15:38:26+00:00",
+          "2026-11-12T15:38:44+00:00"
+        ],
+        "box_observed_range_utc": [
+          "2026-11-12T15:46:31+00:00",
+          "2026-11-12T16:46:01+00:00"
+        ],
+        "box_ingested_range_utc": [
+          "2026-11-12T16:45:46+00:00",
+          "2026-11-12T18:04:39+00:00"
+        ],
+        "score_source_lag_hours": {
+          "minimum": 12.645555555555555,
+          "maximum": 548.6405555555556
+        }
+      }
+    },
+    "publication_time_policy": "LOCAL_OBSERVATION_OR_FIELD_BOUND_PUBLIC_ARCHIVE_WITNESS_NO_START_PLUS_DELAY_IMPUTATION",
+    "season_completeness": "NOT_INFERRED_FROM_OBSERVED_GAME_COUNT",
+    "source_clock_attestation": "NATIVE_API_ARCHIVE_VERSION_WITNESSES_PLUS_CURRENT_LOCAL_RECEIPTS",
+    "manifest_sha256": "cef2be47c24a13e5770e69aaa68b75afa92a5213d89f9150061d50c33af2c21d",
+    "production_default": "FAZ13",
+    "production_changed": false
+  },
+  "archive_expansion": {
+    "additional_server_witnessed_cup_versions": 8,
+    "previous_cup_joint_candidates": 7,
+    "current_cup_joint_candidates": 15,
+    "new_unique_historical_games": 0
+  },
+  "strict_oos_games": {
+    "NBA": 7,
+    "EUROLEAGUE": 77,
+    "EUROCUP": 0
+  },
+  "retained_point_winner_and_existing_grid_rows": 732,
+  "new_research_grid_markets": [
+    "2Q",
+    "3Q",
+    "4Q",
+    "2H"
+  ],
+  "prediction_verification": {
+    "status": "PASS",
+    "checks": {
+      "past_label_versions": 734,
+      "prediction_traces": 732,
+      "normalized_market_lines": 21900
+    },
+    "meaning": "MECHANICAL_AUDIT_NOT_AN_INDEPENDENT_ACCURACY_TEST"
+  },
+  "frozen_production_and_model_files": {
+    "main.py": "a2b23419c345dac835840a4497f2648c25985df02d275ede1c4a230d405950f8",
+    "ledger_reports.py": "0b2c7ce785b10df819d8905b02682c0b70e720c6e1f94784d0fb2777008f3bde",
+    "verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b",
+    "prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2",
+    "historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+    "hybrid_engine/distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+    "hybrid_engine/evaluation.py": "e7ad5518c4eab4e8dc53019a3376be4b805f27dd68023a9259ec70becf648a2b",
+    "hybrid_engine/possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+    "hybrid_engine/models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+    "hybrid_engine/portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+    "requirements.txt": "41bde19190b8616800bb227c224966566c1484504c8c172fa57fcd685bebf23d",
+    "fly.toml": "be55cd27dc9cf43bd6e496745edcc642bb85653ac7a8ac5423ec33ec3ef7aa8e"
+  },
+  "model_source_pins": {
+    "../Dockerfile": "80b1f58128bf033779311e79f62d049f85954e5bff7155d849a3dd0403212bac",
+    "../historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+    "../ledger_reports.py": "0b2c7ce785b10df819d8905b02682c0b70e720c6e1f94784d0fb2777008f3bde",
+    "../main.py": "a2b23419c345dac835840a4497f2648c25985df02d275ede1c4a230d405950f8",
+    "../prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2",
+    "../season_archive_inventory.py": "f5dab3a2f3605d1f1591d9b3b0a74ad96797a3db8f1bfb38c6bcd0a70b1c9e6f",
+    "../verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b",
+    "__init__.py": "8d3f97c99d8ff6ec21deb8daa93d789e656dc99fb1f5fc8b258ed2b71a1de73a",
+    "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
+    "acceptance.py": "52621cb8019b8d913df5482e090c73e85ac363723f83f0d6a49575854ab0f5c2",
+    "archive_sources.py": "d73f047912d9a360e0015a2eddb52789850b1642279e285bff1b42c91cd7630d",
+    "audit.py": "c6107ecae0d3d738d654196691b8fe89552f7533ff4cff24e70573ffd8436a17",
+    "availability.py": "33e92959bd3d3a2699d4fa6a7b73bba3aa4db914f144970b13d2cfc2e3551eca",
+    "benchmark.py": "38cdbc13962fc952ea4051f40103321dc8496d6ba6a74dd2e102a5862391dbc4",
+    "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+    "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+    "diagnostics.py": "4e721cb47afc4d6ffc5fe62696ed3d821ffbd08ca77b9bb9e10715174e681ca0",
+    "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+    "evaluation.py": "e7ad5518c4eab4e8dc53019a3376be4b805f27dd68023a9259ec70becf648a2b",
+    "markets.py": "56a3a13c97daf4b2403273d0c3ec7169304bc638e8d28f4392d73be5e310ef35",
+    "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+    "observed_markets.py": "b7b4234561c11c886b9cb42294b19f337e480d810d0db8b3a1ffccc7ebcd4af8",
+    "portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+    "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+    "preparation.py": "f51077c6e2b504c86aac4500be7913eaf7c8b461fc6f610fbf2fff976a42c025",
+    "root_cause.py": "786c328a29b5a2ee59fe7e7dfc1dda28cb4332f27320ec3d0d958f5fdbeccd65",
+    "runtime_fixture.py": "cda7fe6de8fc8f2f0a5051cee5686878eeca0054b26347db92e5dd947a780fd3",
+    "runtime_probe.py": "48180bb51c1a8f75b3a26bcb6ca6f52edd6b301dfd601ad1ee11a418e96d9464",
+    "statistics.py": "3a8ae0f994da53a1aed6ebb845906f55fdf1f864ad829dc9fe6bbf5a21118df6",
+    "walkforward.py": "805ea4a1119e0e798a63f5955960ad8815f3d9158914fa7a9fa5a2420ec3196e"
+  },
+  "real_telegram": {
+    "format": "REAL_TELEGRAM_TEST_ACCESS_V1",
+    "checked_at_utc": 1794506854,
+    "environment_spec_revision": "3",
+    "configured_test_credential_names": [],
+    "configured_test_user_client": false,
+    "production_token_used": false,
+    "actual_telegram_delivery_verified": false,
+    "commands": {
+      "/nba": {
+        "status": "NOT_RUN",
+        "reason": "NO_DEDICATED_TEST_BOT_AND_AUTHORIZED_USER_CLIENT_CONFIGURED"
+      },
+      "/analyze": {
+        "status": "NOT_RUN",
+        "reason": "NO_DEDICATED_TEST_BOT_AND_AUTHORIZED_USER_CLIENT_CONFIGURED"
+      },
+      "/accuracy": {
+        "status": "NOT_RUN",
+        "reason": "NO_DEDICATED_TEST_BOT_AND_AUTHORIZED_USER_CLIENT_CONFIGURED"
+      },
+      "/compare": {
+        "status": "NOT_RUN",
+        "reason": "NO_DEDICATED_TEST_BOT_AND_AUTHORIZED_USER_CLIENT_CONFIGURED"
+      }
+    },
+    "local_double_is_real_delivery_evidence": false
+  },
+  "resource_test": {
+    "format": "TELEGRAM_PORTABLE_ML_RUNTIME_PROBE_V1",
+    "status": "PASS",
+    "mode": "portable",
+    "resource_fixture": "SYNTHETIC_NOT_MODEL_PERFORMANCE_EVIDENCE",
+    "transport": "REAL_HTTP_LOCAL_TELEGRAM_API_DOUBLE",
+    "actual_telegram_delivery_verified": false,
+    "production_default_changed": false,
+    "python_version": "3.12.14",
+    "numpy_version": "1.26.4",
+    "native_ml_libraries_loaded": [],
+    "address_space_limit_bytes": [
+      268435456,
+      268435456
+    ],
+    "cpu_affinity": [
+      0
+    ],
+    "peak_rss_mib": 150.45703125,
+    "allocator_arena_limit": "1",
+    "process_memory": {
+      "VmPeak_mib": 241.47265625,
+      "VmSize_mib": 239.03125,
+      "VmHWM_mib": 150.45703125,
+      "VmRSS_mib": 148.63671875
+    },
+    "requests": 25,
+    "analyze_replies": 22,
+    "nba_replies": 1,
+    "health_ready": {
+      "ready": true,
+      "release_sha": "UNKNOWN"
+    },
+    "successful_message_deliveries": 25,
+    "injected_delivery_errors": [],
+    "observed_handler_errors": [],
+    "delivery_recovery": "NOT_EXERCISED",
+    "accuracy_replies": 1,
+    "compare_replies": 1,
+    "actual_v1_analysis": true,
+    "v1_decisions": [
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": true
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "EUROLEAGUE",
+        "status": "ANALYSIS_OK",
+        "new_record": true
+      },
+      {
+        "league": "EUROCUP",
+        "status": "ABSTAIN",
+        "new_record": null
+      }
+    ],
+    "isolated_ledger_integrity": {
+      "sqlite": "ok",
+      "snapshots": 2,
+      "unconfirmed_snapshots": 0,
+      "verified_results": 0
+    },
+    "reports_read_only_verified": true,
+    "legacy_records_preserved": true,
+    "latency_p95_seconds": 0.3322896481997304,
+    "models_resident": [
+      "LIGHTGBM_PORTABLE",
+      "CATBOOST_PORTABLE",
+      "BAYES",
+      "POSSESSION",
+      "FAZ13_MC"
+    ],
+    "v1_cache_entries": 32,
+    "v1_cache_serialized_bytes": 15768035,
+    "cache_stress": "NATIVE_PAYLOAD_MEMORY_REPLAY_NOT_HISTORICAL_OR_LIVE_EVIDENCE",
+    "source_pins": {
+      "CATBOOST": {
+        "max_absolute_error": 0.0,
+        "n": 48
+      },
+      "LIGHTGBM": {
+        "max_absolute_error": 0.0,
+        "n": 48
+      }
+    },
+    "message_example": "ZEYNAL | KAYITLI MODEL KAR\u015eILA\u015eTIRMASI | Normal s\u00fcre\nSynthetic Hawks \u2013 Synthetic Bears\nFAZ13_SCORE_MATCHUP_PERIODS_V1 | 402b40da9592 | Skor 118.50 \u2013 112.50 | Sonu\u00e7 bekleniyor\nTek kay\u0131tl\u0131 model; kar\u015f\u0131la\u015ft\u0131r\u0131lacak ikinci do\u011frulanm\u0131\u015f s\u00fcr\u00fcm yok.\nKay\u0131tl\u0131 olmayan hibrit modeller i\u00e7in sonu\u00e7 \u00fcretilmedi. Model \u00fcst\u00fcnl\u00fc\u011f\u00fc \u00e7\u0131kar\u0131lamaz.",
+    "telegram_command_examples": [
+      "NBA | 2026-11-11 | T\u00fcrkiye saati\nKaynak: ESPN | Fikst\u00fcr (tahmin de\u011fil)\n23:00 | Synthetic Hawks - Synthetic Bears | Ba\u015flamad\u0131\nAnaliz: /analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 EUROLEAGUE | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nParis Basketball \u2013 Fenerbahce New Sponsor Istanbul\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 40 dk\n<b>Skor: 85.00 \u2013 80.00 | Toplam: 165.00</b>\nEv sahibi fark\u0131: +5.00 | Model handikab\u0131 (ev): -5.00\n1H: 42.00 \u2013 39.00\n2H: 43.00 \u2013 41.00\n1Q: 20.00 \u2013 19.00\n2Q: 22.00 \u2013 20.00\n3Q: 20.00 \u2013 20.00\n4Q: 23.00 \u2013 21.00\nMonte Carlo: do\u011frulanm\u0131\u015f skor varyans\u0131 yetersiz; hesaplanmad\u0131.\nGe\u00e7mi\u015f ma\u00e7: Ev 7 | Dep 7\nKaynak: EUROLEAGUE_LIVE | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 90e14d9a4bf4 | Kay\u0131t SHA: b74dc1365545",
+      "Bu lig i\u00e7in do\u011frulanm\u0131\u015f analiz motoru hen\u00fcz ba\u011fl\u0131 de\u011fil. LEAGUE_MODEL_NOT_CONFIGURED",
+      "ZEYNAL | DO\u011eRULANMI\u015e CANLI PERFORMANS | Normal s\u00fcre\nKay\u0131tl\u0131 ma\u00e7: 1 | Sonucu beklenen tahmin: 1\nDo\u011frulanm\u0131\u015f sonu\u00e7: 0. Ba\u015far\u0131 oran\u0131 ve kalibrasyon hesaplanamad\u0131.\nAra\u015ft\u0131rma backtestleri dahil de\u011fil. Bu de\u011ferler model \u00fcst\u00fcnl\u00fc\u011f\u00fc veya g\u00fcven y\u00fczdesi de\u011fildir.",
+      "ZEYNAL | KAYITLI MODEL KAR\u015eILA\u015eTIRMASI | Normal s\u00fcre\nSynthetic Hawks \u2013 Synthetic Bears\nFAZ13_SCORE_MATCHUP_PERIODS_V1 | 402b40da9592 | Skor 118.50 \u2013 112.50 | Sonu\u00e7 bekleniyor\nTek kay\u0131tl\u0131 model; kar\u015f\u0131la\u015ft\u0131r\u0131lacak ikinci do\u011frulanm\u0131\u015f s\u00fcr\u00fcm yok.\nKay\u0131tl\u0131 olmayan hibrit modeller i\u00e7in sonu\u00e7 \u00fcretilmedi. Model \u00fcst\u00fcnl\u00fc\u011f\u00fc \u00e7\u0131kar\u0131lamaz."
+    ],
+    "runtime_source_pins": {
+      "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
+      "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+      "preparation.py": "f51077c6e2b504c86aac4500be7913eaf7c8b461fc6f610fbf2fff976a42c025",
+      "acceptance.py": "52621cb8019b8d913df5482e090c73e85ac363723f83f0d6a49575854ab0f5c2",
+      "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+      "markets.py": "56a3a13c97daf4b2403273d0c3ec7169304bc638e8d28f4392d73be5e310ef35",
+      "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+      "walkforward.py": "805ea4a1119e0e798a63f5955960ad8815f3d9158914fa7a9fa5a2420ec3196e",
+      "availability.py": "33e92959bd3d3a2699d4fa6a7b73bba3aa4db914f144970b13d2cfc2e3551eca",
+      "archive_sources.py": "d73f047912d9a360e0015a2eddb52789850b1642279e285bff1b42c91cd7630d",
+      "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+      "root_cause.py": "786c328a29b5a2ee59fe7e7dfc1dda28cb4332f27320ec3d0d958f5fdbeccd65",
+      "observed_markets.py": "b7b4234561c11c886b9cb42294b19f337e480d810d0db8b3a1ffccc7ebcd4af8",
+      "evaluation.py": "e7ad5518c4eab4e8dc53019a3376be4b805f27dd68023a9259ec70becf648a2b",
+      "statistics.py": "3a8ae0f994da53a1aed6ebb845906f55fdf1f864ad829dc9fe6bbf5a21118df6",
+      "__init__.py": "8d3f97c99d8ff6ec21deb8daa93d789e656dc99fb1f5fc8b258ed2b71a1de73a",
+      "runtime_fixture.py": "cda7fe6de8fc8f2f0a5051cee5686878eeca0054b26347db92e5dd947a780fd3",
+      "runtime_probe.py": "48180bb51c1a8f75b3a26bcb6ca6f52edd6b301dfd601ad1ee11a418e96d9464",
+      "audit.py": "c6107ecae0d3d738d654196691b8fe89552f7533ff4cff24e70573ffd8436a17",
+      "portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+      "benchmark.py": "38cdbc13962fc952ea4051f40103321dc8496d6ba6a74dd2e102a5862391dbc4",
+      "diagnostics.py": "4e721cb47afc4d6ffc5fe62696ed3d821ffbd08ca77b9bb9e10715174e681ca0",
+      "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+      "../main.py": "a2b23419c345dac835840a4497f2648c25985df02d275ede1c4a230d405950f8",
+      "../historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+      "../prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2",
+      "../verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b",
+      "../ledger_reports.py": "0b2c7ce785b10df819d8905b02682c0b70e720c6e1f94784d0fb2777008f3bde",
+      "../season_archive_inventory.py": "f5dab3a2f3605d1f1591d9b3b0a74ad96797a3db8f1bfb38c6bcd0a70b1c9e6f",
+      "../Dockerfile": "80b1f58128bf033779311e79f62d049f85954e5bff7155d849a3dd0403212bac"
+    },
+    "post_collection_process_memory": {
+      "VmPeak_mib": 241.47265625,
+      "VmSize_mib": 227.03125,
+      "VmHWM_mib": 150.45703125,
+      "VmRSS_mib": 136.90234375
+    },
+    "workload_peak_rss_mib": 150.45703125,
+    "post_shutdown_process_memory": {
+      "VmPeak_mib": 241.47265625,
+      "VmSize_mib": 235.00390625,
+      "VmHWM_mib": 150.45703125,
+      "VmRSS_mib": 136.921875
+    },
+    "shutdown_completed": true
+  },
+  "failure_test": {
+    "format": "TELEGRAM_PORTABLE_ML_RUNTIME_PROBE_V1",
+    "status": "PASS",
+    "mode": "portable",
+    "resource_fixture": "SYNTHETIC_NOT_MODEL_PERFORMANCE_EVIDENCE",
+    "transport": "REAL_HTTP_LOCAL_TELEGRAM_API_DOUBLE",
+    "actual_telegram_delivery_verified": false,
+    "production_default_changed": false,
+    "python_version": "3.12.14",
+    "numpy_version": "1.26.4",
+    "native_ml_libraries_loaded": [],
+    "address_space_limit_bytes": [
+      268435456,
+      268435456
+    ],
+    "cpu_affinity": [
+      0
+    ],
+    "peak_rss_mib": 150.125,
+    "allocator_arena_limit": "1",
+    "process_memory": {
+      "VmPeak_mib": 249.17578125,
+      "VmSize_mib": 247.953125,
+      "VmHWM_mib": 150.125,
+      "VmRSS_mib": 149.37890625
+    },
+    "requests": 25,
+    "analyze_replies": 22,
+    "nba_replies": 1,
+    "health_ready": {
+      "ready": true,
+      "release_sha": "UNKNOWN"
+    },
+    "successful_message_deliveries": 23,
+    "injected_delivery_errors": [
+      429,
+      503
+    ],
+    "observed_handler_errors": [
+      "RetryAfter",
+      "NetworkError"
+    ],
+    "delivery_recovery": "LATER_USER_COMMAND_REUSES_COMMITTED_SNAPSHOT_NO_AUTOMATIC_DELIVERY_RETRY",
+    "accuracy_replies": 1,
+    "compare_replies": 1,
+    "actual_v1_analysis": true,
+    "v1_decisions": [
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": true
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "EUROLEAGUE",
+        "status": "ANALYSIS_OK",
+        "new_record": true
+      },
+      {
+        "league": "EUROCUP",
+        "status": "ABSTAIN",
+        "new_record": null
+      }
+    ],
+    "isolated_ledger_integrity": {
+      "sqlite": "ok",
+      "snapshots": 2,
+      "unconfirmed_snapshots": 0,
+      "verified_results": 0
+    },
+    "reports_read_only_verified": true,
+    "legacy_records_preserved": true,
+    "latency_p95_seconds": 0.475115348651525,
+    "models_resident": [
+      "LIGHTGBM_PORTABLE",
+      "CATBOOST_PORTABLE",
+      "BAYES",
+      "POSSESSION",
+      "FAZ13_MC"
+    ],
+    "v1_cache_entries": 32,
+    "v1_cache_serialized_bytes": 15768035,
+    "cache_stress": "NATIVE_PAYLOAD_MEMORY_REPLAY_NOT_HISTORICAL_OR_LIVE_EVIDENCE",
+    "source_pins": {
+      "CATBOOST": {
+        "max_absolute_error": 0.0,
+        "n": 48
+      },
+      "LIGHTGBM": {
+        "max_absolute_error": 0.0,
+        "n": 48
+      }
+    },
+    "message_example": "ZEYNAL | KAYITLI MODEL KAR\u015eILA\u015eTIRMASI | Normal s\u00fcre\nSynthetic Hawks \u2013 Synthetic Bears\nFAZ13_SCORE_MATCHUP_PERIODS_V1 | 402b40da9592 | Skor 118.50 \u2013 112.50 | Sonu\u00e7 bekleniyor\nTek kay\u0131tl\u0131 model; kar\u015f\u0131la\u015ft\u0131r\u0131lacak ikinci do\u011frulanm\u0131\u015f s\u00fcr\u00fcm yok.\nKay\u0131tl\u0131 olmayan hibrit modeller i\u00e7in sonu\u00e7 \u00fcretilmedi. Model \u00fcst\u00fcnl\u00fc\u011f\u00fc \u00e7\u0131kar\u0131lamaz.",
+    "telegram_command_examples": [
+      "NBA | 2026-11-11 | T\u00fcrkiye saati\nKaynak: ESPN | Fikst\u00fcr (tahmin de\u011fil)\n23:00 | Synthetic Hawks - Synthetic Bears | Ba\u015flamad\u0131\nAnaliz: /analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 EUROLEAGUE | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nParis Basketball \u2013 Fenerbahce New Sponsor Istanbul\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 40 dk\n<b>Skor: 85.00 \u2013 80.00 | Toplam: 165.00</b>\nEv sahibi fark\u0131: +5.00 | Model handikab\u0131 (ev): -5.00\n1H: 42.00 \u2013 39.00\n2H: 43.00 \u2013 41.00\n1Q: 20.00 \u2013 19.00\n2Q: 22.00 \u2013 20.00\n3Q: 20.00 \u2013 20.00\n4Q: 23.00 \u2013 21.00\nMonte Carlo: do\u011frulanm\u0131\u015f skor varyans\u0131 yetersiz; hesaplanmad\u0131.\nGe\u00e7mi\u015f ma\u00e7: Ev 7 | Dep 7\nKaynak: EUROLEAGUE_LIVE | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 90e14d9a4bf4 | Kay\u0131t SHA: b74dc1365545",
+      "Bu lig i\u00e7in do\u011frulanm\u0131\u015f analiz motoru hen\u00fcz ba\u011fl\u0131 de\u011fil. LEAGUE_MODEL_NOT_CONFIGURED",
+      "ZEYNAL | DO\u011eRULANMI\u015e CANLI PERFORMANS | Normal s\u00fcre\nKay\u0131tl\u0131 ma\u00e7: 1 | Sonucu beklenen tahmin: 1\nDo\u011frulanm\u0131\u015f sonu\u00e7: 0. Ba\u015far\u0131 oran\u0131 ve kalibrasyon hesaplanamad\u0131.\nAra\u015ft\u0131rma backtestleri dahil de\u011fil. Bu de\u011ferler model \u00fcst\u00fcnl\u00fc\u011f\u00fc veya g\u00fcven y\u00fczdesi de\u011fildir.",
+      "ZEYNAL | KAYITLI MODEL KAR\u015eILA\u015eTIRMASI | Normal s\u00fcre\nSynthetic Hawks \u2013 Synthetic Bears\nFAZ13_SCORE_MATCHUP_PERIODS_V1 | 402b40da9592 | Skor 118.50 \u2013 112.50 | Sonu\u00e7 bekleniyor\nTek kay\u0131tl\u0131 model; kar\u015f\u0131la\u015ft\u0131r\u0131lacak ikinci do\u011frulanm\u0131\u015f s\u00fcr\u00fcm yok.\nKay\u0131tl\u0131 olmayan hibrit modeller i\u00e7in sonu\u00e7 \u00fcretilmedi. Model \u00fcst\u00fcnl\u00fc\u011f\u00fc \u00e7\u0131kar\u0131lamaz."
+    ],
+    "runtime_source_pins": {
+      "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
+      "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+      "preparation.py": "f51077c6e2b504c86aac4500be7913eaf7c8b461fc6f610fbf2fff976a42c025",
+      "acceptance.py": "52621cb8019b8d913df5482e090c73e85ac363723f83f0d6a49575854ab0f5c2",
+      "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+      "markets.py": "56a3a13c97daf4b2403273d0c3ec7169304bc638e8d28f4392d73be5e310ef35",
+      "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+      "walkforward.py": "805ea4a1119e0e798a63f5955960ad8815f3d9158914fa7a9fa5a2420ec3196e",
+      "availability.py": "33e92959bd3d3a2699d4fa6a7b73bba3aa4db914f144970b13d2cfc2e3551eca",
+      "archive_sources.py": "d73f047912d9a360e0015a2eddb52789850b1642279e285bff1b42c91cd7630d",
+      "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+      "root_cause.py": "786c328a29b5a2ee59fe7e7dfc1dda28cb4332f27320ec3d0d958f5fdbeccd65",
+      "observed_markets.py": "b7b4234561c11c886b9cb42294b19f337e480d810d0db8b3a1ffccc7ebcd4af8",
+      "evaluation.py": "e7ad5518c4eab4e8dc53019a3376be4b805f27dd68023a9259ec70becf648a2b",
+      "statistics.py": "3a8ae0f994da53a1aed6ebb845906f55fdf1f864ad829dc9fe6bbf5a21118df6",
+      "__init__.py": "8d3f97c99d8ff6ec21deb8daa93d789e656dc99fb1f5fc8b258ed2b71a1de73a",
+      "runtime_fixture.py": "cda7fe6de8fc8f2f0a5051cee5686878eeca0054b26347db92e5dd947a780fd3",
+      "runtime_probe.py": "48180bb51c1a8f75b3a26bcb6ca6f52edd6b301dfd601ad1ee11a418e96d9464",
+      "audit.py": "c6107ecae0d3d738d654196691b8fe89552f7533ff4cff24e70573ffd8436a17",
+      "portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+      "benchmark.py": "38cdbc13962fc952ea4051f40103321dc8496d6ba6a74dd2e102a5862391dbc4",
+      "diagnostics.py": "4e721cb47afc4d6ffc5fe62696ed3d821ffbd08ca77b9bb9e10715174e681ca0",
+      "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+      "../main.py": "a2b23419c345dac835840a4497f2648c25985df02d275ede1c4a230d405950f8",
+      "../historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+      "../prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2",
+      "../verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b",
+      "../ledger_reports.py": "0b2c7ce785b10df819d8905b02682c0b70e720c6e1f94784d0fb2777008f3bde",
+      "../season_archive_inventory.py": "f5dab3a2f3605d1f1591d9b3b0a74ad96797a3db8f1bfb38c6bcd0a70b1c9e6f",
+      "../Dockerfile": "80b1f58128bf033779311e79f62d049f85954e5bff7155d849a3dd0403212bac"
+    },
+    "post_collection_process_memory": {
+      "VmPeak_mib": 249.17578125,
+      "VmSize_mib": 235.953125,
+      "VmHWM_mib": 150.125,
+      "VmRSS_mib": 137.68359375
+    },
+    "workload_peak_rss_mib": 150.125,
+    "post_shutdown_process_memory": {
+      "VmPeak_mib": 249.17578125,
+      "VmSize_mib": 241.69140625,
+      "VmHWM_mib": 150.125,
+      "VmRSS_mib": 135.4765625
+    },
+    "shutdown_completed": true
+  },
+  "failure_test_repeat": {
+    "format": "TELEGRAM_PORTABLE_ML_RUNTIME_PROBE_V1",
+    "status": "PASS",
+    "mode": "portable",
+    "resource_fixture": "SYNTHETIC_NOT_MODEL_PERFORMANCE_EVIDENCE",
+    "transport": "REAL_HTTP_LOCAL_TELEGRAM_API_DOUBLE",
+    "actual_telegram_delivery_verified": false,
+    "production_default_changed": false,
+    "python_version": "3.12.14",
+    "numpy_version": "1.26.4",
+    "native_ml_libraries_loaded": [],
+    "address_space_limit_bytes": [
+      268435456,
+      268435456
+    ],
+    "cpu_affinity": [
+      0
+    ],
+    "peak_rss_mib": 150.05859375,
+    "allocator_arena_limit": "1",
+    "process_memory": {
+      "VmPeak_mib": 241.15625,
+      "VmSize_mib": 239.93359375,
+      "VmHWM_mib": 150.05859375,
+      "VmRSS_mib": 149.3515625
+    },
+    "requests": 25,
+    "analyze_replies": 22,
+    "nba_replies": 1,
+    "health_ready": {
+      "ready": true,
+      "release_sha": "UNKNOWN"
+    },
+    "successful_message_deliveries": 23,
+    "injected_delivery_errors": [
+      429,
+      503
+    ],
+    "observed_handler_errors": [
+      "RetryAfter",
+      "NetworkError"
+    ],
+    "delivery_recovery": "LATER_USER_COMMAND_REUSES_COMMITTED_SNAPSHOT_NO_AUTOMATIC_DELIVERY_RETRY",
+    "accuracy_replies": 1,
+    "compare_replies": 1,
+    "actual_v1_analysis": true,
+    "v1_decisions": [
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": true
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "NBA",
+        "status": "ANALYSIS_OK",
+        "new_record": false
+      },
+      {
+        "league": "EUROLEAGUE",
+        "status": "ANALYSIS_OK",
+        "new_record": true
+      },
+      {
+        "league": "EUROCUP",
+        "status": "ABSTAIN",
+        "new_record": null
+      }
+    ],
+    "isolated_ledger_integrity": {
+      "sqlite": "ok",
+      "snapshots": 2,
+      "unconfirmed_snapshots": 0,
+      "verified_results": 0
+    },
+    "reports_read_only_verified": true,
+    "legacy_records_preserved": true,
+    "latency_p95_seconds": 0.4292290319008316,
+    "models_resident": [
+      "LIGHTGBM_PORTABLE",
+      "CATBOOST_PORTABLE",
+      "BAYES",
+      "POSSESSION",
+      "FAZ13_MC"
+    ],
+    "v1_cache_entries": 32,
+    "v1_cache_serialized_bytes": 15768035,
+    "cache_stress": "NATIVE_PAYLOAD_MEMORY_REPLAY_NOT_HISTORICAL_OR_LIVE_EVIDENCE",
+    "source_pins": {
+      "CATBOOST": {
+        "max_absolute_error": 0.0,
+        "n": 48
+      },
+      "LIGHTGBM": {
+        "max_absolute_error": 0.0,
+        "n": 48
+      }
+    },
+    "message_example": "ZEYNAL | KAYITLI MODEL KAR\u015eILA\u015eTIRMASI | Normal s\u00fcre\nSynthetic Hawks \u2013 Synthetic Bears\nFAZ13_SCORE_MATCHUP_PERIODS_V1 | 402b40da9592 | Skor 118.50 \u2013 112.50 | Sonu\u00e7 bekleniyor\nTek kay\u0131tl\u0131 model; kar\u015f\u0131la\u015ft\u0131r\u0131lacak ikinci do\u011frulanm\u0131\u015f s\u00fcr\u00fcm yok.\nKay\u0131tl\u0131 olmayan hibrit modeller i\u00e7in sonu\u00e7 \u00fcretilmedi. Model \u00fcst\u00fcnl\u00fc\u011f\u00fc \u00e7\u0131kar\u0131lamaz.",
+    "telegram_command_examples": [
+      "NBA | 2026-11-11 | T\u00fcrkiye saati\nKaynak: ESPN | Fikst\u00fcr (tahmin de\u011fil)\n23:00 | Synthetic Hawks - Synthetic Bears | Ba\u015flamad\u0131\nAnaliz: /analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 NBA | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nSynthetic Hawks \u2013 Synthetic Bears\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 48 dk\n<b>Skor: 118.50 \u2013 112.50 | Toplam: 231.00</b>\nEv sahibi fark\u0131: +6.00 | Model handikab\u0131 (ev): -6.00\n1H: 58.50 \u2013 56.50\n2H: 60.00 \u2013 56.00\n1Q: 28.50 \u2013 28.50\n2Q: 30.00 \u2013 28.00\n3Q: 30.00 \u2013 28.00\n4Q: 30.00 \u2013 28.00\nMonte Carlo: 10,000 senaryo | seed 20261108\nNormal s\u00fcre: Ev %95.3 | Dep %2.2 | E\u015fitlik %2.4\nToplam P05\u2013P95: 226.0\u2013236.0\nGe\u00e7mi\u015f ma\u00e7: Ev 8 | Dep 8\nKaynak: ESPN | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 3fe774a04320 | Kay\u0131t SHA: 711eb56cdd21",
+      "<b>\ud83c\udfc0 EUROLEAGUE | MA\u00c7 \u00d6NCES\u0130 ANAL\u0130Z</b>\nParis Basketball \u2013 Fenerbahce New Sponsor Istanbul\nBa\u015flang\u0131\u00e7: 11.11.2026 23:00 TS\u0130 | Normal s\u00fcre: 40 dk\n<b>Skor: 85.00 \u2013 80.00 | Toplam: 165.00</b>\nEv sahibi fark\u0131: +5.00 | Model handikab\u0131 (ev): -5.00\n1H: 42.00 \u2013 39.00\n2H: 43.00 \u2013 41.00\n1Q: 20.00 \u2013 19.00\n2Q: 22.00 \u2013 20.00\n3Q: 20.00 \u2013 20.00\n4Q: 23.00 \u2013 21.00\nMonte Carlo: do\u011frulanm\u0131\u015f skor varyans\u0131 yetersiz; hesaplanmad\u0131.\nGe\u00e7mi\u015f ma\u00e7: Ev 7 | Dep 7\nKaynak: EUROLEAGUE_LIVE | Tempo, kadro, sakatl\u0131k, rotasyon ve piyasa do\u011frulanmad\u0131.\nSkor modeli ge\u00e7mi\u015f at\u0131lan/yenilen say\u0131lar\u0131 kullan\u0131r; \u00e7eyrekler ge\u00e7mi\u015f periyot ortalamalar\u0131d\u0131r.\nOlas\u0131l\u0131klar kalibre edilmedi; skor korelasyonu 0 varsay\u0131m\u0131d\u0131r. Uzatma dahil de\u011fil.\nKay\u0131t: 11.11.2026 19:00:00 TS\u0130 | LIVE_PREMATCH_PREDICTION\nModel: FAZ13_SCORE_MATCHUP_PERIODS_V1 | SHA 402b40da9592\nKaynak SHA: 90e14d9a4bf4 | Kay\u0131t SHA: b74dc1365545",
+      "Bu lig i\u00e7in do\u011frulanm\u0131\u015f analiz motoru hen\u00fcz ba\u011fl\u0131 de\u011fil. LEAGUE_MODEL_NOT_CONFIGURED",
+      "ZEYNAL | DO\u011eRULANMI\u015e CANLI PERFORMANS | Normal s\u00fcre\nKay\u0131tl\u0131 ma\u00e7: 1 | Sonucu beklenen tahmin: 1\nDo\u011frulanm\u0131\u015f sonu\u00e7: 0. Ba\u015far\u0131 oran\u0131 ve kalibrasyon hesaplanamad\u0131.\nAra\u015ft\u0131rma backtestleri dahil de\u011fil. Bu de\u011ferler model \u00fcst\u00fcnl\u00fc\u011f\u00fc veya g\u00fcven y\u00fczdesi de\u011fildir.",
+      "ZEYNAL | KAYITLI MODEL KAR\u015eILA\u015eTIRMASI | Normal s\u00fcre\nSynthetic Hawks \u2013 Synthetic Bears\nFAZ13_SCORE_MATCHUP_PERIODS_V1 | 402b40da9592 | Skor 118.50 \u2013 112.50 | Sonu\u00e7 bekleniyor\nTek kay\u0131tl\u0131 model; kar\u015f\u0131la\u015ft\u0131r\u0131lacak ikinci do\u011frulanm\u0131\u015f s\u00fcr\u00fcm yok.\nKay\u0131tl\u0131 olmayan hibrit modeller i\u00e7in sonu\u00e7 \u00fcretilmedi. Model \u00fcst\u00fcnl\u00fc\u011f\u00fc \u00e7\u0131kar\u0131lamaz."
+    ],
+    "runtime_source_pins": {
+      "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
+      "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+      "preparation.py": "f51077c6e2b504c86aac4500be7913eaf7c8b461fc6f610fbf2fff976a42c025",
+      "acceptance.py": "52621cb8019b8d913df5482e090c73e85ac363723f83f0d6a49575854ab0f5c2",
+      "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+      "markets.py": "56a3a13c97daf4b2403273d0c3ec7169304bc638e8d28f4392d73be5e310ef35",
+      "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+      "walkforward.py": "805ea4a1119e0e798a63f5955960ad8815f3d9158914fa7a9fa5a2420ec3196e",
+      "availability.py": "33e92959bd3d3a2699d4fa6a7b73bba3aa4db914f144970b13d2cfc2e3551eca",
+      "archive_sources.py": "d73f047912d9a360e0015a2eddb52789850b1642279e285bff1b42c91cd7630d",
+      "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+      "root_cause.py": "786c328a29b5a2ee59fe7e7dfc1dda28cb4332f27320ec3d0d958f5fdbeccd65",
+      "observed_markets.py": "b7b4234561c11c886b9cb42294b19f337e480d810d0db8b3a1ffccc7ebcd4af8",
+      "evaluation.py": "e7ad5518c4eab4e8dc53019a3376be4b805f27dd68023a9259ec70becf648a2b",
+      "statistics.py": "3a8ae0f994da53a1aed6ebb845906f55fdf1f864ad829dc9fe6bbf5a21118df6",
+      "__init__.py": "8d3f97c99d8ff6ec21deb8daa93d789e656dc99fb1f5fc8b258ed2b71a1de73a",
+      "runtime_fixture.py": "cda7fe6de8fc8f2f0a5051cee5686878eeca0054b26347db92e5dd947a780fd3",
+      "runtime_probe.py": "48180bb51c1a8f75b3a26bcb6ca6f52edd6b301dfd601ad1ee11a418e96d9464",
+      "audit.py": "c6107ecae0d3d738d654196691b8fe89552f7533ff4cff24e70573ffd8436a17",
+      "portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+      "benchmark.py": "38cdbc13962fc952ea4051f40103321dc8496d6ba6a74dd2e102a5862391dbc4",
+      "diagnostics.py": "4e721cb47afc4d6ffc5fe62696ed3d821ffbd08ca77b9bb9e10715174e681ca0",
+      "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+      "../main.py": "a2b23419c345dac835840a4497f2648c25985df02d275ede1c4a230d405950f8",
+      "../historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+      "../prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2",
+      "../verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b",
+      "../ledger_reports.py": "0b2c7ce785b10df819d8905b02682c0b70e720c6e1f94784d0fb2777008f3bde",
+      "../season_archive_inventory.py": "f5dab3a2f3605d1f1591d9b3b0a74ad96797a3db8f1bfb38c6bcd0a70b1c9e6f",
+      "../Dockerfile": "80b1f58128bf033779311e79f62d049f85954e5bff7155d849a3dd0403212bac"
+    },
+    "post_collection_process_memory": {
+      "VmPeak_mib": 241.15625,
+      "VmSize_mib": 226.93359375,
+      "VmHWM_mib": 150.05859375,
+      "VmRSS_mib": 136.609375
+    },
+    "workload_peak_rss_mib": 150.05859375,
+    "post_shutdown_process_memory": {
+      "VmPeak_mib": 241.15625,
+      "VmSize_mib": 234.90625,
+      "VmHWM_mib": 150.05859375,
+      "VmRSS_mib": 136.62890625
+    },
+    "shutdown_completed": true
+  },
+  "resource_scope": {
+    "process_kernel_RLIMIT_AS_bytes": 268435456,
+    "cpu_affinity": [
+      0
+    ],
+    "cgroup_memory_supported": false,
+    "measurement": "HOST_PYTHON_3_12_LOCAL_HTTP_DOUBLE",
+    "latency_scope": "ANALYSIS_COMPUTATION_NOT_INTERNET_TELEGRAM_ROUND_TRIP",
+    "unbounded_concurrency_verified": false
+  },
+  "docker": {
+    "build": "PASS",
+    "image_sha256": "c0d0bed49b454c2bcce666fea699e386bcc52b2621f5165a895c5c9323966770",
+    "local_runtime": "NOT_STARTED_VFS_ENOSPC",
+    "attempts": 2,
+    "local_build_predates_allocator_env_change": true,
+    "local_test_image_removed_after_failure": true,
+    "build_log": {
+      "path": "/workspace/scratch/phase841-20261112/docker-build.log",
+      "sha256": "1b1c6d7ff0cc6abd39bd4f2e1351f0ef8f1cf1e7482cbe8d5b53b4c2f5a0d205",
+      "bytes": 1702
+    },
+    "failure_log": {
+      "path": "/workspace/scratch/phase841-20261112/runtime-docker.log",
+      "sha256": "09ee66d0bda414c969c65cd7731c3d1e0af8572c4a11ce1fcfab3b67bbba4c78",
+      "bytes": 237
+    },
+    "ci_container_regressions": "EXACT_HEAD_WORKFLOW_LOGS_AUTHORITATIVE_SEE_PR84_CHECKS"
+  },
+  "calibration": {
+    "verified_profiles": 0,
+    "confidence_index": null,
+    "test_labels_used_to_fit": false,
+    "exact_profile_maximum_games": {
+      "EuroCup 2026/2027": 0,
+      "EuroLeague 2025/2026": 6,
+      "NBA 2026/2027": 2
+    }
+  },
+  "observed_market_quotes": 8,
+  "bookmaker_settled_oos_games": 0,
+  "market_edge_claims": 0,
+  "reports": {
+    "hybrid-phase841-walkforward-20261112.json.gz": {
+      "path": "/workspace/zeynal-hybrid-research/docs/hybrid-phase841-walkforward-20261112.json.gz",
+      "sha256": "3b488e105f84c0939a9949e97834939ac5847306a1771612c306f4e87afbe501",
+      "bytes": 1671928
+    },
+    "hybrid-phase841-diagnostics-20261112.json.gz": {
+      "path": "/workspace/zeynal-hybrid-research/docs/hybrid-phase841-diagnostics-20261112.json.gz",
+      "sha256": "a63b01ac8ef57daa95de6fd83a9e9f3126ebe231a01361246182357090f6d467",
+      "bytes": 386033
+    },
+    "hybrid-phase841-source-audit-20261112.json.gz": {
+      "path": "/workspace/zeynal-hybrid-research/docs/hybrid-phase841-source-audit-20261112.json.gz",
+      "sha256": "4c86424ebd12dbab2fec8dec68c599b35c9c48948144ebfa9077a3dfe0c2187b",
+      "bytes": 271612
+    },
+    "hybrid-phase841-prices-20261112.json.gz": {
+      "path": "/workspace/zeynal-hybrid-research/docs/hybrid-phase841-prices-20261112.json.gz",
+      "sha256": "5d668638aae66f97b7b236e89d4020cbca39366ee6c561d98c07258101eeb097",
+      "bytes": 2016
+    },
+    "hybrid-phase841-runtime-20261112.json": {
+      "path": "/workspace/zeynal-hybrid-research/docs/hybrid-phase841-runtime-20261112.json",
+      "sha256": "9cdc729016b84ffbba0bb08a2d0fc1d707dcc2e045d40681bcb7f42e0759dbca",
+      "bytes": 32222
+    },
+    "hybrid-phase841-faults-20261112.json": {
+      "path": "/workspace/zeynal-hybrid-research/docs/hybrid-phase841-faults-20261112.json",
+      "sha256": "48b63521e0874ead2fcf5e4d68f6533375c234fd8bc959aef8cb5d8eeae156e7",
+      "bytes": 29960
+    },
+    "hybrid-phase841-telegram-access-20261112.json": {
+      "path": "/workspace/zeynal-hybrid-research/docs/hybrid-phase841-telegram-access-20261112.json",
+      "sha256": "b5c07f0e268bc51db15006e45042fc22021fbb8ada286dd786bcc0ace5d35326",
+      "bytes": 864
+    }
+  },
+  "calibration_figure": {
+    "path": "/workspace/zeynal-hybrid-research/docs/hybrid-phase841-calibration-20261112.svg",
+    "sha256": "858179975161f84bb39484f61cc7514f13afc2f063013a71fd8533528eb51435",
+    "bytes": 163050
+  },
+  "full_input_capsule": {
+    "path": "/workspace/research-artifacts/hybrid-phase841-inputs-20261112.tar.gz",
+    "sha256": "b48aba32345eab61e47a1c0ca5fead4713dac9f1d66b890ff7bb4418d0b96c1d",
+    "bytes": 12091400
+  },
+  "capsule_files": 947,
+  "blockers": [
+    "NO_PROVEN_PAIRED_OOS_IMPROVEMENT",
+    "NO_VERIFIED_CALIBRATION_ARTIFACT",
+    "REAL_TELEGRAM_TEST_ACCESS_MISSING",
+    "EUROCUP_INSUFFICIENT_HISTORY_AND_DISTINCT_KICKOFFS",
+    "UNKNOWN_BOOKMAKER_SETTLEMENT_SCOPE",
+    "LOCAL_DOCKER_RESOURCE_RUN_NOT_STARTED_DUE_TO_VFS_DISK_CAPACITY"
+  ],
+  "safety": {
+    "main_merge": false,
+    "production_deploy": false,
+    "registry_push": false,
+    "fly_access": false,
+    "production_sqlite_snapshot_or_secret_access": false
+  },
+  "limits": [
+    "REUSED_OOS_NOT_NEW_CONFIRMATORY_HOLDOUT",
+    "REPEATED_TEAM_DEPENDENCE_ACROSS_DAYS",
+    "PUBLIC_ARCHIVE_NATIVE_FINAL_RECONCILIATION_SELECTION_BIAS",
+    "NO_PLAYER_LINEUP_INJURY_OR_TRANSITION_CONTEXT",
+    "TWO_DELIVERY_FAILURES_REQUIRE_LATER_USER_COMMAND;NO_AUTOMATIC_DELIVERY_QUEUE"
+  ]
+}

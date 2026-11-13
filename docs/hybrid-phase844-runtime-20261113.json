@@ -1,0 +1,98 @@
+{
+  "format": "NBA_NATIVE_PAYLOAD_RESOURCE_REPLAY_V1",
+  "status": "PASS",
+  "actual_telegram_delivery_verified": false,
+  "evidence_class": "MOCK_CLOCK_NATIVE_SOURCE_REPLAY_NOT_NEW_PROSPECTIVE_FORECASTS",
+  "transport": "LOCAL_HTTP_BOT_API_DOUBLE",
+  "requests": 29,
+  "messages": 54,
+  "unique_nba_snapshots": 4,
+  "original_prospective_archive_modified": false,
+  "online_training": false,
+  "native_payload_urls": 84,
+  "address_space_limit_bytes": [
+    268435456,
+    268435456
+  ],
+  "cpu_affinity": [
+    0
+  ],
+  "peak_rss_mib": 101.13671875,
+  "elapsed_seconds": 22.31794211700617,
+  "reply_interval_p95_seconds": 2.8236281094494187,
+  "native_ml_libraries_loaded": [],
+  "isolated_sqlite_integrity": {
+    "sqlite": "ok",
+    "snapshots": 4,
+    "unconfirmed_snapshots": 0,
+    "verified_results": 0
+  },
+  "decision_layer_enabled": true,
+  "decision_batches": 5,
+  "selected_market_lines": 0,
+  "observed_cgroup": {
+    "memory.max": "8589934592",
+    "memory.peak": "5306224640",
+    "cpu.max": "200000 100000"
+  },
+  "health_ready": {
+    "ready": true,
+    "release_sha": "UNKNOWN"
+  },
+  "source_pins": {
+    "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
+    "decision_layer.py": "bfaf6039ff102729d98c19f03b634763021cbc4c6ce741337cb13e74a62e14b2",
+    "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+    "live_runtime.py": "85bd8aaf4f704f9700582972b8dce0eb24eafd9c168a8764db35b4eeeb4a469d",
+    "prospective_results.py": "4a0c01a43fb2c1bdd7d864fe91e86e509ea8b8cf284eb6abbae66e19d6db48cc",
+    "frozen_archive.py": "95e7cc6d2f793be5faf48e86b17075ebe68e848df7be7f650a4c82575fcb3c67",
+    "preparation.py": "f51077c6e2b504c86aac4500be7913eaf7c8b461fc6f610fbf2fff976a42c025",
+    "intervals.py": "fb1eaa081f5939f137c92df929cbf7fa6155638273405267291011679907f861",
+    "acceptance.py": "52621cb8019b8d913df5482e090c73e85ac363723f83f0d6a49575854ab0f5c2",
+    "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+    "calibration_guard.py": "571f0995b5c3b312c4b6c3ca613082735d383ac55a5dc5882847ab2695c8ad0c",
+    "markets.py": "56a3a13c97daf4b2403273d0c3ec7169304bc638e8d28f4392d73be5e310ef35",
+    "source_policy.py": "61f5df8e0d0afeae340ec9b7f858959d91d90c85e13ea3094939ab8578150bf5",
+    "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+    "walkforward.py": "805ea4a1119e0e798a63f5955960ad8815f3d9158914fa7a9fa5a2420ec3196e",
+    "availability.py": "33e92959bd3d3a2699d4fa6a7b73bba3aa4db914f144970b13d2cfc2e3551eca",
+    "live_nba.py": "40c347e5b47adbf58e720383da4d6df30aa6046e3cd30249d665b66c768ac6c2",
+    "archive_sources.py": "d73f047912d9a360e0015a2eddb52789850b1642279e285bff1b42c91cd7630d",
+    "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+    "root_cause.py": "786c328a29b5a2ee59fe7e7dfc1dda28cb4332f27320ec3d0d958f5fdbeccd65",
+    "observed_markets.py": "b7b4234561c11c886b9cb42294b19f337e480d810d0db8b3a1ffccc7ebcd4af8",
+    "evaluation.py": "c985a9d1fc40e86575dc4bda674eea3fbe714553c34d311aaaad63c08a0dfc87",
+    "engine_audit.py": "a195fce4e04af6544dad4a3619c379cd235b367567164ba90a3a3cd9a844f3a4",
+    "statistics.py": "3a8ae0f994da53a1aed6ebb845906f55fdf1f864ad829dc9fe6bbf5a21118df6",
+    "hybrid_runtime.py": "a786130ff02445f7c9ccba6c92809bdaafd70554dc1e4c01f2ccc93e2b9fa75a",
+    "__init__.py": "8d3f97c99d8ff6ec21deb8daa93d789e656dc99fb1f5fc8b258ed2b71a1de73a",
+    "elite_render.py": "1747970c86f3019c302b8dc497b0f887242361b0580fc7965b5c67ee78b1726a",
+    "confidence.py": "7193b8c60cc12df67248dcad0f14159b7fcfc98fe51a17e6621f8edbcfd5d6c6",
+    "prequential.py": "397c4549025983c3ae4bf99e3a257d2c5e85542dadb129fff2e2bebc370d1d3e",
+    "decision_audit.py": "c9696255bdb852beb4215deee05d6664f2e46aa0f5a4c73504941c70ad22e83c",
+    "runtime_fixture.py": "cda7fe6de8fc8f2f0a5051cee5686878eeca0054b26347db92e5dd947a780fd3",
+    "runtime_probe.py": "bfd676d2904cdbb0eb08fe2ce630d69db7b47d7575d8d56184a045cea96c8483",
+    "audit.py": "c6107ecae0d3d738d654196691b8fe89552f7533ff4cff24e70573ffd8436a17",
+    "portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+    "decision_metrics.py": "3fdd88a854d3caa94ef0dfbc7ac30493043790336718c2055a61fa82559493f8",
+    "benchmark.py": "38cdbc13962fc952ea4051f40103321dc8496d6ba6a74dd2e102a5862391dbc4",
+    "diagnostics.py": "4e721cb47afc4d6ffc5fe62696ed3d821ffbd08ca77b9bb9e10715174e681ca0",
+    "decision_integration.py": "d8a7383a0d5a93d2e142c044d14f97caecac98e63f33d13dfd98f878c3b483bb",
+    "test_bot.py": "984ac2c7519eb49bff22e9a9001ee4bd670bdeae918e057befce7d7d20550594",
+    "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891"
+  },
+  "post_collection_process_memory": {
+    "VmPeak_mib": 214.5625,
+    "VmSize_mib": 211.40625,
+    "VmHWM_mib": 101.13671875,
+    "VmRSS_mib": 98.2734375
+  },
+  "workload_peak_rss_mib": 101.13671875,
+  "post_shutdown_process_memory": {
+    "VmPeak_mib": 219.42578125,
+    "VmSize_mib": 219.39453125,
+    "VmHWM_mib": 101.13671875,
+    "VmRSS_mib": 98.27734375
+  },
+  "shutdown_completed": true
+}

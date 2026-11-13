@@ -1,0 +1,28 @@
+{
+  "format": "REAL_TELEGRAM_TEST_ACCESS_V1",
+  "checked_at_utc": 1794506854,
+  "environment_spec_revision": "3",
+  "configured_test_credential_names": [],
+  "configured_test_user_client": false,
+  "production_token_used": false,
+  "actual_telegram_delivery_verified": false,
+  "commands": {
+    "/nba": {
+      "status": "NOT_RUN",
+      "reason": "NO_DEDICATED_TEST_BOT_AND_AUTHORIZED_USER_CLIENT_CONFIGURED"
+    },
+    "/analyze": {
+      "status": "NOT_RUN",
+      "reason": "NO_DEDICATED_TEST_BOT_AND_AUTHORIZED_USER_CLIENT_CONFIGURED"
+    },
+    "/accuracy": {
+      "status": "NOT_RUN",
+      "reason": "NO_DEDICATED_TEST_BOT_AND_AUTHORIZED_USER_CLIENT_CONFIGURED"
+    },
+    "/compare": {
+      "status": "NOT_RUN",
+      "reason": "NO_DEDICATED_TEST_BOT_AND_AUTHORIZED_USER_CLIENT_CONFIGURED"
+    }
+  },
+  "local_double_is_real_delivery_evidence": false
+}

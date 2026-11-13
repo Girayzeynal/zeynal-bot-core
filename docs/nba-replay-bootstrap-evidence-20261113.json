@@ -1,0 +1,40 @@
+{
+  "format": "ISOLATED_TEST_BOT_CLI_BOOTSTRAP_EVIDENCE_V1",
+  "base_commit": "26c5f34f27a2019af4fe3a31f7b59cdb85bd2140",
+  "tests": {
+    "passed": 669,
+    "failed": 0,
+    "previous_preserved": 663,
+    "new": 6,
+    "log_sha256": "27c15902f5740a04fbff5776f664b5e31a59681090d805d722dc278509f7038d"
+  },
+  "coverage": [
+    "CLI_AND_POST_INIT",
+    "FOUR_NBA_PLUS_ONE_EUROLEAGUE_COMMAND",
+    "WRONG_BOT_IDENTITY_BLOCKED_BEFORE_SEND",
+    "EXISTING_WEBHOOK_NOT_DELETED",
+    "LIVE_MODEL_FORBIDDEN_IN_REPLAY_ONLY",
+    "NO_SOURCE_DOWNLOADS_OR_PREDICTION_LEDGER",
+    "SAFE_FIXED_STARTUP_FAILURE_CODES",
+    "NO_ARBITRARY_API_EXCEPTION_TEXT_DISCLOSED"
+  ],
+  "transport": "LOOPBACK_HTTP_BOT_API_DOUBLE_NOT_REAL_TELEGRAM",
+  "polling_driver": "CONTROLLED_DRIVER_NOT_REAL_TELEGRAM_POLLING",
+  "actual_telegram_delivery_verified": false,
+  "real_telegram_status": "BLOCKED_NO_DEDICATED_ENVIRONMENT_CREDENTIALS",
+  "missing": [
+    "ZEYNAL_TEST_BOT_TOKEN",
+    "ZEYNAL_TEST_BOT_ID",
+    "ZEYNAL_TEST_BOT_USERNAME",
+    "ZEYNAL_TEST_CHAT_ID"
+  ],
+  "preserved_archive_files": 33,
+  "source_pins": {
+    "hybrid_engine/test_bot.py": "2106c2b91073b91449faa5c77123423e4ffe7af630fbb828617f9d92cc380238",
+    "hybrid_engine/nba_replay.py": "af593dae068f487ce67657c30f3ab9194014be65cbad5e60c1b4e1c608ebe0e3",
+    "tests/test_test_bot_bootstrap.py": "6c9035bccb4036078b5ad137edd7086d5e83ded295446e1d203d05d1a73cd522"
+  },
+  "main_merge": false,
+  "production_deploy": false,
+  "production_secret_or_data_changed": false
+}

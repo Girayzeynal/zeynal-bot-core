@@ -1,0 +1,1741 @@
+{
+  "format": "HYBRID_ROOT_CAUSE_EVIDENCE_V1",
+  "starting_commit": "962e16d0d9b748bf877e89f6d34935a4ddea7f11",
+  "previous_head": "09e044e28c52be3d486b427abd8a51fcee5c22cc",
+  "production_default": "FAZ13",
+  "main_merge": false,
+  "production_deploy": false,
+  "score_formulas_and_narrow_bands_changed": false,
+  "original_inventory": 640,
+  "current_inventory": 652,
+  "current_inventory_reason": "NEW_NATIVE_COLLECTION_AFTER_EPHEMERAL_WORKSPACE_RESET;OLD_CLOCKS_NOT_RECONSTRUCTED",
+  "acceptance": {
+    "status": "BLOCKED",
+    "production_default": "FAZ13",
+    "main_merge_permitted": false,
+    "production_deploy_permitted": false,
+    "strict_test_games": 84,
+    "blockers": [
+      "NO_PROVEN_STRICT_OUT_OF_SAMPLE_IMPROVEMENT",
+      "NO_VERIFIED_MARKET_CALIBRATION_PROFILE",
+      "COMBINED_TELEGRAM_ML_RESOURCE_RESULT_REQUIRES_SEPARATE_EVIDENCE"
+    ],
+    "safety": "NO_PRODUCTION_RESOURCE_DATABASE_SECRET_OR_SNAPSHOT_ACCESS",
+    "qualifying_primary_experiments": []
+  },
+  "run_resources": {
+    "wall_seconds": 76.07788777300084,
+    "peak_rss_mib": 298.28125,
+    "scope": "OFFLINE_TRAINING_NOT_TELEGRAM_RUNTIME"
+  },
+  "verification": {
+    "status": "PASS",
+    "checks": {
+      "past_label_versions": 734,
+      "prediction_traces": 732,
+      "normalized_market_lines": 13140
+    },
+    "meaning": "MECHANICAL_AUDIT_NOT_AN_INDEPENDENT_ACCURACY_TEST"
+  },
+  "before": {
+    "EuroLeague 2025/2026": {
+      "fixture_known_before_tipoff": 0,
+      "strict_feature_eligible": 0,
+      "strict_joint_eligible": 0
+    },
+    "EuroLeague 2026/2027": {
+      "fixture_known_before_tipoff": 0,
+      "strict_feature_eligible": 0,
+      "strict_joint_eligible": 0
+    },
+    "NBA 2026/2027": {
+      "fixture_known_before_tipoff": 0,
+      "strict_feature_eligible": 0,
+      "strict_joint_eligible": 0
+    }
+  },
+  "after": {
+    "EuroLeague 2025/2026": {
+      "fixture_known_before_tipoff": 267,
+      "strict_feature_eligible": 300,
+      "strict_joint_eligible": 254
+    },
+    "EuroLeague 2026/2027": {
+      "fixture_known_before_tipoff": 14,
+      "strict_feature_eligible": 10,
+      "strict_joint_eligible": 0
+    },
+    "NBA 2026/2027": {
+      "fixture_known_before_tipoff": 169,
+      "strict_feature_eligible": 71,
+      "strict_joint_eligible": 71
+    }
+  },
+  "archive_binding": {
+    "counters": {
+      "NBA_TBD_TEAM_SLOT_EXCLUDED": 48,
+      "NBA_QUOTES_ARCHIVE_VERIFIED_NOT_CORE_CLOCK": 8,
+      "NBA_BOX_TOTAL_TURNOVER_CONFLICT:401909962": 1,
+      "EURO_PLAYERS_ARCHIVE_VERIFIED_NOT_CORE_CLOCK": 2,
+      "ARCHIVE_GAME_OUTSIDE_CURRENT_LABEL_COHORT": 8240,
+      "ARCHIVED_FIXTURE_VERSIONS": 3585,
+      "ARCHIVED_SCHEDULE_TIME_DIFFERS_FROM_FINAL": 233,
+      "ARCHIVED_CORE_MATCHES_CURRENT_TRUTH": 2145,
+      "WIKI_INTRADAY_FINAL_STATUS_UNPROVEN": 12,
+      "WIKI_FINAL_NATIVE_RECONCILIATION_CONFLICT": 3,
+      "UNREGISTERED_WIKI_TEAM_ALIAS:ULK:Fenerbah\u00e7e Tarfin": 18,
+      "ARCHIVE_TEAM_IDENTITY_CONFLICT": 21,
+      "UNREGISTERED_WIKI_TEAM_ALIAS:PAN:Panathianikos AKTOR": 2,
+      "UNREGISTERED_WIKI_TEAM_ALIAS:RED:Crvena zvezda Meridanbet": 1,
+      "ARCHIVED_BOX_VERSIONS": 798
+    },
+    "sampled_exclusions": [
+      {
+        "reason": "ARCHIVE_GAME_OUTSIDE_CURRENT_LABEL_COHORT",
+        "archived": {
+          "pid": "401910945",
+          "league": "NBA",
+          "season": "2026/2027",
+          "fixture_start_utc": 1807489800,
+          "home_team_id": "6",
+          "away_team_id": "29",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://github.com/sportsdataverse/hoopR-nba-data/actions/runs/39422421940",
+        "native": null
+      },
+      {
+        "reason": "ARCHIVE_GAME_OUTSIDE_CURRENT_LABEL_COHORT",
+        "archived": {
+          "pid": "401910946",
+          "league": "NBA",
+          "season": "2026/2027",
+          "fixture_start_utc": 1807489800,
+          "home_team_id": "16",
+          "away_team_id": "10",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://github.com/sportsdataverse/hoopR-nba-data/actions/runs/39422421940",
+        "native": null
+      },
+      {
+        "reason": "ARCHIVE_GAME_OUTSIDE_CURRENT_LABEL_COHORT",
+        "archived": {
+          "pid": "401910947",
+          "league": "NBA",
+          "season": "2026/2027",
+          "fixture_start_utc": 1807489800,
+          "home_team_id": "24",
+          "away_team_id": "22",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://github.com/sportsdataverse/hoopR-nba-data/actions/runs/39422421940",
+        "native": null
+      },
+      {
+        "reason": "ARCHIVED_SCHEDULE_TIME_DIFFERS_FROM_FINAL",
+        "archived": {
+          "pid": "401909893",
+          "league": "NBA",
+          "season": "2026/2027",
+          "fixture_start_utc": 1793314800,
+          "home_team_id": "1",
+          "away_team_id": "5",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://github.com/sportsdataverse/hoopR-nba-data/actions/runs/39422421940",
+        "native": {
+          "fixture_id": "b59f59546478748cf7ef5e4d170b4b26b6d48196caf65e72ee93cb7e6c55bff4",
+          "fixture_start_utc": 1793318400,
+          "home_team_id": "1",
+          "away_team_id": "5",
+          "final_scores": [
+            114,
+            111
+          ],
+          "periods": {
+            "home": [
+              16,
+              30,
+              43,
+              25
+            ],
+            "away": [
+              28,
+              16,
+              38,
+              29
+            ]
+          }
+        }
+      },
+      {
+        "reason": "ARCHIVED_SCHEDULE_TIME_DIFFERS_FROM_FINAL",
+        "archived": {
+          "pid": "401909090",
+          "league": "NBA",
+          "season": "2026/2027",
+          "fixture_start_utc": 1792546200,
+          "home_team_id": "24",
+          "away_team_id": "25",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://github.com/sportsdataverse/hoopR-nba-data/actions/runs/39422421940",
+        "native": {
+          "fixture_id": "8915c4b6e308059d4498471dd0ba446a7447358ce40c94438c3105e9c232572f",
+          "fixture_start_utc": 1792547400,
+          "home_team_id": "24",
+          "away_team_id": "25",
+          "final_scores": [
+            104,
+            116
+          ],
+          "periods": {
+            "home": [
+              28,
+              16,
+              36,
+              24
+            ],
+            "away": [
+              34,
+              31,
+              28,
+              23
+            ]
+          }
+        }
+      },
+      {
+        "reason": "ARCHIVED_SCHEDULE_TIME_DIFFERS_FROM_FINAL",
+        "archived": {
+          "pid": "E2025_84",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1762444800,
+          "home_name": "Dubai Basketball",
+          "away_name": "Hapoel IBI Tel Aviv",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1319848813",
+        "native": {
+          "fixture_id": "577c2c4278c15d138344f08f81ddad82ceea9059f0e78c1c0fe8e2d02699e71d",
+          "fixture_start_utc": 1762452000,
+          "home_team_id": "DUB",
+          "away_team_id": "HTA",
+          "final_scores": [
+            97,
+            109
+          ],
+          "periods": {
+            "home": [
+              26,
+              22,
+              19,
+              30
+            ],
+            "away": [
+              25,
+              22,
+              35,
+              27
+            ]
+          }
+        }
+      },
+      {
+        "reason": "WIKI_INTRADAY_FINAL_STATUS_UNPROVEN",
+        "archived": {
+          "pid": "E2025_182",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1767121500,
+          "home_name": "Hapoel IBI Tel Aviv",
+          "away_name": "\u017dalgiris",
+          "final_scores": [
+            80,
+            93
+          ],
+          "periods": {
+            "home": [
+              25,
+              15,
+              13,
+              27
+            ],
+            "away": [
+              18,
+              21,
+              24,
+              30
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1330345339",
+        "native": {
+          "fixture_id": "5de66bacea949110637a244d67d34a8302578bcd9dba9dcfe8f8f309d18f1b30",
+          "fixture_start_utc": 1767121500,
+          "home_team_id": "HTA",
+          "away_team_id": "ZAL",
+          "final_scores": [
+            80,
+            93
+          ],
+          "periods": {
+            "home": [
+              25,
+              15,
+              13,
+              27
+            ],
+            "away": [
+              18,
+              21,
+              24,
+              30
+            ]
+          }
+        }
+      },
+      {
+        "reason": "WIKI_INTRADAY_FINAL_STATUS_UNPROVEN",
+        "archived": {
+          "pid": "E2025_183",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1767122100,
+          "home_name": "LDLC ASVEL",
+          "away_name": "Paris Basketball",
+          "final_scores": [
+            94,
+            89
+          ],
+          "periods": {
+            "home": [
+              20,
+              21,
+              20,
+              33
+            ],
+            "away": [
+              23,
+              23,
+              18,
+              25
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1330345339",
+        "native": {
+          "fixture_id": "df7685b972657ec44678186decf48cf0eb2fa3a7388ea3567c4a2983b06e7683",
+          "fixture_start_utc": 1767122100,
+          "home_team_id": "ASV",
+          "away_team_id": "PRS",
+          "final_scores": [
+            94,
+            89
+          ],
+          "periods": {
+            "home": [
+              20,
+              21,
+              20,
+              33
+            ],
+            "away": [
+              23,
+              23,
+              18,
+              25
+            ]
+          }
+        }
+      },
+      {
+        "reason": "WIKI_INTRADAY_FINAL_STATUS_UNPROVEN",
+        "archived": {
+          "pid": "E2025_184",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1767123000,
+          "home_name": "Valencia Basket",
+          "away_name": "Partizan Mozzart Bet",
+          "final_scores": [
+            86,
+            73
+          ],
+          "periods": {
+            "home": [
+              18,
+              25,
+              22,
+              21
+            ],
+            "away": [
+              22,
+              21,
+              20,
+              10
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1330345339",
+        "native": {
+          "fixture_id": "296872aeb940b233637c547972ab058f14a2595312f19b79dc0ac69c44747d56",
+          "fixture_start_utc": 1767123000,
+          "home_team_id": "PAM",
+          "away_team_id": "PAR",
+          "final_scores": [
+            86,
+            73
+          ],
+          "periods": {
+            "home": [
+              18,
+              25,
+              22,
+              21
+            ],
+            "away": [
+              22,
+              21,
+              20,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "reason": "WIKI_FINAL_NATIVE_RECONCILIATION_CONFLICT",
+        "archived": {
+          "pid": "E2025_201",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1767888000,
+          "home_name": "Dubai Basketball",
+          "away_name": "Fenerbah\u00e7e Beko",
+          "final_scores": [
+            92,
+            81
+          ],
+          "periods": {
+            "home": [
+              24,
+              27,
+              22,
+              19
+            ],
+            "away": [
+              22,
+              20,
+              20,
+              19
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1335817125",
+        "native": {
+          "fixture_id": "45471e84ce414c9ae80cf3438ea6471b7a785927c4440d1387e1e1f29dbea3af",
+          "fixture_start_utc": 1767888000,
+          "home_team_id": "DUB",
+          "away_team_id": "ULK",
+          "final_scores": [
+            92,
+            81
+          ],
+          "periods": {
+            "home": [
+              24,
+              27,
+              22,
+              19
+            ],
+            "away": [
+              20,
+              22,
+              20,
+              19
+            ]
+          }
+        }
+      },
+      {
+        "reason": "WIKI_FINAL_NATIVE_RECONCILIATION_CONFLICT",
+        "archived": {
+          "pid": "E2025_201",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1767888000,
+          "home_name": "Dubai Basketball",
+          "away_name": "Fenerbah\u00e7e Beko",
+          "final_scores": [
+            92,
+            81
+          ],
+          "periods": {
+            "home": [
+              24,
+              27,
+              22,
+              19
+            ],
+            "away": [
+              22,
+              20,
+              20,
+              19
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1340810898",
+        "native": {
+          "fixture_id": "45471e84ce414c9ae80cf3438ea6471b7a785927c4440d1387e1e1f29dbea3af",
+          "fixture_start_utc": 1767888000,
+          "home_team_id": "DUB",
+          "away_team_id": "ULK",
+          "final_scores": [
+            92,
+            81
+          ],
+          "periods": {
+            "home": [
+              24,
+              27,
+              22,
+              19
+            ],
+            "away": [
+              20,
+              22,
+              20,
+              19
+            ]
+          }
+        }
+      },
+      {
+        "reason": "WIKI_FINAL_NATIVE_RECONCILIATION_CONFLICT",
+        "archived": {
+          "pid": "E2025_201",
+          "league": "EuroLeague",
+          "season": "2025/2026",
+          "fixture_start_utc": 1767888000,
+          "home_name": "Dubai Basketball",
+          "away_name": "Fenerbah\u00e7e Beko",
+          "final_scores": [
+            92,
+            81
+          ],
+          "periods": {
+            "home": [
+              24,
+              27,
+              22,
+              19
+            ],
+            "away": [
+              22,
+              20,
+              20,
+              19
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1346598623",
+        "native": {
+          "fixture_id": "45471e84ce414c9ae80cf3438ea6471b7a785927c4440d1387e1e1f29dbea3af",
+          "fixture_start_utc": 1767888000,
+          "home_team_id": "DUB",
+          "away_team_id": "ULK",
+          "final_scores": [
+            92,
+            81
+          ],
+          "periods": {
+            "home": [
+              24,
+              27,
+              22,
+              19
+            ],
+            "away": [
+              20,
+              22,
+              20,
+              19
+            ]
+          }
+        }
+      },
+      {
+        "reason": "UNREGISTERED_WIKI_TEAM_ALIAS:ULK:Fenerbah\u00e7e Tarfin",
+        "archived": {
+          "pid": "E2026_9",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1790358300,
+          "home_name": "Fenerbah\u00e7e Tarfin",
+          "away_name": "Virtus Bologna",
+          "final_scores": [
+            78,
+            68
+          ],
+          "periods": {
+            "home": [
+              23,
+              16,
+              20,
+              19
+            ],
+            "away": [
+              17,
+              21,
+              17,
+              13
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1377902618",
+        "native": {
+          "fixture_id": "a3238acb046f6b7efca6fae1d129ea8830d7d27ce59e5457ae4ec3d19faf2245",
+          "fixture_start_utc": 1790358300,
+          "home_team_id": "ULK",
+          "away_team_id": "VIR",
+          "final_scores": [
+            78,
+            68
+          ],
+          "periods": {
+            "home": [
+              23,
+              16,
+              20,
+              19
+            ],
+            "away": [
+              17,
+              21,
+              17,
+              13
+            ]
+          }
+        }
+      },
+      {
+        "reason": "ARCHIVE_TEAM_IDENTITY_CONFLICT",
+        "archived": {
+          "pid": "E2026_9",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1790358300,
+          "home_name": "Fenerbah\u00e7e Tarfin",
+          "away_name": "Virtus Bologna",
+          "final_scores": [
+            78,
+            68
+          ],
+          "periods": {
+            "home": [
+              23,
+              16,
+              20,
+              19
+            ],
+            "away": [
+              17,
+              21,
+              17,
+              13
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1377902618",
+        "native": {
+          "fixture_id": "a3238acb046f6b7efca6fae1d129ea8830d7d27ce59e5457ae4ec3d19faf2245",
+          "fixture_start_utc": 1790358300,
+          "home_team_id": "ULK",
+          "away_team_id": "VIR",
+          "final_scores": [
+            78,
+            68
+          ],
+          "periods": {
+            "home": [
+              23,
+              16,
+              20,
+              19
+            ],
+            "away": [
+              17,
+              21,
+              17,
+              13
+            ]
+          }
+        }
+      },
+      {
+        "reason": "UNREGISTERED_WIKI_TEAM_ALIAS:ULK:Fenerbah\u00e7e Tarfin",
+        "archived": {
+          "pid": "E2026_17",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1790703900,
+          "home_name": "Fenerbah\u00e7e Tarfin",
+          "away_name": "Bayern Munich",
+          "final_scores": [
+            100,
+            76
+          ],
+          "periods": {
+            "home": [
+              31,
+              19,
+              25,
+              25
+            ],
+            "away": [
+              15,
+              16,
+              20,
+              25
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1377902618",
+        "native": {
+          "fixture_id": "d2cd309080447d5d26dc4d0c0b28b76c16de9ce4f60371b40a6d3fd888e859fd",
+          "fixture_start_utc": 1790703900,
+          "home_team_id": "ULK",
+          "away_team_id": "MUN",
+          "final_scores": [
+            100,
+            76
+          ],
+          "periods": {
+            "home": [
+              31,
+              19,
+              25,
+              25
+            ],
+            "away": [
+              15,
+              16,
+              20,
+              25
+            ]
+          }
+        }
+      },
+      {
+        "reason": "ARCHIVE_TEAM_IDENTITY_CONFLICT",
+        "archived": {
+          "pid": "E2026_17",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1790703900,
+          "home_name": "Fenerbah\u00e7e Tarfin",
+          "away_name": "Bayern Munich",
+          "final_scores": [
+            100,
+            76
+          ],
+          "periods": {
+            "home": [
+              31,
+              19,
+              25,
+              25
+            ],
+            "away": [
+              15,
+              16,
+              20,
+              25
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1377902618",
+        "native": {
+          "fixture_id": "d2cd309080447d5d26dc4d0c0b28b76c16de9ce4f60371b40a6d3fd888e859fd",
+          "fixture_start_utc": 1790703900,
+          "home_team_id": "ULK",
+          "away_team_id": "MUN",
+          "final_scores": [
+            100,
+            76
+          ],
+          "periods": {
+            "home": [
+              31,
+              19,
+              25,
+              25
+            ],
+            "away": [
+              15,
+              16,
+              20,
+              25
+            ]
+          }
+        }
+      },
+      {
+        "reason": "UNREGISTERED_WIKI_TEAM_ALIAS:ULK:Fenerbah\u00e7e Tarfin",
+        "archived": {
+          "pid": "E2026_29",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1790963100,
+          "home_name": "Fenerbah\u00e7e Tarfin",
+          "away_name": "Dubai Basketball",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1377902618",
+        "native": {
+          "fixture_id": "99e5db492fca2df0b4d78ecca7e4f4e383965e18fcd530ec98a15ee8ed14a121",
+          "fixture_start_utc": 1790963100,
+          "home_team_id": "ULK",
+          "away_team_id": "DUB",
+          "final_scores": [
+            76,
+            66
+          ],
+          "periods": {
+            "home": [
+              26,
+              16,
+              13,
+              21
+            ],
+            "away": [
+              14,
+              25,
+              12,
+              15
+            ]
+          }
+        }
+      },
+      {
+        "reason": "ARCHIVE_TEAM_IDENTITY_CONFLICT",
+        "archived": {
+          "pid": "E2026_29",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1790963100,
+          "home_name": "Fenerbah\u00e7e Tarfin",
+          "away_name": "Dubai Basketball",
+          "final_scores": null,
+          "periods": null
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1377902618",
+        "native": {
+          "fixture_id": "99e5db492fca2df0b4d78ecca7e4f4e383965e18fcd530ec98a15ee8ed14a121",
+          "fixture_start_utc": 1790963100,
+          "home_team_id": "ULK",
+          "away_team_id": "DUB",
+          "final_scores": [
+            76,
+            66
+          ],
+          "periods": {
+            "home": [
+              26,
+              16,
+              13,
+              21
+            ],
+            "away": [
+              14,
+              25,
+              12,
+              15
+            ]
+          }
+        }
+      },
+      {
+        "reason": "UNREGISTERED_WIKI_TEAM_ALIAS:PAN:Panathianikos AKTOR",
+        "archived": {
+          "pid": "E2026_47",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1791916200,
+          "home_name": "Partizan Mozzart Bet",
+          "away_name": "Panathianikos AKTOR",
+          "final_scores": [
+            55,
+            72
+          ],
+          "periods": {
+            "home": [
+              16,
+              12,
+              8,
+              19
+            ],
+            "away": [
+              16,
+              19,
+              20,
+              17
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1380285911",
+        "native": {
+          "fixture_id": "34ab6c6a57774744d90789174e66f2d62c42e788574e77721b7eec962114bca0",
+          "fixture_start_utc": 1791916200,
+          "home_team_id": "PAR",
+          "away_team_id": "PAN",
+          "final_scores": [
+            55,
+            72
+          ],
+          "periods": {
+            "home": [
+              16,
+              12,
+              8,
+              19
+            ],
+            "away": [
+              16,
+              19,
+              20,
+              17
+            ]
+          }
+        }
+      },
+      {
+        "reason": "UNREGISTERED_WIKI_TEAM_ALIAS:PAN:Panathianikos AKTOR",
+        "archived": {
+          "pid": "E2026_47",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1791916200,
+          "home_name": "Partizan Mozzart Bet",
+          "away_name": "Panathianikos AKTOR",
+          "final_scores": [
+            55,
+            72
+          ],
+          "periods": {
+            "home": [
+              16,
+              12,
+              8,
+              19
+            ],
+            "away": [
+              16,
+              19,
+              20,
+              17
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1383021579",
+        "native": {
+          "fixture_id": "34ab6c6a57774744d90789174e66f2d62c42e788574e77721b7eec962114bca0",
+          "fixture_start_utc": 1791916200,
+          "home_team_id": "PAR",
+          "away_team_id": "PAN",
+          "final_scores": [
+            55,
+            72
+          ],
+          "periods": {
+            "home": [
+              16,
+              12,
+              8,
+              19
+            ],
+            "away": [
+              16,
+              19,
+              20,
+              17
+            ]
+          }
+        }
+      },
+      {
+        "reason": "UNREGISTERED_WIKI_TEAM_ALIAS:RED:Crvena zvezda Meridanbet",
+        "archived": {
+          "pid": "E2026_81",
+          "league": "EuroLeague",
+          "season": "2026/2027",
+          "fixture_start_utc": 1793300400,
+          "home_name": "Crvena zvezda Meridanbet",
+          "away_name": "Bayern Munich",
+          "final_scores": [
+            103,
+            73
+          ],
+          "periods": {
+            "home": [
+              19,
+              29,
+              31,
+              24
+            ],
+            "away": [
+              15,
+              16,
+              23,
+              19
+            ]
+          }
+        },
+        "evidence_id": "https://en.wikipedia.org/w/index.php?oldid=1383021579",
+        "native": {
+          "fixture_id": "f6876e01635562ff6ee7c2a23bcda0518d0cdb8a0af6320cca3094ccb77bdbc3",
+          "fixture_start_utc": 1793300400,
+          "home_team_id": "RED",
+          "away_team_id": "MUN",
+          "final_scores": [
+            103,
+            73
+          ],
+          "periods": {
+            "home": [
+              19,
+              29,
+              31,
+              24
+            ],
+            "away": [
+              15,
+              16,
+              23,
+              19
+            ]
+          }
+        }
+      }
+    ],
+    "independent_sources": 35,
+    "source_time_policy": "PUBLIC_ARCHIVE_VERSION_WITNESS_NOT_LOCAL_RETRIEVAL",
+    "current_truth_preserved": true
+  },
+  "actual_quote_audit": [
+    {
+      "file_sha256": "b58911bf54af2cff9f33b214787cf90a8e8545ebe4b807e11569e178f542ede7",
+      "rows": 7942,
+      "matching_current_cohort": 0,
+      "commence_range_utc": [
+        "2020-07-30T22:30:00Z",
+        "2026-06-14T00:45:00Z"
+      ],
+      "event_snapshot_range_utc": [
+        "2020-07-30T22:25:00Z",
+        "2026-06-14T00:35:36Z"
+      ],
+      "policy": "SNAPSHOT_COLUMN_IS_NOT_INDEPENDENT_PUBLICATION_PROOF;NO_CROSS_SEASON_JOIN"
+    }
+  ],
+  "limitations": [
+    "WIKI_FINAL_RECONCILIATION_CAN_SELECT_A_NONREPRESENTATIVE_SUBSET",
+    "PUBLIC_ARCHIVE_EXISTENCE_IS_NOT_PRIOR_BOT_INGESTION_OR_CONTRACTUAL_DATA_PERMISSION",
+    "GITHUB_AND_WIKIMEDIA_API_RECEIPTS_ARE_PINNED_NOT_CRYPTOGRAPHIC_TIMESTAMP_SIGNATURES",
+    "NO_NEW_PROSPECTIVE_HOLDOUT_AFTER_THE_PREVIOUS_RESEARCH_ITERATION",
+    "NO_VERIFIED_PREMATCH_ROSTER_OR_CURRENT_BOOKMAKER_QUOTES"
+  ],
+  "matched_panel_counts": {
+    "EuroLeague 2025/2026": {
+      "score_laws": 77,
+      "learned_models": 53,
+      "possession": 0
+    },
+    "NBA 2026/2027": {
+      "score_laws": 7,
+      "learned_models": 0,
+      "possession": 7
+    }
+  },
+  "tests": {
+    "count": 437,
+    "result": "PASS",
+    "log_sha256": "00c03da1fef28daa97f267147ae0c043c1e9baeb7204139aa7b252bdb71c7aad"
+  },
+  "frozen_file_sha256": {
+    "main.py": "8121f6e8ef8562dc040f863b54431120ee10215485e0c0568dd5279ef6c641fc",
+    "prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2",
+    "historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+    "requirements.txt": "41bde19190b8616800bb227c224966566c1484504c8c172fa57fcd685bebf23d",
+    "Dockerfile": "3b60143939b1c510a65ac243abece8d56de2b46b206f6bd027f31ad5f7766cd8",
+    "fly.toml": "be55cd27dc9cf43bd6e496745edcc642bb85653ac7a8ac5423ec33ec3ef7aa8e",
+    "hybrid_engine/models.py": "cb34d58bc2e5240da675c376fa20d07adaa4a0a39dcfd5195c126aba30b5e320",
+    "hybrid_engine/possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+    "hybrid_engine/distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+    "hybrid_engine/evaluation.py": "e7ad5518c4eab4e8dc53019a3376be4b805f27dd68023a9259ec70becf648a2b",
+    "hybrid_engine/markets.py": "f6d7f967296de6a8ee9dbda595cec0c40761bdc70e9ae64824a35b95e2b6c965",
+    "hybrid_engine/portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22"
+  },
+  "reports": {
+    "hybrid-walkforward-20261112.json.gz": {
+      "sha256": "688e5247df432dd92adf1b23aaabad37c68cd940ecb077ba1cc4f5e7a405feda",
+      "bytes": 1283536
+    },
+    "hybrid-root-cause-20261112.json.gz": {
+      "sha256": "993d94775e45380509224bd356519ba95cad1208d1af4d8b1cff016c16a32276",
+      "bytes": 177102
+    }
+  },
+  "input_capsule": {
+    "path": "/workspace/research-artifacts/hybrid-rca-inputs-20261112.tar.gz",
+    "sha256": "f748b6db1d989ef37a476ea5af422ea33d143c2adee94111b3e7360171624d65",
+    "bytes": 2966390,
+    "files": 74,
+    "raw_sources_committed": false
+  },
+  "source_inputs": {
+    "format": "PUBLIC_ARCHIVE_INPUTS_V1",
+    "sources": [
+      {
+        "kind": "NBA_SCHEDULE",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "14826f9d173bbca3b484ca70ad27cd7eccb6d6f9",
+        "run_id": 39422421940,
+        "repo_file": "nba/schedules/parquet/nba_schedule_2027.parquet",
+        "observed_at_utc": 1794498391,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-39422421940.json",
+          "sha256": "b1d517d4ee2ff0fabb6c070770018c0c41466bd0b8ae2a23cf7f1e71c384d24e"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-10-20-nba_schedule_2027.parquet.json",
+          "sha256": "50ff9aef74f6bfca71d30bf810796ba1b83b1490e47b1557563a07d16079801c"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-10-20-nba_schedule_2027.parquet",
+          "sha256": "539472fad41080e2cda9b49406a73ee3c23e7bc7d8b44e37ab94b43c02e04282"
+        }
+      },
+      {
+        "kind": "NBA_QUOTES",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "14826f9d173bbca3b484ca70ad27cd7eccb6d6f9",
+        "run_id": 39422421940,
+        "repo_file": "nba/betting_lines/closing_lines_odds_api.parquet",
+        "observed_at_utc": 1794498391,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-39422421940.json",
+          "sha256": "b1d517d4ee2ff0fabb6c070770018c0c41466bd0b8ae2a23cf7f1e71c384d24e"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-10-20-closing_lines_odds_api.parquet.json",
+          "sha256": "ed147a513aaaf3b99466a290071a7645d359c10a801a284058e8c8ceb2374178"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-10-20-closing_lines_odds_api.parquet",
+          "sha256": "b58911bf54af2cff9f33b214787cf90a8e8545ebe4b807e11569e178f542ede7"
+        }
+      },
+      {
+        "kind": "NBA_SCHEDULE",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "23cc23604b427d29cbb01f8a5549053a7be1014b",
+        "run_id": 40548590941,
+        "repo_file": "nba/schedules/parquet/nba_schedule_2027.parquet",
+        "observed_at_utc": 1794498391,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-40548590941.json",
+          "sha256": "d2b21ce896c57d914b670077f692539b537c84e6f24ac852fa1c435565915b59"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-10-27-nba_schedule_2027.parquet.json",
+          "sha256": "bd7d09cc72d721dfae859e4d9564f9efbd3e5559cf5704d8dee475a36159fbc3"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-10-27-nba_schedule_2027.parquet",
+          "sha256": "dcb2a19ff6e4e4539b4384d49a018c49e0f99eeddbebcefc68ea0d799abe09b3"
+        }
+      },
+      {
+        "kind": "NBA_BOX",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "23cc23604b427d29cbb01f8a5549053a7be1014b",
+        "run_id": 40548590941,
+        "repo_file": "nba/team_box/parquet/team_box_2027.parquet",
+        "observed_at_utc": 1794498391,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-40548590941.json",
+          "sha256": "d2b21ce896c57d914b670077f692539b537c84e6f24ac852fa1c435565915b59"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-10-27-team_box_2027.parquet.json",
+          "sha256": "f1f1496d6461236b1852d0089005f12443ed633563d1e987784688ab4824735a"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-10-27-team_box_2027.parquet",
+          "sha256": "e67badd7f97e1476d49b01a4891c318707298f45b5c16ac811f53c6d0c533ee8"
+        }
+      },
+      {
+        "kind": "NBA_QUOTES",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "23cc23604b427d29cbb01f8a5549053a7be1014b",
+        "run_id": 40548590941,
+        "repo_file": "nba/betting_lines/closing_lines_odds_api.parquet",
+        "observed_at_utc": 1794498391,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-40548590941.json",
+          "sha256": "d2b21ce896c57d914b670077f692539b537c84e6f24ac852fa1c435565915b59"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-10-27-closing_lines_odds_api.parquet.json",
+          "sha256": "3ae765ee89481f8ddff00ded340f820d641fc199f91e3c7be4b37a03f4dfb5e6"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-10-27-closing_lines_odds_api.parquet",
+          "sha256": "b58911bf54af2cff9f33b214787cf90a8e8545ebe4b807e11569e178f542ede7"
+        }
+      },
+      {
+        "kind": "NBA_SCHEDULE",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "3598cbf59897dd5299bd70079b6ab1e7c7b8ef80",
+        "run_id": 41326881641,
+        "repo_file": "nba/schedules/parquet/nba_schedule_2027.parquet",
+        "observed_at_utc": 1794498391,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-41326881641.json",
+          "sha256": "cdeceaf674528cb4e8b2576f13007e714dc9efca989dea7ca4b3faf242d5bcd3"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-01-nba_schedule_2027.parquet.json",
+          "sha256": "168211f74ab15fe61b7e93f41a689db5665e0777d8567be0dc920144c8d45bd6"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-01-nba_schedule_2027.parquet",
+          "sha256": "152579b404c999a05e21eade4a7f1ba39cb26684b25a562b8dbce6a2df1f1c04"
+        }
+      },
+      {
+        "kind": "NBA_BOX",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "3598cbf59897dd5299bd70079b6ab1e7c7b8ef80",
+        "run_id": 41326881641,
+        "repo_file": "nba/team_box/parquet/team_box_2027.parquet",
+        "observed_at_utc": 1794498391,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-41326881641.json",
+          "sha256": "cdeceaf674528cb4e8b2576f13007e714dc9efca989dea7ca4b3faf242d5bcd3"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-01-team_box_2027.parquet.json",
+          "sha256": "5cd343bbe7ad77fef790896480d6b73f9b8a96e4aecda21988db35ab95fc80ef"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-01-team_box_2027.parquet",
+          "sha256": "70be207c17a5fc9030f37f74a99864b2cba96c6c21b0065b8636b59b770b99eb"
+        }
+      },
+      {
+        "kind": "NBA_QUOTES",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "3598cbf59897dd5299bd70079b6ab1e7c7b8ef80",
+        "run_id": 41326881641,
+        "repo_file": "nba/betting_lines/closing_lines_odds_api.parquet",
+        "observed_at_utc": 1794498391,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-41326881641.json",
+          "sha256": "cdeceaf674528cb4e8b2576f13007e714dc9efca989dea7ca4b3faf242d5bcd3"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-01-closing_lines_odds_api.parquet.json",
+          "sha256": "76369de651855f05468270a8b5e876522686c931777f89c861517d3e9e5ead29"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-01-closing_lines_odds_api.parquet",
+          "sha256": "b58911bf54af2cff9f33b214787cf90a8e8545ebe4b807e11569e178f542ede7"
+        }
+      },
+      {
+        "kind": "NBA_SCHEDULE",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "4e8ed9c686de370e446e31eb1829302d90eb13f1",
+        "run_id": 41675063379,
+        "repo_file": "nba/schedules/parquet/nba_schedule_2027.parquet",
+        "observed_at_utc": 1794498391,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-41675063379.json",
+          "sha256": "f8e8f96a27f38851e5640b6e2cfe3a2506b0f9c4888d1da5f247adea6cbd9757"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-03-nba_schedule_2027.parquet.json",
+          "sha256": "4c29d6a6911331652abe6a67d0bc973393121991ffc6391c1f03c33fd154096a"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-03-nba_schedule_2027.parquet",
+          "sha256": "51b43f2d2d2be801019c94dea9aee8faa9cfdaeeb21202947e69fce492db8174"
+        }
+      },
+      {
+        "kind": "NBA_BOX",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "4e8ed9c686de370e446e31eb1829302d90eb13f1",
+        "run_id": 41675063379,
+        "repo_file": "nba/team_box/parquet/team_box_2027.parquet",
+        "observed_at_utc": 1794498392,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-41675063379.json",
+          "sha256": "f8e8f96a27f38851e5640b6e2cfe3a2506b0f9c4888d1da5f247adea6cbd9757"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-03-team_box_2027.parquet.json",
+          "sha256": "89dab3a3c2a13730cc06499f4998ce12c5973d4bf4cb768aa3b828533328854a"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-03-team_box_2027.parquet",
+          "sha256": "f3c1a02f4a6b8589713686d73abf8ed6cab465ffa03cdba24161c6a3230f4d9f"
+        }
+      },
+      {
+        "kind": "NBA_QUOTES",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "4e8ed9c686de370e446e31eb1829302d90eb13f1",
+        "run_id": 41675063379,
+        "repo_file": "nba/betting_lines/closing_lines_odds_api.parquet",
+        "observed_at_utc": 1794498392,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-41675063379.json",
+          "sha256": "f8e8f96a27f38851e5640b6e2cfe3a2506b0f9c4888d1da5f247adea6cbd9757"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-03-closing_lines_odds_api.parquet.json",
+          "sha256": "ae312f00359d397529b0451eca128f1804223e4fbd26307fe72c9f5f40a99d84"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-03-closing_lines_odds_api.parquet",
+          "sha256": "b58911bf54af2cff9f33b214787cf90a8e8545ebe4b807e11569e178f542ede7"
+        }
+      },
+      {
+        "kind": "NBA_SCHEDULE",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "60b2bf53447a08f1db57161a090ade6191580c47",
+        "run_id": 42065329073,
+        "repo_file": "nba/schedules/parquet/nba_schedule_2027.parquet",
+        "observed_at_utc": 1794498392,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-42065329073.json",
+          "sha256": "af36c2cf2e39b28a973b2e1ecf7e2b28806403b0fead5f91ae2c4c14c6dfa3e5"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-05-nba_schedule_2027.parquet.json",
+          "sha256": "a6791f8de2e6ee1fef1efbe5bbfa9f33519a41b4c71d07e0c5fe4505f3abdc5e"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-05-nba_schedule_2027.parquet",
+          "sha256": "2d829235c89ad49763b32540bfcf17142142978dc8f0c283b5848e06d0238c2a"
+        }
+      },
+      {
+        "kind": "NBA_BOX",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "60b2bf53447a08f1db57161a090ade6191580c47",
+        "run_id": 42065329073,
+        "repo_file": "nba/team_box/parquet/team_box_2027.parquet",
+        "observed_at_utc": 1794498392,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-42065329073.json",
+          "sha256": "af36c2cf2e39b28a973b2e1ecf7e2b28806403b0fead5f91ae2c4c14c6dfa3e5"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-05-team_box_2027.parquet.json",
+          "sha256": "453c21c3755265ce29f0467c61e1db5d2703bab732c5c14c87a74bedb91ab63e"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-05-team_box_2027.parquet",
+          "sha256": "21b7b1b81df5e2aa10fb970a5e3990525238d77df042af5906d2c7a74535cae1"
+        }
+      },
+      {
+        "kind": "NBA_QUOTES",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "60b2bf53447a08f1db57161a090ade6191580c47",
+        "run_id": 42065329073,
+        "repo_file": "nba/betting_lines/closing_lines_odds_api.parquet",
+        "observed_at_utc": 1794498392,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-42065329073.json",
+          "sha256": "af36c2cf2e39b28a973b2e1ecf7e2b28806403b0fead5f91ae2c4c14c6dfa3e5"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-05-closing_lines_odds_api.parquet.json",
+          "sha256": "b49057543442708ef8577abe20e31294f0fb71cf9e9d1af54c91d953b81db55e"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-05-closing_lines_odds_api.parquet",
+          "sha256": "b58911bf54af2cff9f33b214787cf90a8e8545ebe4b807e11569e178f542ede7"
+        }
+      },
+      {
+        "kind": "NBA_SCHEDULE",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "91378d88afb087d13e2691bf7430ee94e841873c",
+        "run_id": 42391698911,
+        "repo_file": "nba/schedules/parquet/nba_schedule_2027.parquet",
+        "observed_at_utc": 1794498392,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-42391698911.json",
+          "sha256": "18f2c3ac64100223f3359be949e1b1027d3305a483393cc812d7a588d5e365c6"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-07-nba_schedule_2027.parquet.json",
+          "sha256": "666e6451bf44173b10ff1eb91ea88cc00e57f41b636149f442c27d02df2a1b3d"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-07-nba_schedule_2027.parquet",
+          "sha256": "fa829cdc9bed8a1debf6dfe7256967dd20d3a2eae491dc6f221e39617e0e2c1e"
+        }
+      },
+      {
+        "kind": "NBA_BOX",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "91378d88afb087d13e2691bf7430ee94e841873c",
+        "run_id": 42391698911,
+        "repo_file": "nba/team_box/parquet/team_box_2027.parquet",
+        "observed_at_utc": 1794498392,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-42391698911.json",
+          "sha256": "18f2c3ac64100223f3359be949e1b1027d3305a483393cc812d7a588d5e365c6"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-07-team_box_2027.parquet.json",
+          "sha256": "0ac2850e33c7b5a2254368d5e79a6f40a3daa6e2939d3796cbd5053758517930"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-07-team_box_2027.parquet",
+          "sha256": "948caf38db1032a71d8c52198e1d58f63edf667c149566894d3e446c65de07c7"
+        }
+      },
+      {
+        "kind": "NBA_QUOTES",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "91378d88afb087d13e2691bf7430ee94e841873c",
+        "run_id": 42391698911,
+        "repo_file": "nba/betting_lines/closing_lines_odds_api.parquet",
+        "observed_at_utc": 1794498392,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-42391698911.json",
+          "sha256": "18f2c3ac64100223f3359be949e1b1027d3305a483393cc812d7a588d5e365c6"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-07-closing_lines_odds_api.parquet.json",
+          "sha256": "e5d79801aabe400c6134928ef8ea45b069cdc5b4dbaa2bc750ccbdf190298f2c"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-07-closing_lines_odds_api.parquet",
+          "sha256": "b58911bf54af2cff9f33b214787cf90a8e8545ebe4b807e11569e178f542ede7"
+        }
+      },
+      {
+        "kind": "NBA_SCHEDULE",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "07a7d5f5ae3e04d5e17997bdfe5ecfeedd143e43",
+        "run_id": 42661152634,
+        "repo_file": "nba/schedules/parquet/nba_schedule_2027.parquet",
+        "observed_at_utc": 1794498392,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-42661152634.json",
+          "sha256": "168e480065ea288f50dd285ea327f7f8512c2eff213425490a4a01f60c193957"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-09-nba_schedule_2027.parquet.json",
+          "sha256": "20971f41e916c90252190bc0fb07fa698d6d4ec95584a9d00f60412d8b923845"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-09-nba_schedule_2027.parquet",
+          "sha256": "0eb872ffd9fc1e7d5b7226bdadde0c0d2a1e9a8dde1b9ad55d558184edbe30c7"
+        }
+      },
+      {
+        "kind": "NBA_BOX",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "07a7d5f5ae3e04d5e17997bdfe5ecfeedd143e43",
+        "run_id": 42661152634,
+        "repo_file": "nba/team_box/parquet/team_box_2027.parquet",
+        "observed_at_utc": 1794498392,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-42661152634.json",
+          "sha256": "168e480065ea288f50dd285ea327f7f8512c2eff213425490a4a01f60c193957"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-09-team_box_2027.parquet.json",
+          "sha256": "78994f9c524f0ec4630dd9b392e4a6196659b41e0d312e97b3d0cc0b9284a08f"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-09-team_box_2027.parquet",
+          "sha256": "4a5d968921220f24b4daa01421168c46b7da9c1f504071a0ccc6a1fdef9af3c6"
+        }
+      },
+      {
+        "kind": "NBA_QUOTES",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "07a7d5f5ae3e04d5e17997bdfe5ecfeedd143e43",
+        "run_id": 42661152634,
+        "repo_file": "nba/betting_lines/closing_lines_odds_api.parquet",
+        "observed_at_utc": 1794498393,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-42661152634.json",
+          "sha256": "168e480065ea288f50dd285ea327f7f8512c2eff213425490a4a01f60c193957"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-09-closing_lines_odds_api.parquet.json",
+          "sha256": "386fc31fc602262f05b66b4c6e33f901199f5f01512f8bdbb2432a57199e1777"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-09-closing_lines_odds_api.parquet",
+          "sha256": "b58911bf54af2cff9f33b214787cf90a8e8545ebe4b807e11569e178f542ede7"
+        }
+      },
+      {
+        "kind": "NBA_SCHEDULE",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "81fddec7112a6d4569a284e7a2448f4e4b70f138",
+        "run_id": 43059131833,
+        "repo_file": "nba/schedules/parquet/nba_schedule_2027.parquet",
+        "observed_at_utc": 1794498393,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-43059131833.json",
+          "sha256": "c1cfa845b05901b2e14f465bd3f46e40b2512d0ad0677bab0360eb23a860b06c"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-11-nba_schedule_2027.parquet.json",
+          "sha256": "177ab22562abfb4d2b258eb573a3c6841a7248d9f4cd2893024babf1aa8e296b"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-11-nba_schedule_2027.parquet",
+          "sha256": "0035005528d289e60317432edb495c14ff2008ee5b341a44450bca8f3ff8cb66"
+        }
+      },
+      {
+        "kind": "NBA_BOX",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "81fddec7112a6d4569a284e7a2448f4e4b70f138",
+        "run_id": 43059131833,
+        "repo_file": "nba/team_box/parquet/team_box_2027.parquet",
+        "observed_at_utc": 1794498393,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-43059131833.json",
+          "sha256": "c1cfa845b05901b2e14f465bd3f46e40b2512d0ad0677bab0360eb23a860b06c"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-11-team_box_2027.parquet.json",
+          "sha256": "40338e7beebd0a4beb0da950f2c51f954f39a3813fcbc681423561a7ffad6fb7"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-11-team_box_2027.parquet",
+          "sha256": "225b3d6df07453267c65503eba658af76bba12a1550bbc15a37d350199dfdbcb"
+        }
+      },
+      {
+        "kind": "NBA_QUOTES",
+        "repo": "sportsdataverse/hoopR-nba-data",
+        "commit": "81fddec7112a6d4569a284e7a2448f4e4b70f138",
+        "run_id": 43059131833,
+        "repo_file": "nba/betting_lines/closing_lines_odds_api.parquet",
+        "observed_at_utc": 1794498393,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-43059131833.json",
+          "sha256": "c1cfa845b05901b2e14f465bd3f46e40b2512d0ad0677bab0360eb23a860b06c"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-NBA-2026-11-11-closing_lines_odds_api.parquet.json",
+          "sha256": "25648576e33f07294e34d5eb182e659247cebcc76f2ff45d1c31f3ebaf39abdd"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/NBA-2026-11-11-closing_lines_odds_api.parquet",
+          "sha256": "b58911bf54af2cff9f33b214787cf90a8e8545ebe4b807e11569e178f542ede7"
+        }
+      },
+      {
+        "kind": "EURO_PLAYERS",
+        "repo": "IvoVillanueva/EUROLEAGUE-BOXSCORE",
+        "commit": "f1e8f383e60fb076a433c5b16443f228e8534eb3",
+        "run_id": 20632100499,
+        "repo_file": "data/euroleague_boxscore_2025_26.csv",
+        "observed_at_utc": 1794498393,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-20632100499.json",
+          "sha256": "a228f633a7512220d1e99552b9e3634b736b1d332ac809e844095316c45756f3"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-EURO_PLAYER-2026-01-01-euroleague_boxscore_2025_26.csv.json",
+          "sha256": "f137fff3d4623be18b8c3635563414e3b02c5f51192c4eb6c2a7d6b4b48e3937"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/EURO_PLAYER-2026-01-01-euroleague_boxscore_2025_26.csv",
+          "sha256": "a8bfb44a21fb0e912e2d56ddc846f0d9dac4d8a3e222dafaf06eda99da421ef6"
+        }
+      },
+      {
+        "kind": "EURO_PLAYERS",
+        "repo": "IvoVillanueva/EUROLEAGUE-BOXSCORE",
+        "commit": "a2cc7dc7213caf0e3bf56bf87abcd8827d395d93",
+        "run_id": 23829989449,
+        "repo_file": "data/euroleague_boxscore_2025_26.csv",
+        "observed_at_utc": 1794498393,
+        "witness": {
+          "path": "/workspace/scratch/rca-public/run-23829989449.json",
+          "sha256": "b893b2f2943601784157acd9a7ac6abe9a5a4ca7ba3cc8028ce7220ae8d216b0"
+        },
+        "listing": {
+          "path": "/workspace/scratch/rca-public/meta-EURO_PLAYER-2026-04-01-euroleague_boxscore_2025_26.csv.json",
+          "sha256": "3a81dabf3f53f79f05c7d16c58bb3d670414e74e44cda2cae454fcc02fcf4cb9"
+        },
+        "data": {
+          "path": "/workspace/scratch/rca-public/EURO_PLAYER-2026-04-01-euroleague_boxscore_2025_26.csv",
+          "sha256": "39e5e9aecf3cf55dba1301d3e4a671ec74c4d6662a5a95c1f8551c1ada30cd82"
+        }
+      },
+      {
+        "kind": "WIKI",
+        "year": 2025,
+        "data": {
+          "path": "/workspace/scratch/rca-public/wiki-2025-2025-10-01.json",
+          "sha256": "fe6446792eef26e38fa84aacc94e9441e1bb70efc76f48c4d29967808a5555ac"
+        },
+        "revision_id": 1314405824,
+        "available_at": "2025-10-01T06:57:49Z"
+      },
+      {
+        "kind": "WIKI",
+        "year": 2025,
+        "data": {
+          "path": "/workspace/scratch/rca-public/wiki-2025-2025-11-01.json",
+          "sha256": "60b6c20ae06b2d97127c2933ea38cc4bd02fd9348f96dbee74a4c7fd3d53e6a5"
+        },
+        "revision_id": 1319848813,
+        "available_at": "2025-11-01T06:47:00Z"
+      },
+      {
+        "kind": "WIKI",
+        "year": 2025,
+        "data": {
+          "path": "/workspace/scratch/rca-public/wiki-2025-2025-12-01.json",
+          "sha256": "14224809280d26166703e1da892835665ba80b90bf11c1cf8c4e1dce3fd43060"
+        },
+        "revision_id": 1324599449,
+        "available_at": "2025-11-28T15:39:07Z"
+      },
+      {
+        "kind": "WIKI",
+        "year": 2025,
+        "data": {
+          "path": "/workspace/scratch/rca-public/wiki-2025-2026-01-01.json",
+          "sha256": "dc57c43040e2d34930d7a1bf6b98bb32238c2151682033caeca56cca9e8ef8ba"
+        },
+        "revision_id": 1330345339,
+        "available_at": "2025-12-30T22:26:50Z"
+      },
+      {
+        "kind": "WIKI",
+        "year": 2025,
+        "data": {
+          "path": "/workspace/scratch/rca-public/wiki-2025-2026-02-01.json",
+          "sha256": "4fafde4d57f1b21774deb29735320d1df5272091299d66d32351f711f4dd1706"
+        },
+        "revision_id": 1335817125,
+        "available_at": "2026-01-31T10:28:36Z"
+      },
+      {
+        "kind": "WIKI",
+        "year": 2025,
+        "data": {
+          "path": "/workspace/scratch/rca-public/wiki-2025-2026-03-01.json",
+          "sha256": "6eea4886fbccb8d81ad4157c7ecc7e3fa152f1d0e965ce5654edbfe04e6671bc"
+        },
+        "revision_id": 1340810898,
+        "available_at": "2026-02-27T21:05:09Z"
+      },
+      {
+        "kind": "WIKI",
+        "year": 2025,
+        "data": {
+          "path": "/workspace/scratch/rca-public/wiki-2025-2026-04-01.json",
+          "sha256": "24fbb36d23978c87cccac2cb433c935c2d3c52f7563f4f93e582e4cce0c44a0c"
+        },
+        "revision_id": 1346598623,
+        "available_at": "2026-04-01T19:33:38Z"
+      },
+      {
+        "kind": "WIKI",
+        "year": 2026,
+        "data": {
+          "path": "/workspace/scratch/rca-public/wiki-2026-2026-10-01.json",
+          "sha256": "1bef1f6fffd0d98e04cc12f566a59598deb5de3d80d80ce83f4902e49e65118f"
+        },
+        "revision_id": 1377902618,
+        "available_at": "2026-10-01T21:30:16Z"
+      },
+      {
+        "kind": "WIKI",
+        "year": 2026,
+        "data": {
+          "path": "/workspace/scratch/rca-public/wiki-2026-2026-10-15.json",
+          "sha256": "535d2d8560f369ed27b3244478431bc6c391ba5afece56b77c0dd9d514b80248"
+        },
+        "revision_id": 1380285911,
+        "available_at": "2026-10-14T21:34:28Z"
+      },
+      {
+        "kind": "WIKI",
+        "year": 2026,
+        "data": {
+          "path": "/workspace/scratch/rca-public/wiki-2026-2026-11-01.json",
+          "sha256": "71b5efee987819f5d021f9ecdf89ad3c07e51252b3472d103872a657303dcc69"
+        },
+        "revision_id": 1383021579,
+        "available_at": "2026-10-31T15:32:35Z"
+      }
+    ]
+  },
+  "source_manifest": {
+    "format": "HYBRID_DATASET_MANIFEST_V1",
+    "data_class": "REAL_HISTORICAL",
+    "source_permission": "NOT_ESTABLISHED",
+    "files": [
+      {
+        "kind": "COLLECTION",
+        "path": "/workspace/scratch/rca-sources/current-2026-collection.json",
+        "sha256": "310eade493e5685d665ed6ef5a0da62b2a7c5f4897955dfdaa40b2b2b2f84b62"
+      },
+      {
+        "kind": "CATALOG",
+        "path": "/workspace/scratch/rca-sources/current-euro-2025-catalog.json",
+        "sha256": "d19bab385edcecf7379dcf7c56d9a3dfe796e859549a7f5e2ae6e712e4c0cf85"
+      },
+      {
+        "kind": "PUBLIC_ARCHIVE_INPUTS",
+        "path": "/workspace/scratch/rca-public/public-inputs.json",
+        "sha256": "ce46d84f5ea79384ad1a342e5be73dd5ecdbbd53d8a68421d14e8e5df62309d3"
+      }
+    ]
+  },
+  "previous_resource_evidence": {
+    "commit": "09e044e28c52be3d486b427abd8a51fcee5c22cc",
+    "peak_rss_mib": 143.03515625,
+    "limit_bytes": 268435456,
+    "exact_current_head_retested": false,
+    "limitation": "PRIOR_PORTABLE_LOCAL_API_DOUBLE_WORKLOAD_NOT_CURRENT_FLY_IMAGE",
+    "latency_p95_seconds": 0.26347934229634123
+  }
+}

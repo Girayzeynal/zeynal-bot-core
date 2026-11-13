@@ -148,7 +148,8 @@ def archive_catalog(raw, *, provider, observed_at_utc, ingested_at_utc, season_s
                 season=row['season'];code=competition_code or 'E';phase=row['phaseType']['code']
                 _require(season['code']==f'{code}{season_start_year}' and season['competitionCode']==code and
                     type(season['year']) is int and season['year']==season_start_year, 'euroleague_season_identity_required')
-                _require(phase in ('RS','PI','PO','FF'), 'unknown_euroleague_season_phase')
+                phases = ('RS','8F','4F','2F','Final') if code=='U' else ('RS','PI','PO','FF')
+                _require(phase in phases, 'unknown_euroleague_season_phase')
                 if phase!='RS':
                     _require(type(row['gameCode']) is int and row['gameCode']>0 and
                         row['identifier']==f"{code}{season_start_year}_{row['gameCode']}", 'provider_id_conflict')

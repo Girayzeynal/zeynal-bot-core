@@ -3,6 +3,10 @@ FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV OPENBLAS_NUM_THREADS=1
+ENV OMP_NUM_THREADS=1
+# Keep glibc worker-thread arenas within the constrained inference address space.
+ENV MALLOC_ARENA_MAX=1
 
 WORKDIR /app
 

@@ -1,0 +1,664 @@
+{
+  "format": "NBA_READ_ONLY_REPLAY_EVIDENCE_V1",
+  "base_commit": "6e1f241813bcbf77792a66fc1c4d6c558a866a3e",
+  "packet_sha256": "9e95f0d849f530325ef881e389179796577a82c65c4aa3be798bbaa2bf3700b3",
+  "tests": {
+    "passed": 663,
+    "failed": 0,
+    "previous_preserved": 642,
+    "new": 21
+  },
+  "records": [
+    {
+      "home": "Philadelphia 76ers",
+      "away": "Toronto Raptors",
+      "snapshot_sha256": "7085c7f0ef432f2775ce0fb626e232b6a01eda9d357241e48d862fafc8fd02ba",
+      "tipoff_utc": 1794528000,
+      "generated_utc": 1794526219,
+      "created_utc": 1794526219,
+      "source_utc": 1794526219,
+      "original_source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&limit=1000",
+      "verified_fixture_source": {
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&limit=1000",
+        "document_sha256": "a0ea7d15396ad77e0b39593a9a23a312f05f66108a3daf5b9639f25a77306639",
+        "observed_at_utc": 1794526211,
+        "ingested_at_utc": 1794526211
+      },
+      "projection": {
+        "away": 111.25116696305017,
+        "calibration_status": "NOT_CALIBRATED",
+        "halves": [
+          [
+            57.721500924904305,
+            55.90147064768692
+          ],
+          [
+            53.61778732411888,
+            55.34969631536325
+          ]
+        ],
+        "home": 111.33928824902318,
+        "home_handicap": -0.08812128597301694,
+        "margin": 0.08812128597301694,
+        "metadata": {
+          "artifact_digest": "c9c073c5203f0167ee1157d15158097d8253634e5525063b2e2240236bd5b028",
+          "coefficient_posterior_covariance": "CONJUGATE_GAUSSIAN_EMPIRICAL_BAYES",
+          "correlation_assumption": -0.0008329602872612381,
+          "distribution": "ROUNDED_CLIPPED_NORMAL",
+          "elapsed_seconds": 0.012560208997456357,
+          "fit_cutoff_utc": 1794526101,
+          "latent_normal_locations": [
+            111.33928824902318,
+            111.25116696305018
+          ],
+          "method": "RQMC_HALTON",
+          "noise_variance": 153.6318237029325,
+          "player_effect": "NO_VERIFIED_PREMATCH_PLAYER_EXPOSURES",
+          "quarter_allocation": "LARGEST_REMAINDER_HISTORICAL_WEIGHTS_NOT_PBP",
+          "scenarios": 10000,
+          "seed": 20261112,
+          "training_games": 170
+        },
+        "model": "BAYES_TEAM_ATTACK_DEFENSE_V1",
+        "quarters": [
+          [
+            28.20071552156222,
+            28.173027728409362
+          ],
+          [
+            29.52078540334208,
+            27.728442919277562
+          ],
+          [
+            27.689301426474657,
+            26.91303158917833
+          ],
+          [
+            25.928485897644226,
+            28.436664726184922
+          ]
+        ],
+        "scope": "REGULATION_ONLY",
+        "total": 222.59045521207335,
+        "winner": [
+          0.4915,
+          0.022,
+          0.4865
+        ]
+      },
+      "command": "/analyze NBA 2026-11-13 Philadelphia 76ers vs Toronto Raptors",
+      "rendered_parts": [
+        "<b>ZEYNAL | NBA ARŞİV REPLAY</b>\nPhiladelphia 76ers – Toronto Raptors\nBaşlangıç: 13.11.2026 03:00:00 TSİ\nUTC: 2026-11-13T00:00:00Z\nYeni PREMATCH tahmini değildir; orijinal kayıt yeniden gösteriliyor.\nNormal süre; uzatma hariç.\n\n<b>ORİJİNAL SKOR PROJEKSİYONU</b>\n111.34 – 111.25\nToplam: 222.59 | Ev farkı: +0.09\nModel ev handikabı: -0.09 (piyasa çizgisi değil)\n\n<b>KAYITLI PERİYOTLAR</b>\n1Q: 28.20 – 28.17 | Toplam 56.37\n2Q: 29.52 – 27.73 | Toplam 57.25\n3Q: 27.69 – 26.91 | Toplam 54.60\n4Q: 25.93 – 28.44 | Toplam 54.37\n1H: 57.72 – 55.90 | Toplam 113.62\n2H: 53.62 – 55.35 | Toplam 108.97\n\n<b>ORİJİNAL QMC ARALIKLARI</b>\n1H: P50 114 | P25–P75 107–120\nP10–P90 102–126 | P05–P95 98–129\n1Q: P50 56 | P25–P75 53–59\nP10–P90 50–62 | P05–P95 49–64\n2H: P50 109 | P25–P75 103–115\nP10–P90 97–120 | P05–P95 94–124\n2Q: P50 57 | P25–P75 54–60\nP10–P90 51–63 | P05–P95 49–65\n3Q: P50 55 | P25–P75 52–58\nP10–P90 49–60 | P05–P95 47–62\n4Q: P50 54 | P25–P75 51–57\nP10–P90 49–60 | P05–P95 47–62\nAWAY: P50 111 | P25–P75 102–120\nP10–P90 95–128 | P05–P95 90–133\nHOME: P50 111 | P25–P75 103–120\nP10–P90 95–128 | P05–P95 90–133\nHOME_HANDICAP: P50 0 | P25–P75 -12–12\nP10–P90 -24–24 | P05–P95 -30–30\nMARGIN: P50 0 | P25–P75 -12–12\nP10–P90 -24–24 | P05–P95 -30–30\nTOTAL: P50 223 | P25–P75 210–235\nP10–P90 199–246 | P05–P95 192–253\nAralıklar arşivdeki ham dağılımdır; gerçekleşme veya güven garantisi değildir.\n\n<b>KAYITLI MC / QMC</b>\nYeni simülasyon çalıştırılmadı.\nQMC: RQMC_HALTON, n=10000, seed=20261112\nSkor 111.34 – 111.25 | Toplam 222.59\nToplam P50 223 | P25–P75 210–235 | P05–P95 192–253\nHam normal süre olasılığı (kalibre edilmedi): Ev / eşitlik / dep %49.15 / %2.20 / %48.65\nMC: MC, n=10000, seed=20261112\nSkor 111.34 – 111.25 | Toplam 222.59\nToplam P50 223 | P25–P75 210–235 | P05–P95 193–252\nHam normal süre olasılığı (kalibre edilmedi): Ev / eşitlik / dep %49.39 / %1.87 / %48.74\nBunlar güven yüzdesi veya doğrulanmış başarı oranı değildir.\n\n<b>KALİBRASYON VE KAYNAK</b>\nNOT_CALIBRATED\nGüven endeksi: hesaplanamadı.\nPiyasa verisi doğrulanamadı; barem/edge/öneri üretilmedi.\nEksik: verified_pace, injuries, lineups, rotation, market\nModel: ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1\nModel SHA: cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982\nKimliği doğrulanan kaynak: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&amp;limit=1000\nOrijinal fixture_source_url alanı: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&amp;limit=1000\nİki alan farklıysa kaynaklar arasından gerçek maç kimliği eşleştirilmiştir; eski alan değiştirilmedi.\n\n<b>ORİJİNAL ZAMANLAR VE BÜTÜNLÜK</b>\nÜretim: 2026-11-12T23:30:19Z | 13.11.2026 02:30:19 TSİ\nSnapshot: 2026-11-12T23:30:19Z | 13.11.2026 02:30:19 TSİ\nVeri: 2026-11-12T23:30:19Z | 13.11.2026 02:30:19 TSİ\nSnapshot SHA-256: 7085c7f0ef432f2775ce0fb626e232b6a01eda9d357241e48d862fafc8fd02ba\nPaket SHA-256: 9e95f0d849f530325ef881e389179796577a82c65c4aa3be798bbaa2bf3700b3\nVaryant: capture-optimized; dört maç, dört kayıt. İlk varyant arşivleri değiştirilmedi."
+      ]
+    },
+    {
+      "home": "Washington Wizards",
+      "away": "Detroit Pistons",
+      "snapshot_sha256": "7631a34a939f6b0e659e910b58fd2bb629c0d8a3387b221ddb91c4034f7f2bf4",
+      "tipoff_utc": 1794528000,
+      "generated_utc": 1794526227,
+      "created_utc": 1794526227,
+      "source_utc": 1794526227,
+      "original_source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261113&limit=1000",
+      "verified_fixture_source": {
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&limit=1000",
+        "document_sha256": "a0ea7d15396ad77e0b39593a9a23a312f05f66108a3daf5b9639f25a77306639",
+        "observed_at_utc": 1794526220,
+        "ingested_at_utc": 1794526220
+      },
+      "projection": {
+        "away": 113.45780306157103,
+        "calibration_status": "NOT_CALIBRATED",
+        "halves": [
+          [
+            54.76192376088903,
+            56.97890189900908
+          ],
+          [
+            52.07386720167821,
+            56.478901162561954
+          ]
+        ],
+        "home": 106.83579096256724,
+        "home_handicap": 6.622012099003783,
+        "margin": -6.622012099003783,
+        "metadata": {
+          "artifact_digest": "c9c073c5203f0167ee1157d15158097d8253634e5525063b2e2240236bd5b028",
+          "coefficient_posterior_covariance": "CONJUGATE_GAUSSIAN_EMPIRICAL_BAYES",
+          "correlation_assumption": -0.0018156570306817534,
+          "distribution": "ROUNDED_CLIPPED_NORMAL",
+          "elapsed_seconds": 0.010022161004599184,
+          "fit_cutoff_utc": 1794526101,
+          "latent_normal_locations": [
+            106.83579096256724,
+            113.45780306157103
+          ],
+          "method": "RQMC_HALTON",
+          "noise_variance": 153.6318237029325,
+          "player_effect": "NO_VERIFIED_PREMATCH_PLAYER_EXPOSURES",
+          "quarter_allocation": "LARGEST_REMAINDER_HISTORICAL_WEIGHTS_NOT_PBP",
+          "scenarios": 10000,
+          "seed": 20261112,
+          "training_games": 170
+        },
+        "model": "BAYES_TEAM_ATTACK_DEFENSE_V1",
+        "quarters": [
+          [
+            28.092280781228915,
+            28.23945076539256
+          ],
+          [
+            26.669642979660114,
+            28.73945113361652
+          ],
+          [
+            27.356038126434218,
+            28.48945076539276
+          ],
+          [
+            24.717829075243998,
+            27.98945039716919
+          ]
+        ],
+        "scope": "REGULATION_ONLY",
+        "total": 220.29359402413826,
+        "winner": [
+          0.3498,
+          0.0198,
+          0.6304
+        ]
+      },
+      "command": "/analyze NBA 2026-11-13 Washington Wizards vs Detroit Pistons",
+      "rendered_parts": [
+        "<b>ZEYNAL | NBA ARŞİV REPLAY</b>\nWashington Wizards – Detroit Pistons\nBaşlangıç: 13.11.2026 03:00:00 TSİ\nUTC: 2026-11-13T00:00:00Z\nYeni PREMATCH tahmini değildir; orijinal kayıt yeniden gösteriliyor.\nNormal süre; uzatma hariç.\n\n<b>ORİJİNAL SKOR PROJEKSİYONU</b>\n106.84 – 113.46\nToplam: 220.29 | Ev farkı: -6.62\nModel ev handikabı: +6.62 (piyasa çizgisi değil)\n\n<b>KAYITLI PERİYOTLAR</b>\n1Q: 28.09 – 28.24 | Toplam 56.33\n2Q: 26.67 – 28.74 | Toplam 55.41\n3Q: 27.36 – 28.49 | Toplam 55.85\n4Q: 24.72 – 27.99 | Toplam 52.71\n1H: 54.76 – 56.98 | Toplam 111.74\n2H: 52.07 – 56.48 | Toplam 108.55\n\n<b>ORİJİNAL QMC ARALIKLARI</b>\n1H: P50 112 | P25–P75 105–118\nP10–P90 100–124 | P05–P95 96–127\n1Q: P50 56 | P25–P75 53–59\nP10–P90 50–62 | P05–P95 49–64\n2H: P50 109 | P25–P75 102–115\nP10–P90 97–120 | P05–P95 94–123\n2Q: P50 55 | P25–P75 52–59\nP10–P90 49–61 | P05–P95 48–63\n3Q: P50 56 | P25–P75 53–59\nP10–P90 50–62 | P05–P95 48–64\n4Q: P50 53 | P25–P75 50–56\nP10–P90 47–58 | P05–P95 45–60\nAWAY: P50 113 | P25–P75 105–122\nP10–P90 97–130 | P05–P95 92–135\nHOME: P50 107 | P25–P75 98–116\nP10–P90 90–123 | P05–P95 85–128\nHOME_HANDICAP: P50 7 | P25–P75 -6–19\nP10–P90 -17–30 | P05–P95 -23–37\nMARGIN: P50 -7 | P25–P75 -19–6\nP10–P90 -30–17 | P05–P95 -37–23\nTOTAL: P50 220 | P25–P75 208–233\nP10–P90 197–244 | P05–P95 190–251\nAralıklar arşivdeki ham dağılımdır; gerçekleşme veya güven garantisi değildir.\n\n<b>KAYITLI MC / QMC</b>\nYeni simülasyon çalıştırılmadı.\nQMC: RQMC_HALTON, n=10000, seed=20261112\nSkor 106.84 – 113.46 | Toplam 220.29\nToplam P50 220 | P25–P75 208–233 | P05–P95 190–251\nHam normal süre olasılığı (kalibre edilmedi): Ev / eşitlik / dep %34.98 / %1.98 / %63.04\nMC: MC, n=10000, seed=20261112\nSkor 106.84 – 113.46 | Toplam 220.29\nToplam P50 220 | P25–P75 208–233 | P05–P95 190–250\nHam normal süre olasılığı (kalibre edilmedi): Ev / eşitlik / dep %35.03 / %1.97 / %63.00\nBunlar güven yüzdesi veya doğrulanmış başarı oranı değildir.\n\n<b>KALİBRASYON VE KAYNAK</b>\nNOT_CALIBRATED\nGüven endeksi: hesaplanamadı.\nPiyasa verisi doğrulanamadı; barem/edge/öneri üretilmedi.\nEksik: verified_pace, injuries, lineups, rotation, market\nModel: ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1\nModel SHA: cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982\nKimliği doğrulanan kaynak: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&amp;limit=1000\nOrijinal fixture_source_url alanı: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261113&amp;limit=1000\nİki alan farklıysa kaynaklar arasından gerçek maç kimliği eşleştirilmiştir; eski alan değiştirilmedi.\n\n<b>ORİJİNAL ZAMANLAR VE BÜTÜNLÜK</b>\nÜretim: 2026-11-12T23:30:27Z | 13.11.2026 02:30:27 TSİ\nSnapshot: 2026-11-12T23:30:27Z | 13.11.2026 02:30:27 TSİ\nVeri: 2026-11-12T23:30:27Z | 13.11.2026 02:30:27 TSİ\nSnapshot SHA-256: 7631a34a939f6b0e659e910b58fd2bb629c0d8a3387b221ddb91c4034f7f2bf4\nPaket SHA-256: 9e95f0d849f530325ef881e389179796577a82c65c4aa3be798bbaa2bf3700b3\nVaryant: capture-optimized; dört maç, dört kayıt. İlk varyant arşivleri değiştirilmedi."
+      ]
+    },
+    {
+      "home": "Minnesota Timberwolves",
+      "away": "Dallas Mavericks",
+      "snapshot_sha256": "959ee75565ce4334ebfc02732133e7fd1b3196c6c490b86a33196b5d49d4b388",
+      "tipoff_utc": 1794531600,
+      "generated_utc": 1794526235,
+      "created_utc": 1794526235,
+      "source_utc": 1794526235,
+      "original_source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261113&limit=1000",
+      "verified_fixture_source": {
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&limit=1000",
+        "document_sha256": "a0ea7d15396ad77e0b39593a9a23a312f05f66108a3daf5b9639f25a77306639",
+        "observed_at_utc": 1794526228,
+        "ingested_at_utc": 1794526228
+      },
+      "projection": {
+        "away": 109.79401485600286,
+        "calibration_status": "NOT_CALIBRATED",
+        "halves": [
+          [
+            57.55043416263743,
+            55.05802668826155
+          ],
+          [
+            56.493931970910516,
+            54.73598816774131
+          ]
+        ],
+        "home": 114.04436613354795,
+        "home_handicap": -4.250351277545093,
+        "margin": 4.250351277545093,
+        "metadata": {
+          "artifact_digest": "c9c073c5203f0167ee1157d15158097d8253634e5525063b2e2240236bd5b028",
+          "coefficient_posterior_covariance": "CONJUGATE_GAUSSIAN_EMPIRICAL_BAYES",
+          "correlation_assumption": -0.0014022780182537887,
+          "distribution": "ROUNDED_CLIPPED_NORMAL",
+          "elapsed_seconds": 0.010910710996540729,
+          "fit_cutoff_utc": 1794526101,
+          "latent_normal_locations": [
+            114.04436613354794,
+            109.79401485600286
+          ],
+          "method": "RQMC_HALTON",
+          "noise_variance": 153.6318237029325,
+          "player_effect": "NO_VERIFIED_PREMATCH_PLAYER_EXPOSURES",
+          "quarter_allocation": "LARGEST_REMAINDER_HISTORICAL_WEIGHTS_NOT_PBP",
+          "scenarios": 10000,
+          "seed": 20261112,
+          "training_games": 170
+        },
+        "model": "BAYES_TEAM_ATTACK_DEFENSE_V1",
+        "quarters": [
+          [
+            28.636091533386985,
+            26.851457984133614
+          ],
+          [
+            28.91434262925044,
+            28.206568704127932
+          ],
+          [
+            28.108724905202195,
+            27.573503714000715
+          ],
+          [
+            28.38520706570832,
+            27.162484453740596
+          ]
+        ],
+        "scope": "REGULATION_ONLY",
+        "total": 223.8383809895508,
+        "winner": [
+          0.5808,
+          0.021,
+          0.3982
+        ]
+      },
+      "command": "/analyze NBA 2026-11-13 Minnesota Timberwolves vs Dallas Mavericks",
+      "rendered_parts": [
+        "<b>ZEYNAL | NBA ARŞİV REPLAY</b>\nMinnesota Timberwolves – Dallas Mavericks\nBaşlangıç: 13.11.2026 04:00:00 TSİ\nUTC: 2026-11-13T01:00:00Z\nYeni PREMATCH tahmini değildir; orijinal kayıt yeniden gösteriliyor.\nNormal süre; uzatma hariç.\n\n<b>ORİJİNAL SKOR PROJEKSİYONU</b>\n114.04 – 109.79\nToplam: 223.84 | Ev farkı: +4.25\nModel ev handikabı: -4.25 (piyasa çizgisi değil)\n\n<b>KAYITLI PERİYOTLAR</b>\n1Q: 28.64 – 26.85 | Toplam 55.49\n2Q: 28.91 – 28.21 | Toplam 57.12\n3Q: 28.11 – 27.57 | Toplam 55.68\n4Q: 28.39 – 27.16 | Toplam 55.55\n1H: 57.55 – 55.06 | Toplam 112.61\n2H: 56.49 – 54.74 | Toplam 111.23\n\n<b>ORİJİNAL QMC ARALIKLARI</b>\n1H: P50 113 | P25–P75 106–119\nP10–P90 101–125 | P05–P95 97–128\n1Q: P50 55 | P25–P75 52–59\nP10–P90 50–61 | P05–P95 48–63\n2H: P50 111 | P25–P75 105–117\nP10–P90 100–123 | P05–P95 96–126\n2Q: P50 57 | P25–P75 54–60\nP10–P90 51–63 | P05–P95 49–65\n3Q: P50 56 | P25–P75 53–59\nP10–P90 50–62 | P05–P95 48–63\n4Q: P50 56 | P25–P75 52–59\nP10–P90 50–61 | P05–P95 48–63\nAWAY: P50 110 | P25–P75 101–119\nP10–P90 93–126 | P05–P95 88–131\nHOME: P50 114 | P25–P75 105–123\nP10–P90 97–131 | P05–P95 93–135\nHOME_HANDICAP: P50 -4 | P25–P75 -17–8\nP10–P90 -28–19 | P05–P95 -34–26\nMARGIN: P50 4 | P25–P75 -8–17\nP10–P90 -19–28 | P05–P95 -26–34\nTOTAL: P50 224 | P25–P75 211–236\nP10–P90 200–247 | P05–P95 193–254\nAralıklar arşivdeki ham dağılımdır; gerçekleşme veya güven garantisi değildir.\n\n<b>KAYITLI MC / QMC</b>\nYeni simülasyon çalıştırılmadı.\nQMC: RQMC_HALTON, n=10000, seed=20261112\nSkor 114.04 – 109.79 | Toplam 223.84\nToplam P50 224 | P25–P75 211–236 | P05–P95 193–254\nHam normal süre olasılığı (kalibre edilmedi): Ev / eşitlik / dep %58.08 / %2.10 / %39.82\nMC: MC, n=10000, seed=20261112\nSkor 114.04 – 109.79 | Toplam 223.84\nToplam P50 224 | P25–P75 211–236 | P05–P95 194–254\nHam normal süre olasılığı (kalibre edilmedi): Ev / eşitlik / dep %58.04 / %2.08 / %39.88\nBunlar güven yüzdesi veya doğrulanmış başarı oranı değildir.\n\n<b>KALİBRASYON VE KAYNAK</b>\nNOT_CALIBRATED\nGüven endeksi: hesaplanamadı.\nPiyasa verisi doğrulanamadı; barem/edge/öneri üretilmedi.\nEksik: verified_pace, injuries, lineups, rotation, market\nModel: ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1\nModel SHA: cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982\nKimliği doğrulanan kaynak: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&amp;limit=1000\nOrijinal fixture_source_url alanı: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261113&amp;limit=1000\nİki alan farklıysa kaynaklar arasından gerçek maç kimliği eşleştirilmiştir; eski alan değiştirilmedi.\n\n<b>ORİJİNAL ZAMANLAR VE BÜTÜNLÜK</b>\nÜretim: 2026-11-12T23:30:35Z | 13.11.2026 02:30:35 TSİ\nSnapshot: 2026-11-12T23:30:35Z | 13.11.2026 02:30:35 TSİ\nVeri: 2026-11-12T23:30:35Z | 13.11.2026 02:30:35 TSİ\nSnapshot SHA-256: 959ee75565ce4334ebfc02732133e7fd1b3196c6c490b86a33196b5d49d4b388\nPaket SHA-256: 9e95f0d849f530325ef881e389179796577a82c65c4aa3be798bbaa2bf3700b3\nVaryant: capture-optimized; dört maç, dört kayıt. İlk varyant arşivleri değiştirilmedi."
+      ]
+    },
+    {
+      "home": "Phoenix Suns",
+      "away": "Charlotte Hornets",
+      "snapshot_sha256": "b736deff32be2ab295d1ab7427ee1c610de6a637cf1fa3870d89eb1f38f5fdce",
+      "tipoff_utc": 1794535200,
+      "generated_utc": 1794526242,
+      "created_utc": 1794526242,
+      "source_utc": 1794526242,
+      "original_source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&limit=1000",
+      "verified_fixture_source": {
+        "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&limit=1000",
+        "document_sha256": "a0ea7d15396ad77e0b39593a9a23a312f05f66108a3daf5b9639f25a77306639",
+        "observed_at_utc": 1794526242,
+        "ingested_at_utc": 1794526242
+      },
+      "projection": {
+        "away": 106.94233618773367,
+        "calibration_status": "NOT_CALIBRATED",
+        "halves": [
+          [
+            56.152353987936735,
+            55.73842861683403
+          ],
+          [
+            56.84264136808636,
+            51.203907570899645
+          ]
+        ],
+        "home": 112.99499535602308,
+        "home_handicap": -6.052659168289409,
+        "margin": 6.052659168289409,
+        "metadata": {
+          "artifact_digest": "c9c073c5203f0167ee1157d15158097d8253634e5525063b2e2240236bd5b028",
+          "coefficient_posterior_covariance": "CONJUGATE_GAUSSIAN_EMPIRICAL_BAYES",
+          "correlation_assumption": -0.0014815439058226347,
+          "distribution": "ROUNDED_CLIPPED_NORMAL",
+          "elapsed_seconds": 0.015431059000547975,
+          "fit_cutoff_utc": 1794526101,
+          "latent_normal_locations": [
+            112.9949953560231,
+            106.94233618773367
+          ],
+          "method": "RQMC_HALTON",
+          "noise_variance": 153.6318237029325,
+          "player_effect": "NO_VERIFIED_PREMATCH_PLAYER_EXPOSURES",
+          "quarter_allocation": "LARGEST_REMAINDER_HISTORICAL_WEIGHTS_NOT_PBP",
+          "scenarios": 10000,
+          "seed": 20261112,
+          "training_games": 170
+        },
+        "model": "BAYES_TEAM_ATTACK_DEFENSE_V1",
+        "quarters": [
+          [
+            28.21132339669588,
+            26.254780858520753
+          ],
+          [
+            27.941030591240857,
+            29.48364775831328
+          ],
+          [
+            29.216767218822888,
+            27.503431660537395
+          ],
+          [
+            27.625874149263474,
+            23.70047591036225
+          ]
+        ],
+        "scope": "REGULATION_ONLY",
+        "total": 219.93733154375676,
+        "winner": [
+          0.6184,
+          0.0206,
+          0.361
+        ]
+      },
+      "command": "/analyze NBA 2026-11-13 Phoenix Suns vs Charlotte Hornets",
+      "rendered_parts": [
+        "<b>ZEYNAL | NBA ARŞİV REPLAY</b>\nPhoenix Suns – Charlotte Hornets\nBaşlangıç: 13.11.2026 05:00:00 TSİ\nUTC: 2026-11-13T02:00:00Z\nYeni PREMATCH tahmini değildir; orijinal kayıt yeniden gösteriliyor.\nNormal süre; uzatma hariç.\n\n<b>ORİJİNAL SKOR PROJEKSİYONU</b>\n112.99 – 106.94\nToplam: 219.94 | Ev farkı: +6.05\nModel ev handikabı: -6.05 (piyasa çizgisi değil)\n\n<b>KAYITLI PERİYOTLAR</b>\n1Q: 28.21 – 26.25 | Toplam 54.47\n2Q: 27.94 – 29.48 | Toplam 57.42\n3Q: 29.22 – 27.50 | Toplam 56.72\n4Q: 27.63 – 23.70 | Toplam 51.33\n1H: 56.15 – 55.74 | Toplam 111.89\n2H: 56.84 – 51.20 | Toplam 108.05\n\n<b>ORİJİNAL QMC ARALIKLARI</b>\n1H: P50 112 | P25–P75 106–118\nP10–P90 100–124 | P05–P95 97–127\n1Q: P50 54 | P25–P75 51–57\nP10–P90 49–60 | P05–P95 47–62\n2H: P50 108 | P25–P75 102–114\nP10–P90 96–120 | P05–P95 93–123\n2Q: P50 57 | P25–P75 54–61\nP10–P90 51–64 | P05–P95 49–65\n3Q: P50 57 | P25–P75 53–60\nP10–P90 51–63 | P05–P95 49–65\n4Q: P50 51 | P25–P75 48–54\nP10–P90 46–57 | P05–P95 44–59\nAWAY: P50 107 | P25–P75 98–116\nP10–P90 90–124 | P05–P95 85.95–128\nHOME: P50 113 | P25–P75 104–122\nP10–P90 96–130 | P05–P95 92–134\nHOME_HANDICAP: P50 -6 | P25–P75 -18–6\nP10–P90 -30–18 | P05–P95 -36–24\nMARGIN: P50 6 | P25–P75 -6–18\nP10–P90 -18–30 | P05–P95 -24–36\nTOTAL: P50 220 | P25–P75 207.75–232\nP10–P90 196–244 | P05–P95 190–250\nAralıklar arşivdeki ham dağılımdır; gerçekleşme veya güven garantisi değildir.\n\n<b>KAYITLI MC / QMC</b>\nYeni simülasyon çalıştırılmadı.\nQMC: RQMC_HALTON, n=10000, seed=20261112\nSkor 112.99 – 106.94 | Toplam 219.94\nToplam P50 220 | P25–P75 207.75–232 | P05–P95 190–250\nHam normal süre olasılığı (kalibre edilmedi): Ev / eşitlik / dep %61.84 / %2.06 / %36.10\nMC: MC, n=10000, seed=20261112\nSkor 112.99 – 106.94 | Toplam 219.94\nToplam P50 220 | P25–P75 208–233 | P05–P95 190–250\nHam normal süre olasılığı (kalibre edilmedi): Ev / eşitlik / dep %61.64 / %2.14 / %36.22\nBunlar güven yüzdesi veya doğrulanmış başarı oranı değildir.\n\n<b>KALİBRASYON VE KAYNAK</b>\nNOT_CALIBRATED\nGüven endeksi: hesaplanamadı.\nPiyasa verisi doğrulanamadı; barem/edge/öneri üretilmedi.\nEksik: verified_pace, injuries, lineups, rotation, market\nModel: ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1\nModel SHA: cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982\nKimliği doğrulanan kaynak: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&amp;limit=1000\nOrijinal fixture_source_url alanı: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&amp;limit=1000\nİki alan farklıysa kaynaklar arasından gerçek maç kimliği eşleştirilmiştir; eski alan değiştirilmedi.\n\n<b>ORİJİNAL ZAMANLAR VE BÜTÜNLÜK</b>\nÜretim: 2026-11-12T23:30:42Z | 13.11.2026 02:30:42 TSİ\nSnapshot: 2026-11-12T23:30:42Z | 13.11.2026 02:30:42 TSİ\nVeri: 2026-11-12T23:30:42Z | 13.11.2026 02:30:42 TSİ\nSnapshot SHA-256: b736deff32be2ab295d1ab7427ee1c610de6a637cf1fa3870d89eb1f38f5fdce\nPaket SHA-256: 9e95f0d849f530325ef881e389179796577a82c65c4aa3be798bbaa2bf3700b3\nVaryant: capture-optimized; dört maç, dört kayıt. İlk varyant arşivleri değiştirilmedi."
+      ]
+    }
+  ],
+  "immutable_archive_files": {
+    "docs/evidence/nba-phase843-prospective-native-20261113.tar.gz": "9e95f0d849f530325ef881e389179796577a82c65c4aa3be798bbaa2bf3700b3",
+    "docs/prospective/euroleague-20261112/0914956095da0ba9884454b69f8e5bfe6a7599289a5db2ed02670543b497d907.json": "8064720da55d0f72fa8bc34e903e2c71232a05eb1934b2804d0f15c12b4f1268",
+    "docs/prospective/euroleague-20261112/0baa4e2b3cb54554f9b5d0667717cbee61e5cdf0367e99b909139ae4611d6a8f.json": "b3c1b44b07ee6209f3f0e53166973e07cda05d40c3f8c2e26775eb930c3191ef",
+    "docs/prospective/euroleague-20261112/1cc7909d262d9ddebf26ec8f4a2b08acdc212b5334d222dcb6f38b5bc819b8c9.json": "0c48317d566b1c9909e2505906a62ad0eac15f66f64f3354544988f54146ecfb",
+    "docs/prospective/euroleague-20261112/2aed77cda2f34fbaed9ed0d378b249eefa2784d36ff285f2ea9dd44c4663ce43.json": "48c5e8f8592993176f1d0295b0bbbd96a394d7b850f60dee592d8322d6c0ffb0",
+    "docs/prospective/euroleague-20261112/4693553816c60ba15e09e0d34e08504e4e1f076cf706454a1d09f9b0fd063283.json": "ed9fb6366af6053fc3df0bdc4d48bf0ec6b6a010a925819519854b6e60880110",
+    "docs/prospective/euroleague-20261112/README.md": "287ff40f42cbdb7f828c292c9e5ae6de547dc43e8120669c9e7d4889fd6ef0fb",
+    "docs/prospective/euroleague-20261112/bayes-a117b1b488659b3827d93f6456079a54f33a85b5b9b61a5e23321d49599c5b9c.json": "eb99aece26cdb609beca763776a2b16e87eca5beb7e4ebeb5930457b0efe2293",
+    "docs/prospective/euroleague-20261112/index-c87489f84f5efa2c3abfae51f641bc066a6ab875f44c94bc197a0a49588b03d1.json": "441ecda168b7b0d6137141d9bf732ae6de53c2fe5f5db247b253eccdf93a9ede",
+    "docs/prospective/euroleague-20261112/inputs-2fa9e2e2b66eb0c8e9b03caa80b25683ef197d2f2eb1e6e31c55f90e55ed95e3.json.gz": "2fa9e2e2b66eb0c8e9b03caa80b25683ef197d2f2eb1e6e31c55f90e55ed95e3",
+    "docs/prospective/euroleague-20261112/inputs-32dcfa63d681da2b27b50e307ccc8e9dfb19418caec9c75ec8a8602714acd740.json.gz": "32dcfa63d681da2b27b50e307ccc8e9dfb19418caec9c75ec8a8602714acd740",
+    "docs/prospective/euroleague-20261112/inputs-a666a45427528cb710dc50445552cd27845b1341f9ea72bb6d4bd40cde2cdd69.json.gz": "a666a45427528cb710dc50445552cd27845b1341f9ea72bb6d4bd40cde2cdd69",
+    "docs/prospective/euroleague-20261112/inputs-cc98636467566ac3caa4fa30b06f3a3d78123ce6228e66801095c0cb21cb3559.json.gz": "cc98636467566ac3caa4fa30b06f3a3d78123ce6228e66801095c0cb21cb3559",
+    "docs/prospective/euroleague-20261112/inputs-d9d2f0e7e879af2e0712468bf220ff0ad98a10fafb249095faee3e2bacbc36b5.json.gz": "d9d2f0e7e879af2e0712468bf220ff0ad98a10fafb249095faee3e2bacbc36b5",
+    "docs/prospective/euroleague-20261112/official-5e5f9416e880b9f4c04da69ae1712f5a5cd9cf4bf27d4f2c9ba74f5407aa2cd6.json.gz": "5e5f9416e880b9f4c04da69ae1712f5a5cd9cf4bf27d4f2c9ba74f5407aa2cd6",
+    "docs/prospective/euroleague-20261112/verification-e358ecf01cd564820f7631ce7cc48c9deaf62f865961e869755985c9da916921.json": "17ed453c5193c2e04e9934cf0bf5acce26deed6b64f0cd367b53a947e7029eef",
+    "docs/prospective/nba-20261113/60d544d323b152373731f959f6cb808d48505f8c3cd7336a3cab4143927b514c.json": "6f7ea6354d4a21b74ec63c400a1314b0a3e9e1de657f68bab0beab9b1e4e48c0",
+    "docs/prospective/nba-20261113/7085c7f0ef432f2775ce0fb626e232b6a01eda9d357241e48d862fafc8fd02ba.json": "03590ecfe216f6935dbe04c00f32d530d0e5646e3b6d555dd58c682d67e7a937",
+    "docs/prospective/nba-20261113/7631a34a939f6b0e659e910b58fd2bb629c0d8a3387b221ddb91c4034f7f2bf4.json": "df7e48357406e7110b1a9cc24a61f6589599fb9bf19119f5badb5284e96069ad",
+    "docs/prospective/nba-20261113/76e02080dc085562e5092fc425dab75140d6c05a32d852775041cb499b787256.json": "7afa65d1555cffc4d17517e4b6f76641b95c3465c487cef053c1ea490dd3ad54",
+    "docs/prospective/nba-20261113/772f2792c1be21dcedcdf7ce8eb9db07abf99786ab24c114238cb3f092727156.json": "3b9d139b4b57416cd64f11c456bb42bcd49b76d84f9d380afe1fe939e5ceac09",
+    "docs/prospective/nba-20261113/959ee75565ce4334ebfc02732133e7fd1b3196c6c490b86a33196b5d49d4b388.json": "01faee75e7127a4f2589e238f59b5152306e9973dfce5318792755feb88d4926",
+    "docs/prospective/nba-20261113/b736deff32be2ab295d1ab7427ee1c610de6a637cf1fa3870d89eb1f38f5fdce.json": "6181d27b4699641229527f1b414aab613755251caf05191ada9d7ca57bc57c05",
+    "docs/prospective/nba-20261113/bc5cd09829c97c5ebfd94c5e3aa7ae758d0126cdfc5e36ce46010e16fbeacd9e.json": "8b4b3bee68126e789acad9041d1348e2fb246b1cf48737c79caeb878e779ef72",
+    "docs/prospective/nba-20261113/index-b59c2c465800bbddd0a1c133ada2150500ec9b7390ef9bd5a82d012fd0d4255b.json": "dd4ccdf754372d9bb0ec04de03e7965db8a3969704d26c4bfb74922d79e2f175",
+    "docs/prospective/phase845-20261113/first-65d6ed50e1b1b855b18ccc5b8092f218164536feb7b3f2d71ded37b5fe53fb46.json": "d010a1c4dbc9314ad84370ee2e3a28aacd3d4a7a808ad512b603b3f8f61608db",
+    "docs/prospective/phase845-20261113/first-b8b28f1e8aaf0a7f4b603f22bd9275398a21bf8f64f4e9a3cb4485fa6c8a379d.json": "0ed4c78f9be2eb67655cdc0ac94a73e2354fc5a3785aa86c8f8291dff7bbe449",
+    "docs/prospective/phase845-20261113/first-deb5b8484efbf4715a12951b140851447ce5ce403030e5eb67d58c9005c9cb3a.json": "c7dc0dd5dac016dc2f86a2d3131a83954ce75206ed213e625c248ec1985dca99",
+    "docs/prospective/phase845-20261113/forecast-1a5305176940adfae6dae9aa8b15cccfa8196c64325eb24e44c512ed7f1cbe63.json": "7380d8cdeb80d7468e7ac4b979aada9befc4d2328c5d5c569f7adfd706254bca",
+    "docs/prospective/phase845-20261113/forecast-5143baef3eee74b4f037730cf959fa6ad60489f0c30b2a8623ac404a50895b66.json": "a3c68cfda224b4f5ab3b8569c9941d56971f60b7543c9216b0e5fed0503cd916",
+    "docs/prospective/phase845-20261113/forecast-c19572ee7acab747a682ff3c5290643d3b3ed801e8c3633ca7e865580d48f674.json": "cc9260ce2696682d0872f817bedc41a722ce68794715378efb9dd95e88ed5292",
+    "docs/prospective/phase845-20261113/manifest.json": "c5aaa1aea8e534a5600f201708b858034c889ce623acfde68f6ba7b2be5214fe",
+    "docs/prospective/phase845-20261113/nba-709a4af2d17ab441077009148f0b285a4d5db8403dd3792fe50ec3387cf2bf32.json": "4168acf3d4858b7ff76c943f77403522437add648be962eae7ff53f55bdc1310"
+  },
+  "no_prediction_or_training_called_in_nba_command_tests": true,
+  "new_records": 0,
+  "archive_writes": 0,
+  "actual_telegram_delivery_verified": false,
+  "real_telegram_status": "USER_REPORTED_TECHNICAL_E2E_BLOCKED",
+  "runtime": {
+    "format": "NBA_ARCHIVE_REPLAY_RUNTIME_V1",
+    "status": "PASS",
+    "actual_telegram_delivery_verified": false,
+    "transport": "LOCAL_HTTP_API_DOUBLE_NOT_REAL_TELEGRAM",
+    "requests": 29,
+    "successful_message_deliveries": 29,
+    "nba_source": "PINNED_FAZ843_NATIVE_ARCHIVE",
+    "nba_replay_records": 4,
+    "observed_cgroup": {
+      "memory.max": "8589934592",
+      "memory.peak": "5306224640",
+      "cpu.max": "200000 100000"
+    },
+    "command_names": [
+      "/accuracy",
+      "/analyze",
+      "/compare",
+      "/nba"
+    ],
+    "unauthorized_chat_rejected": true,
+    "frozen_records": 5,
+    "frozen_components": 20,
+    "archive_unchanged": true,
+    "new_prematch_records_created": 0,
+    "inference_components": [
+      "BAYES_QMC",
+      "POSSESSION_ANALYTIC",
+      "POSSESSION_MC",
+      "FAZ13_MC"
+    ],
+    "online_training": false,
+    "verified_confidence_indices": 0,
+    "actual_final_results": 0,
+    "report_commands_research_labeled": true,
+    "health_ready": {
+      "ready": true,
+      "release_sha": "UNKNOWN"
+    },
+    "address_space_limit_bytes": [
+      268435456,
+      268435456
+    ],
+    "cpu_affinity": [
+      0
+    ],
+    "peak_rss_mib": 88.12890625,
+    "elapsed_seconds": 0.5877295130048878,
+    "reply_interval_p95_seconds": 0.08868272120598678,
+    "latency_scope": "SEQUENTIAL_LOCAL_HTTP_REPLY_INTERVAL_INCLUDES_HANDLER_AND_SEND_NOT_INTERNET_LATENCY",
+    "cache_serialized_bytes": 0,
+    "python_version": "3.12.14",
+    "native_ml_libraries_loaded": [],
+    "timeline_events": [
+      {
+        "attempted_at_utc": 1794565224,
+        "message_sha256": "0085dc22d6cda9653bbc056d6e6c7b9e2d7f8cc8942473f007f847edc91f05a2",
+        "part_count": 1,
+        "part_index": 0,
+        "record_type": "TELEGRAM_ANALYSIS_DELIVERY",
+        "request_sha256": "606d8513a083630950ee46d28d2bca0014ddeaccc995f6f56e857f881049fba1",
+        "status": "ATTEMPTED",
+        "telegram_sent_at_utc": null,
+        "timeline": {
+          "archive_published_at_utc": null,
+          "first_archived_at_utc": null,
+          "prediction_generated_at_utc": 1794526219,
+          "replay_completed_at_utc": 1794565224,
+          "response_prepared_at_utc": 1794565224,
+          "reused_forecast": true,
+          "snapshot_created_at_utc": 1794526219,
+          "snapshot_sha256": "7085c7f0ef432f2775ce0fb626e232b6a01eda9d357241e48d862fafc8fd02ba",
+          "telegram_reply_at_utc": null,
+          "telegram_sent_at_utc": null,
+          "tipoff_utc": 1794528000
+        },
+        "update_id": 2
+      },
+      {
+        "attempted_at_utc": 1794565224,
+        "message_sha256": "0085dc22d6cda9653bbc056d6e6c7b9e2d7f8cc8942473f007f847edc91f05a2",
+        "part_count": 1,
+        "part_index": 0,
+        "record_type": "TELEGRAM_ANALYSIS_DELIVERY",
+        "request_sha256": "606d8513a083630950ee46d28d2bca0014ddeaccc995f6f56e857f881049fba1",
+        "status": "TELEGRAM_ACCEPTED",
+        "telegram_ack_at_utc": 1794565224,
+        "telegram_message_id": 1002,
+        "telegram_reply_at_utc": 1794565224,
+        "telegram_sent_at_utc": 1794565224,
+        "timeline": {
+          "archive_published_at_utc": null,
+          "first_archived_at_utc": null,
+          "prediction_generated_at_utc": 1794526219,
+          "replay_completed_at_utc": 1794565224,
+          "response_prepared_at_utc": 1794565224,
+          "reused_forecast": true,
+          "snapshot_created_at_utc": 1794526219,
+          "snapshot_sha256": "7085c7f0ef432f2775ce0fb626e232b6a01eda9d357241e48d862fafc8fd02ba",
+          "telegram_reply_at_utc": null,
+          "telegram_sent_at_utc": null,
+          "tipoff_utc": 1794528000
+        },
+        "update_id": 2
+      },
+      {
+        "attempted_at_utc": 1794565224,
+        "message_sha256": "58f61556cdb5ee60271da7a8150c7c5d53c62dd961a8f4064c6447677dcc8cb0",
+        "part_count": 1,
+        "part_index": 0,
+        "record_type": "TELEGRAM_ANALYSIS_DELIVERY",
+        "request_sha256": "a0eba7a856338624735eac73595ce1182e4840189ff71d597ba925a46e6b9768",
+        "status": "ATTEMPTED",
+        "telegram_sent_at_utc": null,
+        "timeline": {
+          "archive_published_at_utc": null,
+          "first_archived_at_utc": null,
+          "prediction_generated_at_utc": 1794526227,
+          "replay_completed_at_utc": 1794565224,
+          "response_prepared_at_utc": 1794565224,
+          "reused_forecast": true,
+          "snapshot_created_at_utc": 1794526227,
+          "snapshot_sha256": "7631a34a939f6b0e659e910b58fd2bb629c0d8a3387b221ddb91c4034f7f2bf4",
+          "telegram_reply_at_utc": null,
+          "telegram_sent_at_utc": null,
+          "tipoff_utc": 1794528000
+        },
+        "update_id": 3
+      },
+      {
+        "attempted_at_utc": 1794565224,
+        "message_sha256": "58f61556cdb5ee60271da7a8150c7c5d53c62dd961a8f4064c6447677dcc8cb0",
+        "part_count": 1,
+        "part_index": 0,
+        "record_type": "TELEGRAM_ANALYSIS_DELIVERY",
+        "request_sha256": "a0eba7a856338624735eac73595ce1182e4840189ff71d597ba925a46e6b9768",
+        "status": "TELEGRAM_ACCEPTED",
+        "telegram_ack_at_utc": 1794565224,
+        "telegram_message_id": 1003,
+        "telegram_reply_at_utc": 1794565224,
+        "telegram_sent_at_utc": 1794565224,
+        "timeline": {
+          "archive_published_at_utc": null,
+          "first_archived_at_utc": null,
+          "prediction_generated_at_utc": 1794526227,
+          "replay_completed_at_utc": 1794565224,
+          "response_prepared_at_utc": 1794565224,
+          "reused_forecast": true,
+          "snapshot_created_at_utc": 1794526227,
+          "snapshot_sha256": "7631a34a939f6b0e659e910b58fd2bb629c0d8a3387b221ddb91c4034f7f2bf4",
+          "telegram_reply_at_utc": null,
+          "telegram_sent_at_utc": null,
+          "tipoff_utc": 1794528000
+        },
+        "update_id": 3
+      }
+    ],
+    "command_examples": [
+      "NBA | 2026-11-13 | Türkiye saati\nKaynak: ESPN | Fikstür (tahmin değil)\n03:00 | Philadelphia 76ers - Toronto Raptors | ARŞİV REPLAY — güncel maç durumu değil\n03:00 | Washington Wizards - Detroit Pistons | ARŞİV REPLAY — güncel maç durumu değil\n04:00 | Minnesota Timberwolves - Dallas Mavericks | ARŞİV REPLAY — güncel maç durumu değil\n05:00 | Phoenix Suns - Charlotte Hornets | ARŞİV REPLAY — güncel maç durumu değil\nAnaliz: /analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman",
+      "<b>ZEYNAL | NBA ARŞİV REPLAY</b>\nPhiladelphia 76ers – Toronto Raptors\nBaşlangıç: 13.11.2026 03:00:00 TSİ\nUTC: 2026-11-13T00:00:00Z\nYeni PREMATCH tahmini değildir; orijinal kayıt yeniden gösteriliyor.\nNormal süre; uzatma hariç.\n\n<b>ORİJİNAL SKOR PROJEKSİYONU</b>\n111.34 – 111.25\nToplam: 222.59 | Ev farkı: +0.09\nModel ev handikabı: -0.09 (piyasa çizgisi değil)\n\n<b>KAYITLI PERİYOTLAR</b>\n1Q: 28.20 – 28.17 | Toplam 56.37\n2Q: 29.52 – 27.73 | Toplam 57.25\n3Q: 27.69 – 26.91 | Toplam 54.60\n4Q: 25.93 – 28.44 | Toplam 54.37\n1H: 57.72 – 55.90 | Toplam 113.62\n2H: 53.62 – 55.35 | Toplam 108.97\n\n<b>ORİJİNAL QMC ARALIKLARI</b>\n1H: P50 114 | P25–P75 107–120\nP10–P90 102–126 | P05–P95 98–129\n1Q: P50 56 | P25–P75 53–59\nP10–P90 50–62 | P05–P95 49–64\n2H: P50 109 | P25–P75 103–115\nP10–P90 97–120 | P05–P95 94–124\n2Q: P50 57 | P25–P75 54–60\nP10–P90 51–63 | P05–P95 49–65\n3Q: P50 55 | P25–P75 52–58\nP10–P90 49–60 | P05–P95 47–62\n4Q: P50 54 | P25–P75 51–57\nP10–P90 49–60 | P05–P95 47–62\nAWAY: P50 111 | P25–P75 102–120\nP10–P90 95–128 | P05–P95 90–133\nHOME: P50 111 | P25–P75 103–120\nP10–P90 95–128 | P05–P95 90–133\nHOME_HANDICAP: P50 0 | P25–P75 -12–12\nP10–P90 -24–24 | P05–P95 -30–30\nMARGIN: P50 0 | P25–P75 -12–12\nP10–P90 -24–24 | P05–P95 -30–30\nTOTAL: P50 223 | P25–P75 210–235\nP10–P90 199–246 | P05–P95 192–253\nAralıklar arşivdeki ham dağılımdır; gerçekleşme veya güven garantisi değildir.\n\n<b>KAYITLI MC / QMC</b>\nYeni simülasyon çalıştırılmadı.\nQMC: RQMC_HALTON, n=10000, seed=20261112\nSkor 111.34 – 111.25 | Toplam 222.59\nToplam P50 223 | P25–P75 210–235 | P05–P95 192–253\nHam normal süre olasılığı (kalibre edilmedi): Ev / eşitlik / dep %49.15 / %2.20 / %48.65\nMC: MC, n=10000, seed=20261112\nSkor 111.34 – 111.25 | Toplam 222.59\nToplam P50 223 | P25–P75 210–235 | P05–P95 193–252\nHam normal süre olasılığı (kalibre edilmedi): Ev / eşitlik / dep %49.39 / %1.87 / %48.74\nBunlar güven yüzdesi veya doğrulanmış başarı oranı değildir.\n\n<b>KALİBRASYON VE KAYNAK</b>\nNOT_CALIBRATED\nGüven endeksi: hesaplanamadı.\nPiyasa verisi doğrulanamadı; barem/edge/öneri üretilmedi.\nEksik: verified_pace, injuries, lineups, rotation, market\nModel: ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1\nModel SHA: cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982\nKimliği doğrulanan kaynak: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&amp;limit=1000\nOrijinal fixture_source_url alanı: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&amp;limit=1000\nİki alan farklıysa kaynaklar arasından gerçek maç kimliği eşleştirilmiştir; eski alan değiştirilmedi.\n\n<b>ORİJİNAL ZAMANLAR VE BÜTÜNLÜK</b>\nÜretim: 2026-11-12T23:30:19Z | 13.11.2026 02:30:19 TSİ\nSnapshot: 2026-11-12T23:30:19Z | 13.11.2026 02:30:19 TSİ\nVeri: 2026-11-12T23:30:19Z | 13.11.2026 02:30:19 TSİ\nSnapshot SHA-256: 7085c7f0ef432f2775ce0fb626e232b6a01eda9d357241e48d862fafc8fd02ba\nPaket SHA-256: 9e95f0d849f530325ef881e389179796577a82c65c4aa3be798bbaa2bf3700b3\nVaryant: capture-optimized; dört maç, dört kayıt. İlk varyant arşivleri değiştirilmedi.\nMevcut tahmin yeniden gösteriliyor; yeniden üretilmedi.\nÜretim: 13.11.2026 02:30:19 TSİ\nİlk kalıcı arşiv: ayrı kaydedilmemiş / bilinmiyor\nYanıt hazırlandı: 13.11.2026 13:20:24 TSİ\nTelegram gönderim zamanı: başarılı API yanıtında ayrı teslim kaydına alınır.",
+      "<b>ZEYNAL | NBA ARŞİV REPLAY</b>\nWashington Wizards – Detroit Pistons\nBaşlangıç: 13.11.2026 03:00:00 TSİ\nUTC: 2026-11-13T00:00:00Z\nYeni PREMATCH tahmini değildir; orijinal kayıt yeniden gösteriliyor.\nNormal süre; uzatma hariç.\n\n<b>ORİJİNAL SKOR PROJEKSİYONU</b>\n106.84 – 113.46\nToplam: 220.29 | Ev farkı: -6.62\nModel ev handikabı: +6.62 (piyasa çizgisi değil)\n\n<b>KAYITLI PERİYOTLAR</b>\n1Q: 28.09 – 28.24 | Toplam 56.33\n2Q: 26.67 – 28.74 | Toplam 55.41\n3Q: 27.36 – 28.49 | Toplam 55.85\n4Q: 24.72 – 27.99 | Toplam 52.71\n1H: 54.76 – 56.98 | Toplam 111.74\n2H: 52.07 – 56.48 | Toplam 108.55\n\n<b>ORİJİNAL QMC ARALIKLARI</b>\n1H: P50 112 | P25–P75 105–118\nP10–P90 100–124 | P05–P95 96–127\n1Q: P50 56 | P25–P75 53–59\nP10–P90 50–62 | P05–P95 49–64\n2H: P50 109 | P25–P75 102–115\nP10–P90 97–120 | P05–P95 94–123\n2Q: P50 55 | P25–P75 52–59\nP10–P90 49–61 | P05–P95 48–63\n3Q: P50 56 | P25–P75 53–59\nP10–P90 50–62 | P05–P95 48–64\n4Q: P50 53 | P25–P75 50–56\nP10–P90 47–58 | P05–P95 45–60\nAWAY: P50 113 | P25–P75 105–122\nP10–P90 97–130 | P05–P95 92–135\nHOME: P50 107 | P25–P75 98–116\nP10–P90 90–123 | P05–P95 85–128\nHOME_HANDICAP: P50 7 | P25–P75 -6–19\nP10–P90 -17–30 | P05–P95 -23–37\nMARGIN: P50 -7 | P25–P75 -19–6\nP10–P90 -30–17 | P05–P95 -37–23\nTOTAL: P50 220 | P25–P75 208–233\nP10–P90 197–244 | P05–P95 190–251\nAralıklar arşivdeki ham dağılımdır; gerçekleşme veya güven garantisi değildir.\n\n<b>KAYITLI MC / QMC</b>\nYeni simülasyon çalıştırılmadı.\nQMC: RQMC_HALTON, n=10000, seed=20261112\nSkor 106.84 – 113.46 | Toplam 220.29\nToplam P50 220 | P25–P75 208–233 | P05–P95 190–251\nHam normal süre olasılığı (kalibre edilmedi): Ev / eşitlik / dep %34.98 / %1.98 / %63.04\nMC: MC, n=10000, seed=20261112\nSkor 106.84 – 113.46 | Toplam 220.29\nToplam P50 220 | P25–P75 208–233 | P05–P95 190–250\nHam normal süre olasılığı (kalibre edilmedi): Ev / eşitlik / dep %35.03 / %1.97 / %63.00\nBunlar güven yüzdesi veya doğrulanmış başarı oranı değildir.\n\n<b>KALİBRASYON VE KAYNAK</b>\nNOT_CALIBRATED\nGüven endeksi: hesaplanamadı.\nPiyasa verisi doğrulanamadı; barem/edge/öneri üretilmedi.\nEksik: verified_pace, injuries, lineups, rotation, market\nModel: ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1\nModel SHA: cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982\nKimliği doğrulanan kaynak: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112&amp;limit=1000\nOrijinal fixture_source_url alanı: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261113&amp;limit=1000\nİki alan farklıysa kaynaklar arasından gerçek maç kimliği eşleştirilmiştir; eski alan değiştirilmedi.\n\n<b>ORİJİNAL ZAMANLAR VE BÜTÜNLÜK</b>\nÜretim: 2026-11-12T23:30:27Z | 13.11.2026 02:30:27 TSİ\nSnapshot: 2026-11-12T23:30:27Z | 13.11.2026 02:30:27 TSİ\nVeri: 2026-11-12T23:30:27Z | 13.11.2026 02:30:27 TSİ\nSnapshot SHA-256: 7631a34a939f6b0e659e910b58fd2bb629c0d8a3387b221ddb91c4034f7f2bf4\nPaket SHA-256: 9e95f0d849f530325ef881e389179796577a82c65c4aa3be798bbaa2bf3700b3\nVaryant: capture-optimized; dört maç, dört kayıt. İlk varyant arşivleri değiştirilmedi.\nMevcut tahmin yeniden gösteriliyor; yeniden üretilmedi.\nÜretim: 13.11.2026 02:30:27 TSİ\nİlk kalıcı arşiv: ayrı kaydedilmemiş / bilinmiyor\nYanıt hazırlandı: 13.11.2026 13:20:24 TSİ\nTelegram gönderim zamanı: başarılı API yanıtında ayrı teslim kaydına alınır.",
+      "ZEYNAL | İZOLE PROSPEKTİF ARAŞTIRMA | Normal süre\nSonuçlanan maç: 0 | Bekleyen: 5\nDoğrulanmış final yok; performans ve kalibrasyon hesaplanmadı.\nAraştırma kayıtlarıdır; üretim başarı oranı veya doğrulanmış güven yüzdesi değildir.",
+      "ZEYNAL | DONDURULMUŞ MODEL KARŞILAŞTIRMASI | Araştırma\nBAYES_QMC | 87.04 – 92.45 | Sonuç bekleniyor\nFAZ13_MC | 86.30 – 93.05 | Sonuç bekleniyor\nPOSSESSION_ANALYTIC | 84.24 – 91.55 | Sonuç bekleniyor\nPOSSESSION_MC | 84.24 – 91.55 | Sonuç bekleniyor"
+    ],
+    "runtime_source_pins": {
+      "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
+      "decision_layer.py": "bfaf6039ff102729d98c19f03b634763021cbc4c6ce741337cb13e74a62e14b2",
+      "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+      "forward_validation.py": "fb9e4a1782beb9f52be3c98d5c8615037a0df0a4a19f92dd23569b89b38ed32c",
+      "telegram_evidence.py": "b8700fb29cc4f58e4fbb56681a323e5383c71fa2066a8fd7b58f2f3d76222b66",
+      "live_runtime.py": "85bd8aaf4f704f9700582972b8dce0eb24eafd9c168a8764db35b4eeeb4a469d",
+      "prospective_results.py": "4a0c01a43fb2c1bdd7d864fe91e86e509ea8b8cf284eb6abbae66e19d6db48cc",
+      "frozen_archive.py": "95e7cc6d2f793be5faf48e86b17075ebe68e848df7be7f650a4c82575fcb3c67",
+      "quarter_shadow.py": "5fcc8c52c169ba3e17d3c3dff7d145c50b954749027a6bf218d58789119b08dc",
+      "euroleague_error_audit.py": "b6b5684d3b477c655925cbe90fc44bce1dd020816fc2a80c3474c56335db26ca",
+      "preparation.py": "f51077c6e2b504c86aac4500be7913eaf7c8b461fc6f610fbf2fff976a42c025",
+      "intervals.py": "fb1eaa081f5939f137c92df929cbf7fa6155638273405267291011679907f861",
+      "acceptance.py": "52621cb8019b8d913df5482e090c73e85ac363723f83f0d6a49575854ab0f5c2",
+      "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+      "calibration_guard.py": "571f0995b5c3b312c4b6c3ca613082735d383ac55a5dc5882847ab2695c8ad0c",
+      "markets.py": "56a3a13c97daf4b2403273d0c3ec7169304bc638e8d28f4392d73be5e310ef35",
+      "source_policy.py": "61f5df8e0d0afeae340ec9b7f858959d91d90c85e13ea3094939ab8578150bf5",
+      "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+      "walkforward.py": "805ea4a1119e0e798a63f5955960ad8815f3d9158914fa7a9fa5a2420ec3196e",
+      "availability.py": "33e92959bd3d3a2699d4fa6a7b73bba3aa4db914f144970b13d2cfc2e3551eca",
+      "live_nba.py": "40c347e5b47adbf58e720383da4d6df30aa6046e3cd30249d665b66c768ac6c2",
+      "archive_sources.py": "d73f047912d9a360e0015a2eddb52789850b1642279e285bff1b42c91cd7630d",
+      "nba_replay.py": "af593dae068f487ce67657c30f3ab9194014be65cbad5e60c1b4e1c608ebe0e3",
+      "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+      "root_cause.py": "786c328a29b5a2ee59fe7e7dfc1dda28cb4332f27320ec3d0d958f5fdbeccd65",
+      "observed_markets.py": "b7b4234561c11c886b9cb42294b19f337e480d810d0db8b3a1ffccc7ebcd4af8",
+      "evaluation.py": "c985a9d1fc40e86575dc4bda674eea3fbe714553c34d311aaaad63c08a0dfc87",
+      "engine_audit.py": "a195fce4e04af6544dad4a3619c379cd235b367567164ba90a3a3cd9a844f3a4",
+      "statistics.py": "3a8ae0f994da53a1aed6ebb845906f55fdf1f864ad829dc9fe6bbf5a21118df6",
+      "hybrid_runtime.py": "141caae89b89f573848be34420fe1e6d46ba6b63a79648f0b52cb4df2d2c48fc",
+      "__init__.py": "8d3f97c99d8ff6ec21deb8daa93d789e656dc99fb1f5fc8b258ed2b71a1de73a",
+      "elite_render.py": "1747970c86f3019c302b8dc497b0f887242361b0580fc7965b5c67ee78b1726a",
+      "confidence.py": "7193b8c60cc12df67248dcad0f14159b7fcfc98fe51a17e6621f8edbcfd5d6c6",
+      "prequential.py": "397c4549025983c3ae4bf99e3a257d2c5e85542dadb129fff2e2bebc370d1d3e",
+      "decision_audit.py": "c9696255bdb852beb4215deee05d6664f2e46aa0f5a4c73504941c70ad22e83c",
+      "runtime_fixture.py": "cda7fe6de8fc8f2f0a5051cee5686878eeca0054b26347db92e5dd947a780fd3",
+      "runtime_probe.py": "e1daf021be203944742db69f2b54a3b411ad8ccd1396420b75f82a1a4ac15418",
+      "forward_nba_results.py": "8ef2373620c53cf845a1302a720ae879d0533e82579bf1a803da3f77752e13b1",
+      "audit.py": "c6107ecae0d3d738d654196691b8fe89552f7533ff4cff24e70573ffd8436a17",
+      "portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+      "decision_metrics.py": "3fdd88a854d3caa94ef0dfbc7ac30493043790336718c2055a61fa82559493f8",
+      "benchmark.py": "38cdbc13962fc952ea4051f40103321dc8496d6ba6a74dd2e102a5862391dbc4",
+      "diagnostics.py": "4e721cb47afc4d6ffc5fe62696ed3d821ffbd08ca77b9bb9e10715174e681ca0",
+      "decision_integration.py": "d8a7383a0d5a93d2e142c044d14f97caecac98e63f33d13dfd98f878c3b483bb",
+      "test_bot.py": "c4ae4a07f722120f0a8fa1802ac8ff50ac55b0f19acb5f2c6476317017f72c02",
+      "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+      "../main.py": "87b694edde7d67a82eda2dd7cb21e2d7405e4852ead330c74d1f91cda8185bf8",
+      "../verified_analysis.py": "795b55777635901fc586b254758c02cc8506dbd21dd22cb179fb4bf430de430b",
+      "../ledger_reports.py": "05870c0f2046c2a7d062f977b651295c16cd1adc4900647e2031abd239e0a8f5",
+      "../telegram_delivery.py": "cda69e6063b2476158329dc99456a547042a680591346b1c1688886f76676246",
+      "../projection_integrity.py": "eebaa6887d383cc06819b3a93b1d60283f4c0ed35391b1efc98e7a3b037bf5d1",
+      "../Dockerfile": "80b1f58128bf033779311e79f62d049f85954e5bff7155d849a3dd0403212bac"
+    },
+    "post_collection_process_memory": {
+      "VmPeak_mib": 171.796875,
+      "VmSize_mib": 170.6640625,
+      "VmHWM_mib": 88.3359375,
+      "VmRSS_mib": 88.3359375
+    },
+    "workload_peak_rss_mib": 88.00390625,
+    "post_shutdown_process_memory": {
+      "VmPeak_mib": 178.68359375,
+      "VmSize_mib": 178.65234375,
+      "VmHWM_mib": 88.36328125,
+      "VmRSS_mib": 88.36328125
+    },
+    "shutdown_completed": true
+  },
+  "source_pins": {
+    "__main__.py": "a2a4be2ed1d007309a3664f1b9fb2bfb9e9d4d52ad92f5a1c70a08fbce8017c2",
+    "decision_layer.py": "bfaf6039ff102729d98c19f03b634763021cbc4c6ce741337cb13e74a62e14b2",
+    "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+    "forward_validation.py": "fb9e4a1782beb9f52be3c98d5c8615037a0df0a4a19f92dd23569b89b38ed32c",
+    "telegram_evidence.py": "b8700fb29cc4f58e4fbb56681a323e5383c71fa2066a8fd7b58f2f3d76222b66",
+    "live_runtime.py": "85bd8aaf4f704f9700582972b8dce0eb24eafd9c168a8764db35b4eeeb4a469d",
+    "prospective_results.py": "4a0c01a43fb2c1bdd7d864fe91e86e509ea8b8cf284eb6abbae66e19d6db48cc",
+    "frozen_archive.py": "95e7cc6d2f793be5faf48e86b17075ebe68e848df7be7f650a4c82575fcb3c67",
+    "quarter_shadow.py": "5fcc8c52c169ba3e17d3c3dff7d145c50b954749027a6bf218d58789119b08dc",
+    "euroleague_error_audit.py": "b6b5684d3b477c655925cbe90fc44bce1dd020816fc2a80c3474c56335db26ca",
+    "preparation.py": "f51077c6e2b504c86aac4500be7913eaf7c8b461fc6f610fbf2fff976a42c025",
+    "intervals.py": "fb1eaa081f5939f137c92df929cbf7fa6155638273405267291011679907f861",
+    "acceptance.py": "52621cb8019b8d913df5482e090c73e85ac363723f83f0d6a49575854ab0f5c2",
+    "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+    "calibration_guard.py": "571f0995b5c3b312c4b6c3ca613082735d383ac55a5dc5882847ab2695c8ad0c",
+    "markets.py": "56a3a13c97daf4b2403273d0c3ec7169304bc638e8d28f4392d73be5e310ef35",
+    "source_policy.py": "61f5df8e0d0afeae340ec9b7f858959d91d90c85e13ea3094939ab8578150bf5",
+    "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+    "walkforward.py": "805ea4a1119e0e798a63f5955960ad8815f3d9158914fa7a9fa5a2420ec3196e",
+    "availability.py": "33e92959bd3d3a2699d4fa6a7b73bba3aa4db914f144970b13d2cfc2e3551eca",
+    "live_nba.py": "40c347e5b47adbf58e720383da4d6df30aa6046e3cd30249d665b66c768ac6c2",
+    "archive_sources.py": "d73f047912d9a360e0015a2eddb52789850b1642279e285bff1b42c91cd7630d",
+    "nba_replay.py": "af593dae068f487ce67657c30f3ab9194014be65cbad5e60c1b4e1c608ebe0e3",
+    "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+    "root_cause.py": "786c328a29b5a2ee59fe7e7dfc1dda28cb4332f27320ec3d0d958f5fdbeccd65",
+    "observed_markets.py": "b7b4234561c11c886b9cb42294b19f337e480d810d0db8b3a1ffccc7ebcd4af8",
+    "evaluation.py": "c985a9d1fc40e86575dc4bda674eea3fbe714553c34d311aaaad63c08a0dfc87",
+    "engine_audit.py": "a195fce4e04af6544dad4a3619c379cd235b367567164ba90a3a3cd9a844f3a4",
+    "statistics.py": "3a8ae0f994da53a1aed6ebb845906f55fdf1f864ad829dc9fe6bbf5a21118df6",
+    "hybrid_runtime.py": "141caae89b89f573848be34420fe1e6d46ba6b63a79648f0b52cb4df2d2c48fc",
+    "__init__.py": "8d3f97c99d8ff6ec21deb8daa93d789e656dc99fb1f5fc8b258ed2b71a1de73a",
+    "elite_render.py": "1747970c86f3019c302b8dc497b0f887242361b0580fc7965b5c67ee78b1726a",
+    "confidence.py": "7193b8c60cc12df67248dcad0f14159b7fcfc98fe51a17e6621f8edbcfd5d6c6",
+    "prequential.py": "397c4549025983c3ae4bf99e3a257d2c5e85542dadb129fff2e2bebc370d1d3e",
+    "decision_audit.py": "c9696255bdb852beb4215deee05d6664f2e46aa0f5a4c73504941c70ad22e83c",
+    "runtime_fixture.py": "cda7fe6de8fc8f2f0a5051cee5686878eeca0054b26347db92e5dd947a780fd3",
+    "runtime_probe.py": "e1daf021be203944742db69f2b54a3b411ad8ccd1396420b75f82a1a4ac15418",
+    "forward_nba_results.py": "8ef2373620c53cf845a1302a720ae879d0533e82579bf1a803da3f77752e13b1",
+    "audit.py": "c6107ecae0d3d738d654196691b8fe89552f7533ff4cff24e70573ffd8436a17",
+    "portable.py": "42cc383ef918b95bcd9b54fedb3a3f61d9fe9efd71150eeabf0460c8f1b40e22",
+    "decision_metrics.py": "3fdd88a854d3caa94ef0dfbc7ac30493043790336718c2055a61fa82559493f8",
+    "benchmark.py": "38cdbc13962fc952ea4051f40103321dc8496d6ba6a74dd2e102a5862391dbc4",
+    "diagnostics.py": "4e721cb47afc4d6ffc5fe62696ed3d821ffbd08ca77b9bb9e10715174e681ca0",
+    "decision_integration.py": "d8a7383a0d5a93d2e142c044d14f97caecac98e63f33d13dfd98f878c3b483bb",
+    "test_bot.py": "c4ae4a07f722120f0a8fa1802ac8ff50ac55b0f19acb5f2c6476317017f72c02",
+    "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891"
+  },
+  "production_deploy": false,
+  "main_merge": false
+}

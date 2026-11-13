@@ -1,0 +1,25 @@
+{
+  "format": "TELEGRAM_LAYERED_EVIDENCE_V1",
+  "status": "USER_REPORTED_TECHNICAL_E2E_BLOCKED",
+  "user_report": {
+    "source": "USER_UPLOADED_TASK_TEXT",
+    "file_sha256": "945910a556f94923e9bdd198351eb8dcfb86141a98826f16d4840470a0effc29",
+    "reported_date": "2026-11-13",
+    "reported_matches": 5,
+    "reported_environment": "ISOLATED_TEST_BOT",
+    "bot_username": null,
+    "chat_id": null,
+    "message_ids": null,
+    "api_receipts": null,
+    "screenshots_provided_in_phase845": false
+  },
+  "screenshot_evidence": [],
+  "api_verified_messages": 0,
+  "api_verified": [],
+  "excluded": [],
+  "actual_telegram_delivery_verified": false,
+  "complete_analysis_updates": [],
+  "complete_command_suite_verified": false,
+  "independent_server_signature": false,
+  "production_accessed": false
+}
