@@ -121,11 +121,16 @@ class NBAReplayReadOnlyReports:
     def render_accuracy(self,r):
         if r['source']=='fallback':
             return self.fallback.render_accuracy(r['report'])
-        return ('ZEYNAL | NBA ARŞİV REPLAY DENETİMİ | ÜRETİM DEĞİL\n'
+        header=('ZEYNAL | NBA ARŞİV REPLAY DENETİMİ | ÜRETİM DEĞİL\n'
             f"Arşiv tahmini: {r['total_archived']} | Doğrulanmış final: 0\n"
             'Final sonuçları bu izole replay modunda toplanmıyor. '
             'Bekleyen/sonuçlanan canlı tahmin sayısı ve başarı oranı hesaplanmadı.\n'
-            'Arşiv replay kayıtları ileriye dönük doğrulanmış performans değildir.\n'\n            'Karşılaştırma için doğrulanmış maç kimlikleri:\n'\n            + '\n'.join(f"{row['home']} – {row['away']}: /compare NBA {row['fixture_id']}"\n                for row in r['rows']))
+            'Arşiv replay kayıtları ileriye dönük doğrulanmış performans değildir.\n'
+            'Karşılaştırma için doğrulanmış maç kimlikleri:\n')
+        commands='\n'.join(
+            f"{row['home']} – {row['away']}: /compare NBA {row['fixture_id']}"
+            for row in r['rows'])
+        return header+commands
 
     def render_compare(self,r):
         if r['source']=='fallback':
