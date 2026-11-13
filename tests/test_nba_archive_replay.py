@@ -175,6 +175,8 @@ class CommandTests(IsolatedAsyncioTestCase):
         self.assertEqual(result['verified_finals'],0)
         self.assertIn('Arşiv tahmini: 4',reports.render_accuracy(result))
         self.assertIn('Doğrulanmış final: 0',reports.render_accuracy(result))
+        for case in original:
+            self.assertIn('/compare NBA '+str(case['snapshot']['fixture_id']),reports.render_accuracy(result))
         self.assertNotIn('MAE ',reports.render_accuracy(result))
         for case in original:
             p=case['snapshot']
