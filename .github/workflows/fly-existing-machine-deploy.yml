@@ -29,6 +29,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$FLY_API_TOKEN"
+          case "${{ inputs.confirm_deploy }}" in CHECK_ONLY|DEPLOY) ;; *) echo 'Invalid confirmation value' >&2; exit 1 ;; esac
           flyctl auth whoami >/dev/null
           flyctl machines list --app zeynal-bot-core --json > /tmp/zeynal-machine.json
           flyctl volumes list --app zeynal-bot-core --json > /tmp/zeynal-volumes.json
@@ -37,7 +38,7 @@ jobs:
           machines=json.load(open('/tmp/zeynal-machine.json'))
           volumes=json.load(open('/tmp/zeynal-volumes.json'))
           assert isinstance(machines,list) and isinstance(volumes,list), 'Unexpected CLI JSON shape'
-          assert any(m.get('id')=='830932f77d2598' and m.get('region')=='ams' for m in machines), 'Expected machine missing'
+          assert any(m.get('id')=='830932f77d2598' and m.get('region')=='ams' and any(x.get('volume')=='vol_4581deoz3xjnp594' and x.get('path')=='/data' for x in (m.get('config',{}).get('mounts') or [])) for m in machines), 'Expected AMS machine or /data mount missing'
           assert any(v.get('id')=='vol_4581deoz3xjnp594' and v.get('attached_machine_id')=='830932f77d2598' for v in volumes), 'Expected volume attachment missing'
           print('Verified existing AMS machine and /data volume mount')
           PY
@@ -69,7 +70,7 @@ jobs:
           machines=json.load(open('/tmp/zeynal-after.json'))
           volumes=json.load(open('/tmp/zeynal-after-volumes.json'))
           assert any(v.get('id')=='vol_4581deoz3xjnp594' and v.get('attached_machine_id')=='830932f77d2598' for v in volumes), 'Volume attachment changed'
-          assert any(m.get('id')=='830932f77d2598' and m.get('state')=='started' for m in machines), 'Machine not started'
+          assert any(m.get('id')=='830932f77d2598' and m.get('state')=='started' and any(x.get('volume')=='vol_4581deoz3xjnp594' and x.get('path')=='/data' for x in (m.get('config',{}).get('mounts') or [])) for m in machines), 'Machine not started or /data mount changed'
           print('Existing machine started; original volume still attached')
           PY
       - name: Check-only summary
