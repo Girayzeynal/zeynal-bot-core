@@ -162,3 +162,44 @@ class CommandTests(IsolatedAsyncioTestCase):
     async def test_replay_only_forbids_an_injected_live_service(self):
         with TemporaryDirectory() as tmp,self.assertRaisesRegex(ValueError,'FORBIDS_LIVE'):
             install_isolated_services(SimpleNamespace(),FrozenArchive(ARCHIVE),tmp,chat_id=17,nba_service=Mock(),replay_only=True)
+
+    async def test_replay_reports_four_original_forecasts_without_fabricated_finals(self):
+        from hybrid_engine.test_bot import NBAReplayReadOnlyReports
+        class NoFallback:
+            def read(self,*args):raise AssertionError('NBA must not hit fallback')
+        original=nba().cases()
+        reports=NBAReplayReadOnlyReports(nba(),NoFallback())
+        result=reports.read('NBA')
+        self.assertEqual(result['total_archived'],4)
+        self.assertEqual(len(result['rows']),4)
+        self.assertEqual(result['verified_finals'],0)
+        self.assertIn('Arşiv tahmini: 4',reports.render_accuracy(result))
+        self.assertIn('Doğrulanmış final: 0',reports.render_accuracy(result))
+        self.assertNotIn('MAE ',reports.render_accuracy(result))
+        for case in original:
+            p=case['snapshot']
+            for fid in (p['fixture_id'],*p['provider_fixture_ids']):
+                one=reports.read('NBA',str(fid))
+                self.assertEqual(len(one['rows']),1)
+                self.assertEqual(one['rows'][0]['snapshot_sha256'],case['snapshot_sha256'])
+                rendered=reports.render_compare(one)
+                self.assertIn(f"{p['prediction']['home']:.2f}",rendered)
+                self.assertIn('Gerçek final: doğrulanmadı',rendered)
+        self.assertEqual(nba().cases(),original)
+
+    async def test_replay_reports_unknown_id_does_not_invent_result(self):
+        from hybrid_engine.test_bot import NBAReplayReadOnlyReports
+        reports=NBAReplayReadOnlyReports(nba(),Mock())
+        unknown=reports.read('NBA','not-a-fixture')
+        self.assertEqual(unknown['rows'],[])
+        self.assertIn('bulunamadı',reports.render_compare(unknown))
+
+    async def test_replay_only_installer_routes_nba_reports_without_changing_euroleague(self):
+        with TemporaryDirectory() as tmp:
+            app=SimpleNamespace(bot_data={},add_handler=Mock(),add_error_handler=Mock())
+            install_isolated_services(app,FrozenArchive(ARCHIVE),tmp,chat_id=17,nba_replay=nba(),replay_only=True)
+            reports=app.bot_data['ledger_reports']
+            self.assertIn('Arşiv tahmini: 4',reports.render_accuracy(reports.read('NBA')))
+            euro=reports.read('EUROLEAGUE')
+            self.assertEqual(euro['source'],'fallback')
+            self.assertIn('İZOLE PROSPEKTİF',reports.render_accuracy(euro))
