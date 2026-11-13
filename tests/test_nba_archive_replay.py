@@ -205,3 +205,24 @@ class CommandTests(IsolatedAsyncioTestCase):
             euro=reports.read('EUROLEAGUE')
             self.assertEqual(euro['source'],'fallback')
             self.assertIn('İZOLE PROSPEKTİF',reports.render_accuracy(euro))
+
+    async def test_real_accuracy_and_compare_handlers_use_replay_report_adapter(self):
+        from ledger_reports import accuracy_command,compare_command
+        case=nba().cases()[2]
+        fixture_id=str(case['snapshot']['fixture_id'])
+        with TemporaryDirectory() as tmp:
+            app=SimpleNamespace(bot_data={},add_handler=Mock(),add_error_handler=Mock())
+            install_isolated_services(app,FrozenArchive(ARCHIVE),tmp,chat_id=17,nba_replay=nba(),replay_only=True)
+            message=SimpleNamespace(reply_text=AsyncMock())
+            update=SimpleNamespace(effective_message=message)
+            context=SimpleNamespace(args=['NBA'],application=app)
+            await accuracy_command(update,context)
+            answer=message.reply_text.call_args.args[0]
+            self.assertIn('Arşiv tahmini: 4',answer)
+            self.assertIn('/compare NBA '+fixture_id,answer)
+            context.args=['NBA',fixture_id]
+            await compare_command(update,context)
+            answer=message.reply_text.call_args.args[0]
+            self.assertIn(case['home'],answer)
+            self.assertIn('Gerçek final: doğrulanmadı',answer)
+            self.assertNotIn('Başarı oranı: %',answer)
