@@ -88,6 +88,65 @@ class AuditedRequest(HTTPXRequest):
         return status,body
 
 
+class NBAReplayReadOnlyReports:
+    """Read-only research view of verified, frozen NBA replay snapshots.
+
+    Does not fetch results, modify archives, or claim retrospective accuracy.
+    """
+    def __init__(self,replay,fallback):
+        self.replay=replay
+        self.fallback=fallback
+
+    def read(self,league=None,fixture_id=None):
+        if league is not None and league.upper()!='NBA':
+            return dict(source='fallback',report=self.fallback.read(league,fixture_id))
+        cases=self.replay.cases()
+        rows=[]
+        for case in cases:
+            snap=case['snapshot']
+            ids={str(snap['fixture_id']),*(str(x) for x in snap['provider_fixture_ids'])}
+            if fixture_id is not None and str(fixture_id) not in ids:
+                continue
+            prediction=snap['prediction']
+            rows.append(dict(fixture_id=str(snap['fixture_id']),
+                provider_ids=sorted(ids-{str(snap['fixture_id'])}),
+                home=case['home'],away=case['away'],
+                home_score=prediction['home'],away_score=prediction['away'],
+                snapshot_sha256=case['snapshot_sha256']))
+        if fixture_id is not None and len(rows)>1:
+            raise ValueError('REPORT_AMBIGUOUS_FIXTURE')
+        return dict(source='nba_replay',rows=rows,total_archived=len(cases),
+            verified_finals=0,finals_status='NOT_INGESTED')
+
+    def render_accuracy(self,r):
+        if r['source']=='fallback':
+            return self.fallback.render_accuracy(r['report'])
+        header=('ZEYNAL | NBA ARŞİV REPLAY DENETİMİ | ÜRETİM DEĞİL\n'
+            f"Arşiv tahmini: {r['total_archived']} | Doğrulanmış final: 0\n"
+            'Final sonuçları bu izole replay modunda toplanmıyor. '
+            'Bekleyen/sonuçlanan canlı tahmin sayısı ve başarı oranı hesaplanmadı.\n'
+            'Arşiv replay kayıtları ileriye dönük doğrulanmış performans değildir.\n'
+            'Karşılaştırma için doğrulanmış maç kimlikleri:\n')
+        commands='\n'.join(
+            f"{row['home']} – {row['away']}: /compare NBA {row['fixture_id']}"
+            for row in r['rows'])
+        return header+commands
+
+    def render_compare(self,r):
+        if r['source']=='fallback':
+            return self.fallback.render_compare(r['report'])
+        if not r['rows']:
+            return 'Bu kimlik için doğrulanmış NBA replay tahmini bulunamadı.'
+        row=r['rows'][0]
+        return ('ZEYNAL | NBA ARŞİV REPLAY KARŞILAŞTIRMASI | ÜRETİM DEĞİL\n'
+            f"{row['home']} – {row['away']}\n"
+            f"Maç kimliği: {row['fixture_id']}\n"
+            f"Orijinal skor: {row['home_score']:.2f} – {row['away_score']:.2f}\n"
+            'Gerçek final: doğrulanmadı / bu replay moduna aktarılmadı.\n'
+            'MAE, RMSE ve başarı yüzdesi hesaplanmadı. '
+            'Orijinal arşiv kaydı değiştirilmedi.')
+
+
 def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None,nba_replay=None,replay_only=False):
     if replay_only and nba_service is not None:raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_NBA_SERVICE')
     if nba_replay is None and nba_service is None:
@@ -113,7 +172,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 return ('İZOLE NBA HİBRİT ARAŞTIRMA — ÜRETİM DEĞİL\n'+render_compare(r['report'])) if r['live'] else self.frozen.render_compare(r['report'])
         app.bot_data['verified_analysis_service']=Dispatch();app.bot_data['ledger_reports']=Reports()
     else:
-        app.bot_data['verified_analysis_service']=frozen;app.bot_data['ledger_reports']=ResearchReports(results)
+        app.bot_data['verified_analysis_service']=frozen
+        app.bot_data['ledger_reports']=(NBAReplayReadOnlyReports(nba_replay,ResearchReports(results))
+            if replay_only and nba_replay is not None else ResearchReports(results))
     app.bot_data['delivery_journal']=journal
     if decision_layer:
         from hybrid_engine.decision_integration import DecisionJournal,DecisionService,DecisionReports
