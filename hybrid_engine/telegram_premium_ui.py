@@ -53,7 +53,7 @@ def period_table(section_html):
     """Telegram-friendly rows; all numbers originate in the frozen model output."""
     raw=html.unescape(re.sub(r'<[^>]+>', '', section_html))
     rows={}
-    pattern=r'^(1Q|2Q|3Q|4Q|1H|2H):\\s*([0-9.]+)\\s*[–-]\\s*([0-9.]+)\\s*\\|\\s*Toplam\\s*([0-9.]+)'
+    pattern=r'^(1Q|2Q|3Q|4Q|1H|2H):\s*([0-9.]+)\s*[–-]\s*([0-9.]+)\s*\|\s*Toplam\s*([0-9.]+)'
     current=None
     for line in raw.splitlines():
         match=re.match(pattern,line.strip())
@@ -79,9 +79,9 @@ def period_table(section_html):
             ('3Q','3. Çeyrek'),('4Q','4. Çeyrek'),('2H','İkinci Yarı')]
     for key,label in labels:
         row=rows[key]
-        score=f\"{row['home']:.1f} – {row['away']:.1f}\"
+        score=f"{row['home']:.1f} – {row['away']:.1f}\"
         lines.append(f'<b>{label}</b>  |  {score}')
-        lines.append(f\"Toplam: {row['total']:.1f}\"+
+        lines.append(f"Toplam: {row['total']:.1f}"+
                      (f' · {tempo(row["total"])}' if key.endswith('Q') else ''))
         if row['band']:lines.append(html.escape(row['band']))
         lines.append('')
@@ -90,7 +90,7 @@ def period_table(section_html):
     lines.append(f'<b>MAÇ SONU PROJEKSİYONU</b>  |  {home:.1f} – {away:.1f}')
     lines.append(f'Toplam: {home+away:.1f} · Fark (ev): {home-away:+.1f}')
     lines.append('⚠️ Kadro etkileri, kazanma yüzdesi ve en güçlü barem doğrulanmadı; eklenmedi.')
-    return '\\n'.join(lines)
+    return '\n'.join(lines)
 
 def detail_sections(parts, market_html):
     # Existing renderer is the canonical source for detailed data.
