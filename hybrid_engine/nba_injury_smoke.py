@@ -23,9 +23,9 @@ def inspect_pdf(path):
     digest=hashlib.sha256(data).hexdigest()
     parsed=extract_nba_injury_rows(data,expected_sha256=digest)
     rows=parsed['rows']
-    by_matchup=dict(sorted(Counter(row['matchup'] for row in rows).items()))
-    by_status=dict(sorted(Counter(row['status'] for row in rows).items()))
-    by_reason=dict(sorted(Counter(classify_official_absence(row) for row in rows).items()))
+    by_matchup=dict(sorted(Counter(row['matchup'] for row in rows if isinstance(row,dict) and row.get('matchup')).items()))
+    by_status=dict(sorted(Counter(row['status'] for row in rows if isinstance(row,dict) and row.get('status')).items()))
+    by_reason=dict(sorted(Counter(classify_official_absence(row) for row in rows if isinstance(row,dict)).items()))
     return dict(sha256=digest,byte_count=len(data),
                 by_matchup=by_matchup,by_status=by_status,by_reason=by_reason,
                 status=parsed['status'],parsed_rows=len(parsed['rows']),
