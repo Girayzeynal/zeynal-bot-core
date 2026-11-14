@@ -121,7 +121,7 @@ def roster_section(evidence=None):
             lines.append('  Yayın (UTC): '+datetime.fromtimestamp(record['published_at_utc'], timezone.utc).strftime('%Y-%m-%d %H:%M'))
         lines.append('Bu durumlar ilk beş veya dakika tahmini değildir.')
     lines.append('⚠️ İlk beş, rotasyon ve oyuncu etkisi doğrulanmadı; modele uygulanmadı.')
-    return '\\n'.join(lines)
+    return '\n'.join(lines)
 
 def detail_sections(parts, market_html):
     # Existing renderer is the canonical source for detailed data.
