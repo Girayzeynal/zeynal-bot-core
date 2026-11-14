@@ -128,9 +128,13 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         research_banner='ARAŞTIRMA MODU — ÜRETİM TAHMİNİ DEĞİL — KALİBRE EDİLMEDİ'
         parts=list(report.get('html_parts') or [report['html']])
         parts[0]=research_banner+'\n'+parts[0]
+        # Validate the entire response before sending any part; avoid
+        # partially delivered research reports if a later part is oversized.
+        if any(len(part.encode('utf-16-le'))//2>4096 for part in parts):
+            logger.error('Hybrid research Telegram response exceeds message budget')
+            await update.message.reply_text('Hibrit araştırma çıktısı Telegram mesaj sınırını aştı; rapor gönderilmedi.')
+            return
         for part in parts:
-            if len(part.encode('utf-16-le'))//2>4096:
-                raise ValueError('HYBRID_RESEARCH_TELEGRAM_MESSAGE_BUDGET')
             await update.message.reply_text(part,parse_mode='HTML',disable_web_page_preview=True)
         return
     release_service=context.application.bot_data.get('verified_analysis_service')
