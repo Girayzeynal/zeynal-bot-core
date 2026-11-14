@@ -8,6 +8,27 @@ from hybrid_engine.roster_evidence import assess_roster_evidence
 STATUS={'Out':'OUT','Doubtful':'DOUBTFUL','Questionable':'QUESTIONABLE',
         'Probable':'PROBABLE','Available':'AVAILABLE'}
 
+
+def classify_official_absence(row):
+    """Label report reason without treating every OUT as a medical injury.
+
+    This classification is descriptive only; it does not verify identity,
+    eligibility, lineup or playing-time impact.
+    """
+    reason=' '.join(str(row.get('reason') or '').split()).lower()
+    status=row.get('status')
+    if status not in STATUS:
+        return 'UNRECOGNIZED_STATUS'
+    if 'g league' in reason or 'gleague' in reason or 'two-way' in reason or 'onassignment' in reason or 'on assignment' in reason:
+        return 'G_LEAGUE_OR_ASSIGNMENT'
+    if 'injury' in reason or 'illness' in reason:
+        return 'INJURY_OR_ILLNESS'
+    if 'personal' in reason:
+        return 'PERSONAL'
+    if 'rest' in reason:
+        return 'REST'
+    return 'OTHER_OR_UNCLASSIFIED'
+
 def map_official_injury_rows(rows, *, fixture_matchup, team_ids, player_ids,
                              report_reference, prediction_utc, fixture_start_utc):
     """Build fixture-scoped status evidence only after source extraction verification."""
