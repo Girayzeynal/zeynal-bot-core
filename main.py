@@ -135,7 +135,7 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text('Hibrit araştırma çıktısı Telegram mesaj sınırını aştı; rapor gönderilmedi.')
             return
         for part in parts:
-            await update.message.reply_text(part,parse_mode='HTML',disable_web_page_preview=True)
+            await update.message.reply_text(part,parse_mode='HTML',disable_web_page_preview=True,reply_markup=report.get('reply_markup') if part==parts[0] else None)
         return
     release_service=context.application.bot_data.get('verified_analysis_service')
     if release_service is not None:
