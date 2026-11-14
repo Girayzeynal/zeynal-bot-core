@@ -165,6 +165,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     return response
                 from hybrid_engine.market_evidence_report import observed_market_evidence
                 import html as _html
+                from datetime import datetime, timezone
+                from zoneinfo import ZoneInfo
                 snapshot=response['snapshot']
                 try:
                     evidence=observed_market_evidence(
@@ -179,9 +181,13 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     market_lines=['<b>GÖZLENEN PİYASA | ARAŞTIRMA</b>',
                         'Normal süre/uzatma kapsamı doğrulanmadı; karşılaştırılabilir edge veya güven endeksi yok.']
                     for quote in evidence:
+                        seen=datetime.fromtimestamp(quote['observed_at_utc'], timezone.utc).astimezone(
+                            ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y %H:%M TSİ')
+                        age=snapshot['prediction_generated_at_utc']-quote['observed_at_utc']
+                        freshness='ESKİ GÖZLEM' if age>300 else 'SON 5 DAKİKA'
                         market_lines.append(_html.escape(
-                            f"{quote['bookmaker']} | {quote['market']} {quote['line']:g} | "
-                            f"UTC {quote['observed_at_utc']} | KAPSAM BELİRSİZ"))
+                            f"{quote['bookmaker']} | {quote['market']} {quote['line']:+g} "
+                            f"| {seen} | {freshness} | KAPSAM BELİRSİZ"))
                 else:
                     market_lines=['<b>PİYASA KAYNAĞI</b>',
                         'Tahmin anından önce doğrulanmış piyasa çizgisi yok; barem veya güven endeksi üretilmedi.']
