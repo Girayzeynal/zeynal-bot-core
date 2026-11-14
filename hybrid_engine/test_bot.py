@@ -192,7 +192,16 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 full_parts=[*response['html_parts'],'\n'.join(market_lines)]
                 token=secrets.token_hex(6)
                 summary=compact_summary(snapshot,evidence,replayed=not response['new_record'])
-                sections=detail_sections(response['html_parts'],'\n'.join(market_lines))
+                from hybrid_engine.telegram_roster_bridge import read_fixture_roster_evidence
+                roster=read_fixture_roster_evidence(
+                    app.bot_data.get('verified_roster_packets'),
+                    fixture_id=snapshot['fixture_id'],
+                    prediction_utc=snapshot['prediction_generated_at_utc'],
+                    fixture_start_utc=snapshot['fixture_start_utc'],
+                    home_team_id=str(snapshot['home']['team_id']),
+                    away_team_id=str(snapshot['away']['team_id']))
+                sections=detail_sections(response['html_parts'],'\n'.join(market_lines),
+                                         roster_evidence=roster)
                 cache=app.bot_data.setdefault('premium_reports',{})
                 # Keep memory bounded and do not persist sensitive report views.
                 while len(cache)>=64:
