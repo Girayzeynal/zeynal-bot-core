@@ -46,6 +46,27 @@ class InjuryPDFParserTests(unittest.TestCase):
             extract_nba_injury_rows(oversized,
                 expected_sha256=hashlib.sha256(oversized).hexdigest())
 
+    def test_continued_page_table_inherits_prior_game_context(self):
+        class FirstPage:
+            def extract_tables(self):
+                return [[list(HEADERS),
+                         ['11/14/2026','07:00 (ET)','AWY@HOM','Home Team',
+                          'Example, First','Out','Injury/Illness - Ankle']]]
+        class ContinuedPage:
+            def extract_tables(self):
+                return [[[None,None,None,None,'Example, Second','Questionable',
+                          'Injury/Illness - Knee']]]
+        class TwoPagePDF:
+            pages=[FirstPage(),ContinuedPage()]
+            def __enter__(self):return self
+            def __exit__(self,*args):pass
+        fake=types.SimpleNamespace(open=lambda stream:TwoPagePDF())
+        with patch.dict(sys.modules,{'pdfplumber':fake}):
+            result=extract_nba_injury_rows(self.data,expected_sha256=self.digest)
+        self.assertEqual(len(result['rows']),2)
+        self.assertEqual(result['rows'][1]['matchup'],'AWY@HOM')
+        self.assertFalse(result['extraction_verified'])
+
     def test_table_rows_are_not_automatically_verified(self):
         fake=types.SimpleNamespace(open=lambda stream:FakePDF())
         with patch.dict(sys.modules,{'pdfplumber':fake}):
