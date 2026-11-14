@@ -313,6 +313,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             if 'Message is not modified' not in str(exc):
                 raise
     app.add_handler(CallbackQueryHandler(premium_callback,pattern=r'^zui:[0-9a-f]{12}:(summary|period|market|ranges|audit)$'),group=-50)
+    app.add_handler(CommandHandler('test',self_test),group=-50)
     app.add_handler(TypeHandler(Update,authorized),group=-100);app.add_error_handler(error)
     return journal,results
 
