@@ -89,7 +89,21 @@ def period_table(section_html):
     away=sum(rows[f'{i}Q']['away'] for i in range(1,5))
     lines.append(f'<b>MAÇ SONU PROJEKSİYONU</b>  |  {home:.1f} – {away:.1f}')
     lines.append(f'Toplam: {home+away:.1f} · Fark (ev): {home-away:+.1f}')
-    lines.append('⚠️ Kadro etkileri, kazanma yüzdesi ve en güçlü barem doğrulanmadı; eklenmedi.')
+    # Quantitative commentary is derived only from the already-rendered frozen rows.
+    # Never turn this into a player/roster or market assertion without source evidence.
+    first_half=rows['1H']['total']
+    second_half=rows['2H']['total']
+    leader='Ev' if home>away else 'Deplasman' if away>home else 'Eşit'
+    lines.extend(['', '📝 <b>MODEL NOTLARI</b>',
+                  f'• Skor projeksiyonunda önde: {leader} (fark: {abs(home-away):.1f} sayı).',
+                  f'• İlk yarı: {first_half:.1f} · İkinci yarı: {second_half:.1f}.',
+                  ('• İkinci yarı toplamı ilk yarıdan yüksek öngörülüyor.'
+                   if second_half>first_half else
+                   '• İkinci yarı toplamı ilk yarıdan düşük öngörülüyor.'
+                   if second_half<first_half else
+                   '• İki yarının sayı toplamı eşit öngörülüyor.'),
+                  '• Oyuncu, sakatlık, gerçek pozisyon temposu ve piyasa üstünlüğü: doğrulanmadı.',
+                  '⚠️ En güçlü barem ve güven yüzdesi doğrulanmadı; eklenmedi.'])
     return '\n'.join(lines)
 
 def detail_sections(parts, market_html):
