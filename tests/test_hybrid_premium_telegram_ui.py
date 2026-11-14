@@ -38,7 +38,7 @@ class PremiumTelegramUITests(unittest.TestCase):
                           ('4Q',27,28),('1H',56,60),('2H',57,57)]:
             parts.append(f'{key}: {h:.1f} – {a:.1f} | Toplam {h+a:.1f}')
             parts.append('P25–P75 50.0–65.0 | P05–P95 45.0–70.0')
-        out = period_table('\\n'.join(parts))
+        out = period_table('\n'.join(parts))
         self.assertIn('MODEL NOTLARI', out)
         self.assertIn('Deplasman', out)
         self.assertIn('İkinci yarı toplamı ilk yarıdan düşük', out)
