@@ -8,7 +8,7 @@ if [[ "$(git branch --show-current)" != "${branch}" ]]; then
   echo "WRONG_BRANCH: checkout the test branch first" >&2
   exit 2
 fi
-git merge --ff-only "origin/${branch}"
+git merge --ff-only FETCH_HEAD
 if [[ ! -f "${HOME}/.zeynal-elite-test-token" ]]; then
   echo "TEST_TOKEN_FILE_MISSING" >&2
   exit 2
