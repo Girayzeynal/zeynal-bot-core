@@ -501,7 +501,7 @@ def build_app() -> Application:
         prepared_path=os.environ['ZEYNAL_HYBRID_PREPARED_PATH']
         prepared_sha=os.environ['ZEYNAL_HYBRID_PREPARED_SHA256']
         research_dir=os.environ['ZEYNAL_HYBRID_RESEARCH_DIR']
-        if not research_dir or os.path.realpath(research_dir).startswith('/data/'):
+        if (not research_dir or os.path.realpath(research_dir)=='/data' or os.path.realpath(research_dir).startswith('/data/')):
             raise RuntimeError('HYBRID_RESEARCH_DIRECTORY_MUST_BE_ISOLATED_FROM_PRODUCTION_VOLUME')
         prepared=PreparedBayes(prepared_path,trusted_sha256=prepared_sha)
         app.bot_data['hybrid_nba_service']=LiveNBAHybridService(research_dir,prepared)
