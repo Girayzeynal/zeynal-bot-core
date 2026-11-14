@@ -4,7 +4,7 @@ import sys
 import types
 import unittest
 from unittest.mock import patch
-from hybrid_engine.nba_injury_pdf_parser import extract_nba_injury_rows,HEADERS
+from hybrid_engine.nba_injury_pdf_parser import extract_nba_injury_rows,HEADERS,OFFICIAL_HEADERS
 
 class FakePage:
     def extract_tables(self):
@@ -65,6 +65,29 @@ class InjuryPDFParserTests(unittest.TestCase):
             result=extract_nba_injury_rows(self.data,expected_sha256=self.digest)
         self.assertEqual(len(result['rows']),2)
         self.assertEqual(result['rows'][1]['matchup'],'AWY@HOM')
+        self.assertFalse(result['extraction_verified'])
+
+    def test_official_nba_headers_and_sparse_rows(self):
+        class OfficialPage:
+            def extract_tables(self):
+                return [[list(OFFICIAL_HEADERS),
+                         ['11/14/2026','08:00 (ET)','DEN@NOP','Denver Nuggets',
+                          'Example, First','Out','Injury/Illness - Knee'],
+                         [None,None,None,None,'Example, Second','Questionable',
+                          'Injury/Illness - Ankle'],
+                         [None,None,None,'New Orleans Pelicans','—','—',
+                          'NOT YET SUBMITTED']]]
+        class OfficialPDF:
+            pages=[OfficialPage()]
+            def __enter__(self):return self
+            def __exit__(self,*args):pass
+        fake=types.SimpleNamespace(open=lambda stream:OfficialPDF())
+        with patch.dict(sys.modules,{'pdfplumber':fake}):
+            result=extract_nba_injury_rows(self.data,expected_sha256=self.digest)
+        self.assertEqual(len(result['rows']),2)
+        self.assertEqual(result['rows'][1]['team'],'Denver Nuggets')
+        self.assertEqual(result['rows'][1]['matchup'],'DEN@NOP')
+        self.assertEqual(result['rejected_count'],1)
         self.assertFalse(result['extraction_verified'])
 
     def test_table_rows_are_not_automatically_verified(self):
