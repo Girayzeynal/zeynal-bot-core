@@ -123,13 +123,15 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error('Hybrid research analysis failed: %s',type(exc).__name__)
             await update.message.reply_text('Hibrit araştırma analizi kullanılamıyor; FAZ13 sonucu üretilmedi.')
             return
-        # Explicitly distinguish research forecasts from calibrated production.
+        # Research snapshots use a separate ledger schema. Do not pass them
+        # through production delivery timeline/receipt SQL.
         research_banner='ARAŞTIRMA MODU — ÜRETİM TAHMİNİ DEĞİL — KALİBRE EDİLMEDİ'
-        if report.get('html_parts'):
-            report=dict(report,html_parts=[research_banner+'\\n'+report['html_parts'][0],*report['html_parts'][1:]])
-        else:
-            report=dict(report,html=research_banner+'\\n'+report['html'])
-        await reply_analysis(update,context,report,hybrid_service)
+        parts=list(report.get('html_parts') or [report['html']])
+        parts[0]=research_banner+'\n'+parts[0]
+        for part in parts:
+            if len(part.encode('utf-16-le'))//2>4096:
+                raise ValueError('HYBRID_RESEARCH_TELEGRAM_MESSAGE_BUDGET')
+            await update.message.reply_text(part,parse_mode='HTML',disable_web_page_preview=True)
         return
     release_service=context.application.bot_data.get('verified_analysis_service')
     if release_service is not None:
