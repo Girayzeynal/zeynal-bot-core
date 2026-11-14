@@ -28,6 +28,24 @@ class InjuryPDFParserTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             extract_nba_injury_rows(self.data,expected_sha256='0'*64)
 
+    def test_unknown_table_schema_is_rejected(self):
+        class UnknownPage:
+            def extract_tables(self):return [[['unrelated','columns'],['x','y']]]
+        class UnknownPDF:
+            pages=[UnknownPage()]
+            def __enter__(self):return self
+            def __exit__(self,*args):pass
+        fake=types.SimpleNamespace(open=lambda stream:UnknownPDF())
+        with patch.dict(sys.modules,{'pdfplumber':fake}):
+            with self.assertRaisesRegex(ValueError,'OFFICIAL_REPORT_TABLE_SCHEMA_UNRECOGNIZED'):
+                extract_nba_injury_rows(self.data,expected_sha256=self.digest)
+
+    def test_oversized_pdf_rejected_before_parser(self):
+        oversized=b'%PDF-1.7'+b'x'*(8*1024*1024)
+        with self.assertRaisesRegex(ValueError,'OVERSIZED_PDF_BYTES'):
+            extract_nba_injury_rows(oversized,
+                expected_sha256=hashlib.sha256(oversized).hexdigest())
+
     def test_table_rows_are_not_automatically_verified(self):
         fake=types.SimpleNamespace(open=lambda stream:FakePDF())
         with patch.dict(sys.modules,{'pdfplumber':fake}):
