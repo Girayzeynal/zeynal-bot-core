@@ -186,7 +186,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     market_lines=['<b>PİYASA KAYNAĞI</b>',
                         'Tahmin anından önce doğrulanmış piyasa çizgisi yok; barem veya güven endeksi üretilmedi.']
                 response=dict(response)
-                response['html_parts']=[*response['html_parts'],'\\n'.join(market_lines)]
+                response['html_parts']=[*response['html_parts'],'\n'.join(market_lines)]
                 return response
         class Reports:
             def __init__(self):self.live=LedgerReports(nba_service.ledger.path);self.frozen=ResearchReports(results)
