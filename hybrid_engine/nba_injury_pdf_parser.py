@@ -7,6 +7,8 @@ Requires optional pdfplumber; absence fails explicitly.
 from io import BytesIO
 
 HEADERS=('Game Date','Game Time','Matchup','Team','Player Name','Current Status','Reason')
+OFFICIAL_HEADERS=('Date','Time (ET)','Matchup','Team','Player','Status','Injury / Illness / Notes')
+SUPPORTED_HEADERS=frozenset((HEADERS,OFFICIAL_HEADERS))
 STATUSES=frozenset({'Out','Doubtful','Questionable','Probable','Available'})
 
 def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
@@ -34,7 +36,7 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
                 if not table:
                     continue
                 header=[str(x or '').strip().replace('\n',' ') for x in table[0]]
-                if tuple(header)==HEADERS:
+                if tuple(header) in SUPPORTED_HEADERS:
                     recognized_tables+=1
                     active_table=True
                     data_rows=table[1:]
@@ -52,10 +54,22 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
                         continue
                     values=[str(x or '').strip().replace('\n',' ') for x in cells]
                     date,time,matchup,team,player,status,reason=values
-                    if not (date or time or matchup or team) and previous_context:
-                        date,time,matchup,team=previous_context
-                    elif date and time and matchup and team:
+                    # Official NBA reports leave repeated date/time/matchup/team
+                    # cells blank. Never carry a team into a newly named matchup.
+                    if previous_context:
+                        old_date,old_time,old_matchup,old_team=previous_context
+                        if not date:
+                            date=old_date
+                        if not time:
+                            time=old_time
+                        if not matchup:
+                            matchup=old_matchup
+                        if not team and matchup==old_matchup:
+                            team=old_team
+                    if date and time and matchup and team:
                         previous_context=(date,time,matchup,team)
+                    elif matchup and previous_context and matchup!=previous_context[2]:
+                        previous_context=None
                     if (not matchup or not team or not player or
                             status not in STATUSES or not reason or
                             not date or not time or player in ('—','-')):
