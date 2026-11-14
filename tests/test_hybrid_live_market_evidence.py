@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from hybrid_engine.live_nba import LiveNBAHybridService
+from hybrid_engine.market_evidence_report import observed_market_evidence
 
 
 class ObservedMarketEvidenceTests(unittest.TestCase):
@@ -14,17 +14,14 @@ class ObservedMarketEvidenceTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.assets = Path(self.tmp.name)
-        self.service = object.__new__(LiveNBAHybridService)
-        self.service.assets = self.assets
 
     def test_missing_quotes_remain_empty(self):
-        self.service.sources = {}
-        self.assertEqual(self.service._observed_market_evidence('fixture', 100, 200), [])
+        self.assertEqual(observed_market_evidence(self.assets, {}, 'fixture', 100, 200), [])
 
     def test_only_matching_pretipoff_quotes_are_reported(self):
         receipt = {'source_url': 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261114'}
         (self.assets / 'source.json').write_text(json.dumps(receipt))
-        self.service.sources = {'source': {'file': 'source.json'}}
+        sources = {'source': {'file': 'source.json'}}
         def quote(fixture, ingested):
             return {'sha256': 'pin', 'payload': {
                 'fixture_id': fixture, 'fixture_start_utc': 200,
@@ -34,7 +31,7 @@ class ObservedMarketEvidenceTests(unittest.TestCase):
         with patch('hybrid_engine.observed_markets.observe_espn', return_value={
             'quotes': [quote('fixture', 90), quote('other', 90), quote('fixture', 110)],
             'rejected': []}):
-            rows = self.service._observed_market_evidence('fixture', 100, 200)
+            rows = observed_market_evidence(self.assets, sources, 'fixture', 100, 200)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]['status'], 'OBSERVED_NOT_COMPARABLE')
         self.assertNotIn('confidence_index', rows[0])
