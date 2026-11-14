@@ -47,6 +47,7 @@ def keyboard(token):
          InlineKeyboardButton('📈 Piyasa',callback_data='zui:'+token+':market')],
         [InlineKeyboardButton('🎯 Aralıklar',callback_data='zui:'+token+':ranges'),
          InlineKeyboardButton('🛡 Model / Kaynak',callback_data='zui:'+token+':audit')],
+        [InlineKeyboardButton('🏥 Kadro / Sakatlık',callback_data='zui:'+token+':roster')],
         [InlineKeyboardButton('🏠 Özet',callback_data='zui:'+token+':summary')]])
 
 def period_table(section_html):
@@ -106,6 +107,22 @@ def period_table(section_html):
                   '⚠️ En güçlü barem ve güven yüzdesi doğrulanmadı; eklenmedi.'])
     return '\n'.join(lines)
 
+def roster_section(evidence=None):
+    """Display only fixture-scoped, timestamp-gated availability evidence."""
+    lines=['🏥 <b>KADRO / SAKATLIK | KAYNAK DENETİMİ</b>']
+    if evidence is None or not evidence.get('records'):
+        lines.append('Maça ve tahmin saatine bağlanmış doğrulanabilir oyuncu durum kaydı yok.')
+    else:
+        for record in evidence['records'][:20]:
+            lines.append('• '+html.escape(str(record['team_id']))+' / '+
+                         html.escape(str(record['player_id']))+': <b>'+
+                         html.escape(str(record['status']))+'</b>')
+            lines.append('  Kaynak: '+html.escape(str(record['source_url'])))
+            lines.append('  Yayın (UTC): '+datetime.fromtimestamp(record['published_at_utc'], timezone.utc).strftime('%Y-%m-%d %H:%M'))
+        lines.append('Bu durumlar ilk beş veya dakika tahmini değildir.')
+    lines.append('⚠️ İlk beş, rotasyon ve oyuncu etkisi doğrulanmadı; modele uygulanmadı.')
+    return '\\n'.join(lines)
+
 def detail_sections(parts, market_html):
     # Existing renderer is the canonical source for detailed data.
     full='\n\n'.join(parts)
@@ -118,5 +135,6 @@ def detail_sections(parts, market_html):
         'period':period_table(section('PERİYOT ANALİZİ','PİYASA KARŞILAŞTIRMASI')),
         'ranges':section('TAHMİN ARALIKLARI','PERİYOT ANALİZİ'),
         'market':market_html,
+        'roster':roster_section(),
         'audit':section('MODEL DENETİMİ','__END__'),
     }
