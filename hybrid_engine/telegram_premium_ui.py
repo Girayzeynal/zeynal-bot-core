@@ -3,6 +3,7 @@
 Presentation only: no mutation of frozen snapshots, market observations or model.
 """
 import html
+import re
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -48,6 +49,49 @@ def keyboard(token):
          InlineKeyboardButton('🛡 Model / Kaynak',callback_data='zui:'+token+':audit')],
         [InlineKeyboardButton('🏠 Özet',callback_data='zui:'+token+':summary')]])
 
+def period_table(section_html):
+    """Telegram-friendly rows; all numbers originate in the frozen model output."""
+    raw=html.unescape(re.sub(r'<[^>]+>', '', section_html))
+    rows={}
+    pattern=r'^(1Q|2Q|3Q|4Q|1H|2H):\\s*([0-9.]+)\\s*[–-]\\s*([0-9.]+)\\s*\\|\\s*Toplam\\s*([0-9.]+)'
+    current=None
+    for line in raw.splitlines():
+        match=re.match(pattern,line.strip())
+        if match:
+            current=match.group(1)
+            rows[current]={'home':float(match.group(2)), 'away':float(match.group(3)),
+                           'total':float(match.group(4)), 'band':None}
+        elif current and line.strip().startswith('P25'):
+            rows[current]['band']=line.strip()
+    if not all(k in rows for k in ('1Q','2Q','3Q','4Q','1H','2H')):
+        return section_html
+    qtotals=[rows[f'{i}Q']['total'] for i in range(1,5)]
+    mean=sum(qtotals)/4
+    def tempo(total):
+        # Relative projected scoring only, NOT measured possessions or pace.
+        if total>mean*1.05:return 'Görece yüksek'
+        if total<mean*0.95:return 'Görece düşük'
+        return 'Orta'
+    lines=['📊 <b>PERİYOT | SKOR PROJEKSİYONU</b>',
+           '<i>Skor sırası: Ev – Deplasman · Normal süre</i>',
+           '<i>Tempo etiketi, yalnızca tahmini periyot sayı toplamlarının göreli karşılaştırmasıdır.</i>','']
+    labels=[('1Q','1. Çeyrek'),('2Q','2. Çeyrek'),('1H','İlk Yarı'),
+            ('3Q','3. Çeyrek'),('4Q','4. Çeyrek'),('2H','İkinci Yarı')]
+    for key,label in labels:
+        row=rows[key]
+        score=f\"{row['home']:.1f} – {row['away']:.1f}\"
+        lines.append(f'<b>{label}</b>  |  {score}')
+        lines.append(f\"Toplam: {row['total']:.1f}\"+
+                     (f' · {tempo(row["total"])}' if key.endswith('Q') else ''))
+        if row['band']:lines.append(html.escape(row['band']))
+        lines.append('')
+    home=sum(rows[f'{i}Q']['home'] for i in range(1,5))
+    away=sum(rows[f'{i}Q']['away'] for i in range(1,5))
+    lines.append(f'<b>MAÇ SONU PROJEKSİYONU</b>  |  {home:.1f} – {away:.1f}')
+    lines.append(f'Toplam: {home+away:.1f} · Fark (ev): {home-away:+.1f}')
+    lines.append('⚠️ Kadro etkileri, kazanma yüzdesi ve en güçlü barem doğrulanmadı; eklenmedi.')
+    return '\\n'.join(lines)
+
 def detail_sections(parts, market_html):
     # Existing renderer is the canonical source for detailed data.
     full='\n\n'.join(parts)
@@ -57,7 +101,7 @@ def detail_sections(parts, market_html):
         end=full.find('<b>'+next_title+'</b>',start+len(title)+7)
         return full[start:end].strip() if end>=0 else full[start:].strip()
     return {
-        'period':section('PERİYOT ANALİZİ','PİYASA KARŞILAŞTIRMASI'),
+        'period':period_table(section('PERİYOT ANALİZİ','PİYASA KARŞILAŞTIRMASI')),
         'ranges':section('TAHMİN ARALIKLARI','PERİYOT ANALİZİ'),
         'market':market_html,
         'audit':section('MODEL DENETİMİ','__END__'),
