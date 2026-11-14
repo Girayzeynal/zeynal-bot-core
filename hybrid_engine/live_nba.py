@@ -148,6 +148,36 @@ class LiveNBAHybridService:
         return qmc,bands,dict(method='SAME_POSTERIOR_MC_VS_QMC_NOT_ACCURACY_EVIDENCE',
             mc=mc.summary(),mc_bands=prediction_intervals(mc),qmc_sample_sha256=bands['sample_sha256'])
 
+    def _observed_market_evidence(self, fixture_id, prediction_utc, fixture_start_utc):
+        """Read-only quote inventory; unknown settlement scope prohibits edge claims."""
+        from hybrid_engine.observed_markets import observe_espn
+        rows = []
+        seen = set()
+        for ref in self.sources.values():
+            receipt = json.loads((self.assets / ref['file']).read_text())
+            if '/scoreboard?' not in receipt.get('source_url', ''):
+                continue
+            try:
+                observed = observe_espn(receipt, now_utc=prediction_utc)
+            except (ValueError, KeyError, TypeError):
+                continue
+            for quote in observed['quotes']:
+                q = quote['payload']
+                if (q['fixture_id'] != fixture_id or
+                        q['fixture_start_utc'] != fixture_start_utc or
+                        q['ingested_at_utc'] > prediction_utc):
+                    continue
+                key = (q['bookmaker_id'], q['market'], q['line'], q['observed_at_utc'])
+                if key in seen:
+                    continue
+                seen.add(key)
+                rows.append(dict(bookmaker=q['bookmaker'], market=q['market'],
+                    line=q['line'], observed_at_utc=q['observed_at_utc'],
+                    quote_sha256=quote['sha256'], settlement_scope=q['settlement_scope'],
+                    status='OBSERVED_NOT_COMPARABLE',
+                    reason='REGULATION_MODEL_VS_UNKNOWN_MARKET_SETTLEMENT'))
+        return sorted(rows, key=lambda q:(q['market'], q['line'], q['bookmaker']))[:24]
+
     def _render(self,p,new):
         for ref in [p['input_asset'],p['prepared_asset'],*p['source_assets']]:
             path=local_path(self.assets/ref['file'])
@@ -159,6 +189,17 @@ class LiveNBAHybridService:
             prediction_generated_at_utc=p['prediction_generated_at_utc'],source_data_time_utc=p['source_data_time_utc'],
             official_source=p['fixture_source_url'],models={'BAYES_QMC':dict(model_digest=p['model_digest'])})
         parts=render_elite(record,forecast,p['intervals'],p['confidence'],live=True,prediction=p['prediction'])
+        observations=p.get('observed_market_evidence', [])
+        if observations:
+            lines=['<b>GÖZLENEN PİYASA ÇİZGİLERİ | ARAŞTIRMA</b>',
+                'Gerçek sağlayıcı gözlemi; normal süre modeliyle uzatma kapsamı eşleşmediği için edge, yön ve güven endeksi hesaplanmadı.']
+            for q in observations:
+                lines.append(html.escape(
+                    f"{q['bookmaker']} | {q['market']} {q['line']:g} | "
+                    f"gözlem UTC {q['observed_at_utc']} | KAPSAM DOĞRULANMADI"))
+            parts.append('\\n'.join(lines))
+        else:
+            parts.append('<b>PİYASA VERİSİ</b>\\nDoğrulanmış maç öncesi piyasa çizgisi bulunamadı; barem veya güven endeksi uydurulmadı.')
         return dict(status='ANALYSIS_OK',snapshot=p,new_record=new,html=parts[0],html_parts=parts)
 
     async def analyze(self,league,day,home,away):
@@ -197,6 +238,7 @@ class LiveNBAHybridService:
                     prepared_artifact_sha256=self.prepared.sha256,parameter_fit_cutoff_utc=self.prepared.model.cutoff,
                     prepared_asset=self.prepared_asset,
                     fixture_source_url=next(p['source_url'] for p in pins if '/scoreboard?' in p.get('source_url','')),
+                    observed_market_evidence=self._observed_market_evidence(g['canonical_id'],generated,g['start_ts_utc']),
                     mc_qmc=comparison,production=False,missing_data=['verified_pace','injuries','lineups','rotation','market'],
                     history={s:dict(n_games=cut.features[s]['n_games'],game_ids=cut.features[s]['recent_game_ids']) for s in ('home','away')})
                 self._check_budget()
