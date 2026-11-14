@@ -240,7 +240,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             except (TypeError,ValueError,OSError,KeyError) as exc:
                 lines.append('NBA replay: HATA ('+type(exc).__name__+')')
         lines.append('Bu kontrol maç tahmini, gerçek fikstür veya Fly.io dağıtımını doğrulamaz.')
-        await message.reply_text('\\n'.join(lines))
+        await message.reply_text('\n'.join(lines))
         raise ApplicationHandlerStop
     from telegram.ext import CommandHandler
     app.add_handler(CommandHandler('test',self_test),group=-50)
