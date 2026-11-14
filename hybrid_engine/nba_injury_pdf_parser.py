@@ -24,6 +24,8 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
     rows=[]
     rejected=0
     recognized_tables=0
+    active_table=False
+    previous_context=None
     with pdfplumber.open(BytesIO(pdf_bytes)) as pdf:
         if not 1<=len(pdf.pages)<=40:
             raise ValueError('INVALID_REPORT_PAGE_COUNT')
@@ -32,15 +34,28 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
                 if not table:
                     continue
                 header=[str(x or '').strip().replace('\n',' ') for x in table[0]]
-                if tuple(header)!=HEADERS:
+                if tuple(header)==HEADERS:
+                    recognized_tables+=1
+                    active_table=True
+                    data_rows=table[1:]
+                elif active_table and len(header)==len(HEADERS):
+                    # A page break can omit the repeated header; treat first row as data
+                    # only after a recognized header in an earlier table.
+                    data_rows=table
+                else:
+                    active_table=False
+                    previous_context=None
                     continue
-                recognized_tables+=1
-                for cells in table[1:]:
+                for cells in data_rows:
                     if len(cells)!=7:
                         rejected+=1
                         continue
                     values=[str(x or '').strip().replace('\n',' ') for x in cells]
                     date,time,matchup,team,player,status,reason=values
+                    if not (date or time or matchup or team) and previous_context:
+                        date,time,matchup,team=previous_context
+                    elif date and time and matchup and team:
+                        previous_context=(date,time,matchup,team)
                     if (not matchup or not team or not player or
                             status not in STATUSES or not reason or
                             not date or not time or player in ('—','-')):
