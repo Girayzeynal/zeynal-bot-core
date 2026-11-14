@@ -32,7 +32,8 @@ class HybridTelegramOptInContracts(TestCase):
     def test_no_silent_faz13_fallback_on_hybrid_failure(self):
         self.assertIn("await hybrid_service.analyze(league,date_str,home,away)", self.source)
         self.assertIn("Hibrit araştırma analizi kullanılamıyor; FAZ13 sonucu üretilmedi.", self.source)
-        self.assertIn("await reply_analysis(update,context,report,hybrid_service)", self.source)
+        self.assertIn("await update.message.reply_text(part,parse_mode='HTML'", self.source)
+        self.assertNotIn("await reply_analysis(update,context,report,hybrid_service)", self.source)
 
     def test_telegram_displays_uncalibrated_research_warning(self):
         self.assertIn('ARAŞTIRMA MODU — ÜRETİM TAHMİNİ DEĞİL — KALİBRE EDİLMEDİ', self.source)
