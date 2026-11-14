@@ -90,6 +90,33 @@ class InjuryPDFParserTests(unittest.TestCase):
         self.assertEqual(result['rejected_count'],1)
         self.assertFalse(result['extraction_verified'])
 
+
+    def test_coordinate_fallback_real_nba_sparse_body(self):
+        anchors=[23.1,119.6,200.0,264.2,425.0,585.7,666.1]
+        def line(y,values):
+            return [dict(text=value,x0=x,top=y) for x,value in zip(anchors,values) if value]
+        words=[]
+        words+=line(107.7,['GameDate','GameTime','Matchup','Team','PlayerName','CurrentStatus','Reason'])
+        words+=line(128.9,['11/14/2026','07:00(ET)','DEN@NOP','DenverNuggets','HolmesII,DaRon','Out','GLeague-OnAssignment'])
+        words+=line(151.0,['','','','','Nembhard,Ryan','Out','GLeague-Two-Way'])
+        words+=line(173.0,['','','','','Strawther,Julian','Out','LeftKneeSprain'])
+        words+=line(218.1,['','','','NewOrleansPelicans','','','NOTYETSUBMITTED'])
+        class CoordinatePage:
+            def extract_tables(self):
+                return [[list(HEADERS)]]
+            def extract_words(self):
+                return words
+        class CoordinatePDF:
+            pages=[CoordinatePage()]
+            def __enter__(self):return self
+            def __exit__(self,*args):pass
+        fake=types.SimpleNamespace(open=lambda stream:CoordinatePDF())
+        with patch.dict(sys.modules,{'pdfplumber':fake}):
+            result=extract_nba_injury_rows(self.data,expected_sha256=self.digest)
+        self.assertEqual(len(result['rows']),3)
+        self.assertTrue(all(r['team']=='DenverNuggets' for r in result['rows']))
+        self.assertFalse(result['extraction_verified'])
+
     def test_table_rows_are_not_automatically_verified(self):
         fake=types.SimpleNamespace(open=lambda stream:FakePDF())
         with patch.dict(sys.modules,{'pdfplumber':fake}):
