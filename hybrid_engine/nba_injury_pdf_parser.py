@@ -8,7 +8,8 @@ from io import BytesIO
 
 HEADERS=('Game Date','Game Time','Matchup','Team','Player Name','Current Status','Reason')
 OFFICIAL_HEADERS=('Date','Time (ET)','Matchup','Team','Player','Status','Injury / Illness / Notes')
-SUPPORTED_HEADERS=frozenset((HEADERS,OFFICIAL_HEADERS))
+COMPACT_HEADERS=('GameDate','GameTime','Matchup','Team','PlayerName','CurrentStatus','Reason')
+SUPPORTED_HEADERS=frozenset((HEADERS,OFFICIAL_HEADERS,COMPACT_HEADERS))
 STATUSES=frozenset({'Out','Doubtful','Questionable','Probable','Available'})
 
 def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
