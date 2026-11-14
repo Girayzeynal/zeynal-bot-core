@@ -34,6 +34,9 @@ class HybridTelegramOptInContracts(TestCase):
         self.assertIn("Hibrit araştırma analizi kullanılamıyor; FAZ13 sonucu üretilmedi.", self.source)
         self.assertIn("await reply_analysis(update,context,report,hybrid_service)", self.source)
 
+    def test_telegram_displays_uncalibrated_research_warning(self):
+        self.assertIn('ARAŞTIRMA MODU — ÜRETİM TAHMİNİ DEĞİL — KALİBRE EDİLMEDİ', self.source)
+
     def test_hybrid_research_engine_not_promoted(self):
         engine = (ROOT / 'hybrid_engine/live_nba.py').read_text()
         self.assertIn('production=False', engine)
