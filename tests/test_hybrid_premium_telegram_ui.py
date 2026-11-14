@@ -29,7 +29,7 @@ class PremiumTelegramUITests(unittest.TestCase):
         self.assertEqual(len(buttons),6)
         self.assertTrue(all(len(b.callback_data.encode())<=64 for b in buttons))
         self.assertEqual({b.callback_data.split(':')[-1] for b in buttons},
-                         {'summary','period','market','ranges','audit'})
+                         {'summary','period','market','ranges','audit','roster'})
 
     def test_period_commentary_is_derived_only_from_frozen_periods(self):
         from hybrid_engine.telegram_premium_ui import period_table
