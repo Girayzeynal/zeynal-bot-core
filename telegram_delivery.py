@@ -119,7 +119,7 @@ async def reply_analysis(update,context,report,service):
         event=dict(record_type='TELEGRAM_ANALYSIS_DELIVERY',timeline=times,update_id=getattr(update,'update_id',None),
             part_index=i,part_count=len(parts),request_sha256=request_pin,message_sha256=digest(text),attempted_at_utc=int(time.time()),telegram_sent_at_utc=None)
         if journal:await asyncio.to_thread(journal.append,part_key+':attempt',dict(event,status='ATTEMPTED'))
-        try:sent=await update.message.reply_text(text,parse_mode='HTML',disable_web_page_preview=True)
+        try:sent=await update.message.reply_text(text,parse_mode='HTML',disable_web_page_preview=True,\n            reply_markup=report.get('reply_markup') if i==0 else None)
         except Exception as exc:
             if journal:await asyncio.to_thread(journal.append,part_key+':result',dict(event,status='NOT_CONFIRMED',error_type=type(exc).__name__))
             raise
