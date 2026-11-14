@@ -9,7 +9,7 @@ ALLOWED = frozenset({'OUT', 'DOUBTFUL', 'QUESTIONABLE', 'PROBABLE', 'AVAILABLE'}
 CONFIRMED = frozenset({'OUT', 'AVAILABLE'})
 
 
-def assess_roster_evidence(records, *, prediction_utc, fixture_start_utc):
+def assess_roster_evidence(records, *, prediction_utc, fixture_start_utc, home_team_id=None, away_team_id=None):
     """Accept only pre-prediction, pre-tipoff, source-attributed status records.
 
     A status is not a confirmed starter or a minutes projection.
@@ -17,6 +17,10 @@ def assess_roster_evidence(records, *, prediction_utc, fixture_start_utc):
     """
     if type(prediction_utc) is not int or type(fixture_start_utc) is not int or not 0 < prediction_utc < fixture_start_utc:
         raise ValueError('INVALID_PREMATCH_CUTOFF')
+    if (home_team_id is None) != (away_team_id is None):
+        raise ValueError('BOTH_FIXTURE_TEAMS_REQUIRED')
+    if home_team_id is not None and (not isinstance(home_team_id, str) or not isinstance(away_team_id, str) or not home_team_id.strip() or not away_team_id.strip() or home_team_id == away_team_id):
+        raise ValueError('INVALID_FIXTURE_TEAM_IDENTITIES')
     accepted = {}
     conflicts = set()
     rejected = 0
@@ -29,6 +33,9 @@ def assess_roster_evidence(records, *, prediction_utc, fixture_start_utc):
         status = record.get('status')
         published = record.get('published_at_utc')
         source = record.get('source_url')
+        if (home_team_id is not None and team not in (home_team_id, away_team_id)):
+            rejected += 1
+            continue
         if (not isinstance(player, str) or not player.strip() or
                 not isinstance(team, str) or not team.strip() or
                 status not in ALLOWED or type(published) is not int or
