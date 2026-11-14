@@ -58,6 +58,13 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
                     # cells blank. Never carry a team into a newly named matchup.
                     if previous_context:
                         old_date,old_time,old_matchup,old_team=previous_context
+                        # Never inherit an old team's matchup into a newly
+                        # supplied game date/time without an explicit matchup.
+                        if (date and date!=old_date) or (time and time!=old_time):
+                            if not matchup:
+                                rejected+=1
+                                previous_context=None
+                                continue
                         if not date:
                             date=old_date
                         if not time:
