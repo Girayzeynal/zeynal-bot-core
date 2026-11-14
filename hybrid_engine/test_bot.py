@@ -189,10 +189,10 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 response=dict(response)
                 from hybrid_engine.telegram_premium_ui import compact_summary, keyboard, detail_sections
                 import secrets
-                full_parts=[*response['html_parts'],'\\n'.join(market_lines)]
+                full_parts=[*response['html_parts'],'\n'.join(market_lines)]
                 token=secrets.token_hex(6)
                 summary=compact_summary(snapshot,evidence,replayed=not response['new_record'])
-                sections=detail_sections(response['html_parts'],'\\n'.join(market_lines))
+                sections=detail_sections(response['html_parts'],'\n'.join(market_lines))
                 cache=app.bot_data.setdefault('premium_reports',{})
                 # Keep memory bounded and do not persist sensitive report views.
                 while len(cache)>=64:
