@@ -113,6 +113,30 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Historical requests require point-in-time snapshots. Current baselines
     # would leak post-game information into a retrospective prediction.
+    # Explicit research-only opt-in. Never silently promote a research forecast.
+    # No prepared artifact => startup rejects the opt-in instead of falling back.
+    hybrid_service=context.application.bot_data.get('hybrid_nba_service')
+    if hybrid_service is not None and league.upper()=='NBA':
+        try:
+            report=await hybrid_service.analyze(league,date_str,home,away)
+        except Exception as exc:
+            logger.error('Hybrid research analysis failed: %s',type(exc).__name__)
+            await update.message.reply_text('Hibrit araştırma analizi kullanılamıyor; FAZ13 sonucu üretilmedi.')
+            return
+        # Research snapshots use a separate ledger schema. Do not pass them
+        # through production delivery timeline/receipt SQL.
+        research_banner='ARAŞTIRMA MODU — ÜRETİM TAHMİNİ DEĞİL — KALİBRE EDİLMEDİ'
+        parts=list(report.get('html_parts') or [report['html']])
+        parts[0]=research_banner+'\n'+parts[0]
+        # Validate the entire response before sending any part; avoid
+        # partially delivered research reports if a later part is oversized.
+        if any(len(part.encode('utf-16-le'))//2>4096 for part in parts):
+            logger.error('Hybrid research Telegram response exceeds message budget')
+            await update.message.reply_text('Hibrit araştırma çıktısı Telegram mesaj sınırını aştı; rapor gönderilmedi.')
+            return
+        for part in parts:
+            await update.message.reply_text(part,parse_mode='HTML',disable_web_page_preview=True)
+        return
     release_service=context.application.bot_data.get('verified_analysis_service')
     if release_service is not None:
         try:
@@ -483,6 +507,16 @@ def build_app() -> Application:
     app.bot_data["baseline_store"] = baseline_store
     app.bot_data['team_identity_service']=UniversalAnalyzeService()
     app.bot_data['verified_analysis_service']=production_service()
+    # Disabled by default. Research-only output; production=False remains intact.
+    if os.getenv('ZEYNAL_HYBRID_NBA_RESEARCH','0')=='1':
+        from hybrid_engine.live_nba import PreparedBayes,LiveNBAHybridService
+        prepared_path=os.environ['ZEYNAL_HYBRID_PREPARED_PATH']
+        prepared_sha=os.environ['ZEYNAL_HYBRID_PREPARED_SHA256']
+        research_dir=os.environ['ZEYNAL_HYBRID_RESEARCH_DIR']
+        if (not research_dir or os.path.realpath(research_dir)=='/data' or os.path.realpath(research_dir).startswith('/data/')):
+            raise RuntimeError('HYBRID_RESEARCH_DIRECTORY_MUST_BE_ISOLATED_FROM_PRODUCTION_VOLUME')
+        prepared=PreparedBayes(prepared_path,trusted_sha256=prepared_sha)
+        app.bot_data['hybrid_nba_service']=LiveNBAHybridService(research_dir,prepared)
     app.bot_data['nba_fixture_loader']=app.bot_data['verified_analysis_service'].list_nba_games
     app.bot_data["baseline_bootstrapper"] = bootstrapper
     app.bot_data["faz13"] = faz13
