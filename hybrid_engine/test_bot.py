@@ -282,7 +282,131 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         lines.append('Bu kontrol maç tahmini, gerçek fikstür veya Fly.io dağıtımını doğrulamaz.')
         await message.reply_text('\n'.join(lines))
         raise ApplicationHandlerStop
-    from telegram.ext import CommandHandler
+    from telegram.ext import CommandHandler, CallbackQueryHandler
+    async def premium_callback(update,context):
+        query=update.callback_query
+        if query is None or update.effective_chat is None or update.effective_chat.id!=chat_id:
+            return
+        data=query.data or ''
+        parts=data.split(':')
+        if len(parts)!=3 or parts[0]!='zui':
+            return
+        _,token,section=parts
+        cache=app.bot_data.get('premium_reports',{})
+        entry=cache.get(token)
+        if entry is None or entry['chat_id']!=chat_id:
+            await query.answer('Bu raporun oturumu sona erdi. /analyze ile tekrar açın.',show_alert=True)
+            return
+        if section!='summary' and section not in entry['sections']:
+            await query.answer('Bölüm bulunamadı.',show_alert=True)
+            return
+        from hybrid_engine.telegram_premium_ui import keyboard
+        body=entry['summary'] if section=='summary' else entry['sections'][section]
+        if len(body.encode('utf-16-le'))//2>4096:
+            await query.answer('Bölüm Telegram sınırını aşıyor.',show_alert=True)
+            return
+        await query.answer()
+        try:
+            await query.edit_message_text(body,parse_mode='HTML',
+                disable_web_page_preview=True,reply_markup=keyboard(token))
+        except Exception as exc:
+            if 'Message is not modified' not in str(exc):
+                raise
+    app.add_handler(CallbackQueryHandler(premium_callback,pattern=r'^zui:[0-9a-f]{12}:(summary|period|market|ranges|audit)
+    app.add_handler(TypeHandler(Update,authorized),group=-100);app.add_error_handler(error)
+    return journal,results
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--preflight',action='store_true')
+    parser.add_argument('--archive-directory');parser.add_argument('--data-directory');parser.add_argument('--result-poll-seconds',type=int,default=300)
+    parser.add_argument('--nba-model');parser.add_argument('--nba-model-sha')
+    parser.add_argument('--decision-layer',action='store_true');parser.add_argument('--decision-audit');parser.add_argument('--decision-audit-sha')
+    parser.add_argument('--forward-euroleague-directory');parser.add_argument('--forward-nba-ledger')
+    parser.add_argument('--nba-replay-packet');parser.add_argument('--replay-only',action='store_true')
+    args=parser.parse_args();config=configuration(os.environ)
+    if args.preflight or config['status']=='NOT_CONFIGURED':print(json.dumps(config));return
+    if not args.archive_directory or not args.data_directory:raise ValueError('ISOLATED_DIRECTORIES_REQUIRED')
+    if args.replay_only and (args.nba_model or args.nba_model_sha or args.forward_euroleague_directory or args.forward_nba_ledger):
+        raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_MODELS_AND_RESULT_COLLECTION')
+    from hybrid_engine.nba_replay import NBAReplayArchive,DEFAULT_PACKET
+    nba_replay=NBAReplayArchive(local_path(args.nba_replay_packet) if args.nba_replay_packet else DEFAULT_PACKET)
+    if args.result_poll_seconds<60:raise ValueError('BOUNDED_RESULT_POLL_INTERVAL_REQUIRED')
+    if bool(args.nba_model)!=bool(args.nba_model_sha):raise ValueError('EXPLICIT_NBA_MODEL_AND_TRUSTED_PIN_REQUIRED')
+    nba_model_path=local_path(args.nba_model) if args.nba_model else None
+    forward_el=None
+    if args.forward_euroleague_directory:
+        from hybrid_engine.forward_validation import ForwardRegistry
+        forward_el=ForwardRegistry(local_path(args.forward_euroleague_directory))
+    forward_nba=local_path(args.forward_nba_ledger) if args.forward_nba_ledger else None
+    if bool(args.decision_audit)!=bool(args.decision_audit_sha):raise ValueError('EXPLICIT_AUDIT_PATH_AND_PIN_REQUIRED')
+    audit_report=None
+    if args.decision_audit:
+        from hybrid_engine.decision_integration import read_audit_report
+        if not args.decision_layer:raise ValueError('AUDIT_REQUIRES_DECISION_LAYER')
+        audit_report=read_audit_report(local_path(args.decision_audit),args.decision_audit_sha)
+    archive=FrozenArchive(args.archive_directory);root=local_path(args.data_directory);root.mkdir(parents=True,exist_ok=True)
+    os.environ['TELEGRAM_BOT_TOKEN']=os.environ['ZEYNAL_TEST_BOT_TOKEN']
+    os.environ['PREDICTION_LEDGER_DB']=str(root/'unused-live-ledger.sqlite')
+    os.environ['API_SPORTS_KEY']='';os.environ['ENABLE_LEGACY_SCHEDULER']='0'
+    os.chdir(root)
+    import main as application
+    application.TELEGRAM_BOT_TOKEN=os.environ['ZEYNAL_TEST_BOT_TOKEN']
+    journal=DeliveryJournal(root/'telegram-delivery.sqlite');transport=ControlledTransport(fetch_document)
+    original=application.Application
+    tasks=[]
+    async def ready(app):
+        me=await app.bot.get_me()
+        if me.id!=config['bot_id'] or me.username!=config['username']:raise ValueError('TEST_BOT_SERVER_IDENTITY_MISMATCH')
+        hook=await app.bot.get_webhook_info()
+        if hook.url:raise ValueError('TEST_BOT_HAS_WEBHOOK_POLLING_NOT_STARTED')
+        async def collect():
+            while True:
+                try:
+                    receipt=await asyncio.to_thread(transport,'EUROLEAGUE_LIVE',OFFICIAL)
+                    await asyncio.to_thread(app.bot_data['test_results'].ingest,receipt)
+                    if forward_el is not None:
+                        from hybrid_engine.forward_nba_results import report_euroleague
+                        await asyncio.to_thread(forward_el.settle,receipt)
+                        await asyncio.to_thread(report_euroleague,forward_el)
+                    if forward_nba is not None:
+                        from hybrid_engine.forward_nba_results import collect as collect_forward_nba
+                        await asyncio.to_thread(collect_forward_nba,forward_nba,root/'forward-nba-results')
+                except (ValueError,OSError) as exc:
+                    await asyncio.to_thread(journal.append,digest(dict(kind='RESULT_POLL_FAILED',at=int(time.time()))),
+                        dict(kind='RESULT_POLL_FAILED',error_type=type(exc).__name__,observed_at_utc=int(time.time())))
+                await asyncio.sleep(args.result_poll_seconds)
+        if not args.replay_only:tasks.append(asyncio.create_task(collect()))
+    async def stop(app):
+        for task in tasks:task.cancel()
+        await asyncio.gather(*tasks,return_exceptions=True)
+    class IsolatedApplication:
+        @staticmethod
+        def builder():return Application.builder().request(AuditedRequest(journal,expected_identity=config)).post_init(ready).post_shutdown(stop)
+    application.Application=IsolatedApplication
+    try:app=application.build_app()
+    finally:application.Application=original
+    nba_service=None
+    if args.nba_model:
+        from hybrid_engine.live_nba import PreparedBayes,LiveNBAHybridService
+        nba_service=LiveNBAHybridService(root/'live-nba',PreparedBayes(nba_model_path,trusted_sha256=args.nba_model_sha))
+    _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport,nba_service=nba_service,
+        decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only)
+    app.bot_data['test_results']=results
+    # Commands must arrive from the authorized HUMAN test chat; bot self-messages
+    # are never counted as real command-input E2E evidence.
+    from concurrent.futures import ThreadPoolExecutor
+    loop=asyncio.new_event_loop();asyncio.set_event_loop(loop)
+    loop.set_default_executor(ThreadPoolExecutor(max_workers=1,thread_name_prefix='hybrid-test'))
+    app.run_polling(bootstrap_retries=0,drop_pending_updates=False)
+
+
+if __name__=='__main__':
+    try:main()
+    except Exception as exc:
+        print(json.dumps(failure_report(exc)))
+        raise SystemExit(2)
+),group=-50)
     app.add_handler(CommandHandler('test',self_test),group=-50)
     app.add_handler(TypeHandler(Update,authorized),group=-100);app.add_error_handler(error)
     return journal,results
