@@ -26,7 +26,7 @@ class PremiumTelegramUITests(unittest.TestCase):
     def test_keyboard_callback_ids_are_short_and_scoped(self):
         markup=keyboard('abcdef123456')
         buttons=[b for row in markup.inline_keyboard for b in row]
-        self.assertEqual(len(buttons),5)
+        self.assertEqual(len(buttons),6)
         self.assertTrue(all(len(b.callback_data.encode())<=64 for b in buttons))
         self.assertEqual({b.callback_data.split(':')[-1] for b in buttons},
                          {'summary','period','market','ranges','audit'})
