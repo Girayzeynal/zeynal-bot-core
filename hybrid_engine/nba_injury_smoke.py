@@ -11,6 +11,7 @@ from pathlib import Path
 from collections import Counter
 
 from hybrid_engine.nba_injury_pdf_parser import extract_nba_injury_rows
+from hybrid_engine.nba_injury_rows import classify_official_absence
 
 def inspect_pdf(path):
     file=Path(path)
@@ -24,8 +25,9 @@ def inspect_pdf(path):
     rows=parsed['rows']
     by_matchup=dict(sorted(Counter(row['matchup'] for row in rows).items()))
     by_status=dict(sorted(Counter(row['status'] for row in rows).items()))
+    by_reason=dict(sorted(Counter(classify_official_absence(row) for row in rows).items()))
     return dict(sha256=digest,byte_count=len(data),
-                by_matchup=by_matchup,by_status=by_status,
+                by_matchup=by_matchup,by_status=by_status,by_reason=by_reason,
                 status=parsed['status'],parsed_rows=len(parsed['rows']),
                 rejected_rows=parsed['rejected_count'],
                 extraction_verified=False,roster_verified=False,
@@ -38,10 +40,11 @@ def main():
     args=parser.parse_args()
     result=inspect_pdf(args.pdf_path)
     if args.brief:
-        print('PDF_PARSE={} rows={} rejected={} games={} statuses={} roster_verified={} telegram_verified={}'.format(
+        print('PDF_PARSE={} rows={} rejected={} games={} statuses={} reasons={} roster_verified={} telegram_verified={}'.format(
             'PASS' if result['parsed_rows'] else 'FAIL',result['parsed_rows'],
             result['rejected_rows'],json.dumps(result['by_matchup'],sort_keys=True),
             json.dumps(result['by_status'],sort_keys=True),
+            json.dumps(result['by_reason'],sort_keys=True),
             result['roster_verified'],result['telegram_delivery_verified']))
     else:
         print(json.dumps(result,sort_keys=True))
