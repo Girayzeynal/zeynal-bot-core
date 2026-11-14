@@ -205,6 +205,45 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
     async def error(update,context):
         await asyncio.to_thread(journal.append,digest(dict(update=getattr(update,'update_id',None),kind='HANDLER_ERROR')),
             dict(kind='HANDLER_ERROR',update_id=getattr(update,'update_id',None),error_type=type(context.error).__name__,observed_at_utc=int(time.time())))
+    async def self_test(update,context):
+        """Read-only diagnostics, available only in the authorized test chat."""
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:
+            return
+        message=update.effective_message
+        if message is None:
+            return
+        args=(message.text or '').split()
+        mode=args[1].lower() if len(args)>1 else 'all'
+        if mode not in ('all','nba','euroleague'):
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test all')
+            raise ApplicationHandlerStop
+        lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
+            'Telegram komut alımı: OK',
+            'Yetkili sohbet: OK',
+            'Bu yanıtın teslimi Telegram üzerinden kontrol edilmelidir.']
+        if mode in ('all','euroleague'):
+            try:
+                count=len(archive.records)
+                lines.append(f'EuroLeague doğrulanmış arşiv kaydı: {count}')
+                lines.append('EuroLeague arşiv: OK' if count else 'EuroLeague arşiv: BOŞ')
+            except (AttributeError,TypeError,ValueError,OSError) as exc:
+                lines.append('EuroLeague arşiv: HATA ('+type(exc).__name__+')')
+        if mode in ('all','nba'):
+            try:
+                if nba_replay is not None:
+                    cases=nba_replay.cases()
+                    lines.append(f'NBA replay kayıtları: {len(cases)}')
+                    lines.append('NBA replay: OK' if cases else 'NBA replay: BOŞ')
+                else:
+                    lines.append('NBA replay: YAPILANDIRILMADI')
+                lines.append('Canlı NBA hibrit motoru: '+('YÜKLÜ (analiz henüz doğrulanmadı)' if nba_service is not None else 'DEVRE DIŞI'))
+            except (TypeError,ValueError,OSError,KeyError) as exc:
+                lines.append('NBA replay: HATA ('+type(exc).__name__+')')
+        lines.append('Bu kontrol maç tahmini, gerçek fikstür veya Fly.io dağıtımını doğrulamaz.')
+        await message.reply_text('\\n'.join(lines))
+        raise ApplicationHandlerStop
+    from telegram.ext import CommandHandler
+    app.add_handler(CommandHandler('test',self_test),group=-50)
     app.add_handler(TypeHandler(Update,authorized),group=-100);app.add_error_handler(error)
     return journal,results
 
