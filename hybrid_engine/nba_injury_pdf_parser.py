@@ -12,6 +12,86 @@ COMPACT_HEADERS=('GameDate','GameTime','Matchup','Team','PlayerName','CurrentSta
 SUPPORTED_HEADERS=frozenset((HEADERS,OFFICIAL_HEADERS,COMPACT_HEADERS))
 STATUSES=frozenset({'Out','Doubtful','Questionable','Probable','Available'})
 
+
+def _coordinate_rows(pdf):
+    """Extract NBA text columns when pdfplumber detects headers but not body cells.
+
+    Coordinate bands are anchored to the seven headers on each page, never to
+    unvalidated text order. Sparse game/team cells inherit only within a game.
+    """
+    import re
+    output=[]
+    rejected=0
+    context=None
+    for page in pdf.pages:
+        if not hasattr(page,'extract_words'):
+            continue
+        words=sorted(page.extract_words() or [],key=lambda w:(float(w['top']),float(w['x0'])))
+        lines=[]
+        for w in words:
+            top=float(w['top'])
+            if lines and abs(top-lines[-1][0])<=2.5:
+                lines[-1][1].append(w)
+            else:
+                lines.append((top,[w]))
+        header_index=None
+        bounds=None
+        for i,(_,line) in enumerate(lines):
+            ordered=sorted(line,key=lambda w:float(w['x0']))
+            joined=''.join(str(w['text']) for w in ordered).replace(' ','').lower()
+            if all(token in joined for token in ('gamedate','gametime','matchup','playername','currentstatus','reason')):
+                anchors=[]
+                for token in ('GameDate','GameTime','Matchup','Team','PlayerName','CurrentStatus','Reason'):
+                    match=next((w for w in ordered if str(w['text']).replace(' ','').lower()==token.lower()),None)
+                    if match is None:
+                        break
+                    anchors.append(float(match['x0']))
+                if len(anchors)==7 and all(a<b for a,b in zip(anchors,anchors[1:])):
+                    bounds=[(a+b)/2 for a,b in zip(anchors,anchors[1:])]
+                    header_index=i
+                    break
+        if bounds is None:
+            continue
+        for _,line in lines[header_index+1:]:
+            cells=[[] for _ in range(7)]
+            for w in sorted(line,key=lambda w:float(w['x0'])):
+                x=float(w['x0'])
+                column=sum(x>=b for b in bounds)
+                cells[column].append(str(w['text']))
+            values=[' '.join(c).strip() for c in cells]
+            date,time,matchup,team,player,status,reason=values
+            if not any(values):
+                continue
+            if date and not re.fullmatch(r'\d{1,2}/\d{1,2}/\d{4}',date):
+                continue
+            if matchup and not re.fullmatch(r'[A-Z]{2,4}@[A-Z]{2,4}',matchup):
+                continue
+            if team and not re.search(r'[A-Za-z]',team):
+                continue
+            if context:
+                old_date,old_time,old_matchup,old_team=context
+                if (date and date!=old_date) or (time and time!=old_time):
+                    if not matchup:
+                        context=None
+                        rejected+=1
+                        continue
+                date=date or old_date
+                time=time or old_time
+                matchup=matchup or old_matchup
+                if not team and matchup==old_matchup:
+                    team=old_team
+            if date and time and matchup and team:
+                context=(date,time,matchup,team)
+            if not player and reason.replace(' ','').upper()=='NOTYETSUBMITTED':
+                rejected+=1
+                continue
+            if player and status in STATUSES and reason and date and time and matchup and team:
+                output.append(dict(game_date=date,game_time=time,matchup=matchup,
+                                   team=team,player_name=player,status=status,reason=reason))
+            elif player or status:
+                rejected+=1
+    return output,rejected
+
 def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
     import hashlib
     if not isinstance(pdf_bytes,bytes) or not pdf_bytes.startswith(b'%PDF-'):
@@ -85,7 +165,11 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
                         continue
                     rows.append(dict(game_date=date,game_time=time,matchup=matchup,
                                      team=team,player_name=player,status=status,reason=reason))
-    if recognized_tables==0:
+        if not rows:
+            coordinate_rows,coordinate_rejected=_coordinate_rows(pdf)
+            rows.extend(coordinate_rows)
+            rejected+=coordinate_rejected
+    if recognized_tables==0 and not rows:
         raise ValueError('OFFICIAL_REPORT_TABLE_SCHEMA_UNRECOGNIZED')
     if not rows:
         return dict(status='NO_VERIFIED_TABLE_ROWS',rows=[],rejected_count=rejected,
