@@ -191,6 +191,9 @@ class LiveNBAHybridService:
         parts=render_elite(record,forecast,p['intervals'],p['confidence'],live=True,prediction=p['prediction'])
         observations=p.get('observed_market_evidence', [])
         if observations:
+            old_notice=('Piyasa verisi doğrulanamadı.\\nToplam, takım toplamı ve handikap için çizgi/edge/alt–üst yönü üretilmedi.')
+            parts=[part.replace(old_notice, 'Piyasa çizgileri gözlendi; karşılaştırılabilir piyasa kapsamı doğrulanmadı.\\nEdge/alt–üst önerisi ve güven endeksi üretilmedi.') for part in parts]
+        if observations:
             lines=['<b>GÖZLENEN PİYASA ÇİZGİLERİ | ARAŞTIRMA</b>',
                 'Gerçek sağlayıcı gözlemi; normal süre modeliyle uzatma kapsamı eşleşmediği için edge, yön ve güven endeksi hesaplanmadı.']
             for q in observations:
