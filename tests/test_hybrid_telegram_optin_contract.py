@@ -40,6 +40,12 @@ class HybridTelegramOptInContracts(TestCase):
         self.assertIn("await update.message.reply_text(part,parse_mode='HTML'", self.source)
         self.assertNotIn('await reply_analysis(update,context,report,hybrid_service)', self.source)
 
+    def test_all_research_parts_checked_before_send(self):
+        budget = self.source.index("if any(len(part.encode('utf-16-le'))//2>4096 for part in parts):")
+        send = self.source.index("await update.message.reply_text(part,parse_mode='HTML'")
+        self.assertLess(budget, send)
+        self.assertIn("rapor gönderilmedi.", self.source)
+
     def test_hybrid_research_engine_not_promoted(self):
         engine = (ROOT / 'hybrid_engine/live_nba.py').read_text()
         self.assertIn('production=False', engine)
