@@ -36,6 +36,8 @@ class HybridTelegramOptInContracts(TestCase):
 
     def test_telegram_displays_uncalibrated_research_warning(self):
         self.assertIn('ARAŞTIRMA MODU — ÜRETİM TAHMİNİ DEĞİL — KALİBRE EDİLMEDİ', self.source)
+        self.assertIn("await update.message.reply_text(part,parse_mode='HTML'", self.source)
+        self.assertNotIn('await reply_analysis(update,context,report,hybrid_service)', self.source)
 
     def test_hybrid_research_engine_not_promoted(self):
         engine = (ROOT / 'hybrid_engine/live_nba.py').read_text()
