@@ -3,7 +3,6 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 from hybrid_engine.market_evidence_report import observed_market_evidence
@@ -28,7 +27,7 @@ class ObservedMarketEvidenceTests(unittest.TestCase):
                 'ingested_at_utc': ingested, 'observed_at_utc': 80,
                 'bookmaker_id': 'book', 'bookmaker': 'Example',
                 'market': 'TOTAL', 'line': 230.5, 'settlement_scope': 'UNKNOWN'}}
-        with patch('hybrid_engine.observed_markets.observe_espn', return_value={
+        with patch('hybrid_engine.market_evidence_report.observe_espn', return_value={
             'quotes': [quote('fixture', 90), quote('other', 90), quote('fixture', 110)],
             'rejected': []}):
             rows = observed_market_evidence(self.assets, sources, 'fixture', 100, 200)
