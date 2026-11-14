@@ -13,7 +13,9 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
     import hashlib
     if not isinstance(pdf_bytes,bytes) or not pdf_bytes.startswith(b'%PDF-'):
         raise ValueError('INVALID_PDF_BYTES')
-    if len(pdf_bytes)>8*1024*1024:\n        raise ValueError('OVERSIZED_PDF_BYTES')\n    if hashlib.sha256(pdf_bytes).hexdigest()!=expected_sha256:
+    if len(pdf_bytes)>8*1024*1024:
+        raise ValueError('OVERSIZED_PDF_BYTES')
+    if hashlib.sha256(pdf_bytes).hexdigest()!=expected_sha256:
         raise ValueError('PDF_DIGEST_MISMATCH')
     try:
         import pdfplumber
@@ -46,6 +48,10 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
                         continue
                     rows.append(dict(game_date=date,game_time=time,matchup=matchup,
                                      team=team,player_name=player,status=status,reason=reason))
-    if recognized_tables==0:\n        raise ValueError('OFFICIAL_REPORT_TABLE_SCHEMA_UNRECOGNIZED')\n    if not rows:\n        return dict(status='NO_VERIFIED_TABLE_ROWS',rows=[],rejected_count=rejected,\n                    extraction_verified=False)
+    if recognized_tables==0:
+        raise ValueError('OFFICIAL_REPORT_TABLE_SCHEMA_UNRECOGNIZED')
+    if not rows:
+        return dict(status='NO_VERIFIED_TABLE_ROWS',rows=[],rejected_count=rejected,
+                    extraction_verified=False)
     return dict(status='PARSED_TABLE_ROWS_REQUIRE_ID_VERIFICATION',rows=rows,
                 rejected_count=rejected,extraction_verified=False)
