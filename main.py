@@ -123,6 +123,12 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error('Hybrid research analysis failed: %s',type(exc).__name__)
             await update.message.reply_text('Hibrit araştırma analizi kullanılamıyor; FAZ13 sonucu üretilmedi.')
             return
+        # Explicitly distinguish research forecasts from calibrated production.
+        research_banner='ARAŞTIRMA MODU — ÜRETİM TAHMİNİ DEĞİL — KALİBRE EDİLMEDİ'
+        if report.get('html_parts'):
+            report=dict(report,html_parts=[research_banner+'\\n'+report['html_parts'][0],*report['html_parts'][1:]])
+        else:
+            report=dict(report,html=research_banner+'\\n'+report['html'])
         await reply_analysis(update,context,report,hybrid_service)
         return
     release_service=context.application.bot_data.get('verified_analysis_service')
