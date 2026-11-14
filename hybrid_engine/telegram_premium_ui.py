@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 def compact_summary(snapshot, evidence, *, replayed):
     p=snapshot['prediction']
-    fixture=snapshot['fixture']
+    fixture={'home_name':snapshot['home']['official_name'], 'away_name':snapshot['away']['official_name']}
     esc=html.escape
     start=datetime.fromtimestamp(snapshot['fixture_start_utc'],timezone.utc).astimezone(
         ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y %H:%M')
