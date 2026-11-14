@@ -123,7 +123,7 @@ def roster_section(evidence=None):
     lines.append('⚠️ İlk beş, rotasyon ve oyuncu etkisi doğrulanmadı; modele uygulanmadı.')
     return '\n'.join(lines)
 
-def detail_sections(parts, market_html):
+def detail_sections(parts, market_html, roster_evidence=None):
     # Existing renderer is the canonical source for detailed data.
     full='\n\n'.join(parts)
     def section(title, next_title):
@@ -135,6 +135,6 @@ def detail_sections(parts, market_html):
         'period':period_table(section('PERİYOT ANALİZİ','PİYASA KARŞILAŞTIRMASI')),
         'ranges':section('TAHMİN ARALIKLARI','PERİYOT ANALİZİ'),
         'market':market_html,
-        'roster':roster_section(),
+        'roster':roster_section(roster_evidence),
         'audit':section('MODEL DENETİMİ','__END__'),
     }
