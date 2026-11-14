@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from hybrid_engine.market_evidence_report import observed_market_evidence
+from hybrid_engine.market_evidence_report import observed_market_evidence, render_quote_line
 
 
 class ObservedMarketEvidenceTests(unittest.TestCase):
@@ -13,6 +13,20 @@ class ObservedMarketEvidenceTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.assets = Path(self.tmp.name)
+
+    def test_quote_ages_and_market_signs_are_unambiguous(self):
+        base = {'bookmaker': 'DraftKings', 'observed_at_utc': 1794677228,
+                'market': 'TOTAL', 'line': 234.5}
+        result = render_quote_line(base, 1794677252, 1794684728)
+        self.assertIn('TOTAL 234.5', result)
+        self.assertNotIn('TOTAL +234.5', result)
+        self.assertIn('Tahminde veri yaşı: 0 dk', result)
+        self.assertIn('Raporda veri yaşı: 125 dk', result)
+        self.assertIn('ARŞİV GÖZLEMİ', result)
+        base['market'] = 'HOME_HANDICAP'
+        base['line'] = 12.5
+        self.assertIn('HOME_HANDICAP +12.5', render_quote_line(
+            base, 1794677252, 1794684728))
 
     def test_missing_quotes_remain_empty(self):
         self.assertEqual(observed_market_evidence(self.assets, {}, 'fixture', 100, 200), [])
