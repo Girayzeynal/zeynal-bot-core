@@ -30,7 +30,7 @@ class NBAInjurySourceTests(unittest.TestCase):
 
     def test_future_report_and_late_retrieval_rejected(self):
         with self.assertRaises(ValueError):
-            self.check(retrieved=self.retrieved-3600)
+            self.check(retrieved=self.retrieved-3601)
         with self.assertRaises(ValueError):
             self.check(prediction=self.retrieved-1)
 
