@@ -187,7 +187,19 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     market_lines=['<b>PİYASA KAYNAĞI</b>',
                         'Tahmin anından önce doğrulanmış piyasa çizgisi yok; barem veya güven endeksi üretilmedi.']
                 response=dict(response)
-                response['html_parts']=[*response['html_parts'],'\n'.join(market_lines)]
+                from hybrid_engine.telegram_premium_ui import compact_summary, keyboard, detail_sections
+                import secrets
+                full_parts=[*response['html_parts'],'\\n'.join(market_lines)]
+                token=secrets.token_hex(6)
+                summary=compact_summary(snapshot,evidence,replayed=not response['new_record'])
+                sections=detail_sections(response['html_parts'],'\\n'.join(market_lines))
+                cache=app.bot_data.setdefault('premium_reports',{})
+                # Keep memory bounded and do not persist sensitive report views.
+                while len(cache)>=64:
+                    cache.pop(next(iter(cache)))
+                cache[token]=dict(summary=summary,sections=sections,chat_id=chat_id)
+                response['html_parts']=[summary]
+                response['reply_markup']=keyboard(token)
                 return response
         class Reports:
             def __init__(self):self.live=LedgerReports(nba_service.ledger.path);self.frozen=ResearchReports(results)
