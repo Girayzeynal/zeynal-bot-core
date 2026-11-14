@@ -36,6 +36,26 @@ class RosterEvidenceTests(unittest.TestCase):
         self.assertEqual(result['records'], [])
         self.assertEqual(result['conflict_count'], 1)
 
+    def test_other_fixture_team_is_rejected(self):
+        wrong = self.record()
+        wrong['team_id'] = 'unrelated-team'
+        result = assess_roster_evidence([wrong, self.record(player='player-2')],
+                                        prediction_utc=self.prediction,
+                                        fixture_start_utc=self.tipoff,
+                                        home_team_id='team-1', away_team_id='team-2')
+        self.assertEqual(len(result['records']), 1)
+        self.assertEqual(result['rejected_count'], 1)
+
+    def test_fixture_team_pair_must_be_complete_and_distinct(self):
+        with self.assertRaises(ValueError):
+            assess_roster_evidence([], prediction_utc=self.prediction,
+                                   fixture_start_utc=self.tipoff,
+                                   home_team_id='team-1')
+        with self.assertRaises(ValueError):
+            assess_roster_evidence([], prediction_utc=self.prediction,
+                                   fixture_start_utc=self.tipoff,
+                                   home_team_id='team-1', away_team_id='team-1')
+
     def test_invalid_cutoff_is_rejected(self):
         with self.assertRaises(ValueError):
             assess_roster_evidence([], prediction_utc=self.tipoff,
