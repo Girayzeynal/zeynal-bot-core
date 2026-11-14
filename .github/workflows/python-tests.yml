@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - "dev/**"
+      - "feature/hybrid-market-roster-evidence-20261114"
   pull_request:
     branches:
       - main
