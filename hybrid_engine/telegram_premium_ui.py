@@ -79,7 +79,7 @@ def period_table(section_html):
             ('3Q','3. Çeyrek'),('4Q','4. Çeyrek'),('2H','İkinci Yarı')]
     for key,label in labels:
         row=rows[key]
-        score=f"{row['home']:.1f} – {row['away']:.1f}\"
+        score=f"{row['home']:.1f} – {row['away']:.1f}"
         lines.append(f'<b>{label}</b>  |  {score}')
         lines.append(f"Toplam: {row['total']:.1f}"+
                      (f' · {tempo(row["total"])}' if key.endswith('Q') else ''))
