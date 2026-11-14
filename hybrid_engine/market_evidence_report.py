@@ -41,3 +41,20 @@ def observed_market_evidence(assets, sources, fixture_id, prediction_utc, fixtur
                     current['observed_at_utc'], current['quote_sha256']):
                 latest[key] = row
     return sorted(latest.values(), key=lambda q:(q['market'], q['bookmaker']))[:24]
+
+def render_quote_line(quote, prediction_utc, report_utc):
+    """Present frozen quote provenance separately from current report freshness."""
+    from datetime import datetime, timezone
+    from zoneinfo import ZoneInfo
+    observed = quote['observed_at_utc']
+    timestamp = datetime.fromtimestamp(observed, timezone.utc).astimezone(
+        ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y %H:%M TSİ')
+    age_at_prediction = max(0, prediction_utc - observed)
+    age_at_report = max(0, report_utc - observed)
+    market = quote['market']
+    line = quote['line']
+    formatted_line = f'{line:+g}' if 'HANDICAP' in market or 'SPREAD' in market else f'{line:g}'
+    return (f"{quote['bookmaker']} | {market} {formatted_line} | {timestamp} "
+            f"| Tahminde veri yaşı: {age_at_prediction // 60} dk "
+            f"| Raporda veri yaşı: {age_at_report // 60} dk "
+            f"| KAPSAM BELİRSİZ (ARŞİV GÖZLEMİ)")
