@@ -160,7 +160,34 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         class Dispatch:
             ledger=nba_service.ledger
             async def analyze(self,league,*args):
-                return await (nba_service if league.upper()=='NBA' else frozen).analyze(league,*args)
+                response=await (nba_service if league.upper()=='NBA' else frozen).analyze(league,*args)
+                if league.upper()!='NBA' or response.get('status')!='ANALYSIS_OK':
+                    return response
+                from hybrid_engine.market_evidence_report import observed_market_evidence
+                import html as _html
+                snapshot=response['snapshot']
+                try:
+                    evidence=observed_market_evidence(
+                        nba_service.assets,
+                        {str(i): ref for i,ref in enumerate(snapshot['source_assets'])},
+                        snapshot['fixture_id'],
+                        snapshot['prediction_generated_at_utc'],
+                        snapshot['fixture_start_utc'])
+                except (ValueError, KeyError, TypeError, OSError):
+                    evidence=[]
+                if evidence:
+                    market_lines=['<b>GÖZLENEN PİYASA | ARAŞTIRMA</b>',
+                        'Normal süre/uzatma kapsamı doğrulanmadı; karşılaştırılabilir edge veya güven endeksi yok.']
+                    for quote in evidence:
+                        market_lines.append(_html.escape(
+                            f"{quote['bookmaker']} | {quote['market']} {quote['line']:g} | "
+                            f"UTC {quote['observed_at_utc']} | KAPSAM BELİRSİZ"))
+                else:
+                    market_lines=['<b>PİYASA KAYNAĞI</b>',
+                        'Tahmin anından önce doğrulanmış piyasa çizgisi yok; barem veya güven endeksi üretilmedi.']
+                response=dict(response)
+                response['html_parts']=[*response['html_parts'],'\\n'.join(market_lines)]
+                return response
         class Reports:
             def __init__(self):self.live=LedgerReports(nba_service.ledger.path);self.frozen=ResearchReports(results)
             def read(self,league=None,fixture_id=None):
