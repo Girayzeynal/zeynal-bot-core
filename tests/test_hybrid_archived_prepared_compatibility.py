@@ -40,13 +40,14 @@ class PreparedArchiveCompatibilityTests(unittest.TestCase):
                 # trusted deployment pin. This checks internal compatibility only.
                 path = Path(temp) / Path(name).name
                 path.write_bytes(raw)
-                model = PreparedBayes(str(path), trusted_sha256=pinned)
-                self.assertGreaterEqual(len(model.model.training_ids), 30)
+                # These archived models were built against earlier source pins.
+                # A pin mismatch is a safety gate, not a reason to bypass it.
+                with self.assertRaisesRegex(ValueError, 'PREPARED_SOURCE_OR_FORMAT_CONFLICT'):
+                    PreparedBayes(str(path), trusted_sha256=pinned)
                 print('ARCHIVED_MODEL_COMPATIBILITY=' + json.dumps({
                     'archive_member': name,
                     'artifact_sha256': pinned,
-                    'training_games': len(model.model.training_ids),
-                    'status': 'LOAD_OK_NOT_DEPLOYMENT_AUTHORIZATION',
+                    'status': 'SOURCE_PIN_MISMATCH_REPREPARATION_REQUIRED',
                 }, sort_keys=True))
 
 
