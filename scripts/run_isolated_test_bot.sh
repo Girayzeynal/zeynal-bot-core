@@ -19,10 +19,10 @@ if [[ ! -f "${model}" ]]; then
   exit 2
 fi
 export ZEYNAL_TEST_BOT_TOKEN="$(cat "${HOME}/.zeynal-elite-test-token")"
-# Identity variables must be supplied by the private local environment.
-: "${ZEYNAL_TEST_BOT_ID:?TEST_BOT_ID_REQUIRED}"
-: "${ZEYNAL_TEST_BOT_USERNAME:?TEST_BOT_USERNAME_REQUIRED}"
-: "${ZEYNAL_TEST_CHAT_ID:?TEST_CHAT_ID_REQUIRED}"
+# Dedicated isolated bot identity. Allow private environment overrides.
+export ZEYNAL_TEST_BOT_ID="${ZEYNAL_TEST_BOT_ID:-9126277519}"
+export ZEYNAL_TEST_BOT_USERNAME="${ZEYNAL_TEST_BOT_USERNAME:-ZeynalEliteTestBot}"
+export ZEYNAL_TEST_CHAT_ID="${ZEYNAL_TEST_CHAT_ID:-7032156495}"
 export PYTHONPATH="$PWD"
 exec .venv/bin/python -m hybrid_engine.test_bot \
   --archive-directory "${HOME}/zeynal-test-isolated/archive" \
