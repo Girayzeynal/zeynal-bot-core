@@ -100,26 +100,7 @@ class UniversalAnalyzeService:
                         suggested_command=(f'/analyze NBA {start.date().isoformat()} {h.official_name} vs {a.official_name}'
                             if not g['completed'] and g['start_ts_utc']>int(time.time()) and scheduled and
                             all(s=='STATUS_SCHEDULED' for s in scheduled) else None)))
-                # Read-only, bounded diagnostic. Never invent or select a fixture.
-                same_pair=[g for g in games.values() if
-                    g['home_team_id']==h.provider_ids[0][1] and
-                    g['away_team_id']==a.provider_ids[0][1]]
-                reversed_pair=[g for g in games.values() if
-                    g['home_team_id']==a.provider_ids[0][1] and
-                    g['away_team_id']==h.provider_ids[0][1]]
-                nearby=sorted((g for g in same_pair+reversed_pair if
-                    abs((datetime.fromtimestamp(g['start_ts_utc'],ISTANBUL).date()-requested).days)<=2),
-                    key=lambda g:(abs((datetime.fromtimestamp(g['start_ts_utc'],ISTANBUL).date()-requested).days),
-                                  g['start_ts_utc'],g['canonical_id']))[:5]
-                return dict(report,stage=stage,reason='FIXTURE_NOT_UNIQUELY_VERIFIED',
-                    fixture_diagnostic=dict(requested_day=day,timezone='Europe/Istanbul',
-                        matched_count=len(targets),same_pair_count=len(same_pair),
-                        reversed_pair_count=len(reversed_pair),
-                        nearby=[dict(fixture_id=g['canonical_id'],
-                            home_team_id=g['home_team_id'],away_team_id=g['away_team_id'],
-                            local_date=datetime.fromtimestamp(g['start_ts_utc'],ISTANBUL).date().isoformat(),
-                            tipoff_utc=g['start_ts_utc'],completed=g['completed']) for g in nearby]))
-
+                return dict(report,stage=stage,reason='FIXTURE_NOT_UNIQUELY_VERIFIED')
             fixture=targets[0];report.update(fixture=fixture,source_catalog_sha256=[c['sha256'] for c in catalogs])
             if fixture['completed'] or fixture['start_ts_utc']<=int(time.time()):
                 return dict(report,stage='TIME',reason='FIXTURE_ALREADY_STARTED_OR_COMPLETED')
@@ -169,15 +150,5 @@ def render_preflight(report):
             'Doğrulanmış başlangıç (TSİ): '+d['tipoff_tsi'],
             'ESPN maç kimliği: '+', '.join(d['provider_fixture_ids'])])
         if d.get('suggested_command'):lines.append('Tarihi kontrol ederek yeniden gönderin: '+d['suggested_command'])
-    if report.get('fixture_diagnostic'):
-        d=report['fixture_diagnostic']
-        lines.append('Fikstür teşhisi: tam eşleşme '+str(d['matched_count'])+
-            ', aynı ev/deplasman '+str(d['same_pair_count'])+
-            ', ters ev/deplasman '+str(d['reversed_pair_count']))
-        for g in d['nearby']:
-            lines.append('Yakın maç: '+g['local_date']+' TSİ | '+
-                str(g['home_team_id'])+' vs '+str(g['away_team_id'])+
-                ' | '+str(g['fixture_id'])+
-                (' | tamamlandı' if g['completed'] else ''))
     lines.append('Tahmin üretilmedi; mevcut tahmin kayıtları değiştirilmedi.')
     return '\n'.join(lines)
