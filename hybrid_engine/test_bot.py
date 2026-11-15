@@ -161,6 +161,13 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             ledger=nba_service.ledger
             async def analyze(self,league,*args):
                 response=await (nba_service if league.upper()=='NBA' else frozen).analyze(league,*args)
+                if league.upper()=='NBA' and response.get('status')=='ABSTAIN':
+                    from hybrid_engine.fixture_rejection_diagnostic import render_fixture_rejection
+                    diagnostic=render_fixture_rejection(response.get('preflight') or {})
+                    if diagnostic:
+                        response=dict(response)
+                        response['html']=(response.get('html') or '')+diagnostic
+                    return response
                 if league.upper()!='NBA' or response.get('status')!='ANALYSIS_OK':
                     return response
                 from hybrid_engine.market_evidence_report import observed_market_evidence, render_quote_line
