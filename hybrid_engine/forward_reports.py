@@ -20,11 +20,15 @@ class ForwardEuroLeagueReports:
             for component,m in p['components'].items():
                 if m['status']!='FORECAST_CREATED':continue
                 q=m['prediction'];model=digest(dict(version=p['version'],component=component))
-                r=dict(fixture_id=fid,league='EUROLEAGUE',model_version=component,model_digest=model,
+                r=dict(fixture_id=fid,league='EUROLEAGUE',season=f"{g['season_start_year']}/{g['season_start_year']+1}",model_version=component,model_digest=model,
                     prediction=[q['home'],q['away']],created_utc=p['snapshot_created_at_utc'],snapshot_sha256=digest(p),
                     fixture_start_utc=g['start_ts_utc'],predicted_quarters=q['quarters'],winner=q.get('winner'),intervals=m['intervals'],
+                    predicted_halves=q.get('halves'),prediction_generated_at_utc=p['prediction_generated_at_utc'],
+                    first_archived_at_utc=item['publication']['first_archived_at_utc'],
                     home=names[0],away=names[1],actual=None if o is None else [sum(o['periods'][s][:4]) for s in ('home','away')])
-                if o:r.update(actual_periods=o['periods'],final_with_ot=o['full_final'])
+                if o:
+                    receipt=self.service.registry.read_asset(o['source'])
+                    r.update(actual_periods=o['periods'],final_with_ot=o['full_final'],label_available_utc=receipt['ingested_at_utc'])
                 rows.append(r)
                 if o:groups[(component,model)].append(r)
         if fixture_id and not rows:

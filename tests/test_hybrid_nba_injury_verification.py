@@ -1,23 +1,28 @@
 """Fail-closed PDF extraction-to-roster verification tests."""
 import unittest
+from datetime import datetime,timezone
+from core.team_identity import digest
 from hybrid_engine.nba_injury_verification import verified_pdf_roster_evidence
 
 class NBAInjuryVerificationTests(unittest.TestCase):
     def setUp(self):
-        self.prediction=1794700000
+        self.prediction=int(datetime(2026,11,14,20,tzinfo=timezone.utc).timestamp())
         self.capture=dict(download_verified=True,sha256='a'*64,
-                          report_timestamp_utc=self.prediction-100,
-                          source_url='https://ak-static.cms.nba.com/referee/injury/report.pdf')
+                          report_timestamp_utc=self.prediction-3600,retrieved_at_utc=self.prediction-10,download_completed_at_utc=self.prediction-5,
+                          source_url='https://ak-static.cms.nba.com/referee/injury/Injury-Report_2026-11-14_02_00PM.pdf')
         self.extraction=dict(status='PARSED_TABLE_ROWS_REQUIRE_ID_VERIFICATION',
                              rows=[dict(matchup='AWY@HOM',team='Home Team',
                                         player_name='Player A',status='Out')])
-        self.verification=dict(verified=True,sha256='a'*64,
+        self.extraction.update(source_pdf_sha256='a'*64,rows_sha256=digest(self.extraction['rows']))
+        self.verification=dict(verified_at_utc=self.prediction,rows_sha256=digest(self.extraction['rows']),verified=True,sha256='a'*64,
                                fixture_matchup='AWY@HOM',
                                player_id_mapping_verified=True,
                                team_id_mapping_verified=True)
         self.teams={'home':'home-id','away':'away-id','Home Team':'home-id'}
         self.players={('Home Team','Player A'):'player-a'}
     def run_gate(self,verification=None):
+        self.extraction['rows_sha256']=digest(self.extraction['rows'])
+        self.verification['rows_sha256']=self.extraction['rows_sha256']
         return verified_pdf_roster_evidence(self.extraction,
             capture_receipt=self.capture,
             verification=self.verification if verification is None else verification,

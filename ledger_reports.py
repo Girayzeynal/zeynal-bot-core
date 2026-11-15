@@ -81,24 +81,27 @@ class LedgerReports:
                 if p.get('scope')!='REGULATION_ONLY':raise ValueError('REPORT_FORECAST_SCOPE')
                 scores=[p['prediction'][s] for s in ('home','away')]
                 if not all(type(v) in (int,float) and math.isfinite(v) and v>=0 for v in scores):raise ValueError('REPORT_SCORE_REQUIRED')
-                item=dict(fixture_id=fixture,league=league,model_version=p['model_version'],model_digest=model,
+                item=dict(fixture_id=fixture,league=league,season=p['season'],model_version=p['model_version'],model_digest=model,
                     prediction=scores,created_utc=p['created_at_utc'],snapshot_sha256=pin,actual=None,
                     fixture_start_utc=p['fixture_start_utc'],predicted_quarters=p['prediction'].get('quarters'),
                     winner=p['prediction'].get('winner'),intervals=p.get('intervals'),
+                    predicted_halves=p['prediction'].get('halves'),
+                    prediction_generated_at_utc=p.get('prediction_generated_at_utc'),
+                    parameter_fit_cutoff_utc=p.get('parameter_fit_cutoff_utc'),first_archived_at_utc=completed,
                     home=p['home'].get('official_name',p['home']['provider_id']),away=p['away'].get('official_name',p['away']['provider_id']))
                 if outcome:
                     result=self._result(outcome,opin,p);item['actual']=result['actual']
-                    item['actual_periods']=result['periods'];item['final_with_ot']=result['final_with_ot']
+                    item['actual_periods']=result['periods'];item['final_with_ot']=result['final_with_ot'];item['label_available_utc']=result['ingested_at_utc']
                     if result['observed_at_utc']<=p['fixture_start_utc']:raise ValueError('REPORT_FINAL_BEFORE_TIPOFF')
-                    groups[(league,model,p['model_version'])].append(item)
+                    groups[(league,p['season'],model,p['model_version'])].append(item)
                 forecasts.append(item);identities.add((league,fixture))
         metrics=[]
-        for (league,model,version),rows in sorted(groups.items()):
+        for (league,season,model,version),rows in sorted(groups.items()):
             errors=[p-a for r in rows for p,a in zip(r['prediction'],r['actual'])]
             totals=[sum(r['prediction'])-sum(r['actual']) for r in rows]
             from hybrid_engine.live_metrics import metrics as live_metrics
             detail=live_metrics(rows)
-            metrics.append(dict(league=league,model_digest=model,model_version=version,n=len(rows),details=detail,
+            metrics.append(dict(league=league,season=season,model_digest=model,model_version=version,n=len(rows),details=detail,
                 team_mae=sum(map(abs,errors))/len(errors),team_rmse=math.sqrt(sum(e*e for e in errors)/len(errors)),
                 total_mae=sum(map(abs,totals))/len(totals),claim='DESCRIPTIVE_ONLY_NOT_MODEL_SUPERIORITY'))
         return dict(status='VERIFIED_LIVE_REPORT',scope='REGULATION_ONLY',groups=metrics,forecasts=forecasts,
@@ -112,7 +115,7 @@ def render_accuracy(report):
         f"Kayıtlı maç: {report['unique_fixtures']} | Sonucu beklenen tahmin: {report['pending']}"]
     if not report['groups']:lines.append('Doğrulanmış sonuç: 0. Başarı oranı ve kalibrasyon hesaplanamadı.')
     for g in report['groups'][:12]:
-        lines.append(f"{g['league']} | {g['model_version'][:100]} | n={g['n']} | MAE {g['team_mae']:.2f} | RMSE {g['team_rmse']:.2f} | Toplam MAE {g['total_mae']:.2f}")
+        lines.append(f"{g['league']} {g.get('season','')} | {g['model_version'][:100]} | n={g['n']} | MAE {g['team_mae']:.2f} | RMSE {g['team_rmse']:.2f} | Toplam MAE {g['total_mae']:.2f}")
         d=g['details']
         if len(report['groups'])>1 and 'winner' in d:
             w=d['winner'];lines.append(f"Ham olasılıklar: n={w['n']} | Brier {w['brier']:.4f} | Log loss {w['log_loss']:.4f}")
@@ -125,7 +128,11 @@ def render_accuracy(report):
             c=d['coverage']['markets'].get('TOTAL',{}).get(name)
             if c:lines.append(f"Toplam {name}: {c['hits']}/{c['n']} | gözlenen kapsama {c['observed_coverage']:.3f} | Wilson95 {c['wilson_95']}")
         if d['periods']:
-            lines.append('Periyot MAE: '+' | '.join(k+' '+format(v['mae'],'.2f') for k,v in d['periods'].items()))
+            lines.append('Takım/periyot MAE: '+' | '.join(k+' '+format(v['mae'],'.2f') for k,v in d['periods'].items()))
+        if d.get('period_totals'):
+            lines.append('Çeyrek toplamı MAE: '+' | '.join(k+' '+format(v['mae'],'.2f') for k,v in d['period_totals'].items()))
+        score=d.get('interval_scores',{}).get('TOTAL',{}).get('P05_P95')
+        if score:lines.append(f"Toplam %90 interval skoru {score['mean_interval_score']:.2f} (düşük daha iyi; güven endeksi değil)")
         lines.append('NOT_CALIBRATED | Kalibrasyon eğitimi yapılmadı; az örnek güven kanıtı değildir.')
     if len(report['groups'])>12:lines.append('İlk 12 model grubu gösterildi; lig filtresi kullanın.')
     lines.append('Araştırma backtestleri dahil değil. Bu değerler model üstünlüğü veya güven yüzdesi değildir.')

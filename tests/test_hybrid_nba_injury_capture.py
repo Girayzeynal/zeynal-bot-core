@@ -1,6 +1,7 @@
 """Network-free contract tests for bounded NBA PDF capture."""
 import io
 import unittest
+from unittest.mock import patch
 from datetime import datetime,timezone
 from hybrid_engine.nba_injury_capture import capture_official_injury_pdf
 
@@ -16,6 +17,7 @@ class NBAInjuryCaptureTests(unittest.TestCase):
     def setUp(self):
         self.url='https://ak-static.cms.nba.com/referee/injury/Injury-Report_2026-11-14_02_00PM.pdf'
         self.retrieved=int(datetime(2026,11,14,20,0,tzinfo=timezone.utc).timestamp())
+        clock=patch('time.time',return_value=self.retrieved);clock.start();self.addCleanup(clock.stop)
     def capture(self,body=b'%PDF-1.7\nmock',url=None,headers=None):
         return capture_official_injury_pdf(self.url,retrieved_at_utc=self.retrieved,
             prediction_utc=self.retrieved+1,

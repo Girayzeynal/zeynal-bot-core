@@ -171,6 +171,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     return response
                 if league.upper()!='NBA' or response.get('status')!='ANALYSIS_OK':
                     return response
+                from hybrid_engine.prediction_audit import audit_snapshot,render_source_annotation
+                try:
+                    quality=await asyncio.to_thread(audit_snapshot,response['snapshot'],nba_service.assets)
+                except (ValueError,KeyError,TypeError,OSError):
+                    return dict(status='ABSTAIN',html='Kayıtlı tahminin kaynak/zaman/model bütünlüğü doğrulanamadı; tahmin değiştirilmedi ve analiz yayınlanmadı.')
+                response=dict(response,quality_audit=quality,html_parts=[*response['html_parts'],render_source_annotation(quality)])
                 from hybrid_engine.market_evidence_report import observed_market_evidence, render_quote_line
                 import html as _html
                 from datetime import datetime, timezone

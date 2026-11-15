@@ -34,8 +34,15 @@ def settle(ledger, *, fetcher=fetch_document):
                 raise ValueError('SETTLEMENT_NATIVE_RECEIPT_REQUIRED')
             # Parse every season separately; regular-season/native identity checks
             # remain authoritative. A malformed source is not an empty success.
+            events=receipt['document']['events']
+            if any(type(e.get('season',{}).get('year')) is not int or type(e.get('season',{}).get('type')) is not int for e in events):
+                raise ValueError('SETTLEMENT_NATIVE_SEASON_METADATA_REQUIRED')
             for year in sorted({int(r['snapshot']['season'].split('/')[0]) for r in due}):
-                bundle=archive_catalog(receipt['document'],provider='ESPN',season_start_year=year,
+                # One ledger may retain previous seasons. Never parse a valid
+                # 2027 native event as 2026, or let that mismatch starve all finals.
+                native=dict(receipt['document'],events=[e for e in events if e['season']['year']==year+1])
+                if not native['events']:continue
+                bundle=archive_catalog(native,provider='ESPN',season_start_year=year,
                     observed_at_utc=receipt['observed_at_utc'],ingested_at_utc=receipt['ingested_at_utc'],regular_season_filter=True)
                 for g in bundle['payload']['fixtures']:
                     if g['completed'] and g['start_ts_utc']>=receipt['observed_at_utc']:

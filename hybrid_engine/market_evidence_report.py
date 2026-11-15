@@ -40,6 +40,8 @@ def observed_market_evidence(assets, sources, fixture_id, prediction_utc, fixtur
             key = (q['bookmaker_id'], q['market'])
             row = dict(bookmaker=q['bookmaker'], market=q['market'],
                 line=q['line'], observed_at_utc=q['observed_at_utc'],
+                age_at_prediction_seconds=prediction_utc-q['observed_at_utc'],
+                freshness_status='STALE_AT_PREDICTION' if prediction_utc-q['observed_at_utc']>300 else 'FRESH_AT_PREDICTION',
                 quote_sha256=quote['sha256'], settlement_scope=q['settlement_scope'],
                 status='OBSERVED_NOT_COMPARABLE',
                 reason='REGULATION_MODEL_VS_UNKNOWN_MARKET_SETTLEMENT')
@@ -64,4 +66,5 @@ def render_quote_line(quote, prediction_utc, report_utc):
     return (f"{quote['bookmaker']} | {market} {formatted_line} | {timestamp} "
             f"| Tahminde veri yaşı: {age_at_prediction // 60} dk "
             f"| Raporda veri yaşı: {age_at_report // 60} dk "
-            f"| KAPSAM BELİRSİZ (ARŞİV GÖZLEMİ)")
+            f"| KAPSAM BELİRSİZ (ARŞİV GÖZLEMİ)"+
+            (' | TAHMİN ANINDA ESKİ VERİ; değerlendirme dışı' if age_at_prediction>300 else ''))

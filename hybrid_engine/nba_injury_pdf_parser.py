@@ -104,6 +104,7 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
         import pdfplumber
     except ImportError as exc:
         raise RuntimeError('PDFPLUMBER_REQUIRED_FOR_EXTRACTION') from exc
+    from core.team_identity import digest
     rows=[]
     rejected=0
     recognized_tables=0
@@ -173,6 +174,8 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
         raise ValueError('OFFICIAL_REPORT_TABLE_SCHEMA_UNRECOGNIZED')
     if not rows:
         return dict(status='NO_VERIFIED_TABLE_ROWS',rows=[],rejected_count=rejected,
+                    source_pdf_sha256=expected_sha256,rows_sha256=digest([]),
                     extraction_verified=False)
     return dict(status='PARSED_TABLE_ROWS_REQUIRE_ID_VERIFICATION',rows=rows,
+                source_pdf_sha256=expected_sha256,rows_sha256=digest(rows),
                 rejected_count=rejected,extraction_verified=False)
