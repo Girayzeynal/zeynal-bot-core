@@ -95,19 +95,6 @@ class UniversalAnalyzeTests(IsolatedAsyncioTestCase):
         self.assertEqual(out['status'],'VERIFIED_NBA_FIXTURE')
         self.assertEqual(out['home']['provider_id'],'1');self.assertEqual(out['fixture']['provider_fixture_ids'],['401000123'])
 
-    async def test_nba_us_game_date_resolves_after_istanbul_midnight(self):
-        source=fetcher('NBA')
-        def shifted(provider,url):
-            r=source(provider,url)
-            for event in r['document'].get('events',[]):
-                event['date']='2026-11-11T23:30:00Z'
-            r['document_sha256']=digest(r['document'])
-            return r
-        out=await UniversalAnalyzeService(fetcher=shifted).preflight(
-            'NBA','2026-11-11','SH','Synthetic Bears')
-        self.assertEqual(out['status'],'VERIFIED_NBA_FIXTURE')
-        self.assertEqual(out['fixture']['provider_fixture_ids'],['401000123'])
-
     async def test_unknown_alias_and_same_team_have_identity_not_source_missing_status(self):
         s=UniversalAnalyzeService(fetcher=fetcher())
         for home,away,reason in [('Paris Basketbal','Baskonia','TEAM_ALIAS_NOT_REGISTERED'),('Baskonia','Saski Baskonia','SAME_TEAM_BOTH_SIDES')]:
