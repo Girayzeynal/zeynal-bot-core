@@ -79,10 +79,20 @@ class LedgerReports:
                 if receipt!=pin or not p['created_at_utc']<=completed<p.get('record_deadline_utc',p['fixture_start_utc']):
                     raise ValueError('REPORT_COMMIT_PROOF_CONFLICT')
                 if p.get('scope')!='REGULATION_ONLY':raise ValueError('REPORT_FORECAST_SCOPE')
+                if league=='NBA':
+                    ids=p['provider_fixture_ids']
+                    identity=dict(provider='ESPN',league='NBA',season_start_year=int(p['season'].split('/')[0]),
+                        start_ts_utc=p['fixture_start_utc'],home_team_id=p['home']['provider_id'],away_team_id=p['away']['provider_id'])
+                    if digest(identity)!=fixture or not ids or any(not isinstance(v,str) or not v.isascii() or not v.isdigit() for v in ids):
+                        raise ValueError('REPORT_NATIVE_FIXTURE_IDENTITY')
+
+                generated=p.get('prediction_generated_at_utc')
+                if generated is not None and (type(generated) is not int or not 0<generated<=p['created_at_utc']):
+                    raise ValueError('REPORT_GENERATION_AFTER_SNAPSHOT')
                 scores=[p['prediction'][s] for s in ('home','away')]
                 if not all(type(v) in (int,float) and math.isfinite(v) and v>=0 for v in scores):raise ValueError('REPORT_SCORE_REQUIRED')
                 item=dict(fixture_id=fixture,league=league,season=p['season'],model_version=p['model_version'],model_digest=model,
-                    prediction=scores,created_utc=p['created_at_utc'],snapshot_sha256=pin,actual=None,
+                    provider_fixture_ids=list(p['provider_fixture_ids']),prediction=scores,created_utc=p['created_at_utc'],snapshot_sha256=pin,actual=None,
                     fixture_start_utc=p['fixture_start_utc'],predicted_quarters=p['prediction'].get('quarters'),
                     winner=p['prediction'].get('winner'),intervals=p.get('intervals'),
                     predicted_halves=p['prediction'].get('halves'),

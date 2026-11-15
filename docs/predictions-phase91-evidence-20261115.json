@@ -1,0 +1,239 @@
+{
+  "accessible_cloud_archive_summary": {
+    "database_bytes_unchanged": true,
+    "database_sha256_after": "d6fcd9f89c150b09f873fb05efe1642b75370a52260d9160e050564360d6ce01",
+    "database_sha256_before": "d6fcd9f89c150b09f873fb05efe1642b75370a52260d9160e050564360d6ce01",
+    "performance_status": "READ_ONLY_NATIVE_VERIFIED",
+    "snapshots_examined": 1,
+    "sqlite_integrity": "ok"
+  },
+  "baseline_commit": "757407c5e85e1a332256a551a780522b22d8e3a1",
+  "exact_baseline_reproduction": {
+    "actual_telegram_delivery_verified": false,
+    "baseline": "757407c5e85e1a332256a551a780522b22d8e3a1",
+    "journal_events": [
+      {
+        "chat_id": 17,
+        "command": "/predictions",
+        "is_bot": false,
+        "kind": "COMMAND_RECEIVED",
+        "received_at_utc": 1794750732,
+        "update_id": 1,
+        "user_message_at_utc": 1794750732
+      },
+      {
+        "error_type": "AttributeError",
+        "kind": "HANDLER_ERROR",
+        "observed_at_utc": 1794750732,
+        "update_id": 1
+      }
+    ],
+    "registered_groups": [
+      -50
+    ],
+    "send_message_calls": 0,
+    "timestamp_type": "int",
+    "transport": "LOCAL_HTTP_BOT_API_DOUBLE"
+  },
+  "format": "PHASE91_PREDICTIONS_ROOT_CAUSE_EVIDENCE_V1",
+  "generation_or_settlement_performed": false,
+  "local_tests": {
+    "failed": 0,
+    "new_tests": 19,
+    "passed": 831,
+    "retained": 812
+  },
+  "new_real_telegram_e2e": "BLOCKED_MISSING_DEDICATED_TEST_BOT_SETTINGS",
+  "original_handler_trace_reproduction": {
+    "actual_telegram_delivery_verified": false,
+    "baseline": "757407c5e85e1a332256a551a780522b22d8e3a1",
+    "error_frames": [
+      {
+        "file": "_application.py",
+        "function": "process_update",
+        "line": 1343
+      },
+      {
+        "file": "basehandler.py",
+        "function": "handle_update",
+        "line": 158
+      },
+      {
+        "file": "baseline757_test_bot.py",
+        "function": "predictions_command",
+        "line": 375
+      },
+      {
+        "file": "baseline757_test_bot.py",
+        "function": "stamp",
+        "line": 363
+      }
+    ],
+    "journal_events": [
+      {
+        "chat_id": 17,
+        "command": "/predictions",
+        "is_bot": false,
+        "kind": "COMMAND_RECEIVED",
+        "received_at_utc": 1794751620,
+        "update_id": 1,
+        "user_message_at_utc": 1794751620
+      },
+      {
+        "error_type": "AttributeError",
+        "kind": "HANDLER_ERROR",
+        "observed_at_utc": 1794751620,
+        "update_id": 1
+      }
+    ],
+    "registered_groups": [
+      -50
+    ],
+    "send_message_calls": 0,
+    "timestamp_type": "int",
+    "transport": "LOCAL_HTTP_BOT_API_DOUBLE"
+  },
+  "preserved_cloud_philadelphia_snapshot": {
+    "away": "Indiana Pacers",
+    "findings": [],
+    "first_archived_at_utc": 1794741245,
+    "fixture_id": "2295e83b287fc5084e916c78226c2f05e06ae299a3299f4fb807495f9e12fabf",
+    "fixture_start_utc": 1794765600,
+    "home": "Philadelphia 76ers",
+    "model_digest": "cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982",
+    "model_version": "ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
+    "prediction": {
+      "away": 109.307773707401,
+      "calibration_status": "NOT_CALIBRATED",
+      "halves": [
+        [
+          57.37196258262655,
+          54.701125012416846
+        ],
+        [
+          55.10918174798739,
+          54.60664869498415
+        ]
+      ],
+      "home": 112.48114433061394,
+      "home_handicap": -3.1733706232129464,
+      "margin": 3.1733706232129464,
+      "metadata": {
+        "artifact_digest": "c9c073c5203f0167ee1157d15158097d8253634e5525063b2e2240236bd5b028",
+        "coefficient_posterior_covariance": "CONJUGATE_GAUSSIAN_EMPIRICAL_BAYES",
+        "correlation_assumption": -0.001871975076464755,
+        "distribution": "ROUNDED_CLIPPED_NORMAL",
+        "elapsed_seconds": 0.01208294299976842,
+        "fit_cutoff_utc": 1794526101,
+        "latent_normal_locations": [
+          112.48114433061394,
+          109.307773707401
+        ],
+        "method": "RQMC_HALTON",
+        "noise_variance": 153.6318237029325,
+        "player_effect": "NO_VERIFIED_PREMATCH_PLAYER_EXPOSURES",
+        "quarter_allocation": "LARGEST_REMAINDER_HISTORICAL_WEIGHTS_NOT_PBP",
+        "scenarios": 10000,
+        "seed": 20261112,
+        "training_games": 170
+      },
+      "model": "BAYES_TEAM_ATTACK_DEFENSE_V1",
+      "quarters": [
+        [
+          27.527143446759286,
+          28.373724305256566
+        ],
+        [
+          29.84481913586726,
+          26.32740070716028
+        ],
+        [
+          27.265458225431445,
+          27.86938296213198
+        ],
+        [
+          27.843723522555948,
+          26.737265732852173
+        ]
+      ],
+      "scope": "REGULATION_ONLY",
+      "total": 221.78891803801494,
+      "winner": [
+        0.5573,
+        0.0221,
+        0.4206
+      ]
+    },
+    "prediction_generated_at_utc": 1794741245,
+    "provider_fixture_ids": [
+      "401909985"
+    ],
+    "snapshot_created_at_utc": 1794741245,
+    "snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343",
+    "source_audit": {
+      "archived_prediction_changed": false,
+      "audit_at_utc": 1794751489,
+      "audit_implementation_sha256": "0f657ddb29b61acd0cf0535bf3e8b32cb69d56471b383567967d1a370cc60508",
+      "calibration_status": "NOT_CALIBRATED",
+      "confidence_index": null,
+      "format": "FROZEN_PREMATCH_QUALITY_AUDIT_V1",
+      "mean_off_diagonal_quarter_correlation": 0.9879739326540408,
+      "measured_possession_pace_used": false,
+      "missing_data": [
+        "verified_pace",
+        "injuries",
+        "lineups",
+        "rotation",
+        "market"
+      ],
+      "model_type": "EMPIRICAL_BAYES_TEAM_ATTACK_DEFENSE_IN_POINTS_NOT_PER_100_POSSESSIONS",
+      "model_version": "ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
+      "original_recorded_fixture_source": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261114&limit=1000",
+      "parameter_fit_cutoff_utc": 1794526101,
+      "period_allocation": "LARGEST_REMAINDER_HISTORICAL_WEIGHTS_NOT_PBP",
+      "period_uncertainty_limit": "DETERMINISTIC_ALLOCATION_NOT_INDEPENDENT_POSSESSION_OR_PBP_SIMULATION",
+      "raw_projection_coherent": true,
+      "recorded_source_contains_fixture": false,
+      "replay_only": false,
+      "scope": "REGULATION_ONLY",
+      "snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343",
+      "source_annotation_policy": "KEEP_ORIGINAL_FIELD_DISPLAY_VERIFIED_NATIVE_SOURCE_SEPARATELY",
+      "source_annotation_required": true,
+      "source_time_utc": 1794741245,
+      "status": "VERIFIED_WITH_LIMITATIONS",
+      "training_in_request": false,
+      "verified_fixture_sources": [
+        "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261115&limit=1000"
+      ],
+      "verified_rotation_or_player_impact_used": false,
+      "winner_class_order": [
+        "HOME",
+        "REGULATION_TIE",
+        "AWAY"
+      ]
+    }
+  },
+  "preserved_existing_evidence_files": 51,
+  "production_changed": false,
+  "remote_observed_session_root_cause_link": "NOT_PROVEN_WITHOUT_REMOTE_RUNTIME_LOGS",
+  "remote_philadelphia_1512_tsi_record": "NOT_READ_NOT_CHANGED;DO_NOT_REPLACE_WITH_CLOUD_1414_TSI_RECORD",
+  "root_cause": "INTEGER_UNIX_TIMESTAMP_HAS_NO_REPLACE_ATTRIBUTE;ATTRIBUTEERROR_ESCAPES_HANDLER_AND_GLOBAL_ERROR_HANDLER_SENDS_NO_REPLY",
+  "runtime": {
+    "actual_telegram_delivery_verified": false,
+    "address_space_limit_bytes": [
+      268435456,
+      268435456
+    ],
+    "cpu_affinity": [
+      0
+    ],
+    "messages": 13,
+    "peak_rss_mib": 99.62890625,
+    "requests": 13,
+    "status": "PASS",
+    "transport": "LOCAL_HTTP_BOT_API_DOUBLE"
+  },
+  "runtime_limit_type": "ONE_CPU_AFFINITY_AND_RLIMIT_AS_256_MIB_NOT_CGROUP",
+  "synthetic_ten_record_regression": "MANUFACTURED_DATA_NOT_REAL_USER_ARCHIVE",
+  "user_reported_ten_record_archive": "BLOCKED_NOT_PRESENT_IN_CLOUD"
+}

@@ -32,7 +32,7 @@ async def run(fixture_path,repetitions=20,*,decisions=False):
     command=lambda g:'/analyze NBA 2026-11-13 '+g['home']+' vs '+g['away']
     el=next(iter(archive.records.values()))['fixture']
     commands=['/nba 2026-11-13']+[command(g) for g in targets]+[command(first)]*repetitions+[
-        command(first).replace('2026-11-13','2026-11-12'),'/accuracy NBA','/compare NBA '+first['id'],
+        command(first).replace('2026-11-13','2026-11-12'),'/start','/predictions NBA','/accuracy NBA','/compare NBA '+first['id'],
         '/analyze EUROLEAGUE 2026-11-12 '+el['home_name']+' vs '+el['away_name']]
     updates=[dict(update_id=i+1,message=dict(message_id=i+1,date=fixture['clock_utc'],chat=dict(id=17,type='private'),
         **{'from':dict(id=23,is_bot=False,first_name='Synthetic input replay')},text=c,
@@ -82,6 +82,8 @@ async def run(fixture_path,repetitions=20,*,decisions=False):
         if any('Analiz hizmeti kullanılamıyor' in s or 'hibrit analiz kaydedilmedi' in s for s in received):raise ValueError('LIVE_INFERENCE_FAILED')
         if not any('FIXTURE_LOCAL_DATE_MISMATCH' in s for s in received):raise ValueError('DATE_DIAGNOSTIC_NOT_SENT')
         if report['groups'] or report['pending']!=4:raise ValueError('INVENTED_FINAL_OR_METRIC')
+        if not any('KAYITLI NBA TAHMİNLERİ' in s and 'Maç: 4' in s for s in received):raise ValueError('PREDICTIONS_COMMAND_NOT_DELIVERED')
+        if not any('Zeynal Bot Core aktif' in s for s in received):raise ValueError('START_COMMAND_NOT_DELIVERED')
         if sum(('Gerçek maç öncesi tahmin' in s or 'ZEYNAL | NBA ANALİZ' in s) for s in received)!=4+repetitions:raise ValueError('LIVE_RENDER_NOT_DELIVERED')
         decision_records=app.bot_data['decision_journal'].read() if decisions else []
         if decisions:
