@@ -147,8 +147,8 @@ class NBAReplayReadOnlyReports:
             'Orijinal arşiv kaydı değiştirilmedi.')
 
 
-def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None,nba_replay=None,replay_only=False):
-    if replay_only and nba_service is not None:raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_NBA_SERVICE')
+def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None,nba_replay=None,replay_only=False,forward_el=None):
+    if replay_only and (nba_service is not None or forward_el is not None):raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_NBA_SERVICE')
     if nba_replay is None and nba_service is None:
         from hybrid_engine.nba_replay import NBAReplayArchive
         nba_replay=NBAReplayArchive()
@@ -162,8 +162,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             async def analyze(self,league,*args):
                 response=await (nba_service if league.upper()=='NBA' else frozen).analyze(league,*args)
                 if league.upper()=='NBA' and response.get('status')=='ABSTAIN':
-                    from hybrid_engine.fixture_rejection_diagnostic import render_fixture_rejection
-                    diagnostic=render_fixture_rejection(response.get('preflight') or {})
+                    from hybrid_engine.fixture_rejection_diagnostic import enrich_fixture_rejection, render_fixture_rejection
+                    preflight=await enrich_fixture_rejection(response.get('preflight') or {},args[0],transport or ControlledTransport(fetch_document))
+                    diagnostic=render_fixture_rejection(preflight)
                     if diagnostic:
                         response=dict(response)
                         response['html']=(response.get('html') or '')+diagnostic
@@ -231,6 +232,17 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         app.bot_data['verified_analysis_service']=frozen
         app.bot_data['ledger_reports']=(NBAReplayReadOnlyReports(nba_replay,ResearchReports(results))
             if replay_only and nba_replay is not None else ResearchReports(results))
+    if forward_el is not None:
+        from hybrid_engine.live_euroleague import LiveEuroLeagueService
+        from hybrid_engine.forward_reports import ForwardEuroLeagueReports
+        live_el=LiveEuroLeagueService(archive,forward_el,transport or ControlledTransport(fetch_document),frozen)
+        prior=app.bot_data['verified_analysis_service']
+        class LeagueDispatch:
+            ledger=getattr(prior,'ledger',None)
+            async def analyze(self,league,*args):
+                return await (live_el if league.upper()=='EUROLEAGUE' else prior).analyze(league,*args)
+        app.bot_data['verified_analysis_service']=LeagueDispatch()
+        app.bot_data['ledger_reports']=ForwardEuroLeagueReports(live_el,app.bot_data['ledger_reports'])
     app.bot_data['delivery_journal']=journal
     if decision_layer:
         from hybrid_engine.decision_integration import DecisionJournal,DecisionService,DecisionReports
@@ -305,6 +317,25 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         await message.reply_text('\n'.join(lines))
         raise ApplicationHandlerStop
     from telegram.ext import CommandHandler, CallbackQueryHandler
+    async def isolated_fixtures(update,context):
+        from nba_command import parse_nba_date
+        from hybrid_engine.fixture_menu import nba_blocks,euroleague_blocks
+        from datetime import datetime,timezone
+        command=(update.effective_message.text or '').split()[0].split('@')[0].lower()
+        try:
+            day=parse_nba_date(context.args or [],datetime.now(timezone.utc))
+            if command=='/euroleague':
+                receipt=await asyncio.to_thread(fetch,'EUROLEAGUE_LIVE',OFFICIAL)
+                parts=euroleague_blocks(receipt,day)
+            else:
+                games=await app.bot_data['nba_fixture_loader'](day)
+                parts=nba_blocks(games,day)
+            for part in parts:await update.effective_message.reply_text(part,parse_mode='HTML',disable_web_page_preview=True)
+        except (ValueError,KeyError,TypeError,OSError):
+            await update.effective_message.reply_text('Fikstür kaynağı doğrulanamadı veya tarih geçersiz. Kullanım: '+command+' YYYY-MM-DD. Tahmin üretilmedi.')
+        raise ApplicationHandlerStop
+    if nba_service is not None:app.add_handler(CommandHandler('nba',isolated_fixtures),group=-50)
+    if forward_el is not None:app.add_handler(CommandHandler('euroleague',isolated_fixtures),group=-50)
     async def premium_callback(update,context):
         query=update.callback_query
         if query is None or update.effective_chat is None or update.effective_chat.id!=chat_id:
@@ -324,16 +355,17 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         from hybrid_engine.telegram_premium_ui import keyboard
         body=entry['summary'] if section=='summary' else entry['sections'][section]
-        if len(body.encode('utf-16-le'))//2>4096:
-            await query.answer('Bölüm Telegram sınırını aşıyor.',show_alert=True)
-            return
+        from hybrid_engine.elite_render import split_blocks
+        parts=split_blocks(body.splitlines(),limit=3200)
         await query.answer()
         try:
-            await query.edit_message_text(body,parse_mode='HTML',
+            await query.edit_message_text(parts[0],parse_mode='HTML',
                 disable_web_page_preview=True,reply_markup=keyboard(token))
         except Exception as exc:
             if 'Message is not modified' not in str(exc):
                 raise
+        for part in parts[1:]:
+            await query.message.reply_text(part,parse_mode='HTML',disable_web_page_preview=True)
     app.add_handler(CallbackQueryHandler(premium_callback,pattern=r'^zui:[0-9a-f]{12}:(summary|period|market|ranges|audit|roster)$'),group=-50)
     app.add_handler(CommandHandler('test',self_test),group=-50)
     app.add_handler(TypeHandler(Update,authorized),group=-100);app.add_error_handler(error)
@@ -385,22 +417,23 @@ def main():
         if hook.url:raise ValueError('TEST_BOT_HAS_WEBHOOK_POLLING_NOT_STARTED')
         async def collect():
             while True:
-                try:
-                    receipt=await asyncio.to_thread(transport,'EUROLEAGUE_LIVE',OFFICIAL)
-                    await asyncio.to_thread(app.bot_data['test_results'].ingest,receipt)
+                from hybrid_engine.result_poll import poll_once
+                def euroleague_results():
+                    receipt=transport('EUROLEAGUE_LIVE',OFFICIAL)
+                    result=app.bot_data['test_results'].ingest(receipt)
                     if forward_el is not None:
                         from hybrid_engine.forward_nba_results import report_euroleague
-                        await asyncio.to_thread(forward_el.settle,receipt)
-                        await asyncio.to_thread(report_euroleague,forward_el)
-                    if forward_nba is not None:
-                        from hybrid_engine.forward_nba_results import collect as collect_forward_nba
-                        await asyncio.to_thread(collect_forward_nba,forward_nba,root/'forward-nba-results')
-                    if nba_service is not None:
-                        from hybrid_engine.nba_ledger_settlement import settle as settle_hybrid_nba
-                        await asyncio.to_thread(settle_hybrid_nba,nba_service.ledger)
-                except (ValueError,OSError) as exc:
-                    await asyncio.to_thread(journal.append,digest(dict(kind='RESULT_POLL_FAILED',at=int(time.time()))),
-                        dict(kind='RESULT_POLL_FAILED',error_type=type(exc).__name__,observed_at_utc=int(time.time())))
+                        forward_el.settle(receipt)
+                        report_euroleague(forward_el)
+                    return result
+                jobs=[('EUROLEAGUE',euroleague_results)]
+                if forward_nba is not None:
+                    from hybrid_engine.forward_nba_results import collect as collect_forward_nba
+                    jobs.append(('FORWARD_NBA',lambda:collect_forward_nba(forward_nba,root/'forward-nba-results',fetcher=transport)))
+                if nba_service is not None:
+                    from hybrid_engine.nba_ledger_settlement import settle as settle_hybrid_nba
+                    jobs.append(('LIVE_NBA',lambda:settle_hybrid_nba(nba_service.ledger,fetcher=transport)))
+                app.bot_data['last_result_poll']=await poll_once(jobs,journal)
                 await asyncio.sleep(args.result_poll_seconds)
         if not args.replay_only:tasks.append(asyncio.create_task(collect()))
     async def stop(app):
@@ -417,7 +450,7 @@ def main():
         from hybrid_engine.live_nba import PreparedBayes,LiveNBAHybridService
         nba_service=LiveNBAHybridService(root/'live-nba',PreparedBayes(nba_model_path,trusted_sha256=args.nba_model_sha))
     _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport,nba_service=nba_service,
-        decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only)
+        decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only,forward_el=forward_el)
     app.bot_data['test_results']=results
     # Commands must arrive from the authorized HUMAN test chat; bot self-messages
     # are never counted as real command-input E2E evidence.

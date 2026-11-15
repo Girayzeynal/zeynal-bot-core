@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from hybrid_engine.market_evidence_report import observed_market_evidence, render_quote_line
+from core.team_identity import digest
 
 
 class ObservedMarketEvidenceTests(unittest.TestCase):
@@ -13,6 +14,14 @@ class ObservedMarketEvidenceTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.assets = Path(self.tmp.name)
+
+    def test_tampered_or_escaping_source_is_refused_before_parser(self):
+        receipt={'source_url':'https://site.api.espn.com/scoreboard?dates=20261114'}
+        (self.assets/'source.json').write_text(json.dumps(receipt))
+        for ref in ({'file':'source.json','sha256':'bad'},
+                    {'file':'../source.json','sha256':digest(receipt)}):
+            with patch('hybrid_engine.market_evidence_report.observe_espn',side_effect=AssertionError('parser')):
+                self.assertEqual(observed_market_evidence(self.assets,{'s':ref},'fixture',100,200),[])
 
     def test_quote_ages_and_market_signs_are_unambiguous(self):
         base = {'bookmaker': 'DraftKings', 'observed_at_utc': 1794677228,
@@ -48,7 +57,7 @@ class ObservedMarketEvidenceTests(unittest.TestCase):
             quote('Other', 'TOTAL', 231.5, 80, 85)]
         with patch('hybrid_engine.market_evidence_report.observe_espn',
                    return_value={'quotes': quotes, 'rejected': []}):
-            rows = observed_market_evidence(self.assets, {'r': {'file': 'source.json'}},
+            rows = observed_market_evidence(self.assets, {'r': {'file': 'source.json','sha256':digest(receipt)}},
                                             'fixture', 100, 200)
         self.assertEqual(len(rows), 3)
         self.assertEqual({(q['bookmaker'], q['market'], q['line']) for q in rows}, {
@@ -59,7 +68,7 @@ class ObservedMarketEvidenceTests(unittest.TestCase):
     def test_only_matching_pretipoff_quotes_are_reported(self):
         receipt = {'source_url': 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261114'}
         (self.assets / 'source.json').write_text(json.dumps(receipt))
-        sources = {'source': {'file': 'source.json'}}
+        sources = {'source': {'file': 'source.json','sha256':digest(receipt)}}
         def quote(fixture, ingested):
             return {'sha256': 'pin', 'payload': {
                 'fixture_id': fixture, 'fixture_start_utc': 200,

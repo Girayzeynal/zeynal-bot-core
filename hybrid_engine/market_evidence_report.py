@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 
 from hybrid_engine.observed_markets import observe_espn
+from hybrid_engine.data import local_path
+from core.team_identity import digest
 
 
 def observed_market_evidence(assets, sources, fixture_id, prediction_utc, fixture_start_utc):
@@ -14,7 +16,12 @@ def observed_market_evidence(assets, sources, fixture_id, prediction_utc, fixtur
     latest = {}
     for ref in sources.values():
         try:
-            receipt = json.loads((Path(assets) / ref['file']).read_text())
+            root=local_path(assets)
+            if Path(ref['file']).name!=ref['file']:raise ValueError('MARKET_ASSET_PATH')
+            path=local_path(root/ref['file'])
+            if path.stat().st_size>4*1024*1024:raise ValueError('MARKET_ASSET_SIZE')
+            receipt=json.loads(path.read_text())
+            if digest(receipt)!=ref['sha256']:raise ValueError('MARKET_ASSET_PIN')
             if '/scoreboard?' not in receipt.get('source_url', ''):
                 continue
             observed = observe_espn(receipt, now_utc=prediction_utc)

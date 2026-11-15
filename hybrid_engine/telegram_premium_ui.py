@@ -33,10 +33,21 @@ def compact_summary(snapshot, evidence, *, replayed):
         lines.append('⚠️ Piyasa uzatma kapsamı doğrulanmadı; Alt/Üst ve edge yok.')
     else:
         lines.append('Doğrulanmış maç öncesi piyasa gözlemi bulunamadı.')
+    q=snapshot.get('intervals',{}).get('markets',{}).get('TOTAL')
+    if q:
+        lines.extend(['','🎯 <b>HAM TAHMİN ARALIKLARI</b>',
+            f"P50 {q['p50']:.1f} | P25–P75 {q['p25']:.1f}–{q['p75']:.1f}",
+            f"P05–P95 {q['p05']:.1f}–{q['p95']:.1f}",
+            'Nominal aralıklar; gerçekleşen kapsama veya güven garantisi değil.'])
+    if p.get('halves'):
+        lines.extend(['','⏱ <b>DEVRELER | EV – DEPLASMAN</b>']+
+            [f"{i+1}. yarı: {v[0]:.1f} – {v[1]:.1f}" for i,v in enumerate(p['halves'])])
     lines.extend(['','🛡 <b>MODEL DURUMU</b>',
                   'Kalibrasyon: doğrulanmadı  ·  Güven endeksi: yok',
                   'Kadro / sakatlık / tempo: doğrulanmadı',
                   '🔒 '+('Kayıtlı tahmin tekrar gösterildi.' if replayed else 'Yeni tahmin arşivlendi.'),
+                  'Model: '+esc(str(snapshot.get('model_version','ayrıntıda'))[:100]),
+                  'Üretim: '+(datetime.fromtimestamp(snapshot['prediction_generated_at_utc'],timezone.utc).astimezone(ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y %H:%M:%S TSİ') if snapshot.get('prediction_generated_at_utc') else 'ayrı kaydedilmemiş / bilinmiyor'),
                   '','<i>İzole araştırma · Üretim değil · Bahis önerisi değil</i>'])
     return '\n'.join(lines)
 
@@ -75,7 +86,7 @@ def period_table(section_html):
         return 'Orta'
     lines=['📊 <b>PERİYOT | SKOR PROJEKSİYONU</b>',
            '<i>Skor sırası: Ev – Deplasman · Normal süre</i>',
-           '<i>Tempo etiketi, yalnızca tahmini periyot sayı toplamlarının göreli karşılaştırmasıdır.</i>','']
+           '<i>Etiketler tahmini sayı toplamlarını karşılaştırır; ölçülmüş oyun temposu değildir.</i>','']
     labels=[('1Q','1. Çeyrek'),('2Q','2. Çeyrek'),('1H','İlk Yarı'),
             ('3Q','3. Çeyrek'),('4Q','4. Çeyrek'),('2H','İkinci Yarı')]
     for key,label in labels:
