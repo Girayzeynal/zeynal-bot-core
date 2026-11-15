@@ -1,4 +1,5 @@
 """Bounded, read-only reports of committed live forecasts. No fitting or downloads."""
+import asyncio
 from collections import defaultdict
 from contextlib import closing
 import math
