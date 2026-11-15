@@ -80,9 +80,9 @@ async def run(fixture_path,repetitions=20,*,decisions=False):
         report=LedgerReports(service.ledger.path).read('NBA')
         if errors or len(delivered)!=len(commands) or report['unique_fixtures']!=4:raise ValueError('LIVE_COMMAND_COUNTS_OR_HANDLER_FAILURE')
         if any('Analiz hizmeti kullanılamıyor' in s or 'hibrit analiz kaydedilmedi' in s for s in received):raise ValueError('LIVE_INFERENCE_FAILED')
-        if not any('FIXTURE_LOCAL_DATE_MISMATCH' in s for s in received):raise ValueError('DATE_DIAGNOSTIC_NOT_SENT')
+        if not any('ESPN doğrulamasıyla Türkiye tarihi düzeltildi' in s for s in received):raise ValueError('VERIFIED_DATE_RETRY_NOT_DELIVERED')
         if report['groups'] or report['pending']!=4:raise ValueError('INVENTED_FINAL_OR_METRIC')
-        if sum(('Gerçek maç öncesi tahmin' in s or 'ZEYNAL | NBA ANALİZ' in s) for s in received)!=4+repetitions:raise ValueError('LIVE_RENDER_NOT_DELIVERED')
+        if sum(('Gerçek maç öncesi tahmin' in s or 'ZEYNAL | NBA ANALİZ' in s) for s in received)!=5+repetitions:raise ValueError('LIVE_RENDER_NOT_DELIVERED')
         decision_records=app.bot_data['decision_journal'].read() if decisions else []
         if decisions:
             if len(decision_records)!=5 or any(e['selected'] for b in decision_records for e in b['evaluations']):raise ValueError('DECISION_DEDUP_OR_SELECTION_GUARD')
