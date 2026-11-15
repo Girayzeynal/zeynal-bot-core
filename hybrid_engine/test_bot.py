@@ -395,6 +395,9 @@ def main():
                     if forward_nba is not None:
                         from hybrid_engine.forward_nba_results import collect as collect_forward_nba
                         await asyncio.to_thread(collect_forward_nba,forward_nba,root/'forward-nba-results')
+                    if nba_service is not None:
+                        from hybrid_engine.nba_ledger_settlement import settle as settle_hybrid_nba
+                        await asyncio.to_thread(settle_hybrid_nba,nba_service.ledger)
                 except (ValueError,OSError) as exc:
                     await asyncio.to_thread(journal.append,digest(dict(kind='RESULT_POLL_FAILED',at=int(time.time()))),
                         dict(kind='RESULT_POLL_FAILED',error_type=type(exc).__name__,observed_at_utc=int(time.time())))
