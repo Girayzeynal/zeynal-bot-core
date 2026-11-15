@@ -263,8 +263,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
-        if mode not in ('all','nba','euroleague'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test all')
+        if mode not in ('all','nba','euroleague','roster'):
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test roster, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',
@@ -288,6 +288,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 lines.append('Canlı NBA hibrit motoru: '+('YÜKLÜ (analiz henüz doğrulanmadı)' if nba_service is not None else 'DEVRE DIŞI'))
             except (TypeError,ValueError,OSError,KeyError) as exc:
                 lines.append('NBA replay: HATA ('+type(exc).__name__+')')
+        if mode in ('all','roster'):
+            packets=app.bot_data.get('verified_roster_packets')
+            reports=app.bot_data.get('premium_reports')
+            lines.append('Kadro kanıt paketleri (bellek): '+str(len(packets) if isinstance(packets,dict) else 0))
+            lines.append('Premium analiz oturumları (bellek): '+str(len(reports) if isinstance(reports,dict) else 0))
+            lines.append('Oyuncu kimliği / rapor içeriği / Telegram kadro teslimi: bu komutla doğrulanmaz.')
         lines.append('Bu kontrol maç tahmini, gerçek fikstür veya Fly.io dağıtımını doğrulamaz.')
         await message.reply_text('\n'.join(lines))
         raise ApplicationHandlerStop
