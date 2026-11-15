@@ -376,7 +376,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                         f"Skor: {row['prediction'][0]:.1f} – {row['prediction'][1]:.1f} | Durum: {'SONUÇ DOĞRULANDI' if row['actual'] is not None else 'SONUÇ BEKLENİYOR'}",
                         f"/compare NBA {row['fixture_id']}"])
                 if len(rows)>25:lines.append(f"İlk 25 kayıt gösterildi; toplam {len(rows)}.")
-                message='\\n'.join(lines)
+                message='\n'.join(lines)
         except (ValueError,KeyError,TypeError,OSError,RuntimeError,ImportError):
             message='Tahmin arşivi doğrulanamadı; kayıtlar değiştirilmedi.'
         while message:
