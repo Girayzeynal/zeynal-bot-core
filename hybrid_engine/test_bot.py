@@ -174,13 +174,13 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                             and suggestion.startswith('/analyze NBA ')
                             and len(args)==3):
                         import re as _re
-                        m=_re.fullmatch(r'/analyze NBA (\d{4}-\d{2}-\d{2}) (.+) vs (.+)',suggestion)
+                        m=_re.fullmatch(r'/analyze NBA (\\d{4}-\\d{2}-\\d{2}) (.+) vs (.+)',suggestion)
                         if m:
                             corrected=(m.group(1),m.group(2),m.group(3))
                             response=await nba_service.analyze('NBA',*corrected)
                             if response.get('status')=='ANALYSIS_OK':
                                 response=dict(response)
-                                response['html']='ESPN doğrulamasıyla Türkiye tarihi düzeltildi: '+corrected[0]+'\n'+response['html']
+                                response['html']='ESPN doğrulamasıyla Türkiye tarihi düzeltildi: '+corrected[0]+'\\n'+response['html']
                                 if response.get('html_parts'):
                                     response['html_parts']=[response['html'],*response['html_parts'][1:]]
                 if league.upper()=='NBA' and response.get('status')=='ABSTAIN':
