@@ -7,7 +7,7 @@ import re
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-def compact_summary(snapshot, evidence, *, replayed):
+def compact_summary(snapshot, evidence, *, replayed, health=None):
     p=snapshot['prediction']
     fixture={'home_name':snapshot['home']['official_name'], 'away_name':snapshot['away']['official_name']}
     esc=html.escape
@@ -42,6 +42,9 @@ def compact_summary(snapshot, evidence, *, replayed):
     if p.get('halves'):
         lines.extend(['','⏱ <b>DEVRELER | EV – DEPLASMAN</b>']+
             [f"{i+1}. yarı: {v[0]:.1f} – {v[1]:.1f}" for i,v in enumerate(p['halves'])])
+    if health is not None:
+        from hybrid_engine.health_card import render
+        lines.extend(['', render(health)])
     lines.extend(['','🛡 <b>MODEL DURUMU</b>',
                   'Kalibrasyon: doğrulanmadı  ·  Güven endeksi: yok',
                   'Kadro / sakatlık / tempo: doğrulanmadı',

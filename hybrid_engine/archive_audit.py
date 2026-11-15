@@ -79,8 +79,13 @@ def audit_ledger(path,*,assets_directory=None):
     # immutable references still bind each source and a running bot can append.
     for row,p in asset_jobs:
         try:
-            from hybrid_engine.prediction_audit import audit_snapshot
+            from hybrid_engine.prediction_audit import audit_snapshot,Assets
             row['source_audit']=audit_snapshot(p,assets_directory)
+            prepared=Assets(assets_directory).read(p['prepared_asset'])
+            row['calibration_inputs']=dict(inputs_available_max_utc=p['source_data_time_utc'],
+                model_fit_cutoff_utc=p['parameter_fit_cutoff_utc'],
+                model_training_ids=list(prepared['payload']['model']['training_ids']),
+                prepared_artifact_sha256=p['prepared_artifact_sha256'])
         except Exception as exc:
             row['findings'].append('NATIVE_ASSET_AUDIT_FAILED');row['error_type']=type(exc).__name__
     for pid,fids in sorted(aliases.items()):

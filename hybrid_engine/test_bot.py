@@ -176,6 +176,20 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     quality=await asyncio.to_thread(audit_snapshot,response['snapshot'],nba_service.assets)
                 except (ValueError,KeyError,TypeError,OSError):
                     return dict(status='ABSTAIN',html='Kayıtlı tahminin kaynak/zaman/model bütünlüğü doğrulanamadı; tahmin değiştirilmedi ve analiz yayınlanmadı.')
+                from hybrid_engine.quality_monitor import monitor
+                from hybrid_engine.health_card import build as build_health, render as render_health
+                def prior_quality():
+                    report=LedgerReports(nba_service.ledger.path).read('NBA')
+                    return monitor(report['forecasts'],asof_utc=response['snapshot']['prediction_generated_at_utc'])
+                try:
+                    prior=await asyncio.wait_for(asyncio.to_thread(prior_quality),timeout=3)
+                except Exception as exc:
+                    import logging
+                    logging.getLogger(__name__).warning('Prior quality read unavailable: %s',type(exc).__name__)
+                    prior=None
+                health=build_health(response['snapshot'],quality,prior_quality=prior)
+                if not health['publication_allowed']:
+                    return dict(status='ABSTAIN',html=render_health(health)+'\nVar olan tahminler değiştirilmedi; sağlık denetimi bu analiz yayını durdurdu.')
                 response=dict(response,quality_audit=quality,html_parts=[*response['html_parts'],render_source_annotation(quality)])
                 from hybrid_engine.market_evidence_report import observed_market_evidence, render_quote_line
                 import html as _html
@@ -205,7 +219,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 import secrets
                 full_parts=[*response['html_parts'],'\n'.join(market_lines)]
                 token=secrets.token_hex(6)
-                summary=compact_summary(snapshot,evidence,replayed=not response['new_record'])
+                summary=compact_summary(snapshot,evidence,replayed=not response['new_record'],health=health)
                 from hybrid_engine.telegram_roster_bridge import read_fixture_roster_evidence
                 roster=read_fixture_roster_evidence(
                     app.bot_data.get('verified_roster_packets'),
@@ -216,6 +230,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     away_team_id=str(snapshot['away'].get('team_id') or snapshot['away'].get('official_name')))
                 sections=detail_sections(response['html_parts'],'\n'.join(market_lines),
                                          roster_evidence=roster)
+                sections['audit']=render_health(health)+'\n\n'+sections['audit']
                 cache=app.bot_data.setdefault('premium_reports',{})
                 # Keep memory bounded and do not persist sensitive report views.
                 while len(cache)>=64:
@@ -348,6 +363,10 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
     predictions=PredictionsCommand(LedgerReports(nba_service.ledger.path) if nba_service is not None else None,journal,chat_id)
     app.bot_data['predictions_command']=predictions
     app.add_handler(CommandHandler('predictions',predictions.handle),group=-50)
+    from hybrid_engine.health_command import HealthCommand
+    health_command=HealthCommand(predictions.reports,journal,chat_id)
+    app.bot_data['health_command']=health_command
+    app.add_handler(CommandHandler('health',health_command.handle),group=-50)
     if nba_service is not None:app.add_handler(CommandHandler('nba',isolated_fixtures),group=-50)
     if forward_el is not None:app.add_handler(CommandHandler('euroleague',isolated_fixtures),group=-50)
     async def premium_callback(update,context):
