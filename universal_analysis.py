@@ -17,7 +17,6 @@ from season_archive_inventory import archive_catalog
 
 
 ISTANBUL=ZoneInfo('Europe/Istanbul')
-NBA_LOCAL=ZoneInfo('America/New_York')
 
 
 def require_fresh_source(pin):
@@ -87,16 +86,6 @@ class UniversalAnalyzeService:
                     games[cid]=g
             targets=[g for g in games.values() if g['home_team_id']==h.provider_ids[0][1] and
                 g['away_team_id']==a.provider_ids[0][1] and datetime.fromtimestamp(g['start_ts_utc'],ISTANBUL).date()==requested]
-            # Accept the NBA's US game-date convention only when the Istanbul
-            # calendar-date lookup found no match. Never override a unique
-            # Istanbul match or silently select among multiple US-date games.
-            if spec.code=='NBA' and not targets:
-                us_targets=[g for g in games.values()
-                    if g['home_team_id']==h.provider_ids[0][1]
-                    and g['away_team_id']==a.provider_ids[0][1]
-                    and datetime.fromtimestamp(g['start_ts_utc'],NBA_LOCAL).date()==requested]
-                if len(us_targets)==1:
-                    targets=us_targets
             if len(targets)!=1:
                 adjacent=[g for g in games.values() if g['home_team_id']==h.provider_ids[0][1] and
                     g['away_team_id']==a.provider_ids[0][1] and
