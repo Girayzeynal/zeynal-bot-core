@@ -28,6 +28,20 @@ class NBAInjuryVerificationTests(unittest.TestCase):
         self.assertEqual(result['records'][0]['status'],'OUT')
         self.assertFalse(result['rotation_verified'])
         self.assertFalse(result['minutes_adjustment_allowed'])
+    def test_missing_player_id_refused_even_with_verified_flag(self):
+        original=self.players
+        try:
+            self.players={}
+            with self.assertRaisesRegex(ValueError,'INCOMPLETE_OR_DUPLICATE_PLAYER_ID_MAPPING'):
+                self.run_gate()
+        finally:
+            self.players=original
+    def test_duplicate_player_ids_refused_even_with_verified_flag(self):
+        self.extraction['rows'].append(dict(matchup='AWY@HOM',team='Home Team',
+                                            player_name='Player B',status='Out'))
+        self.players[('Home Team','Player B')]='player-a'
+        with self.assertRaisesRegex(ValueError,'INCOMPLETE_OR_DUPLICATE_PLAYER_ID_MAPPING'):
+            self.run_gate()
     def test_digest_mismatch_refused(self):
         with self.assertRaises(ValueError):
             self.run_gate(dict(self.verification,sha256='b'*64))
