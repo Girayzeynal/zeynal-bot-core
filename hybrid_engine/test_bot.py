@@ -340,6 +340,51 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         except (ValueError,KeyError,TypeError,OSError):
             await update.effective_message.reply_text('Fikstür kaynağı doğrulanamadı veya tarih geçersiz. Kullanım: '+command+' YYYY-MM-DD. Tahmin üretilmedi.')
         raise ApplicationHandlerStop
+    async def predictions_command(update,context):
+        """Read-only list of committed NBA forecasts; no new predictions or settlement."""
+        from datetime import datetime, timezone
+        from ledger_reports import LedgerReports
+        args=context.args or []
+        if len(args)>1 or (args and args[0].upper()!='NBA'):
+            await update.effective_message.reply_text('Kullanım: /predictions NBA')
+            raise ApplicationHandlerStop
+        if nba_service is None:
+            await update.effective_message.reply_text('Canlı NBA tahmin arşivi bu modda kullanılamıyor.')
+            raise ApplicationHandlerStop
+        try:
+            report=await asyncio.to_thread(LedgerReports(nba_service.ledger.path).read,'NBA',None)
+            if report.get('status')!='VERIFIED_LIVE_REPORT':
+                message='Doğrulanmış canlı NBA tahmin arşivi kullanılamıyor.'
+            else:
+                rows=report['forecasts']
+                def stamp(value):
+                    if not value:return 'bilinmiyor'
+                    try:
+                        dt=datetime.fromisoformat(value.replace('Z','+00:00'))
+                        from zoneinfo import ZoneInfo
+                        return dt.astimezone(ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y %H:%M TSİ')
+                    except (ValueError,TypeError,OverflowError):
+                        return 'geçersiz'
+                rows=sorted(rows,key=lambda r:(r['fixture_start_utc'],r['fixture_id']),reverse=True)
+                lines=[f"ZEYNAL | KAYITLI NBA TAHMİNLERİ | Normal süre",
+                       f"Kayıt: {len(rows)} | Sonuç bekleyen: {report['pending']}",
+                       "Yalnızca doğrulanmış, kalıcı maç öncesi tahminler; yeni tahmin üretilmedi."]
+                for row in rows[:25]:
+                    lines.extend(['',
+                        f"{row['home']} – {row['away']}",
+                        f"Maç: {stamp(row['fixture_start_utc'])} | Tahmin: {stamp(row['first_archived_at_utc'])}",
+                        f"Skor: {row['prediction'][0]:.1f} – {row['prediction'][1]:.1f} | Durum: {'SONUÇ DOĞRULANDI' if row['actual'] is not None else 'SONUÇ BEKLENİYOR'}",
+                        f"/compare NBA {row['fixture_id']}"])
+                if len(rows)>25:lines.append(f"İlk 25 kayıt gösterildi; toplam {len(rows)}.")
+                message='\\n'.join(lines)
+        except (ValueError,KeyError,TypeError,OSError,RuntimeError,ImportError):
+            message='Tahmin arşivi doğrulanamadı; kayıtlar değiştirilmedi.'
+        while message:
+            part=message[:3200]
+            await update.effective_message.reply_text(part,disable_web_page_preview=True)
+            message=message[len(part):]
+        raise ApplicationHandlerStop
+    if nba_service is not None:app.add_handler(CommandHandler('predictions',predictions_command),group=-50)
     if nba_service is not None:app.add_handler(CommandHandler('nba',isolated_fixtures),group=-50)
     if forward_el is not None:app.add_handler(CommandHandler('euroleague',isolated_fixtures),group=-50)
     async def premium_callback(update,context):
