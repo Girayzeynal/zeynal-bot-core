@@ -2,6 +2,18 @@
 # Isolated Android/UserLAnd test bot restart. Never touches Fly.io production.
 set -Eeuo pipefail
 cd "${HOME}/zeynal-hybrid-844"
+# One isolated poller per local installation; prevent Telegram getUpdates conflicts.
+lock_dir="${HOME}/zeynal-test-isolated"
+mkdir -p "${lock_dir}"
+if ! command -v flock >/dev/null 2>&1; then
+  echo "FLOCK_REQUIRED_FOR_SINGLE_INSTANCE" >&2
+  exit 2
+fi
+exec 9>"${lock_dir}/test-bot.lock"
+if ! flock -n 9; then
+  echo "TEST_BOT_ALREADY_RUNNING: existing process kept untouched" >&2
+  exit 0
+fi
 branch="feature/hybrid-market-roster-evidence-20261114"
 git fetch origin "${branch}"
 if [[ "$(git branch --show-current)" != "${branch}" ]]; then
