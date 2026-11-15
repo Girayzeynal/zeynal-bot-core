@@ -12,6 +12,8 @@ class IsolatedLauncherTests(unittest.TestCase):
     def test_isolated_identity_and_pinned_model(self):
         body=SCRIPT.read_text()
         for required in ('git merge --ff-only FETCH_HEAD',
+                         'flock -n 9',
+                         'TEST_BOT_ALREADY_RUNNING',
                          'WRONG_BRANCH','TEST_TOKEN_FILE_MISSING',
                          'PINNED_MODEL_FILE_MISSING',
                          'ZEYNAL_TEST_BOT_TOKEN',
