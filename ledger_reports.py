@@ -136,8 +136,20 @@ async def accuracy_command(update,context):
 
 async def compare_command(update,context):
     args=context.args or []
+    if len(args)==1 and args[0].upper()=='NBA':
+        service=context.application.bot_data.get('ledger_reports')
+        if service is None:
+            await update.effective_message.reply_text('Karşılaştırma arşivi kullanılamıyor.');return
+        report=await asyncio.to_thread(service.read,'NBA',None)
+        data=report.get('report',report)
+        ids={str(r['fixture_id']) for r in data.get('forecasts',[])}
+        if len(ids)==1:
+            await _reply(update,context,'NBA',next(iter(ids)),render_compare);return
+        if not ids:
+            await update.effective_message.reply_text('Kayıtlı NBA tahmini bulunamadı.');return
+        await update.effective_message.reply_text('Birden fazla maç kayıtlı. Kullanım: /compare NBA maç_kimliği');return
     if len(args)!=2:
-        await update.effective_message.reply_text('Kullanım: /compare NBA maç_kimliği');return
+        await update.effective_message.reply_text('Kullanım: /compare NBA [maç_kimliği]');return
     await _reply(update,context,args[0],args[1],render_compare)
 
 
