@@ -4,6 +4,7 @@ An operator-provided extraction receipt is required. Never automatically
 promote PDF table text to a verified NBA player status.
 """
 from hybrid_engine.nba_injury_rows import map_official_injury_rows
+from hybrid_engine.nba_injury_id_audit import audit_injury_id_mapping
 
 def verified_pdf_roster_evidence(extraction, *, capture_receipt, verification,
                                  fixture_matchup, team_ids, player_ids,
@@ -25,6 +26,10 @@ def verified_pdf_roster_evidence(extraction, *, capture_receipt, verification,
             verification.get('player_id_mapping_verified') is not True or
             verification.get('team_id_mapping_verified') is not True):
         raise ValueError('INDEPENDENT_EXTRACTION_VERIFICATION_REQUIRED')
+    audit=audit_injury_id_mapping(extraction['rows'],fixture_matchup=fixture_matchup,
+        team_ids=team_ids,player_ids=player_ids)
+    if not audit['identity_mapping_complete']:
+        raise ValueError('INCOMPLETE_OR_DUPLICATE_PLAYER_ID_MAPPING')
     report=dict(capture_receipt,status='OFFICIAL_REPORT_CONTENT_VERIFIED',
                 extraction_verified=True)
     return map_official_injury_rows(
