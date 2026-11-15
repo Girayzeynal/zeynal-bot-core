@@ -169,5 +169,15 @@ def render_preflight(report):
             'Doğrulanmış başlangıç (TSİ): '+d['tipoff_tsi'],
             'ESPN maç kimliği: '+', '.join(d['provider_fixture_ids'])])
         if d.get('suggested_command'):lines.append('Tarihi kontrol ederek yeniden gönderin: '+d['suggested_command'])
+    if report.get('fixture_diagnostic'):
+        d=report['fixture_diagnostic']
+        lines.append('Fikstür teşhisi: tam eşleşme '+str(d['matched_count'])+
+            ', aynı ev/deplasman '+str(d['same_pair_count'])+
+            ', ters ev/deplasman '+str(d['reversed_pair_count']))
+        for g in d['nearby']:
+            lines.append('Yakın maç: '+g['local_date']+' TSİ | '+
+                str(g['home_team_id'])+' vs '+str(g['away_team_id'])+
+                ' | '+str(g['fixture_id'])+
+                (' | tamamlandı' if g['completed'] else ''))
     lines.append('Tahmin üretilmedi; mevcut tahmin kayıtları değiştirilmedi.')
     return '\n'.join(lines)
