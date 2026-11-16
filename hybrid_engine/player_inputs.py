@@ -1,5 +1,7 @@
 """Explicit offline collection of prospective NBA player inputs; ledger is read-only."""
 import argparse
+from collections import Counter,defaultdict
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
@@ -106,15 +108,129 @@ def validate_witness(publication,directory):
     return p['payload']
 
 
+
+def file_sha256(path):
+    """Bounded memory, even when the private ledger grows."""
+    h=hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda:stream.read(512*1024),b''): h.update(block)
+    return h.hexdigest()
+
+
+def collect_batch(ledger,assets,directory,*,maximum=4,minimum_lead_seconds=900,
+                  window_seconds=48*3600,maximum_seconds=180,failure_limit=2,
+                  dry_run=False,collect_one=collect,loader=load_snapshot):
+    """One bounded offline pass over existing future forecasts, never predictions.
+
+    The elapsed budget is checked between fixtures, not a hard process deadline.
+    In-flight native requests retain the existing adapter timeouts. Already
+    archived inputs do not consume the limit or starve later fixtures.
+    """
+    for value,low,high in ((maximum,1,8),(minimum_lead_seconds,900,7200),
+            (window_seconds,3600,48*3600),(maximum_seconds,10,600),(failure_limit,1,4)):
+        if type(value) is not int or not low<=value<=high:
+            raise ValueError('PLAYER_BATCH_BOUNDED_POLICY_REQUIRED')
+    if type(dry_run) is not bool: raise ValueError('PLAYER_BATCH_DRY_RUN_BOOLEAN_REQUIRED')
+    path=local_path(ledger); root=local_path(directory); now=int(time.time()); began=time.monotonic()
+    result=dict(format='PLAYER_INPUT_BATCH_V1',evaluated_at_utc=now,status='BLOCKED',reason=None,
+        dry_run=dry_run,maximum=maximum,minimum_lead_seconds=minimum_lead_seconds,
+        window_seconds=window_seconds,admission_budget_seconds=maximum_seconds,
+        budget_scope='CHECKED_BETWEEN_FIXTURES_NOT_HARD_PROCESS_DEADLINE',failure_limit=failure_limit,
+        selected=[],results=[],skipped={},eligible_total=0,remaining_eligible=0,
+        database_bytes_unchanged=None,forecast_changed=False,online_training=False,
+        actual_telegram_delivery_verified=False,production_changed=False)
+    before=None
+    try:
+        if not path.is_file(): raise ValueError('PLAYER_BATCH_LEDGER_UNAVAILABLE')
+        before=file_sha256(path)
+        report=LedgerReports(path).read('NBA')
+        if report['status']!='VERIFIED_LIVE_REPORT': raise ValueError('PLAYER_BATCH_VERIFIED_LEDGER_REQUIRED')
+        grouped=defaultdict(list)
+        for row in report['forecasts']: grouped[row['fixture_id']].append(row)
+        folder=root/'minutes'
+        publications=MinutesArchive(folder).first() if folder.is_dir() else []
+        existing={p['projection']['payload']['fixture_id']:p for p in publications}
+        skipped=Counter(); eligible=[]
+        for fid,versions in grouped.items():
+            if len(versions)!=1:
+                skipped['AMBIGUOUS_ARCHIVED_MODELS']+=1; continue
+            row=versions[0]; start=row['fixture_start_utc']
+            if row['actual'] is not None:
+                skipped['ALREADY_HAS_FINAL_RESULT']+=1; continue
+            if start<=now:
+                skipped['MATCH_ALREADY_STARTED']+=1; continue
+            if start-now<minimum_lead_seconds:
+                skipped['INSUFFICIENT_PRETIPOFF_COLLECTION_WINDOW']+=1; continue
+            if start-now>window_seconds:
+                skipped['OUTSIDE_PROSPECTIVE_WINDOW']+=1; continue
+            if fid in existing:
+                p=validate_witness(existing[fid],root)
+                if p['original_snapshot_sha256']!=row['snapshot_sha256']:
+                    skipped['ORIGINAL_SNAPSHOT_LINK_CONFLICT']+=1; continue
+                skipped['ALREADY_ARCHIVED_MINUTES']+=1; continue
+            eligible.append(row)
+        eligible.sort(key=lambda r:(r['fixture_start_utc'],r['fixture_id']))
+        selected=eligible[:maximum]
+        result.update(skipped=dict(skipped),eligible_total=len(eligible),remaining_eligible=len(eligible),
+            selected=[{k:r[k] for k in ('fixture_id','provider_fixture_ids','fixture_start_utc','home','away')}
+                      for r in selected])
+        if dry_run:
+            result['status']='DRY_RUN'; return result
+        consecutive=0
+        for row in selected:
+            if time.monotonic()-began>=maximum_seconds:
+                result.update(status='PARTIAL',reason='ADMISSION_TIME_BUDGET_EXHAUSTED'); break
+            if row['fixture_start_utc']-int(time.time())<minimum_lead_seconds:
+                result['results'].append(dict(fixture_id=row['fixture_id'],status='SKIPPED',
+                    reason='COLLECTION_WINDOW_CLOSED_DURING_BATCH'))
+                continue
+            try:
+                snapshot=loader(path,row['fixture_id'])
+                if digest(snapshot)!=row['snapshot_sha256']:
+                    raise ValueError('PLAYER_BATCH_SNAPSHOT_CHANGED_DURING_READ')
+                one=collect_one(snapshot,assets,root)
+                item={k:one.get(k) for k in ('fixture_id','status','reason','projection','new_record')}
+            except (ValueError,KeyError,TypeError,OSError,sqlite3.Error):
+                item=dict(fixture_id=row['fixture_id'],status='BLOCKED',reason='PLAYER_BATCH_ARCHIVE_OR_SOURCE_UNAVAILABLE')
+            result['results'].append(item)
+            consecutive=consecutive+1 if item['status']=='BLOCKED' else 0
+            if consecutive>=failure_limit:
+                result.update(status='PARTIAL',reason='CONSECUTIVE_SOURCE_OR_INPUT_BLOCKS'); break
+        if result['status']!='PARTIAL':
+            result['status']='COMPLETED_WITH_BLOCKS' if any(r['status']=='BLOCKED' for r in result['results']) else 'COMPLETED'
+        result['remaining_eligible']=len(eligible)-sum(r['status'] in ('PROSPECTIVE_MINUTES_ARCHIVED','EXISTING_MINUTES_REPLAY')
+                                                    for r in result['results'])
+    except (ValueError,KeyError,TypeError,OSError,sqlite3.Error):
+        result.update(status='BLOCKED',reason='PLAYER_BATCH_ARCHIVE_UNAVAILABLE_OR_INVALID')
+    finally:
+        if before is not None:
+            try: result['database_bytes_unchanged']=path.is_file() and file_sha256(path)==before
+            except OSError: result['database_bytes_unchanged']=False
+            if not result['database_bytes_unchanged']:
+                result.update(status='BLOCKED',reason='CONCURRENT_LEDGER_CHANGE_DETECTED_NO_RESTORE_ATTEMPT')
+    if not dry_run:
+        root.mkdir(parents=True,exist_ok=True)
+        publish_json(root/('batch-'+digest(result)+'.json'),dict(payload=result,sha256=digest(result)))
+    return result
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--ledger',required=True); parser.add_argument('--assets-directory',required=True)
-    parser.add_argument('--fixture-id',required=True); parser.add_argument('--output-directory',required=True)
+    group=parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--fixture-id'); group.add_argument('--all-pending',action='store_true')
+    parser.add_argument('--dry-run',action='store_true'); parser.add_argument('--maximum',type=int,default=4)
+    parser.add_argument('--output-directory',required=True)
     args=parser.parse_args(); ledger=local_path(args.ledger)
-    before=__import__('hashlib').sha256(ledger.read_bytes()).hexdigest()
+    if args.dry_run and not args.all_pending: parser.error('--dry-run requires --all-pending')
+    if args.all_pending:
+        report=collect_batch(ledger,local_path(args.assets_directory),args.output_directory,
+                             maximum=args.maximum,dry_run=args.dry_run)
+        print(json.dumps(report,sort_keys=True)); return
+    before=file_sha256(ledger)
     snapshot=load_snapshot(ledger,args.fixture_id)
     report=collect(snapshot,local_path(args.assets_directory),args.output_directory)
-    report['database_bytes_unchanged']=__import__('hashlib').sha256(ledger.read_bytes()).hexdigest()==before
+    report['database_bytes_unchanged']=file_sha256(ledger)==before
     print(json.dumps(report,sort_keys=True))
 
 

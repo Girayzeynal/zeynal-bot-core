@@ -40,6 +40,16 @@ if [[ "$(git branch --show-current)" != "${branch}" ]]; then
   exit 2
 fi
 git merge --ff-only FETCH_HEAD
+if [[ "${1:-}" == "--player-inputs-plan" || "${1:-}" == "--player-inputs-all" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  player_args=()
+  if [[ "${1}" == "--player-inputs-plan" ]]; then player_args=(--dry-run); fi
+  exec .venv/bin/python -m hybrid_engine.player_inputs \
+    --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
+    --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
+    --all-pending --maximum 4 "${player_args[@]}" \
+    --output-directory "${HOME}/zeynal-test-isolated/data/player-shadow"
+fi
 if [[ "${1:-}" == "--player-inputs" ]]; then
   if [[ ! "${2:-}" =~ ^[0-9]{1,15}$ ]]; then
     echo "Kullanım: run_isolated_test_bot.sh --player-inputs ESPN_MAC_KIMLIGI" >&2
@@ -55,6 +65,12 @@ if [[ "${1:-}" == "--player-shadow-review" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
   exec .venv/bin/python -m hybrid_engine.player_shadow \
     --directory "${HOME}/zeynal-test-isolated/data/player-shadow"
+fi
+if [[ "${1:-}" == "--player-shadow-results" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.player_shadow \
+    --directory "${HOME}/zeynal-test-isolated/data/player-shadow" \
+    --report-ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite"
 fi
 if [[ "${1:-}" == "--roster-setup" ]]; then
   # Optional PDF extraction runs in a bounded child, never production main.py.
