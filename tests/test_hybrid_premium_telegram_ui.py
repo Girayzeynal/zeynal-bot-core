@@ -15,8 +15,10 @@ class PremiumTelegramUITests(unittest.TestCase):
     def test_summary_is_compact_and_does_not_fabricate_edge(self):
         output=compact_summary(self.snapshot,self.evidence,replayed=True)
         self.assertIn('230.4',output)
-        self.assertIn('234.5',output)
-        self.assertIn('+12.5',output)
+        self.assertNotIn('234.5',output)
+        self.assertNotIn('+12.5',output)
+        self.assertIn('Güncel doğrulanmış barem yok',output)
+        self.assertNotIn('MODEL YÖNÜ:',output)
         self.assertNotIn('TOTAL +234.5',output)
         self.assertIn('Güven endeksi: yok',output)
         self.assertIn('Kayıtlı tahmin tekrar gösterildi',output)

@@ -508,8 +508,16 @@ class TelegramMarketCallbackTests(IsolatedAsyncioTestCase):
                     data='zui:'+token+':market',**{'from':dict(id=23,is_bot=False,first_name='Synthetic')},
                     message=dict(message_id=101,date=now,chat=dict(id=17,type='private'),text=sent[0]))),app.bot)
                 await app.process_update(callback)
+                entry=app.bot_data['premium_reports'][token]
+                for page in range(len(entry['section_pages']['market'])):
+                    detail=Update.de_json(dict(update_id=20+page,callback_query=dict(
+                        id='manual-page-'+str(page),chat_instance='synthetic',
+                        data=f'zui:{token}:market:{page}',**{'from':dict(id=23,is_bot=False,first_name='Synthetic')},
+                        message=dict(message_id=101,date=now,chat=dict(id=17,type='private'),text=sent[0]))),app.bot)
+                    await app.process_update(detail)
+                self.assertEqual(len(sent),1)
                 all_text='\n'.join(sent+edits)
-                self.assertIn('MANUEL EKRAN AKTARIMI',all_text);self.assertIn('210.5',all_text);self.assertIn('220.5',all_text)
+                self.assertIn('MANUEL EKRAN AKTARIMI',all_text);self.assertIn('210,5',all_text);self.assertIn('220,5',all_text)
                 self.assertIn('Ham normal süre',all_text);self.assertIn('NOT_CALIBRATED',all_text)
                 self.assertFalse(any(e.get('kind')=='HANDLER_ERROR' for e in installed.read()))
                 self.assertEqual(digest(p),before)

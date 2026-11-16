@@ -429,13 +429,29 @@ class ProviderTelegramTests(unittest.IsolatedAsyncioTestCase):
                     data='zui:'+token+':market', **{'from':dict(id=23,is_bot=False,first_name='Synthetic')},
                     message=dict(message_id=101,date=NOW,chat=dict(id=17,type='private'),text=sent[0]))), app.bot)
                 await app.process_update(callback)
+                entry=app.bot_data['premium_reports'][token]
+                calls_before=len(fake.calls)
+                # Inspect the actual paginated callback route, including the
+                # provider audit moved out of the compact market card.
+                for section in ('market','audit'):
+                    for page in range(len(entry['section_pages'][section])):
+                        detail = Update.de_json(dict(update_id=10+page,callback_query=dict(
+                            id='detail-'+section+str(page),chat_instance='mock',
+                            data=f'zui:{token}:{section}:{page}',
+                            **{'from':dict(id=23,is_bot=False,first_name='Synthetic')},
+                            message=dict(message_id=101,date=NOW,chat=dict(id=17,type='private'),text=sent[0]))),app.bot)
+                        await app.process_update(detail)
+                self.assertEqual(len(fake.calls),calls_before)
+                self.assertEqual(len(sent),1)
+                self.assertIn('Yönün güvenilirliği',edits[0])
+                self.assertIn('Henüz yeterince doğrulanmadı',edits[0])
                 body = '\n'.join(sent+edits)
                 self.assertIn('The Odds API: Gerçek fiyatlar alındı; ödeme kuralı ve kalibrasyon bekleniyor', body)
                 self.assertIn('API-Basketball: Başlamamış maç ikinci kaynaktan doğrulandı', body)
                 self.assertIn('GÜNCEL PİYASA DEĞERLENDİRMESİ',body)
                 self.assertIn('Karar SHA:',body)
                 self.assertTrue(list((root/'current-market-reviews').glob('review-*.json')))
-                self.assertIn('221.5', body); self.assertIn('Ham normal süre', body)
+                self.assertIn('221,5', body); self.assertIn('Ham normal süre', body)
                 self.assertIn('NOT_CALIBRATED', body); self.assertNotIn(SECRET, body)
                 self.assertTrue(all(len(x.encode('utf-16-le'))//2 <= 4096 for x in sent+edits))
                 self.assertFalse(any(e.get('kind') == 'HANDLER_ERROR' for e in installed.read()))

@@ -1,70 +1,81 @@
-"""Compact Telegram presentation for isolated research forecasts.
-
-Presentation only: no mutation of frozen snapshots, market observations or model.
-"""
+"""Compact, source-preserving Telegram presentation for the isolated test bot."""
 import html
 import re
-from datetime import datetime, timezone
+from datetime import datetime,timezone
 from zoneinfo import ZoneInfo
+from telegram_delivery import tsi
 
-def compact_summary(snapshot, evidence, *, replayed, health=None,market_note=None):
-    p=snapshot['prediction']
-    fixture={'home_name':snapshot['home']['official_name'], 'away_name':snapshot['away']['official_name']}
-    esc=html.escape
-    start=datetime.fromtimestamp(snapshot['fixture_start_utc'],timezone.utc).astimezone(
-        ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y %H:%M')
-    home=esc(str(fixture['home_name']))
-    away=esc(str(fixture['away_name']))
+def compact_summary(snapshot,evidence,*,replayed,health=None,market_note=None,direction_card=None):
+    p=snapshot['prediction'];esc=html.escape
+    start=datetime.fromtimestamp(snapshot['fixture_start_utc'],ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y %H:%M')
     lines=['🏀 <b>ZEYNAL | NBA ANALİZ</b>',
-           f'<b>{home}</b>  🆚  <b>{away}</b>',
-           f'🗓 {start} TSİ  ·  Normal süre (48 dk)',
-           '',
-           '📊 <b>SKOR PROJEKSİYONU</b>',
-           f'🏠 Ev: <b>{p["home"]:.1f}</b>   ✈️ Dep: <b>{p["away"]:.1f}</b>',
-           f'🎯 Toplam: <b>{p["total"]:.1f}</b>  ·  Fark (ev): {p["margin"]:+.1f}',
-           '',
-           '📈 <b>PİYASA | ARŞİV GÖZLEMİ</b>']
-    if evidence:
-        for quote in evidence[:6]:
-            line=quote['line']
-            sign=f'{line:+g}' if 'HANDICAP' in quote['market'] or 'SPREAD' in quote['market'] else f'{line:g}'
-            label={'TOTAL':'Toplam','HOME_HANDICAP':'Ev handikapı'}.get(quote['market'],quote['market'])
-            lines.append(f'• {esc(quote["bookmaker"])} · {esc(label)}: <b>{sign}</b>')
-        lines.append('⚠️ Piyasa uzatma kapsamı doğrulanmadı; Alt/Üst ve edge yok.')
-    else:
-        lines.append('Doğrulanmış maç öncesi piyasa gözlemi bulunamadı.')
-    if market_note:
-        lines.append(html.escape(market_note))
+        '<b>'+esc(str(snapshot['home']['official_name']))+'</b> 🆚 <b>'+esc(str(snapshot['away']['official_name']))+'</b>',
+        start+' TSİ · Normal süre (48 dk)','',
+        '📊 <b>SKOR PROJEKSİYONU</b>',
+        f'Ev <b>{p["home"]:.1f}</b> · Dep <b>{p["away"]:.1f}</b>',
+        f'Toplam <b>{p["total"]:.1f}</b> · Ev farkı {p["margin"]:+.1f}','']
+    if direction_card is not None and direction_card.get('current'):
+        c=direction_card
+        if (c['fixture_id']!=snapshot.get('fixture_id') or c['model_digest']!=snapshot.get('model_digest') or
+            c['prediction_utc']!=snapshot.get('prediction_generated_at_utc') or
+            c['tipoff_utc']!=snapshot['fixture_start_utc'] or c['period']!='FULL' or
+            c['market']!='TOTAL' or abs(c['mean']-p['total'])>1e-8):
+            raise ValueError('SUMMARY_DIRECTION_FIXTURE_OR_MODEL_CONFLICT')
+        from hybrid_engine.market_direction_ui import brief
+        lines.extend([brief(c),'Gösterilen barem: '+esc(c['bookmaker']['name'])+' · diğerleri Piyasa düğmesinde',
+                      'Fiyata erişim: '+tsi(c['available_at_utc'])])
+    else:lines.append('📈 Güncel doğrulanmış barem yok; piyasa ayrıntıları butonda.')
     q=snapshot.get('intervals',{}).get('markets',{}).get('TOTAL')
     if q:
-        lines.extend(['','🎯 <b>HAM TAHMİN ARALIKLARI</b>',
-            f"P50 {q['p50']:.1f} | P25–P75 {q['p25']:.1f}–{q['p75']:.1f}",
+        lines.extend(['','📊 <b>TOPLAM SAYI ARALIKLARI</b>',
+            f"P25–P75 {q['p25']:.1f}–{q['p75']:.1f}",
             f"P05–P95 {q['p05']:.1f}–{q['p95']:.1f}",
-            'Nominal aralıklar; gerçekleşen kapsama veya güven garantisi değil.'])
-    if p.get('halves'):
-        lines.extend(['','⏱ <b>DEVRELER | EV – DEPLASMAN</b>']+
-            [f"{i+1}. yarı: {v[0]:.1f} – {v[1]:.1f}" for i,v in enumerate(p['halves'])])
-    if health is not None:
-        from hybrid_engine.health_card import render
-        lines.extend(['', render(health)])
-    lines.extend(['','🛡 <b>MODEL DURUMU</b>',
-                  'Kalibrasyon: doğrulanmadı  ·  Güven endeksi: yok',
-                  'Kadro / sakatlık / tempo: doğrulanmadı',
-                  '🔒 '+('Kayıtlı tahmin tekrar gösterildi.' if replayed else 'Yeni tahmin arşivlendi.'),
-                  'Model: '+esc(str(snapshot.get('model_version','ayrıntıda'))[:100]),
-                  'Üretim: '+(datetime.fromtimestamp(snapshot['prediction_generated_at_utc'],timezone.utc).astimezone(ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y %H:%M:%S TSİ') if snapshot.get('prediction_generated_at_utc') else 'ayrı kaydedilmemiş / bilinmiyor'),
-                  '','<i>İzole araştırma · Üretim değil · Bahis önerisi değil</i>'])
+            'Ham model aralıkları; geçmiş kapsama doğrulanmadı.'])
+    lines.extend(['','NOT_CALIBRATED · Güven endeksi: yok',
+        '🔒 '+('Kayıtlı tahmin tekrar gösterildi.' if replayed else 'Yeni tahmin arşivlendi.'),
+        'Üretim: '+tsi(snapshot.get('prediction_generated_at_utc')),
+        '<i>İzole araştırma · Üretim değil</i>'])
     return '\n'.join(lines)
 
-def keyboard(token):
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    return InlineKeyboardMarkup([
+def keyboard(token,*,section=None,page=0,pages=1):
+    from telegram import InlineKeyboardButton,InlineKeyboardMarkup
+    rows=[
         [InlineKeyboardButton('📊 Periyotlar',callback_data='zui:'+token+':period'),
-         InlineKeyboardButton('📈 Piyasa',callback_data='zui:'+token+':market')],
-        [InlineKeyboardButton('🎯 Aralıklar',callback_data='zui:'+token+':ranges'),
+         InlineKeyboardButton('🎯 Aralıklar',callback_data='zui:'+token+':ranges')],
+        [InlineKeyboardButton('📈 Piyasa',callback_data='zui:'+token+':market'),
          InlineKeyboardButton('🛡 Model / Kaynak',callback_data='zui:'+token+':audit')],
         [InlineKeyboardButton('🏥 Kadro / Sakatlık',callback_data='zui:'+token+':roster')],
-        [InlineKeyboardButton('🏠 Özet',callback_data='zui:'+token+':summary')]])
+        [InlineKeyboardButton('🏠 Özet',callback_data='zui:'+token+':summary')]]
+    if pages>1 and section is not None:
+        nav=[]
+        if page>0:nav.append(InlineKeyboardButton('‹ Önceki',callback_data=f'zui:{token}:{section}:{page-1}'))
+        nav.append(InlineKeyboardButton(f'{page+1}/{pages}',callback_data=f'zui:{token}:{section}:{page}'))
+        if page+1<pages:nav.append(InlineKeyboardButton('Sonraki ›',callback_data=f'zui:{token}:{section}:{page+1}'))
+        rows.insert(0,nav)
+    return InlineKeyboardMarkup(rows)
+
+def cache_report(cache,token,entry,*,max_bytes=8*1024*1024,max_count=64):
+    def size(e):
+        return (len(e['summary'].encode())+sum(len(s.encode()) for s in e.get('sections',{}).values())+
+            sum(len(p.encode()) for values in e.get('section_pages',{}).values() for p in values))
+    needed=size(entry)
+    if needed>max_bytes:raise ValueError('PREMIUM_REPORT_CACHE_BUDGET')
+    while cache and (len(cache)>=max_count or sum(size(e) for e in cache.values())+needed>max_bytes):
+        cache.pop(next(iter(cache)))
+    cache[token]=entry
+
+def page_view(entry,section,page,*,now):
+    from hybrid_engine.elite_render import split_blocks
+    body=entry['summary'] if section=='summary' else entry['sections'][section]
+    values=([body] if section=='summary' else entry.get('section_pages',{}).get(section)) or split_blocks(body.splitlines(),limit=3200)
+    if type(page) is not int or not 0<=page<len(values):raise ValueError('PREMIUM_PAGE_NOT_FOUND')
+    text=values[page]
+    if section in ('summary','market'):
+        if entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc']:
+            text='Maç başladı; yalnız arşiv görünümü.\n\n'+text
+        elif entry.get('quote_valid_until_utc') is not None and now>entry['quote_valid_until_utc']:
+            text='Arşiv görünümü; piyasa fiyatları yeniden sorgulanmadı.\n\n'+text
+    return text,len(values)
 
 def period_table(section_html):
     """Telegram-friendly rows; all numbers originate in the frozen model output."""

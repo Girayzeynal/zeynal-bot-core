@@ -216,12 +216,14 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 else:
                     market_lines=['<b>PİYASA KAYNAĞI</b>',
                         'Tahmin anından önce doğrulanmış piyasa çizgisi yok; barem veya güven endeksi üretilmedi.']
+                direction_cards=[]
                 if provider_bridge is not None:
                     try:
                         from hybrid_engine.provider_bridge import nba_provider_panel
                         provider_panel=await asyncio.wait_for(
-                            asyncio.to_thread(nba_provider_panel,snapshot,nba_service,provider_bridge),timeout=16)
-                        market_lines.append(provider_panel)
+                            asyncio.to_thread(nba_provider_panel,snapshot,nba_service,provider_bridge,structured=True),timeout=16)
+                        market_lines.append(provider_panel['html'])
+                        direction_cards.extend(provider_panel['cards'])
                     except Exception as exc:
                         logging.getLogger(__name__).warning('Provider review unavailable: %s',type(exc).__name__)
                         market_lines.append('Sağlayıcı denetimi tamamlanamadı: PROVIDER_REVIEW_UNAVAILABLE. Bu durum NO EDGE değildir; skor tahmini korunuyor.')
@@ -230,6 +232,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 try:
                     panel=await asyncio.wait_for(asyncio.to_thread(nba_panel,snapshot,nba_service,evidence,market_store),timeout=5)
                     market_lines.append(panel['html'])
+                    direction_cards.extend(panel.get('cards',[]))
                     if panel['observations']:
                         market_note=f"Piyasa düğmesinde {panel['observations']} kaynak gözlemi / {panel['lines']} barem; ham model hesabı."
                 except Exception as exc:
@@ -238,11 +241,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 response=dict(response)
                 from hybrid_engine.telegram_premium_ui import compact_summary, keyboard, detail_sections
                 import secrets
-                full_parts=[*response['html_parts'],'\n'.join(market_lines)]
                 token=secrets.token_hex(6)
-                summary=compact_summary(snapshot,evidence,replayed=not response['new_record'],health=health,market_note=market_note)
-                if provider_bridge is not None:
-                    summary+='\n🔌 API bağlantı durumları ve mevcut baremler: Piyasa düğmesi.'
+                from hybrid_engine.market_direction_ui import order,pages as direction_pages
+                ranked=order(direction_cards)
+                first_total=next((c for c in ranked if c['current'] and c['period']=='FULL' and c['market']=='TOTAL'),None)
+                summary=compact_summary(snapshot,evidence,replayed=not response['new_record'],health=health,
+                    market_note=market_note,direction_card=first_total)
                 from hybrid_engine.telegram_roster_bridge import read_fixture_roster_evidence
                 roster=read_fixture_roster_evidence(
                     app.bot_data.get('verified_roster_packets'),
@@ -251,14 +255,20 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     fixture_start_utc=snapshot['fixture_start_utc'],
                     home_team_id=str(snapshot['home'].get('team_id') or snapshot['home'].get('official_name')),
                     away_team_id=str(snapshot['away'].get('team_id') or snapshot['away'].get('official_name')))
-                sections=detail_sections(response['html_parts'],'\n'.join(market_lines),
+                market_pages=direction_pages(direction_cards)
+                market_html=market_pages[0] if market_pages else '<b>PİYASA</b>\nDoğrulanabilir barem yok; yön veya yüzde üretilmedi.\nSağlayıcı ayrıntıları: Model / Kaynak düğmesi.'
+                sections=detail_sections(response['html_parts'],market_html,
                                          roster_evidence=roster)
-                sections['audit']=render_health(health)+'\n\n'+sections['audit']
+                sections['audit']=render_health(health)+'\n\n'+sections['audit']+'\n\n'+'\n\n'.join(market_lines)
+                from hybrid_engine.elite_render import split_blocks
+                section_pages={k:split_blocks(v.splitlines(),limit=3200) for k,v in sections.items()}
+                if market_pages:section_pages['market']=market_pages
                 cache=app.bot_data.setdefault('premium_reports',{})
-                # Keep memory bounded and do not persist sensitive report views.
-                while len(cache)>=64:
-                    cache.pop(next(iter(cache)))
-                cache[token]=dict(summary=summary,sections=sections,chat_id=chat_id)
+                from hybrid_engine.telegram_premium_ui import cache_report
+                expiry=[c['valid_until_utc'] for c in ranked if c['current']]
+                entry=dict(summary=summary,sections=sections,section_pages=section_pages,chat_id=chat_id,
+                    tipoff_utc=snapshot['fixture_start_utc'],quote_valid_until_utc=min(expiry) if expiry else None)
+                cache_report(cache,token,entry)
                 response['html_parts']=[summary]
                 response['reply_markup']=keyboard(token)
                 return response
@@ -415,9 +425,10 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         data=query.data or ''
         parts=data.split(':')
-        if len(parts)!=3 or parts[0]!='zui':
+        if len(parts) not in (3,4) or parts[0]!='zui':
             return
-        _,token,section=parts
+        _,token,section=parts[:3]
+        page=int(parts[3]) if len(parts)==4 and parts[3].isascii() and parts[3].isdigit() else 0
         cache=app.bot_data.get('premium_reports',{})
         entry=cache.get(token)
         if entry is None or entry['chat_id']!=chat_id:
@@ -426,20 +437,20 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         if section!='summary' and section not in entry['sections']:
             await query.answer('Bölüm bulunamadı.',show_alert=True)
             return
-        from hybrid_engine.telegram_premium_ui import keyboard
-        body=entry['summary'] if section=='summary' else entry['sections'][section]
-        from hybrid_engine.elite_render import split_blocks
-        parts=split_blocks(body.splitlines(),limit=3200)
+        from hybrid_engine.telegram_premium_ui import keyboard,page_view
+        try:
+            body,page_count=page_view(entry,section,page,now=int(time.time()))
+        except ValueError:
+            await query.answer('Sayfa bulunamadı. Bölümü yeniden açın.',show_alert=True)
+            return
         await query.answer()
         try:
-            await query.edit_message_text(parts[0],parse_mode='HTML',
-                disable_web_page_preview=True,reply_markup=keyboard(token))
+            await query.edit_message_text(body,parse_mode='HTML',
+                disable_web_page_preview=True,reply_markup=keyboard(token,section=section,page=page,pages=page_count))
         except Exception as exc:
             if 'Message is not modified' not in str(exc):
                 raise
-        for part in parts[1:]:
-            await query.message.reply_text(part,parse_mode='HTML',disable_web_page_preview=True)
-    app.add_handler(CallbackQueryHandler(premium_callback,pattern=r'^zui:[0-9a-f]{12}:(summary|period|market|ranges|audit|roster)$'),group=-50)
+    app.add_handler(CallbackQueryHandler(premium_callback,pattern=r'^zui:[0-9a-f]{12}:(summary|period|market|ranges|audit|roster)(?::[0-9]{1,3})?$'),group=-50)
     app.add_handler(CommandHandler('test',self_test),group=-50)
     app.add_handler(TypeHandler(Update,authorized),group=-100);app.add_error_handler(error)
     return journal,results

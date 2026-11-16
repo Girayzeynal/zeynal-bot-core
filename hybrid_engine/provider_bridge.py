@@ -402,13 +402,14 @@ def render(report):
     return '\n'.join(lines)
 
 
-def nba_provider_panel(snapshot, service, bridge):
+def nba_provider_panel(snapshot, service, bridge, *, structured=False):
     from hybrid_engine.market_views import replay_nba
     from hybrid_engine.current_market_review import admit_odds,evaluate,CurrentReviewJournal
     from hybrid_engine.current_market_render import render_batch
     from hybrid_engine.market_turkish import message
     report = bridge.collect(snapshot)
     parts = [render(report)]
+    direction_cards=[]
     observations = report['providers'].get('THE_ODDS_API', {}).get('observations', [])
     if observations:
         distribution = replay_nba(snapshot, service)
@@ -430,5 +431,11 @@ def nba_provider_panel(snapshot, service, bridge):
                     snapshot,distribution,reviews,decision_utc=decision_utc)
             except (OSError,ValueError,KeyError,TypeError):
                 parts.append(message('CURRENT_REVIEW_ARCHIVE_FAILED'))
-            else:parts.append(render_batch(batch))
-    return '\n\n'.join(parts)
+            else:
+                parts.append(render_batch(batch))
+                from hybrid_engine.market_direction_ui import cards
+                for review in reviews:
+                    direction_cards.extend(cards(review,distribution.forecast,
+                        tipoff_utc=snapshot['fixture_start_utc'],fixture_id=snapshot['fixture_id'],batch=batch))
+    full='\n\n'.join(parts)
+    return dict(html=full,cards=direction_cards) if structured else full

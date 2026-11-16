@@ -25,17 +25,19 @@ def nba_panel(snapshot,service,rows,store,*,asof_utc=None):
             rejected+=1
     observations.extend((w,None) for w in manual)
     if not observations:
-        return dict(html='<b>PİYASA GÖZLEMLERİ</b>\nDoğrulanabilir kaynak kanıtı olan barem yok; model skoru korunuyor.',observations=0,lines=0,rejected=rejected)
+        return dict(html='<b>PİYASA GÖZLEMLERİ</b>\nDoğrulanabilir kaynak kanıtı olan barem yok; model skoru korunuyor.',observations=0,lines=0,rejected=rejected,cards=[])
     distribution=replay_nba(snapshot,service)
     parts=['<b>KAYNAKTAN BAĞIMSIZ PİYASA ARAŞTIRMASI</b>',
         'Aynı kaynak görüntüsündeki alternatif baremler ayrı tutulur; farklı platformların fiyatları birleştirilmez.',
         'Dağılım: arşivdeki model/girdilerden SHA doğrulamalı tekrar üretim. Yeni tahmin veya kalibrasyon değil.']
-    count=0
+    count=0;direction_cards=[]
     for observation,quote in observations:
         view=assess(observation,distribution,asof_utc=now,native_quote=quote)
         parts.append(render(view));count+=len(view['rows'])
+        from hybrid_engine.market_direction_ui import cards
+        direction_cards.extend(cards(view,distribution.forecast,tipoff_utc=snapshot['fixture_start_utc'],fixture_id=snapshot['fixture_id']))
     if rejected:parts.append('Kaynak bağı doğrulanamayan gözlem sayısı: '+str(rejected))
-    return dict(html='\n\n'.join(parts),observations=len(observations),lines=count,rejected=rejected)
+    return dict(html='\n\n'.join(parts),observations=len(observations),lines=count,rejected=rejected,cards=direction_cards)
 
 
 def euroleague_panel(report,archive,store,*,forward_registry=None):

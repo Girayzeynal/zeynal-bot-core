@@ -201,7 +201,9 @@ class ForecastHealthTests(TestCase):
     def test_telegram_summary_keeps_original_scores_and_fits_limit(self):
         p,a=snapshot();out=compact_summary(p,[],replayed=True,health=build(p,a))
         self.assertIn('112.5',out);self.assertIn('109.3',out);self.assertIn('221.8',out)
-        self.assertIn('TAHMİN SAĞLIK KARTI',out);self.assertLess(len(out.encode('utf-16-le'))//2,4096)
+        self.assertNotIn('TAHMİN SAĞLIK KARTI',out)
+        self.assertIn('TAHMİN SAĞLIK KARTI',render(build(p,a)))
+        self.assertIn('NOT_CALIBRATED',out);self.assertLess(len(out.encode('utf-16-le'))//2,4096)
 
     def test_missing_feature_names_are_html_escaped(self):
         p,a=snapshot();p['missing_data']=['<bad>'];a['snapshot_sha256']=digest(p)
