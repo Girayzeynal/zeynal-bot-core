@@ -165,3 +165,22 @@ class PlayerShadowTests(TestCase):
             with patch('ledger_reports.LedgerReports.read',return_value=dict(forecasts=[label])):
                 r=performance(tmp,Path(tmp)/'native.sqlite')
             self.assertEqual(r['n'],0); self.assertEqual(r['pending'],1)
+
+    def test_multiple_fit_versions_do_not_inflate_distinct_fixture_count(self):
+        with TemporaryDirectory() as tmp:
+            publication=self.target_publication(tmp)
+            capture_pair(self.pair(),self.target(),publication,tmp)
+            a=deepcopy(self.artifact)
+            a['payload']['research_note']='SYNTHETIC_SECOND_BUILD'
+            a['sha256']=digest(a['payload'])
+            other=PreparedPlayerPair(a,trusted_sha256=a['sha256'])
+            capture_pair(other,self.target(),publication,tmp)
+            start=self.cohort[70][0]['fixture_start_utc']
+            label=dict(fixture_id=self.cohort[70][0]['fixture_id'],actual=[100,92],
+                actual_periods=dict(home=[25]*4,away=[23]*4),fixture_start_utc=start,label_available_utc=start+10800)
+            with patch('time.time',return_value=start+10800),patch('ledger_reports.LedgerReports.read',return_value=dict(forecasts=[label])):
+                r=performance(tmp,Path(tmp)/'native.sqlite')
+            self.assertEqual(r['n'],1)
+            self.assertEqual(r['paired_version_records'],2)
+            self.assertEqual(len(r['groups']),2)
+            self.assertTrue(r['versions_not_pooled'])

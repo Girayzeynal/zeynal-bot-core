@@ -128,3 +128,8 @@ and EuroCup roster-effect inference are not wired by this NBA-only increment.
 
 Decision: **NO-GO for switching the production/default model**. Real prospective
 player inputs, offline fitting, independent OOS and calibration evidence are missing.
+
+Final source review also pins the roster directory retrieval in the maximum source
+availability clock, tests it explicitly, and checks that multiple fit versions do
+not inflate the distinct settled fixture count. The existing Telegram callback
+regression asserts the separate-model limitation text.

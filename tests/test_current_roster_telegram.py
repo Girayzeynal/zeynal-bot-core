@@ -70,6 +70,8 @@ class CurrentRosterTelegramTests(IsolatedAsyncioTestCase):
         self.assertIn('İLK TAHMİN ANINDAKİ',text); self.assertIn('GÜNCEL KADRO',text)
         self.assertLess(text.index('GÜNCEL KADRO'),text.index('İLK TAHMİN ANINDAKİ'))
         self.assertIn('Test Player',text); self.assertIn('NOT_CALIBRATED',text)
+        self.assertIn('KADRO ETKİLİ MODEL | AYRI ARAŞTIRMA',text)
+        self.assertIn('Oyuncu etkisi aktif skor modeline uygulanmadı',text)
         self.assertEqual(self.snapshot,self.before); self.assertEqual(self.api.sent,[])
         self.assertEqual(len(self.api.edits),1); self.assertTrue(self.api.answers)
         self.assertTrue(all(p.read_bytes()==b for p,b in self.archive_before.items()))

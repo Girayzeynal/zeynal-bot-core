@@ -180,3 +180,9 @@ class PlayerMinutesTests(TestCase):
     def test_rehashed_packet_cannot_put_same_player_on_both_teams(self):
         w=projection(**inputs()); w['payload']['away'][0]['player_id']='100'; w['sha256']=digest(w['payload'])
         with self.assertRaisesRegex(ValueError,'BOTH_CURRENT_TEAMS'): validate_minutes(w,asof_utc=NOW)
+
+    def test_latest_directory_access_is_part_of_source_availability_clock(self):
+        data=inputs()
+        data['rosters']['home']['observed_at_utc']=NOW-6
+        packet=projection(**data)['payload']
+        self.assertEqual(packet['source_available_max_utc'],NOW-6)

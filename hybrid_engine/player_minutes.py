@@ -129,6 +129,7 @@ def projection(context,review,rosters,boxes,*,generated_at_utc):
         result[side]=[dict(player_id=p,expected_minutes=m,status='OUT_SOURCE_CORROBORATED' if p in excluded else
             'PAST_ROTATION_PRIOR_NOT_CONFIRMED_AVAILABLE') for p,m in zip(players,minutes)]
         directory_pins[side]=directory['source_sha256']
+        source_times.append(observed)
     payload=dict(format='PROSPECTIVE_PLAYER_MINUTES_V1',version=VERSION,league='NBA',season=context['season'],
         fixture_id=context['fixture_id'],fixture_start_utc=start,
         home_team_id=context['home']['provider_id'],away_team_id=context['away']['provider_id'],
