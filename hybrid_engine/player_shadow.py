@@ -263,7 +263,10 @@ def main():
     parser.add_argument('--capture-manifest'); parser.add_argument('--fixture-id')
     parser.add_argument('--model-artifact'); parser.add_argument('--model-sha')
     parser.add_argument('--report-ledger')
-    args=parser.parse_args(); root=local_path(args.directory); root.mkdir(parents=True,exist_ok=True)
+    args=parser.parse_args()
+    if args.capture_manifest and (args.history_manifest or not all((args.fixture_id,args.model_artifact,args.model_sha))):
+        parser.error('Capture requires fixture/model/artifact SHA and never fits a model')
+    root=local_path(args.directory); root.mkdir(parents=True,exist_ok=True)
     report=readiness(root)
     if args.report_ledger: report['performance']=performance(root,args.report_ledger)
     if args.history_manifest:
@@ -273,8 +276,6 @@ def main():
         report['fit_audit']=audit
         if artifact: publish_json(root/('player-pair-'+artifact['sha256']+'.json'),artifact)
     if args.capture_manifest:
-        if args.history_manifest or not all((args.fixture_id,args.model_artifact,args.model_sha)):
-            parser.error('Capture requires fixture/model/artifact SHA and never fits a model')
         path=local_path(args.model_artifact)
         if path.stat().st_size>8*1024*1024: raise ValueError('PLAYER_MODEL_ARTIFACT_SIZE')
         pair=PreparedPlayerPair(json.loads(path.read_text()),trusted_sha256=args.model_sha)

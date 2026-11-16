@@ -133,3 +133,6 @@ Final source review also pins the roster directory retrieval in the maximum sour
 availability clock, tests it explicitly, and checks that multiple fit versions do
 not inflate the distinct settled fixture count. The existing Telegram callback
 regression asserts the separate-model limitation text.
+
+The offline CLI rejects simultaneous training/capture flags before it reads inputs,
+fits or writes artifacts; a regression checks that fail-closed ordering explicitly.

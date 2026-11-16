@@ -184,3 +184,18 @@ class PlayerShadowTests(TestCase):
             self.assertEqual(r['paired_version_records'],2)
             self.assertEqual(len(r['groups']),2)
             self.assertTrue(r['versions_not_pooled'])
+
+    def test_conflicting_offline_flags_are_refused_before_any_fit_or_writes(self):
+        from contextlib import redirect_stderr
+        from io import StringIO
+        from hybrid_engine.player_shadow import main
+        with TemporaryDirectory() as tmp:
+            argv=['player_shadow','--directory',tmp,'--history-manifest','missing-fit.json',
+                  '--capture-manifest','missing-capture.json','--fixture-id','future',
+                  '--model-artifact','missing-model.json','--model-sha','a'*64]
+            with patch('sys.argv',argv),patch('hybrid_engine.player_shadow.fit_pair') as fit:
+                with redirect_stderr(StringIO()),self.assertRaises(SystemExit) as error:
+                    main()
+            self.assertEqual(error.exception.code,2)
+            fit.assert_not_called()
+            self.assertEqual(list(Path(tmp).iterdir()),[])
