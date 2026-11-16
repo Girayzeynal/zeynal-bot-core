@@ -461,6 +461,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     if review['original_snapshot_sha256']!=entry['roster_context']['original_snapshot_sha256']:
                         raise ValueError('ROSTER_REVIEW_CONTEXT_CONFLICT')
                     current=render_review(review)
+                    from hybrid_engine.player_shadow import render_status as render_player_status
+                    current+='\n\n'+await asyncio.to_thread(render_player_status,root/'player-shadow')
                     from hybrid_engine.elite_render import split_blocks
                     from hybrid_engine.telegram_premium_ui import cache_report
                     entry=dict(entry,sections=dict(entry['sections']),section_pages=dict(entry['section_pages']))
