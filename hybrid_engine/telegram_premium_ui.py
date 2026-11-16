@@ -7,7 +7,7 @@ import re
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-def compact_summary(snapshot, evidence, *, replayed, health=None):
+def compact_summary(snapshot, evidence, *, replayed, health=None,market_note=None):
     p=snapshot['prediction']
     fixture={'home_name':snapshot['home']['official_name'], 'away_name':snapshot['away']['official_name']}
     esc=html.escape
@@ -33,6 +33,8 @@ def compact_summary(snapshot, evidence, *, replayed, health=None):
         lines.append('⚠️ Piyasa uzatma kapsamı doğrulanmadı; Alt/Üst ve edge yok.')
     else:
         lines.append('Doğrulanmış maç öncesi piyasa gözlemi bulunamadı.')
+    if market_note:
+        lines.append(html.escape(market_note))
     q=snapshot.get('intervals',{}).get('markets',{}).get('TOTAL')
     if q:
         lines.extend(['','🎯 <b>HAM TAHMİN ARALIKLARI</b>',

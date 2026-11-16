@@ -1,0 +1,219 @@
+{
+  "format": "SOURCE_NEUTRAL_MARKET_RESEARCH_EVIDENCE_V1",
+  "base_commit": "17e31528c079e58d59e0c02dd1041770bd400fc2",
+  "recorded_at_utc": 1794792570,
+  "tests": {
+    "passed": 942,
+    "failed": 0,
+    "retained": 888,
+    "added": 54,
+    "scope": "UNIT_INTEGRATION_REGRESSION_LOCAL_HTTP_NOT_REAL_TELEGRAM"
+  },
+  "runtime_local": {
+    "format": "NBA_NATIVE_PAYLOAD_RESOURCE_REPLAY_V1",
+    "status": "PASS",
+    "actual_telegram_delivery_verified": false,
+    "evidence_class": "MOCK_CLOCK_NATIVE_SOURCE_REPLAY_NOT_NEW_PROSPECTIVE_FORECASTS",
+    "transport": "LOCAL_HTTP_BOT_API_DOUBLE",
+    "requests": 14,
+    "messages": 14,
+    "unique_nba_snapshots": 4,
+    "original_prospective_archive_modified": false,
+    "online_training": false,
+    "native_payload_urls": 84,
+    "address_space_limit_bytes": [
+      268435456,
+      268435456
+    ],
+    "cpu_affinity": [
+      0
+    ],
+    "peak_rss_mib": 101.19921875,
+    "elapsed_seconds": 15.157922192003753,
+    "reply_interval_p95_seconds": 3.354998600598992,
+    "native_ml_libraries_loaded": [],
+    "isolated_sqlite_integrity": {
+      "sqlite": "ok",
+      "snapshots": 4,
+      "unconfirmed_snapshots": 0,
+      "verified_results": 0
+    },
+    "decision_layer_enabled": false,
+    "decision_batches": 0,
+    "selected_market_lines": 0,
+    "observed_cgroup": {
+      "memory.max": "8589934592",
+      "memory.peak": "914423808",
+      "cpu.max": "200000 100000"
+    },
+    "health_ready": {
+      "ready": true,
+      "release_sha": "UNKNOWN"
+    },
+    "post_collection_process_memory": {
+      "VmPeak_mib": 214.48046875,
+      "VmSize_mib": 211.77734375,
+      "VmHWM_mib": 101.19921875,
+      "VmRSS_mib": 99.171875
+    },
+    "workload_peak_rss_mib": 101.19921875,
+    "post_shutdown_process_memory": {
+      "VmPeak_mib": 219.796875,
+      "VmSize_mib": 219.765625,
+      "VmHWM_mib": 101.19921875,
+      "VmRSS_mib": 99.17578125
+    },
+    "shutdown_completed": true
+  },
+  "protected_files": 51,
+  "changed_protected_files": [],
+  "original_snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343",
+  "original_snapshot_unchanged": true,
+  "native_observations": [
+    {
+      "status": "RESEARCH_OBSERVATION_ONLY",
+      "observation_sha256": "67745dac4633238e7bfff3045ceff1e3626567a0d3a75480682416d129fd8892",
+      "source": {
+        "provider_id": "ESPN",
+        "provider_name": "ESPN",
+        "method": "NATIVE_RETRIEVAL",
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261115&limit=1000",
+        "published_at_utc": null,
+        "captured_at_utc": 1794741245,
+        "receipt_sha256": "87f28ff1c1ec78814fc05043d74b29836454d573c804a2e887829229a601149d",
+        "document_sha256": "9b055be6112b17704ce45795f3e1f9739eafb896add511f3fee9cfde9f274d8d",
+        "native_quote_sha256": "29fea2edf0b0d6770ab576fa19b70128f65d6096248f22913a051eecab182db1",
+        "attestation": "LOCAL_NATIVE_RECEIPT_NOT_PROVIDER_SIGNATURE"
+      },
+      "bookmaker": {
+        "id": "100",
+        "name": "DraftKings"
+      },
+      "prediction_utc": 1794741245,
+      "evaluated_at_utc": 1794792569,
+      "available_at_utc": 1794741245,
+      "model_digest": "cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982",
+      "sample_count": 10000,
+      "rows": [
+        {
+          "period": "FULL",
+          "market": "HOME_HANDICAP",
+          "line": -7.5,
+          "prices": {
+            "over": 1.9803921568627452,
+            "under": 1.847457627118644
+          },
+          "conditional_regulation_probabilities": {
+            "under": 0.593,
+            "push": 0.0,
+            "over": 0.407
+          },
+          "conditional_direction": "under",
+          "conditional_probability_is_contract_settlement": false,
+          "calibrated_probabilities": null,
+          "confidence_index": null,
+          "recommended_direction": null,
+          "expected_value": null,
+          "price_benchmarks": null,
+          "decision_status": "SETTLEMENT_RULE_UNVERIFIED",
+          "reasons": [
+            "STALE_AT_DECISION_TIME",
+            "POST_TIPOFF_ARCHIVE_REVIEW_ONLY",
+            "SETTLEMENT_RULE_OR_FRESH_NATIVE_PRICE_NOT_VERIFIED"
+          ]
+        }
+      ],
+      "reasons": [
+        "STALE_AT_DECISION_TIME",
+        "POST_TIPOFF_ARCHIVE_REVIEW_ONLY"
+      ],
+      "calibration_status": "NOT_CALIBRATED",
+      "confidence_index": null,
+      "selection_enabled": false,
+      "forecast_changed": false
+    },
+    {
+      "status": "RESEARCH_OBSERVATION_ONLY",
+      "observation_sha256": "0f32bd77e1a290b008689b172b5b8bac3c4194a03348a80f0968c66927e12a0c",
+      "source": {
+        "provider_id": "ESPN",
+        "provider_name": "ESPN",
+        "method": "NATIVE_RETRIEVAL",
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261115&limit=1000",
+        "published_at_utc": null,
+        "captured_at_utc": 1794741245,
+        "receipt_sha256": "87f28ff1c1ec78814fc05043d74b29836454d573c804a2e887829229a601149d",
+        "document_sha256": "9b055be6112b17704ce45795f3e1f9739eafb896add511f3fee9cfde9f274d8d",
+        "native_quote_sha256": "29fea2edf0b0d6770ab576fa19b70128f65d6096248f22913a051eecab182db1",
+        "attestation": "LOCAL_NATIVE_RECEIPT_NOT_PROVIDER_SIGNATURE"
+      },
+      "bookmaker": {
+        "id": "100",
+        "name": "DraftKings"
+      },
+      "prediction_utc": 1794741245,
+      "evaluated_at_utc": 1794792569,
+      "available_at_utc": 1794741245,
+      "model_digest": "cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982",
+      "sample_count": 10000,
+      "rows": [
+        {
+          "period": "FULL",
+          "market": "TOTAL",
+          "line": 224.5,
+          "prices": {
+            "over": 1.8695652173913042,
+            "under": 1.9433962264150944
+          },
+          "conditional_regulation_probabilities": {
+            "under": 0.5585,
+            "push": 0.0,
+            "over": 0.4415
+          },
+          "conditional_direction": "under",
+          "conditional_probability_is_contract_settlement": false,
+          "calibrated_probabilities": null,
+          "confidence_index": null,
+          "recommended_direction": null,
+          "expected_value": null,
+          "price_benchmarks": null,
+          "decision_status": "SETTLEMENT_RULE_UNVERIFIED",
+          "reasons": [
+            "STALE_AT_DECISION_TIME",
+            "POST_TIPOFF_ARCHIVE_REVIEW_ONLY",
+            "SETTLEMENT_RULE_OR_FRESH_NATIVE_PRICE_NOT_VERIFIED"
+          ]
+        }
+      ],
+      "reasons": [
+        "STALE_AT_DECISION_TIME",
+        "POST_TIPOFF_ARCHIVE_REVIEW_ONLY"
+      ],
+      "calibration_status": "NOT_CALIBRATED",
+      "confidence_index": null,
+      "selection_enabled": false,
+      "forecast_changed": false
+    }
+  ],
+  "source": "ORIGINAL_PINNED_PHI_IND_ESPN_RECEIPTS_NOT_CURRENT_LIVE_PRICES",
+  "original_native_line_count": 2,
+  "original_database_integrity": "ok",
+  "original_database_bytes_unchanged": true,
+  "manual_fixture_evidence": "SYNTHETIC_TEST_PNG_AND_QUOTES_ONLY_NOT_REAL_NESINE",
+  "real_nesine_screenshot_test": "BLOCKED_NO_REAL_SCREENSHOT_SUPPLIED",
+  "new_head_real_telegram_e2e": "BLOCKED_CLOUD_TEST_BOT_NOT_ACCESSIBLE_REQUIRES_USERLAND_RERUN",
+  "previous_user_reported_telegram_tests": "PRESERVED_AS_PREVIOUS_VERSION_USER_EVIDENCE",
+  "source_code_pins": {
+    "hybrid_engine/market_observations.py": "41d8240196fa7f32b532bbe8f3e2a519804c4557cf57e428451b3a7b878976c2",
+    "hybrid_engine/market_views.py": "7b364565a27458ec338bc4b088cc8f0e3f2bedaa7de59b0d2dcaa054ffeb1e79",
+    "hybrid_engine/market_panels.py": "3404846712bf4ecd71c8d148840cbeaa88f59f15af1ebd2bae2fca1bf29f4429",
+    "hybrid_engine/market_evidence_report.py": "1645a9aa04a19f9af7d383b20d22da11c7c5ad12b562ae21583cea94c09d7239",
+    "hybrid_engine/test_bot.py": "949ef49511e0b0f26091b34cb07ac4b7a6c255eaeaf0345502c7e352bb380d46",
+    "hybrid_engine/telegram_premium_ui.py": "3eca8db9fa0b0da6499fbbc892074f009395213f8ec42f1b90a3dc8a8b6af227"
+  },
+  "calibration_fit": false,
+  "model_scores_changed": false,
+  "production_changed": false,
+  "paid_services_started": false,
+  "production_decision": "NO_GO"
+}

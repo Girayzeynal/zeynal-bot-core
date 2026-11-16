@@ -153,6 +153,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         from hybrid_engine.nba_replay import NBAReplayArchive
         nba_replay=NBAReplayArchive()
     root=local_path(data_directory);root.mkdir(parents=True,exist_ok=True)
+    from hybrid_engine.market_observations import ObservationStore
+    market_store=ObservationStore(root/'market-observations')
+    app.bot_data['market_observation_store']=market_store
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');results=ProspectiveResults(archive,root/'official-results')
     frozen=FrozenHybridService(archive)
     if nba_service is not None:
@@ -184,7 +187,6 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 try:
                     prior=await asyncio.wait_for(asyncio.to_thread(prior_quality),timeout=3)
                 except Exception as exc:
-                    import logging
                     logging.getLogger(__name__).warning('Prior quality read unavailable: %s',type(exc).__name__)
                     prior=None
                 health=build_health(response['snapshot'],quality,prior_quality=prior)
@@ -214,12 +216,22 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 else:
                     market_lines=['<b>PİYASA KAYNAĞI</b>',
                         'Tahmin anından önce doğrulanmış piyasa çizgisi yok; barem veya güven endeksi üretilmedi.']
+                market_note=None
+                from hybrid_engine.market_panels import nba_panel
+                try:
+                    panel=await asyncio.wait_for(asyncio.to_thread(nba_panel,snapshot,nba_service,evidence,market_store),timeout=5)
+                    market_lines.append(panel['html'])
+                    if panel['observations']:
+                        market_note=f"Piyasa düğmesinde {panel['observations']} kaynak gözlemi / {panel['lines']} barem; ham model hesabı."
+                except Exception as exc:
+                    logging.getLogger(__name__).warning('Market source panel unavailable: %s',type(exc).__name__)
+                    market_lines.append('Piyasa kaynak/dağılım denetimi tamamlanamadı; skor tahmini korunuyor. Kod: MARKET_PANEL_UNAVAILABLE')
                 response=dict(response)
                 from hybrid_engine.telegram_premium_ui import compact_summary, keyboard, detail_sections
                 import secrets
                 full_parts=[*response['html_parts'],'\n'.join(market_lines)]
                 token=secrets.token_hex(6)
-                summary=compact_summary(snapshot,evidence,replayed=not response['new_record'],health=health)
+                summary=compact_summary(snapshot,evidence,replayed=not response['new_record'],health=health,market_note=market_note)
                 from hybrid_engine.telegram_roster_bridge import read_fixture_roster_evidence
                 roster=read_fixture_roster_evidence(
                     app.bot_data.get('verified_roster_packets'),
@@ -264,6 +276,23 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 return await (live_el if league.upper()=='EUROLEAGUE' else prior).analyze(league,*args)
         app.bot_data['verified_analysis_service']=LeagueDispatch()
         app.bot_data['ledger_reports']=ForwardEuroLeagueReports(live_el,app.bot_data['ledger_reports'])
+    prior_market_service=app.bot_data['verified_analysis_service']
+    class EuroLeagueMarketDisplay:
+        ledger=getattr(prior_market_service,'ledger',None)
+        async def analyze(self,league,*args):
+            report=await prior_market_service.analyze(league,*args)
+            if league.upper()!='EUROLEAGUE' or report.get('status') not in ('FROZEN_REPLAY_OK','FORWARD_EUROLEAGUE_OK'):
+                return report
+            try:
+                from hybrid_engine.market_panels import euroleague_panel
+                panel=await asyncio.wait_for(asyncio.to_thread(euroleague_panel,report,archive,market_store,forward_registry=forward_el),timeout=5)
+                if panel:
+                    from hybrid_engine.elite_render import split_blocks
+                    return dict(report,html_parts=[*report['html_parts'],*split_blocks(panel.splitlines(),limit=3200)])
+            except Exception as exc:
+                logging.getLogger(__name__).warning('EuroLeague market panel unavailable: %s',type(exc).__name__)
+            return report
+    app.bot_data['verified_analysis_service']=EuroLeagueMarketDisplay()
     app.bot_data['delivery_journal']=journal
     if decision_layer:
         from hybrid_engine.decision_integration import DecisionJournal,DecisionService,DecisionReports

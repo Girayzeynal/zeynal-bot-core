@@ -44,7 +44,8 @@ def observed_market_evidence(assets, sources, fixture_id, prediction_utc, fixtur
                 freshness_status='STALE_AT_PREDICTION' if prediction_utc-q['observed_at_utc']>300 else 'FRESH_AT_PREDICTION',
                 quote_sha256=quote['sha256'], settlement_scope=q['settlement_scope'],
                 status='OBSERVED_NOT_COMPARABLE',
-                reason='REGULATION_MODEL_VS_UNKNOWN_MARKET_SETTLEMENT')
+                reason='REGULATION_MODEL_VS_UNKNOWN_MARKET_SETTLEMENT',
+                native_observation=quote,source_ref=dict(ref))
             current = latest.get(key)
             if current is None or (row['observed_at_utc'], row['quote_sha256']) > (
                     current['observed_at_utc'], current['quote_sha256']):
