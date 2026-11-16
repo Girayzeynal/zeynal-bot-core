@@ -153,10 +153,11 @@ def odds_observations(receipt, snapshot):
 
 
 class ProviderBridge:
-    def __init__(self, access, directory, *, extended=False, clock=time.time):
+    def __init__(self, access, directory, *, extended=False, clock=time.time, diagnostic_only=False):
         self.access = access
         self.root = local_path(directory)
         self.extended = extended
+        self.diagnostic_only = diagnostic_only
         self.clock = clock
         self.lock = threading.Lock()
 
@@ -190,10 +191,16 @@ class ProviderBridge:
             return dict(status='INVALID_PROVIDER_SCHEMA', observations=[])
         matched = [e for e in events['document'] if matches(e, snapshot)]
         if len(matched) != 1:
-            return dict(status='EXACT_FIXTURE_MATCH_REQUIRED', observations=[], matching_events=len(matched))
+            from hybrid_engine.provider_diagnostics import fixture_diagnostic
+            return dict(status='EXACT_FIXTURE_MATCH_REQUIRED', observations=[], matching_events=len(matched),
+                        operation='EVENT_DISCOVERY',fixture_diagnostic=fixture_diagnostic(events['document'],snapshot),
+                        source_pin=self._save(events))
         event_id = matched[0].get('id')
         if not isinstance(event_id, str) or not re.fullmatch('[a-zA-Z0-9_-]{1,80}', event_id):
             return dict(status='PROVIDER_EVENT_ID_INVALID', observations=[])
+        if self.diagnostic_only:
+            return dict(status='EXACT_FIXTURE_MATCH_CONFIRMED',observations=[],provider_fixture_id=event_id,
+                        odds_requests_made=0,source_pin=self._save(events))
         markets = (*CORE_MARKETS, *EXTRA_MARKETS) if self.extended else CORE_MARKETS
         r = access.get('THE_ODDS_API', f'/v4/sports/{sport}/events/{event_id}/odds',
                        dict(regions='us', markets=','.join(markets), oddsFormat='decimal'), deadline=deadline)
@@ -214,29 +221,37 @@ class ProviderBridge:
         if r['status'] != 'DOCUMENT_RECEIVED':
             return dict(status=r['status'])
         if r['document'].get('errors'):
-            return dict(status='PROVIDER_REPORTED_ERROR')
+            from hybrid_engine.provider_diagnostics import failure
+            return dict(failure(r,'LEAGUE_DISCOVERY'),source_pin=self._save(r))
         leagues = [x for x in r['document'].get('response', []) if name(x.get('name', '')) == name(league)]
         if len(leagues) != 1 or type(leagues[0].get('id')) is not int:
             return dict(status='EXACT_LEAGUE_MAPPING_REQUIRED')
         lid = leagues[0]['id']
         day = datetime.fromtimestamp(snapshot['fixture_start_utc'], timezone.utc).strftime('%Y-%m-%d')
+        season = snapshot['season'].replace('/', '-')
         r = access.get('API_BASKETBALL', '/games',
-                       dict(league=lid, date=day, timezone='UTC'), deadline=deadline)
+                       dict(league=lid, season=season, date=day, timezone='UTC'), deadline=deadline)
         if r['status'] != 'DOCUMENT_RECEIVED':
             return dict(status=r['status'])
         if r['document'].get('errors'):
-            return dict(status='PROVIDER_REPORTED_ERROR')
+            from hybrid_engine.provider_diagnostics import failure
+            return dict(failure(r,'FIXTURE_QUERY'),source_pin=self._save(r))
         games = [x for x in r['document'].get('response', []) if matches(x, snapshot, basketball=True)]
         if len(games) != 1:
-            return dict(status='EXACT_FIXTURE_MATCH_REQUIRED', matching_events=len(games))
+            from hybrid_engine.provider_diagnostics import fixture_diagnostic
+            return dict(status='EXACT_FIXTURE_MATCH_REQUIRED', matching_events=len(games),operation='FIXTURE_QUERY',
+                        fixture_diagnostic=fixture_diagnostic(r['document'].get('response',[]),snapshot,basketball=True),
+                        source_pin=self._save(r))
         g = games[0]
         if (g.get('status', {}).get('short') != 'NS' or g.get('league', {}).get('id') != lid or
                 type(g.get('id')) is not int):
             return dict(status='PROVIDER_FIXTURE_NOT_VERIFIED_PREMATCH')
         if int(self.clock()) >= snapshot['fixture_start_utc']:
             return dict(status='TIPOFF_REACHED_DURING_PROVIDER_REVIEW')
+        if self.diagnostic_only:
+            return dict(status='PREMATCH_FIXTURE_CROSSCHECKED',provider_fixture_id=g['id'],
+                        statistics_requests_made=0,source_pin=self._save(r))
         stats = []
-        season = snapshot['season'].replace('/', '-')
         # A current season aggregate is an additional observation, not a PIT
         # training row and not proof of measured pace or a confirmed lineup.
         if str(g.get('league', {}).get('season')) == season:
@@ -277,7 +292,7 @@ class ProviderBridge:
         report = dict(format='ISOLATED_PROVIDER_REVIEW_V1', fixture_id=snapshot['fixture_id'],
                       prediction_utc=snapshot['prediction_generated_at_utc'], evaluated_at_utc=now,
                       configuration=config, providers={}, forecast_changed=False,
-                      calibration_status='NOT_CALIBRATED', confidence_index=None)
+                      calibration_status='NOT_CALIBRATED', confidence_index=None,diagnostic_only=self.diagnostic_only)
         if now >= snapshot['fixture_start_utc']:
             report['status'] = 'POST_TIPOFF_NO_CURRENT_API_BACKFILL'
             return report
@@ -309,6 +324,15 @@ def render(report):
         row = report['providers'].get(provider, {})
         state = row.get('status', config)
         lines.append(html.escape(provider+': '+state))
+        if row.get('operation'):lines.append('Aşama: '+html.escape(row['operation']))
+        if row.get('error_codes'):lines.append('Kaynak hata sınıfı: '+html.escape(', '.join(row['error_codes'])))
+        detail=row.get('fixture_diagnostic')
+        if detail:
+            lines.append('Eşleşme nedeni: '+html.escape(detail['reason']))
+            lines.append('Arşiv UTC başlangıcı: '+html.escape(detail['target']['start_utc']))
+            for candidate in detail['candidates'][:3]:
+                lines.append(html.escape(candidate['home']+' – '+candidate['away']+' | '+candidate['start_utc']+
+                                         ' | Saat farkı (sn): '+str(candidate['delta_seconds'])))
         if row.get('quota'):
             lines.append('Kota (sağlayıcı yanıtı): '+html.escape(str(row['quota'])))
         for stat in row.get('statistics', []):

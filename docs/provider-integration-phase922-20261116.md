@@ -138,6 +138,53 @@ Local full regression after this helper: **993 passed, 0 failures/errors**, 70.5
 seconds. Read-only transfer tests use synthetic CLI responses; they do not prove
 actual Fly/SSH access or authenticated provider availability.
 
+## User-reported real provider failure and safe diagnosis
+
+The subsequent UserLAnd transfer reported both provider keys imported, followed
+by two successful real authentication checks: Odds sports catalog and
+API-Basketball account status. These are user-provided terminal results, not
+Cloud-executed or independently attested requests. No staged secret activation
+or production change was reported.
+
+The user's real Boston–Orlando Telegram panel then showed
+`THE_ODDS_API: EXACT_FIXTURE_MATCH_REQUIRED` and
+`API_BASKETBALL: PROVIDER_REPORTED_ERROR`. Its DraftKings -8.5 / total211.5
+observations came from ESPN. Thus authentication succeeded but real event/market
+availability was not verified; neither a time-zone cause nor a plan/quota cause
+can be concluded from those two generic status codes.
+
+The provider bridge now retains native failure receipt pins and reports safe
+diagnostics: target UTC start, exact/same-pair/reversed counts, provider event
+window and at most five candidate names/UTC starts/offset seconds. Different
+tipoff times and reversed home/away are still refused. No fuzzy matching,
+UTC-day relaxation, fabricated IDs or forecast rewrites were added.
+
+API-Basketball errors identify the operation (league discovery vs fixture query)
+and fixed provider-message classes for quota, plan, season, authentication and
+query parameters. Native error text, account data, unknown field names and key
+values are never printed. The games query now explicitly carries the archived
+season rather than relying on a provider default. This query-context correction
+is not claimed to be the observed failure's root cause without the diagnostic.
+
+After updating this branch, a bounded diagnostic reads the actual committed
+forecast with SQLite mode=ro/query_only and verifies its existing SHA:
+
+```bash
+cd ~/zeynal-hybrid-844
+.venv/bin/python -m hybrid_engine.provider_diagnostics --fixture-id 401909994
+```
+
+The default is the already identified isolated UserLAnd ledger. No new forecast,
+statistics or odds-market request is made: only catalog/event/fixture checks.
+Diagnostics use current retrieval time, never backdate source availability, and
+append evidence in the separate provider-evidence directory. Started fixtures
+make no fresh provider request. Eleven additional synthetic regressions cover
+offsets, reversed/ambiguous/empty matches, error-message secret exclusion,
+explicit season parameters, diagnostic quota scope and unchanged SQLite bytes.
+Local full regression: **1004 passed, 0 failures/errors**, 69.230 seconds; the
+previous 993 tests are retained. Actual diagnostic execution in UserLAnd is
+still pending, so the reported provider failure root causes remain unresolved.
+
 ## Verification and remaining limits
 
 Tests exercise synthetic provider responses and an actual PTB application over
