@@ -1,0 +1,4 @@
+# CI / isolated research only. Production Dockerfile and requirements stay unchanged.
+ARG BASE_IMAGE=zeynal-bot-core:ci
+FROM ${BASE_IMAGE}
+RUN pip install --no-cache-dir -r requirements-injury-research.txt

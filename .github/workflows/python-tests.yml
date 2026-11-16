@@ -45,6 +45,13 @@ jobs:
           docker run --rm --network none --read-only --cpus=1 --memory=256m --memory-swap=256m
           --tmpfs /tmp:rw,size=96m zeynal-bot-core:ci
           python -m hybrid_engine.provider_runtime_probe --require-cgroup-limits
+      - name: Build optional injury-report research image
+        run: docker build --tag zeynal-bot-core:injury-research --file Dockerfile.injury-research .
+      - name: Verify native NBA PDF and roster callbacks under 256 MiB and one CPU
+        run: >-
+          docker run --rm --network none --read-only --cpus=1 --memory=256m --memory-swap=256m
+          --tmpfs /tmp:rw,size=96m zeynal-bot-core:injury-research
+          python -m hybrid_engine.provider_runtime_probe --require-cgroup-limits
       - name: Run bounded isolated hybrid command flow
         run: >-
           docker run --rm --network none --read-only --tmpfs /tmp:rw,size=96m

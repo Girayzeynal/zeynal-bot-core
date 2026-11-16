@@ -147,7 +147,7 @@ class NBAReplayReadOnlyReports:
             'Orijinal arşiv kaydı değiştirilmedi.')
 
 
-def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None,nba_replay=None,replay_only=False,forward_el=None,provider_bridge=None):
+def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None,nba_replay=None,replay_only=False,forward_el=None,provider_bridge=None,roster_review=None):
     if replay_only and (nba_service is not None or forward_el is not None):raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_NBA_SERVICE')
     if nba_replay is None and nba_service is None:
         from hybrid_engine.nba_replay import NBAReplayArchive
@@ -156,6 +156,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
     from hybrid_engine.market_observations import ObservationStore
     market_store=ObservationStore(root/'market-observations')
     app.bot_data['market_observation_store']=market_store
+    if nba_service is not None:
+        from hybrid_engine.current_roster import CurrentRosterReview
+        app.bot_data['current_roster_review']=roster_review or CurrentRosterReview(root/'current-roster')
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');results=ProspectiveResults(archive,root/'official-results')
     frozen=FrozenHybridService(archive)
     if nba_service is not None:
@@ -268,6 +271,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 expiry=[c['valid_until_utc'] for c in ranked if c['current']]
                 entry=dict(summary=summary,sections=sections,section_pages=section_pages,chat_id=chat_id,
                     tipoff_utc=snapshot['fixture_start_utc'],quote_valid_until_utc=min(expiry) if expiry else None)
+                try:
+                    from hybrid_engine.current_roster import context_for
+                    entry['roster_context']=context_for(snapshot)
+                    entry['original_roster_html']='🏥 <b>İLK TAHMİN ANINDAKİ KADRO KANITI</b>\n'+sections['roster']
+                except (ValueError,KeyError,TypeError):
+                    entry['roster_context']=None
                 cache_report(cache,token,entry)
                 response['html_parts']=[summary]
                 response['reply_markup']=keyboard(token)
@@ -440,12 +449,38 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             await query.answer('Bölüm bulunamadı.',show_alert=True)
             return
         from hybrid_engine.telegram_premium_ui import keyboard,page_view
+        answered=False
+        if section=='roster' and page==0 and entry.get('roster_context'):
+            await query.answer('Güncel kaynaklar kontrol ediliyor…')
+            answered=True
+            reviewer=app.bot_data.get('current_roster_review')
+            if reviewer is not None:
+                try:
+                    from hybrid_engine.current_roster import render_review
+                    review=await asyncio.wait_for(asyncio.to_thread(reviewer.review,entry['roster_context']),timeout=20)
+                    if review['original_snapshot_sha256']!=entry['roster_context']['original_snapshot_sha256']:
+                        raise ValueError('ROSTER_REVIEW_CONTEXT_CONFLICT')
+                    current=render_review(review)
+                    from hybrid_engine.elite_render import split_blocks
+                    from hybrid_engine.telegram_premium_ui import cache_report
+                    entry=dict(entry,sections=dict(entry['sections']),section_pages=dict(entry['section_pages']))
+                    entry['sections']['roster']=entry['original_roster_html']+'\n\n'+current
+                    entry['section_pages']['roster']=split_blocks(entry['sections']['roster'].splitlines(),limit=3200)
+                    entry['roster_review_at_utc']=review['observed_at_utc']
+                    entry['roster_valid_until_utc']=review.get('valid_until_utc',review['observed_at_utc']+300)
+                    cache_report(cache,token,entry)
+                except Exception as exc:
+                    logging.getLogger(__name__).warning('Current roster review unavailable: %s',type(exc).__name__)
+                    await query.edit_message_text('Güncel kadro kaynağı denetlenemedi veya süre aşıldı. '
+                        'Bu, sakat/cezalı oyuncu yok demek değildir. İlk tahmin değiştirilmedi.',
+                        reply_markup=keyboard(token))
+                    return
         try:
             body,page_count=page_view(entry,section,page,now=int(time.time()))
         except ValueError:
             await query.answer('Sayfa bulunamadı. Bölümü yeniden açın.',show_alert=True)
             return
-        await query.answer()
+        if not answered:await query.answer()
         try:
             await query.edit_message_text(body,parse_mode='HTML',
                 disable_web_page_preview=True,reply_markup=keyboard(token,section=section,page=page,pages=page_count))

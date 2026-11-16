@@ -1,5 +1,6 @@
 """Compact, source-preserving Telegram presentation for the isolated test bot."""
 import html
+import json
 import re
 from datetime import datetime,timezone
 from zoneinfo import ZoneInfo
@@ -57,7 +58,9 @@ def keyboard(token,*,section=None,page=0,pages=1):
 def cache_report(cache,token,entry,*,max_bytes=8*1024*1024,max_count=64):
     def size(e):
         return (len(e['summary'].encode())+sum(len(s.encode()) for s in e.get('sections',{}).values())+
-            sum(len(p.encode()) for values in e.get('section_pages',{}).values() for p in values))
+            sum(len(p.encode()) for values in e.get('section_pages',{}).values() for p in values)+
+            (len(json.dumps(e['roster_context']).encode()) if e.get('roster_context') is not None else 0)+
+            len(e.get('original_roster_html','').encode()))
     needed=size(entry)
     if needed>max_bytes:raise ValueError('PREMIUM_REPORT_CACHE_BUDGET')
     while cache and (len(cache)>=max_count or sum(size(e) for e in cache.values())+needed>max_bytes):
@@ -70,6 +73,11 @@ def page_view(entry,section,page,*,now):
     values=([body] if section=='summary' else entry.get('section_pages',{}).get(section)) or split_blocks(body.splitlines(),limit=3200)
     if type(page) is not int or not 0<=page<len(values):raise ValueError('PREMIUM_PAGE_NOT_FOUND')
     text=values[page]
+    if section=='roster' and entry.get('roster_review_at_utc') is not None:
+        if entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc']:
+            text='Maç başladı; aşağıdaki kadro bilgisi arşiv gözlemidir.\n\n'+text
+        elif now>=entry.get('roster_valid_until_utc',entry['roster_review_at_utc']+300):
+            text='Kadro gözlemi eskidi; güncel sayılmaz. Kadro / Sakatlık düğmesiyle kontrol edin.\n\n'+text
     if section in ('summary','market'):
         if entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc']:
             text='Maç başladı; yalnız arşiv görünümü.\n\n'+text

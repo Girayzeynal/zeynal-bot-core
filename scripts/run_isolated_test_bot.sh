@@ -40,6 +40,10 @@ if [[ "$(git branch --show-current)" != "${branch}" ]]; then
   exit 2
 fi
 git merge --ff-only FETCH_HEAD
+if [[ "${1:-}" == "--roster-setup" ]]; then
+  # Optional PDF extraction runs in a bounded child, never production main.py.
+  .venv/bin/python -m pip install -r requirements-injury-research.txt
+fi
 if [[ ! -f "${HOME}/.zeynal-elite-test-token" ]]; then
   echo "TEST_TOKEN_FILE_MISSING" >&2
   exit 2
