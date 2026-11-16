@@ -40,6 +40,11 @@ jobs:
         run: docker build --tag zeynal-bot-core:ci .
       - name: Run regression suite inside deployment image
         run: docker run --rm --network none zeynal-bot-core:ci python -m unittest discover -s tests -v
+      - name: Verify isolated providers and Telegram under 256 MiB and one CPU
+        run: >-
+          docker run --rm --network none --read-only --cpus=1 --memory=256m --memory-swap=256m
+          --tmpfs /tmp:rw,size=96m zeynal-bot-core:ci
+          python -m hybrid_engine.provider_runtime_probe --require-cgroup-limits
       - name: Run bounded isolated hybrid command flow
         run: >-
           docker run --rm --network none --read-only --tmpfs /tmp:rw,size=96m

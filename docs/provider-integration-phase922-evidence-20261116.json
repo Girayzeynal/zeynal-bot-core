@@ -1,0 +1,33 @@
+{
+  "actual_telegram_delivery": "BLOCKED_NO_DEDICATED_TEST_ACCESS",
+  "format": "ISOLATED_PROVIDER_PHASE922_EVIDENCE_V1",
+  "local_full_suite": {
+    "errors": 0,
+    "failures": 0,
+    "seconds": 67.891,
+    "tests": 977
+  },
+  "local_provider_probe": {
+    "actual_provider_authentication_verified": false,
+    "actual_telegram_delivery_verified": false,
+    "cgroup_cpu_max": "200000 100000",
+    "cgroup_limits_verified": false,
+    "cgroup_memory_max": "8589934592",
+    "cgroup_memory_peak": "914423808",
+    "elapsed_seconds": 1.6099429970054189,
+    "errors": 0,
+    "failures": 0,
+    "format": "ISOLATED_PROVIDER_RUNTIME_V1",
+    "peak_rss_mib": 90.81640625,
+    "production_changed": false,
+    "tests": 35,
+    "transport": "SYNTHETIC_PROVIDER_RESPONSES_AND_LOCAL_HTTP_TELEGRAM"
+  },
+  "new_tests": 35,
+  "original_forecast_archive_and_model_files_changed": false,
+  "parent_commit": "8fc13683f06d661492647d0bf1eac53deb8439ac",
+  "production_changed": false,
+  "promotion_decision": "NO_GO",
+  "real_authenticated_api": "BLOCKED_KEYS_NOT_AVAILABLE_IN_CLOUD",
+  "retained_tests": 942
+}

@@ -147,7 +147,7 @@ class NBAReplayReadOnlyReports:
             'Orijinal arşiv kaydı değiştirilmedi.')
 
 
-def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None,nba_replay=None,replay_only=False,forward_el=None):
+def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None,nba_replay=None,replay_only=False,forward_el=None,provider_bridge=None):
     if replay_only and (nba_service is not None or forward_el is not None):raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_NBA_SERVICE')
     if nba_replay is None and nba_service is None:
         from hybrid_engine.nba_replay import NBAReplayArchive
@@ -216,6 +216,15 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 else:
                     market_lines=['<b>PİYASA KAYNAĞI</b>',
                         'Tahmin anından önce doğrulanmış piyasa çizgisi yok; barem veya güven endeksi üretilmedi.']
+                if provider_bridge is not None:
+                    try:
+                        from hybrid_engine.provider_bridge import nba_provider_panel
+                        provider_panel=await asyncio.wait_for(
+                            asyncio.to_thread(nba_provider_panel,snapshot,nba_service,provider_bridge),timeout=16)
+                        market_lines.append(provider_panel)
+                    except Exception as exc:
+                        logging.getLogger(__name__).warning('Provider review unavailable: %s',type(exc).__name__)
+                        market_lines.append('Sağlayıcı denetimi tamamlanamadı: PROVIDER_REVIEW_UNAVAILABLE. Bu durum NO EDGE değildir; skor tahmini korunuyor.')
                 market_note=None
                 from hybrid_engine.market_panels import nba_panel
                 try:
@@ -232,6 +241,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 full_parts=[*response['html_parts'],'\n'.join(market_lines)]
                 token=secrets.token_hex(6)
                 summary=compact_summary(snapshot,evidence,replayed=not response['new_record'],health=health,market_note=market_note)
+                if provider_bridge is not None:
+                    summary+='\n🔌 API bağlantı durumları ve mevcut baremler: Piyasa düğmesi.'
                 from hybrid_engine.telegram_roster_bridge import read_fixture_roster_evidence
                 roster=read_fixture_roster_evidence(
                     app.bot_data.get('verified_roster_packets'),
@@ -442,7 +453,12 @@ def main():
     parser.add_argument('--forward-euroleague-directory');parser.add_argument('--forward-nba-ledger')
     parser.add_argument('--nba-replay-packet');parser.add_argument('--replay-only',action='store_true')
     args=parser.parse_args();config=configuration(os.environ)
-    if args.preflight or config['status']=='NOT_CONFIGURED':print(json.dumps(config));return
+    # Capture dedicated data credentials before blanking the legacy production
+    # bootstrap key. Never inject data keys into main.py or its scheduler.
+    from hybrid_engine.provider_access import credentials,ProviderAccess
+    data_access=ProviderAccess(credentials())
+    if args.preflight or config['status']=='NOT_CONFIGURED':
+        print(json.dumps(dict(config,data_providers=data_access.configuration())));return
     if not args.archive_directory or not args.data_directory:raise ValueError('ISOLATED_DIRECTORIES_REQUIRED')
     if args.replay_only and (args.nba_model or args.nba_model_sha or args.forward_euroleague_directory or args.forward_nba_ledger):
         raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_MODELS_AND_RESULT_COLLECTION')
@@ -511,8 +527,13 @@ def main():
     if args.nba_model:
         from hybrid_engine.live_nba import PreparedBayes,LiveNBAHybridService
         nba_service=LiveNBAHybridService(root/'live-nba',PreparedBayes(nba_model_path,trusted_sha256=args.nba_model_sha))
+    provider_bridge=None
+    if not args.replay_only:
+        from hybrid_engine.provider_bridge import ProviderBridge
+        provider_bridge=ProviderBridge(data_access,root/'provider-evidence',
+            extended=os.getenv('ZEYNAL_TEST_ODDS_EXTENDED','0')=='1')
     _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport,nba_service=nba_service,
-        decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only,forward_el=forward_el)
+        decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only,forward_el=forward_el,provider_bridge=provider_bridge)
     app.bot_data['test_results']=results
     # Commands must arrive from the authorized HUMAN test chat; bot self-messages
     # are never counted as real command-input E2E evidence.

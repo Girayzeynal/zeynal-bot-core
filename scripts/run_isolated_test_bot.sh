@@ -2,6 +2,11 @@
 # Isolated Android/UserLAnd test bot restart. Never touches Fly.io production.
 set -Eeuo pipefail
 cd "${HOME}/zeynal-hybrid-844"
+# Diagnostics can run alongside the poller. They neither update Git nor start
+# Telegram, and read only dedicated local data-provider credentials.
+if [[ "${1:-}" == "--provider-check" ]]; then
+  exec .venv/bin/python -m hybrid_engine.provider_access --check
+fi
 # One isolated poller per local installation; prevent Telegram getUpdates conflicts.
 lock_dir="${HOME}/zeynal-test-isolated"
 mkdir -p "${lock_dir}"

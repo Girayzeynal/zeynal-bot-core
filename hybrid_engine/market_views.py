@@ -54,6 +54,9 @@ def assess(observation,distribution,*,asof_utc,native_quote=None,rule=None):
     if manual:reasons.append('MANUAL_TRANSCRIPTION_NOT_INDEPENDENTLY_VERIFIED')
     if captured is None:reasons.append('SOURCE_CAPTURE_TIME_UNKNOWN')
     elif asof_utc-captured>POLICY['quote_max_age_seconds']:reasons.append('STALE_AT_DECISION_TIME')
+    published=source['published_at_utc']
+    published_fresh=(published is None or 0<=asof_utc-published<=POLICY['quote_max_age_seconds'])
+    if not published_fresh:reasons.append('STALE_PUBLISHER_PRICE_AT_DECISION_TIME')
     if p['available_at_utc']>trace['prediction_utc']:
         reasons.append('SOURCE_AVAILABLE_AFTER_ORIGINAL_FORECAST')
     if asof_utc>=trace['tipoff_utc']:reasons.append('POST_TIPOFF_ARCHIVE_REVIEW_ONLY')
@@ -67,7 +70,7 @@ def assess(observation,distribution,*,asof_utc,native_quote=None,rule=None):
             conditional_probability_is_contract_settlement=False,
             calibrated_probabilities=None,confidence_index=None,recommended_direction=None,
             expected_value=None,price_benchmarks=None,decision_status='SETTLEMENT_RULE_UNVERIFIED',reasons=list(reasons))
-        eligible=(not manual and captured is not None and asof_utc-captured<=POLICY['quote_max_age_seconds'] and
+        eligible=(not manual and published_fresh and captured is not None and asof_utc-captured<=POLICY['quote_max_age_seconds'] and
                   asof_utc<trace['tipoff_utc'] and p['available_at_utc']<=trace['prediction_utc'])
         if native_quote is not None:
             native=native_quote.payload
