@@ -6,7 +6,8 @@
     "failures": 0,
     "errors": 0,
     "elapsed_seconds": 75.249,
-    "log_sha256": "9e55f3fbb507d0ebed6b836e1ef0f546bb9f5211635a13fd0137ea8ef1815794"
+    "log_sha256": "9e55f3fbb507d0ebed6b836e1ef0f546bb9f5211635a13fd0137ea8ef1815794",
+    "phase": "BEFORE_TEMP_NOEXEC_LAUNCHER_TEST_FIX_APPLICATION_CODE_UNCHANGED"
   },
   "new_tests": 35,
   "baseline_tests": 1056,
@@ -315,5 +316,38 @@
     "Ten matches and one native input comparison do not prove calibration or model superiority.",
     "No same-fixture published Faz13 forecast cohort exists for these ten matches.",
     "Measured pace, verified player impact, OT settlement and period uncertainty remain unverified."
-  ]
+  ],
+  "initial_docker_resource_run": {
+    "commit": "2c0e9fa228291be6796c2072434278a65df6bd55",
+    "run_id": 43873094107,
+    "job_id": 133319069274,
+    "regression_tests": 1091,
+    "regression_passed": true,
+    "resource_tests": 122,
+    "resource_errors": 1,
+    "failed_test": "OfflineLauncherTests.test_error_review_mode_does_not_bootstrap_git_token_or_polling",
+    "cause": "Test harness tried to execute a temporary mock interpreter on Docker noexec tmpfs; exit 126.",
+    "fix": "Use installed interpreter symlink and read a plain mock module; keep read-only/noexec/256MiB/one CPU constraints unchanged."
+  },
+  "post_fix_targeted_suite": {
+    "tests": 35,
+    "failures": 0,
+    "errors": 0
+  },
+  "post_fix_resource_probe": {
+    "actual_provider_authentication_verified": false,
+    "actual_telegram_delivery_verified": false,
+    "cgroup_cpu_max": "200000 100000",
+    "cgroup_limits_verified": false,
+    "cgroup_memory_max": "8589934592",
+    "cgroup_memory_peak": "914423808",
+    "elapsed_seconds": 5.467543041988392,
+    "errors": 0,
+    "failures": 0,
+    "format": "ISOLATED_PROVIDER_RUNTIME_V1",
+    "peak_rss_mib": 95.4296875,
+    "production_changed": false,
+    "tests": 122,
+    "transport": "SYNTHETIC_PROVIDER_RESPONSES_AND_LOCAL_HTTP_TELEGRAM"
+  }
 }

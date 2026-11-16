@@ -267,21 +267,27 @@ class OfflineLauncherTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             home=Path(tmp);checkout=home/'zeynal-hybrid-844';binary=checkout/'.venv/bin/python'
             binary.parent.mkdir(parents=True)
-            binary.write_text('#!'+sys.executable+'\nimport json,sys\nprint(json.dumps(sys.argv[1:]))\n');binary.chmod(0o700)
+            # /tmp is deliberately noexec in the hard-limit Docker job. Use
+            # its real installed interpreter, which reads a plain mock module;
+            # never weaken the container's mount or skip this launcher test.
+            binary.symlink_to(sys.executable)
+            package=checkout/'hybrid_engine';package.mkdir();(package/'__init__.py').write_text('')
+            module=package/'quality_report.py'
+            module.write_text('import json,sys\nprint(json.dumps(dict(argv=sys.argv[1:],module_file=__file__)))\n')
             # HOME belongs only to the emulated child installation; the actual
             # process environment and real UserLAnd HOME are never modified.
             env=dict(os.environ,HOME=str(home))
             p=subprocess.run(['bash',str(root/'scripts/run_isolated_test_bot.sh'),'--error-review'],env=env,
                              capture_output=True,text=True,timeout=5,check=True)
-            args=json.loads(p.stdout)
-            self.assertEqual(args[:2],['-m','hybrid_engine.quality_report'])
+            result=json.loads(p.stdout);args=result['argv']
+            self.assertEqual(Path(result['module_file']),module)
             self.assertIn(str(home/'zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite'),args)
             self.assertNotIn('hybrid_engine.test_bot',args);self.assertFalse((home/'.zeynal-elite-test-token').exists())
             plan=home/'zeynal-test-isolated/data/quality-phase92/calibration-plan';plan.mkdir(parents=True)
             (plan/('plan-'+'f'*64+'.json')).write_text('{}')
             again=subprocess.run(['bash',str(root/'scripts/run_isolated_test_bot.sh'),'--error-review'],env=env,
                                  capture_output=True,text=True,timeout=5,check=True)
-            extra=json.loads(again.stdout);self.assertIn('--existing-calibration-plan-directory',extra)
+            extra=json.loads(again.stdout)['argv'];self.assertIn('--existing-calibration-plan-directory',extra)
             self.assertNotIn('--calibration-plan-directory',extra)
 
 

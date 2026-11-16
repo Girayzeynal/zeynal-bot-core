@@ -120,3 +120,11 @@ yeni hata özeti/mesaj bölme sürümü için gerçek teslim kanıtı sayılmaz.
 **Üretim NO-GO.** Kaynak/tempo/oyuncu eksikleri, periyot belirsizliği ve yeterli
 ileri OOS kalibrasyon kanıtı yok. Merge/deploy, Fly diski/snapshot/secret veya
 üretim DB değişikliği yapılmadı. Test ve hash kanıtı aynı adlı evidence JSON'dadır.
+
+İlk `2c0e9fa` Docker koşusunda tam 1091 test geçti, fakat 122 testlik kaynak
+probe'unda başlatıcı testinin `/tmp` içindeki çalıştırılabilir Python taklidi
+`noexec` mount nedeniyle exit 126 verdi (1 error). Test gerçek kurulu yorumlayıcı
+symlink'i ve yalnız okunarak çalıştırılan mock modülle düzeltildi. Test
+atlatılmadı; container izinleri/256 MiB sınırı değiştirilmedi. Düzeltme sonrası
+35 hedef test ve 122 yerel probe testi geçti. Son HEAD'in tam GitHub/Docker
+sonuçları PR üzerinde ayrı raporlanır.
