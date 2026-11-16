@@ -104,6 +104,40 @@ eight additional synthetic tests; local full regression is now **985 passed,
 0 failed/errors**, 68.201 seconds. No actual UserLAnd key import has yet been
 observed from Cloud.
 
+The user's actual local import subsequently returned
+`NO_PROVIDER_KEYS_FOUND_IN_LOCAL_SOURCE`; source_changed=false and zero API
+requests. The local application env therefore did not provide either accepted
+data-key alias. This does not establish that deployed Fly credentials are bad.
+
+An **explicit read-only Fly import** is available when the existing CLI session
+can access the already running production VM:
+
+```bash
+cd ~/zeynal-hybrid-844
+.venv/bin/python -m hybrid_engine.provider_fly_import --check
+```
+
+It privately captures `fly machine list --app zeynal-bot-core --json`, proves the
+single authorized machine `830932f77d2598` is already started, and only then runs
+a read-only Python SSH command on that exact machine. It selects only
+`ODDS_API_KEY` and `API_SPORTS_KEY` from the runtime environment; Telegram values
+are not transferred. Output is captured, bounded, allowlisted, and never echoed.
+The local mode0600 importer retains existing conflict/immutability guards.
+No machine start, restart, deploy, DB access, remote file write or secret-set
+command exists. A stopped/missing/ambiguous machine aborts before SSH. The source
+is current runtime values: **staged API-Sports secrets are never activated or
+recovered**. Missing keys remain explicitly missing.
+
+Eight synthetic Fly CLI tests cover running-machine targeting, stopped-machine
+refusal, partial deployed-only access, forbidden token transfer, invalid packets,
+CLI failure, missing keys and remote-code syntax. No actual Fly environment read
+has been performed in Cloud. CLI flags are verified against the
+[official machine-list implementation](https://github.com/superfly/flyctl/blob/master/internal/command/machine/list.go)
+and [SSH console reference](https://fly.io/docs/flyctl/ssh-console/).
+Local full regression after this helper: **993 passed, 0 failures/errors**, 70.523
+seconds. Read-only transfer tests use synthetic CLI responses; they do not prove
+actual Fly/SSH access or authenticated provider availability.
+
 ## Verification and remaining limits
 
 Tests exercise synthetic provider responses and an actual PTB application over
