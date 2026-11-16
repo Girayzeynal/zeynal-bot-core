@@ -83,6 +83,27 @@ privately in UserLAnd's dedicated file or process environment; do not send value
 to chat or commit them. No new plan, paid subscription or production restart is
 part of this change.
 
+If the known existing local application `.env` contains those data keys, an
+explicit importer can copy only the two provider allowlists into the private
+test file. It ignores Telegram and other settings, does not evaluate shell,
+preserves the source, uses mode 0600, refuses conflicting existing test values,
+and never prints key values. Normal bot startup does not read this source file.
+
+```bash
+cd ~/zeynal-hybrid-844
+.venv/bin/python -m hybrid_engine.provider_setup --from-env ~/zeynal-bot-core/zeynal-bot-core/.env --check
+```
+
+No matching local data keys means `NO_PROVIDER_KEYS_FOUND_IN_LOCAL_SOURCE`, not
+successful migration. Missing keys are never synthesized or fetched from Fly.
+
+The user's actual UserLAnd `--provider-check` returned both providers as
+`KEY_NOT_AVAILABLE_IN_TEST_PROCESS`, with `api_requests_made=0`. This establishes
+local configuration absence, not invalid Fly credentials. The importer has
+eight additional synthetic tests; local full regression is now **985 passed,
+0 failed/errors**, 68.201 seconds. No actual UserLAnd key import has yet been
+observed from Cloud.
+
 ## Verification and remaining limits
 
 Tests exercise synthetic provider responses and an actual PTB application over
