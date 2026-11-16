@@ -391,6 +391,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         await message.reply_text('\n'.join(lines))
         raise ApplicationHandlerStop
     from telegram.ext import CommandHandler, CallbackQueryHandler
+    from hybrid_engine.analyze_input import AnalyzeInputGuard
+    app.add_handler(CommandHandler('analyze',AnalyzeInputGuard(chat_id).handle),group=-60)
     async def isolated_fixtures(update,context):
         from nba_command import parse_nba_date
         from hybrid_engine.fixture_menu import nba_blocks,euroleague_blocks

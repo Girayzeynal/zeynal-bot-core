@@ -28,7 +28,8 @@ def main():
         unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_identity'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_current_market_review'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_forecast_error_review'),
-        unittest.defaultTestLoader.loadTestsFromName('tests.test_market_direction_ui')])
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_market_direction_ui'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_analyze_input_guard')])
     result=unittest.TextTestRunner(verbosity=1).run(suite)
     report=dict(format='ISOLATED_PROVIDER_RUNTIME_V1',tests=result.testsRun,
                 failures=len(result.failures),errors=len(result.errors),elapsed_seconds=time.perf_counter()-started,
