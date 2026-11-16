@@ -37,7 +37,7 @@ async def run(fixture_path,repetitions=20,*,decisions=False):
     updates=[dict(update_id=i+1,message=dict(message_id=i+1,date=fixture['clock_utc'],chat=dict(id=17,type='private'),
         **{'from':dict(id=23,is_bot=False,first_name='Synthetic input replay')},text=c,
         entities=[dict(type='bot_command',offset=0,length=len(c.split()[0]))])) for i,c in enumerate(commands)]
-    received=[];polls=0;intervals=[];last=time.perf_counter()
+    received=[];edited=[];polls=0;intervals=[];last=time.perf_counter()
     async def api(request):
         nonlocal polls,last
         name=request.path.rsplit('/',1)[-1]
@@ -48,6 +48,9 @@ async def run(fixture_path,repetitions=20,*,decisions=False):
         elif name=='sendMessage':
             p=dict(await request.post());now=time.perf_counter();intervals.append(now-last);last=now;received.append(p['text'])
             result=dict(message_id=1000+len(received),date=fixture['clock_utc'],chat=dict(id=17,type='private'),text=p['text'])
+        elif name=='editMessageText':
+            p=dict(await request.post());edited.append(p['text'])
+            result=dict(message_id=1000,date=fixture['clock_utc'],chat=dict(id=17,type='private'),text=p['text'])
         else:result=True
         return web.json_response(dict(ok=True,result=result))
     http=web.Application();http.router.add_route('*','/{path:.*}',api);runner=web.AppRunner(http);await runner.setup()
@@ -75,6 +78,16 @@ async def run(fixture_path,repetitions=20,*,decisions=False):
                 if len(delivered)==len(commands):break
                 await asyncio.sleep(.02)
         await app.update_queue.join()
+        # The compact layout keeps the health card in Model / Source. Follow
+        # the real callback instead of requiring it in the main score bubble.
+        from telegram import Update
+        token=next(reversed(app.bot_data['premium_reports']))
+        callback=Update.de_json(dict(update_id=len(commands)+1,callback_query=dict(
+            id='resource-audit-callback',chat_instance='local-resource',
+            data='zui:'+token+':audit:0',**{'from':dict(id=23,is_bot=False,first_name='Synthetic input replay')},
+            message=dict(message_id=1000,date=fixture['clock_utc'],chat=dict(id=17,type='private'),text='Özet'))),app.bot)
+        await app.process_update(callback)
+        if not edited:raise ValueError('MODEL_SOURCE_CALLBACK_NOT_DELIVERED')
         events=journal.read();errors=[e for e in events if e.get('kind') in ('HANDLER_ERROR','SEND_UNCONFIRMED')]
         from ledger_reports import LedgerReports
         report=LedgerReports(service.ledger.path).read('NBA')
@@ -84,7 +97,7 @@ async def run(fixture_path,repetitions=20,*,decisions=False):
         if report['groups'] or report['pending']!=4:raise ValueError('INVENTED_FINAL_OR_METRIC')
         if not any('KAYITLI NBA TAHMİNLERİ' in s and 'Maç: 4' in s for s in received):raise ValueError('PREDICTIONS_COMMAND_NOT_DELIVERED')
         if not any('TAHMİN SAĞLIĞI | SALT OKUNUR' in s and 'NOT_CALIBRATED' in s for s in received):raise ValueError('HEALTH_COMMAND_NOT_DELIVERED')
-        if not any('TAHMİN SAĞLIK KARTI' in s for s in received):raise ValueError('HEALTH_CARD_NOT_DELIVERED')
+        if not any('TAHMİN SAĞLIK KARTI' in s for s in edited):raise ValueError('HEALTH_CARD_NOT_DELIVERED_IN_DETAIL')
         if not any('Zeynal Bot Core aktif' in s for s in received):raise ValueError('START_COMMAND_NOT_DELIVERED')
         if sum(('Gerçek maç öncesi tahmin' in s or 'ZEYNAL | NBA ANALİZ' in s) for s in received)!=4+repetitions:raise ValueError('LIVE_RENDER_NOT_DELIVERED')
         decision_records=app.bot_data['decision_journal'].read() if decisions else []
@@ -100,6 +113,7 @@ async def run(fixture_path,repetitions=20,*,decisions=False):
         return dict(format='NBA_NATIVE_PAYLOAD_RESOURCE_REPLAY_V1',status='PASS',actual_telegram_delivery_verified=False,
             evidence_class='MOCK_CLOCK_NATIVE_SOURCE_REPLAY_NOT_NEW_PROSPECTIVE_FORECASTS',
             transport='LOCAL_HTTP_BOT_API_DOUBLE',requests=len(commands),messages=len(received),unique_nba_snapshots=4,
+            detail_callbacks=1,detail_edits=len(edited),health_card_in_detail_verified=True,
             original_prospective_archive_modified=False,online_training=False,native_payload_urls=len(fixture['sources']),
             address_space_limit_bytes=list(resource.getrlimit(resource.RLIMIT_AS)),cpu_affinity=sorted(os.sched_getaffinity(0)),
             peak_rss_mib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024,elapsed_seconds=time.perf_counter()-began,

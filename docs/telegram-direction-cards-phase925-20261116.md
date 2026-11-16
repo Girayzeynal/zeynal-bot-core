@@ -88,3 +88,10 @@ sunulmaz. Telefonun aynı anda birden fazla poller başlatması gerekmez.
 Üretim modeli için NO-GO sürer. Bu sunum değişikliği doğruluk veya kalibrasyon
 artışı iddiası değildir. Faz13 varsayılanı, üretim botu, veritabanı, disk,
 snapshot ve secret'lar korunur; üretime dağıtım yapılmaz.
+
+İlk 64902db CI koşusunda unit ve Docker suite 1123/1123, 256 MiB provider
+probe 154/154 geçti. Birleşik native NBA replay kontrolü HEALTH_CARD_NOT_DELIVERED
+ile durdu: eski ana mesaj beklentisi vardı. live_runtime kontrolü gerçek
+Model / Kaynak callback'ini açıp editMessageText teslimini ve sağlık kartının
+ayrıntıda bulunmasını doğrulayacak şekilde güncellendi. Güvenlik kontrolü
+kaldırılmadı; yeni detail_callbacks/detail_edits telemetrisi ayrı raporlanır.
