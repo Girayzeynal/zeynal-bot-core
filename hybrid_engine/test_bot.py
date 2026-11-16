@@ -464,7 +464,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     from hybrid_engine.elite_render import split_blocks
                     from hybrid_engine.telegram_premium_ui import cache_report
                     entry=dict(entry,sections=dict(entry['sections']),section_pages=dict(entry['section_pages']))
-                    entry['sections']['roster']=entry['original_roster_html']+'\n\n'+current
+                    entry['sections']['roster']=current+'\n\n'+entry['original_roster_html']
                     entry['section_pages']['roster']=split_blocks(entry['sections']['roster'].splitlines(),limit=3200)
                     entry['roster_review_at_utc']=review['observed_at_utc']
                     entry['roster_valid_until_utc']=review.get('valid_until_utc',review['observed_at_utc']+300)

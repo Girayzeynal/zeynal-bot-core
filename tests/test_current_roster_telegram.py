@@ -68,6 +68,7 @@ class CurrentRosterTelegramTests(IsolatedAsyncioTestCase):
         await self.click()
         text='\n'.join(self.app.bot_data['premium_reports']['abcdef123456']['section_pages']['roster'])
         self.assertIn('İLK TAHMİN ANINDAKİ',text); self.assertIn('GÜNCEL KADRO',text)
+        self.assertLess(text.index('GÜNCEL KADRO'),text.index('İLK TAHMİN ANINDAKİ'))
         self.assertIn('Test Player',text); self.assertIn('NOT_CALIBRATED',text)
         self.assertEqual(self.snapshot,self.before); self.assertEqual(self.api.sent,[])
         self.assertEqual(len(self.api.edits),1); self.assertTrue(self.api.answers)
