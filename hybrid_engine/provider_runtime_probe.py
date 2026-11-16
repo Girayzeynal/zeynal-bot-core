@@ -23,7 +23,9 @@ def main():
     if args.require_cgroup_limits and not (limited and cpu_limited):
         raise RuntimeError('PROVIDER_PROBE_REQUIRES_256MIB_ONE_CPU_CGROUP')
     started=time.perf_counter()
-    suite=unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_bridge')
+    suite=unittest.TestSuite([
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_bridge'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_identity')])
     result=unittest.TextTestRunner(verbosity=1).run(suite)
     report=dict(format='ISOLATED_PROVIDER_RUNTIME_V1',tests=result.testsRun,
                 failures=len(result.failures),errors=len(result.errors),elapsed_seconds=time.perf_counter()-started,

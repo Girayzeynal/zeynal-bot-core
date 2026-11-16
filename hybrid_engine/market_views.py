@@ -111,6 +111,9 @@ def render(view):
         'Gözlem SHA: '+view['observation_sha256'][:16],
         'Ham normal süre olasılıkları; piyasa ödeme olasılığı ve güven yüzdesi değildir.']
     if source['url']:lines.append('Kaynak alan adı: '+esc(urlsplit(source['url']).hostname or ''))
+    if source.get('event_clock_binding'):
+        from hybrid_engine.provider_identity import clock_text
+        lines.append('Kaynak saat bağı (aynı başlangıç saati iddiası değil): '+esc(clock_text(source['event_clock_binding'])))
     for row in view['rows']:
         kind=row['market'];p=row['conditional_regulation_probabilities']
         under,over=('DEP KARŞILAR','EV KARŞILAR') if kind=='HOME_HANDICAP' else ('DEP','EV') if kind=='WINNER' else ('ALT','ÜST')

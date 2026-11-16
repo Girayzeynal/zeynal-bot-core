@@ -185,6 +185,52 @@ Local full regression: **1004 passed, 0 failures/errors**, 69.230 seconds; the
 previous 993 tests are retained. Actual diagnostic execution in UserLAnd is
 still pending, so the reported provider failure root causes remain unresolved.
 
+## Confirmed UserLAnd diagnosis and constrained NBA clock binding
+
+The user's actual diagnostic for ESPN401909994 reported a single ordered
+Boston–Orlando pair at The Odds API event `7c2ac54a119f461bf8fc1a23da536f29`:
+provider start **2026-11-17T00:10Z**, archived ESPN start **00:00Z**, delta+600s,
+eight returned events and zero reversed pairs. API-Basketball's fixture query
+returned HTTP200 with plan/subscription and season error classes. The original
+snapshot SHA was `91478ed83d542a4d55e185160d83266dbe095c761f0eaf9f0fb98f30c4bb2e62`;
+query_read_only=true and forecast_changed=false were user-reported. The full
+native catalog/error documents are in UserLAnd, not in Cloud.
+
+`NBA_ORDERED_UNIQUE_PAIR_PLUS600_V1` now permits that specific research source
+association: NBA sport key, one same-order pair in the complete bounded catalog,
+exact +600 seconds, no nearby reversed pair, fresh native retrieval proof and
+before the **earlier** start. It is not a general ±time tolerance and does not
+assert the published scheduled times are identical. Exact matching remains
+strict for existing callers and non-NBA offset matching is refused.
+
+An odds detail must independently retain the catalog event ID, teams, sport key
+and provider timestamp. A conflicting detail or a retrieval at/after the earlier
+ESPN start is refused. Native discovery and odds documents are separately
+persisted, and each observation carries a hash-bound clock association with
+both timestamps, delta, source pins and earliest prematch deadline. The archived
+fixture, prediction, generated time, model, samples and SQLite rows are never
+rewritten. A source collected after forecast generation remains later evidence.
+
+The panel displays both clocks and the conservative cutoff. This association
+does not verify OT settlement, calibrate probabilities, authorize selection or
+turn raw normal-duration frequencies into contract probabilities.
+
+The API-Basketball denial is retained as an explicit plan/season coverage block;
+the same league/season denial is reused for one hour without more provider
+requests. Its native observation timestamp and pin are preserved. No tier
+upgrade, staged-secret activation or older-season substitution occurs.
+
+Seventeen additional synthetic regressions cover exact/+600 binding, other
+offsets, ambiguous/reversed/wrong-league catalogs, native pins/freshness,
+earliest-start cutoff, catalog/detail mismatch, required discovery evidence,
+raw-probability safeguards, persisted proof, diagnostic request scope and
+season-specific access-denial caching. Actual new Odds market retrieval and
+Telegram delivery remain pending UserLAnd execution.
+Local full regression: **1021 passed, 0 failures/errors**, 71.121 seconds. The
+hard-limit CI provider probe now includes the 35 existing provider/PTB cases
+plus 17 clock-binding/coverage cases (52 total). Real API-Basketball season
+coverage remains blocked; production remains NO-GO.
+
 ## Verification and remaining limits
 
 Tests exercise synthetic provider responses and an actual PTB application over

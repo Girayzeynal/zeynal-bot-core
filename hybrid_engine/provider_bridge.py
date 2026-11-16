@@ -63,12 +63,16 @@ def fixture_for(snapshot):
                              ('league', 'season', 'fixture_id', 'home_team_id', 'away_team_id', 'tipoff_utc')})
 
 
-def odds_observations(receipt, snapshot):
+def odds_observations(receipt, snapshot, *, discovery=None):
     """Match exact teams+tipoff; keep actual books, alternative lines and periods."""
     if digest(receipt['document']) != receipt['document_sha256']:
         raise ValueError('PROVIDER_DOCUMENT_PIN')
     event = receipt['document']
-    if not matches(event, snapshot) or event.get('sport_key') != SPORTS.get(snapshot['league']):
+    binding=None
+    if discovery is not None:
+        from hybrid_engine.provider_identity import verify_detail
+        binding=verify_detail(discovery,receipt,snapshot)
+    elif not matches(event, snapshot) or event.get('sport_key') != SPORTS.get(snapshot['league']):
         raise ValueError('ODDS_EVENT_IDENTITY_CONFLICT')
     fixture = fixture_for(snapshot)
     result = []
@@ -144,6 +148,7 @@ def odds_observations(receipt, snapshot):
                         quotes=quote_rows(fixture, book['key'], rows[start:start+32]),
                         settlement_verification='NOT_VERIFIED_BY_OBSERVATION', calibration_status='NOT_CALIBRATED')
                     validate(payload)
+                    if binding is not None:payload['source']['event_clock_binding']=binding
                     result.append(dict(payload=payload, sha256=digest(payload)))
                     if len(result) >= 12:
                         return result, rejected
@@ -160,6 +165,7 @@ class ProviderBridge:
         self.diagnostic_only = diagnostic_only
         self.clock = clock
         self.lock = threading.Lock()
+        self.coverage_blocks = {}
 
     def _save(self, payload):
         root = self.root
@@ -189,31 +195,64 @@ class ProviderBridge:
             return dict(status=events['status'], observations=[])
         if not isinstance(events['document'], list):
             return dict(status='INVALID_PROVIDER_SCHEMA', observations=[])
-        matched = [e for e in events['document'] if matches(e, snapshot)]
-        if len(matched) != 1:
+        from hybrid_engine.provider_identity import bind
+        try:
+            event,binding=bind(events,snapshot,asof_utc=int(self.clock()))
+        except (ValueError,KeyError,TypeError) as exc:
             from hybrid_engine.provider_diagnostics import fixture_diagnostic
-            return dict(status='EXACT_FIXTURE_MATCH_REQUIRED', observations=[], matching_events=len(matched),
+            code=str(exc)
+            codes={'NATIVE_EVENT_DISCOVERY_PROOF_REQUIRED','FRESH_EVENT_DISCOVERY_CLOCK_REQUIRED',
+                'AMBIGUOUS_NATIVE_EVENT_DISCOVERY','EXACT_OR_UNIQUE_NBA_PLUS600_MATCH_REQUIRED',
+                'EXPLICIT_NBA_PLUS600_ONLY','REVERSED_NATIVE_EVENT_CONFLICT',
+                'NATIVE_EVENT_ID_OR_COMPETITION_CONFLICT','EARLIEST_NATIVE_START_ALREADY_REACHED'}
+            return dict(status='EXACT_FIXTURE_MATCH_REQUIRED', observations=[],
+                        matching_events=sum(matches(e,snapshot) for e in events['document']),
+                        error_codes=[code if code in codes else 'NATIVE_EVENT_BINDING_REFUSED'],
                         operation='EVENT_DISCOVERY',fixture_diagnostic=fixture_diagnostic(events['document'],snapshot),
                         source_pin=self._save(events))
-        event_id = matched[0].get('id')
+        event_id = event.get('id')
         if not isinstance(event_id, str) or not re.fullmatch('[a-zA-Z0-9_-]{1,80}', event_id):
             return dict(status='PROVIDER_EVENT_ID_INVALID', observations=[])
+        discovery_pin=self._save(events)
         if self.diagnostic_only:
-            return dict(status='EXACT_FIXTURE_MATCH_CONFIRMED',observations=[],provider_fixture_id=event_id,
-                        odds_requests_made=0,source_pin=self._save(events))
+            return dict(status='EXACT_FIXTURE_MATCH_CONFIRMED' if binding['payload']['delta_seconds']==0 else 'NBA_PROVIDER_OFFSET_BOUND',
+                        observations=[],provider_fixture_id=event_id,event_clock_binding=binding,
+                        odds_requests_made=0,source_pin=discovery_pin)
         markets = (*CORE_MARKETS, *EXTRA_MARKETS) if self.extended else CORE_MARKETS
         r = access.get('THE_ODDS_API', f'/v4/sports/{sport}/events/{event_id}/odds',
                        dict(regions='us', markets=','.join(markets), oddsFormat='decimal'), deadline=deadline)
         if r['status'] != 'DOCUMENT_RECEIVED':
             return dict(status=r['status'], observations=[])
-        observations, rejected = odds_observations(r, snapshot)
+        try:
+            observations, rejected = odds_observations(r, snapshot,discovery=events)
+        except (ValueError,KeyError,TypeError) as exc:
+            code=str(exc)
+            codes={'NATIVE_ODDS_DETAIL_PROOF_REQUIRED','DISCOVERY_AND_ODDS_DETAIL_IDENTITY_CONFLICT',
+                'ODDS_DETAIL_AFTER_EARLIEST_START_OR_INVALID_CLOCK','FRESH_EVENT_DISCOVERY_CLOCK_REQUIRED',
+                'EARLIEST_NATIVE_START_ALREADY_REACHED'}
+            return dict(status='ODDS_DETAIL_REJECTED',operation='ODDS_DETAIL_PARSING',observations=[],
+                        error_codes=[code if code in codes else 'NATIVE_ODDS_DETAIL_VALIDATION_FAILED'],
+                        event_clock_binding=binding,source_pin=self._save(r),discovery_source_pin=discovery_pin)
         return dict(status='OBSERVED_RULES_AND_CALIBRATION_PENDING' if observations else 'NO_FRESH_SUPPORTED_PRICES',
                     observations=observations, rejected_markets=rejected, requested_markets=list(markets),
                     quota=r.get('quota', {}), source_pin=self._save(r),
-                    provider_fixture_id=event_id, forecast_inputs_changed=False)
+                    provider_fixture_id=event_id, event_clock_binding=binding,
+                    discovery_source_pin=discovery_pin,forecast_inputs_changed=False)
 
     def _basketball(self, snapshot, deadline):
         access = self.access
+        coverage_key=(snapshot['league'],snapshot['season'])
+        old=self.coverage_blocks.get(coverage_key)
+        if old is not None and int(self.clock())<old['coverage_block_until_utc']:
+            return dict(old,coverage_cache='UNCHANGED_SEASON_RESTRICTION_REUSED')
+        def blocked(receipt,operation):
+            from hybrid_engine.provider_diagnostics import failure
+            row=dict(failure(receipt,operation),source_pin=self._save(receipt))
+            codes=row['error_codes']
+            if 'PLAN_OR_SUBSCRIPTION_RESTRICTION_REPORTED' in codes and 'SEASON_ERROR_REPORTED' in codes:
+                row['coverage_block_until_utc']=int(self.clock())+3600
+                self.coverage_blocks[coverage_key]=dict(row)
+            return row
         league = {'NBA': 'NBA', 'EUROLEAGUE': 'Euroleague', 'EUROCUP': 'Eurocup'}.get(snapshot['league'])
         if league is None:
             return dict(status='LEAGUE_NOT_MAPPED')
@@ -221,8 +260,7 @@ class ProviderBridge:
         if r['status'] != 'DOCUMENT_RECEIVED':
             return dict(status=r['status'])
         if r['document'].get('errors'):
-            from hybrid_engine.provider_diagnostics import failure
-            return dict(failure(r,'LEAGUE_DISCOVERY'),source_pin=self._save(r))
+            return blocked(r,'LEAGUE_DISCOVERY')
         leagues = [x for x in r['document'].get('response', []) if name(x.get('name', '')) == name(league)]
         if len(leagues) != 1 or type(leagues[0].get('id')) is not int:
             return dict(status='EXACT_LEAGUE_MAPPING_REQUIRED')
@@ -234,8 +272,7 @@ class ProviderBridge:
         if r['status'] != 'DOCUMENT_RECEIVED':
             return dict(status=r['status'])
         if r['document'].get('errors'):
-            from hybrid_engine.provider_diagnostics import failure
-            return dict(failure(r,'FIXTURE_QUERY'),source_pin=self._save(r))
+            return blocked(r,'FIXTURE_QUERY')
         games = [x for x in r['document'].get('response', []) if matches(x, snapshot, basketball=True)]
         if len(games) != 1:
             from hybrid_engine.provider_diagnostics import fixture_diagnostic
@@ -326,6 +363,14 @@ def render(report):
         lines.append(html.escape(provider+': '+state))
         if row.get('operation'):lines.append('Aşama: '+html.escape(row['operation']))
         if row.get('error_codes'):lines.append('Kaynak hata sınıfı: '+html.escape(', '.join(row['error_codes'])))
+        if ('PLAN_OR_SUBSCRIPTION_RESTRICTION_REPORTED' in row.get('error_codes',[]) and
+                'SEASON_ERROR_REPORTED' in row.get('error_codes',[])):
+            lines.append('Bu lig/sezon için sağlayıcı plan erişimi kısıtlı; tahmin verisi uydurulmadı.')
+        if row.get('coverage_cache'):lines.append('Aynı sezon erişim reddi korunuyor; tekrar sorgulanmadı.')
+        if row.get('event_clock_binding'):
+            from hybrid_engine.provider_identity import clock_text
+            lines.append('Saat bağı: '+html.escape(row['event_clock_binding']['payload']['mode']))
+            lines.append(html.escape(clock_text(row['event_clock_binding'])))
         detail=row.get('fixture_diagnostic')
         if detail:
             lines.append('Eşleşme nedeni: '+html.escape(detail['reason']))
