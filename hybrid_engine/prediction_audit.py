@@ -12,7 +12,7 @@ import time
 import numpy as np
 
 from core.team_identity import digest
-from hybrid_engine.data import Cut,local_path
+from hybrid_engine.data import Cut,local_path,feature_cut
 from projection_integrity import assert_projection
 from season_archive_inventory import archive_catalog
 
@@ -80,6 +80,11 @@ def audit_snapshot(snapshot,directory,*,replay=False):
         if (row['fixture_id']==p['fixture_id'] or row['fixture_start_utc']>=p['feature_cutoff_utc'] or
             not row['fixture_start_utc']<max(row['observed_at_utc'],row['ingested_at_utc'])<=p['feature_cutoff_utc']):
             raise ValueError('AUDIT_HISTORY_AVAILABILITY_LEAKAGE')
+    # Hashes prove that stored features did not change; also prove they were
+    # actually computed from the frozen, pre-issue history. No live backfill.
+    rebuilt=feature_cut(([row] for row in cut['history']),cut['target'],mode=cut['evaluation_class'])
+    if digest(rebuilt.features)!=digest(cut['features']) or rebuilt.inputs_digest!=cut['inputs_digest']:
+        raise ValueError('AUDIT_HISTORY_FEATURE_RECONSTRUCTION_CONFLICT')
     verified=[];native_status=[]
     for ref in p['source_assets']:
         r=assets.read(ref)
@@ -119,6 +124,7 @@ def audit_snapshot(snapshot,directory,*,replay=False):
         mean_off_diagonal_quarter_correlation=None if not off_diagonal else float(np.mean(off_diagonal)),
         period_uncertainty_limit='DETERMINISTIC_ALLOCATION_NOT_INDEPENDENT_POSSESSION_OR_PBP_SIMULATION',
         measured_possession_pace_used=False,verified_rotation_or_player_impact_used=False,
+        frozen_history_features_reconstructed=True,
         model_type='EMPIRICAL_BAYES_TEAM_ATTACK_DEFENSE_IN_POINTS_NOT_PER_100_POSSESSIONS',
         missing_data=list(p['missing_data']),training_in_request=False,archived_prediction_changed=False,
         audit_at_utc=int(time.time()),replay_only=replay)

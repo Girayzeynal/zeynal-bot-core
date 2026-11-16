@@ -145,6 +145,10 @@ def render_accuracy(report):
         if score:lines.append(f"Toplam %90 interval skoru {score['mean_interval_score']:.2f} (düşük daha iyi; güven endeksi değil)")
         lines.append('NOT_CALIBRATED | Kalibrasyon eğitimi yapılmadı; az örnek güven kanıtı değildir.')
     if len(report['groups'])>12:lines.append('İlk 12 model grubu gösterildi; lig filtresi kullanın.')
+    if report.get('forecasts'):
+        from hybrid_engine.forecast_error_review import review,render_summary
+        error_review=review(report['forecasts'],asof_utc=int(time.time()))
+        if any(g['n'] for g in error_review['groups']):lines.append(render_summary(error_review))
     lines.append('Araştırma backtestleri dahil değil. Bu değerler model üstünlüğü veya güven yüzdesi değildir.')
     return '\n'.join(lines)
 
@@ -209,11 +213,9 @@ async def _reply(update,context,league,fixture,renderer):
         text='Arşiv doğrulanamadı veya istek geçersiz. Performans sonucu üretilmedi.'
     # Plain-text reports can contain several model groups. Telegram's limit is
     # UTF-16 units rather than Python character count; never silently truncate.
-    while text:
-        chunk=text[:3500]
-        while len(chunk.encode('utf-16-le'))//2>3500:chunk=chunk[:-1]
+    from hybrid_engine.predictions_command import split_plain
+    for chunk in split_plain(text):
         await update.effective_message.reply_text(chunk,disable_web_page_preview=True)
-        text=text[len(chunk):]
 
 
 def production_reports():

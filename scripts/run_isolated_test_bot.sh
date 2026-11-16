@@ -7,6 +7,20 @@ cd "${HOME}/zeynal-hybrid-844"
 if [[ "${1:-}" == "--provider-check" ]]; then
   exec .venv/bin/python -m hybrid_engine.provider_access --check
 fi
+# Offline read-only archive/input diagnosis. No token/model bootstrap, Git
+# update, network access, fitting, polling, or existing forecast writes.
+if [[ "${1:-}" == "--error-review" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  plan_dir="${HOME}/zeynal-test-isolated/data/quality-phase92/calibration-plan"
+  plan_args=()
+  if compgen -G "${plan_dir}/plan-*.json" >/dev/null; then
+    plan_args=(--existing-calibration-plan-directory "${plan_dir}")
+  fi
+  exec .venv/bin/python -m hybrid_engine.quality_report \
+    --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
+    --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
+    --output-directory "${HOME}/zeynal-test-isolated/data/quality-phase924/reports" "${plan_args[@]}"
+fi
 # One isolated poller per local installation; prevent Telegram getUpdates conflicts.
 lock_dir="${HOME}/zeynal-test-isolated"
 mkdir -p "${lock_dir}"

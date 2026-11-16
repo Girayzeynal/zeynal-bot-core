@@ -81,6 +81,8 @@ def audit_ledger(path,*,assets_directory=None):
         try:
             from hybrid_engine.prediction_audit import audit_snapshot,Assets
             row['source_audit']=audit_snapshot(p,assets_directory)
+            from hybrid_engine.forecast_error_review import input_profile
+            row['input_profile']=input_profile(p,assets_directory,source_audit=row['source_audit'])
             prepared=Assets(assets_directory).read(p['prepared_asset'])
             row['calibration_inputs']=dict(inputs_available_max_utc=p['source_data_time_utc'],
                 model_fit_cutoff_utc=p['parameter_fit_cutoff_utc'],

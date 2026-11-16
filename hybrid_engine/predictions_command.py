@@ -19,14 +19,23 @@ def stamp(value):
 
 
 def split_plain(text,limit=3500):
-    """Never split a Unicode code point or exceed Telegram's UTF-16 budget."""
-    chunk=[];units=0
-    for char in text:
-        n=len(char.encode('utf-16-le'))//2
-        if units+n>limit:
-            yield ''.join(chunk);chunk=[];units=0
-        chunk.append(char);units+=n
-    if chunk:yield ''.join(chunk)
+    """Preserve whole lines when possible and all bytes/codepoints in UTF-16 budget."""
+    if type(limit) is not int or limit<2:raise ValueError('TELEGRAM_TEXT_LIMIT_REQUIRED')
+    chunk='';units=0
+    for line in text.splitlines(keepends=True):
+        n=len(line.encode('utf-16-le'))//2
+        if units+n<=limit:chunk+=line;units+=n;continue
+        if chunk:yield chunk;chunk='';units=0
+        if n<=limit:chunk=line;units=n;continue
+        # A single oversized native text line is split without losing data.
+        chars=[]
+        for char in line:
+            width=len(char.encode('utf-16-le'))//2
+            if units+width>limit:
+                yield ''.join(chars);chars=[];units=0
+            chars.append(char);units+=width
+        chunk=''.join(chars)
+    if chunk:yield chunk
 
 
 def label(value,limit=180):
