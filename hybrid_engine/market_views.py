@@ -99,12 +99,14 @@ def assess(observation,distribution,*,asof_utc,native_quote=None,rule=None):
 
 def render(view):
     from telegram_delivery import tsi
+    from hybrid_engine.market_turkish import period,market,message
     esc=html.escape
     if not view['rows']:
-        return '<b>PİYASA GÖZLEMİ</b>\n'+esc(view['status'])+'\n'+esc(', '.join(view['reasons']))
+        return '<b>PİYASA GÖZLEMİ</b>\n'+esc(message(view['status']))+'\n'+esc('; '.join(message(r) for r in view['reasons']))
     source=view['source'];manual=source['method']=='MANUAL_SCREENSHOT'
-    label='MANUEL EKRAN AKTARIMI · ALANLAR BAĞIMSIZ DOĞRULANMADI' if manual else 'ARŞİVDEKİ NATIVE KAYNAK GÖZLEMİ'
-    lines=['📈 <b>PİYASA GÖZLEMİ | HAM MODEL</b>',esc(view['bookmaker']['name'])+' · '+esc(source['provider_name']),
+    label='MANUEL EKRAN AKTARIMI · ALANLAR BAĞIMSIZ DOĞRULANMADI' if manual else 'ARŞİVDEKİ KAYNAK BELGESİNDEN DOĞRULANAN GÖZLEM'
+    lines=['📈 <b>PİYASA GÖZLEMİ | HAM MODEL</b>','Bahis platformu: '+esc(view['bookmaker']['name']),
+        'Oran sağlayıcısı: '+esc(source['provider_name']),
         label,'Yakalama (UTC): '+('bilinmiyor' if source['captured_at_utc'] is None else datetime.fromtimestamp(source['captured_at_utc'],timezone.utc).isoformat()),
         'Tahmin: '+tsi(view['prediction_utc'])+' · Karar/gösterim: '+tsi(view['evaluated_at_utc']),
         'Gözlemin erişilebilir olması: '+tsi(view['available_at_utc']),
@@ -119,23 +121,25 @@ def render(view):
         under,over=('DEP KARŞILAR','EV KARŞILAR') if kind=='HOME_HANDICAP' else ('DEP','EV') if kind=='WINNER' else ('ALT','ÜST')
         middle='NORMAL SÜRE EŞİTLİĞİ' if kind=='WINNER' else 'EŞİT SKOR KÜTLESİ'
         line=f"{row['line']:+g}" if kind=='HOME_HANDICAP' else f"{row['line']:g}"
-        lines.extend(['',f"<b>{esc(row['period'])} · {esc(kind)} · {line}</b>",
+        title=period(row['period'])+' · '+market(kind)+(' · '+line if kind!='WINNER' else '')
+        lines.extend(['','<b>'+esc(title)+'</b>',
             f"Ham normal süre: {under} %{100*p['under']:.1f} · {middle} %{100*p['push']:.1f} · {over} %{100*p['over']:.1f}",
             'Model eğilimi (öneri değil): '+('DENGELİ' if row['conditional_direction']=='BALANCED' else under if row['conditional_direction']=='under' else over)])
         if row['prices']:
             lines.append('Kaynakta görülen ondalık oranlar: '+', '.join((under if side=='under' else over)+f' {price:g}' for side,price in row['prices'].items()))
         else:lines.append('Oran: doğrulanamadı / sağlanmadı')
         if row['expected_value'] is not None:
-            lines.append('Ham model EV (birim tutar, kalibre değil): '+esc(str(row['expected_value'])))
+            lines.append('Ham model beklenen getirisi (birim tutar, kalibre değil): '+', '.join(
+                (under if side=='under' else over)+f' {v:+.3f}' for side,v in row['expected_value'].items()))
             if row.get('price_benchmarks'):
                 thresholds=row['price_benchmarks']['break_even_conditional_on_no_push']
                 lines.append('İade dışı koşullu başa baş: '+', '.join((under if side=='under' else over)+f" %{100*value:.1f}" for side,value in thresholds.items()))
             contract=row.get('contract_raw_probabilities')
             if contract:
                 lines.append(f"Kuralı eşleşmiş ham piyasa: {under} %{100*contract['under']:.1f} · İADE %{100*contract['push']:.1f} · {over} %{100*contract['over']:.1f}")
-        else:lines.append('EV / karşılaştırılabilir avantaj: hesaplanamadı')
-        lines.append('Durum: '+esc(row['decision_status']))
-        if row['reasons']:lines.append(esc(', '.join(row['reasons'])))
-    lines.append(f"Örnek: {view['sample_count']} · NOT_CALIBRATED · Güven endeksi: yok · Seçim yapılmadı")
+        else:lines.append('Beklenen getiri / karşılaştırılabilir avantaj: hesaplanamadı')
+        lines.append('Durum: '+esc(message(row['decision_status'],technical=row['decision_status']=='NO_EDGE')))
+        if row['reasons']:lines.append(esc('; '.join(message(r) for r in row['reasons'])))
+    lines.append(f"Örnek: {view['sample_count']} · Kalibrasyon doğrulanmadı (NOT_CALIBRATED) · Güven endeksi: yok · Seçim yapılmadı")
     lines.append('Yüzdeler ham örnek frekansıdır; örneklerde 0/100 gözlenmesi kesinlik anlamına gelmez.')
     return '\n'.join(lines)

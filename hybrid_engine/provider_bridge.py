@@ -179,6 +179,17 @@ class ProviderBridge:
         publish_json(root/('provider-'+wrapper['sha256']+'.json'), wrapper)
         return wrapper['sha256']
 
+    def read_receipt(self, pin):
+        """Read only our bounded, content-addressed native evidence, never a DB."""
+        if not isinstance(pin,str) or re.fullmatch('[0-9a-f]{64}',pin) is None:
+            raise ValueError('PROVIDER_RECEIPT_PIN_REQUIRED')
+        path=local_path(self.root/('provider-'+pin+'.json'))
+        if path.stat().st_size>3*1024*1024:raise ValueError('PROVIDER_RECEIPT_SIZE_LIMIT')
+        body=json.loads(path.read_text())
+        if body['sha256']!=pin or digest(body['payload'])!=pin:
+            raise ValueError('PROVIDER_RECEIPT_PIN_CONFLICT')
+        return body['payload']
+
     def _odds(self, snapshot, deadline):
         access = self.access
         sport = SPORTS.get(snapshot['league'])
@@ -354,26 +365,28 @@ class ProviderBridge:
 
 
 def render(report):
+    from hybrid_engine.market_turkish import message
     lines = ['🔌 <b>VERİ SAĞLAYICI DENETİMİ</b>',
              'Eksik veri / doğrulanmamış kapsam, NO EDGE anlamına gelmez.',
-             'Durum: '+html.escape(report['status'])]
+             'Durum: '+html.escape(message(report['status']))]
     for provider, config in report['configuration'].items():
         row = report['providers'].get(provider, {})
         state = row.get('status', config)
-        lines.append(html.escape(provider+': '+state))
-        if row.get('operation'):lines.append('Aşama: '+html.escape(row['operation']))
-        if row.get('error_codes'):lines.append('Kaynak hata sınıfı: '+html.escape(', '.join(row['error_codes'])))
+        title={'THE_ODDS_API':'The Odds API','API_BASKETBALL':'API-Basketball'}.get(provider,provider)
+        lines.append(html.escape(title+': '+message(state)))
+        if row.get('operation'):lines.append('Aşama: '+html.escape(message(row['operation'])))
+        if row.get('error_codes'):lines.append('Kaynak hata sınıfı: '+html.escape('; '.join(message(c) for c in row['error_codes'])))
         if ('PLAN_OR_SUBSCRIPTION_RESTRICTION_REPORTED' in row.get('error_codes',[]) and
                 'SEASON_ERROR_REPORTED' in row.get('error_codes',[])):
             lines.append('Bu lig/sezon için sağlayıcı plan erişimi kısıtlı; tahmin verisi uydurulmadı.')
         if row.get('coverage_cache'):lines.append('Aynı sezon erişim reddi korunuyor; tekrar sorgulanmadı.')
         if row.get('event_clock_binding'):
             from hybrid_engine.provider_identity import clock_text
-            lines.append('Saat bağı: '+html.escape(row['event_clock_binding']['payload']['mode']))
+            lines.append('Saat bağı: '+html.escape(message(row['event_clock_binding']['payload']['mode'])))
             lines.append(html.escape(clock_text(row['event_clock_binding'])))
         detail=row.get('fixture_diagnostic')
         if detail:
-            lines.append('Eşleşme nedeni: '+html.escape(detail['reason']))
+            lines.append('Eşleşme nedeni: '+html.escape(message(detail['reason'])))
             lines.append('Arşiv UTC başlangıcı: '+html.escape(detail['target']['start_utc']))
             for candidate in detail['candidates'][:3]:
                 lines.append(html.escape(candidate['home']+' – '+candidate['away']+' | '+candidate['start_utc']+
@@ -381,7 +394,8 @@ def render(report):
         if row.get('quota'):
             lines.append('Kota (sağlayıcı yanıtı): '+html.escape(str(row['quota'])))
         for stat in row.get('statistics', []):
-            lines.append(html.escape('İstatistik '+stat.get('side', '')+': '+stat['status']))
+            side={'home':'ev sahibi','away':'deplasman'}.get(stat.get('side'),'takım')
+            lines.append(html.escape('İstatistik '+side+': '+message(stat['status'])))
     lines.extend(['API gözlemleri mevcut tahminin girdilerini veya geçmiş kaydını değiştirmez.',
                   'Kadro, sakatlık, tempo ve ödeme kapsamı ayrıca doğrulanmalıdır.',
                   'NOT_CALIBRATED · Güven endeksi: yok'])
@@ -389,12 +403,32 @@ def render(report):
 
 
 def nba_provider_panel(snapshot, service, bridge):
-    from hybrid_engine.market_views import replay_nba, assess, render as render_market
+    from hybrid_engine.market_views import replay_nba
+    from hybrid_engine.current_market_review import admit_odds,evaluate,CurrentReviewJournal
+    from hybrid_engine.current_market_render import render_batch
+    from hybrid_engine.market_turkish import message
     report = bridge.collect(snapshot)
     parts = [render(report)]
     observations = report['providers'].get('THE_ODDS_API', {}).get('observations', [])
     if observations:
         distribution = replay_nba(snapshot, service)
-        for observation in observations:
-            parts.append(render_market(assess(observation, distribution, asof_utc=int(time.time()))))
+        row=report['providers']['THE_ODDS_API']
+        try:
+            discovery=bridge.read_receipt(row['discovery_source_pin'])
+            detail=bridge.read_receipt(row['source_pin'])
+            quotes=[admit_odds(o,snapshot,discovery,detail) for o in observations]
+        except (OSError,ValueError,KeyError,TypeError):
+            parts.append(message('NATIVE_PRICE_ADMISSION_FAILED'))
+        else:
+            # The old prediction time is immutable; later quotes use a new
+            # actual decision clock and never enter original forecast metrics.
+            decision_utc=int(time.time())
+            reviews=[evaluate(o,distribution,asof_utc=decision_utc,native_quotes=q)
+                     for o,q in zip(observations,quotes)]
+            try:
+                batch=CurrentReviewJournal(bridge.root.parent/'current-market-reviews').record(
+                    snapshot,distribution,reviews,decision_utc=decision_utc)
+            except (OSError,ValueError,KeyError,TypeError):
+                parts.append(message('CURRENT_REVIEW_ARCHIVE_FAILED'))
+            else:parts.append(render_batch(batch))
     return '\n\n'.join(parts)
