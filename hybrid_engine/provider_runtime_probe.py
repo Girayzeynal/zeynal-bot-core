@@ -39,7 +39,8 @@ def main():
         unittest.defaultTestLoader.loadTestsFromName('tests.test_player_input_batch'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_player_input_launcher'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_roster_diagnostics'),
-        unittest.defaultTestLoader.loadTestsFromName('tests.test_roster_denver_native')])
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_roster_denver_native'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_official_report_link')])
     result=unittest.TextTestRunner(verbosity=1).run(suite)
     report=dict(format='ISOLATED_PROVIDER_RUNTIME_V1',tests=result.testsRun,
                 failures=len(result.failures),errors=len(result.errors),elapsed_seconds=time.perf_counter()-started,

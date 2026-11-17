@@ -299,6 +299,10 @@ def review_diagnostics(review):
         official_parsed_rows=review.get('official_parsed_rows'),
         official_fixture_rows=review.get('official_fixture_rows'),
         official_note_scope=review.get('official_note_scope'),
+        official_discovery_mode=review.get('official_discovery_mode'),
+        latest_report_verified=review.get('latest_report_verified'),
+        official_pdf_clock_verified=review.get('official_pdf_clock_verified'),
+        index_failure=review.get('index_failure'),
         successful_source_urls=[s.get('url') for s in review.get('sources',[])],
         missing_absence_corroboration=missing[:20],missing_absence_count=len(missing),
         diagnostic_only=True,confidence_index=None)
@@ -329,7 +333,9 @@ def inspect_review(directory,fixture_id):
 def official_error_code(exc):
     known={'ROSTER_SOURCE_UNAVAILABLE','ROSTER_SOURCE_COOLDOWN','ROSTER_SOURCE_PIN_OR_CLOCK',
         'INVALID_OFFICIAL_PDF','ROSTER_PDF_ARCHIVE_CONFLICT','ROSTER_EXTRACTION_PIN',
-        'INCONSISTENT_INJURY_REPORT_PAGE_TITLE','UNVERIFIED_INJURY_CONTINUATION_LAYOUT'}
+        'INCONSISTENT_INJURY_REPORT_PAGE_TITLE','UNVERIFIED_INJURY_CONTINUATION_LAYOUT',
+        'EXPLICIT_REPORT_TOO_OLD','EXPLICIT_REPORT_TITLE_NOT_VERIFIED','EXPLICIT_REPORT_TITLE_CLOCK_MISMATCH',
+        'EXPLICIT_REPORT_BODY_CHANGED'}
     if str(exc) in known: return str(exc)
     if isinstance(exc,(TimeoutError,subprocess.TimeoutExpired)): return 'OFFICIAL_SOURCE_OR_PARSE_TIMEOUT'
     if isinstance(exc,OSError): return 'OFFICIAL_ARCHIVE_IO_ERROR'
@@ -337,11 +343,13 @@ def official_error_code(exc):
 
 
 class CurrentRosterReview:
-    def __init__(self, directory, *, getter=native_get, extractor=pdf_extract, clock=time.time):
+    def __init__(self, directory, *, getter=native_get, extractor=pdf_extract, clock=time.time, report_archive=None):
         self.directory = local_path(directory); self.directory.mkdir(parents=True, exist_ok=True)
         self.getter = getter; self.extractor = extractor; self.clock = clock
         self.lock = threading.Lock(); self.cache = {}; self.sources = {}; self.cooldowns = {}
         self.last_source_failure=None
+        self.report_archive=None if report_archive is None else local_path(report_archive)
+        self.failure_codes={}
 
     def _get(self, url, deadline):
         self.last_source_failure=None
@@ -350,12 +358,15 @@ class CurrentRosterReview:
         prior = self.sources.get(url)
         if prior and 0 <= now-prior['observed_at_utc'] < TTL:
             return prior
-        if now < self.cooldowns.get(url, 0): raise ValueError('ROSTER_SOURCE_COOLDOWN')
+        if now < self.cooldowns.get(url, 0):
+            self.last_source_failure=self.failure_codes.get(url)
+            raise ValueError('ROSTER_SOURCE_COOLDOWN')
         r = self.getter(url, deadline=deadline)
         if r.get('status') != 'RECEIVED':
             self.cooldowns[url] = now + min(3600, max(30, r.get('retry_after', 300)))
             status=r.get('http_status')
             self.last_source_failure=dict(url=url,http_status=status if type(status) is int and 100<=status<=599 else None)
+            self.failure_codes[url]=deepcopy(self.last_source_failure)
             raise ValueError('ROSTER_SOURCE_UNAVAILABLE')
         now = int(self.clock()); body = r['body']
         if (r['url'] != url or type(body) is not bytes or len(body) > MAX_BYTES or
@@ -397,15 +408,37 @@ class CurrentRosterReview:
             base['sources'].append({k: v for k, v in r.items() if k != 'body'})
             stage='INDEX_FETCH'
             try:
-                index = self._get(season_index(context['season']), deadline)
-                base['sources'].append({k: v for k, v in index.items() if k != 'body'})
-                stage='INDEX_DISCOVERY'
-                ref = latest_report(index['body'], int(self.clock()), context['season'])
+                explicit=None
+                try:
+                    index = self._get(season_index(context['season']), deadline)
+                except ValueError:
+                    # Optional research fallback, ONLY for a real index 403.
+                    # Never enumerate timestamps, retry denied HTML or assert
+                    # that a user-supplied CDN link is the globally latest PDF.
+                    if self.report_archive is None or not self.last_source_failure or self.last_source_failure['http_status']!=403:
+                        raise
+                    from hybrid_engine.official_report_link import select_link,reference,MAX_AGE
+                    selected=select_link(self.report_archive,context['season'],int(self.clock()))
+                    if selected is None: raise
+                    explicit,entry_pin=selected
+                    ref=reference(explicit['url'],int(self.clock()))
+                    base.update(official_discovery_mode='EXPLICIT_OFFICIAL_CDN_LINK',latest_report_verified=False,
+                        explicit_report_entry_sha256=entry_pin,
+                        explicit_report_expires_at_utc=ref['report_timestamp_utc']+MAX_AGE,
+                        index_failure=dict(stage='INDEX_FETCH',http_status=403))
+                    base['warnings'].append('INDEX_403_EXPLICIT_LINK_NOT_ASSERTED_LATEST')
+                else:
+                    base['sources'].append({k: v for k, v in index.items() if k != 'body'})
+                    stage='INDEX_DISCOVERY'
+                    ref = latest_report(index['body'], int(self.clock()), context['season'])
+                    base.update(official_discovery_mode='LIVE_OFFICIAL_INDEX',latest_report_verified=ref is not None)
                 base['official_report'] = ref
                 base.update(official_stage=stage,official_code='NO_RECENT_PUBLISHED_REPORT')
                 if ref:
                     stage='PDF_FETCH'
                     pdf = self._get(ref['source_url'], deadline)
+                    if explicit and pdf['body_sha256']!=explicit['pdf_sha256']:
+                        raise ValueError('EXPLICIT_REPORT_BODY_CHANGED')
                     base['sources'].append({k: v for k, v in pdf.items() if k != 'body'})
                     stage='PDF_ARCHIVE'
                     path = self.directory/('pdf-'+pdf['body_sha256']+'.pdf')
@@ -419,6 +452,11 @@ class CurrentRosterReview:
                         with os.fdopen(fd, 'wb') as stream: stream.write(pdf['body']); stream.flush(); os.fsync(stream.fileno())
                     stage='PDF_EXTRACTION'
                     extraction = self.extractor(path, deadline=deadline)
+                    if explicit or extraction.get('report_titles'):
+                        from hybrid_engine.official_report_link import assert_report_title,reference
+                        if explicit: reference(ref['source_url'],int(self.clock()))
+                        assert_report_title(extraction,ref)
+                        base['official_pdf_clock_verified']=True
                     base['official_extraction_status'] = extraction['status']
                     base.update(official_stage=stage,official_code=extraction['status'],
                         official_parsed_rows=len(extraction.get('rows',[])),
@@ -453,6 +491,8 @@ class CurrentRosterReview:
             now = int(self.clock()); base['observed_at_utc'] = now
             base['valid_until_utc'] = min([context['fixture_start_utc'], now+TTL]+
                                          [s['observed_at_utc']+TTL for s in base['sources']])
+            if base.get('explicit_report_expires_at_utc') is not None:
+                base['valid_until_utc']=min(base['valid_until_utc'],base['explicit_report_expires_at_utc'])
             if now >= context['fixture_start_utc']:
                 base.update(status='TIPOFF_DURING_REVIEW', records=[])
             else:
@@ -513,6 +553,8 @@ def render_review(review):
         elif not any(r['source'] == 'NBA_OFFICIAL_PDF' for r in rows):
             lines.append('Bu maç için resmî rapor satırı eşleştirilemedi; rapor verilmiş sayılmadı.')
     if review.get('warnings'): lines.append('Bazı kaynaklar veya oyuncu kimlikleri doğrulanamadı.')
+    if review.get('official_discovery_mode')=='EXPLICIT_OFFICIAL_CDN_LINK':
+        lines.append('NBA dizini 403 verdi; açıkça eklenen taze resmî PDF bağlantısı kullanıldı. En güncel rapor olduğu doğrulanmadı.')
     if review.get('official_stage'):
         stages={'INDEX_FETCH':'NBA sayfasına erişim','INDEX_DISCOVERY':'Yayımlanmış rapor seçimi',
             'PDF_FETCH':'PDF indirme','PDF_ARCHIVE':'PDF bütünlüğü ve arşiv',

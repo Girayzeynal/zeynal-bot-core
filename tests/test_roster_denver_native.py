@@ -72,3 +72,29 @@ class DenverNativeRosterTests(TestCase):
         self.assertEqual(d['missing_absence_count'],4)
         self.assertTrue(all(r['missing_sources']==['ESPN'] for r in d['missing_absence_corroboration']))
         self.assertIsNone(d['confidence_index'])
+
+    def test_native_pdf_title_and_fresh_clock_bind_explicit_403_fallback(self):
+        from hybrid_engine.official_report_link import import_link
+        from hybrid_engine.current_roster import season_index
+        _,c=native_case(); receipts={r['url']:r for r in c['receipts']}
+        now=c['captured_v1_review']['payload']['observed_at_utc']
+        url=next(u for u in receipts if u.endswith('.pdf'))
+        def getter(url,*,deadline):
+            if url==season_index(c['context']['season']):
+                return dict(status='SOURCE_HTTP_ERROR',http_status=403,retry_after=300)
+            r=deepcopy(receipts[url]); r['body']=bytes.fromhex(r.pop('body_hex')); return r
+        with TemporaryDirectory() as tmp:
+            links=Path(tmp)/'links'
+            if importlib.util.find_spec('pdfplumber') is None:
+                with self.assertRaisesRegex(ValueError,'PARSER_UNAVAILABLE'):
+                    import_link(url,links,getter=getter,clock=lambda:now)
+                self.assertEqual(list(links.glob('link-*')),[])
+                return
+            imported=import_link(url,links,getter=getter,clock=lambda:now)
+            self.assertFalse(imported['latest_report_verified'])
+            review=CurrentRosterReview(Path(tmp)/'review',getter=getter,clock=lambda:now,
+                                       report_archive=links).review(c['context'])
+            self.assertEqual(review['official_fixture_rows'],7)
+            self.assertEqual(review['official_discovery_mode'],'EXPLICIT_OFFICIAL_CDN_LINK')
+            self.assertFalse(review['latest_report_verified'])
+            self.assertEqual(review_diagnostics(review)['missing_absence_count'],4)

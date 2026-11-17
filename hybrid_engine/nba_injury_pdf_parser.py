@@ -13,7 +13,7 @@ SUPPORTED_HEADERS=frozenset((HEADERS,OFFICIAL_HEADERS,COMPACT_HEADERS))
 STATUSES=frozenset({'Out','Doubtful','Questionable','Probable','Available'})
 
 
-def _coordinate_rows(pdf):
+def _coordinate_rows(pdf, title_output=None):
     """Extract NBA text columns when pdfplumber detects headers but not body cells.
 
     Headerless continuation pages must have the SAME official report title and
@@ -67,6 +67,8 @@ def _coordinate_rows(pdf):
             if layout and title and layout[1] and title!=layout[1]:
                 raise ValueError('INCONSISTENT_INJURY_REPORT_PAGE_TITLE')
             layout=(bounds,title,(getattr(page,'width',None),getattr(page,'height',None)))
+        if title and title_output is not None:
+            title_output.append(title)
         for _,line in lines[header_index+1:]:
             compact=''.join(str(w['text']) for w in sorted(line,key=lambda w:float(w['x0'])))
             if compact.startswith('InjuryReport:') or re.fullmatch(r'Page\d+of\d+',compact):
@@ -187,7 +189,8 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
                         continue
                     rows.append(dict(game_date=date,game_time=time,matchup=matchup,
                                      team=team,player_name=player,status=status,reason=reason))
-        coordinate_rows,coordinate_rejected=_coordinate_rows(pdf)
+        report_titles=[]
+        coordinate_rows,coordinate_rejected=_coordinate_rows(pdf,title_output=report_titles)
         # Mixed table/coordinate PDFs must not silently lose later pages just
         # because one earlier table produced a row. Prefer full table reasons
         # when both methods identify the same status; conflicts fail closed.
@@ -211,4 +214,4 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
     return dict(status='PARSED_TABLE_ROWS_REQUIRE_ID_VERIFICATION',rows=rows,
                 source_pdf_sha256=expected_sha256,rows_sha256=digest(rows),
                 rejected_count=rejected,extraction_verified=False,
-                parser_version='NBA_INJURY_PDF_COORDINATES_V2')
+                parser_version='NBA_INJURY_PDF_COORDINATES_V2',report_titles=sorted(set(report_titles)))

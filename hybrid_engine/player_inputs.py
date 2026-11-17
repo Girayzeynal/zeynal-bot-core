@@ -53,7 +53,7 @@ def collect(snapshot,assets,directory,*,reviewer=None,box_collector=collect_boxe
         cut=json.loads(path.read_text())
         if digest(cut)!=ref['sha256']: raise ValueError('PLAYER_INPUT_ASSET_PIN')
         context=context_for(snapshot)
-        service=reviewer or CurrentRosterReview(root/'current-roster')
+        service=reviewer or CurrentRosterReview(root/'current-roster',report_archive=root.parent/'official-reports')
         review=service.review(context)
         result['roster_diagnostics']=review_diagnostics(review)
         if review['status']!='CURRENT_SOURCE_OBSERVATIONS': raise Abstain('CURRENT_ROSTER_SOURCE_REVIEW_REQUIRED')

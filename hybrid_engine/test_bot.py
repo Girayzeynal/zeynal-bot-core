@@ -158,7 +158,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
     app.bot_data['market_observation_store']=market_store
     if nba_service is not None:
         from hybrid_engine.current_roster import CurrentRosterReview
-        app.bot_data['current_roster_review']=roster_review or CurrentRosterReview(root/'current-roster')
+        app.bot_data['current_roster_review']=roster_review or CurrentRosterReview(root/'current-roster',report_archive=root/'official-reports')
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');results=ProspectiveResults(archive,root/'official-results')
     frozen=FrozenHybridService(archive)
     if nba_service is not None:
