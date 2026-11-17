@@ -536,6 +536,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     if review.get('details',{}).get('admitted_observations'):
                         entry['summary']=entry['summary'].replace('Güncel doğrulanmış barem yok; piyasa ayrıntıları butonda.',
                             'Güncel piyasa kaynak gözlemleri Piyasa düğmesinde; kapsam ve kalibrasyon durumuna bakın.')
+                if section=='roster':
+                    entry['roster_review_at_utc']=review['observed_at_utc']
+                    entry['roster_valid_until_utc']=review['valid_until_utc']
                 cache_report(cache,token,entry)
             except Exception as exc:
                 logging.getLogger(__name__).warning('European source review unavailable: %s',type(exc).__name__)

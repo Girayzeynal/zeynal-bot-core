@@ -155,6 +155,13 @@ class EuropeanButtonTests(IsolatedAsyncioTestCase):
             await self.click(token,'market')
         current.assert_called_once_with(entry['europe_context'],'market')
         self.assertIn('CURRENT_SOURCE_TEST',self.api.edits[-1]);self.assertEqual(before,self.files())
+        roster=dict(r,section='roster')
+        with patch.object(reviewer,'review',return_value=roster):
+            await self.click(token,'roster')
+        cached=self.app.bot_data['premium_reports'][token]
+        text,_=page_view(cached,'roster',0,now=self.clock+121)
+        self.assertIn('Kadro gözlemi eskidi',text);self.assertEqual(before,self.files())
+
 
     async def test_source_timeout_or_cross_forecast_response_is_explained_without_losing_archive(self):
         report=await self.open();token=report['reply_markup'].inline_keyboard[0][0].callback_data.split(':')[1]

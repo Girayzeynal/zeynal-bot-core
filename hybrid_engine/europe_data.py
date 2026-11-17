@@ -167,7 +167,8 @@ class EuropeanDataReview:
                 sources.append(r)
                 if r.get('status')=='SOURCE_REDIRECT' and r.get('location'):queue.insert(0,r['location'])
                 if r.get('http_status') in (403,429):break
-        lines=['🏥 <b>GÜNCEL RESMÎ AVRUPA KAYNAĞI</b>','İlk tahmin girdisi değildir; kayıtlı skor değiştirilmedi.']
+        lines=['🏥 <b>GÜNCEL RESMÎ AVRUPA KAYNAĞI</b>','Kontrol: '+tsi(int(self.clock())),
+               'İlk tahmin girdisi değildir; kayıtlı skor değiştirilmedi.']
         for s in sources:
             lines.append(html.escape(str(s.get('url',BASE))))
             lines.append('Kaynak durumu: '+html.escape(s['status'])+
