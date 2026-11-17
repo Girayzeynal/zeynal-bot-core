@@ -404,6 +404,11 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         app.bot_data['verified_analysis_service']=ReplayDispatch()
     fetch=transport or ControlledTransport(fetch_document)
     app.bot_data['nba_fixture_loader']=nba_replay.list_nba_games if replay_only else VerifiedAnalyzeService(None,fetcher=fetch).list_nba_games
+    if nba_service is not None and not replay_only:
+        from hybrid_engine.nba_overnight import NBAOvernightScheduler,LiveNBAHybridService
+        if isinstance(nba_service,LiveNBAHybridService):
+            app.bot_data['nba_overnight_scheduler']=NBAOvernightScheduler(nba_service,app.bot_data['nba_fixture_loader'],
+                root/'nba-overnight',root/'challenger-research'/'protocol')
     async def authorized(update,context):
         if update.effective_chat is None or update.effective_chat.id!=chat_id:raise ApplicationHandlerStop
         _update.set(update.update_id)
@@ -432,6 +437,21 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             'Telegram komut alımı: OK',
             'Yetkili sohbet: OK',
             'Bu yanıtın teslimi Telegram üzerinden kontrol edilmelidir.']
+        overnight=app.bot_data.get('nba_overnight_scheduler')
+        if mode in ('all','nba') and overnight:
+            lines.append('NBA otomatik PREMATCH: AÇIK · gelecek 36 saat · son 15 dk yeni kayıt yok')
+            lines.append('Kabul deneyi kaydı otomatik; gece komut vermek veya botu durdurmak gerekmez.')
+            last=app.bot_data.get('last_nba_overnight_poll') or overnight.last_report or {}
+            lines.append('Son NBA otomatik kontrol: '+str(last.get('status','HENÜZ_ÇALIŞMADI')))
+            progress=last.get('progress') or {}
+            lines.append('İleri deney: '+str(progress.get('status','HENÜZ_DOĞRULANMADI'))+
+                ' · Sonuçlu '+str(progress.get('settled','?'))+' · Bekleyen '+str(progress.get('pending','?')))
+            if progress.get('protocol_sha256'):lines.append('Korunan plan SHA: '+progress['protocol_sha256'][:12])
+            skipped=(last.get('acceptance') or {}).get('skipped',{})
+            if skipped.get('ORIGINAL_INPUTS_TOO_OLD_FOR_PROTOCOL'):
+                lines.append('Eski girdili '+str(skipped['ORIGINAL_INPUTS_TOO_OLD_FOR_PROTOCOL'])+' tahmin kabul deneyine alınmadı; ilk kayıtlar korundu.')
+            for group in progress.get('groups',[]):
+                lines.append('Aynı kohortta eşleşmiş maç: '+str(group['matched'])+'/100 · Farklı maç günü: '+str(group['day_clusters'])+'/20')
         for code in ('EUROLEAGUE','EUROCUP'):
             if mode in ('all',code.lower()):
                 lines.append(code+' yeni tahmin servisi: '+('AÇIK; model ve kaynak her istekte doğrulanır' if code in europe_services else 'DEVRE DIŞI; arşiv listeleme açıktır'))
@@ -652,6 +672,8 @@ def main():
         if hook.url:raise ValueError('TEST_BOT_HAS_WEBHOOK_POLLING_NOT_STARTED')
         scheduler=app.bot_data.get('europe_prematch_scheduler')
         if scheduler and not args.replay_only:tasks.append(asyncio.create_task(scheduler.run(app)))
+        overnight=app.bot_data.get('nba_overnight_scheduler')
+        if overnight and not args.replay_only:tasks.append(asyncio.create_task(overnight.run(app)))
         async def collect():
             while True:
                 from hybrid_engine.result_poll import poll_once
