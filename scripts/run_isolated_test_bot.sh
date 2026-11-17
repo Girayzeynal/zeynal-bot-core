@@ -34,12 +34,33 @@ if ! flock -n 9; then
   exit 0
 fi
 branch="feature/hybrid-market-roster-evidence-20261114"
+launcher_path="${PWD}/scripts/run_isolated_test_bot.sh"
+launcher_before="$(sha256sum -- "${launcher_path}")"
 git fetch origin "${branch}"
 if [[ "$(git branch --show-current)" != "${branch}" ]]; then
   echo "WRONG_BRANCH: checkout the test branch first" >&2
   exit 2
 fi
 git merge --ff-only FETCH_HEAD
+if [[ "$(sha256sum -- "${launcher_path}")" != "${launcher_before}" ]]; then
+  # Bash can keep reading the old inode/buffer after Git replaces this file.
+  # Reload before dispatching the requested mode; close the inherited lock so
+  # the new invocation acquires it normally instead of rejecting itself.
+  echo "RESTARTING_UPDATED_LAUNCHER" >&2
+  exec 9>&-
+  exec bash "${launcher_path}" "$@"
+fi
+case "${1:-}" in
+  "")
+    if [[ "$#" -ne 0 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
+  --player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup)
+    if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
+  --player-inputs)
+    if [[ "$#" -ne 2 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
+  *)
+    echo "UNKNOWN_LAUNCHER_OPTION: update the test checkout and use a documented mode" >&2
+    exit 2 ;;
+esac
 if [[ "${1:-}" == "--player-inputs-plan" || "${1:-}" == "--player-inputs-all" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
   player_args=()
