@@ -24,15 +24,16 @@ class PlayerInputLauncherTests(TestCase):
             git('remote','add','origin',str(checkout))
             binary=checkout/'.venv/bin/python'; binary.parent.mkdir(parents=True); binary.symlink_to(sys.executable)
             package=checkout/'hybrid_engine'; package.mkdir(); (package/'__init__.py').write_text('')
-            for module in ('player_inputs','player_shadow','current_roster','official_report_link','challenger_review','challenger_forward','challenger_summary','europe_models'):
+            for module in ('player_inputs','player_shadow','current_roster','official_report_link','challenger_review','challenger_forward','challenger_summary','europe_models','europe_data'):
                 (package/(module+'.py')).write_text('import json,sys\nprint(json.dumps(dict(argv=sys.argv[1:],module=__name__)))\n')
             env=dict(os.environ,HOME=str(home),GIT_TERMINAL_PROMPT='0')
             for flag,expected in (('--player-inputs-plan','--dry-run'),('--player-inputs-all','--all-pending'),
                                   ('--player-shadow-results','--report-ledger'),('--roster-status','--inspect'),
                                   ('--roster-pdf','--url'),('--challenger-review','--ledger'),('--challenger-summary','--directory'),
-                                  ('--challenger-plan','--directory'),('--challenger-capture','--ledger'),('--challenger-results','--ledger'),('--prepare-europe','--directory')):
+                                  ('--challenger-plan','--directory'),('--challenger-capture','--ledger'),('--challenger-results','--ledger'),('--prepare-europe','--directory'),('--europe-data-check','--data-directory')):
                 with self.subTest(flag=flag):
                     args=[flag,'401910001'] if flag=='--roster-status' else [flag]
+                    if flag=='--europe-data-check':args=[flag,'EUROLEAGUE','E2026_112']
                     if flag=='--roster-pdf': args=[flag,'https://ak-static.cms.nba.com/referee/injury/Injury-Report_2026-11-16_10_45AM.pdf']
                     p=subprocess.run(['bash',str(root/'scripts/run_isolated_test_bot.sh'),*args],env=env,
                         capture_output=True,text=True,check=True,timeout=15)
@@ -43,6 +44,7 @@ class PlayerInputLauncherTests(TestCase):
                     if flag=='--roster-pdf': expected_path=home/'zeynal-test-isolated/data/official-reports'
                     if flag in ('--challenger-review','--challenger-summary'): expected_path=home/'zeynal-test-isolated/data/challenger-research/reports'
                     if flag in ('--challenger-plan','--challenger-capture','--challenger-results'): expected_path=home/'zeynal-test-isolated/data/challenger-research/protocol'
+                    if flag=='--europe-data-check':expected_path=home/'zeynal-test-isolated/data'
                     if flag=='--prepare-europe':expected_path=home/'zeynal-test-isolated/data/europe/models'
                     self.assertIn(str(expected_path),d['argv'])
                     self.assertNotIn('test_bot',p.stdout)

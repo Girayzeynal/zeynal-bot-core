@@ -1,0 +1,260 @@
+"""Current European provider observations; never mutate or retrain an issued forecast."""
+import argparse
+import html
+import json
+import threading
+import time
+from copy import deepcopy
+from dataclasses import asdict
+from datetime import datetime,timezone
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import numpy as np
+from bs4 import BeautifulSoup
+from core.team_identity import digest
+from hybrid_engine.boxes import publish_json
+from hybrid_engine.data import Cut,local_path
+from hybrid_engine.europe_models import PreparedEurope
+from hybrid_engine.europe_source_probe import fetch,inspect,PATHS,BASE
+from hybrid_engine.provider_bridge import render as render_provider
+from telegram_delivery import tsi
+
+
+def context(view,league):
+    g=view['fixture'];p=view['payload'];q=view['prediction']
+    return dict(format='EUROPE_ARCHIVED_FORECAST_VIEW_CONTEXT_V1',league=league,season=f"{g['season_start_year']}/{g['season_start_year']+1}",
+        fixture_id=g['canonical_id'],provider_fixture_ids=g['provider_fixture_ids'],fixture_start_utc=g['start_ts_utc'],
+        home=dict(provider_id=g['home_team_id'],official_name=view['pair'][0]),
+        away=dict(provider_id=g['away_team_id'],official_name=view['pair'][1]),
+        prediction_generated_at_utc=view['generated'],first_archived_at_utc=view['archived'],
+        model_version=q['model'],model_digest=view['version'],intervals=view['bands'],
+        input_clocks=[dict(ingested_at_utc=p.get('source_available_max_utc',p.get('source_data_time_utc')))],
+        original_forecast_sha256=view['forecast_sha256'])
+
+
+def article_rows(receipt,ctx,now):
+    """Official source text only, NOT independently verified player availability."""
+    if receipt.get('status')!='RECEIVED':return []
+    import hashlib
+    if hashlib.sha256(receipt['body'].encode()).hexdigest()!=receipt['body_sha256']:
+        raise ValueError('EUROPE_NEWS_BODY_PIN')
+    from hybrid_engine.europe_source_probe import allowed
+    if not allowed(receipt['url'],ctx['league']) or not 0<receipt['observed_at_utc']<=receipt['ingested_at_utc']<=now:
+        raise ValueError('EUROPE_NEWS_SOURCE_CLOCK')
+    soup=BeautifulSoup(receipt['body'],'html.parser');articles=[]
+    for tag in soup.find_all('script',type='application/ld+json')[:20]:
+        try:node=json.loads(tag.string or tag.get_text())
+        except (ValueError,TypeError):continue
+        nodes=node if isinstance(node,list) else node.get('@graph',[node]) if isinstance(node,dict) else []
+        articles.extend(n for n in nodes if isinstance(n,dict) and n.get('@type') in ('NewsArticle','Article'))
+    results=[]
+    for a in articles:
+        headline=a.get('headline','');body=a.get('articleBody')
+        if not isinstance(headline,str) or 'injur' not in headline.lower() or not isinstance(body,str):continue
+        try:
+            at=datetime.fromisoformat(a['datePublished'].replace('Z','+00:00'))
+            if at.tzinfo is None:continue
+            published=int(at.timestamp())
+        except (ValueError,KeyError,TypeError):continue
+        if not 0<published<=now<ctx['fixture_start_utc'] or now-published>48*3600:continue
+        text=BeautifulSoup(body,'html.parser').get_text(' ',strip=True)
+        from core.league_identity import normalize_name
+        for side in ('home','away'):
+            team=ctx[side]['official_name']
+            if normalize_name(team) not in normalize_name(text):continue
+            # Preserve the source's words; do not turn text into invented OUT,
+            # lineup/minute or player-ID records.
+            start=text.casefold().find(team.casefold())
+            if start<0:continue
+            results.append(dict(team_id=ctx[side]['provider_id'],team=team,
+                note=text[max(0,start-80):start+900],headline=headline[:220],published_at_utc=published,
+                source_url=receipt['url'],body_sha256=receipt['body_sha256'],
+                status='OFFICIAL_NEWS_TEXT_NOT_VERIFIED_MATCH_AVAILABILITY'))
+    return results[:4]
+
+
+class EuropeanDataReview:
+    def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time):
+        self.services=services;self.bridge=bridge;self.root=local_path(directory)
+        self.getter=getter;self.clock=clock;self.cache={};self.lock=threading.Lock()
+
+    def resolve(self,ctx):
+        service=self.services[ctx['league']]
+        for owner in (service,getattr(service,'previous',None)):
+            if owner is None:continue
+            for item in owner.registry.records():
+                p=item['payload']
+                if digest(p)==ctx['original_forecast_sha256']:
+                    g=p['fixture'];pair=owner.pair(p) if hasattr(owner,'pair') else owner._pair(p)
+                    if (g['canonical_id']!=ctx['fixture_id'] or g['start_ts_utc']!=ctx['fixture_start_utc'] or
+                        pair!=(ctx['home']['official_name'],ctx['away']['official_name']) or
+                        [g['home_team_id'],g['away_team_id']]!=[ctx['home']['provider_id'],ctx['away']['provider_id']] or
+                        p['prediction_generated_at_utc']!=ctx['prediction_generated_at_utc'] or
+                        p['version']!=ctx['model_digest'] or p['components']['BAYES_QMC']['intervals']!=ctx['intervals'] or
+                        p['source_available_max_utc']!=ctx['input_clocks'][0]['ingested_at_utc']):
+                        raise ValueError('EUROPE_CURRENT_CONTEXT_CONFLICT')
+                    return owner,p
+        archive=getattr(service,'archive',None)
+        if archive is not None:
+            for p in archive.records.values():
+                if digest(p)==ctx['original_forecast_sha256'] and p['fixture']['canonical_id']==ctx['fixture_id']:
+                    if ctx['prediction_generated_at_utc'] is not None:raise ValueError('LEGACY_ISSUE_CLOCK_UNPROVEN')
+                    return None,p
+        raise ValueError('EUROPE_CURRENT_FORECAST_PIN')
+
+    def distribution(self,owner,p,ctx):
+        if p.get('format')!='EUROPE_COMPONENT_FORECAST_V1':raise ValueError('EUROPE_REPLAY_FORMAT_UNSUPPORTED')
+        prepared=[r for r in p['assets'] if r['file'].startswith('prepared-')]
+        training=[r for r in p['assets'] if r['file'].startswith('training-')]
+        cuts=[r for r in p['assets'] if r['file'].startswith('cut-')]
+        if not len(prepared)==len(training)==len(cuts)==1:raise ValueError('EUROPE_REPLAY_ASSETS')
+        w=owner.registry.read_asset(prepared[0]);t=owner.registry.read_asset(training[0]);cut=Cut(**owner.registry.read_asset(cuts[0]))
+        if (digest(w['payload'])!=w['sha256'] or w['sha256']!=p['version'] or
+            digest(t)!=w['payload']['training_source']['sha256'] or cut.target['fixture_id']!=ctx['fixture_id'] or
+            cut.cutoff_utc!=p['feature_cutoff_utc'] or cut.cutoff_utc>ctx['prediction_generated_at_utc']):
+            raise ValueError('EUROPE_REPLAY_PARAMETER_OR_CUT_PIN')
+        with TemporaryDirectory(prefix='europe-market-replay-') as temp:
+            root=Path(temp);year=p['fixture']['season_start_year']
+            publish_json(root/f"prepared-{ctx['league']}-{year}-{w['sha256']}.json",w)
+            ref=w['payload']['training_source']
+            if Path(ref['file']).name!=ref['file']:raise ValueError('EUROPE_REPLAY_TRAINING_PATH')
+            publish_json(root/ref['file'],t)
+            model=PreparedEurope(root,ctx['league'],year).model
+            forecast=model.predict(cut,method='RQMC_HALTON',bounded_workspace=True)
+        from hybrid_engine.intervals import prediction_intervals
+        if prediction_intervals(forecast)['sample_sha256']!=ctx['intervals']['sample_sha256']:
+            raise ValueError('EUROPE_REPLAY_SAMPLE_PIN')
+        q=forecast.summary()
+        if any(not np.allclose(q[k],p['components']['BAYES_QMC']['prediction'][k],atol=1e-8,rtol=0)
+               for k in ('home','away','total','margin','quarters','halves','winner')):
+            raise ValueError('EUROPE_REPLAY_PROJECTION_PIN')
+        from hybrid_engine.decision_audit import trace_for
+        from hybrid_engine.decision_layer import DecisionDistribution
+        return DecisionDistribution(forecast,trace_for(ctx))
+
+    def market(self,ctx,owner,p):
+        report=self.bridge.collect(ctx);parts=[render_provider(report)];observations=report['providers'].get('THE_ODDS_API',{}).get('observations',[])
+        accepted=0
+        if observations:
+            from hybrid_engine.current_market_review import admit_odds,evaluate,CurrentReviewJournal
+            from hybrid_engine.current_market_render import render_batch
+            row=report['providers']['THE_ODDS_API'];discovery=self.bridge.read_receipt(row['discovery_source_pin'])
+            detail=self.bridge.read_receipt(row['source_pin'])
+            try:
+                distribution=self.distribution(owner,p,ctx);now=int(self.clock())
+                reviews=[evaluate(o,distribution,asof_utc=now,native_quotes=admit_odds(o,ctx,discovery,detail)) for o in observations]
+                if int(self.clock())>=ctx['fixture_start_utc']:raise ValueError('TIPOFF_DURING_PROVIDER_REVIEW')
+                batch=CurrentReviewJournal(self.root/'market').record(ctx,distribution,reviews,decision_utc=now)
+                parts.append(render_batch(batch));accepted=len(observations)
+            except (ValueError,KeyError,TypeError,OSError):
+                parts.append('Kaynak fiyatı veya arşiv dağılımı doğrulanamadı; yüzde/edge üretilmedi. Kod: EUROPE_MARKET_REPLAY_OR_ADMISSION_BLOCKED')
+        if not accepted:parts.append('Doğrulanmış ve eşleşmiş piyasa değerlendirmesi yok; barem veya olasılık uydurulmadı.')
+        return '\n\n'.join(parts),dict(provider_report=report,admitted_observations=accepted)
+
+    def roster(self,ctx):
+        deadline=time.monotonic()+12;league=ctx['league'];sources=[];rows=[];seen=set()
+        queue=[BASE+path for path in PATHS[league]]
+        while queue and len(seen)<3 and time.monotonic()<deadline:
+            url=queue.pop(0)
+            if url in seen:continue
+            seen.add(url);r=self.getter(url,league,deadline=deadline)
+            if r.get('status')=='RECEIVED':
+                self.save_source(r);meta=inspect(r,league);rows.extend(article_rows(r,ctx,int(self.clock())))
+                queue.extend(meta['injury_links'][:2])
+                sources.append({k:r[k] for k in ('status','url','body_sha256','observed_at_utc','ingested_at_utc')})
+            else:
+                sources.append(r)
+                if r.get('status')=='SOURCE_REDIRECT' and r.get('location'):queue.insert(0,r['location'])
+                if r.get('http_status') in (403,429):break
+        lines=['🏥 <b>GÜNCEL RESMÎ AVRUPA KAYNAĞI</b>','İlk tahmin girdisi değildir; kayıtlı skor değiştirilmedi.']
+        for s in sources:
+            lines.append(html.escape(str(s.get('url',BASE))))
+            lines.append('Kaynak durumu: '+html.escape(s['status'])+
+                         (' | HTTP '+str(s['http_status']) if s.get('http_status') else ''))
+            if s.get('retry_after_seconds'):lines.append('Yeniden deneme için bekleme: '+str(s['retry_after_seconds'])+' sn')
+            if s.get('body_sha256'):lines.append('Kaynak SHA: '+s['body_sha256']+' · Erişim: '+tsi(s['observed_at_utc']))
+        for row in rows:
+            lines.extend(['',html.escape(row['team'])+' · <b>Resmî haber notu</b>',html.escape(row['note']),
+                          'Yayın: '+tsi(row['published_at_utc']),html.escape(row['source_url'])])
+        if not rows:lines.append('Maça bağlı doğrulanmış oyuncu durum kaydı elde edilemedi; eksik oyuncu yok demek değildir.')
+        lines.extend(['Haber metni maç kadrosu, ceza uygunluğu veya bağımsız tıbbi doğrulama değildir.',
+                      'Oyuncu kimlikleri/ilk beş/dakika/rotasyon etkisi doğrulanmadı; modele uygulanmadı.',
+                      'NOT_CALIBRATED · Güven endeksi yok.'])
+        return '\n'.join(lines),dict(sources=sources,news_observations=rows,verified_player_records=[])
+
+    def save_source(self,p):
+        if len(json.dumps(p).encode())>3*1024*1024:raise ValueError('EUROPE_SOURCE_SIZE')
+        root=self.root/'sources';root.mkdir(parents=True,exist_ok=True)
+        files=list(root.glob('source-*.json'))
+        if len(files)>=64 or sum(f.stat().st_size for f in files)>16*1024*1024:raise ValueError('EUROPE_SOURCE_STORAGE_BUDGET')
+        publish_json(root/('source-'+digest(p)+'.json'),dict(payload=p,sha256=digest(p)))
+
+    def review(self,ctx,section):
+        if section not in ('market','roster'):raise ValueError('EUROPE_CURRENT_SECTION')
+        if ctx['league'] not in self.services:raise ValueError('EUROPE_CURRENT_LEAGUE')
+        owner,p=self.resolve(ctx);now=int(self.clock());key=(ctx['original_forecast_sha256'],section)
+        old=self.cache.get(key)
+        if now>=ctx['fixture_start_utc'] or ctx['prediction_generated_at_utc'] is None:
+            return dict(original_forecast_sha256=ctx['original_forecast_sha256'],section=section,observed_at_utc=now,
+                valid_until_utc=now,status='POST_TIPOFF_NO_CURRENT_BACKFILL',
+                html='Maç başladı veya ilk tahmin zamanı bilinmiyor; yeni kaynak sorgusu yapılmadı.\n'+
+                     (old['html'] if old else 'Gösterilebilir güncel kaynak gözlemi yok; ilk tahmin korunuyor.'))
+        if old and now<old['valid_until_utc']:return deepcopy(old)
+        if not self.lock.acquire(blocking=False):raise ValueError('EUROPE_PROVIDER_REVIEW_BUSY')
+        try:
+            body,details=self.market(ctx,owner,p) if section=='market' else self.roster(ctx)
+            if int(self.clock())>=ctx['fixture_start_utc']:
+                body='Maç kaynak kontrolü sırasında başladı; bu gözlem yeni PREMATCH sayılmaz.\n'+body
+            r=dict(format='EUROPE_CURRENT_SOURCE_REVIEW_V1',original_forecast_sha256=ctx['original_forecast_sha256'],
+                   fixture_id=ctx['fixture_id'],league=ctx['league'],section=section,observed_at_utc=now,
+                   context_sha256=digest(ctx),source_context=deepcopy(ctx),
+                   valid_until_utc=min(now+120,ctx['fixture_start_utc']),status='CURRENT_OBSERVATIONS_ONLY',
+                   html=body,details=details,forecast_changed=False,eligible_for_original_forecast_metrics=False)
+            root=self.root/'reviews';root.mkdir(parents=True,exist_ok=True)
+            files=list(root.glob('review-*.json'));size=len(json.dumps(r).encode())
+            if size>2*1024*1024 or len(files)>=256 or sum(f.stat().st_size for f in files)+size>16*1024*1024:
+                raise ValueError('EUROPE_REVIEW_STORAGE_BUDGET')
+            publish_json(root/('review-'+digest(r)+'.json'),dict(payload=r,sha256=digest(r)))
+            while self.cache and (len(self.cache)>=32 or sum(len(json.dumps(x).encode()) for x in self.cache.values())+size>4*1024*1024):
+                self.cache.pop(next(iter(self.cache)))
+            self.cache[key]=r;return deepcopy(r)
+        finally:self.lock.release()
+
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--data-directory',required=True)
+    p.add_argument('--league',choices=('EUROLEAGUE','EUROCUP'),required=True);p.add_argument('--fixture-id',required=True)
+    a=p.parse_args()
+    try:
+        from hybrid_engine.europe_live import EuropeanService
+        from hybrid_engine.europe_premium_ui import projection
+        from hybrid_engine.provider_access import ProviderAccess,credentials
+        from hybrid_engine.provider_bridge import ProviderBridge
+        from hybrid_engine.source_policy import ControlledTransport
+        from season_archive_collect import fetch_document
+        root=local_path(a.data_directory);directory=root/'europe'
+        service=EuropeanService(a.league,directory/a.league.lower(),directory/'models',ControlledTransport(fetch_document))
+        rows=[r for r in service.registry.independent_records() if a.fixture_id in
+              [r['payload']['fixture']['canonical_id'],*r['payload']['fixture']['provider_fixture_ids']]]
+        if len(rows)!=1:raise ValueError('ONE_ARCHIVED_EUROPEAN_FORECAST_REQUIRED')
+        report=service.render(rows[0],new=False);v=projection(report,a.league,service=service);ctx=context(v,a.league)
+        access=ProviderAccess(credentials());bridge=ProviderBridge(access,root/'provider-evidence')
+        reviewer=EuropeanDataReview({a.league:service},bridge,root/'europe-data')
+        results=[]
+        for section in ('market','roster'):
+            r=reviewer.review(ctx,section);details=r.get('details',{})
+            results.append(dict(section=section,status=r['status'],admitted_observations=details.get('admitted_observations',0),
+                provider_states={k:v.get('status') for k,v in details.get('provider_report',{}).get('providers',{}).items()},
+                source_states=[{k:s.get(k) for k in ('status','http_status','url','retry_after_seconds')} for s in details.get('sources',[])],
+                news_observations=len(details.get('news_observations',[])),verified_player_records=0))
+        print(json.dumps(dict(league=a.league,fixture_id=a.fixture_id,results=results,
+            configuration=access.configuration(),forecast_changed=False,production_changed=False,actual_telegram_delivery_verified=False),ensure_ascii=False))
+        return 0
+    except (ValueError,KeyError,TypeError,OSError):
+        print(json.dumps(dict(status='EUROPE_DATA_CHECK_BLOCKED',reason='EXISTING_ARCHIVE_OR_PROVIDER_CONFIGURATION_REQUIRED',
+                             forecast_changed=False,production_changed=False)))
+        return 2
+
+
+if __name__=='__main__':raise SystemExit(main())

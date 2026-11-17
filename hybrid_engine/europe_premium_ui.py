@@ -38,7 +38,7 @@ def projection(report,league,*,service=None,forward_service=None):
         source=season_url(league,g['season_start_year']);version=p['version']
     if resolve_league(g['league']).code!=league:raise ValueError('EUROPE_UI_LEAGUE_BINDING')
     assert_projection(q)
-    return dict(fixture=g,prediction=q,bands=bands,pair=pair,generated=generated,archived=archived,
+    return dict(payload=p,fixture=g,prediction=q,bands=bands,pair=pair,generated=generated,archived=archived,
                 source=source,version=version,forecast_sha256=pin)
 
 
@@ -95,7 +95,7 @@ def present(report,league,cache,chat_id,*,service=None,forward_service=None,rost
         evidence=read_fixture_roster_evidence(roster_store,fixture_id=g['canonical_id'],prediction_utc=v['generated'],
             fixture_start_utc=g['start_ts_utc'],home_team_id=str(g['home_team_id']),away_team_id=str(g['away_team_id']))
     roster=(roster_section(evidence)+'\n\n'+
-            'Bu lig için canlı kadro/sakatlık sorgu adaptörü bu panele bağlı değil.\n'
+            'Güncel resmî kaynak kontrolü bu düğmede ayrı gözlem olarak yapılır.\n'
             'Doğrulanmış ilk tahmin kanıtı varsa yukarıda gösterilir.\n'
             'Veri yokluğu, sakat veya cezalı oyuncu olmadığı anlamına gelmez.\n'
             'Oyuncu etkisi ve mevcut skor değiştirilmedi.')
@@ -120,5 +120,8 @@ def present(report,league,cache,chat_id,*,service=None,forward_service=None,rost
                tipoff_utc=g['start_ts_utc'],quote_valid_until_utc=None,roster_context=None,
                europe_forecast_sha256=v['forecast_sha256'],league=league)
     if len(summary.encode('utf-16-le'))//2>3500:raise ValueError('EUROPE_UI_SUMMARY_BUDGET')
+    from hybrid_engine.europe_data import context
+    entry['europe_context']=context(v,league)
+    entry['europe_original_sections']={k:sections[k] for k in ('market','roster')}
     cache_report(cache,token,entry)
     return dict(report,html_parts=[summary],html=summary,reply_markup=keyboard(token))

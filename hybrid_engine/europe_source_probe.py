@@ -5,6 +5,7 @@ from urllib.parse import urljoin,urlsplit
 import requests
 from bs4 import BeautifulSoup
 
+_COOLDOWN={}
 BASE='https://www.euroleaguebasketball.net'
 PATHS={'EUROLEAGUE':('/en/euroleague/injury-report/','/euroleague/injury-report/'),
        'EUROCUP':('/en/eurocup/news/','/eurocup/news/')}
@@ -12,21 +13,26 @@ PATHS={'EUROLEAGUE':('/en/euroleague/injury-report/','/euroleague/injury-report/
 
 def allowed(url,league):
     u=urlsplit(url);part='euroleague' if league=='EUROLEAGUE' else 'eurocup'
-    return (u.scheme=='https' and u.netloc=='www.euroleaguebasketball.net' and not u.query and not u.fragment and
+    return (u.scheme=='https' and u.netloc in ('www.euroleaguebasketball.net','euroleaguebasketball.net') and not u.query and not u.fragment and
             re.fullmatch(r'/(?:en/)?'+part+r'/(?:injury-report/|news/(?:[a-zA-Z0-9-]+/)?)',u.path) is not None)
 
 
 def fetch(url,league,*,deadline):
     if not allowed(url,league):return dict(status='SOURCE_URL_REFUSED')
     if deadline-time.monotonic()<.1:return dict(status='SOURCE_DEADLINE')
-    at=int(time.time())
+    at=int(time.time());host=urlsplit(url).netloc.removeprefix('www.')
+    if at<_COOLDOWN.get(host,0):return dict(status='SOURCE_COOLDOWN',url=url,retry_after_seconds=_COOLDOWN[host]-at)
     try:
         with requests.get(url,timeout=(2,min(5,max(.1,deadline-time.monotonic()))),stream=True,allow_redirects=False) as r:
             if r.status_code in (301,302,307,308):
                 target=urljoin(url,r.headers.get('Location',''))
                 return dict(status='SOURCE_REDIRECT',http_status=r.status_code,url=url,
                             location=target if allowed(target,league) else None)
-            if r.status_code!=200:return dict(status='SOURCE_HTTP_ERROR',http_status=r.status_code,url=url)
+            if r.status_code!=200:
+                delay=r.headers.get('Retry-After','300')
+                delay=min(3600,max(30,int(delay))) if delay.isdigit() else 300
+                if r.status_code in (403,429):_COOLDOWN[host]=int(time.time())+delay
+                return dict(status='SOURCE_HTTP_ERROR',http_status=r.status_code,url=url,retry_after_seconds=delay,observed_at_utc=at,ingested_at_utc=int(time.time()))
             chunks=[];size=0
             for block in r.iter_content(32768):
                 size+=len(block)

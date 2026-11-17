@@ -1,0 +1,40 @@
+{
+  "format": "EUROPE_OFFICIAL_SOURCE_HTTP_AUDIT_V1",
+  "workflow_run": 44143828751,
+  "workflow_job": 134253440821,
+  "observations": [
+    {
+      "workflow_log_time_utc": "2026-11-17T18:04:27.2543292Z",
+      "status": "SOURCE_HTTP_ERROR",
+      "http_status": 429,
+      "url": "https://www.euroleaguebasketball.net/en/euroleague/injury-report/",
+      "league": "EUROLEAGUE"
+    },
+    {
+      "workflow_log_time_utc": "2026-11-17T18:04:27.4475049Z",
+      "status": "SOURCE_HTTP_ERROR",
+      "http_status": 429,
+      "url": "https://www.euroleaguebasketball.net/euroleague/injury-report/",
+      "league": "EUROLEAGUE"
+    },
+    {
+      "workflow_log_time_utc": "2026-11-17T18:04:27.5665140Z",
+      "status": "SOURCE_HTTP_ERROR",
+      "http_status": 429,
+      "url": "https://www.euroleaguebasketball.net/en/eurocup/news/",
+      "league": "EUROCUP"
+    },
+    {
+      "workflow_log_time_utc": "2026-11-17T18:04:27.6433176Z",
+      "status": "SOURCE_HTTP_ERROR",
+      "http_status": 429,
+      "url": "https://www.euroleaguebasketball.net/eurocup/news/",
+      "league": "EUROCUP"
+    }
+  ],
+  "body_captured": false,
+  "verified_player_records": 0,
+  "authenticated_paid_provider_tested": false,
+  "forecast_changed": false,
+  "production_changed": false
+}

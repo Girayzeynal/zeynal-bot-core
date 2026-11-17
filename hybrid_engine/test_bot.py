@@ -337,6 +337,13 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         app.bot_data['ledger_reports']=EuropeanReportRouter(app.bot_data['ledger_reports'],europe_readers)
     app.bot_data['europe_services']=europe_services
     app.bot_data['europe_prediction_reports']=europe_readers
+    if europe_services:
+        from hybrid_engine.europe_data import EuropeanDataReview
+        from hybrid_engine.provider_access import ProviderAccess
+        from hybrid_engine.provider_bridge import ProviderBridge
+        # Reuse the already configured, quota-limited isolated credentials.
+        european_bridge=provider_bridge or ProviderBridge(ProviderAccess({}),root/'europe-provider-evidence')
+        app.bot_data['europe_data_review']=EuropeanDataReview(europe_services,european_bridge,root/'europe-data')
     prior_market_service=app.bot_data['verified_analysis_service']
     class EuroLeagueMarketDisplay:
         ledger=getattr(prior_market_service,'ledger',None)
@@ -510,6 +517,32 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         from hybrid_engine.telegram_premium_ui import keyboard,page_view
         answered=False
+        if section in ('market','roster') and page==0 and entry.get('europe_context'):
+            await query.answer('Güncel Avrupa kaynakları kontrol ediliyor…')
+            answered=True
+            try:
+                reviewer=app.bot_data['europe_data_review']
+                review=await asyncio.wait_for(asyncio.to_thread(reviewer.review,entry['europe_context'],section),timeout=20)
+                if review['original_forecast_sha256']!=entry['europe_forecast_sha256'] or review['section']!=section:
+                    raise ValueError('EUROPE_SOURCE_REVIEW_BINDING')
+                from hybrid_engine.elite_render import split_blocks
+                from hybrid_engine.telegram_premium_ui import cache_report
+                entry=dict(entry,sections=dict(entry['sections']),section_pages=dict(entry['section_pages']))
+                original=entry.get('europe_original_sections',{}).get(section,'')
+                entry['sections'][section]=review['html']+'\n\n<b>İLK TAHMİN / ARŞİV KANITI</b>\n'+original
+                entry['section_pages'][section]=split_blocks(entry['sections'][section].splitlines(),limit=3200)
+                if section=='market':
+                    entry['quote_valid_until_utc']=review['valid_until_utc']
+                    if review.get('details',{}).get('admitted_observations'):
+                        entry['summary']=entry['summary'].replace('Güncel doğrulanmış barem yok; piyasa ayrıntıları butonda.',
+                            'Güncel piyasa kaynak gözlemleri Piyasa düğmesinde; kapsam ve kalibrasyon durumuna bakın.')
+                cache_report(cache,token,entry)
+            except Exception as exc:
+                logging.getLogger(__name__).warning('European source review unavailable: %s',type(exc).__name__)
+                await query.edit_message_text('Avrupa veri kaynağı denetlenemedi veya süre aşıldı. '
+                    'Veri yokluğu tam kadro/NO EDGE anlamına gelmez. İlk tahmin korunuyor. Kod: EUROPE_SOURCE_REVIEW_UNAVAILABLE',
+                    reply_markup=keyboard(token))
+                return
         if section=='roster' and page==0 and entry.get('roster_context'):
             await query.answer('Güncel kaynaklar kontrol ediliyor…')
             answered=True

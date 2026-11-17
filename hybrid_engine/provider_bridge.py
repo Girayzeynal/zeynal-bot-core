@@ -19,7 +19,7 @@ from hybrid_engine.data import local_path
 from hybrid_engine.market_observations import VERSION, fixture_identity, quote_rows, validate
 from hybrid_engine.provider_access import ProviderAccess
 
-SPORTS = {'NBA': 'basketball_nba', 'EUROLEAGUE': 'basketball_euroleague'}
+SPORTS = {'NBA': 'basketball_nba', 'EUROLEAGUE': 'basketball_euroleague', 'EUROCUP': 'basketball_eurocup'}
 # Requests beyond the three featured markets require explicit local opt-in.
 CORE_MARKETS = ('h2h', 'spreads', 'totals')
 EXTRA_MARKETS = ('alternate_spreads', 'alternate_totals', 'team_totals',

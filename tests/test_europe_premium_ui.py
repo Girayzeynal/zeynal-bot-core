@@ -48,6 +48,7 @@ class EuropeanButtonTests(IsolatedAsyncioTestCase):
         with patch.dict(os.environ,{'TELEGRAM_BOT_TOKEN':'123456:SYNTHETIC_ONLY'}):self.main=importlib.import_module('main')
         self.api=EuropeanAPI();self.app=Application.builder().token('123456:SYNTHETIC_ONLY').request(self.api).build()
         install_isolated_services(self.app,archive,self.root/'isolated',chat_id=17,transport=fetch,nba_service=self.nba,europe_directory=self.root/'europe')
+        self.app.bot_data['europe_data_review'].getter=lambda url,league,deadline:dict(status='SOURCE_HTTP_ERROR',http_status=429,url=url,retry_after_seconds=300)
         self.app.add_handler(CommandHandler('analyze',self.main.analyze_command))
         await self.app.initialize();self.addAsyncCleanup(self.app.shutdown);self.seq=0
 
@@ -143,6 +144,27 @@ class EuropeanButtonTests(IsolatedAsyncioTestCase):
             await self.click(token,'audit');self.assertIn('ayrı kaydedilmemiş',self.api.edits[-1])
             await self.click(token,'period');self.assertIn('1Q',self.api.edits[-1])
         self.assertTrue(all(p.read_bytes()==b for p,b in original.items()))
+
+    async def test_europe_source_callback_uses_bound_context_and_does_not_rewrite_forecast(self):
+        report=await self.open();token=report['reply_markup'].inline_keyboard[0][0].callback_data.split(':')[1]
+        entry=self.app.bot_data['premium_reports'][token];before=self.files()
+        r=dict(original_forecast_sha256=report['forecast_sha256'],section='market',observed_at_utc=self.clock,
+               valid_until_utc=self.clock+120,html='CURRENT_SOURCE_TEST',details=dict(admitted_observations=0))
+        reviewer=self.app.bot_data['europe_data_review']
+        with patch.object(reviewer,'review',return_value=r) as current:
+            await self.click(token,'market')
+        current.assert_called_once_with(entry['europe_context'],'market')
+        self.assertIn('CURRENT_SOURCE_TEST',self.api.edits[-1]);self.assertEqual(before,self.files())
+
+    async def test_source_timeout_or_cross_forecast_response_is_explained_without_losing_archive(self):
+        report=await self.open();token=report['reply_markup'].inline_keyboard[0][0].callback_data.split(':')[1]
+        before=self.files();reviewer=self.app.bot_data['europe_data_review']
+        with patch.object(reviewer,'review',side_effect=TimeoutError('synthetic')):
+            await self.click(token,'roster')
+        self.assertIn('EUROPE_SOURCE_REVIEW_UNAVAILABLE',self.api.edits[-1])
+        with patch.object(reviewer,'review',return_value=dict(original_forecast_sha256='0'*64,section='market',html='UNTRUSTED')):
+            await self.click(token,'market')
+        self.assertNotIn('UNTRUSTED',self.api.edits[-1]);self.assertEqual(before,self.files())
 
     async def test_nba_dispatch_output_is_unchanged(self):
         r=await self.app.bot_data['verified_analysis_service'].analyze('NBA','2026-11-11','A','B')

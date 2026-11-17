@@ -55,12 +55,19 @@ case "${1:-}" in
     if [[ "$#" -ne 0 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
   --player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup|--challenger-review|--challenger-summary|--challenger-plan|--challenger-capture|--challenger-results|--prepare-europe)
     if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
+  --europe-data-check)
+    if [[ "$#" -ne 3 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
   --player-inputs|--roster-status|--roster-pdf)
     if [[ "$#" -ne 2 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
   *)
     echo "UNKNOWN_LAUNCHER_OPTION: update the test checkout and use a documented mode" >&2
     exit 2 ;;
 esac
+if [[ "${1:-}" == "--europe-data-check" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.europe_data \
+    --data-directory "${HOME}/zeynal-test-isolated/data" --league "$2" --fixture-id "$3"
+fi
 if [[ "${1:-}" == "--prepare-europe" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
   exec .venv/bin/python -m hybrid_engine.europe_models \
