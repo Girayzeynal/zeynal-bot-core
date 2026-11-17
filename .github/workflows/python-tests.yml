@@ -79,3 +79,20 @@ jobs:
           zeynal-bot-core:ci python -m hybrid_engine.runtime_probe --require-cgroup-limits
           --forward-euroleague-packet /app/docs/evidence/handoff-forward-el-20261115.tar.gz
           --fixture /app/docs/prospective/euroleague-20261112/index-c87489f84f5efa2c3abfae51f641bc066a6ab875f44c94bc197a0a49588b03d1.json
+
+  europe-source-audit:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[europe-source-audit]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r requirements.txt
+      - name: Inspect anonymous official European injury-source pages
+        run: python -m hybrid_engine.europe_source_probe --output-directory /tmp/europe-source-audit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: europe-source-audit
+          path: /tmp/europe-source-audit
