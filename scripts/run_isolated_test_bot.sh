@@ -53,7 +53,7 @@ fi
 case "${1:-}" in
   "")
     if [[ "$#" -ne 0 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
-  --player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup|--challenger-review|--challenger-plan|--challenger-capture|--challenger-results)
+  --player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup|--challenger-review|--challenger-summary|--challenger-plan|--challenger-capture|--challenger-results)
     if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
   --player-inputs|--roster-status|--roster-pdf)
     if [[ "$#" -ne 2 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
@@ -72,9 +72,14 @@ if [[ "${1:-}" == "--challenger-plan" || "${1:-}" == "--challenger-capture" || "
   fi
   exec .venv/bin/python -m hybrid_engine.challenger_forward "${1#--challenger-}" "${challenger_args[@]}"
 fi
+if [[ "${1:-}" == "--challenger-summary" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.challenger_summary \
+    --directory "${HOME}/zeynal-test-isolated/data/challenger-research/reports"
+fi
 if [[ "${1:-}" == "--challenger-review" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
-  exec .venv/bin/python -m hybrid_engine.challenger_review \
+  exec .venv/bin/python -m hybrid_engine.challenger_summary --run-review \
     --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
     --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
     --output-directory "${HOME}/zeynal-test-isolated/data/challenger-research/reports"

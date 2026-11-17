@@ -24,12 +24,12 @@ class PlayerInputLauncherTests(TestCase):
             git('remote','add','origin',str(checkout))
             binary=checkout/'.venv/bin/python'; binary.parent.mkdir(parents=True); binary.symlink_to(sys.executable)
             package=checkout/'hybrid_engine'; package.mkdir(); (package/'__init__.py').write_text('')
-            for module in ('player_inputs','player_shadow','current_roster','official_report_link','challenger_review','challenger_forward'):
+            for module in ('player_inputs','player_shadow','current_roster','official_report_link','challenger_review','challenger_forward','challenger_summary'):
                 (package/(module+'.py')).write_text('import json,sys\nprint(json.dumps(dict(argv=sys.argv[1:],module=__name__)))\n')
             env=dict(os.environ,HOME=str(home),GIT_TERMINAL_PROMPT='0')
             for flag,expected in (('--player-inputs-plan','--dry-run'),('--player-inputs-all','--all-pending'),
                                   ('--player-shadow-results','--report-ledger'),('--roster-status','--inspect'),
-                                  ('--roster-pdf','--url'),('--challenger-review','--ledger'),
+                                  ('--roster-pdf','--url'),('--challenger-review','--ledger'),('--challenger-summary','--directory'),
                                   ('--challenger-plan','--directory'),('--challenger-capture','--ledger'),('--challenger-results','--ledger')):
                 with self.subTest(flag=flag):
                     args=[flag,'401910001'] if flag=='--roster-status' else [flag]
@@ -41,7 +41,7 @@ class PlayerInputLauncherTests(TestCase):
                     expected_path=home/'zeynal-test-isolated/data/player-shadow'
                     if flag=='--roster-status': expected_path=expected_path/'current-roster'
                     if flag=='--roster-pdf': expected_path=home/'zeynal-test-isolated/data/official-reports'
-                    if flag=='--challenger-review': expected_path=home/'zeynal-test-isolated/data/challenger-research/reports'
+                    if flag in ('--challenger-review','--challenger-summary'): expected_path=home/'zeynal-test-isolated/data/challenger-research/reports'
                     if flag in ('--challenger-plan','--challenger-capture','--challenger-results'): expected_path=home/'zeynal-test-isolated/data/challenger-research/protocol'
                     self.assertIn(str(expected_path),d['argv'])
                     self.assertNotIn('test_bot',p.stdout)
