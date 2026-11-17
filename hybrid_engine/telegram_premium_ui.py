@@ -6,12 +6,14 @@ from datetime import datetime,timezone
 from zoneinfo import ZoneInfo
 from telegram_delivery import tsi
 
-def compact_summary(snapshot,evidence,*,replayed,health=None,market_note=None,direction_card=None):
+def compact_summary(snapshot,evidence,*,replayed,health=None,market_note=None,direction_card=None,league='NBA'):
+    if league not in ('NBA','EUROLEAGUE','EUROCUP'):raise ValueError('SUMMARY_LEAGUE_REQUIRED')
+    minutes=48 if league=='NBA' else 40
     p=snapshot['prediction'];esc=html.escape
     start=datetime.fromtimestamp(snapshot['fixture_start_utc'],ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y %H:%M')
-    lines=['🏀 <b>ZEYNAL | NBA ANALİZ</b>',
+    lines=[f'🏀 <b>ZEYNAL | {league} ANALİZ</b>',
         '<b>'+esc(str(snapshot['home']['official_name']))+'</b> 🆚 <b>'+esc(str(snapshot['away']['official_name']))+'</b>',
-        start+' TSİ · Normal süre (48 dk)','',
+        start+f' TSİ · Normal süre ({minutes} dk)','',
         '📊 <b>SKOR PROJEKSİYONU</b>',
         f'Ev <b>{p["home"]:.1f}</b> · Dep <b>{p["away"]:.1f}</b>',
         f'Toplam <b>{p["total"]:.1f}</b> · Ev farkı {p["margin"]:+.1f}','']

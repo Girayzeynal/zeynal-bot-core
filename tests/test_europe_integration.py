@@ -294,8 +294,8 @@ class EuropeanTelegramDispatchTests(unittest.IsolatedAsyncioTestCase):
                         entities=[dict(type='bot_command',offset=0,length=len(command.split()[0]))])),app.bot)
                     await app.process_update(u)
                 text='\n'.join(sent)
-                for expected in ('KAYITLI NBA','MAE 7.00','Gerçek 115 – 109','Maç: 5 | Tahmin: 20','EUROLEAGUE HİBRİT ARAŞTIRMA',
-                        'EUROCUP HİBRİT ARAŞTIRMA','KAYITLI EUROCUP','U2026_1','NOT_CALIBRATED','KAYITLI MODEL KARŞILAŞTIRMASI'):
+                for expected in ('KAYITLI NBA','MAE 7.00','Gerçek 115 – 109','Maç: 5 | Tahmin: 20','EUROLEAGUE ANALİZ',
+                        'EUROCUP ANALİZ','KAYITLI EUROCUP','U2026_1','NOT_CALIBRATED','KAYITLI MODEL KARŞILAŞTIRMASI'):
                     self.assertIn(expected,text)
                 self.assertEqual(before,ledger.path.read_bytes())
                 self.assertTrue(all(len(s.encode('utf-16-le'))//2<=4096 for s in sent))

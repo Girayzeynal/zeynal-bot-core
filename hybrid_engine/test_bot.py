@@ -354,6 +354,28 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 logging.getLogger(__name__).warning('EuroLeague market panel unavailable: %s',type(exc).__name__)
             return report
     app.bot_data['verified_analysis_service']=EuroLeagueMarketDisplay()
+    # Same authenticated/paginated callbacks as NBA; European engine files and
+    # prepared-model pins remain unchanged. All work here is presentation-only.
+    european_plain_service=app.bot_data['verified_analysis_service']
+    class EuropeanPremiumDisplay:
+        ledger=getattr(european_plain_service,'ledger',None)
+        async def analyze(self,league,*args):
+            report=await european_plain_service.analyze(league,*args)
+            code=league.upper()
+            from hybrid_engine.europe_premium_ui import present,SUPPORTED
+            if code not in europe_services or report.get('status') not in SUPPORTED:
+                return report
+            try:
+                cache=app.bot_data.setdefault('premium_reports',{})
+                return await asyncio.wait_for(asyncio.to_thread(present,report,code,cache,chat_id,
+                    service=europe_services.get(code),
+                    forward_service=live_el if forward_el is not None else None,
+                    roster_store=app.bot_data.get('verified_roster_packets')),timeout=10)
+            except Exception as exc:
+                logging.getLogger(__name__).warning('European presentation unavailable: %s',type(exc).__name__)
+                return dict(report,html_parts=[*(report.get('html_parts') or [report['html']]),
+                    'Detay düğmeleri hazırlanamadı; kayıtlı tahmin korunuyor. Kod: EUROPE_UI_UNAVAILABLE'])
+    app.bot_data['verified_analysis_service']=EuropeanPremiumDisplay()
     app.bot_data['delivery_journal']=journal
     if decision_layer:
         from hybrid_engine.decision_integration import DecisionJournal,DecisionService,DecisionReports
