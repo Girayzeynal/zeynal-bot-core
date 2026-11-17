@@ -41,6 +41,14 @@ def utc(value):
     return int(dt.timestamp())
 
 
+def team_side(value,snapshot):
+    if snapshot.get('league') in ('EUROLEAGUE','EUROCUP') and snapshot.get('european_team_catalog') is not None:
+        from hybrid_engine.europe_provider_identity import side_for
+        return side_for(value,snapshot)
+    sides=[side for side in ('home','away') if name(value)==name(snapshot[side]['official_name'])]
+    return sides[0] if len(sides)==1 else None
+
+
 def matches(event, snapshot, *, basketball=False):
     try:
         if basketball:
@@ -49,8 +57,8 @@ def matches(event, snapshot, *, basketball=False):
         else:
             h, a = event['home_team'], event['away_team']
             start = utc(event['commence_time'])
-        return (name(h) == name(snapshot['home']['official_name']) and
-                name(a) == name(snapshot['away']['official_name']) and
+        return (team_side(h,snapshot)=='home' and
+                team_side(a,snapshot)=='away' and
                 start == snapshot['fixture_start_utc'])
     except (KeyError, ValueError, TypeError):
         return False
@@ -104,19 +112,19 @@ def odds_observations(receipt, snapshot, *, discovery=None):
                         side = {'Under': 'under', 'Over': 'over'}[outcome['name']]
                         kind = 'TOTAL'
                         if key == 'team_totals':
-                            target = name(outcome['description'])
-                            if target == name(snapshot['home']['official_name']):
+                            target = team_side(outcome['description'],snapshot)
+                            if target == 'home':
                                 kind = 'HOME'
-                            elif target == name(snapshot['away']['official_name']):
+                            elif target == 'away':
                                 kind = 'AWAY'
                             else:
                                 raise ValueError('TEAM_TOTAL_IDENTITY')
                         line = outcome['point']
                     else:
-                        target = name(outcome['name'])
-                        if target == name(snapshot['home']['official_name']):
+                        target = team_side(outcome['name'],snapshot)
+                        if target == 'home':
                             side = 'over'
-                        elif target == name(snapshot['away']['official_name']):
+                        elif target == 'away':
                             side = 'under'
                         else:
                             raise ValueError('WINNER_OR_SPREAD_TEAM_IDENTITY')
@@ -221,7 +229,8 @@ class ProviderBridge:
             codes={'NATIVE_EVENT_DISCOVERY_PROOF_REQUIRED','FRESH_EVENT_DISCOVERY_CLOCK_REQUIRED',
                 'AMBIGUOUS_NATIVE_EVENT_DISCOVERY','EXACT_OR_UNIQUE_NBA_PLUS600_MATCH_REQUIRED',
                 'EXPLICIT_NBA_PLUS600_ONLY','REVERSED_NATIVE_EVENT_CONFLICT',
-                'NATIVE_EVENT_ID_OR_COMPETITION_CONFLICT','EARLIEST_NATIVE_START_ALREADY_REACHED'}
+                'NATIVE_EVENT_ID_OR_COMPETITION_CONFLICT','EARLIEST_NATIVE_START_ALREADY_REACHED',
+                'OFFICIAL_TEAM_ALIAS_OR_EXACT_START_REQUIRED'}
             return dict(status='EXACT_FIXTURE_MATCH_REQUIRED', observations=[],
                         matching_events=sum(matches(e,snapshot) for e in events['document']),
                         error_codes=[code if code in codes else 'NATIVE_EVENT_BINDING_REFUSED'],
@@ -357,6 +366,7 @@ class ProviderBridge:
                       prediction_utc=snapshot['prediction_generated_at_utc'], evaluated_at_utc=now,
                       configuration=config, providers={}, forecast_changed=False,
                       calibration_status='NOT_CALIBRATED', confidence_index=None,diagnostic_only=self.diagnostic_only)
+        if snapshot.get('current_team_identity'):report['current_team_identity']=snapshot['current_team_identity']
         if now >= snapshot['fixture_start_utc']:
             report['status'] = 'POST_TIPOFF_NO_CURRENT_API_BACKFILL'
             return report
@@ -385,6 +395,12 @@ def render(report):
     lines = ['🔌 <b>VERİ SAĞLAYICI DENETİMİ</b>',
              'Eksik veri / doğrulanmamış kapsam, NO EDGE anlamına gelmez.',
              'Durum: '+html.escape(message(report['status']))]
+    if report.get('current_team_identity'):
+        identity=report['current_team_identity']
+        lines.append('Takım kimliği: '+html.escape(message(identity['status'])))
+        if identity.get('catalog_sha256'):
+            lines.append('Güncel resmî takım kataloğu SHA: '+identity['catalog_sha256'])
+            lines.append('Bu kanıt güncel kaynak eşleştirmesidir; ilk tahmin girdisi değildir.')
     for provider, config in report['configuration'].items():
         row = report['providers'].get(provider, {})
         state = row.get('status', config)

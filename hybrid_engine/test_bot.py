@@ -522,7 +522,10 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             answered=True
             try:
                 reviewer=app.bot_data['europe_data_review']
-                review=await asyncio.wait_for(asyncio.to_thread(reviewer.review,entry['europe_context'],section),timeout=20)
+                # First market review may retrieve two bounded official club
+                # catalog receipts before the provider's 12s admission window.
+                review=await asyncio.wait_for(asyncio.to_thread(reviewer.review,entry['europe_context'],section),
+                                            timeout=45 if section=='market' else 20)
                 if review['original_forecast_sha256']!=entry['europe_forecast_sha256'] or review['section']!=section:
                     raise ValueError('EUROPE_SOURCE_REVIEW_BINDING')
                 from hybrid_engine.elite_render import split_blocks

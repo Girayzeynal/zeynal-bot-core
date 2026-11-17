@@ -15,10 +15,10 @@ RULE='NBA_ORDERED_UNIQUE_PAIR_PLUS600_V1'
 
 
 def pair(event,snapshot):
-    from hybrid_engine.provider_bridge import name
+    from hybrid_engine.provider_bridge import team_side
     try:
-        return (name(event['home_team'])==name(snapshot['home']['official_name']) and
-                name(event['away_team'])==name(snapshot['away']['official_name']))
+        return (team_side(event['home_team'],snapshot)=='home' and
+                team_side(event['away_team'],snapshot)=='away')
     except (KeyError,ValueError,TypeError):return False
 
 
@@ -44,6 +44,8 @@ def bind(receipt,snapshot,*,asof_utc=None):
         event=exact[0]
     else:
         same=[e for e in events if pair(e,snapshot)]
+        if snapshot['league'] in ('EUROLEAGUE','EUROCUP'):
+            raise ValueError('OFFICIAL_TEAM_ALIAS_OR_EXACT_START_REQUIRED')
         if snapshot['league']!='NBA' or len(same)!=1:
             raise ValueError('EXACT_OR_UNIQUE_NBA_PLUS600_MATCH_REQUIRED')
         event=same[0]
@@ -73,6 +75,11 @@ def bind(receipt,snapshot,*,asof_utc=None):
         discovery_receipt_sha256=digest(receipt),discovery_document_sha256=receipt['document_sha256'],
         discovery_event_sha256=digest(event),available_at_utc=receipt['ingested_at_utc'],
         forecast_changed=False,scheduled_times_are_identical=provider_start==official_start)
+    if snapshot.get('league') in ('EUROLEAGUE','EUROCUP') and snapshot.get('european_team_catalog') is not None:
+        from hybrid_engine.europe_provider_identity import binding_evidence,RULE as EUROPE_RULE
+        payload['team_identity']=binding_evidence(snapshot)
+        payload['rule']=EUROPE_RULE
+        payload['mode']='OFFICIAL_TEAM_ALIASES_EXACT_START'
     return event,dict(payload=payload,sha256=digest(payload))
 
 

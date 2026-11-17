@@ -49,6 +49,7 @@ def main():
         unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_city_alias'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_premium_ui'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_data'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_provider_identity'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_seasons')])
     result=unittest.TextTestRunner(verbosity=1).run(suite)
     report=dict(format='ISOLATED_PROVIDER_RUNTIME_V1',tests=result.testsRun,

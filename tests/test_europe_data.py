@@ -32,6 +32,7 @@ class EuropeanSourceTests(IsolatedAsyncioTestCase):
             report=await service.analyze(code,'2026-11-11','Paris Basketball','Fenerbahce Beko')
             self.contexts[code]=context(projection(report,code,service=service),code)
         self.now+=30;self.active='EUROLEAGUE'
+        self.provider_home_alias=None;self.provider_away_alias=None
         self.access=ProviderAccess({'THE_ODDS_API':'SYNTHETIC_ODDS','API_BASKETBALL':'SYNTHETIC_STATS'},getter=self.getter,clock=lambda:self.now)
         bridge=ProviderBridge(self.access,self.root/'providers',clock=lambda:self.now)
         self.reviewer=EuropeanDataReview(self.services,bridge,self.root/'current',getter=self.news,clock=lambda:self.now)
@@ -41,6 +42,8 @@ class EuropeanSourceTests(IsolatedAsyncioTestCase):
         def iso(at):return datetime.fromtimestamp(at,timezone.utc).isoformat()
         event=dict(id='europe_native',sport_key=SPORTS[self.active],home_team=c['home']['official_name'],
                    away_team=c['away']['official_name'],commence_time=iso(c['fixture_start_utc']+self.offset))
+        if self.provider_home_alias:event['home_team']=self.provider_home_alias
+        if self.provider_away_alias:event['away_team']=self.provider_away_alias
         if self.bad_team:event['away_team']='Another Team'
         if provider=='THE_ODDS_API':
             if u.path=='/v4/sports/':document=[dict(key=k,active=True,title=k) for k in SPORTS.values()] if self.available else []
@@ -76,6 +79,7 @@ class EuropeanSourceTests(IsolatedAsyncioTestCase):
             self.assertIn('GÜNCEL PİYASA DEĞERLENDİRMESİ',r['html']);self.assertIn('Native Book',r['html'])
             self.assertIn('170.5',r['html']);self.assertIn('NOT_CALIBRATED',r['html'])
             self.assertFalse(r['forecast_changed']);self.assertFalse(r['eligible_for_original_forecast_metrics'])
+            self.assertEqual(r['source_context']['current_team_identity']['status'],'OFFICIAL_CURRENT_TEAM_CATALOG_VERIFIED')
             self.assertEqual(before,self.originals())
             self.assertTrue(all('/injuries' not in u for _,u in self.calls))
 
@@ -92,6 +96,27 @@ class EuropeanSourceTests(IsolatedAsyncioTestCase):
         self.assertGreater(r['observed_at_utc'],ctx['prediction_generated_at_utc'])
         self.assertEqual(self.reviewer.review(ctx,'market'),r);self.assertEqual(len(self.calls),n)
 
+    async def test_current_official_aliases_reach_native_quote_admission_without_forecast_changes(self):
+        ctx=self.contexts['EUROLEAGUE'];before=deepcopy(ctx);originals=self.originals()
+        self.provider_home_alias='Paris';self.provider_away_alias='Fenerbahce'
+        r=self.reviewer.review(ctx,'market');current=r['source_context']
+        self.assertEqual(r['details']['admitted_observations'],1,r['html'])
+        self.assertEqual(ctx,before);self.assertEqual(originals,self.originals())
+        self.assertEqual(current['input_clocks'],ctx['input_clocks'])
+        self.assertEqual(current['prediction_generated_at_utc'],ctx['prediction_generated_at_utc'])
+        self.assertGreater(current['european_team_catalog']['documents']['clubs']['ingested_at_utc'],ctx['prediction_generated_at_utc'])
+        binding=r['details']['provider_report']['providers']['THE_ODDS_API']['event_clock_binding']['payload']
+        self.assertEqual(binding['mode'],'OFFICIAL_TEAM_ALIASES_EXACT_START')
+        self.assertIn('ilk tahmin girdisi değildir',r['html'])
+
+    async def test_failed_current_catalog_never_guesses_provider_alias(self):
+        ctx=self.contexts['EUROLEAGUE'];self.services['EUROLEAGUE'].fetcher.offline=True
+        self.provider_home_alias='Paris';self.provider_away_alias='Fenerbahce'
+        r=self.reviewer.review(ctx,'market')
+        self.assertEqual(r['source_context']['current_team_identity']['status'],'CURRENT_TEAM_CATALOG_UNAVAILABLE_EXACT_NAMES_ONLY')
+        self.assertEqual(r['details']['admitted_observations'],0)
+        self.assertIn('yalnız aynı takım adları',r['html'])
+
     async def test_european_ten_minute_offset_is_refused_instead_of_using_nba_offset_rule(self):
         self.offset=600;r=self.reviewer.review(self.contexts['EUROLEAGUE'],'market')
         self.assertEqual(r['details']['provider_report']['providers']['THE_ODDS_API']['status'],'EXACT_FIXTURE_MATCH_REQUIRED')
@@ -105,10 +130,12 @@ class EuropeanSourceTests(IsolatedAsyncioTestCase):
 
     async def test_post_tipoff_makes_no_provider_or_official_source_calls(self):
         ctx=self.contexts['EUROLEAGUE'];self.now=ctx['fixture_start_utc']
+        official_calls={k:len(s.fetcher.calls) for k,s in self.services.items()}
         self.reviewer.getter=Mock(side_effect=AssertionError('NO AFTER START FETCH'))
         for section in ('market','roster'):
             r=self.reviewer.review(ctx,section);self.assertEqual(r['status'],'POST_TIPOFF_NO_CURRENT_BACKFILL')
         self.assertEqual(self.calls,[]);self.reviewer.getter.assert_not_called()
+        self.assertEqual(official_calls,{k:len(s.fetcher.calls) for k,s in self.services.items()})
 
     async def test_429_is_explicit_and_never_means_healthy_roster(self):
         r=self.reviewer.review(self.contexts['EUROLEAGUE'],'roster')
@@ -131,9 +158,11 @@ class EuropeanSourceTests(IsolatedAsyncioTestCase):
 
     async def test_missing_credentials_are_reported_without_network_or_fake_data(self):
         self.reviewer.bridge.access=ProviderAccess({},getter=Mock(side_effect=AssertionError('NO KEY NO REQUEST')))
+        official_calls={k:len(s.fetcher.calls) for k,s in self.services.items()}
         r=self.reviewer.review(self.contexts['EUROLEAGUE'],'market')
         self.assertEqual(r['details']['admitted_observations'],0)
         self.assertEqual(set(v['status'] for v in r['details']['provider_report']['providers'].values()),{'KEY_NOT_AVAILABLE_IN_TEST_PROCESS'})
+        self.assertEqual(official_calls,{k:len(s.fetcher.calls) for k,s in self.services.items()})
 
 
 class EuropeanCooldownTests(TestCase):

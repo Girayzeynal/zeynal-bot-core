@@ -97,6 +97,10 @@ MESSAGES={
  'EMPTY_PROVIDER_EVENT_LIST':'Sağlayıcının maç listesi boş',
  'NO_TEAM_PAIR_IN_RETURNED_EVENTS':'Takım çifti sağlayıcının listesinde bulunamadı',
  'EXACT_SCHEDULE_MATCH':'Kaynakların başlangıç saatleri aynı',
+ 'OFFICIAL_TEAM_ALIASES_EXACT_START':'Resmî kulüp kimlikleri ve tekil başlangıç saati eşleşti',
+ 'OFFICIAL_CURRENT_TEAM_CATALOG_VERIFIED':'Lig/sezon için güncel resmî kulüp kataloğu doğrulandı',
+ 'CURRENT_TEAM_CATALOG_UNAVAILABLE_EXACT_NAMES_ONLY':'Güncel kulüp kataloğu doğrulanamadı; yalnız aynı takım adları kullanılabilir',
+ 'OFFICIAL_TEAM_ALIAS_OR_EXACT_START_REQUIRED':'Resmî kulüp kimlikleri ve aynı UTC başlangıcıyla tekil eşleşme gerekli',
  'EXPLICIT_UNIQUE_NBA_PLUS600_ASSOCIATION':'Tekil NBA eşleşmesi; sağlayıcı saati 10 dakika ileride',
 }
 

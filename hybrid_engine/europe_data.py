@@ -77,7 +77,37 @@ def article_rows(receipt,ctx,now):
 class EuropeanDataReview:
     def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time):
         self.services=services;self.bridge=bridge;self.root=local_path(directory)
-        self.getter=getter;self.clock=clock;self.cache={};self.lock=threading.Lock()
+        self.getter=getter;self.clock=clock;self.cache={};self.catalogs={};self.lock=threading.Lock()
+
+    def current_identity_context(self,ctx,owner):
+        """Separate current association evidence; never alter forecast feature clocks."""
+        ctx=deepcopy(ctx)
+        if not any(v!='KEY_NOT_AVAILABLE_IN_TEST_PROCESS' for v in self.bridge.access.configuration().values()):return ctx
+        from providers.season_participants import participant_urls
+        from hybrid_engine.europe_provider_identity import binding_evidence
+        key=(ctx['league'],ctx['season']);now=int(self.clock());old=self.catalogs.get(key)
+        try:
+            if old and now<old['valid_until_utc']:
+                bundle=deepcopy(old['bundle'])
+            else:
+                documents={}
+                for name,url in participant_urls(ctx['league'],int(ctx['season'][:4])).items():
+                    if int(self.clock())>=ctx['fixture_start_utc']:raise ValueError('TIPOFF_DURING_IDENTITY_REVIEW')
+                    documents[name]=owner.fetcher('EUROLEAGUE_LIVE',url)
+                bundle=dict(documents=documents,sha256=digest(documents))
+            ctx['european_team_catalog']=bundle
+            proof=binding_evidence(ctx)
+            self.save_source(bundle)
+            self.catalogs[key]=dict(bundle=deepcopy(bundle),valid_until_utc=min(
+                min(r['observed_at_utc'] for r in bundle['documents'].values())+240,int(self.clock())+120))
+            while len(self.catalogs)>4:self.catalogs.pop(next(iter(self.catalogs)))
+            ctx['current_team_identity']=dict(status='OFFICIAL_CURRENT_TEAM_CATALOG_VERIFIED',**proof)
+        except (ValueError,KeyError,TypeError,OSError,AttributeError):
+            # No fuzzy fallback. Existing exact canonical strings still work;
+            # alternative provider names require the full current catalog.
+            ctx.pop('european_team_catalog',None)
+            ctx['current_team_identity']=dict(status='CURRENT_TEAM_CATALOG_UNAVAILABLE_EXACT_NAMES_ONLY')
+        return ctx
 
     def resolve(self,ctx):
         service=self.services[ctx['league']]
@@ -187,9 +217,15 @@ class EuropeanDataReview:
     def save_source(self,p):
         if len(json.dumps(p).encode())>3*1024*1024:raise ValueError('EUROPE_SOURCE_SIZE')
         root=self.root/'sources';root.mkdir(parents=True,exist_ok=True)
+        target=root/('source-'+digest(p)+'.json')
+        if target.exists():
+            if target.stat().st_size>3*1024*1024:raise ValueError('EUROPE_SOURCE_SIZE')
+            old=json.loads(target.read_text())
+            if old.get('sha256')!=digest(p) or digest(old['payload'])!=digest(p):raise ValueError('EUROPE_SOURCE_PIN')
+            return
         files=list(root.glob('source-*.json'))
         if len(files)>=64 or sum(f.stat().st_size for f in files)>16*1024*1024:raise ValueError('EUROPE_SOURCE_STORAGE_BUDGET')
-        publish_json(root/('source-'+digest(p)+'.json'),dict(payload=p,sha256=digest(p)))
+        publish_json(target,dict(payload=p,sha256=digest(p)))
 
     def review(self,ctx,section):
         if section not in ('market','roster'):raise ValueError('EUROPE_CURRENT_SECTION')
@@ -204,6 +240,7 @@ class EuropeanDataReview:
         if old and now<old['valid_until_utc']:return deepcopy(old)
         if not self.lock.acquire(blocking=False):raise ValueError('EUROPE_PROVIDER_REVIEW_BUSY')
         try:
+            if section=='market':ctx=self.current_identity_context(ctx,owner)
             body,details=self.market(ctx,owner,p) if section=='market' else self.roster(ctx)
             if int(self.clock())>=ctx['fixture_start_utc']:
                 body='Maç kaynak kontrolü sırasında başladı; bu gözlem yeni PREMATCH sayılmaz.\n'+body
