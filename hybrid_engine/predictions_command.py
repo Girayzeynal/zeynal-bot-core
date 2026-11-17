@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import math
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -43,21 +44,23 @@ def label(value,limit=180):
     return value if len(value)<=limit else value[:limit]+'… [gösterim kısaltıldı]'
 
 
-def render_predictions(report,page=1):
-    if report.get('status')!='VERIFIED_LIVE_REPORT':return ['Doğrulanmış canlı NBA tahmin arşivi kullanılamıyor; kayıtlar değiştirilmedi.']
+def render_predictions(report,page=1,league='NBA'):
+    if league not in ('NBA','EUROLEAGUE','EUROCUP'):raise ValueError('PREDICTIONS_LEAGUE_REQUIRED')
+    if report.get('status')!='VERIFIED_LIVE_REPORT':return [f'Doğrulanmış canlı {league} tahmin arşivi kullanılamıyor; kayıtlar değiştirilmedi.']
     rows=sorted(report['forecasts'],key=lambda r:(r['fixture_start_utc'],r['fixture_id'],r['model_digest']),reverse=True)
     pages=max(1,math.ceil(len(rows)/PAGE_SIZE))
-    if not 1<=page<=pages:return [f'Sayfa bulunamadı. Kullanım: /predictions NBA [1–{pages}]']
-    lines=['ZEYNAL | KAYITLI NBA TAHMİNLERİ | Normal süre',
+    if not 1<=page<=pages:return [f'Sayfa bulunamadı. Kullanım: /predictions {league} [1–{pages}]']
+    lines=[f'ZEYNAL | KAYITLI {league} TAHMİNLERİ | Normal süre',
         f"Maç: {report['unique_fixtures']} | Tahmin: {len(rows)} | Sonuç bekleyen: {report['pending']}",
         f'Sayfa {page}/{pages} | Salt okunur arşiv; yeni tahmin üretilmedi.']
-    if not rows:lines.append('Doğrulanmış, kalıcı NBA tahmini bulunamadı.')
+    if not rows:lines.append(f'Doğrulanmış, kalıcı {league} tahmini bulunamadı.')
     for r in rows[(page-1)*PAGE_SIZE:page*PAGE_SIZE]:
         ids=r['provider_fixture_ids']
-        if not ids or any(not isinstance(i,str) or not i.isascii() or not i.isdigit() for i in ids):raise ValueError('PREDICTIONS_ESPN_IDS_REQUIRED')
+        pattern=r'[0-9]+' if league=='NBA' else (r'E20[0-9]{2}_[1-9][0-9]*' if league=='EUROLEAGUE' else r'U20[0-9]{2}_[1-9][0-9]*')
+        if not ids or any(not isinstance(i,str) or not i.isascii() or re.fullmatch(pattern,i) is None for i in ids):raise ValueError('PREDICTIONS_ESPN_IDS_REQUIRED' if league=='NBA' else 'PREDICTIONS_OFFICIAL_EURO_IDS_REQUIRED')
         compare=ids[0] if len(ids)==1 else r['fixture_id']
         lines.extend(['',label(r['home'])+' – '+label(r['away']),
-            'ESPN kimliği: '+', '.join(ids),
+            ('ESPN kimliği: ' if league=='NBA' else 'Resmî maç kimliği: ')+', '.join(ids),
             'Maç: '+stamp(r['fixture_start_utc']),
             'İlk üretim: '+stamp(r.get('prediction_generated_at_utc')),
             'İlk snapshot: '+stamp(r['created_utc']),
@@ -66,18 +69,21 @@ def render_predictions(report,page=1):
             'Model: '+label(r['model_version'])+' | '+r['model_digest'],
             'Durum: '+('SONUÇ BEKLENİYOR' if r['actual'] is None else 'SONUÇ DOĞRULANDI'),
             'Gerçek normal süre skoru: '+('henüz doğrulanmadı' if r['actual'] is None else f"{r['actual'][0]} – {r['actual'][1]}"),
-            '/compare NBA '+compare])
+            '/compare '+league+' '+compare])
+        if r.get('legacy_publication_clock_unrecorded'):
+            lines.append('Eski değişmez kayıt; ayrı üretim/ilk kalıcı arşiv zamanı bilinmiyorsa sonradan doldurulmadı.')
         if r.get('final_with_ot') is not None and r['final_with_ot']!=r['actual']:
             lines.append(f"Uzatma dahil final: {r['final_with_ot'][0]} – {r['final_with_ot'][1]} (normal süre metriğine katılmadı)")
-    if page<pages:lines.append(f'\nDevamı: /predictions NBA {page+1}')
+    if page<pages:lines.append(f'\nDevamı: /predictions {league} {page+1}')
     return list(split_plain('\n'.join(lines)))
 
 
 class PredictionsCommand:
     version=VERSION
-    def __init__(self,reports,journal,chat_id,*,read_timeout=5,send_timeout=15):
+    def __init__(self,reports,journal,chat_id,*,read_timeout=5,send_timeout=15,league_reports=None):
         self.reports=reports;self.journal=journal;self.chat_id=chat_id
         self.read_timeout=read_timeout;self.send_timeout=send_timeout
+        self.league_reports=league_reports or {}
 
     async def event(self,update,kind,**fields):
         import time
@@ -113,15 +119,18 @@ class PredictionsCommand:
         if update.effective_chat is None or update.effective_chat.id!=self.chat_id:raise ApplicationHandlerStop
         if update.effective_message is None:raise ApplicationHandlerStop
         await self.event(update,'PREDICTIONS_STARTED',handler_version=VERSION)
-        args=context.args or [];page=1
-        if len(args)>2 or (args and args[0].upper()!='NBA') or (len(args)==2 and (len(args[1])>4 or not args[1].isascii() or not args[1].isdigit() or not 1<=int(args[1])<=1000)):
-            await self.send(update,['Kullanım: /predictions NBA [sayfa]']);raise ApplicationHandlerStop
+        args=context.args or [];page=1;league=args[0].upper() if args else 'NBA'
+        supported={'NBA',*self.league_reports}
+        if len(args)>2 or league not in supported or (len(args)==2 and (len(args[1])>4 or not args[1].isascii() or not args[1].isdigit() or not 1<=int(args[1])<=1000)):
+            usage='NBA|EUROLEAGUE|EUROCUP' if self.league_reports else 'NBA'
+            await self.send(update,['Kullanım: /predictions '+usage+' [sayfa]']);raise ApplicationHandlerStop
         if len(args)==2:page=int(args[1])
-        if self.reports is None:
+        reader=self.reports if league=='NBA' else self.league_reports.get(league)
+        if reader is None:
             await self.send(update,['Canlı NBA tahmin arşivi bu modda kullanılamıyor. Araştırma modeli yüklenmedi; yeni tahmin üretilmedi.']);raise ApplicationHandlerStop
         try:
-            report=await asyncio.wait_for(asyncio.to_thread(self.reports.read,'NBA',None),timeout=self.read_timeout)
-            parts=render_predictions(report,page)
+            report=await asyncio.wait_for(asyncio.to_thread(reader.read,league,None),timeout=self.read_timeout)
+            parts=render_predictions(report,page,league)
             await self.event(update,'PREDICTIONS_READ_OK',records=len(report.get('forecasts',[])))
         except asyncio.TimeoutError:
             await self.event(update,'PREDICTIONS_READ_FAILED',error_type='TimeoutError')

@@ -154,7 +154,9 @@ class DispatchTests(IsolatedAsyncioTestCase):
         self.assertEqual(sent,[]);self.assertFalse(any(e['kind']=='PREDICTIONS_STARTED' for e in events))
 
     async def test_bad_arguments_and_bot_suffix_are_routed_explicitly(self):
-        sent,_,_=await self.exercise(['/predictions@zeynal_test_bot NBA','/predictions EUROCUP','/predictions NBA zero'])
+        # EuroCup is now a supported league; keep the unsupported-league
+        # assertion with an actually unknown league rather than rejecting U.
+        sent,_,_=await self.exercise(['/predictions@zeynal_test_bot NBA','/predictions UNKNOWN_LEAGUE','/predictions NBA zero'])
         self.assertIn('KAYITLI NBA TAHMİNLERİ',''.join(sent));self.assertEqual(sum('Kullanım:' in s for s in sent),2)
 
 

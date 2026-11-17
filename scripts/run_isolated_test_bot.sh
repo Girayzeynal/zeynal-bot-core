@@ -53,7 +53,7 @@ fi
 case "${1:-}" in
   "")
     if [[ "$#" -ne 0 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
-  --player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup|--challenger-review|--challenger-summary|--challenger-plan|--challenger-capture|--challenger-results)
+  --player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup|--challenger-review|--challenger-summary|--challenger-plan|--challenger-capture|--challenger-results|--prepare-europe)
     if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
   --player-inputs|--roster-status|--roster-pdf)
     if [[ "$#" -ne 2 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
@@ -61,6 +61,11 @@ case "${1:-}" in
     echo "UNKNOWN_LAUNCHER_OPTION: update the test checkout and use a documented mode" >&2
     exit 2 ;;
 esac
+if [[ "${1:-}" == "--prepare-europe" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.europe_models \
+    --directory "${HOME}/zeynal-test-isolated/data/europe/models"
+fi
 if [[ "${1:-}" == "--challenger-plan" || "${1:-}" == "--challenger-capture" || "${1:-}" == "--challenger-results" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
   challenger_args=(--directory "${HOME}/zeynal-test-isolated/data/challenger-research/protocol")
@@ -152,4 +157,5 @@ exec .venv/bin/python -m hybrid_engine.test_bot \
   --data-directory "${HOME}/zeynal-test-isolated/data" \
   --nba-model "${model}" \
   --nba-model-sha ae4e578f441770883247e648314c1a7a29c86caa76ab4aa6af006fda4b10254e \
+  --europe-directory "${HOME}/zeynal-test-isolated/data/europe" \
   --result-poll-seconds 300

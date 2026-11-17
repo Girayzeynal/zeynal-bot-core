@@ -147,8 +147,8 @@ class NBAReplayReadOnlyReports:
             'Orijinal arşiv kaydı değiştirilmedi.')
 
 
-def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None,nba_replay=None,replay_only=False,forward_el=None,provider_bridge=None,roster_review=None):
-    if replay_only and (nba_service is not None or forward_el is not None):raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_NBA_SERVICE')
+def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None,nba_replay=None,replay_only=False,forward_el=None,provider_bridge=None,roster_review=None,europe_directory=None):
+    if replay_only and (nba_service is not None or forward_el is not None or europe_directory is not None):raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_NBA_SERVICE')
     if nba_replay is None and nba_service is None:
         from hybrid_engine.nba_replay import NBAReplayArchive
         nba_replay=NBAReplayArchive()
@@ -306,6 +306,37 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 return await (live_el if league.upper()=='EUROLEAGUE' else prior).analyze(league,*args)
         app.bot_data['verified_analysis_service']=LeagueDispatch()
         app.bot_data['ledger_reports']=ForwardEuroLeagueReports(live_el,app.bot_data['ledger_reports'])
+    # Listing the preserved five-game archive does not require enabling inference.
+    from types import SimpleNamespace
+    from hybrid_engine.europe_reports import EuropeanReports,EuropeanReportRouter
+    empty=SimpleNamespace(independent_records=lambda:[])
+    legacy_service=(SimpleNamespace(league='EUROLEAGUE',registry=forward_el,pair=live_el._pair) if forward_el is not None else
+                    SimpleNamespace(league='EUROLEAGUE',registry=empty))
+    europe_readers={'EUROLEAGUE':EuropeanReports(legacy_service,results),
+                    'EUROCUP':EuropeanReports(SimpleNamespace(league='EUROCUP',registry=empty))}
+    europe_services={}
+    if europe_directory is not None:
+        from hybrid_engine.europe_live import EuropeanService
+        directory=local_path(europe_directory)
+        for code in ('EUROLEAGUE','EUROCUP'):
+            service=EuropeanService(code,directory/code.lower(),directory/'models',transport or ControlledTransport(fetch_document),
+                archive=archive if code=='EUROLEAGUE' else None,fallback=frozen,
+                previous=live_el if code=='EUROLEAGUE' and forward_el is not None else None)
+            europe_services[code]=service
+            extras=(legacy_service,) if code=='EUROLEAGUE' and forward_el is not None else ()
+            europe_readers[code]=EuropeanReports(service,results if code=='EUROLEAGUE' else None,extras)
+        previous_service=app.bot_data['verified_analysis_service']
+        class EuropeanDispatch:
+            ledger=getattr(previous_service,'ledger',None)
+            async def analyze(self,league,*args):
+                code=league.upper()
+                if code in europe_services:
+                    return await asyncio.wait_for(europe_services[code].analyze(code,*args),timeout=45)
+                return await previous_service.analyze(league,*args)
+        app.bot_data['verified_analysis_service']=EuropeanDispatch()
+        app.bot_data['ledger_reports']=EuropeanReportRouter(app.bot_data['ledger_reports'],europe_readers)
+    app.bot_data['europe_services']=europe_services
+    app.bot_data['europe_prediction_reports']=europe_readers
     prior_market_service=app.bot_data['verified_analysis_service']
     class EuroLeagueMarketDisplay:
         ledger=getattr(prior_market_service,'ledger',None)
@@ -362,13 +393,16 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
-        if mode not in ('all','nba','euroleague','roster'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test roster, /test all')
+        if mode not in ('all','nba','euroleague','eurocup','roster'):
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',
             'Yetkili sohbet: OK',
             'Bu yanıtın teslimi Telegram üzerinden kontrol edilmelidir.']
+        for code in ('EUROLEAGUE','EUROCUP'):
+            if mode in ('all',code.lower()):
+                lines.append(code+' yeni tahmin servisi: '+('AÇIK; model ve kaynak her istekte doğrulanır' if code in europe_services else 'DEVRE DIŞI; arşiv listeleme açıktır'))
         if mode in ('all','euroleague'):
             try:
                 count=len(archive.records)
@@ -409,7 +443,10 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         command=(update.effective_message.text or '').split()[0].split('@')[0].lower()
         try:
             day=parse_nba_date(context.args or [],datetime.now(timezone.utc))
-            if command=='/euroleague':
+            code=command[1:].upper()
+            if code in europe_services:
+                parts=await asyncio.to_thread(europe_services[code].fixture_blocks,day)
+            elif command=='/euroleague':
                 receipt=await asyncio.to_thread(fetch,'EUROLEAGUE_LIVE',OFFICIAL)
                 parts=euroleague_blocks(receipt,day)
             else:
@@ -421,7 +458,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         raise ApplicationHandlerStop
     from hybrid_engine.predictions_command import PredictionsCommand
     from ledger_reports import LedgerReports
-    predictions=PredictionsCommand(LedgerReports(nba_service.ledger.path) if nba_service is not None else None,journal,chat_id)
+    predictions=PredictionsCommand(LedgerReports(nba_service.ledger.path) if nba_service is not None else None,journal,chat_id,league_reports=europe_readers)
     app.bot_data['predictions_command']=predictions
     app.add_handler(CommandHandler('predictions',predictions.handle),group=-50)
     from hybrid_engine.health_command import HealthCommand
@@ -429,7 +466,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
     app.bot_data['health_command']=health_command
     app.add_handler(CommandHandler('health',health_command.handle),group=-50)
     if nba_service is not None:app.add_handler(CommandHandler('nba',isolated_fixtures),group=-50)
-    if forward_el is not None:app.add_handler(CommandHandler('euroleague',isolated_fixtures),group=-50)
+    if forward_el is not None or 'EUROLEAGUE' in europe_services:app.add_handler(CommandHandler('euroleague',isolated_fixtures),group=-50)
+    if 'EUROCUP' in europe_services:app.add_handler(CommandHandler('eurocup',isolated_fixtures),group=-50)
     async def premium_callback(update,context):
         query=update.callback_query
         if query is None or update.effective_chat is None or update.effective_chat.id!=chat_id:
@@ -501,6 +539,7 @@ def main():
     parser.add_argument('--nba-model');parser.add_argument('--nba-model-sha')
     parser.add_argument('--decision-layer',action='store_true');parser.add_argument('--decision-audit');parser.add_argument('--decision-audit-sha')
     parser.add_argument('--forward-euroleague-directory');parser.add_argument('--forward-nba-ledger')
+    parser.add_argument('--europe-directory',help='Isolated EuroLeague/EuroCup registries and offline model directory')
     parser.add_argument('--nba-replay-packet');parser.add_argument('--replay-only',action='store_true')
     args=parser.parse_args();config=configuration(os.environ)
     # Capture dedicated data credentials before blanking the legacy production
@@ -510,7 +549,7 @@ def main():
     if args.preflight or config['status']=='NOT_CONFIGURED':
         print(json.dumps(dict(config,data_providers=data_access.configuration())));return
     if not args.archive_directory or not args.data_directory:raise ValueError('ISOLATED_DIRECTORIES_REQUIRED')
-    if args.replay_only and (args.nba_model or args.nba_model_sha or args.forward_euroleague_directory or args.forward_nba_ledger):
+    if args.replay_only and (args.nba_model or args.nba_model_sha or args.forward_euroleague_directory or args.forward_nba_ledger or args.europe_directory):
         raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_MODELS_AND_RESULT_COLLECTION')
     from hybrid_engine.nba_replay import NBAReplayArchive,DEFAULT_PACKET
     nba_replay=NBAReplayArchive(local_path(args.nba_replay_packet) if args.nba_replay_packet else DEFAULT_PACKET)
@@ -561,6 +600,8 @@ def main():
                 if nba_service is not None:
                     from hybrid_engine.nba_ledger_settlement import settle as settle_hybrid_nba
                     jobs.append(('LIVE_NBA',lambda:settle_hybrid_nba(nba_service.ledger,fetcher=transport)))
+                for code,service in app.bot_data.get('europe_services',{}).items():
+                    jobs.append(('EUROPE_HYBRID_'+code,service.collect_results))
                 app.bot_data['last_result_poll']=await poll_once(jobs,journal)
                 await asyncio.sleep(args.result_poll_seconds)
         if not args.replay_only:tasks.append(asyncio.create_task(collect()))
@@ -583,7 +624,8 @@ def main():
         provider_bridge=ProviderBridge(data_access,root/'provider-evidence',
             extended=os.getenv('ZEYNAL_TEST_ODDS_EXTENDED','0')=='1')
     _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport,nba_service=nba_service,
-        decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only,forward_el=forward_el,provider_bridge=provider_bridge)
+        decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only,forward_el=forward_el,provider_bridge=provider_bridge,
+        europe_directory=None if args.replay_only else local_path(args.europe_directory) if args.europe_directory else root/'europe')
     app.bot_data['test_results']=results
     # Commands must arrive from the authorized HUMAN test chat; bot self-messages
     # are never counted as real command-input E2E evidence.
