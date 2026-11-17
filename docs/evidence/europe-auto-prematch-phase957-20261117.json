@@ -1,0 +1,59 @@
+{
+  "payload": {
+    "format": "EUROPE_AUTOMATIC_PREMATCH_VALIDATION_V1",
+    "recorded_at_utc": "2026-11-17T20:18:31.026493+00:00",
+    "base_commit": "3ab72c0d6ccecf46d721e69478af03080a08f78e",
+    "checks": {
+      "full": {
+        "tests": 1445,
+        "elapsed_seconds": 126.24,
+        "failures": 0,
+        "errors": 0,
+        "log_sha256": "47c79c171bd2a3687a7c275172ec3a2aa5ffddad1063f10ec4e0375770e18354"
+      },
+      "targeted": {
+        "tests": 75,
+        "elapsed_seconds": 25.132,
+        "failures": 0,
+        "errors": 0,
+        "log_sha256": "9cb6326aa8469989d515554a375343382d271cc350274d0072fdb825073cc984"
+      },
+      "telegram_loopback": {
+        "tests": 1,
+        "elapsed_seconds": 2.992,
+        "failures": 0,
+        "errors": 0,
+        "log_sha256": "584e2afcce08f19b82b4ed107638e1660bd489d482c796f9754b3ad1fa9feb62"
+      }
+    },
+    "previous_tests_preserved": 1424,
+    "new_tests": 21,
+    "source_transport": "SYNTHETIC_NATIVE_SHAPE_FIXTURES_AND_REAL_SIMULATION",
+    "telegram_transport": "LOCAL_HTTP_PTB_HANDLERS",
+    "actual_telegram_delivery_verified": false,
+    "telegram_e2e_status": "BLOCKED_NOT_CONFIGURED_IN_CLOUD",
+    "missing_test_configuration": [
+      "ZEYNAL_TEST_BOT_TOKEN",
+      "ZEYNAL_TEST_BOT_ID",
+      "ZEYNAL_TEST_BOT_USERNAME",
+      "ZEYNAL_TEST_CHAT_ID"
+    ],
+    "scenarios_tsi": {
+      "fixture": "22:30",
+      "early_target": "20:30–21:00",
+      "at_2210": "EXISTING_REPLAY_OR_SAFE_CATCH_UP",
+      "at_2216": "EXISTING_REPLAY_OR_ABSTAIN",
+      "at_2231": "EXISTING_REPLAY_OR_ABSTAIN"
+    },
+    "protocol_sha256_unchanged": "1e8f24a665a8b34a2ca22c37e408591ae8547b12788fe70c7150079b43249317",
+    "pinned_european_engine_changed": false,
+    "nba_engine_changed": false,
+    "model_training": false,
+    "calibration_applied": false,
+    "original_forecasts_rewritten": false,
+    "production_changed": false,
+    "main_merged": false,
+    "acceptance": "NO_GO_PRODUCTION"
+  },
+  "sha256": "b07c2fdbad13b064b8e4b2a4a0f3b05a504d0dab74981c1a277df3777003a2b0"
+}

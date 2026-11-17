@@ -21,6 +21,12 @@ if [[ "${1:-}" == "--error-review" ]]; then
     --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
     --output-directory "${HOME}/zeynal-test-isolated/data/quality-phase924/reports" "${plan_args[@]}"
 fi
+# Read-only automatic capture status can run without stopping the poller.
+if [[ "${1:-}" == "--europe-prematch-status" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
+  exec .venv/bin/python -B -m hybrid_engine.europe_prematch \
+    --directory "${HOME}/zeynal-test-isolated/data/europe-prematch"
+fi
 # One isolated poller per local installation; prevent Telegram getUpdates conflicts.
 lock_dir="${HOME}/zeynal-test-isolated"
 mkdir -p "${lock_dir}"

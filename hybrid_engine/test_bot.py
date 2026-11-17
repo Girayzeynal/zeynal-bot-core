@@ -316,7 +316,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     'EUROCUP':EuropeanReports(SimpleNamespace(league='EUROCUP',registry=empty))}
     europe_services={}
     if europe_directory is not None:
-        from hybrid_engine.europe_live import EuropeanService
+        from hybrid_engine.europe_prematch import AutomaticEuropeanService as EuropeanService
         directory=local_path(europe_directory)
         for code in ('EUROLEAGUE','EUROCUP'):
             service=EuropeanService(code,directory/code.lower(),directory/'models',transport or ControlledTransport(fetch_document),
@@ -336,6 +336,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         app.bot_data['verified_analysis_service']=EuropeanDispatch()
         app.bot_data['ledger_reports']=EuropeanReportRouter(app.bot_data['ledger_reports'],europe_readers)
     app.bot_data['europe_services']=europe_services
+    if europe_services and not replay_only:
+        from hybrid_engine.europe_prematch import EuropeanPrematchScheduler
+        app.bot_data['europe_prematch_scheduler']=EuropeanPrematchScheduler(europe_services,root/'europe-prematch')
     app.bot_data['europe_prediction_reports']=europe_readers
     if europe_services:
         from hybrid_engine.europe_data import EuropeanDataReview
@@ -432,6 +435,10 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         for code in ('EUROLEAGUE','EUROCUP'):
             if mode in ('all',code.lower()):
                 lines.append(code+' yeni tahmin servisi: '+('AÇIK; model ve kaynak her istekte doğrulanır' if code in europe_services else 'DEVRE DIŞI; arşiv listeleme açıktır'))
+        if mode in ('all','euroleague','eurocup') and app.bot_data.get('europe_prematch_scheduler'):
+            lines.append('Avrupa otomatik PREMATCH: AÇIK · hedef 90–120 dk · son 15 dk yeni kayıt yok')
+            last=app.bot_data.get('last_europe_prematch_poll',{})
+            lines.append('Son otomatik kontrol: '+str(last.get('status','HENÜZ_ÇALIŞMADI')))
         if mode in ('all','euroleague'):
             try:
                 count=len(archive.records)
@@ -643,6 +650,8 @@ def main():
         if me.id!=config['bot_id'] or me.username!=config['username']:raise ValueError('TEST_BOT_SERVER_IDENTITY_MISMATCH')
         hook=await app.bot.get_webhook_info()
         if hook.url:raise ValueError('TEST_BOT_HAS_WEBHOOK_POLLING_NOT_STARTED')
+        scheduler=app.bot_data.get('europe_prematch_scheduler')
+        if scheduler and not args.replay_only:tasks.append(asyncio.create_task(scheduler.run(app)))
         async def collect():
             while True:
                 from hybrid_engine.result_poll import poll_once
