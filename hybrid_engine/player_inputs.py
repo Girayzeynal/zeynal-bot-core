@@ -9,7 +9,7 @@ import time
 
 from core.team_identity import digest
 from hybrid_engine.boxes import collect_boxes,publish_json
-from hybrid_engine.current_roster import CurrentRosterReview,context_for,PREFIX,roster_ids
+from hybrid_engine.current_roster import CurrentRosterReview,context_for,PREFIX,roster_ids,review_diagnostics
 from hybrid_engine.data import Abstain,local_path
 from hybrid_engine.player_minutes import MinutesArchive,projection
 from hybrid_engine.prediction_audit import audit_snapshot
@@ -55,6 +55,7 @@ def collect(snapshot,assets,directory,*,reviewer=None,box_collector=collect_boxe
         context=context_for(snapshot)
         service=reviewer or CurrentRosterReview(root/'current-roster')
         review=service.review(context)
+        result['roster_diagnostics']=review_diagnostics(review)
         if review['status']!='CURRENT_SOURCE_OBSERVATIONS': raise Abstain('CURRENT_ROSTER_SOURCE_REVIEW_REQUIRED')
         rosters={}; deadline=time.monotonic()+30
         for side in ('home','away'):
@@ -189,7 +190,7 @@ def collect_batch(ledger,assets,directory,*,maximum=4,minimum_lead_seconds=900,
                 if digest(snapshot)!=row['snapshot_sha256']:
                     raise ValueError('PLAYER_BATCH_SNAPSHOT_CHANGED_DURING_READ')
                 one=collect_one(snapshot,assets,root)
-                item={k:one.get(k) for k in ('fixture_id','status','reason','projection','new_record')}
+                item={k:one.get(k) for k in ('fixture_id','status','reason','projection','new_record','roster_diagnostics')}
             except (ValueError,KeyError,TypeError,OSError,sqlite3.Error):
                 item=dict(fixture_id=row['fixture_id'],status='BLOCKED',reason='PLAYER_BATCH_ARCHIVE_OR_SOURCE_UNAVAILABLE')
             result['results'].append(item)

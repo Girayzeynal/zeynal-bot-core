@@ -183,3 +183,10 @@ class PlayerBatchTests(TestCase):
         with patch('hybrid_engine.player_inputs.publish_json',side_effect=OSError('synthetic-disk-full')):
             with self.assertRaises(OSError): self.run_batch(maximum=1)
         self.assertEqual(self.ledger.read_bytes(),before)
+
+    def test_batch_retains_safe_per_player_roster_diagnostics(self):
+        self.collector.side_effect=lambda s,a,d:dict(fixture_id=s['fixture_id'],status='BLOCKED',
+            reason='ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS',
+            roster_diagnostics=dict(missing_absence_count=1,official_stage='INDEX_FETCH'))
+        r=self.run_batch(maximum=1)
+        self.assertEqual(r['results'][0]['roster_diagnostics']['missing_absence_count'],1)

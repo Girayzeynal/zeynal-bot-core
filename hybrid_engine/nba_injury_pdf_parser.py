@@ -16,13 +16,15 @@ STATUSES=frozenset({'Out','Doubtful','Questionable','Probable','Available'})
 def _coordinate_rows(pdf):
     """Extract NBA text columns when pdfplumber detects headers but not body cells.
 
-    Coordinate bands are anchored to the seven headers on each page, never to
-    unvalidated text order. Sparse game/team cells inherit only within a game.
+    Headerless continuation pages must have the SAME official report title and
+    page geometry as a preceding anchored page. Never infer columns from plain
+    text order. Wrapped reasons are retained as fragments, not reconstructed.
     """
     import re
     output=[]
     rejected=0
     context=None
+    layout=None
     for page in pdf.pages:
         if not hasattr(page,'extract_words'):
             continue
@@ -36,6 +38,8 @@ def _coordinate_rows(pdf):
                 lines.append((top,[w]))
         header_index=None
         bounds=None
+        title=next((''.join(str(w['text']) for w in sorted(line,key=lambda w:float(w['x0'])))
+            for _,line in lines if ''.join(str(w['text']) for w in sorted(line,key=lambda w:float(w['x0']))).startswith('InjuryReport:')),None)
         for i,(_,line) in enumerate(lines):
             ordered=sorted(line,key=lambda w:float(w['x0']))
             joined=''.join(str(w['text']) for w in ordered).replace(' ','').lower()
@@ -51,8 +55,22 @@ def _coordinate_rows(pdf):
                     header_index=i
                     break
         if bounds is None:
-            continue
+            geometry=(getattr(page,'width',None),getattr(page,'height',None))
+            if layout is None or title is None or title!=layout[1] or geometry!=layout[2]:
+                if layout is not None and words:
+                    raise ValueError('UNVERIFIED_INJURY_CONTINUATION_LAYOUT')
+                context=None
+                rejected+=1
+                continue
+            bounds=layout[0]; header_index=-1
+        else:
+            if layout and title and layout[1] and title!=layout[1]:
+                raise ValueError('INCONSISTENT_INJURY_REPORT_PAGE_TITLE')
+            layout=(bounds,title,(getattr(page,'width',None),getattr(page,'height',None)))
         for _,line in lines[header_index+1:]:
+            compact=''.join(str(w['text']) for w in sorted(line,key=lambda w:float(w['x0'])))
+            if compact.startswith('InjuryReport:') or re.fullmatch(r'Page\d+of\d+',compact):
+                continue
             cells=[[] for _ in range(7)]
             for w in sorted(line,key=lambda w:float(w['x0'])):
                 x=float(w['x0'])
@@ -82,12 +100,15 @@ def _coordinate_rows(pdf):
                     team=old_team
             if date and time and matchup and team:
                 context=(date,time,matchup,team)
+            elif matchup and context and matchup!=context[2]:
+                context=None
             if not player and reason.replace(' ','').upper()=='NOTYETSUBMITTED':
                 rejected+=1
                 continue
-            if player and status in STATUSES and reason and date and time and matchup and team:
+            if player and status in STATUSES and date and time and matchup and team:
                 output.append(dict(game_date=date,game_time=time,matchup=matchup,
-                                   team=team,player_name=player,status=status,reason=reason))
+                                   team=team,player_name=player,status=status,reason=reason,
+                                   reason_fragment=True))
             elif player or status:
                 rejected+=1
     return output,rejected
@@ -166,10 +187,21 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
                         continue
                     rows.append(dict(game_date=date,game_time=time,matchup=matchup,
                                      team=team,player_name=player,status=status,reason=reason))
-        if not rows:
-            coordinate_rows,coordinate_rejected=_coordinate_rows(pdf)
-            rows.extend(coordinate_rows)
-            rejected+=coordinate_rejected
+        coordinate_rows,coordinate_rejected=_coordinate_rows(pdf)
+        # Mixed table/coordinate PDFs must not silently lose later pages just
+        # because one earlier table produced a row. Prefer full table reasons
+        # when both methods identify the same status; conflicts fail closed.
+        def key(row):
+            return tuple(''.join(row[k].split()).casefold() for k in
+                ('game_date','game_time','matchup','team','player_name'))
+        indexed={key(row):row for row in rows}
+        for row in coordinate_rows:
+            prior=indexed.get(key(row))
+            if prior and prior['status']!=row['status']:
+                raise ValueError('INJURY_EXTRACTION_STATUS_CONFLICT')
+            if prior is None:
+                indexed[key(row)]=row; rows.append(row)
+        rejected+=coordinate_rejected
     if recognized_tables==0 and not rows:
         raise ValueError('OFFICIAL_REPORT_TABLE_SCHEMA_UNRECOGNIZED')
     if not rows:
@@ -178,4 +210,5 @@ def extract_nba_injury_rows(pdf_bytes, *, expected_sha256):
                     extraction_verified=False)
     return dict(status='PARSED_TABLE_ROWS_REQUIRE_ID_VERIFICATION',rows=rows,
                 source_pdf_sha256=expected_sha256,rows_sha256=digest(rows),
-                rejected_count=rejected,extraction_verified=False)
+                rejected_count=rejected,extraction_verified=False,
+                parser_version='NBA_INJURY_PDF_COORDINATES_V2')

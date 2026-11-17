@@ -105,3 +105,12 @@ class PlayerInputTests(TestCase):
         path=self.root/'missing.sqlite'
         with self.assertRaises((ValueError,FileNotFoundError)): load_snapshot(path,'401000001')
         self.assertFalse(path.exists())
+
+    def test_blocked_absence_lists_player_and_missing_corroborating_source(self):
+        self.data['review']['records']=[dict(team_id='1',player_id='100',player_name='Test Player',
+            source='ESPN',status='Out',status_updated_at_utc=fixtures.NOW-10)]
+        result=self.run_collect()
+        self.assertEqual(result['reason'],'ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS')
+        d=result['roster_diagnostics']; self.assertEqual(d['missing_absence_count'],1)
+        self.assertEqual(d['missing_absence_corroboration'][0]['missing_sources'],['NBA_OFFICIAL_PDF'])
+        self.assertIsNone(result['projection'])

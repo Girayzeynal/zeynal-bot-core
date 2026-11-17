@@ -55,12 +55,19 @@ case "${1:-}" in
     if [[ "$#" -ne 0 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
   --player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup)
     if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
-  --player-inputs)
+  --player-inputs|--roster-status)
     if [[ "$#" -ne 2 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
   *)
     echo "UNKNOWN_LAUNCHER_OPTION: update the test checkout and use a documented mode" >&2
     exit 2 ;;
 esac
+if [[ "${1:-}" == "--roster-status" ]]; then
+  if [[ ! "${2:-}" =~ ^[0-9]{1,15}$ ]]; then echo "NUMERIC_ESPN_FIXTURE_REQUIRED" >&2; exit 2; fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.current_roster \
+    --fixture-id "$2" --inspect \
+    --output-directory "${HOME}/zeynal-test-isolated/data/player-shadow/current-roster"
+fi
 if [[ "${1:-}" == "--player-inputs-plan" || "${1:-}" == "--player-inputs-all" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
   player_args=()

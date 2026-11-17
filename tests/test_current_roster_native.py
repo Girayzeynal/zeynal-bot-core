@@ -70,7 +70,17 @@ class NativeRosterReplayTests(TestCase):
                 official=[r for r in review['records'] if r['source']=='NBA_OFFICIAL_PDF']
                 expected=[r for r in case['review']['payload']['records'] if r['source']=='NBA_OFFICIAL_PDF']
                 if importlib.util.find_spec('pdfplumber') is not None:
-                    self.assertEqual(official,expected)
+                    # V1 observations remain immutable. V2 also reads verified
+                    # headerless continuation pages and wrapped-status rows.
+                    # Every formerly captured row must remain byte-value equal;
+                    # separately pin the expanded current-source interpretation.
+                    for prior in expected: self.assertIn(prior,official)
+                    fid=case['context']['provider_fixture_ids'][0]
+                    self.assertEqual(len(official),{'401909994':4,'401909995':12}[fid])
+                    self.assertEqual(len({(r['team_id'],r['player_name']) for r in official}),len(official))
+                    if fid=='401909994':
+                        self.assertEqual({r['player_name'] for r in official},
+                            {'Banchero,Paolo','Isaac,Jonathan','Nelson,Izaiyah','Penda,Noah'})
                 else:
                     self.assertEqual(review['official_extraction_status'],'PDF_DEPENDENCY_MISSING')
                     self.assertEqual(official,[])

@@ -279,13 +279,72 @@ def pdf_extract(path, *, deadline):
     return json.loads(run.stdout)
 
 
+def review_diagnostics(review):
+    """Safe bounded evidence summary; not an eligibility or playing assessment."""
+    grouped={}
+    for r in review.get('records',[]):
+        if r.get('status') not in ('Out','Suspended'): continue
+        key=(r.get('team_id'),r.get('player_id') or 'UNMAPPED:'+str(r.get('player_name','')))
+        item=grouped.setdefault(key,dict(team=str(r.get('team_name',''))[:160],
+            player=str(r.get('player_name',''))[:160],player_id=r.get('player_id'),sources=set()))
+        item['sources'].add(r['source'])
+    missing=[]
+    for item in grouped.values():
+        absent={'ESPN','NBA_OFFICIAL_PDF'}-item['sources']
+        if absent:
+            missing.append(dict(item,sources=sorted(item['sources']),missing_sources=sorted(absent)))
+    return dict(official_stage=review.get('official_stage'),official_code=review.get('official_code'),
+        official_http_status=review.get('official_http_status'),
+        official_extraction_status=review.get('official_extraction_status'),
+        official_parsed_rows=review.get('official_parsed_rows'),
+        official_fixture_rows=review.get('official_fixture_rows'),
+        official_note_scope=review.get('official_note_scope'),
+        successful_source_urls=[s.get('url') for s in review.get('sources',[])],
+        missing_absence_corroboration=missing[:20],missing_absence_count=len(missing),
+        diagnostic_only=True,confidence_index=None)
+
+
+def inspect_review(directory,fixture_id):
+    """Read old source observations without API requests, rewrites or backfill."""
+    root=local_path(directory); selected=None; scanned=0
+    for path in root.glob('review-*.json'):
+        scanned+=1
+        if scanned>1000 or path.is_symlink() or path.stat().st_size>1024*1024:
+            raise ValueError('ROSTER_INSPECTION_ARCHIVE_BUDGET')
+        w=json.loads(path.read_text()); p=w['payload']
+        if digest(p)!=w['sha256'] or path.stem!='review-'+w['sha256']:
+            raise ValueError('ROSTER_INSPECTION_PIN')
+        if fixture_id not in p['provider_fixture_ids']: continue
+        if selected is None or (p['observed_at_utc'],w['sha256'])>(selected['payload']['observed_at_utc'],selected['sha256']):
+            selected=w
+    if selected is None:
+        return dict(status='ARCHIVE_UNAVAILABLE',diagnostic_only=True,api_requests_made=0,forecast_changed=False)
+    p=selected['payload']
+    return dict(status='READ_ONLY_ARCHIVED_ROSTER_DIAGNOSTIC',provider_fixture_ids=p['provider_fixture_ids'],
+        observed_at_utc=p['observed_at_utc'],source_review_sha256=selected['sha256'],
+        details=review_diagnostics(p),legacy_failure_stage_unknown=bool(p.get('warnings') and not p.get('official_stage')),
+        api_requests_made=0,forecast_changed=False,online_training=False,production_changed=False)
+
+
+def official_error_code(exc):
+    known={'ROSTER_SOURCE_UNAVAILABLE','ROSTER_SOURCE_COOLDOWN','ROSTER_SOURCE_PIN_OR_CLOCK',
+        'INVALID_OFFICIAL_PDF','ROSTER_PDF_ARCHIVE_CONFLICT','ROSTER_EXTRACTION_PIN',
+        'INCONSISTENT_INJURY_REPORT_PAGE_TITLE','UNVERIFIED_INJURY_CONTINUATION_LAYOUT'}
+    if str(exc) in known: return str(exc)
+    if isinstance(exc,(TimeoutError,subprocess.TimeoutExpired)): return 'OFFICIAL_SOURCE_OR_PARSE_TIMEOUT'
+    if isinstance(exc,OSError): return 'OFFICIAL_ARCHIVE_IO_ERROR'
+    return 'OFFICIAL_SCHEMA_OR_EXTRACTION_ERROR'
+
+
 class CurrentRosterReview:
     def __init__(self, directory, *, getter=native_get, extractor=pdf_extract, clock=time.time):
         self.directory = local_path(directory); self.directory.mkdir(parents=True, exist_ok=True)
         self.getter = getter; self.extractor = extractor; self.clock = clock
         self.lock = threading.Lock(); self.cache = {}; self.sources = {}; self.cooldowns = {}
+        self.last_source_failure=None
 
     def _get(self, url, deadline):
+        self.last_source_failure=None
         if not allowed_url(url): raise ValueError('ROSTER_SOURCE_URL_REFUSED')
         now = int(self.clock())
         prior = self.sources.get(url)
@@ -295,6 +354,8 @@ class CurrentRosterReview:
         r = self.getter(url, deadline=deadline)
         if r.get('status') != 'RECEIVED':
             self.cooldowns[url] = now + min(3600, max(30, r.get('retry_after', 300)))
+            status=r.get('http_status')
+            self.last_source_failure=dict(url=url,http_status=status if type(status) is int and 100<=status<=599 else None)
             raise ValueError('ROSTER_SOURCE_UNAVAILABLE')
         now = int(self.clock()); body = r['body']
         if (r['url'] != url or type(body) is not bytes or len(body) > MAX_BYTES or
@@ -334,14 +395,19 @@ class CurrentRosterReview:
             rows, rejected = espn_rows(document, teams, int(self.clock()))
             base['records'] = rows; base['rejected_rows'] = rejected
             base['sources'].append({k: v for k, v in r.items() if k != 'body'})
+            stage='INDEX_FETCH'
             try:
                 index = self._get(season_index(context['season']), deadline)
                 base['sources'].append({k: v for k, v in index.items() if k != 'body'})
+                stage='INDEX_DISCOVERY'
                 ref = latest_report(index['body'], int(self.clock()), context['season'])
                 base['official_report'] = ref
+                base.update(official_stage=stage,official_code='NO_RECENT_PUBLISHED_REPORT')
                 if ref:
+                    stage='PDF_FETCH'
                     pdf = self._get(ref['source_url'], deadline)
                     base['sources'].append({k: v for k, v in pdf.items() if k != 'body'})
+                    stage='PDF_ARCHIVE'
                     path = self.directory/('pdf-'+pdf['body_sha256']+'.pdf')
                     if not pdf['body'].startswith(b'%PDF-'): raise ValueError('INVALID_OFFICIAL_PDF')
                     try:
@@ -351,14 +417,22 @@ class CurrentRosterReview:
                             raise ValueError('ROSTER_PDF_ARCHIVE_CONFLICT')
                     else:
                         with os.fdopen(fd, 'wb') as stream: stream.write(pdf['body']); stream.flush(); os.fsync(stream.fileno())
+                    stage='PDF_EXTRACTION'
                     extraction = self.extractor(path, deadline=deadline)
                     base['official_extraction_status'] = extraction['status']
+                    base.update(official_stage=stage,official_code=extraction['status'],
+                        official_parsed_rows=len(extraction.get('rows',[])),
+                        official_parser_rejected_count=extraction.get('rejected_count'),
+                        official_parser_version=extraction.get('parser_version'),
+                        official_note_scope='ROW_FRAGMENTS_NOT_FULL_MEDICAL_REASONS' if
+                            any(row.get('reason_fragment') for row in extraction.get('rows',[])) else 'SOURCE_TABLE_CELLS')
                     if extraction.get('rows'):
                         if (extraction.get('source_pdf_sha256') != pdf['body_sha256'] or
                                 extraction.get('rows_sha256') != digest(extraction['rows']) or
                                 len(extraction['rows']) > 500):
                             raise ValueError('ROSTER_EXTRACTION_PIN')
                         directories = {}
+                        stage='PLAYER_IDENTITIES'
                         for team in teams.values():
                             try:
                                 dr = self._get(PREFIX+'teams/'+team['id']+'/roster?season='+context['season'][-4:], deadline)
@@ -366,9 +440,15 @@ class CurrentRosterReview:
                                 base['sources'].append({k: v for k, v in dr.items() if k != 'body'})
                             except (ValueError, KeyError, TypeError, OSError):
                                 base['warnings'].append('PLAYER_DIRECTORY_UNVERIFIED')
+                        stage='FIXTURE_ROWS'
                         official, rejected = nba_rows(extraction, teams, directories, context, ref['report_timestamp_utc'])
                         base['records'].extend(official); base['rejected_rows'] += rejected
-            except (ValueError, KeyError, TypeError, OSError, subprocess.TimeoutExpired):
+                        base.update(official_stage=stage,official_fixture_rows=len(official),
+                            official_code='SOURCE_ROWS_MATCHED_NOT_MEDICALLY_VERIFIED' if official else 'NO_MATCHING_OFFICIAL_ROWS')
+            except (ValueError, KeyError, TypeError, OSError, subprocess.TimeoutExpired) as exc:
+                base.update(official_stage=stage,official_code=official_error_code(exc))
+                if stage in ('INDEX_FETCH','PDF_FETCH') and self.last_source_failure:
+                    base['official_http_status']=self.last_source_failure['http_status']
                 base['warnings'].append('OFFICIAL_REPORT_UNAVAILABLE_OR_UNVERIFIED')
             now = int(self.clock()); base['observed_at_utc'] = now
             base['valid_until_utc'] = min([context['fixture_start_utc'], now+TTL]+
@@ -433,6 +513,17 @@ def render_review(review):
         elif not any(r['source'] == 'NBA_OFFICIAL_PDF' for r in rows):
             lines.append('Bu maç için resmî rapor satırı eşleştirilemedi; rapor verilmiş sayılmadı.')
     if review.get('warnings'): lines.append('Bazı kaynaklar veya oyuncu kimlikleri doğrulanamadı.')
+    if review.get('official_stage'):
+        stages={'INDEX_FETCH':'NBA sayfasına erişim','INDEX_DISCOVERY':'Yayımlanmış rapor seçimi',
+            'PDF_FETCH':'PDF indirme','PDF_ARCHIVE':'PDF bütünlüğü ve arşiv',
+            'PDF_EXTRACTION':'PDF ayrıştırma','PLAYER_IDENTITIES':'Oyuncu kimliği',
+            'FIXTURE_ROWS':'Rapordaki maç eşleştirmesi'}
+        lines.append('Resmî kaynak aşaması: '+stages.get(review['official_stage'],'Kaynak denetimi'))
+        lines.append('Tanı kodu: '+esc(review.get('official_code')))
+        if review.get('official_http_status') is not None:
+            lines.append('Kaynak HTTP yanıtı: '+str(review['official_http_status']))
+        if review.get('official_note_scope')=='ROW_FRAGMENTS_NOT_FULL_MEDICAL_REASONS':
+            lines.append('Resmî rapor notları satır parçaları olabilir; tıbbi neden veya oyuncu etkisi çıkarılmadı.')
     for source in review['sources']:
         lines.append(esc(source['url']))
         lines.append('Kaynak SHA: '+source['body_sha256'][:12]+' · Erişim: '+tsi(source['observed_at_utc']))
@@ -448,9 +539,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--fixture-id', required=True)
     parser.add_argument('--output-directory', required=True)
+    parser.add_argument('--inspect',action='store_true',help='Read last archived source review; no network or writes')
     args = parser.parse_args()
     if re.fullmatch('[0-9]{1,15}', args.fixture_id) is None:
         parser.error('ESPN maç kimliği sayısal olmalıdır')
+    if args.inspect:
+        print(json.dumps(inspect_review(args.output_directory,args.fixture_id),sort_keys=True)); return
     service = CurrentRosterReview(args.output_directory)
     receipt = service._get(PREFIX+'summary?event='+args.fixture_id, time.monotonic()+10)
     document = json.loads(receipt['body']); header = document['header']; comp = header['competitions'][0]
