@@ -147,5 +147,5 @@ class CoverageSummaryTests(unittest.TestCase):
                 cwd=ROOT,capture_output=True,text=True,timeout=30)
             self.assertEqual(child.returncode,2);r=json.loads(child.stdout)
             self.assertEqual(r['status'],'REVIEW_WITH_BLOCKS');self.assertEqual(r['blocked'],1)
-            self.assertTrue(r['view_only']);self.assertEqual(ledger.read_bytes(),before)
+            self.assertFalse(r['view_only']);self.assertTrue(r['review_executed_by_child']);self.assertEqual(ledger.read_bytes(),before)
             self.assertFalse(r['production_changed'])

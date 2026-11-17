@@ -79,7 +79,8 @@ def main(argv=None):
     argv=list(sys.argv[1:] if argv is None else argv)
     try:
         child_code=0
-        if argv and argv[0]=='--run-review':
+        child_mode=bool(argv and argv[0]=='--run-review')
+        if child_mode:
             # Keep the original offline CLI, argument validation and exit status.
             # This child is NOT a Telegram request. The viewer edits no source
             # or protocol and does not alter the report produced by the child.
@@ -98,7 +99,9 @@ def main(argv=None):
             a=parser.parse_args(argv);directory=checked_path(a.directory)
             path=checked_path(a.report) if a.report else latest_report(directory)
         payload,pin=read_report(path,directory)
-        print(json.dumps(summarize(payload,path,pin),sort_keys=True,allow_nan=False))
+        output=summarize(payload,path,pin)
+        output.update(view_only=not child_mode,review_executed_by_child=child_mode)
+        print(json.dumps(output,sort_keys=True,allow_nan=False))
         return child_code or (0 if payload['status']=='REVIEW_COMPLETE' else 2)
     except (ValueError,KeyError,TypeError,OSError,RuntimeError,subprocess.SubprocessError) as exc:
         print(json.dumps(dict(status='BLOCKED',error_type=type(exc).__name__,
