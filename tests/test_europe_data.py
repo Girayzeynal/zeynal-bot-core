@@ -52,7 +52,8 @@ class EuropeanSourceTests(IsolatedAsyncioTestCase):
                 document=event
         else:
             season=c['season'].replace('/','-')
-            if u.path=='/leagues':data=[dict(id=42,name='Euroleague' if self.active=='EUROLEAGUE' else 'Eurocup')]
+            if u.path=='/leagues':data=[dict(id=42,name='Euroleague' if self.active=='EUROLEAGUE' else 'Eurocup',
+                seasons=[dict(season=season,start='2026-09-01',end='2027-07-01')])]
             elif u.path=='/games':data=[dict(id=12,date=iso(c['fixture_start_utc']),league=dict(id=42,season=season),
                 status=dict(short='NS'),teams={s:dict(id=101+i,name=c[s]['official_name']) for i,s in enumerate(('home','away'))})]
             else:data=dict(team=dict(id=int(qs['team'][0])),league=dict(id=42,season=season))

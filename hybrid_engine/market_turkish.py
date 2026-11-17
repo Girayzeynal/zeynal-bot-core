@@ -4,6 +4,12 @@ PERIODS={'FULL':'Maçın tamamı','1Q':'1. çeyrek','2Q':'2. çeyrek','3Q':'3. �
 MARKETS={'TOTAL':'Toplam sayı','HOME':'Ev sahibi takım toplamı','AWAY':'Deplasman takım toplamı',
          'HOME_HANDICAP':'Ev sahibi handikabı','WINNER':'Maç sonucu'}
 MESSAGES={
+ 'SEASON_DISCOVERY':'Sağlayıcının sezon listesini doğrulama',
+ 'SEASON_CATALOG_MISSING':'Sağlayıcının lig yanıtında sezon listesi yok; fikstür sorgulanmadı',
+ 'SEASON_CATALOG_BUDGET':'Sağlayıcı sezon listesi işlem sınırını aştı',
+ 'VERIFIED_PROVIDER_SEASON':'Sezon sağlayıcının kendi listesinden doğrulandı',
+ 'REQUESTED_SEASON_NOT_LISTED':'İstenen sezon sağlayıcının listesinde doğrulanamadı; başka yıla geçilmedi',
+ 'AMBIGUOUS_PROVIDER_SEASON':'Sağlayıcıda birden fazla uygun sezon var; seçim yapılmadı',
  'NOT_CALIBRATED':'Kalibrasyon doğrulanmadı',
  'SETTLEMENT_RULE_UNVERIFIED':'Ödeme ve uzatma kuralı doğrulanmadı',
  'SETTLEMENT_RULE_OR_FRESH_NATIVE_PRICE_NOT_VERIFIED':'Karar için gerekli ödeme kuralı veya fiyat kanıtı eksik',

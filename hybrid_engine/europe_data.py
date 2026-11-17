@@ -247,6 +247,9 @@ def main():
             r=reviewer.review(ctx,section);details=r.get('details',{})
             results.append(dict(section=section,status=r['status'],admitted_observations=details.get('admitted_observations',0),
                 provider_states={k:v.get('status') for k,v in details.get('provider_report',{}).get('providers',{}).items()},
+                provider_details={k:{name:v[name] for name in ('operation','error_codes','requested_season','season_selection',
+                    'expected_sport_key','active_basketball_sports','coverage_cache') if name in v}
+                    for k,v in details.get('provider_report',{}).get('providers',{}).items()},
                 source_states=[{k:s.get(k) for k in ('status','http_status','url','retry_after_seconds')} for s in details.get('sources',[])],
                 news_observations=len(details.get('news_observations',[])),verified_player_records=0))
         print(json.dumps(dict(league=a.league,fixture_id=a.fixture_id,results=results,

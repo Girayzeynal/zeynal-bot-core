@@ -198,9 +198,15 @@ class ProviderBridge:
         sports = access.get('THE_ODDS_API', '/v4/sports/', deadline=deadline, ttl=3600)
         if sports['status'] != 'DOCUMENT_RECEIVED':
             return dict(status=sports['status'], observations=[])
-        if not isinstance(sports['document'], list) or not any(
+        if not isinstance(sports['document'], list):
+            return dict(status='INVALID_PROVIDER_SCHEMA', observations=[], catalog_source_pin=self._save(sports))
+        if not any(
                 x.get('key') == sport and x.get('active') is True for x in sports['document'] if isinstance(x, dict)):
-            return dict(status='LEAGUE_NOT_AVAILABLE_FROM_PROVIDER', observations=[])
+            candidates=[dict(key=x['key'],title=str(x.get('title',''))[:120]) for x in sports.get('document',[])
+                        if isinstance(x,dict) and isinstance(x.get('key'),str) and
+                        re.fullmatch(r'basketball_[a-z0-9_]{1,60}',x['key']) and x.get('active') is True] if isinstance(sports.get('document'),list) else []
+            return dict(status='LEAGUE_NOT_AVAILABLE_FROM_PROVIDER', observations=[],expected_sport_key=sport,
+                        active_basketball_sports=candidates[:12],catalog_source_pin=self._save(sports))
         events = access.get('THE_ODDS_API', f'/v4/sports/{sport}/events', deadline=deadline)
         if events['status'] != 'DOCUMENT_RECEIVED':
             return dict(status=events['status'], observations=[])
@@ -256,9 +262,10 @@ class ProviderBridge:
         old=self.coverage_blocks.get(coverage_key)
         if old is not None and int(self.clock())<old['coverage_block_until_utc']:
             return dict(old,coverage_cache='UNCHANGED_SEASON_RESTRICTION_REUSED')
-        def blocked(receipt,operation):
+        def blocked(receipt,operation,selection=None):
             from hybrid_engine.provider_diagnostics import failure
             row=dict(failure(receipt,operation),source_pin=self._save(receipt))
+            if selection is not None:row.update(season_selection=selection,requested_season=selection['season_value'])
             codes=row['error_codes']
             if 'PLAN_OR_SUBSCRIPTION_RESTRICTION_REPORTED' in codes and 'SEASON_ERROR_REPORTED' in codes:
                 row['coverage_block_until_utc']=int(self.clock())+3600
@@ -278,27 +285,36 @@ class ProviderBridge:
         lid = leagues[0]['id']
         day = datetime.fromtimestamp(snapshot['fixture_start_utc'], timezone.utc).strftime('%Y-%m-%d')
         season = snapshot['season'].replace('/', '-')
+        selection=None;season_info={}
+        if snapshot['league'] in ('EUROLEAGUE','EUROCUP'):
+            from hybrid_engine.provider_seasons import select_season
+            selection=select_season(leagues[0],snapshot)
+            selection['catalog_source_pin']=self._save(r)
+            if selection['status']!='VERIFIED_PROVIDER_SEASON':
+                return dict(status=selection['status'],operation='SEASON_DISCOVERY',season_selection=selection)
+            season=selection['season_value']
+            season_info=dict(season_selection=selection,requested_season=season)
         r = access.get('API_BASKETBALL', '/games',
                        dict(league=lid, season=season, date=day, timezone='UTC'), deadline=deadline)
         if r['status'] != 'DOCUMENT_RECEIVED':
-            return dict(status=r['status'])
+            return dict(status=r['status'],**season_info)
         if r['document'].get('errors'):
-            return blocked(r,'FIXTURE_QUERY')
+            return blocked(r,'FIXTURE_QUERY',selection=selection)
         games = [x for x in r['document'].get('response', []) if matches(x, snapshot, basketball=True)]
         if len(games) != 1:
             from hybrid_engine.provider_diagnostics import fixture_diagnostic
             return dict(status='EXACT_FIXTURE_MATCH_REQUIRED', matching_events=len(games),operation='FIXTURE_QUERY',
                         fixture_diagnostic=fixture_diagnostic(r['document'].get('response',[]),snapshot,basketball=True),
-                        source_pin=self._save(r))
+                        source_pin=self._save(r),**season_info)
         g = games[0]
         if (g.get('status', {}).get('short') != 'NS' or g.get('league', {}).get('id') != lid or
                 type(g.get('id')) is not int):
-            return dict(status='PROVIDER_FIXTURE_NOT_VERIFIED_PREMATCH')
+            return dict(status='PROVIDER_FIXTURE_NOT_VERIFIED_PREMATCH',**season_info)
         if int(self.clock()) >= snapshot['fixture_start_utc']:
-            return dict(status='TIPOFF_REACHED_DURING_PROVIDER_REVIEW')
+            return dict(status='TIPOFF_REACHED_DURING_PROVIDER_REVIEW',**season_info)
         if self.diagnostic_only:
             return dict(status='PREMATCH_FIXTURE_CROSSCHECKED',provider_fixture_id=g['id'],
-                        statistics_requests_made=0,source_pin=self._save(r))
+                        statistics_requests_made=0,source_pin=self._save(r),**season_info)
         stats = []
         # A current season aggregate is an additional observation, not a PIT
         # training row and not proof of measured pace or a confirmed lineup.
@@ -332,7 +348,7 @@ class ProviderBridge:
                     source_pin=self._save(r), observed_at_utc=r['observed_at_utc'],
                     # Fixture data cannot certify injuries, lineup or efficiency.
                     injuries_verified=False, lineups_verified=False, pace_verified=False,
-                    forecast_inputs_changed=False, statistics=stats)
+                    forecast_inputs_changed=False, statistics=stats,**season_info)
 
     def collect(self, snapshot):
         now = int(self.clock())
@@ -378,7 +394,19 @@ def render(report):
         if row.get('error_codes'):lines.append('Kaynak hata sınıfı: '+html.escape('; '.join(message(c) for c in row['error_codes'])))
         if ('PLAN_OR_SUBSCRIPTION_RESTRICTION_REPORTED' in row.get('error_codes',[]) and
                 'SEASON_ERROR_REPORTED' in row.get('error_codes',[])):
-            lines.append('Bu lig/sezon için sağlayıcı plan erişimi kısıtlı; tahmin verisi uydurulmadı.')
+            if row.get('season_selection',{}).get('status')=='VERIFIED_PROVIDER_SEASON':
+                lines.append('İstek sezonu sağlayıcı kataloğundan doğrulandı; buna rağmen plan/sezon hatası bildirildi.')
+            else:
+                lines.append('Plan veya sezon hatası bildirildi; kesin neden ayrıca doğrulanmalı. Tahmin verisi uydurulmadı.')
+        if row.get('expected_sport_key'):
+            lines.append('Beklenen lig kodu: '+html.escape(row['expected_sport_key']))
+            active=row.get('active_basketball_sports',[])
+            if active:lines.append('Aktif basketbol kodları: '+html.escape(', '.join(x['key'] for x in active)))
+        selected=row.get('season_selection')
+        if selected:
+            lines.append('Sezon denetimi: '+html.escape(message(selected['status'])))
+            if selected.get('season_value'):lines.append('Sağlayıcı sezon değeri: '+html.escape(selected['season_value']))
+            if selected.get('available_seasons'):lines.append('Katalogdaki sezonlar: '+html.escape(', '.join(selected['available_seasons'])))
         if row.get('coverage_cache'):lines.append('Aynı sezon erişim reddi korunuyor; tekrar sorgulanmadı.')
         if row.get('event_clock_binding'):
             from hybrid_engine.provider_identity import clock_text

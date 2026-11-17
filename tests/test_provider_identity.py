@@ -160,7 +160,7 @@ class OffsetBridgeTests(unittest.TestCase):
         self.assertEqual(count,len(self.fake.calls))
         row=second['providers']['API_BASKETBALL'];self.assertEqual(row['coverage_cache'],'UNCHANGED_SEASON_RESTRICTION_REUSED')
         self.assertEqual(row['observed_at_utc'],first['providers']['API_BASKETBALL']['observed_at_utc'])
-        self.assertIn('plan erişimi kısıtlı',render(second))
+        self.assertIn('kesin neden ayrıca doğrulanmalı',render(second))
 
 
 if __name__=='__main__':unittest.main()
