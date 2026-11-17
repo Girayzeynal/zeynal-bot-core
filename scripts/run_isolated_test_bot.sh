@@ -53,7 +53,7 @@ fi
 case "${1:-}" in
   "")
     if [[ "$#" -ne 0 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
-  --player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup)
+  --player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup|--challenger-review|--challenger-plan|--challenger-capture|--challenger-results)
     if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
   --player-inputs|--roster-status|--roster-pdf)
     if [[ "$#" -ne 2 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
@@ -61,6 +61,24 @@ case "${1:-}" in
     echo "UNKNOWN_LAUNCHER_OPTION: update the test checkout and use a documented mode" >&2
     exit 2 ;;
 esac
+if [[ "${1:-}" == "--challenger-plan" || "${1:-}" == "--challenger-capture" || "${1:-}" == "--challenger-results" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  challenger_args=(--directory "${HOME}/zeynal-test-isolated/data/challenger-research/protocol")
+  if [[ "$1" != "--challenger-plan" ]]; then
+    challenger_args+=(--ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite")
+  fi
+  if [[ "$1" == "--challenger-capture" ]]; then
+    challenger_args+=(--assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets")
+  fi
+  exec .venv/bin/python -m hybrid_engine.challenger_forward "${1#--challenger-}" "${challenger_args[@]}"
+fi
+if [[ "${1:-}" == "--challenger-review" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.challenger_review \
+    --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
+    --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
+    --output-directory "${HOME}/zeynal-test-isolated/data/challenger-research/reports"
+fi
 if [[ "${1:-}" == "--roster-pdf" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
   exec .venv/bin/python -m hybrid_engine.official_report_link \
