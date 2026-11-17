@@ -34,6 +34,7 @@ class ProviderSeasonTests(TestCase):
         r=self.select([row(2026,start='2026-09-01',end='2027-06-30')])
         self.assertEqual(r['season_value'],'2026')
         self.assertEqual(self.select([row(2026)])['status'],'REQUESTED_SEASON_NOT_LISTED')
+        self.assertEqual(self.select([row(2023,start='2026-09-01',end='2027-06-30')])['status'],'REQUESTED_SEASON_NOT_LISTED')
 
     def test_end_year_label_can_only_be_selected_with_source_dates(self):
         r=self.select([row(2027,start='2026-09-01',end='2027-06-30')])

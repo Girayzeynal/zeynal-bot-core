@@ -31,7 +31,7 @@ def select_season(league,snapshot):
         exact=token.replace('-','/')==wanted
         # Numeric season labels have no universal year convention; explicit
         # source dates must bind them to the requested two-year season.
-        if exact or (len(token)==4 and bounds is not None):candidates.add((token,bounds))
+        if exact or (token in (m[1],m[2]) and bounds is not None):candidates.add((token,bounds))
     result['available_seasons']=sorted(available)[-16:]
     if len(candidates)==1:
         token,bounds=next(iter(candidates))
