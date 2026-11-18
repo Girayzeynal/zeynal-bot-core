@@ -1,0 +1,59 @@
+{
+  "payload": {
+    "format": "CRITICAL_INTEGRITY_AUDIT_V1",
+    "base_sha": "bb9ec84d5615a8bdd81f06f94a89b4cc876c3872",
+    "observed_at_utc": 1795018446,
+    "checks": [
+      {
+        "command": "python -m unittest tests.test_critical_integrity -v (base bb9ec84)",
+        "tests": 15,
+        "seconds": 0.423,
+        "outcome": "FAILED (failures=17, errors=3)",
+        "log_file": "critical-integrity-baseline-final-20261118.log.gz",
+        "raw_sha256": "aef9ae4b04de5bd11874e0761125c0cc721e1a5619256f5f36289f2c6ea3a99b"
+      },
+      {
+        "command": "python -m unittest tests.test_critical_integrity tests.test_issue90 tests.test_handoff_hardening -v",
+        "tests": 72,
+        "seconds": 7.642,
+        "outcome": "OK",
+        "log_file": "critical-integrity-focused-final-20261118.log.gz",
+        "raw_sha256": "cc1910693a4c1718ee89161fe37489ea7058d1ffddd479141e00b9d2587f3f98"
+      },
+      {
+        "command": "python -m unittest discover -s tests",
+        "tests": 1546,
+        "seconds": 147.214,
+        "outcome": "OK",
+        "log_file": "critical-integrity-full-20261118.log.gz",
+        "raw_sha256": "d481ede568951f23acd812fc13336ec36f1fa0ffcaf491a8edc0e702450c0cf8"
+      },
+      {
+        "command": "python -m unittest tests.test_critical_integrity tests.test_issue90 -v",
+        "tests": 53,
+        "seconds": 7.715,
+        "outcome": "OK",
+        "log_file": "critical-integrity-final-cases-20261118.log.gz",
+        "raw_sha256": "8dac3aaaf9ec783d9ec1b2922e22fc89fa96c975c73ddb319188637f0625d737"
+      }
+    ],
+    "final_regression_source_sha256": "9b12ff210a803df32d2ab06caa849194422e94fd01d50fef1e8fab46a5189a01",
+    "baseline_reproduced_in_detached_worktree": true,
+    "synthetic_regressions_are_not_real_model_performance": true,
+    "unchanged_registered_source_counts": {
+      "V1": 27,
+      "V2": 13
+    },
+    "legacy_v3_directory_preserved": true,
+    "new_study_directory": "nba-research-v3-integrity-v2",
+    "actual_telegram_delivery_verified": false,
+    "telegram_preflight": "NOT_CONFIGURED",
+    "userland_archive_accessed": false,
+    "main_merged": false,
+    "production_deployed": false,
+    "secrets_changed": false,
+    "production_readiness": "NO_GO",
+    "ci_exact_head_results": "REPORTED_IN_PR_AFTER_PUSH"
+  },
+  "sha256": "80a3593062aa5f8d9021522e7c97b85d84c45613424b04c5a506c2a66f4880cf"
+}

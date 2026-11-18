@@ -422,7 +422,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             fetcher=transport or fetch_document)
         if app.bot_data['adaptive_v2_worker'].nba is not None:
             from hybrid_engine.issue90_research import Research
-            app.bot_data['issue90_research']=Research(root/'nba-research-v3',app.bot_data['adaptive_v2_worker'])
+            app.bot_data['issue90_research']=Research(root/'nba-research-v3-integrity-v2',app.bot_data['adaptive_v2_worker'])
     async def authorized(update,context):
         if update.effective_chat is None or update.effective_chat.id!=chat_id:raise ApplicationHandlerStop
         _update.set(update.update_id)

@@ -21,7 +21,7 @@ from hybrid_engine.europe_prematch import publication_lock
 from hybrid_engine.intervals import prediction_intervals
 from hybrid_engine.live_metrics import metrics
 
-POLICY=dict(version='ISSUE90_SEPARATE_NBA_STUDY_V1',primary=nba_dynamic.VERSION,
+POLICY=dict(version='ISSUE90_SEPARATE_NBA_STUDY_V2_INTEGRITY',primary=nba_dynamic.VERSION,
     minimum_future_games=100,minimum_day_clusters=20,minimum_coverage=.8,minimum_relative_gain=.02,
     baseline='ORIGINAL_FROZEN',selection='ALL_FUTURE_ORIGINALS_NO_RESULT_SELECTION',
     automatic_shadow_fit=True,automatic_promotion=False,production_enabled=False)
@@ -31,7 +31,7 @@ def pins():
     root=Path(__file__).parent
     return dict(v1=v1_pins(),v2=v2_pins(),issue90={n:hashlib.sha256((root/n).read_bytes()).hexdigest() for n in
         ('nba_dynamic.py','shadow_learning.py','issue90_research.py','joint_market_audit.py','nba_schedule_features.py',
-         'nba_ledger_settlement.py','decision_layer.py','../season_archive_inventory.py')})
+         'nba_ledger_settlement.py','confirmed_nba.py','decision_layer.py','../season_archive_inventory.py')})
 
 
 def reason(exc):
@@ -44,6 +44,7 @@ class Research:
         self.root=local_path(directory);self.root.mkdir(parents=True,exist_ok=True);self.worker=worker
         self.registry=Registry(self.root/'forecasts');self.shadow_registry=Registry(self.root/'shadow-forecasts')
         self.last_report=None;self.calibration_attempted=set();self.last_journal=0
+        self.last_attempt={};self.retry_after={}
 
     def plan(self):
         path=self.root/'plan.json'
@@ -155,7 +156,12 @@ class Research:
     def performance(self,labels,plan):
         publications=self.registry.records();admissions=[read_wrapper(p)['payload'] for p in self.root.glob('admit-*.json')]
         if len(admissions)>4096:raise ValueError('ISSUE90_ADMISSION_BUDGET')
-        labelmap={(r['fixture_id'],r['snapshot_sha256'],r['model_digest'],r['season']):r for r in labels if r['actual'] is not None}
+        labelmap={}
+        for r in labels:
+            if r.get('league')!='NBA' or r['actual'] is None:continue
+            key=(r['fixture_id'],r['snapshot_sha256'],r['model_digest'],r['season'])
+            if key in labelmap:raise ValueError('ISSUE90_DUPLICATE_NATIVE_LABEL')
+            labelmap[key]=r
         a=[];b=[];covered=0;due=0;shadows=[]
         for w in self.shadow_registry.records():
             p=w['payload'];s=p['shadow']
@@ -164,15 +170,22 @@ class Research:
                 not s['prediction_generated_at_utc']<=w['publication']['first_archived_at_utc']<p['fixture']['start_ts_utc']-900):
                 raise ValueError('ISSUE90_SHADOW_PUBLICATION_BINDING')
             shadows.append(s)
+        admitted={}
         for item in admissions:
             t=item['target']
             if item['protocol_sha256']!=plan['sha256'] or not plan['payload']['registered_at_utc']<=item['admitted_at_utc']<t['fixture_start_utc']-900:
                 raise ValueError('ISSUE90_ADMISSION_CLOCK_OR_PLAN')
+            key=(t['league'],t['season'],t['fixture_id'],item['original_snapshot_sha256'])
+            if key in admitted:raise ValueError('ISSUE90_DUPLICATE_ADMISSION')
+            admitted[key]=item
             if any(r['fixture_id']==t['fixture_id'] and r['snapshot_sha256']==item['original_snapshot_sha256'] for r in labelmap.values()):due+=1
         for w in publications:
             p=w['payload'];t=p['fixture'];stamp=w['publication']['first_archived_at_utc']
-            if p['protocol_sha256']!=plan['sha256'] or not plan['payload']['registered_at_utc']<=p['prediction_generated_at_utc']<=stamp<t['start_ts_utc']-900:
+            if p['version']!=POLICY['version'] or p['protocol_sha256']!=plan['sha256'] or not plan['payload']['registered_at_utc']<=p['prediction_generated_at_utc']<=stamp<t['start_ts_utc']-900:
                 raise ValueError('ISSUE90_PUBLICATION_CLOCK_OR_PLAN')
+            admission=admitted.get((t['league'],t['season'],t['fixture_id'],p['original_snapshot_sha256']))
+            if admission is None or admission['admitted_at_utc']>p['prediction_generated_at_utc']:
+                raise ValueError('ISSUE90_PUBLICATION_WITHOUT_PRIOR_ADMISSION')
             key=(t['fixture_id'],p['original_snapshot_sha256'],p['original_model_digest'],t['season']);label=labelmap.get(key)
             if label is None:continue
             if label['fixture_start_utc']!=t['start_ts_utc'] or not label['fixture_start_utc']<label['label_available_utc']<=int(time.time()):
@@ -184,13 +197,14 @@ class Research:
         # Different original fit/season cohorts do not silently pool. Dynamic
         # candidate fits are a registered strategy, never calibration evidence.
         cohorts={(r['season'],r['model_digest'],r['model_version']) for r in b}
+        calibration=shadow_learning.evaluate(shadows,labels,registered_at_utc=plan['payload']['registered_at_utc'])
         if len(cohorts)>1:
             return dict(admitted=len(admissions),published=len(publications),matched=covered,day_clusters=day_count,
                 coverage=coverage,gate='ABSTAIN_SEPARATE_ORIGINAL_FIT_COHORTS_REQUIRED',
                 groups=[dict(season=s,model_digest=md,model_version=v,
                     candidate=metrics([r for r in a if (r['season'],r['model_digest'],r['model_version'])==(s,md,v)]),
                     baseline=metrics([r for r in b if (r['season'],r['model_digest'],r['model_version'])==(s,md,v)])) for s,md,v in sorted(cohorts)],
-                calibration=dict(status='ABSTAIN_SEPARATE_ORIGINAL_FIT_COHORTS_REQUIRED'),production_enabled=False)
+                calibration=calibration,production_enabled=False)
         candidate=metrics(a) if a else None;baseline=metrics(b) if b else None
         gate='ABSTAIN_INSUFFICIENT_FUTURE_EVIDENCE';paired=None
         if len(a)>=100 and day_count>=20 and coverage>=.8:
@@ -209,7 +223,7 @@ class Research:
             if interval and improvement>=.02*baseline['team_scores']['mae'] and interval[1]<0:gate='CANDIDATE_FOR_MANUAL_REVIEW'
         return dict(admitted=len(admissions),published=len(publications),matched=covered,day_clusters=day_count,coverage=coverage,
             primary=POLICY['primary'],candidate=candidate,baseline=baseline,paired=paired,gate=gate,
-            calibration=shadow_learning.evaluate(shadows,labels,registered_at_utc=plan['payload']['registered_at_utc']),
+            calibration=calibration,
             automatic_promotion=False,production_enabled=False)
 
     def tick(self):
@@ -220,10 +234,17 @@ class Research:
         slot=now//21600
         saved={r['payload']['fixture']['canonical_id'] for r in self.registry.records()}
         shadow_saved={r['payload']['fixture']['canonical_id'] for r in self.shadow_registry.records()}
-        ready=[c for c in cases if c['target']['fixture_id'] not in saved or c['target']['fixture_id'] not in shadow_saved]
-        ready.sort(key=lambda c:(c['target']['fixture_id'] in saved,c['target']['fixture_start_utc'],c['target']['fixture_id']))
+        ready=[c for c in cases if (c['target']['fixture_id'] not in saved and
+                self.retry_after.get(('score',c['target']['fixture_id']),0)<=now) or
+                (c['target']['fixture_id'] not in shadow_saved and self.retry_after.get(('shadow',c['target']['fixture_id']),0)<=now)]
+        # Result-blind fair rotation: two unsupported early fixtures cannot
+        # monopolize every later tick. The admission denominator stays intact.
+        ready.sort(key=lambda c:(self.last_attempt.get(c['target']['fixture_id'],0),c['target']['fixture_start_utc'],c['target']['fixture_id']))
         for c in ready[:2]:
+            fid=c['target']['fixture_id'];self.last_attempt[fid]=now
+            shadow_ready=fid not in shadow_saved and self.retry_after.get(('shadow',fid),0)<=now
             try:
+                if not shadow_ready:raise Abstain('SHADOW_NOT_DUE')
                 season=c['target']['season']
                 md=c['snapshot']['model_digest'];ck=digest(dict(slot=slot,model=md,season=season));cp=self.root/('calibrator-'+ck+'.json')
                 if cp.exists():calibrators[md]=read_wrapper(cp)
@@ -238,18 +259,23 @@ class Research:
                 if md in calibrators:
                     p,new=self.capture_shadow(c,calibrators[md],plan)
                     shadow_captures.append(dict(fixture_id=c['target']['fixture_id'],status='ARCHIVED' if new else 'REPLAY',sha256=digest(p)))
-                else:shadow_captures.append(dict(fixture_id=c['target']['fixture_id'],status='ABSTAIN',reason='SHADOW_HUNDRED_NATIVE_SETTLED_ORIGINALS_REQUIRED'))
+                else:
+                    self.retry_after[('shadow',fid)]=now+900
+                    shadow_captures.append(dict(fixture_id=fid,status='ABSTAIN',reason='SHADOW_HUNDRED_NATIVE_SETTLED_ORIGINALS_REQUIRED'))
             except (ValueError,KeyError,TypeError,OSError,RuntimeError) as exc:
-                state='PARTIAL_ABSTAIN';shadow_captures.append(dict(fixture_id=c['target']['fixture_id'],status='ABSTAIN',reason=reason(exc),error_type=type(exc).__name__))
-            if c['target']['fixture_id'] in saved:continue
+                if shadow_ready:
+                    self.retry_after[('shadow',fid)]=now+900
+                    state='PARTIAL_ABSTAIN';shadow_captures.append(dict(fixture_id=fid,status='ABSTAIN',reason=reason(exc),error_type=type(exc).__name__))
+            if fid in saved or self.retry_after.get(('score',fid),0)>now:continue
             try:
                 if c['target']['season'] not in latest:latest[c['target']['season']]=self.fit(c['target']['season'])[0]
                 p,new=self.capture(c,latest[c['target']['season']],plan)
                 captures.append(dict(fixture_id=c['target']['fixture_id'],status='ARCHIVED' if new else 'REPLAY',sha256=digest(p)))
             except (ValueError,KeyError,TypeError,OSError,RuntimeError) as exc:
+                self.retry_after[('score',fid)]=now+300
                 state='PARTIAL_ABSTAIN';captures.append(dict(fixture_id=c['target']['fixture_id'],status='ABSTAIN',reason=reason(exc),error_type=type(exc).__name__))
         if any(c['status']=='ABSTAIN' for c in shadow_captures):state='PARTIAL_ABSTAIN'
-        self.last_report=dict(status=state,observed_at_utc=int(time.time()),protocol_sha256=plan['sha256'],captures=captures,shadow_captures=shadow_captures,
+        self.last_report=dict(status=state,evaluation_version=POLICY['version'],observed_at_utc=int(time.time()),protocol_sha256=plan['sha256'],captures=captures,shadow_captures=shadow_captures,
             performance=self.performance(labels,plan),actual_telegram_delivery_verified=False,production_changed=False)
         p=self.last_report
         if any(c['status']=='ARCHIVED' for c in captures+shadow_captures) or int(time.time())-self.last_journal>=3600:
@@ -293,7 +319,9 @@ def status(directory):
         p=w['payload']
         if last is None or p['observed_at_utc']>last['observed_at_utc']:last=p
     return dict(status='NO_RECORDED_ATTEMPT' if last is None else 'RECORDED_ATTEMPT_AVAILABLE',
-        report=last,view_only=True,models_fitted_by_view=False,actual_telegram_delivery_verified=False,production_changed=False)
+        report=last,view_only=True,models_fitted_by_view=False,actual_telegram_delivery_verified=False,production_changed=False,
+        evaluation_status='CURRENT_VERSION_RECORDED' if last and last.get('evaluation_version')==POLICY['version'] else 'NO_CURRENT_INTEGRITY_ATTESTATION',
+        automatic_promotion=False)
 
 
 if __name__=='__main__':

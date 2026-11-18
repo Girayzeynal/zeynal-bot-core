@@ -11,7 +11,7 @@ from core.team_identity import digest
 from hybrid_engine.data import Abstain
 from hybrid_engine.evaluation import probability_metrics
 
-POLICY=dict(minimum_fit=100,minimum_future=100,minimum_days=20,minimum_cell=30,
+POLICY=dict(evaluation_version='EXACT_COHORT_INDEPENDENT_FIXTURES_V2',minimum_fit=100,minimum_future=100,minimum_days=20,minimum_cell=30,
     bins=10,prior_per_class=1.,minimum_brier_gain=.01,bootstrap_iterations=10000,
     seed=20261118,automatic_promotion=False)
 
@@ -46,7 +46,7 @@ def fit(audit, *, model_digest,season):
     for r in rows:
         key=_cell(r['winner']);counts=bins.setdefault(key,np.ones(3));a=r['actual']
         counts[0 if a[0]>a[1] else 1 if a[0]==a[1] else 2]+=1
-    body=dict(format='AUTOMATIC_NATIVE_WINNER_SHADOW_V1',model_digest=model_digest,season=season,league='NBA',
+    body=dict(format='AUTOMATIC_NATIVE_WINNER_SHADOW_V2',model_digest=model_digest,season=season,league='NBA',
         policy=POLICY,fit_at_utc=now,training_ids=sorted(first),training_snapshot_sha256s=sorted(r['snapshot_sha256'] for r in rows),
         label_available_max_utc=max(r['label_available_utc'] for r in rows),
         bins={k:dict(n=int(v.sum()-3),probabilities=(v/v.sum()).tolist()) for k,v in bins.items()},
@@ -69,20 +69,52 @@ def apply(candidate, row, *, generated_at_utc):
 
 
 def evaluate(publications,labels, *, registered_at_utc):
+    """Never pool fitted versions or count snapshot variants as extra matches."""
+    groups={};seen=set();label_keys=set()
+    for r in labels:
+        if r['actual'] is None:continue
+        key=(r.get('league'),r['fixture_id'],r['snapshot_sha256'],r['model_digest'],r['season'])
+        if key in label_keys:raise ValueError('SHADOW_EXACT_NATIVE_LABEL_REQUIRED')
+        label_keys.add(key)
+    for item in publications:
+        cohort=(item['season'],item['model_digest'])
+        independent=(*cohort,item['fixture_id'])
+        if independent in seen:raise ValueError('SHADOW_DUPLICATE_INDEPENDENT_FIXTURE_DUPLICATE_FUTURE_PUBLICATION')
+        seen.add(independent);groups.setdefault(cohort,[]).append(item)
+    if len(groups)<=1:return _evaluate_one(publications,labels,registered_at_utc=registered_at_utc)
+    reports=[]
+    for (season,md),rows in sorted(groups.items()):
+        selected=[r for r in labels if (r['season'],r['model_digest'])==(season,md)]
+        reports.append(dict(season=season,model_digest=md,**_evaluate_one(rows,selected,registered_at_utc=registered_at_utc)))
+    return dict(status='ABSTAIN_SEPARATE_CALIBRATION_COHORTS_REQUIRED',
+        n=None,unique_published_fixtures=len({p['fixture_id'] for p in publications}),
+        matched_forecasts_across_cohorts=sum(g['n'] for g in reports),
+        groups=reports,raw=None,candidate=None,paired_interval=None,
+        automatic_promotion=False,production_enabled=False)
+
+
+def _evaluate_one(publications,labels, *, registered_at_utc):
     now=int(time.time());matched=[];seen=set()
+    if type(registered_at_utc) is not int or not 0<registered_at_utc<=now:raise ValueError('SHADOW_ACTUAL_REGISTERED_CLOCK_REQUIRED')
     for item in publications:
         key=(item['fixture_id'],item['original_snapshot_sha256'],item['model_digest'],item['season'])
         if key in seen:raise ValueError('SHADOW_DUPLICATE_FUTURE_PUBLICATION')
         seen.add(key)
-        if not registered_at_utc<=item['fit_at_utc']<=item['prediction_generated_at_utc']<item['fixture_start_utc']-900:
+        if not registered_at_utc<=item['fit_at_utc']<=item['prediction_generated_at_utc']<=now or item['prediction_generated_at_utc']>=item['fixture_start_utc']-900:
             raise ValueError('SHADOW_REGISTERED_PREMATCH_PUBLICATION_REQUIRED')
-        candidates=[r for r in labels if (r['fixture_id'],r['snapshot_sha256'],r['model_digest'],r['season'])==key and r['actual'] is not None]
+        candidates=[r for r in labels if r.get('league')=='NBA' and (r['fixture_id'],r['snapshot_sha256'],r['model_digest'],r['season'])==key and r['actual'] is not None]
         if not candidates:continue
         if len(candidates)!=1:raise ValueError('SHADOW_EXACT_NATIVE_LABEL_REQUIRED')
         r=candidates[0]
         if r['fixture_start_utc']!=item['fixture_start_utc'] or not r['fixture_start_utc']<r['label_available_utc']<=now or r['fixture_id'] in item['training_ids']:
             raise ValueError('SHADOW_LABEL_IDENTITY_OR_AVAILABILITY')
-        a=r['actual'];y=0 if a[0]>a[1] else 1 if a[0]==a[1] else 2
+        if (r.get('winner') is None or np.asarray(r['winner']).shape!=(3,) or
+            not np.allclose(r['winner'],item['raw'],rtol=0,atol=1e-12)):
+            raise ValueError('SHADOW_ORIGINAL_PROBABILITY_CONFLICT')
+        a=r['actual']
+        if len(a)!=2 or any(type(v) not in (int,float) or not np.isfinite(v) or v<0 for v in a):
+            raise ValueError('SHADOW_FINITE_NATIVE_TEAM_SCORES_REQUIRED')
+        y=0 if a[0]>a[1] else 1 if a[0]==a[1] else 2
         matched.append(dict(item=item,outcome=y,day=(r['fixture_start_utc']+10800)//86400))
     days=sorted({r['day'] for r in matched});out=dict(n=len(matched),days=len(days),status='ABSTAIN_INSUFFICIENT_FUTURE_EVIDENCE',
         raw=None,candidate=None,paired_interval=None,automatic_promotion=False,production_enabled=False)

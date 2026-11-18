@@ -4,22 +4,24 @@ import time
 from zoneinfo import ZoneInfo
 
 from core.team_identity import digest
-from hybrid_engine.forward_nba_results import read_confirmed
+from hybrid_engine.confirmed_nba import read_confirmed_nba as read_confirmed
 from season_archive_collect import fetch_document
 from season_archive_inventory import archive_catalog
 
 
 def settle(ledger, *, fetcher=fetch_document):
     from ledger_reports import LedgerReports
-    LedgerReports(ledger.path).read('NBA')  # Validate native outcomes/snapshot indices before any writes.
+    initial=LedgerReports(ledger.path).read('NBA')  # Validate native outcomes/snapshot indices before any writes.
     records=read_confirmed(ledger.path)
     now=int(time.time())
-    due=[r for r in records if r['snapshot']['fixture_start_utc']<now]
+    pending={(r['fixture_id'],r['snapshot_sha256']) for r in initial.get('forecasts',[]) if r['actual'] is None}
+    due=[r for r in records if r['snapshot']['fixture_start_utc']<now and
+         (r['snapshot']['fixture_id'],r['snapshot_sha256']) in pending]
     days=set()
     for record in due:
         local=datetime.fromtimestamp(record['snapshot']['fixture_start_utc'],ZoneInfo('America/New_York')).date()
         days.update((local-timedelta(days=1),local,local+timedelta(days=1)))
-    inserted=0; unavailable=[]
+    inserted=0; unavailable=[];invalid=[];valid_days=0
     for day in sorted(days):
         url='https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates='+day.strftime('%Y%m%d')+'&limit=1000'
         try:
@@ -48,9 +50,17 @@ def settle(ledger, *, fetcher=fetch_document):
                     if g['completed'] and g['start_ts_utc']>=receipt['observed_at_utc']:
                         raise ValueError('SETTLEMENT_FINAL_BEFORE_TIPOFF')
                 inserted+=ledger.reconcile(bundle,trusted_sha256=bundle['sha256'])
+            valid_days+=1
         except OSError:
             unavailable.append(day.isoformat())
+        except (ValueError,KeyError,TypeError) as exc:
+            # A bad day's native document remains rejected, while another day
+            # can settle independently. Database errors still stop the worker.
+            invalid.append(dict(date=day.isoformat(),error_type=type(exc).__name__))
+    if invalid and not valid_days:
+        raise ValueError('SETTLEMENT_ALL_NATIVE_DATES_INVALID')
     from ledger_reports import LedgerReports
     report=LedgerReports(ledger.path).read('NBA')
     return dict(checked=len(records),due=len(due),settled=inserted,pending=report.get('pending'),
-                unavailable_dates=unavailable,status='SOURCE_INCOMPLETE' if unavailable else 'CHECKED')
+                unavailable_dates=unavailable,invalid_dates=invalid,
+                status='SOURCE_INCOMPLETE' if unavailable or invalid else 'CHECKED')

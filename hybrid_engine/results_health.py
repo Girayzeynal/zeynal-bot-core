@@ -36,4 +36,5 @@ def render(health, poll=None):
         lines.append('Son NBA sonuç kolektörü: '+live.get('status','HENÜZ_ÇALIŞMADI'))
         value=live.get('result') or {}
         if value.get('unavailable_dates'):lines.append('Eksik kaynak günü: '+', '.join(value['unavailable_dates']))
+        if value.get('invalid_dates'):lines.append('Reddedilen kaynak günü: '+', '.join(r['date'] for r in value['invalid_dates']))
     return '\n'.join(lines)

@@ -10,7 +10,7 @@ fi
 if [[ "${1:-}" == "--issue90-status" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
   exec .venv/bin/python -B -m hybrid_engine.issue90_research \
-    --directory "${HOME}/zeynal-test-isolated/data/nba-research-v3"
+    --directory "${HOME}/zeynal-test-isolated/data/nba-research-v3-integrity-v2"
 fi
 if [[ "${1:-}" == "--issue90-audit" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
@@ -56,7 +56,7 @@ if ! flock -n 9; then
 fi
 branch="$(git branch --show-current)"
 case "$branch" in
-  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118) ;;
+  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118) ;;
   *) echo "WRONG_BRANCH: checkout an isolated test branch first" >&2; exit 2 ;;
 esac
 launcher_path="${PWD}/scripts/run_isolated_test_bot.sh"
