@@ -201,7 +201,10 @@ class NBAOvernightTelegramTests(IsolatedAsyncioTestCase):
                     patch.object(main,'Application',SimpleNamespace(builder=lambda:Application.builder().token('123456:SYNTHETIC_LOCAL_ONLY')
                         .base_url(f'http://127.0.0.1:{port}/bot').request(AuditedRequest(journal)))),\
                     patch.object(main,'Faz23Engine',lambda:engine(str(fixture.root/'faz23.sqlite'))):app=main.build_app()
-                install_isolated_services(app,archive,root,chat_id=17,transport=fixture.fetch,nba_service=fixture.service)
+                replay=SimpleNamespace(cases=lambda:[],has_pair=lambda h,a:True,analyze=AsyncMock(return_value=dict(
+                    status='ABSTAIN',html='SYNTHETIC_OLD_DATE_ARCHIVE_ONLY',new_record=False)))
+                install_isolated_services(app,archive,root,chat_id=17,transport=fixture.fetch,
+                    nba_service=fixture.service,nba_replay=replay)
                 await app.initialize()
                 try:
                     scheduler=app.bot_data['nba_overnight_scheduler'];scheduler.clock=lambda:fixture.now
@@ -221,6 +224,8 @@ class NBAOvernightTelegramTests(IsolatedAsyncioTestCase):
                                      'KAYITLI NBA TAHMİNLERİ','KAYITLI MODEL KARŞILAŞTIRMASI','NOT_CALIBRATED'):
                         self.assertIn(expected,text)
                     self.assertNotIn('Analiz hizmeti kullanılamıyor',text)
+                    self.assertNotIn('SYNTHETIC_OLD_DATE_ARCHIVE_ONLY',text)
+                    replay.analyze.assert_awaited_once_with('NBA','2026-11-12','Synthetic Hawks','Synthetic Bears')
                     self.assertEqual(before,fixture.service.ledger.path.read_bytes())
                     self.assertTrue(all(len(v.encode('utf-16-le'))//2<=4096 for v in sent))
                 finally:await app.shutdown()

@@ -398,8 +398,14 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         class ReplayDispatch:
             ledger=getattr(base,'ledger',None)
             async def analyze(self,league,day,home,away):
-                if league.upper()=='NBA' and (replay_only or nba_service is None or nba_replay.has_pair(home,away)):
-                    return await nba_replay.analyze(league,day,home,away)
+                if league.upper()=='NBA':
+                    if replay_only or nba_service is None:
+                        return await nba_replay.analyze(league,day,home,away)
+                    if nba_replay.has_pair(home,away):
+                        replay=await nba_replay.analyze(league,day,home,away)
+                        # The same teams may meet again on another date. A static
+                        # replay's date mismatch must not hide a live original.
+                        if replay.get('status')=='NBA_ARCHIVE_REPLAY_OK':return replay
                 return await base.analyze(league,day,home,away)
         app.bot_data['verified_analysis_service']=ReplayDispatch()
     fetch=transport or ControlledTransport(fetch_document)

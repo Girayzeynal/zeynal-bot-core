@@ -38,6 +38,12 @@ archived forecasts. `/test nba` shows automatic scheduling, registered-plan
 status/SHA, pending/settled experiment cases and matched-game/day counts **per
 cohort**, rather than pooling leagues or incompatible fits.
 
+The live command router also checks the static replay result's actual match
+date before using it. An older fixture between the same teams cannot hide an
+automatically archived new fixture. Replay-only mode retains its original
+date-mismatch behavior; live mode delegates nonmatching dates to the verified
+live service, which still rejects retrospective new forecasts.
+
 ## Existing plan and records stay intact
 
 - `live_nba.py`, the sampler, model sources, `challenger_forward.py`,
@@ -104,9 +110,9 @@ cases from running). Cleanup is now registered on the actual running test's
 runner. Native clock/source guards were not weakened; the new NBA test followed
 by native archive/posterior tests and the complete suite are rerun afterward.
 
-Final local results: **1,461/1,461** full tests passed in 118.736 s; the new NBA
+Final local results after the routing correction: **1,461/1,461** full tests passed in 118.459 s; the new NBA
 suite followed by native archive/posterior clock regressions passed **49/49** in
-5.761 s. Zero final failures/errors, all previous 1,445 tests retained.
+5.761 s. Overnight plus static-replay routing regressions passed **41/41** in 7.116 s. Zero final failures/errors, all previous 1,445 tests retained.
 `docs/evidence/nba-overnight-phase958-20261117.json` records the final and initial
 log hashes, the resolved fixture failure, and unchanged protected source hashes.
 

@@ -1,15 +1,15 @@
 {
   "payload": {
     "format": "NBA_OVERNIGHT_AUTOMATION_VALIDATION_V1",
-    "recorded_at_utc": "2026-11-17T23:55:52.031283+00:00",
+    "recorded_at_utc": "2026-11-18T00:09:16.225314+00:00",
     "base_commit": "7c5cc40d6baedd54f6616e5b1686fe694f38f08f",
     "checks": {
       "full": {
         "tests": 1461,
-        "seconds": 118.736,
+        "seconds": 118.459,
         "failures": 0,
         "errors": 0,
-        "log_sha256": "10cd37386f7ef1da5107e9160c2dcc3669c20bae7989372c663f415308c8c0ae"
+        "log_sha256": "f1b75d0a9dc3fe3b40181ae15f61d11c212c9c35afa8e8119bd859b3b062521a"
       },
       "new_then_native_clock_regression": {
         "tests": 49,
@@ -17,6 +17,20 @@
         "failures": 0,
         "errors": 0,
         "log_sha256": "757258cc3cef2612bf55d802b187be68ddc75bbb842860814e0804a06fd88f34"
+      },
+      "pre_routing_full": {
+        "tests": 1461,
+        "seconds": 118.736,
+        "failures": 0,
+        "errors": 0,
+        "log_sha256": "10cd37386f7ef1da5107e9160c2dcc3669c20bae7989372c663f415308c8c0ae"
+      },
+      "overnight_then_static_archive_routing": {
+        "tests": 41,
+        "seconds": 7.116,
+        "failures": 0,
+        "errors": 0,
+        "log_sha256": "ea3817f678e04095d123d1a3ca526694eb4d14f5e912d4748ed81d06398acc01"
       }
     },
     "previous_tests_retained": 1445,
@@ -55,7 +69,8 @@
     "telegram_e2e_status": "BLOCKED_MISSING_DEDICATED_TEST_BOT_CONFIGURATION_IN_CLOUD",
     "production_changed": false,
     "main_merged": false,
-    "acceptance": "NO_GO_PRODUCTION"
+    "acceptance": "NO_GO_PRODUCTION",
+    "routing_regression": "STATIC_OLDER_PAIR_CANNOT_MASK_NEW_LIVE_DATE_REPLAY_ONLY_UNCHANGED"
   },
-  "sha256": "a5420d41982e1432703cf8279a8f4dc16d2e209e5a8b4ce573557c4e28f2cdd0"
+  "sha256": "e94a5f3726d5b6fd9348b6c171899468e6e9d850e3a68f311480d8e4288ef225"
 }
