@@ -1,15 +1,15 @@
 {
   "payload": {
     "format": "ADAPTIVE_V2_RESEARCH_VALIDATION_V1",
-    "recorded_at_utc": "2026-11-18T11:36:12.533984+00:00",
+    "recorded_at_utc": "2026-11-18T11:43:48.047470+00:00",
     "base_commit": "05137034dbf6ffab2330b0db365b2594ce78e78d",
     "checks": {
       "release_full": {
-        "tests": 1493,
-        "seconds": 131.882,
+        "tests": 1494,
+        "seconds": 131.589,
         "failures": 0,
         "errors": 0,
-        "log_sha256": "d23f1fcfe15fbdbeacdf7a407d3b53604899c9c45a8c1582b428677a0704e80f"
+        "log_sha256": "0709a05dd2d7550fabe059b5d53f757a383017d8f2b9c936dc91ddda315d01ef"
       },
       "prior_full": {
         "tests": 1492,
@@ -24,10 +24,17 @@
         "failures": 0,
         "errors": 0,
         "log_sha256": "dabdf4c8dcf59a78e05e1d16040cb4ce1049bee7c032e8fd90cee810ef6df0d1"
+      },
+      "pre_bundle_clock_fix_full": {
+        "tests": 1493,
+        "seconds": 131.882,
+        "failures": 0,
+        "errors": 0,
+        "log_sha256": "d23f1fcfe15fbdbeacdf7a407d3b53604899c9c45a8c1582b428677a0704e80f"
       }
     },
     "previous_tests_retained": 1463,
-    "new_tests": 30,
+    "new_tests": 31,
     "preserved_existing_nba_predictor_files": 27,
     "all_existing_nba_predictor_source_pins_unchanged": true,
     "preserved_existing_nba_source_hashes": {
@@ -60,7 +67,7 @@
       "../prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2"
     },
     "new_code_hashes": {
-      "adaptive_research.py": "c483be42b9967a522d82006bf658978189d2cf11f91e9cf1ea718f12b16fbf66",
+      "adaptive_research.py": "cef57d53bc5f703de9ee525fcd00067e2872ddbceb8f3b05e5f2790e385100b8",
       "adaptive_data.py": "0e480265e340fb3f252fe4ad1b4e75565860908e8f109dbc8394cc69de39e563",
       "adaptive_worker.py": "9b8f05e1a5c4d91e22e48b42bcdf0e38b8971e7796237b6fc16d34bc83d90309",
       "adaptive_models.py": "d7907c0532e1ae5d4b6d3da19b302f21dd2970e2d312cfb59e22f7259d16d02a"
@@ -86,7 +93,8 @@
     "actual_telegram_delivery_verified": false,
     "userland_archive_inspected": false,
     "telegram_e2e_status": "BLOCKED_MISSING_DEDICATED_TEST_BOT_CONFIGURATION_IN_CLOUD",
-    "acceptance": "NO_GO_PRODUCTION"
+    "acceptance": "NO_GO_PRODUCTION",
+    "bundle_prepared_at_follows_optional_player_fit": true
   },
-  "sha256": "a32080e821ecc4e35a1d843d1dab9a76299be6257dfb54dffad8f5f22b707570"
+  "sha256": "f9d4b60d7577cba81b54d568100f15c03e797d1f279baded83aebc08e38f99f8"
 }

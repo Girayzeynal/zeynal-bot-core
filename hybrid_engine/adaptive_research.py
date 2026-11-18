@@ -146,6 +146,7 @@ class AdaptiveResearch:
                 except (ValueError,KeyError,TypeError,OSError):
                     p['player_readiness']=dict(status='BLOCKED_PLAYER_WITNESS_OR_FIT_VALIDATION')
             if (p['league'],p['season'])!=(league,season):raise ValueError('ADAPTIVE_FIT_COHORT_REQUIRED')
+            p['prepared_at_utc']=int(time.time())  # Whole bundle, including the optional later player fit.
             artifact['sha256']=digest(p);publish_json(path,artifact);return read_wrapper(path),True
 
     def capture(self,target,original_pin,artifact,verify_fixture,*,frozen=None,player_only=False):

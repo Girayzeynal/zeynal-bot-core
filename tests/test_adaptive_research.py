@@ -306,6 +306,19 @@ class AdaptivePlayerPairTests(TestCase):
             study.capture_player(metadata(self.rows[120][0]),'b'*64,self.artifact,lambda t:dict(ingested_at_utc=self.now))
         self.assertEqual(study.player_registry.records(),[])
 
+    def test_model_bundle_ready_time_follows_the_optional_player_fit(self):
+        from hybrid_engine.adaptive_research import fit_pair
+        clock=[self.now]
+        def delayed(*args,**kwargs):
+            clock[0]+=3
+            return fit_pair(*args,**kwargs)
+        with patch('time.time',side_effect=lambda:clock[0]),patch('hybrid_engine.adaptive_research.fit_pair',side_effect=delayed):
+            study=AdaptiveResearch(self.root/'bundle-clock',player_directory=self.players);study.plan(create=True)
+            a,_=study.fit(self.rows,'NBA','SYNTHETIC')
+        self.assertIsNotNone(a['payload']['player_pair'])
+        self.assertEqual(a['payload']['prepared_at_utc'],clock[0])
+        self.assertLessEqual(a['payload']['player_pair']['payload']['prepared_at_utc'],a['payload']['prepared_at_utc'])
+
 
 
 class AdaptiveWorkerTests(IsolatedAsyncioTestCase):

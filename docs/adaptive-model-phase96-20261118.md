@@ -135,4 +135,4 @@ user's isolated restart and saved `/research` output. Production remains NO-GO;
 there is no main merge, Fly deployment, production token/data change or paid
 service.
 
-Final local validation: **1,493/1,493** tests passed in **131.882 s**, zero failures/errors; all prior 1,463 retained, 30 added. The final source pins of all 27 existing registered NBA predictor files match the base commit. The evidence JSON records log and implementation hashes. Exact-commit GitHub/Docker/resource results are recorded in PR #89.
+Final local validation: **1,494/1,494** tests passed in **131.589 s**, zero failures/errors; all prior 1,463 retained, 31 added. The final source pins of all 27 existing registered NBA predictor files match the base commit. The evidence JSON records log and implementation hashes. Exact-commit GitHub/Docker/resource results are recorded in PR #89.
