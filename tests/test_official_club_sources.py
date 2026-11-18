@@ -76,6 +76,9 @@ def test_probe_respects_robots_and_never_inferrs_squad_availability():
     assert result["model_input"] is False
     assert result["fixture_id"] is None
     assert result["body_sha256"]
+    assert result["source_page_kind"]=="NEWS_INDEX"
+    assert result["published_utc"] is None
+    assert result["publication_time_status"]=="NEWS_INDEX_ARTICLE_TIME_NOT_VERIFIED"
     assert "Rumor" not in repr(result)
 
 
