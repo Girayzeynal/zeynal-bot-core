@@ -5,6 +5,7 @@ from contextvars import ContextVar
 import json
 import logging
 import os
+import sqlite3
 from pathlib import Path
 import time
 
