@@ -415,6 +415,11 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         if isinstance(nba_service,LiveNBAHybridService):
             app.bot_data['nba_overnight_scheduler']=NBAOvernightScheduler(nba_service,app.bot_data['nba_fixture_loader'],
                 root/'nba-overnight',root/'challenger-research'/'protocol')
+    if not replay_only and (europe_services or app.bot_data.get('nba_overnight_scheduler')):
+        from hybrid_engine.adaptive_worker import AdaptiveWorker
+        app.bot_data['adaptive_v2_worker']=AdaptiveWorker(root/'adaptive-v2',
+            nba=nba_service if app.bot_data.get('nba_overnight_scheduler') else None,europe=europe_services,
+            fetcher=transport or fetch_document)
     async def authorized(update,context):
         if update.effective_chat is None or update.effective_chat.id!=chat_id:raise ApplicationHandlerStop
         _update.set(update.update_id)
@@ -436,13 +441,16 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
-        if mode not in ('all','nba','euroleague','eurocup','roster'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test all')
+        if mode not in ('all','nba','euroleague','eurocup','roster','research'):
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',
             'Yetkili sohbet: OK',
             'Bu yanıtın teslimi Telegram üzerinden kontrol edilmelidir.']
+        worker=app.bot_data.get('adaptive_v2_worker')
+        if worker and mode in ('all','research'):
+            lines.extend(worker.render().splitlines())
         overnight=app.bot_data.get('nba_overnight_scheduler')
         if mode in ('all','nba') and overnight:
             lines.append('NBA otomatik PREMATCH: AÇIK · gelecek 36 saat · son 15 dk yeni kayıt yok')
@@ -494,9 +502,23 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         lines.append('/predictions handler grupları: '+str(registered))
         lines.append('Listeleyici sürümü: '+getattr(app.bot_data.get('predictions_command'),'version','YAPILANDIRILMADI'))
         lines.append('Bu kontrol maç tahmini, gerçek fikstür veya Fly.io dağıtımını doğrulamaz.')
-        await message.reply_text('\n'.join(lines))
+        from hybrid_engine.elite_render import split_blocks
+        for part in split_blocks(lines,limit=3200):await message.reply_text(part.replace('\n\n','\n'),parse_mode=None)
         raise ApplicationHandlerStop
     from telegram.ext import CommandHandler, CallbackQueryHandler
+    async def research_command(update,context):
+        args=context.args or [];worker=app.bot_data.get('adaptive_v2_worker')
+        if not worker or len(args)>2 or (args and args[0].upper() not in ('NBA','EUROLEAGUE','EUROCUP')):
+            await update.effective_message.reply_text('Kullanım: /research [NBA|EUROLEAGUE|EUROCUP] [maç_kimliği]. İzole V2 araştırma servisi gerekli.')
+        else:
+            try:
+                value=await asyncio.to_thread(worker.render,args[0].upper() if args else None,args[1] if len(args)>1 else None)
+                from hybrid_engine.elite_render import split_blocks
+                for part in split_blocks(value.splitlines(),limit=3200):await update.effective_message.reply_text(part,parse_mode=None)
+            except (ValueError,KeyError,TypeError,OSError):
+                await update.effective_message.reply_text('V2 araştırma arşivi doğrulanamadı. Eski tahminler korunuyor.')
+        raise ApplicationHandlerStop
+    app.add_handler(CommandHandler('research',research_command),group=-50)
     from hybrid_engine.analyze_input import AnalyzeInputGuard
     app.add_handler(CommandHandler('analyze',AnalyzeInputGuard(chat_id).handle),group=-60)
     async def isolated_fixtures(update,context):
@@ -681,6 +703,8 @@ def main():
         if scheduler and not args.replay_only:tasks.append(asyncio.create_task(scheduler.run(app)))
         overnight=app.bot_data.get('nba_overnight_scheduler')
         if overnight and not args.replay_only:tasks.append(asyncio.create_task(overnight.run(app)))
+        adaptive=app.bot_data.get('adaptive_v2_worker')
+        if adaptive and not args.replay_only:tasks.append(asyncio.create_task(adaptive.run(app)))
         async def collect():
             while True:
                 from hybrid_engine.result_poll import poll_once

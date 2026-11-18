@@ -371,7 +371,8 @@ class EuropeanAutomaticTelegramTests(unittest.IsolatedAsyncioTestCase):
                             for league in ('EUROLEAGUE','EUROCUP'):
                                 commands.append((at,f'/analyze {league} 2026-11-11 Paris Basketball vs Fenerbahce Beko'))
                         commands += [(START+60,c) for c in ('/predictions EuroLeague','/predictions EuroCup',
-                            '/compare EUROLEAGUE E2026_1','/compare EUROCUP U2026_1','/accuracy EUROLEAGUE','/accuracy EUROCUP','/test euroleague','/test eurocup')]
+                            '/compare EUROLEAGUE E2026_1','/compare EUROCUP U2026_1','/accuracy EUROLEAGUE','/accuracy EUROCUP','/test euroleague','/test eurocup',
+                            '/test research','/research EUROCUP U2026_1')]
                         with patch('hybrid_engine.models.HierarchicalStrength.predict',side_effect=AssertionError('REPLAY ONLY')):
                             for i,(at,command) in enumerate(commands):
                                 now[0]=at
@@ -383,7 +384,8 @@ class EuropeanAutomaticTelegramTests(unittest.IsolatedAsyncioTestCase):
                         self.assertEqual(sum('ZEYNAL | EUROLEAGUE ANALİZ' in p for p in sent),3)
                         self.assertEqual(sum('ZEYNAL | EUROCUP ANALİZ' in p for p in sent),3)
                         for expected in ('KAYITLI EUROLEAGUE','KAYITLI EUROCUP','KAYITLI MODEL KARŞILAŞTIRMASI',
-                                         'DOĞRULANMIŞ CANLI PERFORMANS','Avrupa otomatik PREMATCH: AÇIK · gelecek 36 saat','NOT_CALIBRATED'):
+                                         'DOĞRULANMIŞ CANLI PERFORMANS','Avrupa otomatik PREMATCH: AÇIK · gelecek 36 saat','NOT_CALIBRATED',
+                                         'AYRI ADAY MODEL ARAŞTIRMASI','Bu maç için ayrı V2 kaydı yok'):
                             self.assertIn(expected,text)
                         self.assertNotIn('Analiz durduruldu',text);self.assertNotIn('hizmeti kullanılamıyor',text)
                         self.assertEqual(before,{str(p.relative_to(root)):p.read_bytes() for p in (root/'europe').rglob('*.json')})

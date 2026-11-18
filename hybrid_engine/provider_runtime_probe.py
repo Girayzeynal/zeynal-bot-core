@@ -52,6 +52,7 @@ def main():
         unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_provider_identity'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_prematch'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_nba_overnight'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_adaptive_research'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_seasons')])
     result=unittest.TextTestRunner(verbosity=1).run(suite)
     report=dict(format='ISOLATED_PROVIDER_RUNTIME_V1',tests=result.testsRun,

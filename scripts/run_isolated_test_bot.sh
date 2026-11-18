@@ -22,10 +22,11 @@ if [[ "${1:-}" == "--error-review" ]]; then
     --output-directory "${HOME}/zeynal-test-isolated/data/quality-phase924/reports" "${plan_args[@]}"
 fi
 # Read-only automatic capture status can run without stopping the poller.
-if [[ "${1:-}" == "--europe-prematch-status" || "${1:-}" == "--nba-overnight-status" ]]; then
+if [[ "${1:-}" == "--europe-prematch-status" || "${1:-}" == "--nba-overnight-status" || "${1:-}" == "--adaptive-status" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
   status_directory="europe-prematch"
   if [[ "$1" == "--nba-overnight-status" ]]; then status_directory="nba-overnight"; fi
+  if [[ "$1" == "--adaptive-status" ]]; then status_directory="adaptive-v2/attempts"; fi
   exec .venv/bin/python -B -m hybrid_engine.europe_prematch \
     --directory "${HOME}/zeynal-test-isolated/data/${status_directory}"
 fi
