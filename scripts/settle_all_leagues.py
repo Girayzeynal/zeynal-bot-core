@@ -158,8 +158,30 @@ def european(root, code, apply, now, receipts, legacy_results=None):
                 print(f"{code} | sezon={year} | KAYNAK_ENGELI={receipt.get('status')} "
                       f"| HTTP={receipt.get('http_status')}")
                 continue
-            added = registry.settle(receipt, year)
-            print(f"{code} | sezon={year} | YENI_DOGRULANMIS_FINAL={len(added)}")
+            # A conflicting earlier fixture must not hide an unrelated valid FINAL.
+            # Keep the native EuropeanRegistry.settle() validators unchanged,
+            # but scope each append attempt to exactly one original forecast.
+            class PerFixtureRegistry(EuropeanRegistry):
+                def __init__(self, directory, league, record):
+                    super().__init__(directory, league)
+                    self.record = record
+
+                def records(self):
+                    return [self.record]
+
+            added_count = 0
+            failed = 0
+            for item in [item for item in due
+                         if item["payload"]["fixture"]["season_start_year"] == year]:
+                try:
+                    one = PerFixtureRegistry(directory, code, item)
+                    added_count += len(one.settle(receipt, year))
+                except (ValueError, KeyError, TypeError, OSError) as exc:
+                    failed += 1
+                    print(f"{code} | mac={item['payload']['fixture']['canonical_id'][:20]} "
+                          f"| FINAL_BLOKE={type(exc).__name__}")
+            print(f"{code} | sezon={year} | YENI_DOGRULANMIS_FINAL={added_count} "
+                  f"| MAC_BAZINDA_ENGEL={failed}")
     else:
         print(f"{code} | REPORT_ONLY: saglayici sorgusu ve sonuc yazimi yapilmadi")
     service = EuropeanService(code, directory, root / "europe" / "models", fetch_document)
