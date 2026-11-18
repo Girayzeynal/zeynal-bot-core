@@ -75,3 +75,25 @@ Box-score pozisyon tahmini PBP olarak gösterilmeyecek.
 Bu rapor aşamasında yeni deney henüz çalıştırılmadı. Üstünlük, kalibrasyon ve
 gerçek Telegram teslimi iddiası yok. Test/deney sonuçları ayrıca eklenecek.
 Üretim dağıtımı, main merge, veri silme veya `zeynal_data` işlemi yok.
+
+## Devam sırasında okunan ek notlar
+
+Yorumlar `6988657808`, `6989238349`, `6989320277`, `6989518027` de okundu.
+Kullanıcının cihaz çıktısı: 39 özgün NBA kayıt, 23 sonuç, 16 bekleyen;
+kontrol anında `started_unsettled=0`. Bu Cloud'un cihazda yaptığı yeni bir
+ölçüm değildir. 23 sonuçtaki toplam MAE 15.82 / RMSE 20.17 ve ham Brier
+0.5363 ayrı bir canlı kohorttur; aşağıdaki tarihsel çalışma ile karıştırılmaz.
+
+`quality_report.report()` zaten özgün native girdilerden
+`forecast_error_review.review(..., profiles=...)` ile aynı maçlardaki basit
+referansı hesaplıyor. Sorun bu karşılaştırmanın CLI özetinde görünmemesi:
+mevcut `--error-review` yalnız ilk üç donmuş model hatasını basıyor. Yeni bir
+model/öğrenme zinciri yazmak yerine bu mevcut raporun kısa CLI çıktısına
+eşlenmiş MAE/RMSE, üç vakadaki iki hata ve kimlik/zaman/kapsam eklenmeli.
+UserLAnd veritabanı bu Cloud ortamında yok; oradaki 23 çiftin gerçek yeni
+sayısal sonucu burada tamamlandı diye sunulamaz.
+
+TOR–NYK ve MIN–POR gibi tekrar oynanan eşleşmeler isimden birleştirilmeyecek.
+Normal süre 95–95 kaydı, uzatmalı 108–112 finalinden ayrı ve geçerli bir
+sonuç olabilir. Eksik finalin, skor modelinin yanlılığıyla aynı sorun olduğu
+varsayılmayacak.
