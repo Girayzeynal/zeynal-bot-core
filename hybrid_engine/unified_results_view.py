@@ -46,21 +46,19 @@ def summary(report, league, now):
 def render_league(report, league, now, *, all_matches=False):
     fixtures = normalized_rows(report, league)
     counters = summary(report, league, now)
-    lines = [f"{league} | Kayıtlı {counters['archived']} | FINAL eşleşmiş "
-             f"{counters['matched']} | Başlamış/FINAL kanıtı yok "
-             f"{counters['started_unverified']} | Başlamamış {counters['not_started']}"]
+    lines = [f"{league} | Doğrulanmış FINAL {counters['matched']} | "
+             f"Başlamış ama FINAL henüz doğrulanmamış {counters['started_unverified']}"]
     if not all_matches:
         return lines
     for rows in fixtures:
         first = rows[0]
-        ts = datetime.fromtimestamp(first["fixture_start_utc"], TSI).strftime("%d.%m %H:%M")
+        # Do not place future matches, or started matches with no verified FINAL,
+        # in a report that the user requested specifically for finished games.
         paired = [row for row in rows if row.get("actual") is not None]
-        state = ("FINAL" if paired else
-                 "BAŞLAMADI" if first["fixture_start_utc"] > now else
-                 "BAŞLADI; FINAL KANITI YOK")
-        lines.append(f"{ts} TSİ | {first['home']} – {first['away']} | {state}")
         if not paired:
             continue
+        ts = datetime.fromtimestamp(first["fixture_start_utc"], TSI).strftime("%d.%m %H:%M")
+        lines.append(f"{ts} TSİ | {first['home']} – {first['away']} | FINAL")
         for row in paired:
             p = row["prediction"]
             a = row["actual"]
@@ -91,16 +89,15 @@ def render_all(reports, *, now, detail=True):
     lines = ["ZEYNAL | 3 LİG | ORİJİNAL TAHMİN → DOĞRULANMIŞ SONUÇ",
              "Normal süre, Türkiye saati | İzole test arşivi, üretim değil"]
     for row in totals:
-        lines.append(f"{row['league']}: {row['matched']}/{row['archived']} "
-                     f"eşleşmiş; {row['started_unverified']} başlamış/FINAL eksik; "
-                     f"{row['not_started']} başlamamış")
-    lines.append("TOPLAM: "+str(sum(r["matched"] for r in totals))+" eşleşmiş / "+
-                 str(sum(r["archived"] for r in totals))+" kayıt")
+        lines.append(f"{row['league']}: {row['matched']} doğrulanmış FINAL ile eşleşmiş "
+                     f"| {row['started_unverified']} başlamış, FINAL henüz doğrulanmamış")
+    lines.append("TOPLAM: "+str(sum(r["matched"] for r in totals))+" eşleşmiş FINAL")
     if detail:
         for league in LEAGUES:
             lines.append("")
             lines.extend(render_league(normalized[league], league, now, all_matches=True))
-    lines.append("Eksik FINAL = devam ediyor veya kaynakta kesin sonuç henüz doğrulanmadı.")
+    lines.append("Başlamış ama FINAL doğrulanmamış maçlar hesaplamaya alınmadı; devam ediyor veya kaynak sonucu eksik olabilir.")
+    lines.append("Başlamamış maçlar bu sonuç raporunun kapsamı dışındadır.")
     lines.append("Bu liste yalnız önceden kayıtlı tahminleri içerir. Sonradan PREMATCH üretilmez.")
     return "\n".join(lines)
 
