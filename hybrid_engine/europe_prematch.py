@@ -21,10 +21,9 @@ from hybrid_engine.europe_live import EuropeanService,EuropeanRegistry
 from hybrid_engine.europe_models import catalog,season_url
 from hybrid_engine.live_euroleague import names
 
-VERSION='EUROPE_AUTO_PREMATCH_V1'
+VERSION='EUROPE_AUTO_PREMATCH_V2'
 MINIMUM_LEAD=900
-TARGET_MINIMUM_LEAD=5400
-MAXIMUM_LEAD=7200
+LOOKAHEAD=36*3600
 LOG=logging.getLogger(__name__)
 
 
@@ -168,7 +167,7 @@ def candidates(service,now):
         lead=g['start_ts_utc']-now
         reason=('ALREADY_ARCHIVED' if g['canonical_id'] in saved or set(g['provider_fixture_ids'])&saved_ids else 'COMPLETED' if g['completed'] else
                 'STARTED' if lead<=0 else 'LAST_15_MINUTES' if lead<=MINIMUM_LEAD else
-                'OUTSIDE_EARLY_WINDOW' if lead>MAXIMUM_LEAD else None)
+                'OUTSIDE_EARLY_WINDOW' if lead>LOOKAHEAD else None)
         if reason:
             skipped[reason]=skipped.get(reason,0)+1
             if reason=='OUTSIDE_EARLY_WINDOW':next_starts.append(g['start_ts_utc'])
@@ -177,9 +176,9 @@ def candidates(service,now):
         h,a=pairs[g['provider_fixture_ids'][0]]
         selected.append(dict(fixture_id=g['canonical_id'],provider_fixture_ids=g['provider_fixture_ids'],
             fixture_start_utc=g['start_ts_utc'],day=datetime.fromtimestamp(g['start_ts_utc'],ZoneInfo('Europe/Istanbul')).date().isoformat(),
-            home=h,away=a,window='TARGET_90_TO_120_MINUTES' if lead>=TARGET_MINIMUM_LEAD else 'CATCH_UP_BEFORE_15_MINUTE_CUTOFF'))
+            home=h,away=a,window='NEXT_36_HOURS'))
     return dict(selected=selected,skipped=skipped,source_sha256=digest(receipt),
-        next_scan_utc=now+300 if selected else min(now+1800,min(next_starts)-MAXIMUM_LEAD) if next_starts else now+1800)
+        next_scan_utc=now+300 if selected else min(now+1800,min(next_starts)-LOOKAHEAD) if next_starts else now+1800)
 
 
 class EuropeanPrematchScheduler:
@@ -201,7 +200,7 @@ class EuropeanPrematchScheduler:
         self.running=True;self.sequence+=1;now=int(self.clock());remaining=self.maximum
         self.retry_after={k:v for k,v in self.retry_after.items() if v>now}
         report=dict(format=VERSION,evaluated_at_utc=now,sequence=self.sequence,leagues={},
-            minimum_lead_seconds=MINIMUM_LEAD,target_lead_seconds=[TARGET_MINIMUM_LEAD,MAXIMUM_LEAD],
+            minimum_lead_seconds=MINIMUM_LEAD,lookahead_seconds=LOOKAHEAD,
             maximum=self.maximum,forecast_training=False,production_changed=False,actual_telegram_delivery_verified=False)
         try:
             order=list(self.services)

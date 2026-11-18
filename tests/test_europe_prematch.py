@@ -16,7 +16,7 @@ from unittest.mock import patch,Mock
 from core.team_identity import digest
 from hybrid_engine.europe_models import prepare,season_url
 from hybrid_engine.europe_prematch import (AutomaticEuropeanService,SinglePrematchRegistry,
-    EuropeanPrematchScheduler,candidates,safe_lead,status)
+    EuropeanPrematchScheduler,candidates,safe_lead,status,LOOKAHEAD)
 from hybrid_engine.europe_reports import EuropeanReports
 from hybrid_engine.predictions_command import render_predictions
 from tests.test_europe_integration import Source,ROOT
@@ -76,6 +76,53 @@ class EuropeanAutomaticPrematchTests(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(p['training_in_request']);self.assertIsNone(p['confidence_index'])
         self.assertEqual(model_files,{p.name:p.read_bytes() for p in (self.root/'models').iterdir()})
 
+    async def test_evening_captures_next_day_both_leagues_and_restart_replays_without_retiming(self):
+        self.now=NOW;tomorrow=START+86400
+        day=datetime.fromtimestamp(tomorrow,timezone.utc).date().isoformat()
+        for source in self.sources.values():
+            for g in source.raw['data']:
+                if not g['played']:g['utcDate']=datetime.fromtimestamp(tomorrow,timezone.utc).isoformat()
+        models={p.name:p.read_bytes() for p in (self.root/'models').iterdir()}
+        with patch('hybrid_engine.models.HierarchicalStrength.fit',side_effect=AssertionError('NO ONLINE FIT')):
+            report=await self.scheduler.tick()
+        self.assertEqual(report['lookahead_seconds'],36*3600)
+        self.assertEqual(report['status'],'CHECKED',report)
+        originals={code:self.frozen_bytes(code) for code in self.services}
+        for code,service in self.services.items():
+            rows=report['leagues'][code]['results'];self.assertEqual(len(rows),2)
+            self.assertTrue(all(r['new_record'] and r['day']==day and r['window']=='NEXT_36_HOURS' for r in rows))
+            for item in service.registry.independent_records():
+                p=item['payload'];self.assertEqual(p['prediction_generated_at_utc'],NOW)
+                self.assertGreater(p['fixture']['start_ts_utc']-p['prediction_generated_at_utc'],24*3600)
+                self.assertEqual(item['publication']['classification'],'PREMATCH')
+                self.assertEqual(p['components']['BAYES_QMC']['intervals']['scenarios'],10000)
+        self.now=tomorrow-14*60
+        with patch('hybrid_engine.models.HierarchicalStrength.predict',side_effect=AssertionError('NO REGENERATION')):
+            restarted={code:AutomaticEuropeanService(code,self.root/code,self.root/'models',self.sources[code]) for code in self.services}
+            await EuropeanPrematchScheduler(restarted,self.root/'restart',clock=lambda:self.now).tick()
+            for code,service in restarted.items():
+                self.sources[code].offline=True
+                before=len(self.sources[code].calls)
+                replay=await service.analyze(code,day,'Paris Basketball','Fenerbahce Beko')
+                self.assertEqual(replay['status'],'EUROPE_HYBRID_OK',replay)
+                self.assertFalse(replay['new_record']);self.assertEqual(before,len(self.sources[code].calls))
+                self.assertEqual(originals[code],self.frozen_bytes(code))
+        self.assertEqual(models,{p.name:p.read_bytes() for p in (self.root/'models').iterdir()})
+
+    async def test_36_hour_horizon_is_inclusive_and_later_fixtures_wait_for_their_window(self):
+        for code,source in self.sources.items():
+            games=[g for g in source.raw['data'] if not g['played']]
+            for g,lead in zip(games,(LOOKAHEAD,LOOKAHEAD+1)):
+                g['utcDate']=datetime.fromtimestamp(self.now+lead,timezone.utc).isoformat()
+            scan=candidates(self.services[code],self.now)
+            self.assertEqual(len(scan['selected']),1)
+            self.assertEqual(scan['selected'][0]['fixture_start_utc'],self.now+LOOKAHEAD)
+            self.assertEqual(scan['skipped']['OUTSIDE_EARLY_WINDOW'],1)
+            self.assertEqual(self.services[code].registry.records(),[])
+            self.now+=2
+            scan=candidates(self.services[code],self.now)
+            self.assertEqual(len(scan['selected']),2)
+
     async def test_2230_fixture_at_2210_can_capture_then_2216_and_2231_replay_exact_archive(self):
         self.now=START-20*60;r=await self.analyze();self.assertTrue(r['new_record'],r)
         before=self.frozen_bytes();pin=r['forecast_sha256'];self.sources['EUROCUP'].offline=True
@@ -94,7 +141,7 @@ class EuropeanAutomaticPrematchTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_scheduler_captures_2210_catchup_but_never_selects_last_15_minutes(self):
         self.now=START-20*60;r=await self.scheduler.tick()
-        self.assertTrue(all(v['window']=='CATCH_UP_BEFORE_15_MINUTE_CUTOFF' for g in r['leagues'].values() for v in g['results']))
+        self.assertTrue(all(v['window']=='NEXT_36_HOURS' for g in r['leagues'].values() for v in g['results']))
         self.assertEqual(sum(len(g['results']) for g in r['leagues'].values()),4)
         self.now=START-14*60
         with patch('hybrid_engine.models.HierarchicalStrength.predict',side_effect=AssertionError('NO LATE CAPTURE')):
@@ -313,7 +360,7 @@ class EuropeanAutomaticTelegramTests(unittest.IsolatedAsyncioTestCase):
                         chat_id=17,transport=fetch,europe_directory=root/'europe',nba_replay=nba_replay)
                     await app.initialize()
                     try:
-                        now[0]=START-105*60
+                        now[0]=NOW  # 19:00 Istanbul; do not wait for the old two-hour window.
                         scheduler=app.bot_data['europe_prematch_scheduler'];scheduler.clock=lambda:now[0]
                         app.bot_data['last_europe_prematch_poll']=await scheduler.tick()
                         self.assertEqual(sum(len(s.registry.records()) for s in app.bot_data['europe_services'].values()),4)
@@ -324,7 +371,7 @@ class EuropeanAutomaticTelegramTests(unittest.IsolatedAsyncioTestCase):
                             for league in ('EUROLEAGUE','EUROCUP'):
                                 commands.append((at,f'/analyze {league} 2026-11-11 Paris Basketball vs Fenerbahce Beko'))
                         commands += [(START+60,c) for c in ('/predictions EuroLeague','/predictions EuroCup',
-                            '/compare EUROLEAGUE E2026_1','/compare EUROCUP U2026_1','/accuracy EUROLEAGUE','/accuracy EUROCUP','/test euroleague')]
+                            '/compare EUROLEAGUE E2026_1','/compare EUROCUP U2026_1','/accuracy EUROLEAGUE','/accuracy EUROCUP','/test euroleague','/test eurocup')]
                         with patch('hybrid_engine.models.HierarchicalStrength.predict',side_effect=AssertionError('REPLAY ONLY')):
                             for i,(at,command) in enumerate(commands):
                                 now[0]=at
@@ -336,7 +383,7 @@ class EuropeanAutomaticTelegramTests(unittest.IsolatedAsyncioTestCase):
                         self.assertEqual(sum('ZEYNAL | EUROLEAGUE ANALİZ' in p for p in sent),3)
                         self.assertEqual(sum('ZEYNAL | EUROCUP ANALİZ' in p for p in sent),3)
                         for expected in ('KAYITLI EUROLEAGUE','KAYITLI EUROCUP','KAYITLI MODEL KARŞILAŞTIRMASI',
-                                         'DOĞRULANMIŞ CANLI PERFORMANS','Avrupa otomatik PREMATCH: AÇIK','NOT_CALIBRATED'):
+                                         'DOĞRULANMIŞ CANLI PERFORMANS','Avrupa otomatik PREMATCH: AÇIK · gelecek 36 saat','NOT_CALIBRATED'):
                             self.assertIn(expected,text)
                         self.assertNotIn('Analiz durduruldu',text);self.assertNotIn('hizmeti kullanılamıyor',text)
                         self.assertEqual(before,{str(p.relative_to(root)):p.read_bytes() for p in (root/'europe').rglob('*.json')})
