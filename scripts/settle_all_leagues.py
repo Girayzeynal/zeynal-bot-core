@@ -45,15 +45,15 @@ def report_league(code, report, now):
     started_unmatched = sum(group[0]["fixture_start_utc"] <= now and
                             not any(r.get("actual") is not None for r in group) for group in ordered)
     not_started = len(ordered) - matched - started_unmatched
-    print(f"\n### {code} | ARSIV={len(ordered)} | FINAL_ESLESTI={matched} | "
-          f"BASLAMIS_FINAL_DOGRULANMADI={started_unmatched} | BASLAMADI={not_started}")
+    print(f"\n### {code} | BITMIS_VE_FINAL_ESLESMIS={matched} | "
+          f"BASLAMIS_AMA_FINAL_DOGRULANMAMIS={started_unmatched}")
     for group in ordered:
         first = group[0]
         status = "FINAL_MATCHED" if any(r.get("actual") is not None for r in group) else classification(first, now)
-        tip = datetime.fromtimestamp(first["fixture_start_utc"], ZONE).strftime("%Y-%m-%d %H:%M")
-        print(f"{tip} TSİ | {first['home']} - {first['away']} | {status} | id={first['fixture_id'][:20]}")
         if status != "FINAL_MATCHED":
             continue
+        tip = datetime.fromtimestamp(first["fixture_start_utc"], ZONE).strftime("%Y-%m-%d %H:%M")
+        print(f"{tip} TSİ | {first['home']} - {first['away']} | {status} | id={first['fixture_id'][:20]}")
         for row in group:
             if row.get("actual") is None:
                 continue
@@ -229,11 +229,13 @@ def main():
                 legacy = None
             errors.append((code, type(exc).__name__))
             print(f"{code} | ENGEL: {type(exc).__name__}")
-    print("\nTOPLU DURUM |", " | ".join(
-        f"{r['league']}: {r['matched']}/{r['fixtures']} final, "
-        f"{r['started_unmatched']} baslamis/eslesmemis, {r['not_started']} baslamamis"
+    print("\nBITMIS MACLARIN TOPLU SONUC DURUMU |", " | ".join(
+        f"{r['league']}: {r['matched']} dogrulanmis FINAL, "
+        f"{r['started_unmatched']} baslamis ama FINAL kaniti yok"
         for r in stats))
-    print("Not: Baslamis ama eslesmemis = devam ediyor veya saglayici FINAL kaniti eksik.")
+    print("TOPLAM_DOGRULANMIS_FINAL:", sum(r["matched"] for r in stats))
+    print("Not: Baslamis ama FINAL dogrulanmamis = mac devam ediyor veya saglayici FINAL kaniti eksik.")
+    print("Not: Baslamamis maclar yalniz arşivde kalir, bitmis mac raporuna ve paydasina girmez.")
     print("Not: Orijinal tahmini bulunmayan eski mac icin tahmin uydurulmaz.")
     print("Not: O/U market sonucu icin tahmin anina ait dogrulanmis barem ve kural gerekir.")
     if errors:
