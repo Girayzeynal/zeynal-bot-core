@@ -33,9 +33,12 @@ def test_unified_three_leagues_scope_and_dedup():
                                          started_unverified=0,not_started=1)
     assert len(normalized_rows(euroleague,"EUROLEAGUE"))==1
     text=render_all(data,now=now)
-    assert "TOPLAM: 2 eşleşmiş / 4 kayıt" in text
+    assert "TOPLAM: 2 eşleşmiş FINAL" in text
+    assert "eşleşmiş / 4 kayıt" not in text
     assert text.count("HOME – AWAY | FINAL")==2
-    assert "BAŞLADI; FINAL KANITI YOK" in text
+    assert "1 başlamış, FINAL henüz doğrulanmamış" in text
+    assert "BAŞLAMADI" not in text
+    assert "HOME – AWAY | BAŞLADI" not in text
     assert "ilk yayın zamanı kanıtlanmadı" in text
     assert "→ 83–79" in text
     quality=render_performance(data)
