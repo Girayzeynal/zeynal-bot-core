@@ -220,10 +220,14 @@ def probe(club, *, requester=_request):
     # their HTML includes a <time> for one or more article teaser links.
     metadata["published_utc"]=None
     metadata["publication_time_status"]="NEWS_INDEX_ARTICLE_TIME_NOT_VERIFIED"
+    from hybrid_engine.official_club_link_discovery import discover_article_links
+    candidates=discover_article_links(raw,club)
     return dict(base,status="PUBLIC_NEWS_PAGE_OBSERVED_NOT_PLAYER_VERIFIED",
                 source_page_kind="NEWS_INDEX",source_http_status=200,
                 observed_at_utc=observed,body_sha256=_pin(raw),
-                document_bytes=len(raw),**metadata)
+                document_bytes=len(raw),article_links=candidates,
+                article_links_status="CANDIDATES_ONLY_NO_ARTICLE_FETCH",
+                **metadata)
 
 
 def append_receipt(root,receipt):
