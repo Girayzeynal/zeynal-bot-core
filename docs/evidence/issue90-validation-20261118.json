@@ -1,0 +1,66 @@
+{
+  "payload": {
+    "format": "ISSUE90_VALIDATION_V1",
+    "observed_at_utc": 1795005742,
+    "base_sha": "2fac4a20a9fb8ec17a37d985444f542d7cb1823d",
+    "checks": [
+      {
+        "command": "python -m unittest discover -s tests",
+        "reported_tests": 1532,
+        "reported_seconds": 141.22,
+        "unittest_reported_status": "OK",
+        "raw_log_sha256": "e65149b9240a512af587038d30fd990e86965224ed1d1ca72b2093a0ac1a411e",
+        "stored_log": "issue90-release-full-20261118.log.gz"
+      },
+      {
+        "command": "python -m unittest tests.test_issue90 -v",
+        "reported_tests": 38,
+        "reported_seconds": 6.54,
+        "unittest_reported_status": "OK",
+        "raw_log_sha256": "efc19066da62371c7bfe40e54f252a322f3262b0594db28d6923926ecb55c4fd",
+        "stored_log": "issue90-new-tests-final-20261118.log.gz"
+      },
+      {
+        "command": "python -m hybrid_engine.provider_runtime_probe",
+        "reported_tests": 561,
+        "reported_seconds": 73.102,
+        "unittest_reported_status": "OK",
+        "raw_log_sha256": "1b3656f97ec9e8453cbff9719585d660106a931e498c412e01347214f0717ba3",
+        "stored_log": "issue90-runtime-20261118.log.gz"
+      }
+    ],
+    "unchanged_registered_source_counts": {
+      "V1": 27,
+      "V2": 13
+    },
+    "telegram_preflight": {
+      "status": "NOT_CONFIGURED",
+      "missing": [
+        "ZEYNAL_TEST_BOT_TOKEN",
+        "ZEYNAL_TEST_BOT_ID",
+        "ZEYNAL_TEST_BOT_USERNAME",
+        "ZEYNAL_TEST_CHAT_ID"
+      ],
+      "actual_telegram_delivery_verified": false,
+      "data_providers": {
+        "THE_ODDS_API": "KEY_NOT_AVAILABLE_IN_TEST_PROCESS",
+        "API_BASKETBALL": "KEY_NOT_AVAILABLE_IN_TEST_PROCESS"
+      }
+    },
+    "public_native_evidence": "issue90-native-20261118.json.gz",
+    "public_native_payload_sha256": "faf9b6e0252042bae4349bbc53e19a26c8263765fc2e0c0223b4d0dcf8ddccc0",
+    "native_nba_authority_verified": false,
+    "original_userland_archive_accessed": false,
+    "actual_telegram_delivery_verified": false,
+    "real_v3_future_performance": "NOT_YET_EVALUABLE",
+    "production_deployment_decision": "NO_GO",
+    "main_merge_performed": false,
+    "fly_deployment_performed": false,
+    "secrets_changed": false,
+    "paid_provider_calls_made": false,
+    "github_actions": "EXACT_HEAD_RESULTS_REPORTED_IN_PR_AFTER_PUSH",
+    "local_resource_limit_verified": false,
+    "local_runtime_probe_is_not_hard_256mib_proof": true
+  },
+  "sha256": "305ddb14cb4703ada47ec18d5d6dcda9d7c81e389c0efdde3b5c18fc5bfa03b9"
+}

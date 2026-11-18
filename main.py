@@ -549,6 +549,7 @@ async def main_async():
     started = False
     polling = False
     scheduler_task = None
+    verified_result_task = None
     try:
         runner = await start_health(app)
         await app.initialize()
@@ -561,6 +562,9 @@ async def main_async():
         await app.updater.start_polling()
         polling = True
         logger.info("Bot polling started")
+        if os.getenv('ZEYNAL_VERIFIED_RESULT_POLL','0')=='1':
+            from hybrid_engine.production_results import run as verified_result_poll
+            verified_result_task=asyncio.create_task(verified_result_poll(app),name='verified-result-poll')
         engines = {
             "faz13": app.bot_data["faz13"],
             "faz17": app.bot_data["faz17"],
@@ -570,6 +574,9 @@ async def main_async():
         scheduler_task = asyncio.create_task(scheduler_loop(engines), name="scheduler-loop")
         await scheduler_task
     finally:
+        if verified_result_task is not None:
+            verified_result_task.cancel()
+            await asyncio.gather(verified_result_task,return_exceptions=True)
         if scheduler_task is not None:
             scheduler_task.cancel()
             await asyncio.gather(scheduler_task, return_exceptions=True)

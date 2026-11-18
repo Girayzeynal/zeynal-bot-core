@@ -7,6 +7,18 @@ cd "${HOME}/zeynal-hybrid-844"
 if [[ "${1:-}" == "--provider-check" ]]; then
   exec .venv/bin/python -m hybrid_engine.provider_access --check
 fi
+if [[ "${1:-}" == "--issue90-status" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
+  exec .venv/bin/python -B -m hybrid_engine.issue90_research \
+    --directory "${HOME}/zeynal-test-isolated/data/nba-research-v3"
+fi
+if [[ "${1:-}" == "--issue90-audit" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
+  exec .venv/bin/python -B -m hybrid_engine.nba_failure_audit \
+    --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
+    --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
+    --output-directory "${HOME}/zeynal-test-isolated/data/issue90/reports"
+fi
 # Offline read-only archive/input diagnosis. No token/model bootstrap, Git
 # update, network access, fitting, polling, or existing forecast writes.
 if [[ "${1:-}" == "--error-review" ]]; then
@@ -42,7 +54,11 @@ if ! flock -n 9; then
   echo "TEST_BOT_ALREADY_RUNNING: existing process kept untouched" >&2
   exit 0
 fi
-branch="feature/hybrid-market-roster-evidence-20261114"
+branch="$(git branch --show-current)"
+case "$branch" in
+  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118) ;;
+  *) echo "WRONG_BRANCH: checkout an isolated test branch first" >&2; exit 2 ;;
+esac
 launcher_path="${PWD}/scripts/run_isolated_test_bot.sh"
 launcher_before="$(sha256sum -- "${launcher_path}")"
 git fetch origin "${branch}"
