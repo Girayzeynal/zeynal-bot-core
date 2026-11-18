@@ -6,11 +6,13 @@ on:
       - main
       - "dev/**"
       - "feature/hybrid-market-roster-evidence-20261114"
+      - "feature/issue90-nba-verification-20261118"
   pull_request:
     branches:
       - main
       - "dev/**"
       - "feature/hybrid-telegram-optin-20261114"
+      - "feature/hybrid-market-roster-evidence-20261114"
 
 jobs:
   unit-tests:

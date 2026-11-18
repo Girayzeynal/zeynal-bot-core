@@ -211,7 +211,7 @@ class NBAOvernightTelegramTests(IsolatedAsyncioTestCase):
                     app.bot_data['last_nba_overnight_poll']=await scheduler.tick()
                     self.assertEqual(sent,[]);self.assertEqual(scheduler.last_report['progress']['pending'],1)
                     before=fixture.service.ledger.path.read_bytes()
-                    commands=['/test nba','/predictions NBA','/accuracy NBA','/compare NBA 401000123',
+                    commands=['/start','/nba','/analyze','/test nba','/test research','/predictions NBA','/accuracy NBA','/compare NBA 401000123',
                               '/analyze NBA 2026-11-12 Synthetic Hawks vs Synthetic Bears']
                     with patch.object(fixture.service,'_predict',side_effect=AssertionError('NO REGENERATION')):
                         for i,command in enumerate(commands):

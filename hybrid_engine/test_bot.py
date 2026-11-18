@@ -420,6 +420,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         app.bot_data['adaptive_v2_worker']=AdaptiveWorker(root/'adaptive-v2',
             nba=nba_service if app.bot_data.get('nba_overnight_scheduler') else None,europe=europe_services,
             fetcher=transport or fetch_document)
+        if app.bot_data['adaptive_v2_worker'].nba is not None:
+            from hybrid_engine.issue90_research import Research
+            app.bot_data['issue90_research']=Research(root/'nba-research-v3',app.bot_data['adaptive_v2_worker'])
     async def authorized(update,context):
         if update.effective_chat is None or update.effective_chat.id!=chat_id:raise ApplicationHandlerStop
         _update.set(update.update_id)
@@ -451,6 +454,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         worker=app.bot_data.get('adaptive_v2_worker')
         if worker and mode in ('all','research'):
             lines.extend(worker.render().splitlines())
+            study=app.bot_data.get('issue90_research')
+            if study:lines.extend(study.render().splitlines())
         overnight=app.bot_data.get('nba_overnight_scheduler')
         if mode in ('all','nba') and overnight:
             lines.append('NBA otomatik PREMATCH: AÇIK · gelecek 36 saat · son 15 dk yeni kayıt yok')
@@ -483,6 +488,10 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 lines.append('EuroLeague arşiv: HATA ('+type(exc).__name__+')')
         if mode in ('all','nba'):
             try:
+                if nba_service is not None:
+                    from hybrid_engine.results_health import inspect as inspect_results,render as render_results
+                    health=await asyncio.to_thread(inspect_results,nba_service.ledger.path)
+                    lines.extend(render_results(health,app.bot_data.get('last_result_poll')).splitlines())
                 if nba_replay is not None:
                     cases=nba_replay.cases()
                     lines.append(f'NBA replay kayıtları: {len(cases)}')
@@ -704,7 +713,12 @@ def main():
         overnight=app.bot_data.get('nba_overnight_scheduler')
         if overnight and not args.replay_only:tasks.append(asyncio.create_task(overnight.run(app)))
         adaptive=app.bot_data.get('adaptive_v2_worker')
-        if adaptive and not args.replay_only:tasks.append(asyncio.create_task(adaptive.run(app)))
+        if adaptive and not args.replay_only:
+            study=app.bot_data.get('issue90_research')
+            if study:
+                from hybrid_engine.issue90_research import run_serial
+                tasks.append(asyncio.create_task(run_serial(adaptive,study,app)))
+            else:tasks.append(asyncio.create_task(adaptive.run(app)))
         async def collect():
             while True:
                 from hybrid_engine.result_poll import poll_once
