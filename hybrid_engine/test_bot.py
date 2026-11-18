@@ -447,13 +447,19 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
-        if mode not in ('all','nba','euroleague','eurocup','roster','research','data'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test all')
+        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime'):
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',
             'Yetkili sohbet: OK',
             'Bu yanıtın teslimi Telegram üzerinden kontrol edilmelidir.']
+        if mode=='runtime':
+            from hybrid_engine.runtime_identity import describe
+            from hybrid_engine.elite_render import split_blocks
+            value=json.dumps(describe(app.bot_data),ensure_ascii=False,indent=2)
+            for part in split_blocks(value.splitlines(),limit=3200):await message.reply_text(part,parse_mode=None)
+            raise ApplicationHandlerStop
         if mode in ('all','data'):
             lines.extend(['VERİ / MODEL BAĞLANTISI',
                 'Ana skor: kayıtlı tahmin veya sabit parametreli takım modeli.',
@@ -553,6 +559,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 await update.effective_message.reply_text('V2 araştırma arşivi doğrulanamadı. Eski tahminler korunuyor.')
         raise ApplicationHandlerStop
     app.add_handler(CommandHandler('research',research_command),group=-50)
+    from hybrid_engine.runtime_identity import install as observe_analysis
+    observe_analysis(app.bot_data)
     from hybrid_engine.analyze_input import AnalyzeInputGuard
     app.add_handler(CommandHandler('analyze',AnalyzeInputGuard(chat_id).handle),group=-60)
     async def isolated_fixtures(update,context):

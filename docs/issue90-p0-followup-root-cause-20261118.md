@@ -46,6 +46,10 @@ doğrulamak, her sürümün kaynak SHA'sını ve gerçek erişim saatini ayrı k
 Gerçek skor/periyot/kimlik çelişkisi yine reddedilecek. Eski V1/V2 deneyleri ve
 arşivleri yeniden imzalanmayacak.
 
+Bu hata birleşik tarihsel replay görünümünde yeniden üretildi. Çalışan V2
+`FeatureStore.cohort()` kataloğu zaten tek tek okuyor; bu bulgu V2 işçisinin
+veya kullanıcının 23 tahmininin bu nedenle bozulduğunun kanıtı değildir.
+
 ## Üretimden gerçekten görülen kanıt
 
 Anonim, salt okunur `https://zeynal-bot-core.fly.dev/ready` GET isteği HTTP 200,

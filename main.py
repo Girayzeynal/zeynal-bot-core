@@ -479,6 +479,10 @@ async def start_health(app: Application):
 
     web_app.router.add_get("/health", health)
     web_app.router.add_get("/ready", ready)
+    async def analysis_runtime(_: web.Request):
+        from hybrid_engine.runtime_identity import describe
+        return web.json_response(describe(app.bot_data))
+    web_app.router.add_get('/analysis-runtime',analysis_runtime)
 
     runner = web.AppRunner(web_app)
     await runner.setup()
@@ -530,6 +534,8 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("nba", nba_command))
     app.add_handler(CommandHandler("accuracy", accuracy_command))
     app.add_handler(CommandHandler("compare", compare_command))
+    from hybrid_engine.runtime_identity import install as observe_analysis
+    observe_analysis(app.bot_data)
     return app
 
 async def scheduler_loop(engines):

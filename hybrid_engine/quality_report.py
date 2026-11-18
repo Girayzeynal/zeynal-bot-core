@@ -1,6 +1,8 @@
 """UserLAnd/local read-only quality report; existing forecasts are never re-created."""
 import argparse
+from datetime import datetime
 import json
+from zoneinfo import ZoneInfo
 
 from core.team_identity import digest
 from hybrid_engine.archive_audit import audit_ledger
@@ -52,6 +54,39 @@ def report(ledger, *, assets_directory=None, plan=None):
         calibration_fit=False, predictions_recomputed=False, production_changed=False)
 
 
+def comparison_summary(result):
+    """Expose existing audited comparisons; no fits, new odds or DB writes."""
+    audit=result['archive_audit'];asof=audit['observed_at_utc']
+    native={r['snapshot_sha256']:r for r in audit['rows']}
+    groups=[]
+    for g in (result.get('error_review') or {}).get('groups',[]):
+        pairs={p['snapshot_sha256']:p for p in g['matched_input_baseline']['pairs']};cases=[]
+        for c in g['cases'][:3]:
+            row=native[c['snapshot_sha256']];pair=pairs.get(c['snapshot_sha256']);profile=c.get('input_profile',{})
+            start=row.get('fixture_start_utc')
+            cases.append(dict(fixture_id=c['fixture_id'],provider_fixture_ids=c['provider_fixture_ids'],
+                snapshot_sha256=c['snapshot_sha256'],model_digest=g['cohort']['model_digest'],
+                fixture_start_utc=start,
+                fixture_start_istanbul=None if start is None else datetime.fromtimestamp(start,ZoneInfo('Europe/Istanbul')).isoformat(),
+                generated_at_utc=row.get('prediction_generated_at_utc'),first_archived_at_utc=row.get('first_archived_at_utc'),
+                scope='REGULATION_ONLY',frozen_model_error=c['signed_total_error'],
+                unpublished_baseline_error=None if pair is None else pair['retrospective_baseline_error'],
+                overtime_points_excluded=c['overtime_points_excluded'],
+                fit_age_seconds=profile.get('fit_age_seconds'),
+                latest_history_game_utc={s:h['latest_game_utc'] for s,h in profile.get('history',{}).items()}))
+        groups.append(dict(cohort=g['cohort'],settled=g['n'],day_clusters=g['day_clusters'],
+            matched_metrics=g['matched_input_baseline']['metrics'],top_cases=cases,
+            baseline_was_published=False,superiority_claim=False))
+    forecasts=(audit.get('performance') or {}).get('forecasts',[])
+    pending=[r for r in forecasts if r.get('actual') is None]
+    started=sum(type(r.get('fixture_start_utc')) is int and r['fixture_start_utc']<=asof for r in pending)
+    return dict(groups=groups,pending_forecasts=len(pending),started_pending_forecasts=started,
+        not_started_pending_forecasts=sum(type(r.get('fixture_start_utc')) is int and r['fixture_start_utc']>asof for r in pending),
+        pending_with_unknown_start=sum(type(r.get('fixture_start_utc')) is not int for r in pending),
+        pending_is_not_assumed_unplayed=True,observed_at_utc=asof,
+        scope='REGULATION_ONLY',device_measurement_only_when_run_on_that_archive=True)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--ledger', required=True)
@@ -79,6 +114,7 @@ def main():
         native_input_profiles=sum(c['input_profile_status']=='FROZEN_INPUTS_VERIFIED' for g in groups for c in g['cases']),
         top_total_errors=[dict(model_digest=g['cohort']['model_digest'],fixture_id=c['fixture_id'],
             provider_fixture_ids=c['provider_fixture_ids'],signed_error=c['signed_total_error']) for g in groups for c in g['cases'][:3]],
+        comparison=comparison_summary(result),
         actual_telegram_delivery_verified=False, production_changed=False)))
 
 
