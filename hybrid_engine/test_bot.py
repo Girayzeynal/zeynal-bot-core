@@ -447,13 +447,27 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
-        if mode not in ('all','nba','euroleague','eurocup','roster','research'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test all')
+        if mode not in ('all','nba','euroleague','eurocup','roster','research','data'):
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',
             'Yetkili sohbet: OK',
             'Bu yanıtın teslimi Telegram üzerinden kontrol edilmelidir.']
+        if mode in ('all','data'):
+            lines.extend(['VERİ / MODEL BAĞLANTISI',
+                'Ana skor: kayıtlı tahmin veya sabit parametreli takım modeli.',
+                'V2/V3 adayları ayrı araştırmadır; otomatik ana model değişimi yok.',
+                'Piyasa ve Kadro düğmeleri mevcut skor hesabını güncellemez.',
+                'Avrupa kadro kaynağı: resmî haber metni; doğrulanmış oyuncu durum akışı değil.'])
+            bridge=provider_bridge or getattr(app.bot_data.get('europe_data_review'),'bridge',None)
+            if bridge is not None:
+                for provider,state in bridge.access.runtime_status().items():
+                    remaining=state['provider_reported_remaining']
+                    lines.append(provider+': yerel istek '+str(state['local_calls_today'])+'/'+str(state['local_daily_limit'])+
+                        ' · sağlayıcının bildirdiği kalan '+('bilinmiyor' if remaining is None else str(remaining)))
+                usage=await asyncio.to_thread(bridge.storage_status)
+                lines.append('Yerel sağlayıcı kanıtı: '+str(usage['files'])+'/'+str(usage['maximum_files'])+' belge · '+usage['status'])
         worker=app.bot_data.get('adaptive_v2_worker')
         if worker and mode in ('all','research'):
             lines.extend(worker.render().splitlines())

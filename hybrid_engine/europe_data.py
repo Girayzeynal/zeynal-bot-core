@@ -2,23 +2,26 @@
 import argparse
 import html
 import json
+import re
 import threading
 import time
 from copy import deepcopy
 from dataclasses import asdict
 from datetime import datetime,timezone
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import numpy as np
 from bs4 import BeautifulSoup
 from core.team_identity import digest
 from hybrid_engine.boxes import publish_json
 from hybrid_engine.data import Cut,local_path
-from hybrid_engine.europe_models import PreparedEurope
 from hybrid_engine.europe_source_probe import fetch,inspect,PATHS,BASE
 from hybrid_engine.provider_bridge import render as render_provider
 from telegram_delivery import tsi
+
+
+class EuropeanEvidenceCapacityError(ValueError):
+    pass
 
 
 def context(view,league):
@@ -102,18 +105,24 @@ class EuropeanDataReview:
                 min(r['observed_at_utc'] for r in bundle['documents'].values())+240,int(self.clock())+120))
             while len(self.catalogs)>4:self.catalogs.pop(next(iter(self.catalogs)))
             ctx['current_team_identity']=dict(status='OFFICIAL_CURRENT_TEAM_CATALOG_VERIFIED',**proof)
-        except (ValueError,KeyError,TypeError,OSError,AttributeError):
+        except (ValueError,KeyError,TypeError,OSError,AttributeError) as exc:
             # No fuzzy fallback. Existing exact canonical strings still work;
             # alternative provider names require the full current catalog.
             ctx.pop('european_team_catalog',None)
-            ctx['current_team_identity']=dict(status='CURRENT_TEAM_CATALOG_UNAVAILABLE_EXACT_NAMES_ONLY')
+            ctx['current_team_identity']=dict(status='LOCAL_EUROPE_SOURCE_STORAGE_FULL' if isinstance(exc,EuropeanEvidenceCapacityError)
+                else 'CURRENT_TEAM_CATALOG_UNAVAILABLE_EXACT_NAMES_ONLY')
         return ctx
 
     def resolve(self,ctx):
+        pin=ctx['original_forecast_sha256']
+        if type(pin) is not str or re.fullmatch('[0-9a-f]{64}',pin) is None:
+            raise ValueError('EUROPE_CURRENT_FORECAST_PIN')
         service=self.services[ctx['league']]
         for owner in (service,getattr(service,'previous',None)):
             if owner is None:continue
-            for item in owner.registry.records():
+            from hybrid_engine.europe_premium_ui import publication
+            exists=(owner.registry.root/('forecast-'+pin+'.json')).exists()
+            for item in (publication(owner.registry,pin),) if exists else ():
                 p=item['payload']
                 if digest(p)==ctx['original_forecast_sha256']:
                     g=p['fixture'];pair=owner.pair(p) if hasattr(owner,'pair') else owner._pair(p)
@@ -144,14 +153,11 @@ class EuropeanDataReview:
             digest(t)!=w['payload']['training_source']['sha256'] or cut.target['fixture_id']!=ctx['fixture_id'] or
             cut.cutoff_utc!=p['feature_cutoff_utc'] or cut.cutoff_utc>ctx['prediction_generated_at_utc']):
             raise ValueError('EUROPE_REPLAY_PARAMETER_OR_CUT_PIN')
-        with TemporaryDirectory(prefix='europe-market-replay-') as temp:
-            root=Path(temp);year=p['fixture']['season_start_year']
-            publish_json(root/f"prepared-{ctx['league']}-{year}-{w['sha256']}.json",w)
-            ref=w['payload']['training_source']
-            if Path(ref['file']).name!=ref['file']:raise ValueError('EUROPE_REPLAY_TRAINING_PATH')
-            publish_json(root/ref['file'],t)
-            model=PreparedEurope(root,ctx['league'],year).model
-            forecast=model.predict(cut,method='RQMC_HALTON',bounded_workspace=True)
+        from hybrid_engine.europe_archive_model import restore
+        ref=w['payload']['training_source']
+        if Path(ref['file']).name!=ref['file']:raise ValueError('EUROPE_REPLAY_TRAINING_PATH')
+        model=restore(w,t,ctx)
+        forecast=model.predict(cut,method='RQMC_HALTON',bounded_workspace=True)
         from hybrid_engine.intervals import prediction_intervals
         if prediction_intervals(forecast)['sample_sha256']!=ctx['intervals']['sample_sha256']:
             raise ValueError('EUROPE_REPLAY_SAMPLE_PIN')
@@ -198,6 +204,7 @@ class EuropeanDataReview:
                 if r.get('status')=='SOURCE_REDIRECT' and r.get('location'):queue.insert(0,r['location'])
                 if r.get('http_status') in (403,429):break
         lines=['🏥 <b>GÜNCEL RESMÎ AVRUPA KAYNAĞI</b>','Kontrol: '+tsi(int(self.clock())),
+               'Kaynak türü: resmî haber sayfası. Maça bağlı oyuncu durumu adaptörü bağlı değil.',
                'İlk tahmin girdisi değildir; kayıtlı skor değiştirilmedi.']
         for s in sources:
             lines.append(html.escape(str(s.get('url',BASE))))
@@ -212,7 +219,8 @@ class EuropeanDataReview:
         lines.extend(['Haber metni maç kadrosu, ceza uygunluğu veya bağımsız tıbbi doğrulama değildir.',
                       'Oyuncu kimlikleri/ilk beş/dakika/rotasyon etkisi doğrulanmadı; modele uygulanmadı.',
                       'NOT_CALIBRATED · Güven endeksi yok.'])
-        return '\n'.join(lines),dict(sources=sources,news_observations=rows,verified_player_records=[])
+        return '\n'.join(lines),dict(sources=sources,news_observations=rows,verified_player_records=[],
+            capability='OFFICIAL_NEWS_ONLY_NOT_PLAYER_AVAILABILITY_FEED')
 
     def save_source(self,p):
         if len(json.dumps(p).encode())>3*1024*1024:raise ValueError('EUROPE_SOURCE_SIZE')
@@ -224,7 +232,9 @@ class EuropeanDataReview:
             if old.get('sha256')!=digest(p) or digest(old['payload'])!=digest(p):raise ValueError('EUROPE_SOURCE_PIN')
             return
         files=list(root.glob('source-*.json'))
-        if len(files)>=64 or sum(f.stat().st_size for f in files)>16*1024*1024:raise ValueError('EUROPE_SOURCE_STORAGE_BUDGET')
+        size=len((json.dumps(dict(payload=p,sha256=digest(p)),sort_keys=True,allow_nan=False)+'\n').encode())
+        if len(files)>=64 or sum(f.stat().st_size for f in files)+size>16*1024*1024:
+            raise EuropeanEvidenceCapacityError('EUROPE_SOURCE_STORAGE_BUDGET')
         publish_json(target,dict(payload=p,sha256=digest(p)))
 
     def review(self,ctx,section):
@@ -241,7 +251,11 @@ class EuropeanDataReview:
         if not self.lock.acquire(blocking=False):raise ValueError('EUROPE_PROVIDER_REVIEW_BUSY')
         try:
             if section=='market':ctx=self.current_identity_context(ctx,owner)
-            body,details=self.market(ctx,owner,p) if section=='market' else self.roster(ctx)
+            try:
+                body,details=self.market(ctx,owner,p) if section=='market' else self.roster(ctx)
+            except EuropeanEvidenceCapacityError:
+                body='Yerel Avrupa kaynak kanıtı deposu dolu; yeni kaynak belgesi arşivlenemedi. Eski kayıtlar korundu.'
+                details=dict(local_status='LOCAL_EUROPE_SOURCE_STORAGE_FULL')
             if int(self.clock())>=ctx['fixture_start_utc']:
                 body='Maç kaynak kontrolü sırasında başladı; bu gözlem yeni PREMATCH sayılmaz.\n'+body
             r=dict(format='EUROPE_CURRENT_SOURCE_REVIEW_V1',original_forecast_sha256=ctx['original_forecast_sha256'],
@@ -249,11 +263,16 @@ class EuropeanDataReview:
                    context_sha256=digest(ctx),source_context=deepcopy(ctx),
                    valid_until_utc=min(now+120,ctx['fixture_start_utc']),status='CURRENT_OBSERVATIONS_ONLY',
                    html=body,details=details,forecast_changed=False,eligible_for_original_forecast_metrics=False)
+            if details.get('local_status'):r['status']=details['local_status']
             root=self.root/'reviews';root.mkdir(parents=True,exist_ok=True)
             files=list(root.glob('review-*.json'));size=len(json.dumps(r).encode())
-            if size>2*1024*1024 or len(files)>=256 or sum(f.stat().st_size for f in files)+size>16*1024*1024:
-                raise ValueError('EUROPE_REVIEW_STORAGE_BUDGET')
-            publish_json(root/('review-'+digest(r)+'.json'),dict(payload=r,sha256=digest(r)))
+            stored_size=len((json.dumps(dict(payload=r,sha256=digest(r)),sort_keys=True,allow_nan=False)+'\n').encode())
+            if size>2*1024*1024:raise ValueError('EUROPE_REVIEW_SIZE_BUDGET')
+            if len(files)>=256 or sum(f.stat().st_size for f in files)+stored_size>16*1024*1024:
+                r.update(status='CURRENT_OBSERVATIONS_NOT_PERSISTED',persistence='LOCAL_EUROPE_REVIEW_STORAGE_FULL')
+                r['html']='Yerel inceleme deposu dolu; aşağıdaki görünüm yeni bir arşiv kaydı değildir. Eski kayıtlar korundu.\n\n'+body
+            else:
+                publish_json(root/('review-'+digest(r)+'.json'),dict(payload=r,sha256=digest(r)))
             while self.cache and (len(self.cache)>=32 or sum(len(json.dumps(x).encode()) for x in self.cache.values())+size>4*1024*1024):
                 self.cache.pop(next(iter(self.cache)))
             self.cache[key]=r;return deepcopy(r)
