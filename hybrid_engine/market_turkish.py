@@ -4,6 +4,10 @@ PERIODS={'FULL':'Maçın tamamı','1Q':'1. çeyrek','2Q':'2. çeyrek','3Q':'3. �
 MARKETS={'TOTAL':'Toplam sayı','HOME':'Ev sahibi takım toplamı','AWAY':'Deplasman takım toplamı',
          'HOME_HANDICAP':'Ev sahibi handikabı','WINNER':'Maç sonucu'}
 MESSAGES={
+ 'LOCAL_EVIDENCE_STORAGE_FULL':'Yerel kaynak kanıtı deposu dolu; yeni belge arşivlenemedi',
+ 'LOCAL_EUROPE_SOURCE_STORAGE_FULL':'Yerel Avrupa kaynak kanıtı deposu dolu',
+ 'LOCAL_EUROPE_REVIEW_STORAGE_FULL':'Yerel Avrupa inceleme deposu dolu',
+ 'CURRENT_OBSERVATIONS_NOT_PERSISTED':'Güncel gözlem gösterildi; yerel kapasite nedeniyle arşivlenmedi',
  'SEASON_DISCOVERY':'Sağlayıcının sezon listesini doğrulama',
  'SEASON_CATALOG_MISSING':'Sağlayıcının lig yanıtında sezon listesi yok; fikstür sorgulanmadı',
  'SEASON_CATALOG_BUDGET':'Sağlayıcı sezon listesi işlem sınırını aştı',

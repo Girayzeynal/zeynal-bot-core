@@ -1,0 +1,76 @@
+{
+  "format": "MODEL_DATA_PIPELINE_VALIDATION_V1",
+  "base_commit": "3e1ff7c25c1aeb16a43b820a912181fca998a800",
+  "source_protection": {
+    "V1": {
+      "count": 27,
+      "unchanged": true
+    },
+    "V2": {
+      "count": 13,
+      "unchanged": true
+    },
+    "EUROPE": {
+      "count": 6,
+      "unchanged": true
+    },
+    "NBA_SAMPLER": {
+      "count": 6,
+      "unchanged": true
+    },
+    "V3_SPECIFIC": {
+      "count": 9,
+      "unchanged": true
+    }
+  },
+  "log_sha256": {
+    "before": "e8e6baea6e23c329848e73f68158d8e4bc93fc0933231d50c0c803f26017cd9a",
+    "after": "776dab4f3cb2ca2f1c419940bb71f16ef89e6006c3e5dab1dfd8dd61180e4cda",
+    "full": "e678ea2f2aa64e5702cd13982442f4692f9be597ffc5fedfd08456d74275af50"
+  },
+  "code_sha256": {
+    "hybrid_engine/provider_access.py": "bedd72c1401aebc15422bfbdbbacb3fe76c99136d879a7be6d777aef06528385",
+    "hybrid_engine/provider_bridge.py": "1aafcf09dde3129ae051b62024ad729049fe7ffaf3bab55de1f7dd6bb4a28da5",
+    "hybrid_engine/europe_data.py": "c3e45578fd219120ea5de60aaf22e78693b35246811904ea343224085a1b6aba",
+    "hybrid_engine/europe_archive_model.py": "aaab7f86dee61a9cc4b19948c30f1aed50652049596e8613eee218c05bdc3aa0",
+    "hybrid_engine/pipeline_audit.py": "524670fe884f906a26c0934b5a11db5ddf0c5b2b56641006c9e886b4ebe1db63",
+    "hybrid_engine/test_bot.py": "ea6cacef668d68b5b843319d7598479a0503f5fa0f374b0fb586669d42f649d8",
+    "tests/test_pipeline_diagnostics.py": "1bf735986dbe6c29d1b479baf72382a4a6f9163573a238e82bae700b134a92e7"
+  },
+  "before": {
+    "tests": 3,
+    "errors": 3,
+    "expected": "REGRESSION_REPRODUCTION_ON_UNCHANGED_BASE"
+  },
+  "after": {
+    "tests": 12,
+    "seconds": 2.696,
+    "result": "OK"
+  },
+  "full_suite": {
+    "tests": 1569,
+    "seconds": 147.775,
+    "result": "OK"
+  },
+  "user_reported_observation": {
+    "provenance": "USER_SUPPLIED_TELEGRAM_OUTPUT_NOT_NATIVE_HTTP_RECEIPT",
+    "observed_at_tsi": "2026-11-18 20:45:19",
+    "league": "EUROCUP",
+    "odds_api_active_catalog_has_eurocup": false,
+    "api_basketball_reported_error_codes": [
+      "PLAN_OR_SUBSCRIPTION_RESTRICTION_REPORTED",
+      "SEASON_ERROR_REPORTED"
+    ],
+    "provider_season_value": "2026",
+    "official_news_http_status": 429,
+    "retry_after_seconds": 300
+  },
+  "userland_database_available_in_cloud": false,
+  "actual_telegram_delivery_verified": false,
+  "production_changed": false,
+  "old_forecasts_modified": false,
+  "main_merged": false,
+  "fly_deployed": false,
+  "provider_limits_increased": false,
+  "new_paid_service_used": false
+}

@@ -7,6 +7,13 @@ cd "${HOME}/zeynal-hybrid-844"
 if [[ "${1:-}" == "--provider-check" ]]; then
   exec .venv/bin/python -m hybrid_engine.provider_access --check
 fi
+if [[ "${1:-}" == "--pipeline-audit" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
+  exec .venv/bin/python -B -m hybrid_engine.pipeline_audit \
+    --data-directory "${HOME}/zeynal-test-isolated/data" \
+    --nba-model "${HOME}/zeynal-test-isolated/models/nba-prepared-ae4e578f441770883247e648314c1a7a29c86caa76ab4aa6af006fda4b10254e.json" \
+    --nba-model-sha ae4e578f441770883247e648314c1a7a29c86caa76ab4aa6af006fda4b10254e
+fi
 if [[ "${1:-}" == "--issue90-status" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
   exec .venv/bin/python -B -m hybrid_engine.issue90_research \
@@ -56,7 +63,7 @@ if ! flock -n 9; then
 fi
 branch="$(git branch --show-current)"
 case "$branch" in
-  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118|feature/europe-alias-replay-ui-20261118) ;;
+  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118|feature/europe-alias-replay-ui-20261118|feature/model-data-pipeline-audit-20261118) ;;
   *) echo "WRONG_BRANCH: checkout an isolated test branch first" >&2; exit 2 ;;
 esac
 launcher_path="${PWD}/scripts/run_isolated_test_bot.sh"

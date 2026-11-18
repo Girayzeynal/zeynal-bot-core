@@ -9,6 +9,7 @@ on:
       - "feature/issue90-nba-verification-20261118"
       - "feature/critical-integrity-audit-20261118"
       - "feature/europe-alias-replay-ui-20261118"
+      - "feature/model-data-pipeline-audit-20261118"
   pull_request:
     branches:
       - main
@@ -17,6 +18,7 @@ on:
       - "feature/hybrid-market-roster-evidence-20261114"
       - "feature/issue90-nba-verification-20261118"
       - "feature/critical-integrity-audit-20261118"
+      - "feature/europe-alias-replay-ui-20261118"
 
 jobs:
   unit-tests:

@@ -141,6 +141,15 @@ class ProviderAccess:
         return {p: ('CONFIGURED_NOT_TESTED' if self._keys.get(p) else 'KEY_NOT_AVAILABLE_IN_TEST_PROCESS')
                 for p in KEYS}
 
+    def runtime_status(self):
+        """Credential-free diagnostics; never probes a provider or raises quota."""
+        now=int(self.clock())
+        with self.lock:
+            return {p:dict(configuration=state,local_calls_today=self.calls.get((p,now//86400),0),
+                local_daily_limit=self.max_calls,local_counter_resets_at_utc=(now//86400+1)*86400,
+                provider_reported_remaining=self.remaining.get(p),cooldown_until_utc=self.cooldown.get(p))
+                for p,state in self.configuration().items()}
+
     def get(self, provider, path, params=None, *, ttl=120, deadline=None):
         if provider not in ORIGINS or not path.startswith('/') or '..' in path or '?' in path or '#' in path:
             return dict(status='PROVIDER_PATH_REFUSED')

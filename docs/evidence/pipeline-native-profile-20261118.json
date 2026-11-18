@@ -1,0 +1,33 @@
+{
+  "training_games": 170,
+  "fit_age_seconds": 215144,
+  "feature_usage": {
+    "full_game_mean": "FROZEN_LEAGUE_HOME_TEAM_ATTACK_OPPONENT_DEFENSE_COEFFICIENTS",
+    "quarters": "CURRENT_FROZEN_HISTORY_QUARTER_WEIGHTS",
+    "current_scoring_average_updates_full_game_mean": false,
+    "verified_pace": false,
+    "player_effects": false
+  },
+  "quarter_correlation": 0.9879739326540408,
+  "causal_explanation": "NOT_IDENTIFIED_FROM_ONE_REALIZED_SCORE",
+  "score_contributions": {
+    "home": {
+      "league_intercept": 112.27200469730137,
+      "home_effect": 1.096256473807781,
+      "own_attack": -1.5963553540677697,
+      "opponent_defense": 0.7092385135725507
+    },
+    "away": {
+      "league_intercept": 112.27200469730137,
+      "home_effect": 0.0,
+      "own_attack": -1.3090152023465127,
+      "opponent_defense": -1.655215787553855
+    }
+  },
+  "provider_fixture_ids": [
+    "401909985"
+  ],
+  "snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343",
+  "snapshot_unchanged": true,
+  "scope": "ONE_PRESERVED_NATIVE_FORECAST_NOT_THE_USERLAND_DATABASE"
+}

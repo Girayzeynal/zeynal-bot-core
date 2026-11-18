@@ -27,6 +27,10 @@ EXTRA_MARKETS = ('alternate_spreads', 'alternate_totals', 'team_totals',
 ALIASES = {'losangelesclippers': 'laclippers'}
 
 
+class EvidenceCapacityError(ValueError):
+    pass
+
+
 def name(value):
     key = normalize_name(value)
     return ALIASES.get(key, key)
@@ -175,15 +179,25 @@ class ProviderBridge:
         self.lock = threading.Lock()
         self.coverage_blocks = {}
 
+    def storage_status(self):
+        files=list(self.root.glob('provider-*.json')) if self.root.exists() else []
+        size=sum(local_path(p).stat().st_size for p in files)
+        return dict(files=len(files),bytes=size,maximum_files=256,maximum_bytes=32*1024*1024,
+                    status='LOCAL_EVIDENCE_STORAGE_FULL' if len(files)>=256 or size>=32*1024*1024 else 'AVAILABLE')
+
     def _save(self, payload):
         root = self.root
-        body_bytes = len(json.dumps(payload, sort_keys=True, allow_nan=False).encode())
+        pin=digest(payload);target=root/('provider-'+pin+'.json')
+        if target.exists():
+            self.read_receipt(pin)  # existing evidence must still authenticate
+            return pin
+        wrapper = dict(payload=payload, sha256=pin)
+        body_bytes = len((json.dumps(wrapper, sort_keys=True, allow_nan=False)+'\n').encode())
         if root.exists():
             files = list(root.glob('provider-*.json'))
             if len(files) >= 256 or sum(p.stat().st_size for p in files)+body_bytes > 32*1024*1024:
-                raise ValueError('PROVIDER_EVIDENCE_FILE_OR_STORAGE_BUDGET')
+                raise EvidenceCapacityError('PROVIDER_EVIDENCE_FILE_OR_STORAGE_BUDGET')
         root.mkdir(parents=True, exist_ok=True)
-        wrapper = dict(payload=payload, sha256=digest(payload))
         publish_json(root/('provider-'+wrapper['sha256']+'.json'), wrapper)
         return wrapper['sha256']
 
@@ -194,7 +208,7 @@ class ProviderBridge:
         path=local_path(self.root/('provider-'+pin+'.json'))
         if path.stat().st_size>3*1024*1024:raise ValueError('PROVIDER_RECEIPT_SIZE_LIMIT')
         body=json.loads(path.read_text())
-        if body['sha256']!=pin or digest(body['payload'])!=pin:
+        if not isinstance(body,dict) or body.get('sha256')!=pin or 'payload' not in body or digest(body['payload'])!=pin:
             raise ValueError('PROVIDER_RECEIPT_PIN_CONFLICT')
         return body['payload']
 
@@ -374,6 +388,13 @@ class ProviderBridge:
             report['status'] = 'PROVIDER_REVIEW_ALREADY_RUNNING'
             return report
         try:
+            usage=self.storage_status()
+            if usage['status']=='LOCAL_EVIDENCE_STORAGE_FULL':
+                report.update(status='LOCAL_EVIDENCE_STORAGE_FULL',source_pin=None,storage=usage,
+                              persistence='NOT_PERSISTED_LOCAL_CAPACITY_LIMIT')
+                report['providers']={p:dict(status='LOCAL_EVIDENCE_STORAGE_FULL' if
+                    state!='KEY_NOT_AVAILABLE_IN_TEST_PROCESS' else state,observations=[]) for p,state in config.items()}
+                return report
             deadline = self.clock()+12
             for provider, method in [('THE_ODDS_API', self._odds), ('API_BASKETBALL', self._basketball)]:
                 if config[provider] == 'KEY_NOT_AVAILABLE_IN_TEST_PROCESS':
@@ -381,10 +402,16 @@ class ProviderBridge:
                     continue
                 try:
                     report['providers'][provider] = method(snapshot, deadline)
+                except EvidenceCapacityError:
+                    report['providers'][provider] = dict(status='LOCAL_EVIDENCE_STORAGE_FULL',observations=[])
                 except Exception:
                     report['providers'][provider] = dict(status='PROVIDER_EVIDENCE_VALIDATION_FAILED')
             report['status'] = 'CURRENT_OBSERVATIONS_NOT_HISTORICAL_FORECAST_INPUTS'
-            report['source_pin'] = self._save(report)
+            try:
+                report['source_pin'] = self._save(report)
+            except EvidenceCapacityError:
+                report.update(status='LOCAL_EVIDENCE_STORAGE_FULL',source_pin=None,
+                              persistence='NOT_PERSISTED_LOCAL_CAPACITY_LIMIT')
             return report
         finally:
             self.lock.release()
@@ -395,6 +422,8 @@ def render(report):
     lines = ['🔌 <b>VERİ SAĞLAYICI DENETİMİ</b>',
              'Eksik veri / doğrulanmamış kapsam, NO EDGE anlamına gelmez.',
              'Durum: '+html.escape(message(report['status']))]
+    if report['status']=='LOCAL_EVIDENCE_STORAGE_FULL':
+        lines.append('Yerel kanıt deposunun sınırına ulaşıldı; bu bir API erişim veya abonelik hatası değildir. Eski belgeler silinmedi.')
     if report.get('current_team_identity'):
         identity=report['current_team_identity']
         lines.append('Takım kimliği: '+html.escape(message(identity['status'])))
