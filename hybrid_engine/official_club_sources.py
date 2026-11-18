@@ -216,9 +216,14 @@ def probe(club, *, requester=_request):
     if not isinstance(observed,int) or observed<=0:
         raise ValueError("CLUB_SOURCE_CLOCK_INVALID")
     metadata=parse_metadata(raw,observed_at_utc=observed)
+    # Index/listing pages have no single article publication clock even when
+    # their HTML includes a <time> for one or more article teaser links.
+    metadata["published_utc"]=None
+    metadata["publication_time_status"]="NEWS_INDEX_ARTICLE_TIME_NOT_VERIFIED"
     return dict(base,status="PUBLIC_NEWS_PAGE_OBSERVED_NOT_PLAYER_VERIFIED",
-                source_http_status=200,observed_at_utc=observed,
-                body_sha256=_pin(raw),document_bytes=len(raw),**metadata)
+                source_page_kind="NEWS_INDEX",source_http_status=200,
+                observed_at_utc=observed,body_sha256=_pin(raw),
+                document_bytes=len(raw),**metadata)
 
 
 def append_receipt(root,receipt):
@@ -237,8 +242,10 @@ def append_receipt(root,receipt):
     body=json.dumps(envelope,ensure_ascii=False,sort_keys=True,
                     allow_nan=False).encode("utf-8")
     if len(body)>8192:raise ValueError("CLUB_RECEIPT_SIZE_LIMIT")
+    if path.is_symlink():raise ValueError("CLUB_RECEIPT_SYMLINK_REFUSED")
     try:
         with path.open("xb") as out:out.write(body)
     except FileExistsError:
-        if path.read_bytes()!=body:raise ValueError("CLUB_RECEIPT_IMMUTABILITY_CONFLICT")
+        if path.is_symlink() or path.read_bytes()!=body:
+            raise ValueError("CLUB_RECEIPT_IMMUTABILITY_CONFLICT")
     return path
