@@ -47,6 +47,7 @@ def main():
         unittest.defaultTestLoader.loadTestsFromName('tests.test_challenger_summary'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_integration'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_city_alias'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_command_identity'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_premium_ui'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_data'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_provider_identity'),

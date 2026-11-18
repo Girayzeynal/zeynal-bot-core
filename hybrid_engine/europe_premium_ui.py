@@ -5,6 +5,7 @@ No inference, training, market synthesis, downloads or forecast writes here.
 import html
 import re
 import secrets
+import time
 
 from core.league_identity import resolve_league
 from core.team_identity import digest
@@ -15,6 +16,36 @@ from hybrid_engine.telegram_premium_ui import compact_summary,keyboard,cache_rep
 from hybrid_engine.telegram_roster_bridge import read_fixture_roster_evidence
 
 SUPPORTED=('EUROPE_HYBRID_OK','FORWARD_EUROLEAGUE_OK','FROZEN_REPLAY_OK')
+VERSION='EUROPE_COMPACT_ARCHIVE_V2'
+
+
+def publication(registry,pin):
+    """Read and verify only the requested publication, never every forecast.
+
+    Mirrors the immutable registry's publication/clock/asset checks. On small
+    UserLAnd devices rescanning every season source for one button view can
+    exhaust the presentation deadline. No new index or archive rewrite.
+    """
+    if type(pin) is not str or re.fullmatch('[0-9a-f]{64}',pin) is None:
+        raise ValueError('EUROPE_UI_PUBLICATION_PIN')
+    ref=dict(file='forecast-'+pin+'.json',sha256=pin)
+    try:
+        p=registry.read_asset(ref)
+        key=digest(dict(fixture=p['fixture']['canonical_id'],version=p['version']))
+        pub=registry.publication(registry.root/('first-'+key+'.json'))
+        if pub['forecast']!=ref:raise ValueError('EUROPE_UI_PUBLICATION_PIN')
+        clocks=[p['source_available_max_utc'],p['prediction_generated_at_utc'],p['snapshot_created_at_utc'],
+                pub['first_archived_at_utc'],p['fixture']['start_ts_utc']]
+        if (any(type(v) is not int for v in clocks) or p.get('actual') is not None or
+                not 0<clocks[0]<=clocks[1]<=clocks[2]<=clocks[3]<=int(time.time()) or clocks[2]>=clocks[4] or
+                type(pub['eligible_for_prospective_audit']) is not bool or
+                pub['eligible_for_prospective_audit']!=(clocks[3]<clocks[4]) or
+                pub['classification']!=('PREMATCH' if clocks[3]<clocks[4] else 'LATE_COMMIT_EXCLUDED')):
+            raise ValueError('EUROPE_UI_PUBLICATION_CLOCK')
+        for asset in p['assets']:registry.read_asset(asset)
+    except (OSError,KeyError) as exc:
+        raise ValueError('EUROPE_UI_PUBLICATION_PIN') from exc
+    return dict(payload=p,publication=pub)
 
 
 def projection(report,league,*,service=None,forward_service=None):
@@ -28,9 +59,8 @@ def projection(report,league,*,service=None,forward_service=None):
     else:
         owner=service if report['status']=='EUROPE_HYBRID_OK' else forward_service
         if owner is None:raise ValueError('EUROPE_UI_REGISTRY_REQUIRED')
-        matches=[v for v in owner.registry.records() if digest(v['payload'])==report['forecast_sha256']]
-        if len(matches)!=1:raise ValueError('EUROPE_UI_PUBLICATION_PIN')
-        item=matches[0];p=item['payload'];g=p['fixture'];pin=digest(p)
+        item=publication(owner.registry,report['forecast_sha256'])
+        p=item['payload'];g=p['fixture'];pin=digest(p)
         q=p['components']['BAYES_QMC']['prediction'];bands=p['components']['BAYES_QMC']['intervals']
         pair=owner.pair(p) if report['status']=='EUROPE_HYBRID_OK' else owner._pair(p)
         generated=p['prediction_generated_at_utc'];archived=item['publication']['first_archived_at_utc']
@@ -124,4 +154,4 @@ def present(report,league,cache,chat_id,*,service=None,forward_service=None,rost
     entry['europe_context']=context(v,league)
     entry['europe_original_sections']={k:sections[k] for k in ('market','roster')}
     cache_report(cache,token,entry)
-    return dict(report,html_parts=[summary],html=summary,reply_markup=keyboard(token))
+    return dict(report,html_parts=[summary],html=summary,reply_markup=keyboard(token),presentation_version=VERSION)

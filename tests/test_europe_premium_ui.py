@@ -178,6 +178,69 @@ class EuropeanButtonTests(IsolatedAsyncioTestCase):
         self.assertEqual(r,dict(status='UNCHANGED_NBA_CONTROL',html='NBA original'))
         self.nba.analyze.assert_awaited_once()
 
+    async def test_short_archived_name_and_busy_lock_replay_always_get_same_buttons(self):
+        import fcntl
+        from hybrid_engine.europe_prematch import open_lock
+        first=await self.open('EUROLEAGUE')
+        service=self.app.bot_data['europe_services']['EUROLEAGUE']
+        before=self.files();self.clock=NOW+5*3600;self.sources['EUROLEAGUE'].offline=True
+        fd=open_lock(service.registry.root,'.prematch-inference.lock')
+        try:
+            fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            report=await self.app.bot_data['verified_analysis_service'].analyze('EuroLeague','2026-11-11','Paris','Fenerbahce')
+        finally:
+            os.close(fd)
+        self.assertEqual(first['forecast_sha256'],report['forecast_sha256'])
+        self.assertIn('EUROLEAGUE ANALİZ',report['html']);self.assertNotIn('ARŞİV REPLAY',report['html'])
+        self.assertEqual(self.app.bot_data['last_europe_presentation']['EUROLEAGUE']['status'],'READY')
+        token=report['reply_markup'].inline_keyboard[0][0].callback_data.split(':')[1]
+        for section in ('period','ranges','market','roster','audit','summary'):
+            count=len(self.api.edits);await self.click(token,section)
+            self.assertEqual(count+1,len(self.api.edits))
+        self.assertEqual(before,self.files())
+
+    async def test_reported_alias_commands_reach_real_handlers_and_all_six_callbacks_offline(self):
+        from hybrid_engine.europe_command_identity import EuropeanCommandService
+        from tests.test_europe_command_identity import NativeNamedSyntheticSource,PAIRS
+        for index,(home,away,hid,aid) in enumerate(PAIRS):
+            with self.subTest(home=home):
+                self.clock=NOW
+                root=self.root/'europe'/('variants-'+str(index))
+                source=NativeNamedSyntheticSource(lambda:self.clock,hid,aid)
+                prepare(root/'models','EUROCUP',2026,source('EUROLEAGUE_LIVE',season_url('EUROCUP',2026)))
+                service=EuropeanCommandService('EUROCUP',root/'archive',root/'models',source)
+                self.app.bot_data['europe_services']['EUROCUP']=service
+                first=await self.app.bot_data['verified_analysis_service'].analyze('EUROCUP','2026-11-11',home,away)
+                self.assertIn('reply_markup',first)
+                before=self.files();source.offline=True;self.clock+=5*3600;calls=len(source.calls)
+                command=f'/analyze EuroCup 2026-11-11 {home} vs {away}'
+                self.seq+=1
+                update=Update.de_json(dict(update_id=self.seq,message=dict(message_id=self.seq,date=self.clock,
+                    chat=dict(id=17,type='private'),**{'from':dict(id=23,is_bot=False,first_name='Synthetic')},
+                    text=command,entities=[dict(type='bot_command',offset=0,length=8)])),self.app.bot)
+                await self.app.process_update(update)
+                self.assertIn('EUROCUP ANALİZ',self.api.sent[-1]);self.assertIsNotNone(self.api.markups[-1])
+                token=next(reversed(self.app.bot_data['premium_reports']))
+                self.assertEqual(self.app.bot_data['premium_reports'][token]['europe_forecast_sha256'],first['forecast_sha256'])
+                for section in ('period','ranges','market','roster','audit','summary'):
+                    count=len(self.api.edits);await self.click(token,section)
+                    self.assertEqual(count+1,len(self.api.edits))
+                self.assertEqual(calls,len(source.calls));self.assertEqual(before,self.files())
+
+    async def test_presentation_reads_only_requested_publication_and_verifies_clocks(self):
+        report=await self.open();service=self.app.bot_data['europe_services']['EUROCUP']
+        with patch.object(service.registry,'records',side_effect=AssertionError('NO_FULL_ARCHIVE_RESCAN')):
+            displayed=present(report,'EUROCUP',{},17,service=service)
+        self.assertIn('reply_markup',displayed)
+        slot=next(service.registry.root.glob('first-*.json'));raw=slot.read_bytes()
+        w=__import__('json').loads(raw);w['payload']['first_archived_at_utc']=NOW-10
+        w['sha256']=digest(w['payload']);slot.write_text(__import__('json').dumps(w))
+        try:
+            with self.assertRaisesRegex(ValueError,'PUBLICATION_CLOCK'):
+                projection(report,'EUROCUP',service=service)
+        finally:
+            slot.write_bytes(raw)
+
 
 class EuropeanTemplateTests(TestCase):
     def test_nba_default_template_still_has_48_minutes_and_europe_has_40(self):
