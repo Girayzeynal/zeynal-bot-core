@@ -316,7 +316,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     'EUROCUP':EuropeanReports(SimpleNamespace(league='EUROCUP',registry=empty))}
     europe_services={}
     if europe_directory is not None:
-        from hybrid_engine.europe_prematch import AutomaticEuropeanService as EuropeanService
+        from hybrid_engine.europe_command_identity import EuropeanCommandService as EuropeanService
         directory=local_path(europe_directory)
         for code in ('EUROLEAGUE','EUROCUP'):
             service=EuropeanService(code,directory/code.lower(),directory/'models',transport or ControlledTransport(fetch_document),
@@ -377,12 +377,15 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 return report
             try:
                 cache=app.bot_data.setdefault('premium_reports',{})
-                return await asyncio.wait_for(asyncio.to_thread(present,report,code,cache,chat_id,
+                displayed=await asyncio.wait_for(asyncio.to_thread(present,report,code,cache,chat_id,
                     service=europe_services.get(code),
                     forward_service=live_el if forward_el is not None else None,
                     roster_store=app.bot_data.get('verified_roster_packets')),timeout=10)
+                app.bot_data.setdefault('last_europe_presentation',{})[code]=dict(status='READY',version=displayed['presentation_version'])
+                return displayed
             except Exception as exc:
                 logging.getLogger(__name__).warning('European presentation unavailable: %s',type(exc).__name__)
+                app.bot_data.setdefault('last_europe_presentation',{})[code]=dict(status='UNAVAILABLE',error_type=type(exc).__name__)
                 return dict(report,html_parts=[*(report.get('html_parts') or [report['html']]),
                     'Detay düğmeleri hazırlanamadı; kayıtlı tahmin korunuyor. Kod: EUROPE_UI_UNAVAILABLE'])
     app.bot_data['verified_analysis_service']=EuropeanPremiumDisplay()
@@ -474,6 +477,14 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         for code in ('EUROLEAGUE','EUROCUP'):
             if mode in ('all',code.lower()):
                 lines.append(code+' yeni tahmin servisi: '+('AÇIK; model ve kaynak her istekte doğrulanır' if code in europe_services else 'DEVRE DIŞI; arşiv listeleme açıktır'))
+                if code in europe_services:
+                    from hybrid_engine.europe_command_identity import VERSION as alias_version
+                    from hybrid_engine.europe_premium_ui import VERSION as ui_version
+                    lines.append('Takım adı adaptörü: '+alias_version)
+                    lines.append('Düğmeli arşiv görünümü: '+ui_version)
+                    last=app.bot_data.get('last_europe_presentation',{}).get(code,{})
+                    lines.append('Son görünüm kontrolü: '+last.get('status','HENÜZ_ÇALIŞMADI')+
+                                 (' · '+last['error_type'] if last.get('error_type') else ''))
         if mode in ('all','euroleague','eurocup') and app.bot_data.get('europe_prematch_scheduler'):
             lines.append('Avrupa otomatik PREMATCH: AÇIK · gelecek 36 saat · son 15 dk yeni kayıt yok')
             lines.append('EuroLeague / EuroCup için maç saatinde ek komut gerekmiyor.')
