@@ -122,6 +122,7 @@ class DecisionDistribution:
 
     def values(self,period,market,*,include_overtime=False):
         if period not in PERIODS or market not in KINDS:raise ValueError('UNSUPPORTED_DISTRIBUTION_MARKET')
+        if include_overtime and period not in ('FULL','4Q','2H'):raise Abstain('EARLY_PERIOD_OVERTIME_CONTRACT_UNSUPPORTED')
         if period=='FULL':teams=self.paths.sum(axis=1)
         elif period.endswith('Q'):teams=self.paths[:,int(period[0])-1,:]
         else:
@@ -202,6 +203,7 @@ def evaluate_quote(distribution,quote=None,rule=None,*,asof_utc,calibration=None
 
 
 def settled_value(periods,period,market,*,include_overtime=False):
+    if include_overtime and period not in ('FULL','4Q','2H'):raise Abstain('EARLY_PERIOD_OVERTIME_CONTRACT_UNSUPPORTED')
     h=np.asarray(periods['home']);a=np.asarray(periods['away'])
     if (h.ndim!=1 or len(h)<4 or len(h)!=len(a) or not np.issubdtype(h.dtype,np.integer) or
         not np.issubdtype(a.dtype,np.integer) or np.any(h<0) or np.any(a<0)):raise ValueError('VERIFIED_PERIOD_SCORES_REQUIRED')
