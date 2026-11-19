@@ -10,6 +10,7 @@ on:
       - "feature/critical-integrity-audit-20261118"
       - "feature/europe-alias-replay-ui-20261118"
       - "feature/model-data-pipeline-audit-20261118"
+      - "release/integrated-club-20261119"
       - "feature/issue90-chronological-engine-audit-20261118"
       - "feature/integrated-test-bot-20261119"
   pull_request:

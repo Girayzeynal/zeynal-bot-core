@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/official-club-news-pilot-20261119
+      - release/integrated-club-20261119
     paths:
       - 'hybrid_engine/official_club_*'
       - 'tests/test_official_club_*'
@@ -35,3 +36,9 @@ jobs:
           PYTHONDONTWRITEBYTECODE: '1'
           PYTHONPATH: '.'
         run: python -m pytest -q tests/test_official_club_sources.py tests/test_official_club_link_discovery.py tests/test_official_club_article_probe.py tests/test_official_club_claims.py tests/test_official_club_pilot_cli.py tests/test_official_club_link_diagnostics.py tests/test_official_club_embedded_diagnostics.py tests/test_official_club_nba_posts.py tests/test_official_club_nba_claims.py tests/test_official_club_prematch_gate.py tests/test_official_club_identity_pilot.py tests/test_official_club_local_inventory.py tests/test_official_club_frozen_receipt_audit.py tests/test_official_club_fixture_outcome_audit.py
+
+      - name: Test 82-club inventory and three-league shadow player simulations
+        env:
+          PYTHONPATH: '.'
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python -m pytest -q tests/test_official_club_coverage.py tests/test_official_club_final_staging.py tests/test_official_club_stage_settlement.py tests/test_official_all_82_club_batch.py tests/test_official_club_rotation_scenarios.py
