@@ -314,3 +314,26 @@ def test_scan_local_cli_requires_no_web_and_never_uses_trusted_asof(monkeypatch,
     with pytest.raises(SystemExit) as e:
         run(["--club","nba_denver_nuggets","--scan-local","--live"])
     assert e.value.code==2
+
+
+def test_inspect_db_schema_cli_never_fetches_espn_or_reads_json(monkeypatch,capsys):
+    import hybrid_engine.official_club_identity_pilot as mod
+    import hybrid_engine.official_club_local_inventory as inventory
+    import pytest
+    monkeypatch.setattr(mod,"capture_nba_espn_identity",lambda _:1/0)
+    monkeypatch.setattr(inventory,"inspect_local_source_inventory",lambda **kwargs:1/0)
+    monkeypatch.setattr(inventory,"inspect_known_database_columns",
+        lambda **kwargs:dict(
+            format="OFFICIAL_CLUB_LOCAL_DB_SCHEMA_DETAIL_V1",
+            status="NO_KNOWN_SQLITE_SCHEMAS_OBSERVED",
+            inspected_tables=[],requests=0,
+            model_input=False,production_changed=False))
+    assert run(["--club","nba_denver_nuggets","--inspect-db-schema"])==0
+    d=json.loads(capsys.readouterr().out.strip())
+    assert d["requests"]==0
+    assert d["status"]=="NO_KNOWN_SQLITE_SCHEMAS_OBSERVED"
+    assert d["model_input"] is False
+    with pytest.raises(SystemExit) as e:
+        run(["--club","nba_denver_nuggets","--inspect-db-schema",
+             "--scan-local"])
+    assert e.value.code==2
