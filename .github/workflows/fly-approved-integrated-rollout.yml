@@ -1,0 +1,143 @@
+name: Approved ZEYNAL integrated rollout to existing Fly machine
+
+on:
+  push:
+    branches:
+      - release/integrated-club-20261119
+    paths:
+      - deploy/approved-rollout-20261119.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zeynal-fly-single-machine
+  cancel-in-progress: false
+
+jobs:
+  integrated-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact approval marker, intended source ref, and protected mount
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "release/integrated-club-20261119"
+          grep -qx 'USER_AUTHORIZED_EXISTING_FLY_DEPLOY_ONLY' deploy/approved-rollout-20261119.txt
+          grep -qx 'DO_NOT_REMOVE_OR_RECREATE_ZEYNAL_DATA' <(printf '%s\n' 'DO_NOT_REMOVE_OR_RECREATE_ZEYNAL_DATA')
+          grep -q 'source = "zeynal_data"' fly.toml
+          grep -q 'destination = "/data"' fly.toml
+          test -f hybrid_engine/official_club_telegram.py
+          test -f hybrid_engine/official_club_fixture_news.py
+          test -f hybrid_engine/official_all_82_club_urls_2026_27.json
+      - name: Full Python/Telegram/source and integrity regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -r requirements.txt
+          python -m pip install --disable-pip-version-check pytest==8.3.4
+          PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -m pytest -q tests
+      - name: Build exact production Docker image and check command imports
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --tag zeynal-release-gate:${GITHUB_SHA} .
+          docker run --rm --network none --read-only --tmpfs /tmp:rw,size=96m --cpus=1 --memory=256m --memory-swap=256m zeynal-release-gate:${GITHUB_SHA} python -c "from hybrid_engine.official_club_telegram import install_kadro_command; from hybrid_engine.official_club_fixture_news import read_fixture_club_news; from hybrid_engine.official_all_82_club_batch import load_all_82; assert len(load_all_82()) == 82; print('PRODUCTION_IMPORT_82_CLUBS_AND_KADRO_PASS')"
+
+  deploy-existing-machine:
+    needs: integrated-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Protect exact existing Fly machine and attached /data volume
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${FLY_API_TOKEN:-}" || { echo "BLOCKED_FLY_API_TOKEN_NOT_CONFIGURED"; exit 1; }
+          flyctl auth whoami >/dev/null
+          flyctl machines list --app zeynal-bot-core --json > /tmp/zeynal-machines-before.json
+          flyctl volumes list --app zeynal-bot-core --json > /tmp/zeynal-volumes-before.json
+          python3 - <<'PY'
+          import json
+          m=json.load(open('/tmp/zeynal-machines-before.json'))
+          v=json.load(open('/tmp/zeynal-volumes-before.json'))
+          assert isinstance(m,list) and isinstance(v,list)
+          expected=[x for x in m if x.get('id')=='830932f77d2598']
+          assert len(expected)==1 and expected[0].get('region')=='ams', 'EXPECTED_AMS_MACHINE_MISSING'
+          mounts=expected[0].get('config',{}).get('mounts') or []
+          assert any(x.get('volume')=='vol_4581deoz3xjnp594' and x.get('path')=='/data' for x in mounts), 'EXPECTED_DATA_MOUNT_CHANGED'
+          assert any(x.get('id')=='vol_4581deoz3xjnp594' and x.get('attached_machine_id')=='830932f77d2598' for x in v), 'EXISTING_VOLUME_NOT_ATTACHED'
+          assert expected[0].get('state')=='started', 'PRODUCTION_MACHINE_NOT_STARTED'
+          print('EXACT_PRODUCTION_MACHINE_AND_EXISTING_VOLUME_CHECK_PASSED')
+          PY
+      - name: Push Git SHA-tagged image (never reconfigure volume)
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="registry.fly.io/zeynal-bot-core:github-${GITHUB_SHA}"
+          flyctl auth docker
+          docker build --build-arg "RELEASE_SHA=${GITHUB_SHA}" --tag "$IMAGE" .
+          docker push "$IMAGE"
+          echo "ZEYNAL_DEPLOY_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+      - name: Update exactly one pre-verified volume-attached machine; verify and attempt rollback on failure
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ZEYNAL_DEPLOY_IMAGE:-}"
+          BEFORE_IMAGE="$(python3 - <<'PY'
+          import json
+          machines=json.load(open('/tmp/zeynal-machines-before.json'))
+          machine=next(x for x in machines if x.get('id')=='830932f77d2598')
+          print(machine.get('config',{}).get('image',''))
+          PY
+          )"
+          did_attempt=0
+          verified=0
+          rollback() {
+            if [ "$did_attempt" = 1 ] && [ "$verified" != 1 ]; then
+              if [ -n "$BEFORE_IMAGE" ]; then
+                echo "RELEASE_VERIFICATION_FAILED_ROLLBACK_ATTEMPT"
+                flyctl machine update 830932f77d2598 --app zeynal-bot-core --image "$BEFORE_IMAGE" --yes --wait-timeout 300 || echo "MANUAL_ROLLBACK_REQUIRED"
+              else
+                echo "MANUAL_ROLLBACK_REQUIRED_PREVIOUS_IMAGE_UNKNOWN"
+              fi
+            fi
+          }
+          trap rollback EXIT
+          did_attempt=1
+          flyctl machine update 830932f77d2598 --app zeynal-bot-core --image "$ZEYNAL_DEPLOY_IMAGE" --yes --wait-timeout 300
+          flyctl machines list --app zeynal-bot-core --json > /tmp/zeynal-machines-after.json
+          flyctl volumes list --app zeynal-bot-core --json > /tmp/zeynal-volumes-after.json
+          python3 - <<'PY'
+          import json
+          m=json.load(open('/tmp/zeynal-machines-after.json'))
+          v=json.load(open('/tmp/zeynal-volumes-after.json'))
+          x=[x for x in m if x.get('id')=='830932f77d2598']
+          assert len(x)==1 and x[0].get('state')=='started', 'EXISTING_MACHINE_NOT_RUNNING'
+          assert any(z.get('volume')=='vol_4581deoz3xjnp594' and z.get('path')=='/data' for z in (x[0].get('config',{}).get('mounts') or [])), 'EXPECTED_VOLUME_DISCONNECTED'
+          assert any(z.get('id')=='vol_4581deoz3xjnp594' and z.get('attached_machine_id')=='830932f77d2598' for z in v), 'VOLUME_ATTACHMENT_CHANGED'
+          print('EXISTING_FLY_VOLUME_STILL_ATTACHED')
+          PY
+          curl --fail --silent --show-error --max-time 20 "https://zeynal-bot-core.fly.dev/health" >/dev/null
+          curl --fail --silent --show-error --max-time 20 "https://zeynal-bot-core.fly.dev/ready" > /tmp/zeynal-ready.json
+          python3 - <<'PY'
+          import json,os
+          r=json.load(open('/tmp/zeynal-ready.json'))
+          assert r.get('ready') is True and r.get('release_sha')==os.environ['GITHUB_SHA'], 'RELEASE_SHA_OR_TELEGRAM_POLLING_NOT_READY'
+          print('PRODUCTION_READY_WITH_EXACT_RELEASE_SHA')
+          PY
+          verified=1
+          trap - EXIT
