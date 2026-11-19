@@ -268,7 +268,7 @@ def test_offline_inventory_finds_candidate_without_promoting_self_reported_sha(t
     (folder/"season-participants.json").write_text(json.dumps(snap))
     (folder/"ordinary-result-ledger.json").write_text('{"fixture_id": "not participants"}')
     report=inspect_local_season_snapshot_candidates(root=root)
-    assert report["status"]=="LOCAL_SNAPSHOT_CANDIDATES_REQUIRE_INDEPENDENT_PIN"
+    assert report["status"]=="LOCAL_IDENTITY_SOURCE_CANDIDATES_UNVERIFIED"
     assert len(report["candidate_files"])==1
     assert report["candidate_files"][0]["relative_path"]=="nba/season-participants.json"
     assert report["candidate_files"][0]["status"]=="UNTRUSTED_SNAPSHOT_CANDIDATE_NOT_ASOF_PROOF"
@@ -283,7 +283,7 @@ def test_offline_inventory_empty_does_not_claim_no_team_records_anywhere(tmp_pat
     root=tmp_path/"isolated"
     root.mkdir()
     report=inspect_local_season_snapshot_candidates(root=root)
-    assert report["status"]=="NO_LOCAL_SEASON_SNAPSHOT_IN_BOUNDED_SCAN"
+    assert report["status"]=="NO_IDENTITY_SOURCE_FOUND_IN_SCANNED_LOCAL_SCOPE"
     assert report["candidate_files"]==[]
     assert report["requests"]==0
 
@@ -306,11 +306,11 @@ def test_scan_local_cli_requires_no_web_and_never_uses_trusted_asof(monkeypatch,
     import pytest
     monkeypatch.setattr(mod,"capture_nba_espn_identity",lambda _:1/0)
     monkeypatch.setattr(mod,"inspect_local_season_snapshot_candidates",
-                        lambda:dict(status="NO_LOCAL_SEASON_SNAPSHOT_IN_BOUNDED_SCAN",
+                        lambda:dict(status="NO_IDENTITY_SOURCE_FOUND_IN_SCANNED_LOCAL_SCOPE",
                                     candidate_files=[],requests=0,model_input=False))
     assert run(["--club","nba_denver_nuggets","--scan-local"])==0
     data=json.loads(capsys.readouterr().out.strip())
-    assert data["status"]=="NO_LOCAL_SEASON_SNAPSHOT_IN_BOUNDED_SCAN"
+    assert data["status"]=="NO_IDENTITY_SOURCE_FOUND_IN_SCANNED_LOCAL_SCOPE"
     with pytest.raises(SystemExit) as e:
         run(["--club","nba_denver_nuggets","--scan-local","--live"])
     assert e.value.code==2
