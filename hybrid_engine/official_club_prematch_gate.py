@@ -138,6 +138,8 @@ def assess_against_frozen_forecast(article, *, club, frozen=None,
                 article_url=url,club_key=c.get("club_key"),
                 preforecast_captured=not any(x in reasons for x in (
                     "PINNED_FIRST_CAPTURE_RECEIPT_REQUIRED",
+                    "FIRST_CAPTURE_RECEIPT_HASH_OR_CLOCK_INVALID",
+                    "ARTICLE_OBSERVATION_CLOCK_UNVERIFIED",
                     "ARTICLE_EVIDENCE_CAPTURED_AFTER_FROZEN_FORECAST")),
                 human_shadow_review_eligible=not reasons,
                 model_input=False,forecast_changed=False,
