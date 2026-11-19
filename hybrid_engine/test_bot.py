@@ -369,7 +369,10 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         from hybrid_engine.provider_bridge import ProviderBridge
         # Reuse the already configured, quota-limited isolated credentials.
         european_bridge=provider_bridge or ProviderBridge(ProviderAccess({}),root/'europe-provider-evidence')
-        app.bot_data['europe_data_review']=EuropeanDataReview(europe_services,european_bridge,root/'europe-data')
+        from hybrid_engine.official_club_fixture_news import read_fixture_club_news
+        app.bot_data['europe_data_review']=EuropeanDataReview(
+            europe_services,european_bridge,root/'europe-data',
+            club_news_probe=read_fixture_club_news)
     prior_market_service=app.bot_data['verified_analysis_service']
     class EuroLeagueMarketDisplay:
         ledger=getattr(prior_market_service,'ledger',None)
