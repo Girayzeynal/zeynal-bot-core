@@ -135,3 +135,123 @@ def test_transport_never_accepts_unlisted_espn_url_even_if_same_host():
     with pytest.raises(ValueError,match="HOST_NOT_ALLOWLISTED"):
         pinned_espn_request("https://evil.example/robots.txt",
                             limit=1024,expected_mime="text/plain")
+
+
+
+def test_robot_failure_names_first_source_and_transport_without_bypass():
+    m,n=bodies()
+    req,calls,now=fake_fetcher(m,n,bad_robots=True)
+    result=capture_nba_espn_identity(club(),requester=req,now_utc=now)
+    assert result["status"]=="ABSTAIN"
+    assert result["requests"]==1
+    assert result["failed_stage"]=="ROBOTS_POLICY_CHECK"
+    assert result["failed_source_role"]=="membership"
+    assert result["failed_source_host"]=="sports.core.api.espn.com"
+    assert result["robots_transport_status"]=="SOURCE_ACCESS_REFUSED"
+    assert result["robots_http_status"]==403
+    assert result["robots_decision"]=="UNVERIFIED_NO_DATA_REQUEST"
+    assert len(calls)==1
+    assert result["model_input"] is False
+
+
+def _offline_snapshot(now):
+    from core.team_identity import digest,internal_team_id
+    from core.league_identity import resolve_league
+    spec=resolve_league("NBA")
+    observed=now-120
+    ingested=now-100
+    pid="7"
+    participant=dict(
+        internal_id=internal_team_id(spec.identity_namespace,pid),
+        league="NBA",provider="ESPN",provider_id=pid,
+        official_name="Denver Nuggets",
+        aliases=[dict(name="Denver Nuggets",kind="SOURCE_displayName",
+                      language="und",valid_from_utc=observed,
+                      valid_until_utc=None)])
+    payload=dict(
+        format="SEASON_PARTICIPANTS_V1",league_id="NBA",year=2026,
+        season_id="2026/2027",participant_count=1,
+        observed_at_utc=observed,ingested_at_utc=ingested,
+        participants=[participant],
+        source_pins={"membership":dict(
+            url="https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2027/teams?limit=100",
+            document_sha256="f"*64,observed_at_utc=observed,
+            ingested_at_utc=ingested)},
+        membership_basis="SEASON_PARTICIPANT_ENDPOINT_NOT_GAME_SAMPLES",
+        source_attestation="LOCAL_HASH_NOT_INDEPENDENT_ATTESTATION")
+    return dict(payload=payload,sha256=digest(payload))
+
+
+def test_offline_user_pinned_snapshot_crosswalk_makes_zero_network_calls(tmp_path):
+    from hybrid_engine.official_club_identity_pilot import offline_nba_espn_identity
+    now=int(time.time())
+    root=tmp_path/"isolated"
+    root.mkdir()
+    folder=root/"nba"
+    folder.mkdir()
+    file=folder/"season_participants.json"
+    snap=_offline_snapshot(now)
+    file.write_text(json.dumps(snap))
+    result=offline_nba_espn_identity(
+        club(),path=str(file),local_root=root,
+        trusted_snapshot_sha256=snap["sha256"],asof_utc=now)
+    assert result["status"]=="OFFLINE_TEAM_CROSSWALK_CANDIDATE_ONLY"
+    assert result["requests"]==0
+    assert result["nba_com_team_id"]=="1610612743"
+    assert result["espn_team_id"]=="7"
+    assert result["model_input"] is False
+    assert result["verified_fixture_id"] is None
+    assert result["verified_player_id"] is None
+    assert result["first_issued_forecast_proof_established"] is False
+
+
+def test_unpinned_or_postcutoff_local_snapshot_cannot_be_accepted(tmp_path):
+    from hybrid_engine.official_club_identity_pilot import offline_nba_espn_identity
+    now=int(time.time())
+    root=tmp_path/"isolated"
+    root.mkdir()
+    file=root/"season_participants.json"
+    snap=_offline_snapshot(now)
+    file.write_text(json.dumps(snap))
+    badpin=offline_nba_espn_identity(
+        club(),path=file,local_root=root,
+        trusted_snapshot_sha256="0"*64,asof_utc=now)
+    assert badpin["status"]=="ABSTAIN"
+    assert badpin["model_input"] is False
+    later=offline_nba_espn_identity(
+        club(),path=file,local_root=root,
+        trusted_snapshot_sha256=snap["sha256"],
+        asof_utc=now-101)
+    assert later["status"]=="ABSTAIN"
+    assert later["reason"]=="SEASON_SOURCE_NOT_AVAILABLE_AT_FORECAST_CUTOFF"
+
+
+def test_offline_snapshot_refuses_outside_root_and_symlink(tmp_path):
+    from hybrid_engine.official_club_identity_pilot import offline_nba_espn_identity
+    import pytest
+    now=int(time.time())
+    root=tmp_path/"isolated"
+    root.mkdir()
+    outside=tmp_path/"private.json"
+    snap=_offline_snapshot(now)
+    outside.write_text(json.dumps(snap))
+    result=offline_nba_espn_identity(
+        club(),path=outside,local_root=root,
+        trusted_snapshot_sha256=snap["sha256"],asof_utc=now)
+    assert result["status"]=="ABSTAIN"
+    assert result["reason"]=="ISOLATED_SNAPSHOT_PATH_REQUIRED"
+    link=root/"linked.json"
+    link.symlink_to(outside)
+    result=offline_nba_espn_identity(
+        club(),path=link,local_root=root,
+        trusted_snapshot_sha256=snap["sha256"],asof_utc=now)
+    assert result["status"]=="ABSTAIN"
+    assert result["reason"]=="ISOLATED_SNAPSHOT_SYMLINK_REFUSED"
+
+
+def test_offline_cli_requires_sha_and_explicit_cutoff_before_any_file_access(capsys):
+    import pytest
+    with pytest.raises(SystemExit) as e:
+        run(["--club","nba_denver_nuggets",
+             "--offline-snapshot","/does-not-exist"])
+    assert e.value.code==2
