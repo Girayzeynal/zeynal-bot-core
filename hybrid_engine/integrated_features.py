@@ -24,6 +24,7 @@ def features(state):
         'Avrupa otomatik PREMATCH: '+loaded('europe_prematch_scheduler'),
         'V2 güncel takım / box tempo adayları: '+loaded('adaptive_v2_worker'),
         'V3 rakip / form / korelasyonlu periyot adayı: '+loaded('issue90_research'),
+        'Güncel değerlendirme / tam ortak yollar / ana analiz görünümü: '+loaded('current_assessments'),
         'Üç lig sonuç ve performans: /results all · /accuracy all',
         'Modellerin ayrı çıktıları: /models NBA MAÇ_KİMLİĞİ',
         'Kadro ve piyasa panelleri: doğrulanmış veri varsa kullanılır.',
@@ -102,4 +103,8 @@ def models(state,league,fixture):
                 lines.append('V3: bu maç için doğrulanmış ayrı yayın yok. Son kontrol: '+last.get('status','HENÜZ_ÇALIŞMADI'))
                 lines.append('Eksik veri nedeni ve hazırlık: /test research')
     lines.append('Model karşılaştırması sürerken kayıtlı adaylar görüntülenebilir; güven yüzdesi veya otomatik terfi yapılmaz.')
+    assessments=state.get('current_assessments')
+    if assessments:
+        current=assessments.render_rows(rows)
+        if current:lines.append(current)
     return '\n'.join(lines)

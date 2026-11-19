@@ -454,6 +454,14 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             from hybrid_engine.issue90_research import Research
             from hybrid_engine.research_diagnostics import ObservedResearch
             app.bot_data['issue90_research']=ObservedResearch(Research(root/'nba-research-v3-integrity-v2',app.bot_data['adaptive_v2_worker']))
+        from hybrid_engine.current_assessment import CurrentAssessments,install_display
+        from hybrid_engine.research_diagnostics import ResearchCycle
+        assessments=CurrentAssessments(root/'current-assessments-v1',app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'))
+        app.bot_data['current_assessments']=assessments
+        app.bot_data['research_cycle']=ResearchCycle(app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'),assessments)
+        for bridge in (provider_bridge,getattr(app.bot_data.get('europe_data_review'),'bridge',None)):
+            if bridge is not None:bridge.assessments=assessments
+        install_display(app.bot_data,assessments)
     async def journal_write(key,event):
         request=app.bot.request
         if isinstance(request,AuditedRequest):return await request.append_journal(journal,key,event)
@@ -544,6 +552,16 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     'UTC maç saati ve tam native kimlik/durum kontrolleri korunur.'])
             study=app.bot_data.get('issue90_research')
             if study:lines.extend(study.render().splitlines())
+            cycle=app.bot_data.get('research_cycle')
+            if cycle:lines.extend(cycle.render().splitlines())
+            assessments=app.bot_data.get('current_assessments')
+            if assessments:
+                last=assessments.last_report or {}
+                lines.append('Güncel analiz zinciri: '+last.get('status','İLK TUR BEKLENİYOR'))
+                lines.extend(assessments.render_performance().splitlines())
+            bridge=provider_bridge or getattr(app.bot_data.get('europe_data_review'),'bridge',None)
+            if bridge is not None and getattr(bridge,'rule_book',None):
+                lines.append('Piyasa ödeme kuralı makbuzları: '+bridge.rule_book.status())
         overnight=app.bot_data.get('nba_overnight_scheduler')
         if mode in ('all','nba') and overnight:
             lines.append('NBA otomatik PREMATCH: AÇIK · gelecek 36 saat · son 15 dk yeni kayıt yok')
@@ -709,6 +727,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         try:
             reports=await _three_league_reports()
             value=await asyncio.to_thread(render_performance,reports)
+            assessments=app.bot_data.get('current_assessments')
+            if assessments:value+='\n\n'+assessments.render_performance()
         except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,RuntimeError) as exc:
             logging.getLogger(__name__).warning('Three-league accuracy unavailable: %s',type(exc).__name__)
             value='Üç lig için doğrulanmış performans raporu alınamadı; başarı yüzdesi uydurulmadı.'
@@ -877,10 +897,8 @@ def main():
         if overnight and not args.replay_only:tasks.append(background_task(overnight.run(app)))
         adaptive=app.bot_data.get('adaptive_v2_worker')
         if adaptive and not args.replay_only:
-            study=app.bot_data.get('issue90_research')
-            if study:
-                from hybrid_engine.issue90_research import run_serial
-                tasks.append(background_task(run_serial(adaptive,study,app)))
+            cycle=app.bot_data.get('research_cycle')
+            if cycle:tasks.append(background_task(cycle.run(app)))
             else:tasks.append(background_task(adaptive.run(app)))
         async def collect():
             while True:

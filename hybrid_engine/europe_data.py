@@ -32,6 +32,7 @@ def context(view,league):
         away=dict(provider_id=g['away_team_id'],official_name=view['pair'][1]),
         prediction_generated_at_utc=view['generated'],first_archived_at_utc=view['archived'],
         model_version=q['model'],model_digest=view['version'],intervals=view['bands'],
+        parameter_fit_cutoff_utc=q.get('metadata',{}).get('fit_cutoff_utc'),
         input_clocks=[dict(ingested_at_utc=p.get('source_available_max_utc',p.get('source_data_time_utc')))],
         original_forecast_sha256=view['forecast_sha256'])
 
@@ -178,10 +179,14 @@ class EuropeanDataReview:
             row=report['providers']['THE_ODDS_API'];discovery=self.bridge.read_receipt(row['discovery_source_pin'])
             detail=self.bridge.read_receipt(row['source_pin'])
             try:
-                distribution=self.distribution(owner,p,ctx);now=int(self.clock())
-                reviews=[evaluate(o,distribution,asof_utc=now,native_quotes=admit_odds(o,ctx,discovery,detail)) for o in observations]
+                assessment=self.bridge.assessments.market_context(ctx) if getattr(self.bridge,'assessments',None) else None
+                evaluation_context,distribution=assessment if assessment else (ctx,self.distribution(owner,p,ctx))
+                now=int(self.clock())
+                from hybrid_engine.settlement_rules import evaluate_bound
+                reviews=[evaluate_bound(self.bridge,o,distribution,evaluation_context,asof_utc=now,
+                    native_quotes=admit_odds(o,ctx,discovery,detail)) for o in observations]
                 if int(self.clock())>=ctx['fixture_start_utc']:raise ValueError('TIPOFF_DURING_PROVIDER_REVIEW')
-                batch=CurrentReviewJournal(self.root/'market').record(ctx,distribution,reviews,decision_utc=now)
+                batch=CurrentReviewJournal(self.root/'market').record(evaluation_context,distribution,reviews,decision_utc=now)
                 parts.append(render_batch(batch));accepted=len(observations)
             except (ValueError,KeyError,TypeError,OSError):
                 parts.append('Kaynak fiyatı veya arşiv dağılımı doğrulanamadı; yüzde/edge üretilmedi. Kod: EUROPE_MARKET_REPLAY_OR_ADMISSION_BLOCKED')

@@ -9,7 +9,7 @@ from telegram_delivery import tsi
 
 def render_batch(batch):
     p=batch['payload'];lines=['📈 <b>GÜNCEL PİYASA DEĞERLENDİRMESİ</b>',
-        'İlk tahmin: '+tsi(p['prediction_utc']),
+        ('Güncel model değerlendirmesi: ' if p.get('forecast_record_type') else 'İlk tahmin: ')+tsi(p['prediction_utc']),
         'Bu değerlendirme: '+tsi(p['decision_utc']),
         'Kararın ilk kaydı: '+tsi(p['recorded_at_utc']),
         'Karar SHA: '+batch['sha256'][:16],

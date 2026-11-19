@@ -170,7 +170,7 @@ def odds_observations(receipt, snapshot, *, discovery=None):
 
 
 class ProviderBridge:
-    def __init__(self, access, directory, *, extended=False, clock=time.time, diagnostic_only=False):
+    def __init__(self, access, directory, *, extended=False, clock=time.time, diagnostic_only=False, rule_book=None):
         self.access = access
         self.root = local_path(directory)
         self.extended = extended
@@ -178,6 +178,9 @@ class ProviderBridge:
         self.clock = clock
         self.lock = threading.Lock()
         self.coverage_blocks = {}
+        from hybrid_engine.settlement_rules import RuleBook
+        self.rule_book=rule_book if rule_book is not None else RuleBook.configured()
+        self.assessments=None
 
     def storage_status(self):
         files=list(self.root.glob('provider-*.json')) if self.root.exists() else []
@@ -485,7 +488,8 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
     direction_cards=[]
     observations = report['providers'].get('THE_ODDS_API', {}).get('observations', [])
     if observations:
-        distribution = replay_nba(snapshot, service)
+        assessment=bridge.assessments.market_context(snapshot) if getattr(bridge,'assessments',None) else None
+        evaluation_snapshot,distribution=assessment if assessment else (snapshot,replay_nba(snapshot,service))
         row=report['providers']['THE_ODDS_API']
         try:
             discovery=bridge.read_receipt(row['discovery_source_pin'])
@@ -497,11 +501,12 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
             # The old prediction time is immutable; later quotes use a new
             # actual decision clock and never enter original forecast metrics.
             decision_utc=int(time.time())
-            reviews=[evaluate(o,distribution,asof_utc=decision_utc,native_quotes=q)
+            from hybrid_engine.settlement_rules import evaluate_bound
+            reviews=[evaluate_bound(bridge,o,distribution,evaluation_snapshot,asof_utc=decision_utc,native_quotes=q)
                      for o,q in zip(observations,quotes)]
             try:
                 batch=CurrentReviewJournal(bridge.root.parent/'current-market-reviews').record(
-                    snapshot,distribution,reviews,decision_utc=decision_utc)
+                    evaluation_snapshot,distribution,reviews,decision_utc=decision_utc)
             except (OSError,ValueError,KeyError,TypeError):
                 parts.append(message('CURRENT_REVIEW_ARCHIVE_FAILED'))
             else:
