@@ -261,3 +261,45 @@ def test_tofas_native_team_id_unbound_cannot_reach_shadow_gate():
     assert result["status"]=="ABSTAIN"
     assert "SOURCE_TEAM_NOT_BOUND_TO_FIXTURE_SIDE" in result["reasons"]
     assert result["model_input"] is False
+
+
+def test_same_pinned_article_version_reobserved_later_uses_original_capture():
+    a=article()
+    receipt=dict(format=cap.RECEIPT_FORMAT,club_key=a["club_key"],
+                 source_url=a["source_url"],body_sha256=a["body_sha256"],
+                 observed_at_utc=OBS,captured_at_utc=OBS+10)
+    import hashlib
+    receipt["receipt_sha256"]=hashlib.sha256(cap._packed(receipt)).hexdigest()
+    later=dict(a,observed_at_utc=OBS+3*86400)
+    # Re-fetch is three days later, but the exact version was captured
+    # before the immutable forecast. No retroactive look-ahead.
+    report=assess_against_frozen_forecast(
+        later,club=club(),frozen=frozen(),captured=receipt,binding=binding())
+    assert report["status"]=="SHADOW_REVIEW_ONLY"
+    assert report["model_input"] is False
+
+
+def test_later_reobserved_modified_article_must_not_use_earlier_version_receipt():
+    a=article()
+    receipt=dict(format=cap.RECEIPT_FORMAT,club_key=a["club_key"],
+                 source_url=a["source_url"],body_sha256=a["body_sha256"],
+                 observed_at_utc=OBS,captured_at_utc=OBS+10)
+    import hashlib
+    receipt["receipt_sha256"]=hashlib.sha256(cap._packed(receipt)).hexdigest()
+    changed=dict(a,body_sha256="d"*64,observed_at_utc=OBS+3*86400)
+    report=assess_against_frozen_forecast(
+        changed,club=club(),frozen=frozen(),captured=receipt,binding=binding())
+    assert report["status"]=="ABSTAIN"
+    assert "PINNED_FIRST_CAPTURE_RECEIPT_REQUIRED" in report["reasons"]
+
+
+def test_first_capture_from_after_frozen_game_is_always_blocked_even_if_post_old():
+    a=article()
+    f=frozen()
+    f["prediction_generated_at_utc"]=OBS-60
+    f["created_at_utc"]=OBS-30
+    f["fixture_start_utc"]=OBS+300
+    report=audit(article_override=a,frozen_override=f)
+    assert "ARTICLE_EVIDENCE_CAPTURED_AFTER_FROZEN_FORECAST" in report["reasons"]
+    assert report["status"]=="ABSTAIN"
+    assert report["historical_forecast_modified"] is False
