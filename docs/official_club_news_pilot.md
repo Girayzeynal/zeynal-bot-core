@@ -101,3 +101,28 @@ Do not run `--save-article` on a postgame source to claim a pregame observation.
 **Review screen:** `hybrid_engine/official_club_prematch_gate.py` compares a captured article with the *existing pinned* first-issued forecast (`fixture_id`, NBA/EuroLeague/EuroCup league, 2026/27 season, home/away `provider_id`, `fixture_start_utc`, `prediction_generated_at_utc`, `created_at_utc`, snapshot SHA), the source club team native ID, a separately supplied fixture/player native identity binding and a validated capture receipt. Requires article HTTP200, exact timezone-aware publication clock, consistent first capture before forecast issuance and tipoff, match/team/person agreement and a nonstale 72h injury OUT claim. G League assignment or QUESTIONABLE cannot become physical-injury OUT. Without all inputs: `ABSTAIN` and explicit reasons. **Even on a complete schema pass: `SHADOW_REVIEW_ONLY`, `model_input=false`, `historical_forecast_modified=false`.** This does not independently authenticate a partner's player identity; those documents, genuine pre-tipoff data availability, and resulting separate calibrated model still need verification.
 
 GitHub Actions run **44464837275**, commit **d0b33f80d410ee6909d9bc612c6d14416c811422**: **95 offline tests passed** (`0.39s`), Python 3.11; this does **not** demonstrate new real-device NBA parser outputs, native identity matching or Telegram E2E. PR #97 remains DRAFT. No changes to Fly volume, production bots, immutable frozen ledger, or scores.
+
+
+## 19 Nov 2026 — Real NBA injury extraction validated; NBA.com/ESPN ID namespace safeguard
+
+**Android UserLAnd live article evidence**: Denver official November 14 Pelicans preview read HTTP200; body SHA256 `2f4340e7d365e80eac924ade4b8c33d8ac2c4c064d9583f62d89a6bfe8c70c61`; 237016 bytes and 3978 visible text characters. Native index post ID `1070083`, raw timestamp `2026-11-14T17:34:07Z` and epoch milliseconds `1794677647000`; index clock self-consistent but first-publication clock **not independently verified**.
+
+Live text-only NBA injury report candidates: DaRon Holmes II OUT / G League Assignment; Ryan Nembhard OUT / G League Two-Way Assignment; Julian Strawther OUT / Left Knee Sprain; Cam Whitmore OUT / G League Two-Way Assignment. These four are source report text candidates only. `fixture_verified=false`, `player_status_verified=false`, `publication_time_status=NO_VERIFIED_PUBLICATION_TIME`, `model_input=false`. Observed on November 19, cannot be backdated to a 14 November prediction.
+
+**High-severity research integration risk found**: `official_club_sources.json` uses NBA.com official team ID e.g. Denver `1610612743`, whereas the project's canonical NBA `season_archive_inventory` / `universal_analysis` fixture source is **ESPN** with different numeric IDs. Direct equality of these namespaces would cause wrong ID joins or false rejections.
+
+`hybrid_engine/official_club_team_crosswalk.py` now refuses NBA.com-to-ESPN ID comparison without a separately pinned, season-scoped `SEASON_PARTICIPANTS_V1` snapshot from the existing participant provider. It uses exact source official club name and the as-of `ingested_at_utc` cutoff, with no guessed or fuzzy crosswalk. `official_club_prematch_gate.py` requires this bridge for NBA, or reports `NBA_OFFICIAL_TO_ESPN_TEAM_CROSSWALK_UNVERIFIED` and ABSTAINS. Fixture and player IDs remain separately required and never inferred.
+
+`hybrid_engine/official_club_identity_pilot.py` is a new opt-in, read-only field probe, separate from the existing club-news CLI. It requests *at most* the two fixed ESPN 2026/27 season membership and names JSON sources plus robots.txt (max 4 requests total, no 30-team fallback, no redirects, 5-second timeout/request, 512KiB/source, no on-disk source text). Source permissions, original IDs, exact-name uniqueness and season are enforced. It returns a **candidate bridge**, not a verified roster/game or historical forecast input. Explicit 403/429/robots denial, changed API schema or incomplete source -> ABSTAIN; do not bypass.
+
+Standalone opt-in UserLAnd test after fetching current PR #97 HEAD:
+
+```bash
+PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B -m hybrid_engine.official_club_identity_pilot --live --club nba_denver_nuggets
+```
+
+Successful output should say `READ_ONLY_TEAM_CROSSWALK_CANDIDATE` with `nba_com_team_id`, `espn_team_id`, verified source snapshot hash and the observation UTC. If blocked/unavailable, `ABSTAIN` is a valid secure outcome. This command does not need the earlier NBA article probe re-run. `--live` absent => zero HTTP dry-run.
+
+**CI:** run `44468521840`, commit `9a3df3a1e0f67a4d3c1fdafc16babba84ff20db4`, Python 3.11, **112 offline tests passed**. The new 2-ESPN-source field probe has NOT yet been tested over the Android network; only prior real club article and injury text tests are confirmed.
+
+PR #97 remains DRAFT / no Fly, no Telegram production, no old frozen snapshots, no settlement or model changes. Next missing step: player provider IDs and exact fixture binding using independent, as-of pinned sources, followed by pre-tipoff shadow tests.
