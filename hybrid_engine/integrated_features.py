@@ -29,6 +29,15 @@ def features(state):
         'Modellerin ayrı çıktıları: /models NBA MAÇ_KİMLİĞİ',
         'Kadro ve piyasa panelleri: doğrulanmış veri varsa kullanılır.',
         'Resmî kulüp kaynakları: isteğe bağlı pilot; oyuncu etkisi otomatik uygulanmaz.']
+    review=state.get('europe_data_review')
+    packet_store=state.get('verified_roster_packets')
+    lines.extend([
+        'Avrupa kadro kanıtı okuyucusu: '+('BAĞLI' if review is not None else 'BAĞLI DEĞİL'),
+        'Maça ve ilk tahmin saatine doğrulanmış oyuncu paketi: otomatik sağlayıcı veri akışı henüz yok',
+        'Maç bazlı sakatlık etkisi / sayısal dakika modeli: CANLI ANALİZE BAĞLI DEĞİL.',
+        'Yerel oyuncu paket adayı sayısı: '+str(len(packet_store) if isinstance(packet_store,dict) else 0)+
+        ' (sayı doğrulanmış oyuncu/maç kanıtı değildir).',
+        'Kadro veri yokluğu hiçbir oyuncunun sağlıklı veya oynayabilir olduğunu kanıtlamaz.'])
     last=state.get('last_result_poll') or {}
     if last:
         lines.append('Son sonuç kontrolü: '+' · '.join(k+': '+v.get('status','BİLİNMİYOR') for k,v in last.items()))
