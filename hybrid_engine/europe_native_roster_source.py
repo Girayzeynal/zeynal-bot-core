@@ -131,3 +131,54 @@ def render_public(report):
     rows.extend(["Kayıtlı oyuncu sakatlık/ilk beş/dakika kanıtı değildir.",
                  "Oyuncu durumu ve sayısal skor etkisi doğrulanmadı; ilk tahmin değiştirilmedi."])
     return "\n".join(rows)
+
+async def telegram_command(update,context):
+    """Same read-only real-source command in isolated and Fly bots."""
+    import asyncio
+    args=context.args or []
+    if len(args)!=4:
+        await update.effective_message.reply_text(
+            "Kullanım: /sourceplayers EUROLEAGUE 2026/2027 ZAL PAN\n"
+            "Bu komut oyuncu sezon kayıtlarını kontrol eder, sakatlık ve skor hesabı değildir.")
+        return
+    league,season,home,away=args
+    ctx={"league":league.upper(),"season":season,
+         "fixture_id":None,"home":{"provider_id":home.upper()},
+         "away":{"provider_id":away.upper()}}
+    try:
+        for side in ("home","away"):
+            endpoint(ctx["league"],ctx["season"],ctx[side]["provider_id"])
+        if ctx["home"]["provider_id"]==ctx["away"]["provider_id"]:
+            raise ValueError("Same club")
+        result=await asyncio.wait_for(asyncio.to_thread(pair,ctx),timeout=13)
+        report=render_public(result)
+    except (KeyError,TypeError,ValueError,asyncio.TimeoutError):
+        report="Resmî takım/lig/sezon eşleşmesi doğrulanamadı. Örnek: /sourceplayers EUROLEAGUE 2026/2027 ZAL PAN"
+    await update.effective_message.reply_text(report[:3500],parse_mode=None)
+
+
+def command_handler():
+    from telegram.ext import CommandHandler
+    return CommandHandler("sourceplayers",telegram_command)
+
+
+def _cli():
+    import argparse
+    p=argparse.ArgumentParser(description="Live official season roster smoke: never an injury report")
+    p.add_argument("--league",default="EUROLEAGUE")
+    p.add_argument("--season",default="2026/2027")
+    p.add_argument("--home",default="ZAL")
+    p.add_argument("--away",default="PAN")
+    p.add_argument("--require-live",action="store_true")
+    a=p.parse_args()
+    ctx={"league":a.league,"season":a.season,"fixture_id":None,
+         "home":{"provider_id":a.home},"away":{"provider_id":a.away}}
+    result=pair(ctx)
+    print(render_public(result))
+    both=all(result["teams"][side]["status"]=="OFFICIAL_SEASON_REGISTRATION_OBSERVED"
+             for side in ("home","away"))
+    return 0 if both or not a.require_live else 2
+
+
+if __name__=="__main__":
+    raise SystemExit(_cli())
