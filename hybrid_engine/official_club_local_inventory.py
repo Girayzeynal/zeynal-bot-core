@@ -16,6 +16,7 @@ import sqlite3
 
 FORMAT="OFFICIAL_CLUB_LOCAL_SOURCE_INVENTORY_V2"
 MAX_ENTRIES=20000
+MAX_DIRS=4000
 MAX_JSON_READS=3000
 MAX_JSON_BYTES=32*1024*1024
 MAX_ONE_JSON=4*1024*1024
@@ -99,9 +100,14 @@ def inspect_local_source_inventory(*,root):
     stats=dict(scan_capped=False,scan_cap_reasons=set(),
                json_bytes_read=0,scanned_json_files=0)
     jsons=[];sqlitefiles=[]
-    total=0;stop=False
+    total=0;stop=False;visited_dirs=0
     # Metadata-only bounded traversal. Symlinked directories/files excluded.
     for where,dirs,files in os.walk(root,followlinks=False):
+        visited_dirs+=1
+        if visited_dirs>MAX_DIRS:
+            stats["scan_capped"]=True
+            stats["scan_cap_reasons"].add("DIRECTORY_METADATA_LIMIT")
+            break
         place=Path(where)
         depth=len(place.relative_to(root).parts)
         if depth>MAX_DEPTH:
