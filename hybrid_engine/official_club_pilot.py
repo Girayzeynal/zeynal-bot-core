@@ -100,6 +100,13 @@ def run(argv=None):
                 compact["article_claim_candidate_names_text_only"]=[
                     x.get("player_name_text") for x in
                     result.get("injury_absence_claim_candidates",[])]
+                compact["nba_report_claims_text_only"]=[
+                    dict(player_name_text=x.get("player_name_text"),
+                         reported_status=x.get("reported_status"),
+                         reason_category=x.get("reason_category"),
+                         reported_reason_text=x.get("reported_reason_text"),
+                         model_input=False) for x in
+                    result.get("nba_injury_report_claim_candidates",[])]
                 compact["article_access_verified"]=(result.get("status")==
                     "OFFICIAL_ARTICLE_OBSERVED_NOT_ROSTER_VERIFIED" and
                     result.get("source_http_status")==200)
