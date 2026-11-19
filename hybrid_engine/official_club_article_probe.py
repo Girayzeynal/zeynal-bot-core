@@ -83,7 +83,9 @@ def probe_article(club,url,*,requester=_request):
     parser.feed(raw.decode("utf-8","replace"))
     text=parser.text()
     from hybrid_engine.official_club_claims import injury_absence_candidates
+    from hybrid_engine.official_club_nba_claims import nba_injury_report_candidates
     candidate_claims=injury_absence_candidates(text,club_key=club["club_key"])
+    nba_report_candidates=nba_injury_report_candidates(text,club_key=club["club_key"])
     # Source text is distinct from verified roster status: neither native
     # player IDs nor this game's native fixture nor exact publication time
     # can be established by merely reading the official article.
@@ -100,7 +102,10 @@ def probe_article(club,url,*,requester=_request):
                 index_clock_status=found[0].get("source_clock_status","NOT_VERIFIED"),
                 index_native_post_id=found[0].get("source_post_id"),
                 injury_absence_claim_candidates=candidate_claims,
-                injury_claim_evidence_status=("SOURCE_TEXT_CANDIDATES_ONLY" if candidate_claims else "NO_EXPLICIT_SOURCE_TEXT_CANDIDATES"),
+                nba_injury_report_claim_candidates=nba_report_candidates,
+                injury_claim_evidence_status=("SOURCE_TEXT_CANDIDATES_ONLY"
+                    if candidate_claims or nba_report_candidates
+                    else "NO_EXPLICIT_SOURCE_TEXT_CANDIDATES"),
                 published_utc=metadata["published_utc"] if metadata["publication_time_status"]=="PRECISE_PAGE_PUBLICATION_TIME" else None,
                 publication_time_status=metadata["publication_time_status"],
                 visible_text_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
