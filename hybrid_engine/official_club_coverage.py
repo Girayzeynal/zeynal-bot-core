@@ -22,6 +22,15 @@ def load_coverage(path=INVENTORY):
     if (doc.get("format")!=FORMAT or doc.get("season")!="2026/2027"
         or type(teams) is not list or len(teams)!=sum(COUNTS.values())):
         raise ValueError("CLUB_2026_27_COVERAGE_INVENTORY_INVALID")
+    hubs=doc.get("additional_league_sources")
+    expected_hub=dict(
+        source_type="OFFICIAL_DAILY_INJURY_REPORT_HUB",
+        url="https://official.nba.com/nba-injury-report-2026-27-season/",
+        verification_status="OFFICIAL_HUB_PAGE_DISCOVERED_PDF_NOT_INGESTED",
+        coverage_scope="LEAGUE_GAME_REPORTS_WITH_SUBMISSION_GAPS",
+        model_input=False,roster_identity_verified=False)
+    if hubs!={"NBA":[expected_hub],"EUROLEAGUE":[],"EUROCUP":[]}:
+        raise ValueError("LEAGUE_INJURY_HUB_NOT_VERIFIED_OR_FALSELY_INTEGRATED")
     pilot={x["club_key"]:x for x in registry()}
     seen=set()
     league_counts={k:0 for k in COUNTS}
@@ -90,6 +99,10 @@ def summary():
         all_clubs_official_news_connected=False,
         roster_identity_verified=False,
         injury_status_comprehensively_verified=False,
+        nba_official_injury_report_hub_url=(
+            data["additional_league_sources"]["NBA"][0]["url"]),
+        nba_injury_hub_data_ingested=False,
+        nba_injury_hub_parsed_player_count=0,
         model_input=False,production_changed=False,requests=0)
 
 
