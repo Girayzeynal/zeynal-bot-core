@@ -221,3 +221,20 @@ PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B
 ```
 
 **Field execution pending**: the source final replay stage has not run on the user's Android database, so its match/missing outcome counts are unknown. The user's 39 receipt audit is a confirmed separate prior fact and must not be mistaken for 39 verified official fixture / score mappings. Draft PR #97 only; no production changes.
+
+
+## 19 Nov 2026 — Real UserLAnd result: 23 local final replays, 16 missing of 39 frozen records
+
+**Actual user-terminal evidence**: `--audit-fixture-finals --club nba_denver_nuggets` returned `candidate_rows=39`, `consistent_frozen_snapshots=39`, `local_native_fixture_identity_matches=39`, `local_final_source_replays=23`, `final_outcomes_missing=16`, `invalid_frozen_snapshots=0`, `invalid_commit_receipts=0`, `invalid_final_source_replays=0`, `missing_commit_receipts=0`, `orphan_receipts_detected=false`, `scan_capped=false`, `payload_bytes_read=1517119`, `requests=0`, `model_input=false`, `archives_modified=false`, `production_changed=false`. **These are 39 forecast records, not independently verified distinct fixtures**, and 23 local ESPN source event replays, not 23 correctly predicted scores or independent ESPN provider attestations. `official_external_fixture_identity_verified=false`, `historical_pregame_source_proof=false`.
+
+**New stage**: `hybrid_engine/official_club_missing_final_audit.py`, CLI `--audit-missing-finals` (zero network), strictly read-only immutable isolated NBA SQLite. Re-runs the complete local source/commit/final integrity contract first; then inventories only missing native final result records. For each, verifies snapshot SHA, commit timing, canonical ESPN fixture ID, provider fixture IDs, home/away IDs, and tipoff UTC. Reports `missing_final_record_count`, `missing_final_unique_fixture_count`, `future_tipoff_missing_records`, `tipoff_elapsed_missing_records` and at most 64 distinct fixture examples. Multiple models of the same fixture are counted separately as forecast records but as ONE unique fixture; other player/market/forecast data are not exported.
+
+**Important**: an elapsed tipoff by local device clock proves neither that a game was completed nor that a result has been independently observed. It only means the local ledger has no final entry for a frozen fixture whose scheduled start has passed. Could reflect postponed game, missing ingest/settlement or another unavailable source; do not fill with fabricated scores. Local device time is not an independently attested historical timestamp. The command does not fetch ESPN, bypass robots, alter Fly, mutate ledger or calibrate an already frozen model.
+
+Test command after fetching clean isolated PR #97 branch:
+
+```bash
+PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B -m hybrid_engine.official_club_identity_pilot --audit-missing-finals --club nba_denver_nuggets
+```
+
+**CI** commit `d8a0bec2a6696d77f7d78a19215fc179a02ac712`, GitHub Actions run `44481514780`, job `135414603786`, Python 3.11: **164 tests passed in 1.35s**. New UserLAnd missing-result classification has NOT yet been run on Android, so the split of 16 into pre-tipoff, elapsed tipoff and unique fixtures remains unknown. PR #97 remains DRAFT; no production/Telegram/Fly/forecast changes.
