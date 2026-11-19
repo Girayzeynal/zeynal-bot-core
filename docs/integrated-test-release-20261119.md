@@ -55,9 +55,20 @@ Komutlar yeni worktree oluşturur; eski klasörü resetlemez veya silmez.
 
 ```bash
 git -C ~/zeynal-hybrid-844 fetch origin feature/integrated-test-bot-20261119
-git -C ~/zeynal-hybrid-844 worktree add --track -b feature/integrated-test-bot-20261119 ~/zeynal-integrated-test origin/feature/integrated-test-bot-20261119
+git -C ~/zeynal-hybrid-844 worktree add --no-track -b feature/integrated-test-bot-20261119 ~/zeynal-integrated-test FETCH_HEAD
 bash ~/zeynal-integrated-test/scripts/run_isolated_test_bot.sh
 ```
+
+Bazı UserLAnd kurulumlarında `origin` yalnız eski dalı izler. `git fetch
+origin DAL` yeni dalı `FETCH_HEAD` olarak indirebilir; `origin/DAL`
+oluşmayabilir. Hatta uzak referans elle indirilse bile dar fetch eşlemesi
+nedeniyle `--track` reddedilebilir. Yukarıdaki komut indirilen commit'ten
+doğrudan yerel dal oluşturur; uzak izleme kaydı gerektirmez ve
+`remote.origin.fetch` ayarını değiştirmez. Launcher her başlatmada kendi
+dalını açıkça fetch edip `FETCH_HEAD` üzerinden fast-forward yaptığı için
+upstream ayarı gerekmiyor. Fetch ile worktree komutu arasında başka bir
+fetch çalıştırmayın. Önceki `requested upstream branch ... does not exist`
+hatası alındıysa bu iki düzeltilmiş satır yeniden çalıştırılabilir.
 
 Eski bot hâlâ çalışıyorsa ortak kilit `TEST_BOT_ALREADY_RUNNING` döndürür ve
 mevcut süreci korur. Yeni sürüme geçerken eski botun terminalinde bir kez
