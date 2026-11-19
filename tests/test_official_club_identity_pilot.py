@@ -360,3 +360,31 @@ def test_frozen_receipt_audit_cli_never_fetches_provider_or_scans_json(monkeypat
     with pytest.raises(SystemExit) as exc:
         run(["--club","nba_denver_nuggets","--audit-frozen-receipts","--live"])
     assert exc.value.code==2
+
+
+def test_local_final_fixture_replay_cli_is_readonly_and_never_fetches(monkeypatch,capsys):
+    import pytest
+    import hybrid_engine.official_club_identity_pilot as mod
+    import hybrid_engine.official_club_fixture_outcome_audit as links
+    monkeypatch.setattr(mod,"capture_nba_espn_identity",lambda _:1/0)
+    monkeypatch.setattr(mod,"inspect_local_season_snapshot_candidates",lambda:1/0)
+    monkeypatch.setattr(links,"inspect_local_nba_final_fixture_links",
+        lambda **kwargs:dict(format="OFFICIAL_NBA_LOCAL_FIXTURE_FINAL_LINK_AUDIT_V1",
+          status="NO_LOCALLY_STORED_FINAL_EVENTS_FOR_CONSISTENT_FORECASTS",
+          candidate_rows=39,final_outcomes_missing=39,
+          local_final_source_replays=0,requests=0,
+          model_input=False,production_changed=False))
+    assert run(["--club","nba_denver_nuggets","--audit-fixture-finals"])==0
+    row=json.loads(capsys.readouterr().out.strip())
+    assert row["candidate_rows"]==39
+    assert row["local_final_source_replays"]==0
+    assert row["requests"]==0
+    assert row["model_input"] is False
+    with pytest.raises(SystemExit) as exc:
+        run(["--club","nba_denver_nuggets",
+             "--audit-fixture-finals","--live"])
+    assert exc.value.code==2
+    with pytest.raises(SystemExit) as exc:
+        run(["--club","nba_denver_nuggets",
+             "--audit-fixture-finals","--trusted-sha256","f"*64])
+    assert exc.value.code==2
