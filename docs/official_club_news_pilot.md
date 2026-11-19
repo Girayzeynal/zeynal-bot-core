@@ -126,3 +126,25 @@ Successful output should say `READ_ONLY_TEAM_CROSSWALK_CANDIDATE` with `nba_com_
 **CI:** run `44468521840`, commit `9a3df3a1e0f67a4d3c1fdafc16babba84ff20db4`, Python 3.11, **112 offline tests passed**. The new 2-ESPN-source field probe has NOT yet been tested over the Android network; only prior real club article and injury text tests are confirmed.
 
 PR #97 remains DRAFT / no Fly, no Telegram production, no old frozen snapshots, no settlement or model changes. Next missing step: player provider IDs and exact fixture binding using independent, as-of pinned sources, followed by pre-tipoff shadow tests.
+
+
+## 19 Nov 2026 — ESPN robots stage ABSTAIN on real UserLAnd; do not bypass
+
+Actual device result from `python -B -m hybrid_engine.official_club_identity_pilot --live --club nba_denver_nuggets`: `status=ABSTAIN`, `reason=ESPN_ROBOTS_UNAVAILABLE_OR_REFUSED`, `requests=1`, `model_input=false`, `production_changed=false`. No provider participant JSON request was made, and no NBA.com↔ESPN ID crosswalk was established. Old CLI did NOT expose which transport failure caused the refusal: 403, 429, redirects, MIME mismatch, network timeout, and other uncertainty must not be invented as observed facts.
+
+New branch adds fields `failed_stage`, `failed_source_role`, `failed_source_host`, `robots_transport_status`, `robots_http_status` and `robots_decision` for any subsequent explicit `--live` attempt. It still refuses uncertain/disallowed robots policy; NO automatic repeated attempts, redirects, proxy or alternate domain bypass.
+
+**Preferred next step: ZERO NETWORK**. Existing saved season participant JSON could be used only if it was genuinely captured and independently pinned before the relevant forecast. No assumption that such a file exists. CLI `--scan-local` searches only `~/zeynal-test-isolated/data` with bounded traversal and returns file paths and claimed metadata as `UNTRUSTED_SNAPSHOT_CANDIDATE_NOT_ASOF_PROOF`. It never reads NBA/ESPN over HTTP or modifies ledgers.
+
+```bash
+cd ~/zeynal-club-pilot-97 || exit 1
+test -z "$(git status --porcelain)" || { echo 'Local modifications: stop'; exit 1; }
+git fetch -q origin feature/official-club-news-pilot-20261119 && git checkout --detach -q FETCH_HEAD || exit 1
+PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B -m hybrid_engine.official_club_identity_pilot --scan-local --club nba_denver_nuggets
+```
+
+Result `NO_LOCAL_SEASON_SNAPSHOT_IN_BOUNDED_SCAN` means the bounded isolated JSON scan found no candidate; it does not establish that the user has no ESPN data in SQLite, another directory or another machine. A found snapshot also cannot be trusted because its own hash repeats within its own file.
+
+Optional explicit offline validation exists only for a user-selected local snapshot path with a **separately pinned pre-existing SHA** and explicit UTC as-of cutoff: `--offline-snapshot <file.json> --trusted-sha256 <independently-recorded-hash> --asof-utc <unix-second> --club nba_denver_nuggets`. This mode sends 0 network requests and cannot backfill after-cutoff observations into earlier forecasts. Neither offline path verifies fixture/player IDs or authorizes model input.
+
+CI run `44469785390`, job `135376159941`: **121 offline tests passed** on Python 3.11, commit `0660a13f053570e577dafdc9b5d5e84d5eb4ea3e`. Actual local snapshot scan result from the Android device is not yet known. PR #97 still DRAFT; no production, Telegram, Fly volume or immutable forecast/archive changes.
