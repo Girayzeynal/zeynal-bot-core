@@ -128,6 +128,8 @@ def render_public(report):
                         " | kimliği eşleşebilir oyuncu: "+str(r["mapped_player_ids"]))
             rows.append("Kaynak: "+r["source_url"])
             rows.append("SHA-256: "+r["body_sha256"][:16])
+            for player in r["registered_players"][:24]:
+                rows.append("• "+player["name"]+" · "+(player["player_id"] or "RESMÎ ID YOK"))
     rows.extend(["Kayıtlı oyuncu sakatlık/ilk beş/dakika kanıtı değildir.",
                  "Oyuncu durumu ve sayısal skor etkisi doğrulanmadı; ilk tahmin değiştirilmedi."])
     return "\n".join(rows)
