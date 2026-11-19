@@ -20,6 +20,8 @@ def run(argv=None):
                    help="Pilot club_key; repeat for several (default: all six)")
     p.add_argument("--summary",action="store_true",
                    help="Compact per-club evidence status for safe six-club access audit")
+    p.add_argument("--diagnose-links",action="store_true",
+                   help="Show bounded same-page link/HTML diagnostic; only with --live, --club and --summary")
     p.add_argument("--save",action="store_true",
                    help="Opt in to append-only metadata receipt in isolated test directory")
     p.add_argument("--article-url",
@@ -29,6 +31,9 @@ def run(argv=None):
         p.error("--save requires --live")
     if args.article_url and (not args.live or args.save or len(args.club)!=1):
         p.error("--article-url requires --live and exactly one --club; no --save")
+    if args.diagnose_links and (not args.live or len(args.club)!=1 or
+                                not args.summary or args.article_url or args.save):
+        p.error("--diagnose-links requires --live --summary --club ONE; no --article-url or --save")
     index=registry()
     selected=[item for item in index if not args.club or item["club_key"] in args.club]
     unknown=sorted(set(args.club)-{r["club_key"] for r in selected})
@@ -51,7 +56,7 @@ def run(argv=None):
             from hybrid_engine.official_club_article_probe import probe_article
             result=probe_article(item,args.article_url)
         else:
-            result=probe(item)
+            result=probe(item,link_diagnostics=True) if args.diagnose_links else probe(item)
         if args.save and result.get("status")=="PUBLIC_NEWS_PAGE_OBSERVED_NOT_PLAYER_VERIFIED":
             path=append_receipt(Path.home()/"zeynal-test-isolated"/"data"/"club-pilot-evidence",result)
             result=dict(result,evidence_file=str(path))
@@ -66,6 +71,8 @@ def run(argv=None):
                          publication_time_status=result.get("publication_time_status"),
                          source_url=result.get("source_url",item["source_url"]),
                          model_input=False,production_changed=False)
+            if args.diagnose_links:
+                compact["link_diagnostics"]=result.get("link_diagnostics")
             print(json.dumps(compact,ensure_ascii=False,sort_keys=True))
         else:
             print(json.dumps(result,ensure_ascii=False,sort_keys=True))
