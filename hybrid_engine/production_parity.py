@@ -159,6 +159,8 @@ def install(app):
     test_token = os.getenv("ZEYNAL_TEST_BOT_TOKEN")
     if test_token and os.getenv("TELEGRAM_BOT_TOKEN") == test_token:
         return
+    from hybrid_engine.europe_native_roster_source import command_handler as player_source_handler
+    app.add_handler(player_source_handler())
     app.add_handler(CommandHandler("features", features_command))
     app.add_handler(CommandHandler("models", models_command))
     app.add_handler(CommandHandler("predictions", predictions_command))
