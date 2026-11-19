@@ -77,15 +77,16 @@ def _resolve(league,name,rows):
         return by_key[key]
     return None
 
-def read_fixture_club_news(ctx,*,requester=_request,clock=time.time):
+def read_fixture_club_news(ctx,*,requester=_request,clock=time.time,allow_no_fixture=False):
     """Return source index evidence only, not player medical availability."""
     if ctx.get("league") not in ("EUROLEAGUE","EUROCUP"):
         raise ValueError("OFFICIAL_FIXTURE_NEWS_LEAGUE_REQUIRED")
     start=ctx.get("fixture_start_utc")
     now=int(clock())
     if type(start) is not int or start<=0:
-        raise ValueError("OFFICIAL_FIXTURE_NEWS_TIPOFF_REQUIRED")
-    if now>=start:
+        if not allow_no_fixture or start is not None:
+            raise ValueError("OFFICIAL_FIXTURE_NEWS_TIPOFF_REQUIRED")
+    if start is not None and now>=start:
         return dict(status="POST_TIPOFF_NO_NEW_SOURCE_POLL",
             rows=[],requests=0,roster_verified=False,injury_verified=False,
             model_input=False,archives_modified=False)
@@ -120,7 +121,7 @@ def read_fixture_club_news(ctx,*,requester=_request,clock=time.time):
         if not allowed_by_robots(policy["body"].decode("utf-8","replace"),news):
             entry["status"]="ROBOTS_DISALLOW_NEWS_NOT_FETCHED"
             continue
-        if int(clock())>=start:
+        if start is not None and int(clock())>=start:
             entry["status"]="TIPOFF_REACHED_NEWS_NOT_FETCHED"
             continue
         doc=requester(news,limit=MAX_BODY,expected_mime="text/html")
@@ -133,7 +134,7 @@ def read_fixture_club_news(ctx,*,requester=_request,clock=time.time):
         observed=doc.get("observed_at_utc")
         if (type(raw) is not bytes or not 0<len(raw)<=MAX_BODY or
             type(observed) is not int or not 0<observed<=int(clock()) or
-            observed>=start):
+            (start is not None and observed>=start)):
             entry["status"]="OFFICIAL_NEWS_SOURCE_CLOCK_OR_BODY_UNVERIFIED"
             continue
         page=parse_metadata(raw,observed_at_utc=observed)
@@ -143,7 +144,9 @@ def read_fixture_club_news(ctx,*,requester=_request,clock=time.time):
                      observed_at_utc=observed,
                      index_title=page.get("page_title") or "",
                      headlines=headers.links[:MAX_LINKS])
-    return dict(status="FIXTURE_OFFICIAL_CLUB_NEWS_INDEX_REVIEW_V1",
+    return dict(status=("TEAM_ONLY_OFFICIAL_SOURCE_REVIEW_NOT_FIXTURE_VERIFIED"
+                        if start is None else
+                        "FIXTURE_OFFICIAL_CLUB_NEWS_INDEX_REVIEW_V1"),
         rows=out,requests=requests,clubs_expected=2,
         injury_verified=False,roster_verified=False,
         verified_player_count=0,model_input=False,
@@ -154,6 +157,8 @@ def render_fixture_news(review):
            "Bunlar haber sayfası gözlemleridir; doğrulanmış oyuncu OUT veya dakika etkisi değildir."]
     if review["status"]=="POST_TIPOFF_NO_NEW_SOURCE_POLL":
         return "\n".join(lines+["Maç başlangıcı geçti; tarihsel haber yeni tahmin girdisi sayılmadı."])
+    if review["status"]=="TEAM_ONLY_OFFICIAL_SOURCE_REVIEW_NOT_FIXTURE_VERIFIED":
+        lines.append("Maç kimliği ve oyuncu uygunluğu doğrulanmadı; bu yalnız takım haber girişidir.")
     for row in review["rows"]:
         lines.append("")
         lines.append(html.escape(row["team"])+" · "+html.escape(row["status"]))
