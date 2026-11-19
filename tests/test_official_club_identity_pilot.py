@@ -388,3 +388,72 @@ def test_local_final_fixture_replay_cli_is_readonly_and_never_fetches(monkeypatc
         run(["--club","nba_denver_nuggets",
              "--audit-fixture-finals","--trusted-sha256","f"*64])
     assert exc.value.code==2
+
+
+def test_missing_final_gap_cli_does_not_call_provider_or_mutate_archive(monkeypatch,capsys):
+    import pytest
+    import hybrid_engine.official_club_identity_pilot as mod
+    import hybrid_engine.official_club_missing_final_audit as gaps
+    monkeypatch.setattr(mod,"capture_nba_espn_identity",lambda _:1/0)
+    monkeypatch.setattr(mod,"inspect_local_season_snapshot_candidates",lambda:1/0)
+    monkeypatch.setattr(gaps,"inspect_local_missing_finals",
+        lambda **kwargs:dict(
+            format="OFFICIAL_NBA_LOCAL_FINAL_GAPS_V1",
+            status="LOCAL_MISSING_FINALS_CLASSIFIED_NO_EXTERNAL_PROOF",
+            missing_final_record_count=16,
+            missing_final_unique_fixture_count=16,
+            tipoff_elapsed_missing_records=16,
+            future_tipoff_missing_records=0,
+            missing_final_examples=[],requests=0,model_input=False,
+            production_changed=False,archives_modified=False))
+    assert run(["--club","nba_denver_nuggets","--audit-missing-finals"])==0
+    row=json.loads(capsys.readouterr().out.strip())
+    assert row["status"]=="LOCAL_MISSING_FINALS_CLASSIFIED_NO_EXTERNAL_PROOF"
+    assert row["missing_final_record_count"]==16
+    assert row["requests"]==0
+    assert row["model_input"] is False
+    with pytest.raises(SystemExit) as e:
+        run(["--club","nba_denver_nuggets","--audit-missing-finals","--live"])
+    assert e.value.code==2
+    with pytest.raises(SystemExit) as e:
+        run(["--club","nba_denver_nuggets","--audit-missing-finals","--trusted-sha256","e"*64])
+    assert e.value.code==2
+
+
+
+def test_new_82_club_inventory_cli_is_offline_and_never_promotes_roster(monkeypatch,capsys):
+    import hybrid_engine.official_club_identity_pilot as mod
+    monkeypatch.setattr(mod,"capture_nba_espn_identity",lambda _:1/0)
+    assert run(["--club","nba_denver_nuggets","--coverage-summary"])==0
+    row=json.loads(capsys.readouterr().out.strip())
+    assert row["members_total"]==82
+    assert row["pilot_source_pages_observed"]==6
+    assert row["all_clubs_official_news_connected"] is False
+    assert row["roster_identity_verified"] is False
+    assert row["model_input"] is False
+    assert row["requests"]==0
+
+
+def test_new_safe_staging_cli_uses_fixed_isolated_root_and_no_external_fetch(monkeypatch,capsys):
+    import hybrid_engine.official_club_identity_pilot as mod
+    import hybrid_engine.official_club_final_staging as stage
+    import pytest
+    monkeypatch.setattr(mod,"capture_nba_espn_identity",lambda _:1/0)
+    monkeypatch.setattr(stage,"prepare_isolated_final_stage",
+                        lambda **k:dict(
+                            format="OFFICIAL_NBA_ISOLATED_FINAL_STAGING_V1",
+                            status="STAGE_COPY_READY_NO_NATIVE_FINAL_RECEIPTS",
+                            native_final_results_appended=0,
+                            production_changed=False,original_archive_modified=False,
+                            model_input=False,requests=0))
+    assert run(["--club","nba_denver_nuggets","--prepare-final-stage"])==0
+    row=json.loads(capsys.readouterr().out.strip())
+    assert row["status"]=="STAGE_COPY_READY_NO_NATIVE_FINAL_RECEIPTS"
+    assert row["native_final_results_appended"]==0
+    assert row["requests"]==0
+    with pytest.raises(SystemExit):
+        run(["--club","nba_denver_nuggets","--prepare-final-stage",
+             "--live"])
+    with pytest.raises(SystemExit):
+        run(["--club","nba_denver_nuggets","--prepare-final-stage",
+             "--trusted-sha256","e"*64])

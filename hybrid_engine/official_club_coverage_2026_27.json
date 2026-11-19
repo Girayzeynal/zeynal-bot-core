@@ -1,0 +1,770 @@
+{
+  "format": "OFFICIAL_CLUB_SEASON_2026_27_COVERAGE_V1",
+  "season": "2026/2027",
+  "scope": "IDENTITY_INVENTORY_NOT_LIVE_SOURCE_CONNECTION",
+  "notes": [
+    "Only six preexisting team news page pilot URLs are recorded. Others MUST remain null until domain, page and permissions are independently reviewed.",
+    "NBA 30, EuroLeague 20, EuroCup 32. EuroLeague includes Besiktas; EuroCup includes Bosna in place of Monaco and two distinct Roma clubs.",
+    "Team participation does not establish current injury/roster status; no model input, no batch crawling."
+  ],
+  "evidence_urls": {
+    "NBA": "https://www.nba.com/teams",
+    "EUROLEAGUE": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+    "EUROCUP": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+    "eurocup_replacement": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24437"
+  },
+  "teams": [
+    {
+      "league": "NBA",
+      "team_name": "Atlanta Hawks",
+      "club_key": "nba_atlanta_hawks",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Boston Celtics",
+      "club_key": "nba_boston_celtics",
+      "official_news_url": "https://www.nba.com/celtics/news",
+      "status": "PILOT_INDEX_OBSERVED_PLAYER_UNVERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": "1610612738"
+    },
+    {
+      "league": "NBA",
+      "team_name": "Brooklyn Nets",
+      "club_key": "nba_brooklyn_nets",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Charlotte Hornets",
+      "club_key": "nba_charlotte_hornets",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Chicago Bulls",
+      "club_key": "nba_chicago_bulls",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Cleveland Cavaliers",
+      "club_key": "nba_cleveland_cavaliers",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Dallas Mavericks",
+      "club_key": "nba_dallas_mavericks",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Denver Nuggets",
+      "club_key": "nba_denver_nuggets",
+      "official_news_url": "https://www.nba.com/nuggets/news",
+      "status": "PILOT_INDEX_OBSERVED_PLAYER_UNVERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": "1610612743"
+    },
+    {
+      "league": "NBA",
+      "team_name": "Detroit Pistons",
+      "club_key": "nba_detroit_pistons",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Golden State Warriors",
+      "club_key": "nba_golden_state_warriors",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Houston Rockets",
+      "club_key": "nba_houston_rockets",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Indiana Pacers",
+      "club_key": "nba_indiana_pacers",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "LA Clippers",
+      "club_key": "nba_la_clippers",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Los Angeles Lakers",
+      "club_key": "nba_los_angeles_lakers",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Memphis Grizzlies",
+      "club_key": "nba_memphis_grizzlies",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Miami Heat",
+      "club_key": "nba_miami_heat",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Milwaukee Bucks",
+      "club_key": "nba_milwaukee_bucks",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Minnesota Timberwolves",
+      "club_key": "nba_minnesota_timberwolves",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "New Orleans Pelicans",
+      "club_key": "nba_new_orleans_pelicans",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "New York Knicks",
+      "club_key": "nba_new_york_knicks",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Oklahoma City Thunder",
+      "club_key": "nba_oklahoma_city_thunder",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Orlando Magic",
+      "club_key": "nba_orlando_magic",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Philadelphia 76ers",
+      "club_key": "nba_philadelphia_76ers",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Phoenix Suns",
+      "club_key": "nba_phoenix_suns",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Portland Trail Blazers",
+      "club_key": "nba_portland_trail_blazers",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Sacramento Kings",
+      "club_key": "nba_sacramento_kings",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "San Antonio Spurs",
+      "club_key": "nba_san_antonio_spurs",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Toronto Raptors",
+      "club_key": "nba_toronto_raptors",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Utah Jazz",
+      "club_key": "nba_utah_jazz",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "NBA",
+      "team_name": "Washington Wizards",
+      "club_key": "nba_washington_wizards",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://www.nba.com/teams",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Anadolu Efes Istanbul",
+      "club_key": "euroleague_anadolu_efes_istanbul",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Baskonia Vitoria-Gasteiz",
+      "club_key": "euroleague_baskonia_vitoria_gasteiz",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "FC Barcelona",
+      "club_key": "euroleague_fc_barcelona",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "FC Bayern Munich",
+      "club_key": "euroleague_fc_bayern_munich",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Besiktas Istanbul",
+      "club_key": "euroleague_besiktas_istanbul",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Crvena Zvezda Belgrade",
+      "club_key": "euroleague_crvena_zvezda_belgrade",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Dubai Basketball",
+      "club_key": "euroleague_dubai_basketball",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "EA7 Emporio Armani Milan",
+      "club_key": "euroleague_ea7_emporio_armani_milan",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Fenerbahce Istanbul",
+      "club_key": "euroleague_fenerbahce_istanbul",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Hapoel Tel Aviv",
+      "club_key": "euroleague_hapoel_tel_aviv",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "LDLC ASVEL Villeurbanne",
+      "club_key": "euroleague_ldlc_asvel_villeurbanne",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Maccabi Tel Aviv",
+      "club_key": "euroleague_maccabi_tel_aviv",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Olympiacos Piraeus",
+      "club_key": "euroleague_olympiacos",
+      "official_news_url": "https://www.olympiacosbc.gr/en/news/announcements/",
+      "status": "PILOT_INDEX_OBSERVED_PLAYER_UNVERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Panathinaikos Athens",
+      "club_key": "euroleague_panathinaikos_athens",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Paris Basketball",
+      "club_key": "euroleague_paris_basketball",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Partizan Belgrade",
+      "club_key": "euroleague_partizan_belgrade",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Real Madrid",
+      "club_key": "euroleague_real_madrid",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Valencia Basket",
+      "club_key": "euroleague_valencia_basket",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Virtus Bologna",
+      "club_key": "euroleague_virtus_bologna",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROLEAGUE",
+      "team_name": "Zalgiris Kaunas",
+      "club_key": "euroleague_zalgiris",
+      "official_news_url": "https://zalgiris.lt/naujienos",
+      "status": "PILOT_INDEX_OBSERVED_PLAYER_UNVERIFIED",
+      "membership_evidence_url": "https://id.euroleague.net/en/app/2/communication/communication/preview/24354",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Aris Thessaloniki",
+      "club_key": "eurocup_aris_thessaloniki",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Bahcesehir College Istanbul",
+      "club_key": "eurocup_bahcesehir_college_istanbul",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Balkan Botevgrad",
+      "club_key": "eurocup_balkan_botevgrad",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Baglietto Derthona Tortona",
+      "club_key": "eurocup_baglietto_derthona_tortona",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Bosna BH Telecom Sarajevo",
+      "club_key": "eurocup_bosna_bh_telecom_sarajevo",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Buducnost Voli Podgorica",
+      "club_key": "eurocup_buducnost_voli_podgorica",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Cedevita Olimpija Ljubljana",
+      "club_key": "eurocup_cedevita_olimpija",
+      "official_news_url": "https://cedevita.olimpija.com/en/news/",
+      "status": "PILOT_INDEX_OBSERVED_PLAYER_UNVERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Cosea JL Bourg-en-Bresse",
+      "club_key": "eurocup_cosea_jl_bourg_en_bresse",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Dolomiti Energia Trento",
+      "club_key": "eurocup_dolomiti_energia_trento",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Hapoel Midtown Jerusalem",
+      "club_key": "eurocup_hapoel_midtown_jerusalem",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Kids&Us Manresa",
+      "club_key": "eurocup_kidsandus_manresa",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "La Laguna Tenerife",
+      "club_key": "eurocup_la_laguna_tenerife",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Le Mans Sarthe Basket",
+      "club_key": "eurocup_le_mans_sarthe_basket",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Lietkabelis Panevezys",
+      "club_key": "eurocup_lietkabelis_panevezys",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "London Lions",
+      "club_key": "eurocup_london_lions",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Maxima Roma",
+      "club_key": "eurocup_maxima_roma",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Napoli Basketball",
+      "club_key": "eurocup_napoli_basketball",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Neptunas Klaipeda",
+      "club_key": "eurocup_neptunas_klaipeda",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Niners Chemnitz",
+      "club_key": "eurocup_niners_chemnitz",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "PAOK Thessaloniki",
+      "club_key": "eurocup_paok_thessaloniki",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Ratiopharm Ulm",
+      "club_key": "eurocup_ratiopharm_ulm",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Recoletas Salud Burgos",
+      "club_key": "eurocup_recoletas_salud_burgos",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Riga Zelli",
+      "club_key": "eurocup_riga_zelli",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Roma Basketball",
+      "club_key": "eurocup_roma_basketball",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Rostock Seawolves",
+      "club_key": "eurocup_rostock_seawolves",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Siauliai Basketball",
+      "club_key": "eurocup_siauliai_basketball",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Skyliners Frankfurt",
+      "club_key": "eurocup_skyliners_frankfurt",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Slask Wroclaw",
+      "club_key": "eurocup_slask_wroclaw",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "TOFAS Bursa",
+      "club_key": "eurocup_tofas",
+      "official_news_url": "https://tofasspor.com/haberler",
+      "status": "PILOT_INDEX_OBSERVED_PLAYER_UNVERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Turk Telekom Ankara",
+      "club_key": "eurocup_turk_telekom_ankara",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "U-BT Cluj-Napoca",
+      "club_key": "eurocup_u_bt_cluj_napoca",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    },
+    {
+      "league": "EUROCUP",
+      "team_name": "Umana Reyer Venice",
+      "club_key": "eurocup_umana_reyer_venice",
+      "official_news_url": null,
+      "status": "OFFICIAL_NEWS_URL_NOT_VERIFIED",
+      "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
+      "native_team_id": null
+    }
+  ],
+  "additional_league_sources": {
+    "NBA": [
+      {
+        "source_type": "OFFICIAL_DAILY_INJURY_REPORT_HUB",
+        "url": "https://official.nba.com/nba-injury-report-2026-27-season/",
+        "verification_status": "OFFICIAL_HUB_PAGE_DISCOVERED_PDF_NOT_INGESTED",
+        "coverage_scope": "LEAGUE_GAME_REPORTS_WITH_SUBMISSION_GAPS",
+        "model_input": false,
+        "roster_identity_verified": false
+      }
+    ],
+    "EUROLEAGUE": [],
+    "EUROCUP": []
+  }
+}

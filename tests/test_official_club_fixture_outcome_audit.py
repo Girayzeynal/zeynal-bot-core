@@ -39,6 +39,7 @@ def frozen():
         scope="REGULATION_ONLY",fixture_start_utc=START,
         record_deadline_utc=START-200,
         created_at_utc=CREATED,cutoff_utc=CREATED,
+        prediction_generated_at_utc=CREATED,
         home=dict(provider_id="7"),away=dict(provider_id="3"),
         provider_fixture_ids=[PROVIDER_EVENT],
         evaluation_class="LIVE_RECORDED",actual=None,
