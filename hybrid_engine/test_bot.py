@@ -724,6 +724,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
     health_command=HealthCommand(predictions.reports,journal,chat_id)
     app.bot_data['health_command']=health_command
     app.add_handler(CommandHandler('health',health_command.handle),group=-50)
+    from hybrid_engine.official_club_telegram import install_kadro_command
+    install_kadro_command(app,group=-50)
     if nba_service is not None:app.add_handler(CommandHandler('nba',isolated_fixtures),group=-50)
     if forward_el is not None or 'EUROLEAGUE' in europe_services:app.add_handler(CommandHandler('euroleague',isolated_fixtures),group=-50)
     if 'EUROCUP' in europe_services:app.add_handler(CommandHandler('eurocup',isolated_fixtures),group=-50)
