@@ -261,6 +261,12 @@ class CurrentAssessments:
         from hybrid_engine.decision_layer import DecisionDistribution
         return snap,DecisionDistribution(forecast,trace_for(snap))
 
+    def available_market_context(self,context):
+        try:return self.market_context(context)
+        except Abstain as exc:
+            if str(exc) not in ('CURRENT_ASSESSMENT_STALE_OR_STARTED','CURRENT_MODEL_TOO_OLD'):raise
+            return None  # A stale assessment is never presented as current.
+
     def render(self,context):
         p=self.latest(context)
         if p is None:

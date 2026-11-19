@@ -179,7 +179,9 @@ class EuropeanDataReview:
             row=report['providers']['THE_ODDS_API'];discovery=self.bridge.read_receipt(row['discovery_source_pin'])
             detail=self.bridge.read_receipt(row['source_pin'])
             try:
-                assessment=self.bridge.assessments.market_context(ctx) if getattr(self.bridge,'assessments',None) else None
+                assessment=self.bridge.assessments.available_market_context(ctx) if getattr(self.bridge,'assessments',None) else None
+                if getattr(self.bridge,'assessments',None) and assessment is None:
+                    parts.append('Güncel değerlendirme yolları hazır/güncel değil; ilk tahminin dağılımı ayrı referans olarak kullanıldı.')
                 evaluation_context,distribution=assessment if assessment else (ctx,self.distribution(owner,p,ctx))
                 now=int(self.clock())
                 from hybrid_engine.settlement_rules import evaluate_bound

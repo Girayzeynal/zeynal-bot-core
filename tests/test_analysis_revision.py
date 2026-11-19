@@ -95,6 +95,7 @@ class AssessmentTests(TestCase):
         self.capture();self.h.now+=3601
         with self.assertRaisesRegex(Abstain,'STALE_OR_STARTED'):self.assess.market_context(self.original)
         self.assertIn('ARŞİV',self.assess.render(self.original))
+        self.assertIsNone(self.assess.available_market_context(self.original))
 
     def test_first_assessment_only_in_own_metrics_not_updates_or_wrong_original(self):
         p,_=self.capture();self.h.now+=3600;self.capture()

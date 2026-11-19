@@ -15,6 +15,9 @@ def render_batch(batch):
         'Karar SHA: '+batch['sha256'][:16],
         'Kayıtlı tahmin korunuyor; güncel fiyatlar ayrı değerlendiriliyor.',
         'Ham normal süre olasılıkları, ödeme olasılığı ve güven endeksi farklıdır.']
+    if p['reviews']:
+        r=p['reviews'][0]
+        lines.append('Değerlendirilen model: '+html.escape(r['model_version'])+' · '+html.escape(r['model_digest'][:16]))
     if p['record_class']=='POST_TIPOFF_REVIEW_ONLY':
         lines.append('Karar kaydı maç başlangıcından sonra tamamlandı; yeni maç öncesi karar sayılmaz.')
     groups={}

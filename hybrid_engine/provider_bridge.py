@@ -488,7 +488,9 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
     direction_cards=[]
     observations = report['providers'].get('THE_ODDS_API', {}).get('observations', [])
     if observations:
-        assessment=bridge.assessments.market_context(snapshot) if getattr(bridge,'assessments',None) else None
+        assessment=bridge.assessments.available_market_context(snapshot) if getattr(bridge,'assessments',None) else None
+        if getattr(bridge,'assessments',None) and assessment is None:
+            parts.append('Güncel değerlendirme yolları hazır/güncel değil; piyasa ilk tahminin dağılımıyla ayrı referans olarak gösteriliyor.')
         evaluation_snapshot,distribution=assessment if assessment else (snapshot,replay_nba(snapshot,service))
         row=report['providers']['THE_ODDS_API']
         try:
