@@ -76,3 +76,32 @@ yanıtının henüz gözlenmediği anlamına gelir. Otomatik arka plan üretimle
 yok olduğu anlamına gelmez. `data_mount_present=false` UserLAnd için bir Fly
 disk hatası olarak yorumlanmaz. Bu çalışma Fly.io/main/anahtar/üretim diski
 işlemi içermez.
+
+## Cihaz tekrarında ayrılan okuma aşaması
+
+Kullanıcı yeni sürümde `PREDICTIONS_READ_TIMEOUT` ve ardından `SENT / 1/1 /
+WRITTEN` bildirdi. Bu, zaman aşımı hata mesajının gönderildiği anlamına
+geliyordu; tahmin listesinin teslimi kanıtı değildi. Tanı ekranı artık ayrı
+okuma durumunu, sabit okuma hata kodunu, yanıt türünü ve gerçek liste teslim
+durumunu gösterir. İşçi kuyruğundaki bekleme ve arşiv doğrulama süreleri de
+ayrıdır; zaman aşımı sonrası tamamlanan eski bir iş yeni komutun durumunu
+değiştiremez.
+
+Avrupa raporunda aynı sonuç kaynağı yalnız etiket zamanı için üç model
+bileşeninin her birinde yeniden okunuyordu. Şimdi sonuç için mevcut native
+doğrulama yapılır, etiket zamanı bir kez ortak okunur. Üç bileşenli tek maçta
+sonuç kaynağı okuma sayısı dört yerine ikidir. Tam rapor metrikleri, SHA,
+maç kimliği, yayın zamanı ve uzatma ayrımı kontrolleri korunur. Tahmin
+payload'ının SHA'sı da bileşen başına yeniden hesaplanmaz. İstekler arasında
+doğrulanmamış bir önbellek kullanılmaz; sonraki okumada değişmiş kaynak yine
+reddedilir.
+
+Eski beş saniyelik bekleme sınırı, dosya doğrulaması yapan UserLAnd okuması
+için 30 saniyeye çıkarıldı. Bu yalnız bekleme sınırıdır; başlamış thread'i
+zorla sonlandırma iddiası yoktur. Cihazdaki gerçek süre henüz Cloud'da
+ölçülmedi; yeni tanı bunun kuyruk mu doğrulama mı olduğunu gösterecektir.
+
+V3, ilk sayaç raporu hazırlanmadığında artık varsayılan `0 kayıt / 0 maç`
+göstermez. Sayaçlar **henüz okunmadı** olarak belirtilir; eski arşivin
+sıfırlandığı izlenimi verilmez. İlk kontrolün sonra bildirdiği gerçek sıfır
+değerler ise normal biçimde gösterilir.

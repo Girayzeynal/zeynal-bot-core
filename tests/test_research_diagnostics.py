@@ -8,6 +8,12 @@ from hybrid_engine.research_diagnostics import ObservedResearch
 
 
 class ResearchDiagnosticsTests(TestCase):
+    def test_startup_does_not_report_unknown_archive_counters_as_zero(self):
+        base=SimpleNamespace(last_report=None,render=Mock(return_value='Kabul edilen maç 0'))
+        text=ObservedResearch(base).render()
+        self.assertIn('sıfır olarak yorumlanmaz',text)
+        self.assertNotIn('Kabul edilen maç 0',text);base.render.assert_not_called()
+
     def test_idle_tick_does_not_hide_last_score_failure_behind_calibration_gate(self):
         first=dict(observed_at_utc=100,captures=[dict(status='ABSTAIN',
             reason='DYNAMIC_RECENT_TEAM_HISTORY_REQUIRED',fixture_id='private-fixture')],

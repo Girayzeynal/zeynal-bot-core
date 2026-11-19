@@ -3,6 +3,7 @@ import asyncio
 import logging
 import math
 import re
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -96,11 +97,12 @@ def render_predictions(report,page=1,league='NBA'):
 
 class PredictionsCommand:
     version=VERSION
-    def __init__(self,reports,journal,chat_id,*,read_timeout=5,send_timeout=15,league_reports=None,journal_writer=None):
+    def __init__(self,reports,journal,chat_id,*,read_timeout=30,send_timeout=15,league_reports=None,journal_writer=None):
         self.reports=reports;self.journal=journal;self.chat_id=chat_id
         self.read_timeout=read_timeout;self.send_timeout=send_timeout
         self.league_reports=league_reports or {}
         self.journal_writer=journal_writer;self.last_send=None
+        self.last_read=None;self.last_response_kind=None
 
     async def event(self,update,kind,**fields):
         import time
@@ -114,8 +116,9 @@ class PredictionsCommand:
         except Exception as exc:
             log.error('Predictions diagnostics unavailable: %s',type(exc).__name__)
 
-    async def send(self,update,parts):
+    async def send(self,update,parts,*,kind='PREDICTION_LIST'):
         message=update.effective_message
+        self.last_response_kind=kind
         self.last_send=dict(status='SENDING',parts=len(parts),sent=0,error_code=None)
         for i,part in enumerate(parts):
             await self.event(update,'PREDICTIONS_SEND_ATTEMPT',part=i,parts=len(parts))
@@ -144,25 +147,41 @@ class PredictionsCommand:
     async def handle(self,update,context):
         if update.effective_chat is None or update.effective_chat.id!=self.chat_id:raise ApplicationHandlerStop
         if update.effective_message is None:raise ApplicationHandlerStop
+        self.last_read=None;self.last_response_kind=None
         await self.event(update,'PREDICTIONS_STARTED',handler_version=VERSION)
         args=context.args or [];page=1;league=args[0].upper() if args else 'NBA'
         supported={'NBA',*self.league_reports}
         if len(args)>2 or league not in supported or (len(args)==2 and (len(args[1])>4 or not args[1].isascii() or not args[1].isdigit() or not 1<=int(args[1])<=1000)):
             usage='NBA|EUROLEAGUE|EUROCUP' if self.league_reports else 'NBA'
-            await self.send(update,['Kullanım: /predictions '+usage+' [sayfa]']);raise ApplicationHandlerStop
+            await self.send(update,['Kullanım: /predictions '+usage+' [sayfa]'],kind='USAGE');raise ApplicationHandlerStop
         if len(args)==2:page=int(args[1])
         reader=self.reports if league=='NBA' else self.league_reports.get(league)
         if reader is None:
-            await self.send(update,['Canlı NBA tahmin arşivi bu modda kullanılamıyor. Araştırma modeli yüklenmedi; yeni tahmin üretilmedi.']);raise ApplicationHandlerStop
+            await self.send(update,['Canlı NBA tahmin arşivi bu modda kullanılamıyor. Araştırma modeli yüklenmedi; yeni tahmin üretilmedi.'],kind='ERROR_NOTICE');raise ApplicationHandlerStop
+        state=dict(status='QUEUED',queued_at=time.monotonic(),started_at=None,finished_at=None,
+            deadline_seconds=self.read_timeout,error_code=None)
+        self.last_read=state
+        def read_archive():
+            # Local state remains tied to this command if a timed-out worker
+            # finishes later. Its completion cannot overwrite a newer request.
+            state['started_at']=time.monotonic()
+            try:return reader.read(league,None)
+            finally:state['finished_at']=time.monotonic()
+        kind='PREDICTION_LIST'
         try:
-            report=await asyncio.wait_for(asyncio.to_thread(reader.read,league,None),timeout=self.read_timeout)
+            report=await asyncio.wait_for(asyncio.to_thread(read_archive),timeout=self.read_timeout)
             parts=render_predictions(report,page,league)
+            if report.get('status')!='VERIFIED_LIVE_REPORT':kind='ERROR_NOTICE'
+            elif page>max(1,math.ceil(len(report['forecasts'])/PAGE_SIZE)):kind='USAGE'
+            state['status']='UNAVAILABLE' if kind=='ERROR_NOTICE' else 'VERIFIED'
             await self.event(update,'PREDICTIONS_READ_OK',records=len(report.get('forecasts',[])))
         except asyncio.TimeoutError:
+            state.update(status='TIMEOUT',error_code='PREDICTIONS_READ_TIMEOUT');kind='ERROR_NOTICE'
             await self.event(update,'PREDICTIONS_READ_FAILED',error_type='TimeoutError')
-            parts=['Tahmin arşivini okuma zaman aşımına uğradı. Kayıtlar değiştirilmedi. Kod: PREDICTIONS_READ_TIMEOUT']
+            parts=['Tahmin arşivini okuma zaman aşımına uğradı. Kayıtlar değiştirilmedi. Kod: PREDICTIONS_READ_TIMEOUT · Tanı: /test predictions']
         except Exception as exc:
+            state.update(status='FAILED',error_code='PREDICTIONS_ARCHIVE_UNAVAILABLE');kind='ERROR_NOTICE'
             await self.event(update,'PREDICTIONS_READ_FAILED',error_type=type(exc).__name__)
             parts=['Tahmin arşivi doğrulanamadı veya okunamadı. Kayıtlar değiştirilmedi. Kod: PREDICTIONS_ARCHIVE_UNAVAILABLE']
-        await self.send(update,parts)
+        await self.send(update,parts,kind=kind)
         raise ApplicationHandlerStop

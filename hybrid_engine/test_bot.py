@@ -492,10 +492,23 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         lines.extend(['İşlev sürümü: '+RELEASE,'Etkin bileşenler: /features · Ayrı model skorları: /models NBA MAÇ_KİMLİĞİ'])
         if mode=='predictions':
             command=app.bot_data.get('predictions_command');last=getattr(command,'last_send',None) or {}
-            lines.extend(['Tahmin listesi son gönderim: '+last.get('status','HENÜZ_GÖZLENMEDİ'),
+            read=getattr(command,'last_read',None) or {};kind=getattr(command,'last_response_kind',None)
+            kinds={'PREDICTION_LIST':'TAHMİN LİSTESİ','ERROR_NOTICE':'HATA BİLDİRİMİ','USAGE':'KULLANIM BİLGİSİ'}
+            lines.extend(['Arşiv okuma durumu: '+read.get('status','HENÜZ_GÖZLENMEDİ'),
+                'Arşiv okuma hata kodu: '+str(read.get('error_code') or 'YOK'),
+                'Okuma sınırı (sn): '+str(read.get('deadline_seconds','?')),
+                'Gönderilen yanıt: '+kinds.get(kind,'HENÜZ_GÖZLENMEDİ'),
+                'Tahmin listesi teslimi: '+('GÖNDERİLDİ' if kind=='PREDICTION_LIST' and last.get('status')=='SENT' else 'DOĞRULANMADI'),
+                'Yanıt mesajı gönderimi: '+last.get('status','HENÜZ_GÖZLENMEDİ'),
                 'Tamamlanan bölüm: '+str(last.get('sent',0))+'/'+str(last.get('parts',0)),
                 'Gönderim sınıfı: '+str(last.get('error_code') or 'YOK'),
                 'Teslim kayıt durumu: '+getattr(app.bot.request,'journal_status','BU_TAŞIMADA_İZLENMİYOR')])
+            if read:
+                now=time.monotonic();started=read.get('started_at')
+                queue=(started or now)-read['queued_at']
+                lines.append(f'İşçi kuyruğunda bekleme (sn): {max(0,queue):.2f}')
+                lines.append('Arşiv doğrulama süresi (sn): '+
+                    ('henüz başlamadı' if started is None else f"{max(0,(read.get('finished_at') or now)-started):.2f}"))
         if mode=='runtime':
             from hybrid_engine.runtime_identity import describe
             from hybrid_engine.elite_render import split_blocks

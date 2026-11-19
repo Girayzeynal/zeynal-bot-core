@@ -66,8 +66,15 @@ class ObservedResearch:
         return report
 
     def render(self):
-        lines=[self.base.render()]
         current=self.last_report or {}
+        measured=current.get('performance') or {}
+        ready=all(type(measured.get(k)) is int for k in ('admitted','published','matched'))
+        lines=([self.base.render()] if ready else [
+            '🧪 NBA V3 | ARAŞTIRMA KONTROLÜ BEKLENİYOR',
+            'Son kontrol: '+current.get('status','HENÜZ_ÇALIŞMADI'),
+            'Bu süreçte doğrulanmış sayaç raporu henüz hazırlanmadı.',
+            'Kayıtlı maç/yayın sayıları henüz okunmadı; sıfır olarak yorumlanmaz.',
+            'Mevcut arşiv ve deney planı korunuyor.'])
         if current.get('reason'):lines.append('V3 kontrol engeli: '+code(current['reason']))
         lines.extend(attempt_lines('V3 skor denemesi',self.score_attempt))
         lines.extend(attempt_lines('V3 kalibrasyon denemesi',self.shadow_attempt))

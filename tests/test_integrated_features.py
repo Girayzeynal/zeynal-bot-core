@@ -133,3 +133,16 @@ class IntegratedCommandTests(IsolatedAsyncioTestCase):
         text='\n'.join(self.api.sent)
         self.assertIn('Tamamlanan bölüm: 1/3',text);self.assertIn('NETWORK_ERROR',text)
         self.nba.analyze.assert_not_awaited()
+
+    async def test_successful_error_notice_is_not_reported_as_prediction_list_delivery(self):
+        command=self.app.bot_data['predictions_command']
+        command.last_read=dict(status='TIMEOUT',error_code='PREDICTIONS_READ_TIMEOUT',
+            deadline_seconds=.01,queued_at=1.,started_at=1.1,finished_at=1.2)
+        command.last_response_kind='ERROR_NOTICE'
+        command.last_send=dict(status='SENT',parts=1,sent=1,error_code=None)
+        await self.command('/test predictions');text='\n'.join(self.api.sent)
+        self.assertIn('Arşiv okuma durumu: TIMEOUT',text)
+        self.assertIn('Gönderilen yanıt: HATA BİLDİRİMİ',text)
+        self.assertIn('Tahmin listesi teslimi: DOĞRULANMADI',text)
+        self.assertIn('Yanıt mesajı gönderimi: SENT',text)
+        self.assertIn('kuyruğunda bekleme',text)
