@@ -418,3 +418,42 @@ def test_missing_final_gap_cli_does_not_call_provider_or_mutate_archive(monkeypa
     with pytest.raises(SystemExit) as e:
         run(["--club","nba_denver_nuggets","--audit-missing-finals","--trusted-sha256","e"*64])
     assert e.value.code==2
+
+
+
+def test_new_82_club_inventory_cli_is_offline_and_never_promotes_roster(monkeypatch,capsys):
+    import hybrid_engine.official_club_identity_pilot as mod
+    monkeypatch.setattr(mod,"capture_nba_espn_identity",lambda _:1/0)
+    assert run(["--club","nba_denver_nuggets","--coverage-summary"])==0
+    row=json.loads(capsys.readouterr().out.strip())
+    assert row["members_total"]==82
+    assert row["pilot_source_pages_observed"]==6
+    assert row["all_clubs_official_news_connected"] is False
+    assert row["roster_identity_verified"] is False
+    assert row["model_input"] is False
+    assert row["requests"]==0
+
+
+def test_new_safe_staging_cli_uses_fixed_isolated_root_and_no_external_fetch(monkeypatch,capsys):
+    import hybrid_engine.official_club_identity_pilot as mod
+    import hybrid_engine.official_club_final_staging as stage
+    import pytest
+    monkeypatch.setattr(mod,"capture_nba_espn_identity",lambda _:1/0)
+    monkeypatch.setattr(stage,"prepare_isolated_final_stage",
+                        lambda **k:dict(
+                            format="OFFICIAL_NBA_ISOLATED_FINAL_STAGING_V1",
+                            status="STAGE_COPY_READY_NO_NATIVE_FINAL_RECEIPTS",
+                            native_final_results_appended=0,
+                            production_changed=False,original_archive_modified=False,
+                            model_input=False,requests=0))
+    assert run(["--club","nba_denver_nuggets","--prepare-final-stage"])==0
+    row=json.loads(capsys.readouterr().out.strip())
+    assert row["status"]=="STAGE_COPY_READY_NO_NATIVE_FINAL_RECEIPTS"
+    assert row["native_final_results_appended"]==0
+    assert row["requests"]==0
+    with pytest.raises(SystemExit):
+        run(["--club","nba_denver_nuggets","--prepare-final-stage",
+             "--live"])
+    with pytest.raises(SystemExit):
+        run(["--club","nba_denver_nuggets","--prepare-final-stage",
+             "--trusted-sha256","e"*64])
