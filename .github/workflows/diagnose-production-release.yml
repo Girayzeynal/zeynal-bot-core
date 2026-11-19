@@ -1,0 +1,46 @@
+name: Production release identity read-only diagnosis
+on:
+  push:
+    branches: [feature/prod-release-diag-20261119]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Read public readiness and runtime identity without altering production
+        shell: bash
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$FLY_API_TOKEN"
+          flyctl machines list --app zeynal-bot-core --json > /tmp/machines.json
+          python3 - <<'PY'
+          import json
+          rows=json.load(open('/tmp/machines.json'))
+          print('Machine count:',len(rows))
+          for m in rows:
+              cfg=m.get('config') or {}
+              env=cfg.get('env') or {}
+              print('machine id=',m.get('id'),
+                    'state=',m.get('state'),
+                    'image=',cfg.get('image'),
+                    'release_env_sha=',env.get('ZEYNAL_RELEASE_SHA','NOT_SET'),
+                    'volume_ids=',[s.get('volume') for s in cfg.get('mounts',[])])
+          PY
+          for i in 1 2 3; do
+            curl --fail --silent --show-error --max-time 15 --header 'Cache-Control: no-cache' \
+              "https://zeynal-bot-core.fly.dev/ready?check=$i" > "/tmp/ready-$i.json"
+            python3 - "$i" <<'PY'
+          import sys,json
+          n=sys.argv[1]
+          r=json.load(open('/tmp/ready-'+n+'.json'))
+          print('GET /ready probe',n, 'ready=',r.get('ready'), 'release_sha=',r.get('release_sha'))
+          PY
+            sleep 2
+          done
