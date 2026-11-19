@@ -176,6 +176,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         from hybrid_engine.nba_replay import NBAReplayArchive
         nba_replay=NBAReplayArchive()
     root=local_path(data_directory);root.mkdir(parents=True,exist_ok=True)
+    # Shared typed evidence gate for NBA and Europe; an empty dict is not a data provider.
+    app.bot_data.setdefault('verified_roster_packets',{})
     from hybrid_engine.market_observations import ObservationStore
     market_store=ObservationStore(root/'market-observations')
     app.bot_data['market_observation_store']=market_store
@@ -369,7 +371,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         from hybrid_engine.provider_bridge import ProviderBridge
         # Reuse the already configured, quota-limited isolated credentials.
         european_bridge=provider_bridge or ProviderBridge(ProviderAccess({}),root/'europe-provider-evidence')
-        app.bot_data['europe_data_review']=EuropeanDataReview(europe_services,european_bridge,root/'europe-data')
+        app.bot_data['europe_data_review']=EuropeanDataReview(europe_services,european_bridge,root/'europe-data',
+            roster_store=app.bot_data['verified_roster_packets'])
     prior_market_service=app.bot_data['verified_analysis_service']
     class EuroLeagueMarketDisplay:
         ledger=getattr(prior_market_service,'ledger',None)
