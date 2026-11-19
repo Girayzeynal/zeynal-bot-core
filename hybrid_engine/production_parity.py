@@ -63,7 +63,7 @@ async def features_command(update, context):
     value = ("ZEYNAL | ÜRETİM İŞLEVLERİ\n"
              "Analiz: " + ("YÜKLÜ" if state.get("verified_analysis_service") else "YAPILANDIRILMADI") +
              "\nArşiv okuma: " + ("YÜKLÜ; içerik henüz doğrulanmadı" if state.get("ledger_reports") else "YAPILANDIRILMADI") +
-             "\nKomutlar: /nba /analyze /predictions /models /results all /accuracy all /compare /sources /test runtime" +
+             "\nKomutlar: /nba /analyze /predictions /models /results all /accuracy all /compare /sources /sourceplayers /test runtime" +
              "\nResmî kulüp kaynak ADAYLARI: " + str(candidates) +
              "\nOyuncu kimliği / sakatlık / dakika / model etkisi: ayrı maç-öncesi doğrulama gerekli." +
              "\nKaynak adayları ve SHADOW rotasyon modeli canlı skorun girdisi değildir." +
