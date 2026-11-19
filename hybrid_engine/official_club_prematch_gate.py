@@ -9,6 +9,7 @@ is for a future *human-reviewed shadow experiment* only.
 import re
 
 from hybrid_engine.official_club_capture import verify_article_capture
+from hybrid_engine.official_club_team_crosswalk import audit_nba_team_crosswalk
 
 SHA256=re.compile(r"^[0-9a-f]{64}$")
 LEAGUES=frozenset(("NBA","EUROLEAGUE","EUROCUP"))
@@ -26,7 +27,9 @@ def _ident(d,key):
 
 
 def assess_against_frozen_forecast(article, *, club, frozen=None,
-                                   captured=None, binding=None):
+                                   captured=None, binding=None,
+                                   participants_snapshot=None,
+                                   trusted_participant_sha256=None):
     """Fail-closed as-of, identity and source consistency audit.
 
     frozen = existing immutable snapshot payload *plus* archived SHA proof
@@ -101,13 +104,35 @@ def assess_against_frozen_forecast(article, *, club, frozen=None,
     fixture_id=_ident(f,"fixture_id")
     home=_ident(f.get("home"),"provider_id")
     away=_ident(f.get("away"),"provider_id")
-    team=_ident(c,"native_team_id")
-    if (not team or not home or not away or team not in (home,away)):
+    official_team=_ident(c,"native_team_id")
+    provider_team=None
+    crosswalk_status="NOT_APPLICABLE"
+    if f.get("league")=="NBA":
+        # NBA.com uses 16106127xx IDs, but this repo's fixture/forecast
+        # store uses ESPN IDs. Never compare these namespaces directly.
+        # Source snapshots are required to have existed at the forecast
+        # cutoff, not to have been retrospectively collected.
+        crosswalk_status="ESPN_SEASON_SNAPSHOT_REQUIRED"
+        try:
+            if participants_snapshot is None or trusted_participant_sha256 is None:
+                raise ValueError("NBA_TEAM_CROSSWALK_SNAPSHOT_MISSING")
+            mapping=audit_nba_team_crosswalk(
+                c,participants_snapshot,
+                trusted_snapshot_sha256=trusted_participant_sha256,
+                asof_utc=cutoff)
+            provider_team=mapping["espn_team_id"]
+            crosswalk_status="SOURCE_PINNED_TEAM_CROSSWALK_CANDIDATE_ONLY"
+        except (ValueError,TypeError,KeyError,OverflowError):
+            blocked("NBA_OFFICIAL_TO_ESPN_TEAM_CROSSWALK_UNVERIFIED")
+    else:
+        provider_team=official_team
+    if (not provider_team or not home or not away or
+        provider_team not in (home,away)):
         blocked("SOURCE_TEAM_NOT_BOUND_TO_FIXTURE_SIDE")
 
     if (not fixture_id or b.get("fixture_id")!=fixture_id or
         b.get("league")!=f.get("league") or
-        b.get("provider_team_id")!=team):
+        b.get("provider_team_id")!=provider_team):
         blocked("INDEPENDENT_FIXTURE_BINDING_REQUIRED")
     # Preserve original source semantics: physical injury OUT is NOT the
     # same as a G League assignment or questionable/probable availability.
@@ -161,6 +186,7 @@ def assess_against_frozen_forecast(article, *, club, frozen=None,
                 reasons=reasons,
                 fixture_id=fixture_id,
                 article_url=url,club_key=c.get("club_key"),
+                team_provider_crosswalk_status=crosswalk_status,
                 preforecast_captured=not any(x in reasons for x in (
                     "PINNED_FIRST_CAPTURE_RECEIPT_REQUIRED",
                     "FIRST_CAPTURE_RECEIPT_HASH_OR_CLOCK_INVALID",
