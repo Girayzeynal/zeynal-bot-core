@@ -535,8 +535,6 @@ def build_app() -> Application:
     from hybrid_engine.production_parity import accuracy_command as production_accuracy_command
     app.add_handler(CommandHandler("accuracy", production_accuracy_command))
     app.add_handler(CommandHandler("compare", compare_command))
-    from hybrid_engine.production_parity import install as install_production_parity
-    install_production_parity(app)
     from hybrid_engine.runtime_identity import install as observe_analysis
     observe_analysis(app.bot_data)
     return app
@@ -553,6 +551,8 @@ async def scheduler_loop(engines):
 
 async def main_async():
     app = build_app()
+    from hybrid_engine.production_parity import install as install_production_parity
+    install_production_parity(app)
     runner = None
     initialized = False
     started = False
