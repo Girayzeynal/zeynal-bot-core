@@ -193,3 +193,76 @@ def inspect_local_source_inventory(*,root):
     else:
         report["status"]="NO_IDENTITY_SOURCE_FOUND_IN_SCANNED_LOCAL_SCOPE"
     return report
+
+
+# Fixed user-observed database locations and known forecasting snapshot tables.
+# This targeted diagnostics function reads SQLite schema only, never record rows.
+_KNOWN_SCHEMA_TARGETS=(
+    ("faz23_storage.sqlite","snapshots","FAZ23_ANALYSIS_SNAPSHOT"),
+    ("live-nba/nba-hybrid.sqlite","live_analysis_snapshots",
+     "FROZEN_LIVE_FORECAST_SNAPSHOT"),
+    ("telegram-delivery.sqlite","delivery_events","TELEGRAM_DELIVERY_EVENT"),
+)
+
+
+def inspect_known_database_columns(*,root):
+    """Bounded, targeted SQLite PRAGMA table_info on observed databases.
+
+    No user-provided SQL identifiers; no generic database crawling.
+    The presence of a payload column does not validate identities or
+    authorize extracting that payload or rewriting an existing forecast.
+    """
+    root=Path(root).expanduser().absolute()
+    report=dict(
+        format="OFFICIAL_CLUB_LOCAL_DB_SCHEMA_DETAIL_V1",
+        status="ISOLATED_DATA_ROOT_UNAVAILABLE",
+        source_mode="KNOWN_SQLITE_SCHEMA_ONLY",
+        inspected_tables=[],unavailable_targets=[],
+        sqlite_inspection_mode="READ_ONLY_IMMUTABLE_SCHEMA_ONLY_WAL_NOT_INCLUDED",
+        direct_provider_team_id_column_found=False,
+        extracted_records=0,first_issued_forecast_proof=False,
+        participant_identity_verified=False,verified_player_id=None,
+        requests=0,model_input=False,production_changed=False)
+    if not root.is_dir() or root.is_symlink():
+        return report
+    for relative,table,role in _KNOWN_SCHEMA_TARGETS:
+        file=root/relative
+        if (file.is_symlink() or
+            any(part.is_symlink() for part in (file.parent,) if part!=root)
+            or not file.is_file()):
+            report["unavailable_targets"].append(
+                dict(relative_path=relative,reason="MISSING_OR_SYMLINK"))
+            continue
+        try:
+            uri="file:"+quote(str(file),safe="/")+"?mode=ro&immutable=1"
+            with sqlite3.connect(uri,uri=True,timeout=.3) as conn:
+                conn.execute("PRAGMA query_only=ON")
+                # table is a hardcoded constant from our source, not user input.
+                schema=conn.execute('PRAGMA table_info("'+table+'")').fetchall()
+                if not schema:
+                    report["unavailable_targets"].append(
+                        dict(relative_path=relative,reason="KNOWN_TABLE_NOT_VISIBLE"))
+                    continue
+                columns=[dict(name=str(x[1])[:80],type=str(x[2])[:60],
+                              primary_key=bool(x[5])) for x in schema[:48]]
+                names={x["name"].casefold() for x in columns}
+                direct=("provider_team_id" in names or
+                        "espn_team_id" in names or "nba_team_id" in names)
+                report["direct_provider_team_id_column_found"]|=direct
+                report["inspected_tables"].append(dict(
+                    relative_path=relative,table=table,
+                    inferred_table_role=role,
+                    columns=columns,
+                    schema_column_count=len(schema),
+                    schema_column_limit_reached=len(schema)>48,
+                    contains_opaque_payload_column=("payload" in names),
+                    direct_provider_team_id_columns_visible=direct,
+                    status="SCHEMA_METADATA_ONLY_NOT_PARTICIPANT_PROOF"))
+        except (OSError,sqlite3.Error,ValueError):
+            report["unavailable_targets"].append(
+                dict(relative_path=relative,reason="READ_ONLY_SCHEMA_ERROR"))
+    report["status"]=(
+        "KNOWN_LOCAL_SCHEMAS_OBSERVED_NOT_IDENTITY_VALIDATED"
+        if report["inspected_tables"] else
+        "NO_KNOWN_SQLITE_SCHEMAS_OBSERVED")
+    return report
