@@ -20,9 +20,13 @@ def run(argv=None):
                    help="Pilot club_key; repeat for several (default: all six)")
     p.add_argument("--save",action="store_true",
                    help="Opt in to append-only metadata receipt in isolated test directory")
+    p.add_argument("--article-url",
+                   help="Opt in to one freshly indexed official article (requires --live and one --club; no --save)")
     args=p.parse_args(argv)
     if args.save and not args.live:
         p.error("--save requires --live")
+    if args.article_url and (not args.live or args.save or len(args.club)!=1):
+        p.error("--article-url requires --live and exactly one --club; no --save")
     index=registry()
     selected=[item for item in index if not args.club or item["club_key"] in args.club]
     unknown=sorted(set(args.club)-{r["club_key"] for r in selected})
@@ -41,7 +45,11 @@ def run(argv=None):
                                   model_input=False,production_changed=False),
                              ensure_ascii=False,sort_keys=True))
             continue
-        result=probe(item)
+        if args.article_url:
+            from hybrid_engine.official_club_article_probe import probe_article
+            result=probe_article(item,args.article_url)
+        else:
+            result=probe(item)
         if args.save and result.get("status")=="PUBLIC_NEWS_PAGE_OBSERVED_NOT_PLAYER_VERIFIED":
             path=append_receipt(Path.home()/"zeynal-test-isolated"/"data"/"club-pilot-evidence",result)
             result=dict(result,evidence_file=str(path))
