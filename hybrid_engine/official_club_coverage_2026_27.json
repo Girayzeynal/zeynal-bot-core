@@ -752,5 +752,19 @@
       "membership_evidence_url": "https://mediacentre.euroleague.net/en/app/2/communication/communication/preview/24333",
       "native_team_id": null
     }
-  ]
+  ],
+  "additional_league_sources": {
+    "NBA": [
+      {
+        "source_type": "OFFICIAL_DAILY_INJURY_REPORT_HUB",
+        "url": "https://official.nba.com/nba-injury-report-2026-27-season/",
+        "verification_status": "OFFICIAL_HUB_PAGE_DISCOVERED_PDF_NOT_INGESTED",
+        "coverage_scope": "LEAGUE_GAME_REPORTS_WITH_SUBMISSION_GAPS",
+        "model_input": false,
+        "roster_identity_verified": false
+      }
+    ],
+    "EUROLEAGUE": [],
+    "EUROCUP": []
+  }
 }
