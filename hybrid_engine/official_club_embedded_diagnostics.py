@@ -98,7 +98,9 @@ def diagnose_embedded(index_html, club):
         slug_field_count=0, headline_or_title_field_count=0,
         publication_field_count=0, permalink_field_count=0,
         same_team_permalink_candidate_count=0,
-        permalink_article_urls_sample=[], slug_context_samples=[],
+        permalink_article_urls_sample=[], permalink_record_samples=[],
+        raw_post_date_field_count=0, raw_post_timestamp_field_count=0,
+        slug_context_samples=[],
         article_url_candidate_count=0, article_urls_sample=[],
         next_data_top_keys=[], has_page_props=False,
         source="EMBEDDED_OFFICIAL_HTML_NOT_PUBLISHED_ARTICLE")
@@ -146,6 +148,10 @@ def diagnose_embedded(index_html, club):
                         report["headline_or_title_field_count"]+=1
                     elif folded in ("datepublished","publishedat","published_at") and isinstance(value,str):
                         report["publication_field_count"]+=1
+                    if folded=="date" and isinstance(value,(str,int,float)):
+                        report["raw_post_date_field_count"]+=1
+                    elif folded=="timestamp" and isinstance(value,(str,int,float)):
+                        report["raw_post_timestamp_field_count"]+=1
                     if folded in _LINK_FIELDS and isinstance(value,str):
                         report["news_link_field_count"] += 1
                         url=_same_team_article(value,club)
@@ -155,6 +161,18 @@ def diagnose_embedded(index_html, club):
                                 report["same_team_permalink_candidate_count"]+=1
                                 if len(report["permalink_article_urls_sample"])<MAX_SAMPLES and url not in report["permalink_article_urls_sample"]:
                                     report["permalink_article_urls_sample"].append(url)
+                                if len(report["permalink_record_samples"])<MAX_SAMPLES:
+                                    # Dates/status from listing JSON are unverified raw
+                                    # metadata, NEVER eligible as a pregame clock.
+                                    raw_date=item.get("date")
+                                    raw_time=item.get("timestamp")
+                                    status=item.get("status")
+                                    report["permalink_record_samples"].append(dict(
+                                        url=url,
+                                        raw_date=raw_date[:40] if isinstance(raw_date,str) else None,
+                                        raw_timestamp=raw_time if type(raw_time) in (int,float) and abs(raw_time)<10**15 else None,
+                                        raw_status=status[:32] if isinstance(status,str) else None,
+                                        time_verified=False, model_input=False))
                         if url is not None:candidates.add(url)
                     elif isinstance(value,(dict,list)):
                         stack.append((value,depth+1))
