@@ -255,3 +255,62 @@ def test_offline_cli_requires_sha_and_explicit_cutoff_before_any_file_access(cap
         run(["--club","nba_denver_nuggets",
              "--offline-snapshot","/does-not-exist"])
     assert e.value.code==2
+
+
+
+def test_offline_inventory_finds_candidate_without_promoting_self_reported_sha(tmp_path):
+    from hybrid_engine.official_club_identity_pilot import inspect_local_season_snapshot_candidates
+    root=tmp_path/"isolated"
+    folder=root/"nba"
+    folder.mkdir(parents=True)
+    now=int(time.time())
+    snap=_offline_snapshot(now)
+    (folder/"season-participants.json").write_text(json.dumps(snap))
+    (folder/"ordinary-result-ledger.json").write_text('{"fixture_id": "not participants"}')
+    report=inspect_local_season_snapshot_candidates(root=root)
+    assert report["status"]=="LOCAL_SNAPSHOT_CANDIDATES_REQUIRE_INDEPENDENT_PIN"
+    assert len(report["candidate_files"])==1
+    assert report["candidate_files"][0]["relative_path"]=="nba/season-participants.json"
+    assert report["candidate_files"][0]["status"]=="UNTRUSTED_SNAPSHOT_CANDIDATE_NOT_ASOF_PROOF"
+    assert report["snapshot_sha_independently_pinned"] is False
+    assert report["historical_pregame_proof"] is False
+    assert report["requests"]==0
+    assert report["model_input"] is False
+
+
+def test_offline_inventory_empty_does_not_claim_no_team_records_anywhere(tmp_path):
+    from hybrid_engine.official_club_identity_pilot import inspect_local_season_snapshot_candidates
+    root=tmp_path/"isolated"
+    root.mkdir()
+    report=inspect_local_season_snapshot_candidates(root=root)
+    assert report["status"]=="NO_LOCAL_SEASON_SNAPSHOT_IN_BOUNDED_SCAN"
+    assert report["candidate_files"]==[]
+    assert report["requests"]==0
+
+
+def test_offline_inventory_does_not_follow_external_symlinks(tmp_path):
+    from hybrid_engine.official_club_identity_pilot import inspect_local_season_snapshot_candidates
+    root=tmp_path/"isolated"
+    root.mkdir()
+    outside=tmp_path/"outside"
+    outside.mkdir()
+    (outside/"season.json").write_text(json.dumps(_offline_snapshot(int(time.time()))))
+    (root/"external").symlink_to(outside,target_is_directory=True)
+    report=inspect_local_season_snapshot_candidates(root=root)
+    assert report["candidate_files"]==[]
+    assert report["requests"]==0
+
+
+def test_scan_local_cli_requires_no_web_and_never_uses_trusted_asof(monkeypatch,capsys):
+    import hybrid_engine.official_club_identity_pilot as mod
+    import pytest
+    monkeypatch.setattr(mod,"capture_nba_espn_identity",lambda _:1/0)
+    monkeypatch.setattr(mod,"inspect_local_season_snapshot_candidates",
+                        lambda:dict(status="NO_LOCAL_SEASON_SNAPSHOT_IN_BOUNDED_SCAN",
+                                    candidate_files=[],requests=0,model_input=False))
+    assert run(["--club","nba_denver_nuggets","--scan-local"])==0
+    data=json.loads(capsys.readouterr().out.strip())
+    assert data["status"]=="NO_LOCAL_SEASON_SNAPSHOT_IN_BOUNDED_SCAN"
+    with pytest.raises(SystemExit) as e:
+        run(["--club","nba_denver_nuggets","--scan-local","--live"])
+    assert e.value.code==2
