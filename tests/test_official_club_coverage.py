@@ -76,3 +76,21 @@ def test_summary_cli_is_zero_network(capsys):
     assert item["members_total"]==82
     assert item["pilot_source_pages_observed"]==6
     assert item["requests"]==0
+
+
+
+def test_official_nba_injury_hub_does_not_mean_30_team_status_feed_connected():
+    r=cov.summary()
+    assert r["nba_official_injury_report_hub_url"]==(
+        "https://official.nba.com/nba-injury-report-2026-27-season/")
+    assert r["nba_injury_hub_data_ingested"] is False
+    assert r["nba_injury_hub_parsed_player_count"]==0
+    assert r["all_clubs_official_news_connected"] is False
+    assert r["injury_status_comprehensively_verified"] is False
+
+
+def test_cannot_promote_unread_nba_pdf_injury_hub_to_model_feed(tmp_path):
+    def tamper(d):
+        d["additional_league_sources"]["NBA"][0]["model_input"]=True
+    with pytest.raises(ValueError,match="LEAGUE_INJURY_HUB_NOT_VERIFIED"):
+        cov.load_coverage(_tamper(tmp_path,tamper))
