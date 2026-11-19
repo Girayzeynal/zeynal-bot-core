@@ -165,3 +165,23 @@ PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B
 ```
 
 GitHub Actions commit `64fb99ddd6ef8451120a011745972ea40e3b0393`, run `44472940804`, job `135386544767`: Python 3.11 offline tests **128 passed in 0.81s**. New scan has NOT yet been executed on Android; no assertion of archive findings. PR #97 remains DRAFT. The user's Fly production volume, Telegram and frozen NBA/Europe forecasts/results are unchanged.
+
+
+## 19 Nov 2026 — Android local scan observed two forecast stores, not native team identity
+
+User's actual local `--scan-local` output: `json_files_enumerated=3221`, `scanned_json_files=321`, `json_bytes_read=33493871`, `scan_capped=true`, `scan_cap_reasons=[JSON_READ_BYTE_BUDGET]`. Three local SQLite files were inspected schema-only: `faz23_storage.sqlite` with `snapshots`, `live-nba/nba-hybrid.sqlite` with `live_analysis_snapshots`, and `telegram-delivery.sqlite` with no matching identity-table name. JSON candidate_files was empty. **This was NOT a complete absence test**: 2,900 JSON files were not parsed, and schema table names do not prove team/player/fixture identity.
+
+Repository source inspection clarifies the two SQLite tables: `faz23_engine/faz23_engine.py` creates `snapshots(ts, fixture_key, payload)` to hold analysis/market records, while `live_analysis_ledger.py` creates `live_analysis_snapshots(league, fixture_id, model_digest, created_utc, payload, sha256)` as frozen forecast snapshots. These are NOT separately verified ESPN `SEASON_PARTICIPANTS_V1` source snapshots; do not join NBA.com official 16106127xx IDs to arbitrary ESPN fixture IDs by field name or guesswork.
+
+PR #97 now marks known `snapshots`/`live_analysis_snapshots` as `FORECAST_SNAPSHOT_SCHEMA_ONLY` rather than identity source proof. If JSON remains byte-capped and only these tables are observed, the scan status becomes `LOCAL_IDENTITY_SCAN_INCOMPLETE_NO_MATCH`, not `LOCAL_IDENTITY_SOURCE_CANDIDATES_UNVERIFIED`. The existing immutable forecast records remain untouched.
+
+**Next targeted Android step (ZERO HTTP, zero JSON inventory reads, zero SQL data rows)**: CLI `--inspect-db-schema` accepts only three fixed filenames and queries only `PRAGMA table_info` on known tables using `mode=ro&immutable=1`. It returns column names/types/primary key flags, no row values, and emphasizes that any `payload` is opaque and not an authenticated source ID record.
+
+```bash
+cd ~/zeynal-club-pilot-97 || exit 1
+test -z "$(git status --porcelain)" || { echo 'Local modifications; stop'; exit 1; }
+git fetch -q origin feature/official-club-news-pilot-20261119 && git checkout --detach -q FETCH_HEAD || exit 1
+PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B -m hybrid_engine.official_club_identity_pilot --inspect-db-schema --club nba_denver_nuggets
+```
+
+CI commit `0db524b63c7163ecaddbeeaa7e8c970d07ca931c`, run `44474353203`, job `135391163326`: **134 offline tests passed in 0.89s**. Android schema detail has not yet been run. No modifications to Fly.io, Telegram, frozen results or archive; no model input or robots bypass.
