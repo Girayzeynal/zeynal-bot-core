@@ -19,6 +19,7 @@ from hybrid_engine.data import Abstain
 from hybrid_engine.distributions import Budget
 from hybrid_engine.models import _exposure
 from hybrid_engine.official_all_82_club_batch import load_all_82
+from hybrid_engine.official_club_capture import verify_article_capture
 
 FORMAT="OFFICIAL_PREGAME_VERIFIED_ROTATION_SCENARIOS_V1"
 RESEARCH="SHADOW_NUMERICAL_ROTATION_COMPARISON_NOT_LIVE"
@@ -58,7 +59,7 @@ def _players(rows,*,duration):
 
 
 def compare_verified_rotation(model,cut,feature,*,trusted_feature_sha256,
-                              prediction_utc,method="RQMC_HALTON"):
+                              trusted_source_pins,prediction_utc,method="RQMC_HALTON"):
     """Numerically recompute BOTH simulations with common QMC/MC seed.
 
     Reporting difference does not mean the injury model is calibrated;
@@ -124,6 +125,9 @@ def compare_verified_rotation(model,cut,feature,*,trusted_feature_sha256,
     if type(source) is not list or len(source)>MAX_REPORTS:
         raise ValueError("PRETIPOFF_OFFICIAL_PLAYER_REPORTS_REQUIRED")
     expected={(side,pid) for side in absent for pid in absent[side]}
+    if (type(trusted_source_pins) is not dict or
+        set(trusted_source_pins)!=expected):
+        raise ValueError("INDEPENDENT_SOURCE_PINS_OUTSIDE_ROSTER_PAYLOAD_REQUIRED")
     found=set()
     for r in source:
         if type(r) is not dict:
@@ -144,7 +148,13 @@ def compare_verified_rotation(model,cut,feature,*,trusted_feature_sha256,
             r.get("reported_reason")!="PHYSICAL_INJURY" or
             r.get("source_format")!="OFFICIAL_PLAYER_STATUS_SOURCE_V1"):
             raise ValueError("OFFICIAL_STATUS_PLAYER_OR_FIXTURE_BINDING_INVALID")
-        sh=r.get("document_sha256");pinned=r.get("trusted_document_sha256")
+        if league=="NBA":
+            club_path=urlsplit(member["official_site_url"]).path.rstrip("/")
+            raw_path=urlsplit(source_url).path
+            if not (raw_path==club_path or
+                    raw_path.startswith(club_path+"/")):
+                raise ValueError("NBA_OFFICIAL_ARTICLE_WRONG_TEAM_PATH")
+        sh=r.get("document_sha256");pinned=trusted_source_pins[(side,pid)]
         identity=r.get("player_identity_evidence_sha256")
         if (type(sh) is not str or len(sh)!=64 or
             sh!=pinned or type(identity) is not str or len(identity)!=64 or
@@ -153,8 +163,16 @@ def compare_verified_rotation(model,cut,feature,*,trusted_feature_sha256,
             raise ValueError("INDEPENDENT_PLAYER_AND_SOURCE_DOCUMENT_PIN_REQUIRED")
         first=r.get("first_captured_at_utc")
         published=r.get("published_at_utc")
+        receipt=r.get("first_capture_receipt")
+        verify_article_capture(receipt)
+        if (receipt["club_key"]!=key or
+            receipt["source_url"]!=source_url or
+            receipt["body_sha256"]!=sh or
+            receipt["captured_at_utc"]!=first or
+            receipt["observed_at_utc"]>observed):
+            raise ValueError("OFFICIAL_ARTICLE_FIRST_CAPTURE_RECEIPT_SCOPE_CONFLICT")
         if (type(first) is not int or type(published) is not int or
-            not 0<published<=first<=observed<=prediction_utc or
+            not 0<published<=receipt["observed_at_utc"]<=first<=observed<=prediction_utc or
             tipoff-published>72*3600):
             raise ValueError("PRE_FORECAST_FIRST_SOURCE_CAPTURE_CLOCK_REQUIRED")
         found.add((side,pid))
