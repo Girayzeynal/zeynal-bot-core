@@ -82,14 +82,20 @@ def probe_article(club,url,*,requester=_request):
     parser=ArticleText()
     parser.feed(raw.decode("utf-8","replace"))
     text=parser.text()
-    # No player names or alleged statuses are extracted from unspecific prose.
-    # This is merely an upstream input for future strictly proven identity parser.
+    from hybrid_engine.official_club_claims import injury_absence_candidates
+    candidate_claims=injury_absence_candidates(text,club_key=club["club_key"])
+    # Source text is distinct from verified roster status: neither native
+    # player IDs nor this game's native fixture nor exact publication time
+    # can be established by merely reading the official article.
     return dict(format="OFFICIAL_CLUB_ARTICLE_PROBE_V1",
                 status="OFFICIAL_ARTICLE_OBSERVED_NOT_ROSTER_VERIFIED",
                 league=club["league"],club_key=club["club_key"],
                 source_url=url,source_http_status=200,fixture_id=None,
                 observed_at_utc=at,body_sha256=hashlib.sha256(raw).hexdigest(),
                 document_bytes=len(raw),article_title=metadata["page_title"],
+                article_headline_from_index=found[0]["label"],
+                injury_absence_claim_candidates=candidate_claims,
+                injury_claim_evidence_status=("SOURCE_TEXT_CANDIDATES_ONLY" if candidate_claims else "NO_EXPLICIT_SOURCE_TEXT_CANDIDATES"),
                 published_utc=metadata["published_utc"] if metadata["publication_time_status"]=="PRECISE_PAGE_PUBLICATION_TIME" else None,
                 publication_time_status=metadata["publication_time_status"],
                 visible_text_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
