@@ -12,9 +12,8 @@ from urllib.parse import urlsplit
 
 from hybrid_engine.official_club_sources import (
     _bounded_https, _request, allowed_by_robots, parse_metadata,
-    MAX_BODY, MAX_ROBOTS, FORMAT
+    collect_article_candidates, MAX_BODY, MAX_ROBOTS, FORMAT
 )
-from hybrid_engine.official_club_link_discovery import discover_article_links
 
 class ArticleText(HTMLParser):
     """Extract plain visible text, deliberately not scripts/styles."""
@@ -62,7 +61,8 @@ def probe_article(club,url,*,requester=_request):
     if listing.get("status")!="DOCUMENT_RECEIVED":
         return dict(status="CLUB_NEWS_INDEX_UNAVAILABLE",club_key=club["club_key"],
                     index_status=listing.get("status"),model_input=False)
-    candidates=discover_article_links(listing["body"],club)
+    candidates=collect_article_candidates(
+        listing["body"],club,observed_at_utc=listing.get("observed_at_utc"))
     found=[c for c in candidates if c["url"]==url]
     if len(found)!=1:
         return dict(status="ARTICLE_NOT_VERIFIED_IN_CURRENT_INDEX",club_key=club["club_key"],
@@ -94,6 +94,11 @@ def probe_article(club,url,*,requester=_request):
                 observed_at_utc=at,body_sha256=hashlib.sha256(raw).hexdigest(),
                 document_bytes=len(raw),article_title=metadata["page_title"],
                 article_headline_from_index=found[0]["label"],
+                index_candidate_origin=found[0].get("discovered_from","OFFICIAL_NEWS_INDEX_ANCHOR"),
+                index_raw_date=found[0].get("source_raw_date"),
+                index_raw_timestamp=found[0].get("source_raw_timestamp"),
+                index_clock_status=found[0].get("source_clock_status","NOT_VERIFIED"),
+                index_native_post_id=found[0].get("source_post_id"),
                 injury_absence_claim_candidates=candidate_claims,
                 injury_claim_evidence_status=("SOURCE_TEXT_CANDIDATES_ONLY" if candidate_claims else "NO_EXPLICIT_SOURCE_TEXT_CANDIDATES"),
                 published_utc=metadata["published_utc"] if metadata["publication_time_status"]=="PRECISE_PAGE_PUBLICATION_TIME" else None,
