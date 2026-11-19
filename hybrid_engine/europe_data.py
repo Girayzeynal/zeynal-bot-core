@@ -78,9 +78,10 @@ def article_rows(receipt,ctx,now):
 
 
 class EuropeanDataReview:
-    def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time):
+    def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time,club_news_probe=None):
         self.services=services;self.bridge=bridge;self.root=local_path(directory)
-        self.getter=getter;self.clock=clock;self.cache={};self.catalogs={};self.lock=threading.Lock()
+        self.getter=getter;self.clock=clock;self.club_news_probe=club_news_probe
+        self.cache={};self.catalogs={};self.lock=threading.Lock()
 
     def current_identity_context(self,ctx,owner):
         """Separate current association evidence; never alter forecast feature clocks."""
@@ -215,11 +216,26 @@ class EuropeanDataReview:
         for row in rows:
             lines.extend(['',html.escape(row['team'])+' · <b>Resmî haber notu</b>',html.escape(row['note']),
                           'Yayın: '+tsi(row['published_at_utc']),html.escape(row['source_url'])])
+        # The league injury-report page may be inaccessible or cooling down.
+        # Research source directory contains all 82 clubs, so explicitly
+        # examine this match's TWO official team pages rather than assuming
+        # the league-wide endpoint is the only news source.
+        club_news=None
+        if self.club_news_probe is not None:
+            try:
+                club_news=self.club_news_probe(ctx)
+                if club_news.get('model_input') is not False or club_news.get('injury_verified') is not False:
+                    raise ValueError('CLUB_NEWS_NOT_A_VERIFIED_PLAYER_FEED')
+                from hybrid_engine.official_club_fixture_news import render_fixture_news
+                lines.extend(['',render_fixture_news(club_news)])
+            except (ValueError,TypeError,KeyError,OSError) as exc:
+                lines.append('Resmî kulüp haber sayfası denetimi tamamlanamadı; eksikler bilinmiyor. Kod: CLUB_NEWS_SOURCE_UNAVAILABLE')
         if not rows:lines.append('Maça bağlı doğrulanmış oyuncu durum kaydı elde edilemedi; eksik oyuncu yok demek değildir.')
         lines.extend(['Haber metni maç kadrosu, ceza uygunluğu veya bağımsız tıbbi doğrulama değildir.',
                       'Oyuncu kimlikleri/ilk beş/dakika/rotasyon etkisi doğrulanmadı; modele uygulanmadı.',
                       'NOT_CALIBRATED · Güven endeksi yok.'])
-        return '\n'.join(lines),dict(sources=sources,news_observations=rows,verified_player_records=[],
+        return '\n'.join(lines),dict(sources=sources,news_observations=rows,
+            club_news_observations=club_news,verified_player_records=[],
             capability='OFFICIAL_NEWS_ONLY_NOT_PLAYER_AVAILABILITY_FEED')
 
     def save_source(self,p):
