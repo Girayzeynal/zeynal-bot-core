@@ -11,7 +11,7 @@ from html.parser import HTMLParser
 import json
 from urllib.parse import urljoin
 
-from hybrid_engine.official_club_link_discovery import _PATTERNS
+from hybrid_engine.official_club_link_discovery import is_article_route
 from hybrid_engine.official_club_sources import _bounded_https
 
 MAX_HTML_BYTES = 512 * 1024
@@ -75,7 +75,7 @@ def _same_team_article(value, club):
         p = _bounded_https(candidate)
     except (ValueError, TypeError):
         return None
-    if p.hostname != club["host"] or not _PATTERNS[club["club_key"]].fullmatch(p.path):
+    if p.hostname != club["host"] or not is_article_route(club["club_key"],p.path):
         return None
     return p.geturl()
 
@@ -96,7 +96,7 @@ def diagnose_embedded(index_html, club):
         parse_error_count=0, scanned_json_nodes=0,
         json_traversal_truncated=False, news_link_field_count=0,
         slug_field_count=0, headline_or_title_field_count=0,
-        publication_field_count=0,
+        publication_field_count=0, slug_context_samples=[],
         article_url_candidate_count=0, article_urls_sample=[],
         next_data_top_keys=[], has_page_props=False,
         source="EMBEDDED_OFFICIAL_HTML_NOT_PUBLISHED_ARTICLE")
@@ -129,6 +129,17 @@ def diagnose_embedded(index_html, club):
                     folded=key.casefold()
                     if folded=="slug" and isinstance(value,str):
                         report["slug_field_count"]+=1
+                        if len(report["slug_context_samples"])<MAX_SAMPLES:
+                            # Bounded public *route metadata* only. Avoid
+                            # scraping text, names, whole JSON or bodies.
+                            report["slug_context_samples"].append(dict(
+                                slug=value[:120] if len(value)<=120 else "OVERSIZED_SLUG",
+                                object_keys=sorted(k for k in item if
+                                    isinstance(k,str) and len(k)<=32)[:16],
+                                title_present=any(k in item for k in
+                                    ("title","headline","name","articleTitle")),
+                                url_field_present=any(k in item for k in
+                                    ("url","href","path","canonicalUrl","articleUrl","link"))))
                     elif folded in ("headline","title","articletitle","name") and isinstance(value,str):
                         report["headline_or_title_field_count"]+=1
                     elif folded in ("datepublished","publishedat","published_at") and isinstance(value,str):
