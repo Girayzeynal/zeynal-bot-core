@@ -187,7 +187,7 @@ def _request(url, *, limit, expected_mime):
         return dict(status="SOURCE_NETWORK_ERROR")
 
 
-def probe(club, *, requester=_request):
+def probe(club, *, requester=_request, link_diagnostics=False):
     """At most two same-origin requests: robots.txt, then ONE fixed source URL."""
     url=club["source_url"];p=_bounded_https(url,club["host"])
     if p.path!=club["path"]:raise ValueError("CLUB_SOURCE_UNLISTED_PATH")
@@ -222,12 +222,16 @@ def probe(club, *, requester=_request):
     metadata["publication_time_status"]="NEWS_INDEX_ARTICLE_TIME_NOT_VERIFIED"
     from hybrid_engine.official_club_link_discovery import discover_article_links
     candidates=discover_article_links(raw,club)
+    diagnostic={}
+    if link_diagnostics:
+        from hybrid_engine.official_club_link_diagnostics import diagnose_links
+        diagnostic["link_diagnostics"]=diagnose_links(raw,club)
     return dict(base,status="PUBLIC_NEWS_PAGE_OBSERVED_NOT_PLAYER_VERIFIED",
                 source_page_kind="NEWS_INDEX",source_http_status=200,
                 observed_at_utc=observed,body_sha256=_pin(raw),
                 document_bytes=len(raw),article_links=candidates,
                 article_links_status="CANDIDATES_ONLY_NO_ARTICLE_FETCH",
-                **metadata)
+                **metadata,**diagnostic)
 
 
 def append_receipt(root,receipt):
