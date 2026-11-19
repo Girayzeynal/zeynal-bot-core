@@ -77,6 +77,7 @@ class NativeRosterSourceTests(unittest.TestCase):
                          "OFFICIAL_SEASON_REGISTRATION_OBSERVED")
         self.assertEqual(rows["teams"]["away"]["status"],
                          "OFFICIAL_SEASON_REGISTRATION_OBSERVED")
+        self.assertEqual(rows["observed_at_utc"],NOW+4)
 
     def test_fixture_pair_uses_exact_codes_and_never_claims_injury(self):
         calls=[]
