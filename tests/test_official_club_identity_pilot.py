@@ -337,3 +337,26 @@ def test_inspect_db_schema_cli_never_fetches_espn_or_reads_json(monkeypatch,caps
         run(["--club","nba_denver_nuggets","--inspect-db-schema",
              "--scan-local"])
     assert e.value.code==2
+
+
+
+def test_frozen_receipt_audit_cli_never_fetches_provider_or_scans_json(monkeypatch,capsys):
+    import pytest
+    import hybrid_engine.official_club_identity_pilot as mod
+    import hybrid_engine.official_club_frozen_receipt_audit as audit
+    monkeypatch.setattr(mod,"capture_nba_espn_identity",lambda _:1/0)
+    monkeypatch.setattr(mod,"inspect_local_season_snapshot_candidates",lambda:1/0)
+    monkeypatch.setattr(audit,"audit_isolated_nba_frozen_receipts",
+        lambda **kwargs:dict(
+            format="OFFICIAL_CLUB_FROZEN_RECEIPTS_AUDIT_V1",
+            status="NO_CONFIRMED_NBA_FROZEN_SNAPSHOTS_IN_THIS_DB",
+            candidate_rows=0,verified_local_receipts=0,
+            requests=0,model_input=False,production_changed=False))
+    assert run(["--club","nba_denver_nuggets","--audit-frozen-receipts"])==0
+    result=json.loads(capsys.readouterr().out.strip())
+    assert result["requests"]==0
+    assert result["verified_local_receipts"]==0
+    assert result["model_input"] is False
+    with pytest.raises(SystemExit) as exc:
+        run(["--club","nba_denver_nuggets","--audit-frozen-receipts","--live"])
+    assert exc.value.code==2
