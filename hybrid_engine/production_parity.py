@@ -154,6 +154,11 @@ async def runtime_command(update, context):
 
 def install(app):
     """Attach production-safe commands only, without changing existing /analyze."""
+    # The isolated UserLAnd bot imports main.build_app then installs its own
+    # audited group -50 handlers. Never register duplicate production commands.
+    test_token = os.getenv("ZEYNAL_TEST_BOT_TOKEN")
+    if test_token and os.getenv("TELEGRAM_BOT_TOKEN") == test_token:
+        return
     app.add_handler(CommandHandler("features", features_command))
     app.add_handler(CommandHandler("models", models_command))
     app.add_handler(CommandHandler("predictions", predictions_command))
