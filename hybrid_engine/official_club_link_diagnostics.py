@@ -76,7 +76,8 @@ def diagnose_links(index_html,club):
             summary["allowed_article_path_href_count"]+=1
             if not (aria_label or visible_label):
                 summary["allowed_article_path_unlabelled_count"]+=1
-        elif "news" in path.casefold() or "nuggets" in path.casefold() or "celtics" in path.casefold():
+        elif (path.startswith(("/nuggets/news", "/celtics/news",
+                               "/nuggets/articles/", "/celtics/articles/"))):
             summary["same_club_news_like_href_count"]+=1
             if path not in seen_news and len(summary["article_like_unmatched_paths_sample"])<MAX_SAMPLES:
                 # Public URL paths only; never collect the querystring, title or HTML.
