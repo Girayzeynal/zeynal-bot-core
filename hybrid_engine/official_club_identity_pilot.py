@@ -12,6 +12,7 @@ import argparse
 import json
 import time
 import re
+import os
 from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.error import HTTPError, URLError
@@ -216,12 +217,85 @@ def offline_nba_espn_identity(club,*,path, trusted_snapshot_sha256,
                 source_attestation="LOCAL_HASH_NOT_INDEPENDENT_PROVIDER_SIGNATURE")
 
 
+def inspect_local_season_snapshot_candidates(*,root=None):
+    """Zero-network bounded scan: finds only possible old season bundles.
+
+    A scanned JSON's own SHA field is *not* an independent prior trust pin.
+    Do not feed scanner output directly into as-of forecast gating.
+    """
+    base=_LOCAL_ROOT if root is None else Path(root).expanduser().absolute()
+    report=dict(format=FORMAT,status="LOCAL_SNAPSHOT_INVENTORY_ONLY",
+                source_mode="LOCAL_ISOLATED_JSON_SCAN",
+                scanned_json_files=0,scan_capped=False,candidate_files=[],
+                snapshot_sha_independently_pinned=False,
+                historical_pregame_proof=False,requests=0,model_input=False,
+                production_changed=False)
+    if not base.is_dir() or base.is_symlink():
+        report["status"]="LOCAL_ISOLATED_DATA_ROOT_UNAVAILABLE"
+        return report
+    max_files=500
+    max_bytes=16*1024*1024
+    budget=0
+    for current,dirs,files in os.walk(base,followlinks=False):
+        folder=Path(current)
+        if len(folder.relative_to(base).parts)>4:
+            dirs[:]=[]
+            continue
+        dirs[:]=sorted(x for x in dirs if not (folder/x).is_symlink())
+        for name in sorted(files):
+            if not name.endswith(".json"):
+                continue
+            if report["scanned_json_files"]>=max_files or budget>=max_bytes:
+                report["scan_capped"]=True
+                break
+            file=folder/name
+            if file.is_symlink():
+                continue
+            report["scanned_json_files"]+=1
+            try:
+                n=file.stat().st_size
+                if n<=0 or n>_MAX_LOCAL_SNAPSHOT_BYTES or n>max_bytes-budget:
+                    continue
+                # Avoid full JSON reads for ordinary ledgers/source samples.
+                with file.open("rb") as fh:
+                    head=fh.read(8192)
+                if b"SEASON_PARTICIPANTS_V1" not in head:
+                    continue
+                budget+=n
+                data=json.loads(file.read_bytes())
+                if (not isinstance(data,dict) or
+                    not isinstance(data.get("payload"),dict) or
+                    data["payload"].get("format")!="SEASON_PARTICIPANTS_V1" or
+                    data["payload"].get("league_id")!="NBA" or
+                    data["payload"].get("season_id")!="2026/2027"):
+                    continue
+                report["candidate_files"].append(dict(
+                    relative_path=str(file.relative_to(base)),
+                    claimed_snapshot_sha256=data.get("sha256"),
+                    source_ingested_at_utc=data["payload"].get("ingested_at_utc"),
+                    status="UNTRUSTED_SNAPSHOT_CANDIDATE_NOT_ASOF_PROOF"))
+                if len(report["candidate_files"])>=10:
+                    report["scan_capped"]=True
+                    break
+            except (OSError,ValueError,UnicodeError,TypeError):
+                continue
+        if report["scan_capped"]:
+            break
+    if report["candidate_files"]:
+        report["status"]="LOCAL_SNAPSHOT_CANDIDATES_REQUIRE_INDEPENDENT_PIN"
+    else:
+        report["status"]="NO_LOCAL_SEASON_SNAPSHOT_IN_BOUNDED_SCAN"
+    return report
+
+
 def run(argv=None):
     p=argparse.ArgumentParser(description=__doc__)
     mode=p.add_mutually_exclusive_group()
     mode.add_argument("--live",action="store_true")
     mode.add_argument("--offline-snapshot",
                       help="Existing 2026/27 season-participant JSON under ~/zeynal-test-isolated/data")
+    mode.add_argument("--scan-local",action="store_true",
+                      help="Bounded no-network inventory of existing 2026/27 NBA season snapshots; does not trust self-reported pins")
     p.add_argument("--trusted-sha256",
                    help="SHA256 independently pinned before this offline run")
     p.add_argument("--asof-utc",type=int,
@@ -230,7 +304,11 @@ def run(argv=None):
         "nba_denver_nuggets","nba_boston_celtics"])
     a=p.parse_args(argv)
     club=next(x for x in registry() if x["club_key"]==a.club)
-    if a.offline_snapshot:
+    if a.scan_local:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--scan-local has no source pin or historical cutoff; inventory only")
+        r=inspect_local_season_snapshot_candidates()
+    elif a.offline_snapshot:
         if a.trusted_sha256 is None or a.asof_utc is None:
             p.error("--offline-snapshot requires --trusted-sha256 and --asof-utc")
         r=offline_nba_espn_identity(
