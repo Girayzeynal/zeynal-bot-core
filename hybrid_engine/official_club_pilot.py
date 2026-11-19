@@ -63,14 +63,39 @@ def run(argv=None):
         if args.summary:
             compact=dict(league=result.get("league",item["league"]),
                          club_key=result.get("club_key",item["club_key"]),
+                         observation_kind="SINGLE_ARTICLE" if args.article_url else "NEWS_INDEX",
                          status=result.get("status"),
                          source_http_status=result.get("source_http_status"),
                          robots_http_status=result.get("robots_http_status"),
-                         article_candidate_count=len(result.get("article_links",[])),
-                         article_claim_candidate_names_text_only=[x.get("player_name_text") for x in result.get("injury_absence_claim_candidates",[])],
                          publication_time_status=result.get("publication_time_status"),
                          source_url=result.get("source_url",item["source_url"]),
                          model_input=False,production_changed=False)
+            if args.article_url:
+                # An article receipt contains NO article_links collection. Never
+                # misreport that absence as 'zero news discovered'.
+                for key in ("index_article_count","index_candidate_origin",
+                            "index_raw_date","index_raw_timestamp",
+                            "index_clock_status","index_native_post_id",
+                            "article_headline_from_index","article_title",
+                            "document_bytes","visible_text_chars","body_sha256",
+                            "injury_claim_evidence_status","match_identity_status"):
+                    if key in result:
+                        compact[key]=result[key]
+                compact["article_claim_candidate_names_text_only"]=[
+                    x.get("player_name_text") for x in
+                    result.get("injury_absence_claim_candidates",[])]
+                compact["article_access_verified"]=(result.get("status")==
+                    "OFFICIAL_ARTICLE_OBSERVED_NOT_ROSTER_VERIFIED" and
+                    result.get("source_http_status")==200)
+                compact["player_status_verified"]=False
+                compact["fixture_verified"]=False
+            else:
+                # Count exists only when an index successfully supplies links;
+                # transport or robots denials are NOT equivalent to zero news.
+                if isinstance(result.get("article_links"),list):
+                    compact["article_candidate_count"]=len(result["article_links"])
+                    compact["embedded_article_candidate_count"]=result.get(
+                        "official_embedded_candidate_count",0)
             if args.diagnose_links:
                 compact["link_diagnostics"]=result.get("link_diagnostics")
                 if item["league"]=="NBA":
