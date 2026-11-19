@@ -148,3 +148,20 @@ Result `NO_LOCAL_SEASON_SNAPSHOT_IN_BOUNDED_SCAN` means the bounded isolated JSO
 Optional explicit offline validation exists only for a user-selected local snapshot path with a **separately pinned pre-existing SHA** and explicit UTC as-of cutoff: `--offline-snapshot <file.json> --trusted-sha256 <independently-recorded-hash> --asof-utc <unix-second> --club nba_denver_nuggets`. This mode sends 0 network requests and cannot backfill after-cutoff observations into earlier forecasts. Neither offline path verifies fixture/player IDs or authorizes model input.
 
 CI run `44469785390`, job `135376159941`: **121 offline tests passed** on Python 3.11, commit `0660a13f053570e577dafdc9b5d5e84d5eb4ea3e`. Actual local snapshot scan result from the Android device is not yet known. PR #97 still DRAFT; no production, Telegram, Fly volume or immutable forecast/archive changes.
+
+
+## 19 Nov 2026 — Android offline JSON inventory reached 500-file cap, not a negative evidence result
+
+Actual UserLAnd report: `--scan-local --club nba_denver_nuggets` yielded `candidate_files=[]`, `scanned_json_files=500`, `scan_capped=true`, `requests=0`, `model_input=false`, `production_changed=false`; old code displayed `NO_LOCAL_SEASON_SNAPSHOT_IN_BOUNDED_SCAN`. This is **incomplete**, not proof no 2026/27 NBA source is archived. It was also blind to SQLite files such as `~/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite`.
+
+New source inventory `hybrid_engine/official_club_local_inventory.py`: bounded no-network metadata walk (20,000 file names / 4,000 dirs / depth 6), source-identity filename-prioritized JSON inspection (up to 3,000 reads and 32 MiB), and **read-only SQLite immutable schema-only** introspection of up to 16 local `.sqlite/.sqlite3/.db` databases. No SELECT from table rows, database writes, remote HTTP, source payload export, model input, or production access. WAL content may be absent under SQLite immutable readonly mode. SHA within a discovered JSON file is explicitly not independent prior attestation.
+
+The scanner reports `LOCAL_IDENTITY_SCAN_INCOMPLETE_NO_MATCH` if no match but any cap/error was hit, `LOCAL_IDENTITY_SOURCE_CANDIDATES_UNVERIFIED` when source-snapshot JSON or plausible SQLite schema table is found, and `NO_IDENTITY_SOURCE_FOUND_IN_SCANNED_LOCAL_SCOPE` only for completed bounded scan, never as a global no-source assertion. Outputs `scan_cap_reasons`, `json_files_enumerated`, `sqlite_database_paths`, and optionally `sqlite_schema_candidates`. These schema hints do not prove provider identity or preforecast availability.
+
+To inspect again after fetching PR #97 HEAD from the same clean isolated worktree, without network requests by the scanning command:
+
+```bash
+PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B -m hybrid_engine.official_club_identity_pilot --scan-local --club nba_denver_nuggets
+```
+
+GitHub Actions commit `64fb99ddd6ef8451120a011745972ea40e3b0393`, run `44472940804`, job `135386544767`: Python 3.11 offline tests **128 passed in 0.81s**. New scan has NOT yet been executed on Android; no assertion of archive findings. PR #97 remains DRAFT. The user's Fly production volume, Telegram and frozen NBA/Europe forecasts/results are unchanged.
