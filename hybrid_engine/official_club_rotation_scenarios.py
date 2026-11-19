@@ -124,6 +124,8 @@ def compare_verified_rotation(model,cut,feature,*,trusted_feature_sha256,
     source=feature.get("source_reports")
     if type(source) is not list or len(source)>MAX_REPORTS:
         raise ValueError("PRETIPOFF_OFFICIAL_PLAYER_REPORTS_REQUIRED")
+    if not source:
+        raise Abstain("OUT_PLAYERS_MUST_HAVE_EXACT_SOURCE_AND_ID_BINDING")
     expected={(side,pid) for side in absent for pid in absent[side]}
     if (type(trusted_source_pins) is not dict or
         set(trusted_source_pins)!=expected):
