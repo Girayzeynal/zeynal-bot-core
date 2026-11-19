@@ -529,6 +529,8 @@ def build_app() -> Application:
     app.bot_data["faz23"] = Faz23Engine()
     app.bot_data['ledger_reports'] = production_reports()
 
+    from hybrid_engine.official_club_telegram import install_kadro_command
+    install_kadro_command(app)
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
     app.add_handler(CommandHandler("nba", nba_command))
