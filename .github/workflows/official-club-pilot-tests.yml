@@ -5,12 +5,18 @@ on:
       - feature/official-club-news-pilot-20261119
     paths:
       - 'hybrid_engine/official_club_*'
+      - 'hybrid_engine/official_all_82_club_*'
       - 'tests/test_official_club_*'
+      - 'tests/test_official_all_82_club_*'
+      - 'docs/official_all_82_club_urls_2026_27.csv'
       - '.github/workflows/official-club-pilot-tests.yml'
   pull_request:
     paths:
       - 'hybrid_engine/official_club_*'
+      - 'hybrid_engine/official_all_82_club_*'
       - 'tests/test_official_club_*'
+      - 'tests/test_official_all_82_club_*'
+      - 'docs/official_all_82_club_urls_2026_27.csv'
       - '.github/workflows/official-club-pilot-tests.yml'
 permissions:
   contents: read
