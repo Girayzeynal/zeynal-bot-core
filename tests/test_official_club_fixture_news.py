@@ -85,6 +85,6 @@ def test_ambiguous_or_unknown_name_does_not_guess_club():
     assert all(x["status"]=="CLUB_OFFICIAL_IDENTITY_NOT_EXACTLY_RESOLVED"
                for x in r["rows"])
 
-def test_wrong_league_refuses_implicit_nba_or_team_identity():
+def test_unsupported_league_refuses_implicit_team_identity():
     with pytest.raises(ValueError):
-        read_fixture_club_news(dict(BASE,league="NBA"),clock=lambda:NOW)
+        read_fixture_club_news(dict(BASE,league="UNKNOWN"),clock=lambda:NOW)
