@@ -7,6 +7,12 @@ cd "${HOME}/zeynal-hybrid-844"
 if [[ "${1:-}" == "--provider-check" ]]; then
   exec .venv/bin/python -m hybrid_engine.provider_access --check
 fi
+if [[ "${1:-}" == "--verification-review" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -B -m hybrid_engine.device_verification \
+    --data-directory "${HOME}/zeynal-test-isolated/data"
+fi
 if [[ "${1:-}" == "--pipeline-audit" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
   exec .venv/bin/python -B -m hybrid_engine.pipeline_audit \

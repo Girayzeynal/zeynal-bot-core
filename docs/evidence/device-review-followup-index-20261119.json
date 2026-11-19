@@ -1,0 +1,38 @@
+{
+  "payload": {
+    "actual_telegram_test": "NOT_VERIFIED",
+    "actual_userland_archive_accessed": false,
+    "artifacts": [
+      {
+        "file": "device-native-review-20261119.json.gz",
+        "sha256": "b1d6fe8c7384926059f50469701115d054454e876313b0aab756084231670f11",
+        "uncompressed_sha256": "b50a414d9b0a0265a1166715f3e72a56b6be87f1f3fc685dfe0f4260598e27d7"
+      },
+      {
+        "file": "device-cloud-unavailable-20261119.json.gz",
+        "sha256": "04b7b4e741aa3e5652c9c34b8b90acd03552fa6b14c0014174b0d7b3f51b3303",
+        "uncompressed_sha256": "0a485ed6951a37770c71175a1ec3317d97c38e363ec363cb14b4ef6a11983115"
+      },
+      {
+        "file": "device-followup-full-tests-20261119.log.gz",
+        "sha256": "445a5ffb3868f6c4bd86cf7edd54245928dbf85f5d2b97688e7edd84178fc71b",
+        "uncompressed_sha256": "a0a1d3cb181376266e6615ebc3f21a7b5f12d05fa0f48dafc0332e13956be498"
+      },
+      {
+        "file": "device-followup-focused-tests-20261119.log.gz",
+        "sha256": "7a18d2b3cbfda7099a276db1b82753bb79478d85f6de341e90d26e93be39ed2d",
+        "uncompressed_sha256": "f20cb6590a1f8cc056e983f892856efd9687e6ca34c1bc6b33624fb6c4ab3eaf"
+      },
+      {
+        "file": "device-followup-integration-tests-20261119.log.gz",
+        "sha256": "e55f79bf4132ebfa6f588050755d8ff26c0723af64316554ef41b8b351fda137",
+        "uncompressed_sha256": "b8f9ff512b454bf228e9c7908ee9d6ce1ec0c70c636b23b336994e294cf58630"
+      }
+    ],
+    "format": "DEVICE_REVIEW_FOLLOWUP_EVIDENCE_V1",
+    "note": "Native proof uses one original snapshot on temporary copy; not the device 23-game cohort.",
+    "production_changed": false,
+    "source_pins_preserved": true
+  },
+  "sha256": "5c1a89102b71430848c003855442193b5b382dc35dbc6fbac287c1d8cc20da89"
+}

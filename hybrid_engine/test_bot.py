@@ -79,6 +79,7 @@ class AuditedRequest(HTTPXRequest):
                     message_sha256=digest(r.get('text','')))
                 request_data=kwargs.get('request_data');parameters=getattr(request_data,'parameters',{}) or {}
                 event.update(transport='OFFICIAL_TELEGRAM_BOT_API' if official else 'MOCK_OR_UNATTESTED_ENDPOINT',
+                    bot_id=identity.get('bot_id') if self.identity_verified and official else None,
                     dedicated_bot_identity_verified=self.identity_verified and official,
                     expected_chat_matches=r['chat']['id']==identity.get('chat_id'),
                     response_content_matches_request=(type(parameters.get('text')) is str and
@@ -431,8 +432,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         _update.set(update.update_id)
         message=update.effective_message
         if message and message.text:
+            try:command_bot_id=getattr(getattr(context,'bot',None),'id',None)
+            except RuntimeError:command_bot_id=None
             await asyncio.to_thread(journal.append,'received:'+str(update.update_id),dict(kind='COMMAND_RECEIVED',update_id=update.update_id,
                 command=message.text.split()[0].split('@')[0],chat_id=update.effective_chat.id,
+                bot_id=command_bot_id,
+                request_sha256=digest(message.text),
                 is_bot=getattr(update.effective_user,'is_bot',None),
                 user_message_at_utc=int(message.date.timestamp()),received_at_utc=int(time.time())))
     async def error(update,context):

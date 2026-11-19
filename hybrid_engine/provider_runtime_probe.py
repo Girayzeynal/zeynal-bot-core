@@ -50,6 +50,7 @@ def main():
         unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_command_identity'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_pipeline_diagnostics'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_runtime_identity'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_device_verification'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_quality_comparison_summary'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_premium_ui'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_data'),
