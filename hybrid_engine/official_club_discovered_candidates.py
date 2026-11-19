@@ -11,7 +11,8 @@ from urllib.parse import urlsplit
 
 from hybrid_engine.official_club_coverage import load_coverage
 from hybrid_engine.official_club_sources import (
-    _bounded_https,probe,_request)
+    _bounded_https,_request,allowed_by_robots,MAX_ROBOTS,MAX_BODY,
+    parse_metadata,_pin)
 
 MANIFEST=Path(__file__).with_name("official_club_discovered_candidates.json")
 FORMAT="OFFICIAL_CLUB_NEWS_DISCOVERED_CANDIDATES_V1"
@@ -76,21 +77,44 @@ def observe_candidate(club_key,*,live=False,requester=_request):
     if not live:
         return dict(base,status="DISCOVERED_URL_NOT_LIVE_CHECKED",
                     requests=0)
-    # Probe first calls source-host robots, then only exact source URL.
-    # If 403/redirect/robots disallow, fail closed. Never save HTML.
-    evidence=probe(selected,requester=requester)
-    if evidence["status"]!="PUBLIC_NEWS_PAGE_OBSERVED_NOT_PLAYER_VERIFIED":
+    # The original discovery/parser allowlist is intentionally SIX clubs
+    # only; these FOUR new URLs must NOT get article/player parsers by
+    # accidentally bypassing that manifest. Two requests maximum.
+    url=selected["source_url"]
+    robots=requester("https://"+selected["host"]+"/robots.txt",
+                     limit=MAX_ROBOTS,expected_mime="text/plain")
+    if robots.get("status")!="DOCUMENT_RECEIVED":
+        # Even 404 requires independent policy review for new candidate
+        # sources. Never assume allowed or probe on an unknown rule.
         return dict(base,status="ABSTAIN_CANDIDATE_SOURCE_NOT_ACCESS_VERIFIED",
-                    source_status=evidence["status"],
-                    robots_http_status=evidence.get("robots_http_status"),
-                    source_http_status=evidence.get("source_http_status"),
+                    source_status="ROBOTS_POLICY_UNVERIFIED",
+                    robots_http_status=robots.get("http_status"),requests_max=1)
+    if not allowed_by_robots(robots["body"].decode("utf-8","replace"),url):
+        return dict(base,status="ABSTAIN_CANDIDATE_SOURCE_NOT_ACCESS_VERIFIED",
+                    source_status="ROBOTS_DISALLOW",
+                    robots_http_status=robots.get("http_status"),requests_max=1)
+    page=requester(url,limit=MAX_BODY,expected_mime="text/html")
+    if page.get("status")!="DOCUMENT_RECEIVED":
+        return dict(base,status="ABSTAIN_CANDIDATE_SOURCE_NOT_ACCESS_VERIFIED",
+                    source_status=page.get("status"),
+                    source_http_status=page.get("http_status"),requests_max=2)
+    raw=page.get("body")
+    observed=page.get("observed_at_utc")
+    if (type(raw) is not bytes or len(raw)>MAX_BODY or
+        type(observed) is not int or observed<=0):
+        return dict(base,status="ABSTAIN_CANDIDATE_SOURCE_NOT_ACCESS_VERIFIED",
+                    source_status="INVALID_SOURCE_BODY_OR_OBSERVATION_CLOCK",
                     requests_max=2)
+    meta=parse_metadata(raw,observed_at_utc=observed)
+    # Not an article. Index listing clock is *not* an individual
+    # published claim and never implies absence/injury.
     return dict(base,
         status="PUBLIC_NEWS_INDEX_OBSERVED_NOT_PLAYER_VERIFIED",
-        observed_at_utc=evidence["observed_at_utc"],
-        page_sha256=evidence["body_sha256"],
-        article_url_candidate_count=len(evidence["article_links"]),
-        publication_time_status=evidence["publication_time_status"],
+        observed_at_utc=observed,
+        page_sha256=_pin(raw),
+        article_url_candidate_count=0,
+        article_discovery_enabled=False,
+        publication_time_status="NEWS_INDEX_ARTICLE_TIME_NOT_VERIFIED",
         requests_max=2)
 
 
