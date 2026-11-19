@@ -204,3 +204,20 @@ PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B
 The command's club flag keeps the CLI schema consistent; audit targets NBA frozen receipt ledger only, not one team and not a verified identity join. `LOCALLY_CONSISTENT_FROZEN_RECEIPTS_NOT_EXTERNALLY_ATTESTED` means local SHA/receipt/clock consistency; missing or invalid receipt -> ABSTAIN; partial row/byte budget -> `AUDIT_INCOMPLETE_BOUND_REACHED`; WAL present -> ABSTAIN. A healthy audit can show at most 8 fixture ID/provider ID examples for future independently pinned crosswalk work. No values have been observed on Android yet.
 
 **GitHub Actions** commit `dec8e66dca9d40bc3053402d69cbf95a9b40575b`, run `44478289103`, job `135404037600`: **147 offline tests passed in 1.06s**. Tests include SHA tamper, missing receipt, orphan commit, post-tipoff deadline, WAL, bounded row scope, no row leakage and unchanged sqlite bytes. PR #97 remains DRAFT; no Fly.io, Telegram production, frozen archive or model changes.
+
+
+## 19 Nov 2026 — 39 real UserLAnd frozen NBA local commit receipts consistent; next local ESPN final replay
+
+**Real Android test supplied by user**: `--audit-frozen-receipts --club nba_denver_nuggets` on isolated `live-nba/nba-hybrid.sqlite`: `candidate_rows=39`, `verified_local_receipts=39`, `missing_receipts=0`, `invalid_snapshots=0`, `invalid_receipts=0`, `orphan_commit_receipt_detected=false`, `scan_capped=false`, `sqlite_wal_present=false`, `payload_bytes_read=1071666`, `requests=0`, `model_input=false`, `production_changed=false`, `archives_modified=false`. The first eight examples contain canonical 64-character SHA fixture IDs, provider team IDs (e.g. 3/7), created/cutoff/completed UTC and model digest, all locally consistent. The output explicitly says `local_receipt_is_independent_timestamp_attestation=false`, `official_fixture_identity_verified=false`, `historical_pregame_source_proof=false`, `player_identity_verified=false`. **No inferred provider crosswalk and no claim of independent historical timestamp attestation.**
+
+**New opt-in stage**: `hybrid_engine/official_club_fixture_outcome_audit.py` and CLI `--audit-fixture-finals` compares a bounded number (max 128, total payload 8MiB) of the same locally committed NBA forecasts to any stored `verified_analysis_results` native ESPN final source event. Checks the unchanged frozen snapshot SHA, commit receipt and deadline, canonical fixture hash built from `provider=ESPN, league=NBA, season_start_year, fixture_start_utc, home+away provider IDs`, and nonempty numeric `provider_fixture_ids`. If there is an archived final, checks stored outcome SHA, source fixture list SHA, rebuilds single-event ESPN `archive_catalog` and compares home/away IDs, start UTC, provider fixture ID, period scores and final scores. This is locally reproducible evidence only, not independent proof of ESPN's external fixture, article availability or player truth. The result returns only aggregate counts and up to eight ID/clock/hash samples, no score projections or article body.
+
+The stage fails closed for missing/invalid commit, contradictory native source event, missing tables, orphan commit, WAL sidecar, unmatched ID, or scan budget; and explicitly labels zero stored final outcomes as `NO_LOCALLY_STORED_FINAL_EVENTS_FOR_CONSISTENT_FORECASTS` instead of inventing final results. It never modifies any existing snapshot, stored outcome, settlement, Telegram, Fly.io or forecast coefficient.
+
+Run exactly once after fetching the current clean PR #97 branch in UserLAnd:
+
+```bash
+PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B -m hybrid_engine.official_club_identity_pilot --audit-fixture-finals --club nba_denver_nuggets
+```
+
+**Field execution pending**: the source final replay stage has not run on the user's Android database, so its match/missing outcome counts are unknown. The user's 39 receipt audit is a confirmed separate prior fact and must not be mistaken for 39 verified official fixture / score mappings. Draft PR #97 only; no production changes.
