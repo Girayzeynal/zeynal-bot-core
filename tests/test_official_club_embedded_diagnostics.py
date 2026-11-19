@@ -114,3 +114,39 @@ def test_slug_metadata_alone_does_not_become_a_synthetic_article_url():
     assert report["slug_field_count"]==2
     assert report["article_url_candidate_count"]==0
     assert report["source"]=="EMBEDDED_OFFICIAL_HTML_NOT_PUBLISHED_ARTICLE"
+
+
+def test_official_denver_news_permalink_is_detected_but_not_promoted():
+    # Shape copied from the user-observed real __NEXT_DATA__ keys.
+    source=page({"props":{"pageProps":{"posts":[{
+        "id":42,"slug":"nuggets-play-grizzlies-on-the-road",
+        "permalink":"https://www.nba.com/nuggets/news/nuggets-play-grizzlies-on-the-road",
+        "date":"2026-11-11","timestamp":1794440000,
+        "status":"publish","name":"Denver pregame article"},
+        {"id":9,"slug":"old-story","permalink":"https://external.invalid/nuggets/news/old-story",
+         "status":"publish"},
+        {"id":14,"slug":"cross-team","permalink":"https://www.nba.com/celtics/news/cross-team",
+         "status":"publish"}
+    ]}}})
+    report=diagnose_embedded(source,club())
+    assert report["permalink_field_count"]==3
+    assert report["same_team_permalink_candidate_count"]==1
+    assert report["article_url_candidate_count"]==1
+    assert report["permalink_article_urls_sample"]==[
+        "https://www.nba.com/nuggets/news/nuggets-play-grizzlies-on-the-road"]
+    assert report["model_input"] is False
+    assert report["publication_field_count"]==0  # Timestamp not yet vetted.
+    assert report["diagnostic_only"] is True
+
+
+def test_permalink_must_not_accept_navigation_hub_or_query_or_bare_slug():
+    source=page({"props":{"pageProps":{"posts":[
+        {"slug":"insiders","permalink":"https://www.nba.com/celtics/news/insiders"},
+        {"slug":"one","permalink":"https://www.nba.com/celtics/news/test-news?session=secret"},
+        {"slug":"two","permalink":"https://fake.nba.com/celtics/news/not-official"},
+        {"slug":"three","permalink":"official-news-article"}
+    ]}}})
+    report=diagnose_embedded(source,club("nba_boston_celtics"))
+    assert report["permalink_field_count"]==4
+    assert report["article_url_candidate_count"]==0
+    assert report["permalink_article_urls_sample"]==[]
