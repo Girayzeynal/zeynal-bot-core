@@ -21,8 +21,9 @@ kural, uzatma yolları veya fiyat halinde ham normal süre eğilimi açıklanır
 kontrat getirisi/öneri uydurulmaz.
 
 Oyuncu etkisi için önceden doğrulanmış dakika ve eğitilmiş oyuncu modeli
-gerekir. 0 uygun örnekten oyuncu katsayısı üretilemez. Kulüp haber pilotu
-kadro doğrulaması sayılmaz. Sağlayıcı abonelik kısıtı, EuroCup oran kapsamı
+gerekir. 0 uygun örnekten oyuncu katsayısı üretilemez. Korunan 82 kulüp
+kaynak kataloğu ve ayrı oyuncu senaryo köprüsü, tek başına güncel kadro
+doğrulaması sayılmaz. Sağlayıcı abonelik kısıtı, EuroCup oran kapsamı
 ve HTTP 429 Cloud kod değişikliğiyle çözülmüş gösterilemez. Bu bağımlılıklar
 çalışan özellik durumunda açıkça görünmelidir.
 
@@ -42,7 +43,11 @@ Gerçek Telegram cihaz doğrulaması erişim sağlanana kadar NOT_VERIFIED.
 tempo/verimlilik fitini kullanır. Parametre yaşı en fazla altı saat;
 maç/strateji/saat başına tek değişmez değerlendirme vardır. Art arda ve
 eşzamanlı denemeler ilk kaydı değiştirmez. Ortak integer yollar dtype,
-örnek SHA, model ve kaynak varlıklarıyla saklanır. Fiyat değerlendirmesi
+örnek SHA, model ve kaynak varlıklarıyla kayıpsız gzip/binary biçiminde
+saklanır. Native kaynak belgeleri de kayıpsız sıkıştırılır; açılan belgenin
+ve makbuzun SHA değerleri yeniden doğrulanır. Açılmış boyut sınırları vardır.
+V2 depolama dizini `current-assessments-v2` ayrıdır; önceki dosyalar silinmez.
+Fiyat değerlendirmesi
 bu yolları doğrudan okur; Telegram handler'ında yeni simülasyon/fit yoktur.
 Yeni değerlendirme ayrı başlıkla ana analiz ve `/models` görünümüne eklenir.
 İlk skor, düğmeler ve eski performans hesapları korunur.
@@ -54,8 +59,11 @@ Yayın tamamlandıktan sonra ayrı commit makbuzu yazılır. Tamamlama son
 15 dakika sınırını aşarsa yeni değerlendirme korunur fakat kullanılmaz.
 Eksik commit makbuzu doğrulanmış yayın sayılmaz. Okuyucu taramada yalnız
 imzalı yerel yayın metadata'sını okur, kullanılan değerlendirmedeki tüm
-varlıkların SHA'sını yeniden doğrular; her komutta bütün maçların 10.000
-örnek yolları çözümlenmez. Bunlar bağımsız sağlayıcı imzası değildir.
+varlıkların SHA'sını yeniden doğrular. Maç görünümü 36 saatlik hazırlama
+aralığındaki en fazla 37 doğrudan yayın anahtarına bakar; her komutta bütün
+arşiv taranmaz ve diğer maçların 10.000 örnek yolları çözümlenmez. Depolama
+8.192 kayıt / 1 GiB sınırına ulaştığında ABSTAIN olur; kayıt silinmez.
+Bunlar bağımsız sağlayıcı imzası değildir.
 
 `/accuracy all` yeni değerlendirmeleri ayrı betimsel kohortta gösterir.
 Her maç/stratejinin ilk değerlendirmesi alınır; saatlik güncellemeler örnek
@@ -67,6 +75,8 @@ normal süre metriklerine katılmaz. Bu yeni strateji üstünlük kanıtı deği
 Bir aşama hatası diğerlerini aç bırakmaz. `/test research` kuyrukta/çalışıyor/
 tamamlandı/hata durumunu ve geçen süreyi gösterir. Eski V2/V3 planları ve
 bilimsel modül kaynakları düzenlenmez.
+Başarısız erken maçlar her turdaki iki deneme yerini sürekli işgal etmez;
+en son denenme sırası izlenerek sonraki uygun maçlar da işlenir.
 
 ## Ödeme kuralı yapılandırması
 
@@ -91,8 +101,49 @@ yolları yoksa uzatma dahil kontratın getirisi açıkça bloke edilir.
 
 Bu çalışma sağlayıcı planını yükseltmez, EuroCup oran kapsamı yaratmaz,
 HTTP 429'u aşmaz, eksik oyuncu dakika geçmişini veya tıbbi durumu uydurmaz.
-Mevcut oyuncu modeli ve haber pilotu bağımsızdır; güncel tempo modeline
+Mevcut oyuncu modeli ve ayrı kulüp/rotasyon senaryo çalışması korunur; güncel tempo modeline
 oyuncu katsayısı eklenmiş gibi sunulmaz. Ölçülmüş PBP temposu, fizyolojik
 dinlenme, gerçek seyahat güzergâhı ve doğrulanmış uzatma yolları halen yoktur.
 Bu girdiler için çalışan model/önceki veri olmadan tüm özelliklerin aktif
 olduğu veya tahmin başarısının arttığı ileri sürülmez. Üretim/Fly/disk değişmez.
+
+## Nesine: gerçek katalog kanıtı ve oran sınırı
+
+Kullanıcının platformu Nesine olarak bağlandı. Anonim resmî bülten GET
+kaynağı `https://cdnbulten.nesine.com/v2/Bulten/GetPreBulten?sportId=2&nsnIds=-1`
+HTTP 200 döndürdü. Native cevap NBA ve EuroLeague fikstürleri içeriyor;
+bu gözlemde EuroCup maçı doğrulanmadı. Bağımsız ESPN kataloğuyla dört NBA
+maçı takım çifti ve tam UTC saati üzerinden eşleşti. Nesine'nin native
+milisaniye zamanı ile Türkçe gün/saat alanları da karşılaştırılır.
+
+Bu cevapta tüm `MA` oran dizileri boştu. Resmî native maç ayrıntı isteği
+HTTP 503 döndürdü; farklı bülten sorgusu da zaman aşımına uğradı. Oran,
+barem ve ödeme kuralı elde edilmiş gibi sunulmaz. Başka sağlayıcı oranı
+Nesine adıyla gösterilmez. Bağlanan adaptör yalnız fikstür/katalog denetimi
+yapar; başarılı eşleşmede dahi `prices_admitted=false`, `rules_verified=false`.
+Beş saniye / 1 MiB istek sınırı, 240 saniyelik tekrar önbelleği, başlamış
+maçta sorgu yapmama ve 256 kaynak / 32 MiB silmesiz kanıt sınırı uygulanır.
+Hesap veya bahis işlemi, ücretli erişim ve gizli anahtar değişikliği yoktur.
+
+Gerçek native gözlem `docs/evidence/nesine-catalog-20261119.json.gz` içinde
+saklanır (payload SHA `09109cc427191fa2821279dbe87f45ad1d21a662ad091208aa3d482f7797f009`).
+Testler bu ilk yakalama zamanını açıkça yeniden oynatır; geçmişe maç öncesi
+tahmin veya gerçek Telegram teslim kanıtı üretmez.
+
+## Yerel doğrulama kaydı
+
+19 Kasım Cloud çalışmasında ilgili handler, piyasa, model, Avrupa görünümü
+ve başlatıcı testleri: `175 passed in 31.29s`. Son eklenen Nesine panel
+bağlantısı dahil katalog testleri: `5 passed in 0.69s`. Bunlar sentetik
+Bot API / sağlayıcı yanıtları ve açıkça zaman damgalanmış native katalog
+replay testleridir; gerçek Telegram uçtan uca teslimi değildir.
+
+`30c9271` ile bilimsel pin karşılaştırması: V1 27, V2 13, V3 9,
+Avrupa 6 ve NBA örnekleyici 6 kaynak dosyası değişmedi. Eşzamanlı eklenen
+82 kulüp kataloğu, oyuncu senaryoları ve üretim salt-okunur parity çalışması
+fast-forward ile korundu; bu görev üretim başlatıcısını veya dağıtımını
+çalıştırmadı. Cloud test bot kimlik bilgileri `NOT_CONFIGURED`; gerçek
+Telegram `/analyze`, `/accuracy`, `/compare` doğrulaması `NOT_VERIFIED`.
+Gerçek maçlarda bu yeni güncel stratejinin üstünlüğü henüz ölçülmedi.
+Tam regresyon ve 256 MiB / 1 CPU kontrollerinin son commit sonuçları PR'de
+ayrıca raporlanır; önceki commitin geçmesi yeni commitin kanıtı sayılmaz.

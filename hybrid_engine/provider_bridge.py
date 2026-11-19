@@ -181,6 +181,7 @@ class ProviderBridge:
         from hybrid_engine.settlement_rules import RuleBook
         self.rule_book=rule_book if rule_book is not None else RuleBook.configured()
         self.assessments=None
+        self.nesine=None
 
     def storage_status(self):
         files=list(self.root.glob('provider-*.json')) if self.root.exists() else []
@@ -399,6 +400,10 @@ class ProviderBridge:
                     state!='KEY_NOT_AVAILABLE_IN_TEST_PROCESS' else state,observations=[]) for p,state in config.items()}
                 return report
             deadline = self.clock()+12
+            if self.nesine is not None:
+                try:report['nesine']=self.nesine.review(snapshot)
+                except (ValueError,KeyError,TypeError,OSError):
+                    report['nesine']=dict(platform='Nesine',status='NATIVE_CATALOG_BINDING_FAILED',prices_admitted=False)
             for provider, method in [('THE_ODDS_API', self._odds), ('API_BASKETBALL', self._basketball)]:
                 if config[provider] == 'KEY_NOT_AVAILABLE_IN_TEST_PROCESS':
                     report['providers'][provider] = dict(status=config[provider])
@@ -427,6 +432,13 @@ def render(report):
              'Durum: '+html.escape(message(report['status']))]
     if report['status']=='LOCAL_EVIDENCE_STORAGE_FULL':
         lines.append('Yerel kanıt deposunun sınırına ulaşıldı; bu bir API erişim veya abonelik hatası değildir. Eski belgeler silinmedi.')
+    if report.get('nesine'):
+        nesine=report['nesine']
+        lines.extend(['Hedef bahis platformu: Nesine',
+            'Nesine resmî bülten denetimi: '+html.escape(nesine['status']),
+            'Nesine oranı ve ödeme kuralı henüz doğrulanmadı; diğer platformlar yalnız ayrı referanstır.'])
+        if nesine.get('matched'):lines.append('Nesine maç kimliği: '+html.escape(nesine['matched']['provider_fixture_id']))
+        if nesine.get('http_status'):lines.append('Nesine kaynak HTTP durumu: '+str(nesine['http_status']))
     if report.get('current_team_identity'):
         identity=report['current_team_identity']
         lines.append('Takım kimliği: '+html.escape(message(identity['status'])))

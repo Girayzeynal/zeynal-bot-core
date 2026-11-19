@@ -7,6 +7,10 @@ from collections import defaultdict
 from copy import deepcopy
 import hashlib
 import html
+import base64
+import gzip
+import io
+import json
 from pathlib import Path
 import time
 
@@ -18,14 +22,29 @@ from hybrid_engine.boxes import publish_json
 from hybrid_engine.data import Abstain,local_path
 from hybrid_engine.distributions import Forecast
 from hybrid_engine.europe_prematch import publication_lock
+from hybrid_engine.forward_validation import ForwardRegistry
 from hybrid_engine.intervals import prediction_intervals
 from hybrid_engine.issue90_research import pins,reason
 from telegram_delivery import tsi
 
-VERSION='CURRENT_RESEARCH_ASSESSMENT_V1'
+VERSION='CURRENT_RESEARCH_ASSESSMENT_V2'
 POLICY=dict(version=VERSION,refresh_seconds=3600,maximum_model_age_seconds=21600,
-    minimum_lead_seconds=900,maximum_records=512,maximum_bytes=256*1024*1024,
+    minimum_lead_seconds=900,maximum_horizon_seconds=36*3600,maximum_records=8192,maximum_bytes=1024*1024*1024,
     automatic_promotion=False,original_performance_eligible=False)
+
+
+def pack(raw):return base64.b64encode(gzip.compress(raw,mtime=0)).decode('ascii')
+
+
+def unpack(value,limit):
+    with gzip.GzipFile(fileobj=io.BytesIO(base64.b64decode(value,validate=True))) as f:raw=f.read(limit+1)
+    if len(raw)>limit:raise ValueError('CURRENT_COMPRESSED_ASSET_LIMIT')
+    return raw
+
+
+def native_asset(receipt):
+    return dict(format='LOSSLESS_NATIVE_RECEIPT_STORAGE_V1',receipt_sha256=digest(receipt),
+        content=pack(json.dumps(receipt,sort_keys=True,allow_nan=False).encode()))
 
 
 class AssessmentRegistry(Registry):
@@ -37,35 +56,45 @@ class AssessmentRegistry(Registry):
     def records(self):
         slots=sorted(self.root.glob('first-*.json'))
         if len(slots)>POLICY['maximum_records']:raise ValueError('CURRENT_ASSESSMENT_SCAN_BUDGET')
-        out=[]
-        for slot in slots:
-            if slot.stat().st_size>65536:raise ValueError('CURRENT_PUBLICATION_SIZE')
-            publication=self.publication(slot);ref=publication['forecast']
-            if Path(ref['file']).name!=ref['file'] or (self.root/ref['file']).stat().st_size>256*1024:
-                raise ValueError('CURRENT_FORECAST_PATH_OR_SIZE')
-            p=self.read_asset(ref);key=digest(dict(fixture=p['fixture']['canonical_id'],version=p['version']))
-            if slot.stem!='first-'+key or ref['file']!='forecast-'+digest(p)+'.json':raise ValueError('CURRENT_PUBLICATION_PIN')
-            clocks=[p['source_available_max_utc'],p['prediction_generated_at_utc'],p['snapshot_created_at_utc'],
-                publication['first_archived_at_utc'],p['fixture']['start_ts_utc']]
-            if (any(type(v) is not int for v in clocks) or p.get('actual') is not None or
-                    not 0<clocks[0]<=clocks[1]<=clocks[2]<=clocks[3]<=int(time.time()) or
-                    clocks[3]>=clocks[4] or publication['classification']!='PREMATCH' or
-                    publication['eligible_for_prospective_audit'] is not True):
-                raise ValueError('CURRENT_PUBLICATION_CLOCK')
-            receipt_path=self.root/('assessment-commit-'+key+'.json')
-            if not receipt_path.is_file():raise Abstain('CURRENT_ASSESSMENT_COMMIT_UNCONFIRMED')
-            receipt=read_wrapper(receipt_path,maximum=65536)['payload']
-            if (receipt['forecast_sha256']!=ref['sha256'] or receipt['publication_sha256']!=digest(publication) or
-                    type(receipt['completed_at_utc']) is not int or not clocks[3]<=receipt['completed_at_utc']<=int(time.time()) or
-                    receipt['eligible']!=(receipt['completed_at_utc']<clocks[4]-900)):
-                raise ValueError('CURRENT_ASSESSMENT_COMMIT_BINDING')
-            if not receipt['eligible']:continue
-            out.append(dict(payload=p,publication=publication))
-        return out
+        return [entry for slot in slots if (entry:=self.entry(slot)) is not None]
+
+    def entry(self,slot):
+        if slot.stat().st_size>65536:raise ValueError('CURRENT_PUBLICATION_SIZE')
+        publication=self.publication(slot);ref=publication['forecast']
+        if Path(ref['file']).name!=ref['file'] or (self.root/ref['file']).stat().st_size>256*1024:
+            raise ValueError('CURRENT_FORECAST_PATH_OR_SIZE')
+        p=self.read_asset(ref);key=digest(dict(fixture=p['fixture']['canonical_id'],version=p['version']))
+        if slot.stem!='first-'+key or ref['file']!='forecast-'+digest(p)+'.json':raise ValueError('CURRENT_PUBLICATION_PIN')
+        clocks=[p['source_available_max_utc'],p['prediction_generated_at_utc'],p['snapshot_created_at_utc'],
+            publication['first_archived_at_utc'],p['fixture']['start_ts_utc']]
+        if (any(type(v) is not int for v in clocks) or p.get('actual') is not None or
+                not 0<clocks[0]<=clocks[1]<=clocks[2]<=clocks[3]<=int(time.time()) or
+                clocks[3]>=clocks[4] or publication['classification']!='PREMATCH' or
+                publication['eligible_for_prospective_audit'] is not True):raise ValueError('CURRENT_PUBLICATION_CLOCK')
+        receipt_path=self.root/('assessment-commit-'+key+'.json')
+        if not receipt_path.is_file():raise Abstain('CURRENT_ASSESSMENT_COMMIT_UNCONFIRMED')
+        receipt=read_wrapper(receipt_path,maximum=65536)['payload']
+        if (receipt['forecast_sha256']!=ref['sha256'] or receipt['publication_sha256']!=digest(publication) or
+                type(receipt['completed_at_utc']) is not int or not clocks[3]<=receipt['completed_at_utc']<=int(time.time()) or
+                receipt['eligible']!=(receipt['completed_at_utc']<clocks[4]-900)):
+            raise ValueError('CURRENT_ASSESSMENT_COMMIT_BINDING')
+        return dict(payload=p,publication=publication) if receipt['eligible'] else None
+
+    def for_version(self,fid,version):
+        key=digest(dict(fixture=fid,version=version));slot=self.root/('first-'+key+'.json')
+        return self.entry(slot) if slot.is_file() else None
 
     def record(self,payload):
-        p,new=super().record(payload)
-        if new:
+        with publication_lock(self.root):
+            old=self.for_version(payload['fixture']['canonical_id'],payload['version'])
+            if old:
+                self.validate_assets(old['payload']);return old['payload'],False
+            # Preserve the existing durable writer and pre/post-asset guards,
+            # without scanning all unrelated joint-path assets on every commit.
+            from hybrid_engine.europe_prematch import safe_lead
+            safe_lead(payload)
+            p,new=ForwardRegistry.record(self,payload)
+            if not new:raise Abstain('CURRENT_ASSESSMENT_COMMIT_UNCONFIRMED')
             key=digest(dict(fixture=p['fixture']['canonical_id'],version=p['version']))
             publication=self.publication(self.root/('first-'+key+'.json'));completed=int(time.time())
             receipt=dict(forecast_sha256=publication['forecast']['sha256'],publication_sha256=digest(publication),
@@ -78,13 +107,17 @@ class AssessmentRegistry(Registry):
         for ref in p['assets']:
             if Path(ref['file']).name!=ref['file'] or (self.root/ref['file']).stat().st_size>16*1024*1024:
                 raise ValueError('CURRENT_ASSET_PATH_OR_SIZE')
-            self.read_asset(ref)
+            asset=self.read_asset(ref)
+            if asset.get('format')=='LOSSLESS_NATIVE_RECEIPT_STORAGE_V1':
+                native=json.loads(unpack(asset['content'],16*1024*1024))
+                if digest(native)!=asset['receipt_sha256'] or digest(native['document'])!=native['document_sha256']:
+                    raise ValueError('CURRENT_NATIVE_RECEIPT_PIN')
 
 
 class CurrentAssessments:
     def __init__(self,directory,worker,study):
         self.root=local_path(directory);self.registry=AssessmentRegistry(self.root/'records')
-        self.worker=worker;self.study=study;self.last_report=None
+        self.worker=worker;self.study=study;self.last_report=None;self.attempted={}
 
     def plan(self,create=False):
         path=self.root/'policy.json'
@@ -102,14 +135,15 @@ class CurrentAssessments:
     def _capture(self,case,model,plan):
         target=case['target'];now=int(time.time());slot=now//POLICY['refresh_seconds']
         version=plan['sha256']+':'+str(slot)
-        old=next((r['payload'] for r in self.registry.records() if r['payload']['version']==version and
-                  r['payload']['fixture']['canonical_id']==target['fixture_id']),None)
+        entry=self.registry.for_version(target['fixture_id'],version)
+        old=None if entry is None else entry['payload']
         if old:
             if old['original_snapshot_sha256']!=case['original']:raise Abstain('CURRENT_ASSESSMENT_ORIGINAL_CONFLICT')
             self.registry.validate_assets(old);return old,False
         cutoff=model['payload']['cutoff_utc']
         if not 0<=now-cutoff<=POLICY['maximum_model_age_seconds']:raise Abstain('CURRENT_MODEL_TOO_OLD')
         if now>=target['fixture_start_utc']-900:raise Abstain('CURRENT_ASSESSMENT_SAFE_WINDOW_CLOSED')
+        if target['fixture_start_utc']-now>POLICY['maximum_horizon_seconds']:raise Abstain('CURRENT_ASSESSMENT_OUTSIDE_DISCOVERY_HORIZON')
         first=self.worker.verify(target)
         if target['league']=='NBA':forecast=nba_dynamic.predict(model,target,cutoff_utc=now)
         else:
@@ -118,13 +152,13 @@ class CurrentAssessments:
         final=self.worker.verify(target);generated=int(time.time())
         if generated>=target['fixture_start_utc']-900:raise Abstain('CURRENT_ASSESSMENT_SAFE_WINDOW_CLOSED')
         files=[f for f in self.registry.root.iterdir() if f.is_file()]
-        if len(self.registry.records())>=POLICY['maximum_records'] or sum(f.stat().st_size for f in files)>POLICY['maximum_bytes']-4*1024*1024:
+        if len(list(self.registry.root.glob('first-*.json')))>=POLICY['maximum_records'] or sum(f.stat().st_size for f in files)>POLICY['maximum_bytes']-4*1024*1024:
             raise Abstain('CURRENT_ASSESSMENT_STORAGE_BUDGET')
         bands=prediction_intervals(forecast);q=forecast.summary()
-        paths=dict(format='INTEGER_JOINT_REGULATION_PATHS_V1',samples=forecast.samples.tolist(),
+        paths=dict(format='COMPRESSED_INTEGER_JOINT_REGULATION_PATHS_V1',samples_b64=pack(forecast.samples.tobytes()),
             dtype=forecast.samples.dtype.str,summary=q,intervals=bands,model_artifact_sha256=model['sha256'],feature_cutoff_utc=now)
-        refs=[self.registry.asset('model',model),self.registry.asset('native-before',first),
-              self.registry.asset('native-after',final),self.registry.asset('joint-paths',paths)]
+        refs=[self.registry.asset('model',model),self.registry.asset('native-source',native_asset(first)),
+              self.registry.asset('native-source',native_asset(final)),self.registry.asset('joint-paths',paths)]
         m=q['metadata'];features=dict(team_efficiency='APPLIED',
             box_pace='APPLIED_BOX_ESTIMATE_NOT_MEASURED_PBP',
             opponent_form='APPLIED' if m.get('opponent_adjusted') else 'TEAM_MODEL_ONLY',
@@ -144,9 +178,13 @@ class CurrentAssessments:
 
     def tick(self):
         plan=self.plan(create=True);cases=self.worker.cases();captures=[];now=int(time.time())
-        saved={(r['payload']['fixture']['canonical_id'],r['payload']['version']) for r in self.registry.records()}
-        ready=[c for c in cases if (c['target']['fixture_id'],plan['sha256']+':'+str(now//3600)) not in saved]
+        ready=[c for c in cases if self.registry.for_version(c['target']['fixture_id'],plan['sha256']+':'+str(now//3600)) is None]
+        # Failed early fixtures must not starve every later eligible game.
+        active={c['target']['fixture_id'] for c in cases}
+        self.attempted={k:v for k,v in self.attempted.items() if k in active}
+        ready.sort(key=lambda c:(self.attempted.get(c['target']['fixture_id'],0),c['target']['fixture_start_utc'],c['target']['fixture_id']))
         for c in ready[:2]:
+            self.attempted[c['target']['fixture_id']]=now
             try:
                 t=c['target']
                 if t['league']=='NBA':model=self.study.fit(t['season'])[0]
@@ -205,26 +243,37 @@ class CurrentAssessments:
         return '\n'.join(lines+['İlk tahmin performansına eklenmez; üstünlük veya kalibrasyon kanıtı değildir.'])
 
     def render_rows(self,rows):
+        if not (self.root/'policy.json').is_file():return ''
+        plan=self.plan()
         rendered=[];seen=set()
         for row in rows:
             key=(row['fixture_id'],row['snapshot_sha256'])
             if key in seen:continue
             seen.add(key)
-            matches=[r['payload'] for r in self.registry.records() if r['payload']['fixture']['fixture_id']==row['fixture_id']]
-            if not matches:continue
-            p=matches[-1];t=p['fixture']
+            p=self._latest_record(row['fixture_id'],row['fixture_start_utc'],plan)
+            if p is None:continue
+            t=p['fixture']
             ctx=dict(league=t['league'],season=t['season'],fixture_id=t['fixture_id'],
                 fixture_start_utc=t['fixture_start_utc'],original_forecast_sha256=row['snapshot_sha256'],
                 home=dict(provider_id=t['home_team_id']),away=dict(provider_id=t['away_team_id']))
             rendered.append(self.render(ctx))
         return '\n\n'.join(rendered)
 
+    def _latest_record(self,fid,start,plan):
+        # Every eligible assessment was generated inside the 36-hour native
+        # discovery horizon. Lookup at most 37 deterministic publication keys.
+        low=max(plan['payload']['registered_at_utc'],start-POLICY['maximum_horizon_seconds'])//3600
+        high=min(int(time.time()),start-901)//3600
+        for slot in range(high,low-1,-1):
+            entry=self.registry.for_version(fid,plan['sha256']+':'+str(slot))
+            if entry is not None:return entry['payload']
+        return None
+
     def latest(self,context):
         if not (self.root/'policy.json').is_file():return None
-        self.plan();pin=context.get('original_forecast_sha256') or digest(context)
-        fid=context['fixture_id'];rows=[r['payload'] for r in self.registry.records() if r['payload']['fixture']['canonical_id']==fid]
-        if not rows:return None
-        p=max(rows,key=lambda r:r['prediction_generated_at_utc'])
+        plan=self.plan();pin=context.get('original_forecast_sha256') or digest(context)
+        p=self._latest_record(context['fixture_id'],context['fixture_start_utc'],plan)
+        if p is None:return None
         self.registry.validate_assets(p)
         if p['original_snapshot_sha256']!=pin:raise ValueError('CURRENT_ASSESSMENT_ORIGINAL_PIN')
         t=p['fixture']
@@ -242,11 +291,11 @@ class CurrentAssessments:
         if now-p['parameter_fit_cutoff_utc']>21600:raise Abstain('CURRENT_MODEL_TOO_OLD')
         ref=next(r for r in p['assets'] if r['file'].startswith('joint-paths-'))
         asset=self.registry.read_asset(ref);q=p['candidate']
-        samples=np.asarray(asset['samples'])
-        if samples.shape!=(10000,4,2) or not np.issubdtype(samples.dtype,np.integer):raise ValueError('CURRENT_JOINT_PATH_SHAPE')
-        if asset['dtype'] not in ('<i4','>i4','<i8','>i8') or np.any(samples<0) or np.any(samples>1000):
-            raise ValueError('CURRENT_JOINT_PATH_DTYPE_OR_RANGE')
-        samples=samples.astype(asset['dtype'])
+        if asset['dtype'] not in ('<i4','>i4','<i8','>i8'):raise ValueError('CURRENT_JOINT_PATH_DTYPE_OR_RANGE')
+        dtype=np.dtype(asset['dtype']);raw=unpack(asset['samples_b64'],10000*4*2*dtype.itemsize)
+        if len(raw)!=10000*4*2*dtype.itemsize:raise ValueError('CURRENT_JOINT_PATH_SHAPE')
+        samples=np.frombuffer(raw,dtype=dtype).reshape(10000,4,2)
+        if np.any(samples<0) or np.any(samples>1000):raise ValueError('CURRENT_JOINT_PATH_DTYPE_OR_RANGE')
         forecast=Forecast(q['model'],np.asarray(q['quarters']),samples=samples,metadata=q['metadata'])
         if asset['summary']!=q or prediction_intervals(forecast)!=p['intervals']:
             raise ValueError('CURRENT_JOINT_PATH_PIN')

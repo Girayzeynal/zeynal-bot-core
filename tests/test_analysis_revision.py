@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock,Mock,patch
 import numpy as np
 from core.team_identity import digest
 from hybrid_engine import nba_dynamic
-from hybrid_engine.current_assessment import CurrentAssessments,install_display
+from hybrid_engine.current_assessment import CurrentAssessments,install_display,native_asset,unpack,pack
 from hybrid_engine.data import Abstain
 from hybrid_engine.native_fixture_recheck import NativeFixtureRecheck
 from hybrid_engine.research_diagnostics import ResearchCycle
@@ -55,7 +55,8 @@ class AssessmentTests(TestCase):
     def test_joint_paths_replay_exactly_without_model_fit_or_inference_in_market_view(self):
         p,new=self.capture();self.assertTrue(new)
         before=self.files()
-        with patch('hybrid_engine.nba_dynamic.predict',side_effect=AssertionError('NO_NEW_INFERENCE')):
+        with patch('hybrid_engine.nba_dynamic.predict',side_effect=AssertionError('NO_NEW_INFERENCE')), \
+                patch.object(self.assess.registry,'records',side_effect=AssertionError('NO_FULL_ARCHIVE_SCAN')):
             snap,distribution=self.assess.market_context(self.original)
             text=self.assess.render(self.original)
         self.assertEqual(distribution.paths.shape,(10000,4,2))
@@ -63,6 +64,12 @@ class AssessmentTests(TestCase):
         self.assertEqual(snap['intervals']['sample_sha256'],p['intervals']['sample_sha256'])
         self.assertIn('GÜNCEL',text);self.assertIn('oyuncu, haber ve seyahat etkisi uygulanmadı',text)
         self.assertEqual(before,self.files());self.assertFalse(p['eligible_for_original_forecast_metrics'])
+
+    def test_native_receipt_compression_is_lossless_and_expansion_bounded(self):
+        asset=native_asset(self.receipt)
+        self.assertEqual(json.loads(unpack(asset['content'],16*1024*1024)),self.receipt)
+        self.assertEqual(asset['receipt_sha256'],digest(self.receipt))
+        with self.assertRaisesRegex(ValueError,'COMPRESSED_ASSET_LIMIT'):unpack(pack(b'x'*1000),999)
 
     def test_retry_and_hourly_refresh_preserve_first_record_and_original(self):
         p,new=self.capture();before=self.files();self.h.now+=1
@@ -76,6 +83,8 @@ class AssessmentTests(TestCase):
     def test_stale_model_last_fifteen_and_fixture_tampering_cannot_publish(self):
         old=deepcopy(self.model);old['payload']['cutoff_utc']=self.h.now-21601;old['sha256']=digest(old['payload'])
         with self.assertRaisesRegex(Abstain,'MODEL_TOO_OLD'):self.assess._capture(self.case,old,self.plan)
+        future=dict(self.case,target=dict(self.target,fixture_start_utc=self.h.now+36*3600+1))
+        with self.assertRaisesRegex(Abstain,'OUTSIDE_DISCOVERY_HORIZON'):self.assess._capture(future,self.model,self.plan)
         self.h.now=self.target['fixture_start_utc']-900
         with self.assertRaises(Abstain):self.capture()
         self.assertEqual(self.assess.registry.records(),[])
@@ -87,7 +96,7 @@ class AssessmentTests(TestCase):
         changed=dict(self.original,model_digest='b'*64)
         with self.assertRaisesRegex(ValueError,'ORIGINAL_PIN'):self.assess.market_context(changed)
         ref=next(r for r in p['assets'] if r['file'].startswith('joint-paths-'))
-        f=self.assess.registry.root/ref['file'];obj=json.loads(f.read_text());obj['samples'][0][0][0]+=1
+        f=self.assess.registry.root/ref['file'];obj=json.loads(f.read_text());obj['samples_b64']='changed'
         f.write_text(json.dumps(obj))
         with self.assertRaisesRegex(ValueError,'ASSET_PIN'):self.assess.market_context(self.original)
 
@@ -112,6 +121,16 @@ class AssessmentTests(TestCase):
         report=self.assess.tick();self.assertEqual(report['captures'][0]['status'],'ARCHIVED')
         self.assertEqual(len(self.assess.registry.records()),1)
 
+    def test_blocked_early_fixtures_do_not_starve_later_games(self):
+        cases=[dict(self.case,target=dict(self.target,fixture_id=str(i))) for i in range(4)]
+        self.worker.cases=lambda:cases
+        def capture(case,*args):
+            if case['target']['fixture_id'] in ('0','1'):raise Abstain('CURRENT_TEST_MISSING_INPUT')
+            return dict(fixture=case['target']),True
+        with patch.object(self.assess,'_capture',side_effect=capture) as attempt:
+            self.assess.tick();self.h.now+=60;self.assess.tick()
+        self.assertEqual([c.args[0]['target']['fixture_id'] for c in attempt.call_args_list],['0','1','2','3'])
+
     def test_concurrent_commands_cannot_create_two_records_for_same_hour(self):
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -127,12 +146,12 @@ class AssessmentTests(TestCase):
     def test_cutoff_crossed_during_commit_is_retained_but_excluded(self):
         # The actual durable-publication receipt is sampled after the base
         # registry has completed, never inferred from an earlier issue clock.
-        from hybrid_engine.adaptive_research import Registry
-        original=Registry.record
+        from hybrid_engine.forward_validation import ForwardRegistry
+        original=ForwardRegistry.record
         def cross(registry,payload):
             p,new=original(registry,payload);self.h.now=self.target['fixture_start_utc']-899
             return p,new
-        with patch.object(Registry,'record',cross):
+        with patch.object(ForwardRegistry,'record',cross):
             with self.assertRaisesRegex(Abstain,'LATE_COMMIT_EXCLUDED'):self.capture()
         self.assertEqual(self.assess.registry.records(),[])
 

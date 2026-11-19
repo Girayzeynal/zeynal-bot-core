@@ -456,7 +456,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             app.bot_data['issue90_research']=ObservedResearch(Research(root/'nba-research-v3-integrity-v2',app.bot_data['adaptive_v2_worker']))
         from hybrid_engine.current_assessment import CurrentAssessments,install_display
         from hybrid_engine.research_diagnostics import ResearchCycle
-        assessments=CurrentAssessments(root/'current-assessments-v1',app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'))
+        assessments=CurrentAssessments(root/'current-assessments-v2',app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'))
         app.bot_data['current_assessments']=assessments
         app.bot_data['research_cycle']=ResearchCycle(app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'),assessments)
         for bridge in (provider_bridge,getattr(app.bot_data.get('europe_data_review'),'bridge',None)):
@@ -941,6 +941,8 @@ def main():
         from hybrid_engine.provider_bridge import ProviderBridge
         provider_bridge=ProviderBridge(data_access,root/'provider-evidence',
             extended=os.getenv('ZEYNAL_TEST_ODDS_EXTENDED','0')=='1')
+        from hybrid_engine.nesine_catalog import NesineCatalog
+        provider_bridge.nesine=NesineCatalog(root/'nesine-catalog')
     _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport,nba_service=nba_service,
         decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only,forward_el=forward_el,provider_bridge=provider_bridge,
         europe_directory=None if args.replay_only else local_path(args.europe_directory) if args.europe_directory else root/'europe')
