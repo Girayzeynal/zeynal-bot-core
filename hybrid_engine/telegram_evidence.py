@@ -29,11 +29,28 @@ def evidence_report(events,*,user_report=None,screenshots=(),asof_utc=None):
     Their file hash and ingestion source must accompany any published report.
     """
     now=int(time.time()) if asof_utc is None else asof_utc
-    commands={e['update_id']:e for e in events if e.get('kind')=='COMMAND_RECEIVED'}
+    commands={};conflicts=set();messages={};message_conflicts=set()
+    for e in events:
+        if e.get('kind')=='COMMAND_RECEIVED':
+            key=e.get('update_id')
+            if key in commands and commands[key]!=e:conflicts.add(key)
+            commands[key]=e
+        if e.get('kind')=='DELIVERY_ACCEPTED':
+            key=(e.get('chat_id'),e.get('telegram_message_id'))
+            if key in messages and messages[key]!=e:message_conflicts.add(key)
+            messages[key]=e
     accepted=[];excluded=[]
+    accepted_events={};seen=set()
     for e in events:
         if e.get('kind')!='DELIVERY_ACCEPTED':continue
         command=commands.get(e.get('update_id'));reasons=[]
+        if type(e.get('update_id')) is not int or e['update_id']<0 or type(e.get('chat_id')) is not int or e['chat_id']==0:
+            reasons.append('INVALID_UPDATE_OR_CHAT_IDENTITY')
+        key=(e.get('chat_id'),e.get('telegram_message_id'))
+        if key in seen:continue
+        seen.add(key)
+        if e.get('update_id') in conflicts:reasons.append('CONFLICTING_COMMAND_UPDATE')
+        if key in message_conflicts:reasons.append('CONFLICTING_DELIVERY_MESSAGE')
         if e.get('transport')!='OFFICIAL_TELEGRAM_BOT_API':reasons.append('MOCK_OR_UNATTESTED_TRANSPORT')
         if not e.get('dedicated_bot_identity_verified'):reasons.append('BOT_IDENTITY_UNVERIFIED')
         if not command or command.get('is_bot') is not False or command.get('chat_id')!=e.get('chat_id'):
@@ -46,8 +63,11 @@ def evidence_report(events,*,user_report=None,screenshots=(),asof_utc=None):
             not command['user_message_at_utc']<=sent+30):reasons.append('DELIVERY_CLOCK_UNVERIFIED')
         if type(e.get('telegram_message_id')) is not int or e['telegram_message_id']<=0:reasons.append('MESSAGE_ID_UNVERIFIED')
         if reasons:excluded.append(dict(update_id=e.get('update_id'),reasons=reasons))
-        else:accepted.append(dict(update_id=e['update_id'],command=command['command'],
+        else:
+            accepted_events[(e['update_id'],e['telegram_message_id'])]=e
+            accepted.append(dict(update_id=e['update_id'],command=command['command'],
             chat_sha256=digest(e['chat_id']),message_id=e['telegram_message_id'],sent_at_utc=sent,
+            bot_sha256=digest(e['bot_id']) if type(e.get('bot_id')) is int and e['bot_id']>0 else None,
             response_sha256=e.get('response_sha256'),message_sha256=e['message_sha256']))
     # Screenshot documents are references to supplied artifacts, not manufactured API receipts.
     images=[dict(artifact_sha256=s['artifact_sha256'],visible_fields=s.get('visible_fields',{}),
@@ -56,14 +76,32 @@ def evidence_report(events,*,user_report=None,screenshots=(),asof_utc=None):
     for update in {e['update_id'] for e in accepted if e['command']=='/analyze'}:
         parts=[e for e in events if e.get('record_type')=='TELEGRAM_ANALYSIS_DELIVERY' and e.get('update_id')==update and e.get('status')=='TELEGRAM_ACCEPTED']
         counts={e.get('part_count') for e in parts};indices={e.get('part_index') for e in parts}
-        api_ids={e['message_id'] for e in accepted if e['update_id']==update}
+        def bound(part):
+            ack=accepted_events.get((update,part.get('telegram_message_id')))
+            command=commands[update];pin=part.get('message_sha256');request=part.get('request_sha256')
+            def sha(value):return type(value) is str and len(value)==64 and all(c in '0123456789abcdef' for c in value)
+            return bool(ack and sha(pin) and sha(request) and request==command.get('request_sha256') and
+                pin==ack.get('request_text_sha256') and part.get('telegram_sent_at_utc')==ack['telegram_sent_at_utc'] and
+                type(part.get('telegram_ack_at_utc')) is int and ack['ack_at_utc']<=part['telegram_ack_at_utc']<=now and
+                type(part.get('attempted_at_utc')) is int and 0<part['attempted_at_utc']<=ack['telegram_sent_at_utc']+30)
         if (len(counts)==1 and type(next(iter(counts))) is int and next(iter(counts))>0 and
+            next(iter(counts))<=100 and
             len(parts)==next(iter(counts)) and indices==set(range(next(iter(counts)))) and
-            {e.get('telegram_message_id') for e in parts}<=api_ids):complete_analysis.append(update)
-    return dict(format='TELEGRAM_LAYERED_EVIDENCE_V1',
+            len({e.get('telegram_message_id') for e in parts})==len(parts) and
+            all(type(e.get('part_index')) is int and bound(e) for e in parts)):complete_analysis.append(update)
+    required={'/start','/nba','/analyze','/accuracy','/compare'};scopes={}
+    for row in accepted:
+        if row['bot_sha256'] is None:continue
+        command=commands[row['update_id']];bot=command.get('bot_id')
+        if type(bot) is not int or bot<=0 or digest(bot)!=row['bot_sha256']:continue
+        key=(row['chat_sha256'],row['bot_sha256'])
+        if row['command']!='/analyze' or row['update_id'] in complete_analysis:scopes.setdefault(key,set()).add(row['command'])
+    return dict(format='TELEGRAM_LAYERED_EVIDENCE_V2_HASH_BOUND',
         status='TECHNICAL_API_EVIDENCE_VERIFIED' if accepted else 'USER_REPORTED_TECHNICAL_E2E_BLOCKED' if user_report else 'BLOCKED',
         user_report=user_report,screenshot_evidence=images,api_verified_messages=len(accepted),api_verified=accepted,
         excluded=excluded,actual_telegram_delivery_verified=bool(accepted),
         complete_analysis_updates=sorted(complete_analysis),
-        complete_command_suite_verified=bool(complete_analysis) and set(x['command'] for x in accepted)>={'/nba','/analyze','/accuracy','/compare'},
+        complete_command_suite_verified=any(commands>=required for commands in scopes.values()),
+        command_scope='SAME_CHAT_AND_DEDICATED_BOT_COMPLETE_ANALYSIS_HASH_BINDING',
+        application_result_correctness_verified=False,
         independent_server_signature=False,production_accessed=False)

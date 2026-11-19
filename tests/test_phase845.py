@@ -84,7 +84,8 @@ class EvidenceTests(TestCase):
         e=events();e.append(dict(record_type='TELEGRAM_ANALYSIS_DELIVERY',update_id=7,status='TELEGRAM_ACCEPTED',
             part_count=2,part_index=0,telegram_message_id=19))
         self.assertEqual(evidence_report(e,asof_utc=200)['complete_analysis_updates'],[])
-        e[-1]['part_count']=1;self.assertEqual(evidence_report(e,asof_utc=200)['complete_analysis_updates'],[7])
+        e[-1]['part_count']=1;self.assertEqual(evidence_report(e,asof_utc=200)['complete_analysis_updates'],[])
+        # Old sidecars without command/body hash binding prove no complete analysis.
 
 
 class APIAuditTests(IsolatedAsyncioTestCase):
