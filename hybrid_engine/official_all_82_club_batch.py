@@ -75,7 +75,7 @@ def load_all_82(path=MANIFEST):
         _bounded_https(r["club_ownership_evidence_url"])
         if r["news_entry_kind"] not in (
             "DIRECT_NEWS","HOME_HAS_NEWS","HOME_HAS_LATEST_NEWS",
-            "HOME_CLOUDFLARE_VERIFICATION","DIRECT_NEWS_BLOCKED_ON_WEB_FETCH"):
+            "HOME_CLOUDFLARE_VERIFICATION","HOME_HAS_NEWS_WEB_ACCESS_RESTRICTED","DIRECT_NEWS_BLOCKED_ON_WEB_FETCH"):
             raise ValueError("ALL_82_INVALID_NEWS_ENTRY_CLASS")
         if (site.hostname!=news.hostname and
             _host_family(site.hostname)!=_host_family(news.hostname) and
