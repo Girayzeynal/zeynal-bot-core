@@ -112,6 +112,7 @@ def inspect_local_nba_final_fixture_links(*,root):
                     report["invalid_frozen_snapshots"]+=1
                     continue
                 report["payload_bytes_read"]+=size
+                replay_started=False
                 try:
                     p=json.loads(record[0])
                     if (digest(p)!=pin or
@@ -159,6 +160,7 @@ def inspect_local_nba_final_fixture_links(*,root):
                         report["invalid_final_source_replays"]+=1
                         continue
                     report["payload_bytes_read"]+=final_size
+                    replay_started=True
                     r=json.loads(final[0])
                     if (digest(r)!=final_pin or
                         r.get("record_type")!="VERIFIED_FINAL_RESULT" or
@@ -167,7 +169,8 @@ def inspect_local_nba_final_fixture_links(*,root):
                         or not isinstance(r.get("source_fixture"),list) or
                         len(r["source_fixture"])>10 or
                         digest(r["source_fixture"])!=r.get("source_fixture_sha256")
-                        or r.get("source_catalog_sha256") is None):
+                        or type(r.get("source_catalog_sha256")) is not str
+                        or len(r["source_catalog_sha256"])!=64):
                         raise ValueError("SOURCE_RESULT_PIN_OR_SCOPE_CONFLICT")
                     cat=archive_catalog(
                         {"events":r["source_fixture"]},provider="ESPN",
@@ -205,9 +208,7 @@ def inspect_local_nba_final_fixture_links(*,root):
                         RecursionError,AttributeError):
                     # A source replay conflict is not a permission to rewrite
                     # a settled historical result or fit the model.
-                    if final_size is not None and (
-                        report["local_native_fixture_identity_matches"]>=
-                        report["local_final_source_replays"]+1):
+                    if replay_started:
                         report["invalid_final_source_replays"]+=1
                     else:
                         report["invalid_frozen_snapshots"]+=1
