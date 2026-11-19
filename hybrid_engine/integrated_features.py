@@ -37,7 +37,9 @@ def features(state):
         'Maç bazlı sakatlık etkisi / sayısal dakika modeli: CANLI ANALİZE BAĞLI DEĞİL.',
         'Yerel oyuncu paket adayı sayısı: '+str(len(packet_store) if isinstance(packet_store,dict) else 0)+
         ' (sayı doğrulanmış oyuncu/maç kanıtı değildir).',
-        'Kadro veri yokluğu hiçbir oyuncunun sağlıklı veya oynayabilir olduğunu kanıtlamaz.'])
+        'Kadro veri yokluğu hiçbir oyuncunun sağlıklı veya oynayabilir olduğunu kanıtlamaz.',
+        'Gerçek resmî EuroLeague sezon oyuncu kimliği: /sourceplayers EUROLEAGUE 2026/2027 ZAL PAN',
+        'Bu kimlik kaydı sakatlık/oynama uygunluğu veya model puan etkisi kanıtı değildir.'])
     last=state.get('last_result_poll') or {}
     if last:
         lines.append('Son sonuç kontrolü: '+' · '.join(k+': '+v.get('status','BİLİNMİYOR') for k,v in last.items()))
