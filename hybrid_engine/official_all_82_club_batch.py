@@ -23,7 +23,7 @@ RESULT_FORMAT="ZEYNAL_OFFICIAL_ALL_82_BATCH_PROBE_V1"
 MANIFEST=Path(__file__).with_name("official_all_82_club_urls_2026_27.json")
 EXPECTED={"NBA":30,"EUROLEAGUE":20,"EUROCUP":32}
 MAX_REQUESTS=164
-MAX_SECONDS=600
+MAX_SECONDS=900
 _SPECIAL_NEWS_HOSTS={
     "euroleague_fc_bayern_munich":("fcbayern.com","app.fcbayern.com"),
 }
@@ -153,7 +153,7 @@ def batch_probe(*,live=False,requester=_request,monotonic=time.monotonic,
         per_host[host].append(index)
     # One robots policy check per exact news host; no parallel requests
     # to one host. Full registry processed in one CLI invocation.
-    for host in sorted(per_host):
+    for host in sorted(per_host,key=lambda h:(-len(per_host[h]),h)):
         indices=per_host[host]
         if output["source_http_requests"]>=MAX_REQUESTS or (
             monotonic()-began>=deadline_seconds):
