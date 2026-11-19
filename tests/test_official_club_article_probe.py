@@ -66,3 +66,30 @@ def test_untrusted_article_url_never_fetches(url):
     with pytest.raises(ValueError):
         probe_article(club(),url,requester=fetch)
     assert calls==[]
+
+
+def test_article_probe_captures_two_textual_candidates_but_never_promotes():
+    calls=[]
+    def source(url,*,limit,expected_mime):
+        calls.append(url)
+        if url.endswith("/robots.txt"):
+            return dict(status="DOCUMENT_RECEIVED",body=b"User-agent: *\nDisallow: /private",
+                        http_status=200)
+        if url.endswith("/haberler"):
+            return dict(status="DOCUMENT_RECEIVED",body=(
+                '<a href="/haber-3715-tofas_eurocupta_chemnitz_deplasmaninda">'
+                'TOFAS EuroCup Chemnitz deplasmaninda</a>').encode(),
+                http_status=200,observed_at_utc=1795089600)
+        return dict(status="DOCUMENT_RECEIVED",http_status=200,
+                    observed_at_utc=1795089600,
+                    body='<h1>TOFAŞ EuroCup haberi</h1><p>Sakatlıkları bulunan Yiğitcan Saybir ile Efe Postel bu karşılaşmada forma giyemeyecek.</p>'.encode())
+    result=probe_article(club(),TOFAS_URL,requester=source)
+    assert result["injury_claim_evidence_status"]=="SOURCE_TEXT_CANDIDATES_ONLY"
+    assert [x["player_name_text"] for x in result["injury_absence_claim_candidates"]]==["Yiğitcan Saybir","Efe Postel"]
+    assert result["article_headline_from_index"]=="TOFAS EuroCup Chemnitz deplasmaninda"
+    assert result["published_utc"] is None
+    assert result["player_status_verified"] is False
+    assert result["fixture_id"] is None
+    assert result["model_input"] is False
+    assert result["forecast_changed"] is False
+    assert len(calls)==3
