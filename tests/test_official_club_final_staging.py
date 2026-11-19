@@ -93,3 +93,48 @@ def test_no_source_prediction_values_or_native_game_scores_exported(tmp_path):
         "format":r["format"],
         "status":r["status"],
         "model_input":r["model_input"]})
+
+
+
+def test_synthetic_offline_native_final_reconciles_only_on_staged_copy_twice(tmp_path):
+    """Demonstrates real ledger append-only algorithm, NOT user game backfill."""
+    from tests.test_official_club_fixture_outcome_audit import native_event, START
+    from season_archive_inventory import archive_catalog
+    from live_analysis_ledger import LiveAnalysisLedger
+    root,original,_=ledger(tmp_path,valid_final=False)
+    before=original.read_bytes()
+    staged=prepare_isolated_final_stage(root=root)
+    assert staged["status"]=="STAGE_COPY_READY_NO_NATIVE_FINAL_RECEIPTS"
+    events={"events":[native_event()]}
+    catalog=archive_catalog(events,provider="ESPN",season_start_year=2026,
+        observed_at_utc=START+20000,ingested_at_utc=START+20005)
+    copy_ledger=LiveAnalysisLedger(staged["staged_file"])
+    first=copy_ledger.reconcile(catalog,trusted_sha256=catalog["sha256"])
+    second=copy_ledger.reconcile(catalog,trusted_sha256=catalog["sha256"])
+    assert first==1
+    assert second==0
+    with sqlite3.connect(staged["staged_file"]) as db:
+        assert db.execute(
+            "SELECT COUNT(*) FROM verified_analysis_results").fetchone()[0]==1
+    with sqlite3.connect(original) as db:
+        assert db.execute(
+            "SELECT COUNT(*) FROM verified_analysis_results").fetchone()[0]==0
+    assert original.read_bytes()==before
+    assert copy_ledger.integrity()["verified_results"]==1
+
+
+def test_synthetic_wrong_espn_fixture_is_not_assigned_to_user_game(tmp_path):
+    from tests.test_official_club_fixture_outcome_audit import native_event, START
+    from season_archive_inventory import archive_catalog
+    from live_analysis_ledger import LiveAnalysisLedger
+    root,original,_=ledger(tmp_path,valid_final=False)
+    before=original.read_bytes()
+    staged=prepare_isolated_final_stage(root=root)
+    e=native_event()
+    e["competitions"][0]["competitors"][0]["team"]["id"]="29"
+    catalog=archive_catalog({"events":[e]},provider="ESPN",season_start_year=2026,
+        observed_at_utc=START+20000,ingested_at_utc=START+20005)
+    copy_ledger=LiveAnalysisLedger(staged["staged_file"])
+    assert copy_ledger.reconcile(catalog,trusted_sha256=catalog["sha256"])==0
+    assert copy_ledger.integrity()["verified_results"]==0
+    assert original.read_bytes()==before
