@@ -123,3 +123,15 @@ def test_no_cross_team_mapping_on_boston_pilot():
                                      requester=req,now_utc=now)
     assert result["status"]=="ABSTAIN"
     assert result["model_input"] is False
+
+
+def test_transport_never_accepts_unlisted_espn_url_even_if_same_host():
+    from hybrid_engine.official_club_identity_pilot import pinned_espn_request
+    import pytest
+    with pytest.raises(ValueError,match="UNLISTED_URL"):
+        pinned_espn_request(
+            "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams?limit=1000",
+            limit=1024,expected_mime="application/json")
+    with pytest.raises(ValueError,match="HOST_NOT_ALLOWLISTED"):
+        pinned_espn_request("https://evil.example/robots.txt",
+                            limit=1024,expected_mime="text/plain")
