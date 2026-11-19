@@ -447,6 +447,10 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             nba=nba_service if app.bot_data.get('nba_overnight_scheduler') else None,europe=europe_services,
             fetcher=transport or fetch_document)
         if app.bot_data['adaptive_v2_worker'].nba is not None:
+            from hybrid_engine.native_fixture_recheck import NativeFixtureRecheck
+            recheck=NativeFixtureRecheck(app.bot_data['adaptive_v2_worker'].transport)
+            app.bot_data['adaptive_v2_worker'].verify=recheck.verify
+            app.bot_data['native_fixture_recheck']=recheck
             from hybrid_engine.issue90_research import Research
             from hybrid_engine.research_diagnostics import ObservedResearch
             app.bot_data['issue90_research']=ObservedResearch(Research(root/'nba-research-v3-integrity-v2',app.bot_data['adaptive_v2_worker']))
@@ -532,6 +536,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         worker=app.bot_data.get('adaptive_v2_worker')
         if worker and mode in ('all','research'):
             lines.extend(worker.render().splitlines())
+            recheck=app.bot_data.get('native_fixture_recheck')
+            if recheck:
+                info=recheck.identity()
+                lines.extend(['NBA fikstür yeniden kontrolü: ESPN · '+info['calendar'],
+                    'Kaynak adaptörü: '+info['format']+' · '+info['policy_sha256'][:12],
+                    'UTC maç saati ve tam native kimlik/durum kontrolleri korunur.'])
             study=app.bot_data.get('issue90_research')
             if study:lines.extend(study.render().splitlines())
         overnight=app.bot_data.get('nba_overnight_scheduler')

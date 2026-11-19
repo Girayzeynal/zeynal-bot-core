@@ -43,3 +43,30 @@ kontrolüne olanak verir. Geçmiş maçlara tahmin eklemez; kimlik/saat/durum
 uyuşmazlığını kabul etmez. Sayısal skor modeli, oyuncu etkisi, kalibrasyon
 ve kabul eşikleri değişmez. 100 geçmiş örnek gerektiren gölge kalibrasyon
 engeli ayrı kalır.
+
+## Regresyon doğrulaması
+
+`tests/test_native_fixture_recheck.py` içindeki 9 test, gerçek kaydedilmiş
+ESPN cevaplarıyla eski UTC sorgusunun maçı bulamadığını ve yeni kaynak
+adaptörünün aynı değişmez doğrulayıcıdan geçtiğini gösterir. Gerçek belge
+gözleminin replay'i canlı tahmin veya Telegram teslim kanıtı değildir.
+
+Sentetik negatif örneklerde yanlış kanonik/sağlayıcı kimliği, takım, sezon,
+tam saat, kaynak URL'si, belge hash'i, eski/gelecek erişim saati, başlamış
+durum, sıfırdan farklı skor ve son 15 dakika reddedilir. Yaz/kış saati ve
+UTC ile aynı sağlayıcı günü de kapsanır. Gerçek V2/V3 fit ve capture yolları
+sentetik geçmişle çalıştırılarak kalibrasyonsuz gelecek skor kaydı, kaynak
+makbuzundaki yeni adaptör tanığı, tekrar/restart mükerrerliği ve maç
+başladıktan sonra mevcut kaydın korunması denetlendi.
+
+Odaklı koşu: `148 passed in 37.53s` (takvim, V2/V3, kritik bütünlük,
+entegrasyon, Avrupa servis/UI ve runtime testleri). `a5d6b9a` ile dosya
+SHA karşılaştırması: V1 27, V2 13, V3 9, Avrupa 6 ve canlı NBA 6 pinin
+tamamı aynı; mevcut planları değiştirecek bilimsel dosya düzenlenmedi.
+Yeni kaynak edinim politikası ayrıca SHA ile tanımlanır; `/test research`
+bu adaptörün sürümünü ve New York takvimini gösterir.
+
+Cihazdaki gerçek V3 yayını henüz doğrulanmadı. Yeniden başlatmadan sonra
+`/test research` ve `/models NBA 401910019` ile kaynak kontrolü, varsa ayrı
+PREMATCH kaydı ve sonraki gerçek engel kontrol edilmelidir. Eski maçlara
+yeni tahmin eklemek veya planı sıfırlamak bu testin parçası değildir.
