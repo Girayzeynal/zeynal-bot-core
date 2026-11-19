@@ -255,7 +255,7 @@ class EuropeanDataReview:
             verified_player_records=verified_records,verified_player_packet_status=packet_status,
             player_evidence_rejections=evidence['rejected_count'],
             capability=('READ_ONLY_VERIFIED_PREFORECAST_PLAYER_PACKET_AND_OFFICIAL_NEWS'
-                        if verified_records else 'OFFICIAL_NEWS_ONLY_NO_VERIFIED_PLAYER_PACKET'),
+                        if verified_records else 'OFFICIAL_NEWS_ONLY_NOT_PLAYER_AVAILABILITY_FEED'),
             minutes_and_rotation_model_input=False,forecast_changed=False)
 
     def save_source(self,p):
