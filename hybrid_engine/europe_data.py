@@ -79,9 +79,12 @@ def article_rows(receipt,ctx,now):
 
 
 class EuropeanDataReview:
-    def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time):
+    def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time,roster_store=None):
         self.services=services;self.bridge=bridge;self.root=local_path(directory)
         self.getter=getter;self.clock=clock;self.cache={};self.catalogs={};self.lock=threading.Lock()
+        # A shared, explicitly verified packet store. Empty is NOT a live feed.
+        # The roster view only reads evidence; numerical model inputs are unchanged.
+        self.roster_store=roster_store
 
     def current_identity_context(self,ctx,owner):
         """Separate current association evidence; never alter forecast feature clocks."""
@@ -210,8 +213,26 @@ class EuropeanDataReview:
                 sources.append(r)
                 if r.get('status')=='SOURCE_REDIRECT' and r.get('location'):queue.insert(0,r['location'])
                 if r.get('http_status') in (403,429):break
+        # Read the very same fixture-scoped, pre-forecast evidence contract
+        # used by the isolated NBA view. Never infer injury or player minutes
+        # from a generic news page or from an 82-URL source directory.
+        from hybrid_engine.telegram_roster_bridge import read_fixture_roster_evidence
+        from hybrid_engine.telegram_premium_ui import roster_section
+        evidence=read_fixture_roster_evidence(
+            self.roster_store,
+            fixture_id=ctx['fixture_id'],
+            prediction_utc=ctx['prediction_generated_at_utc'],
+            fixture_start_utc=ctx['fixture_start_utc'],
+            home_team_id=str(ctx['home']['provider_id']),
+            away_team_id=str(ctx['away']['provider_id']))
+        verified_records=evidence['records']
+        packet_status=('FIXTURE_BOUND_PREFORECAST_PLAYER_STATUS_AVAILABLE'
+                       if verified_records else
+                       'NO_VERIFIED_PREFORECAST_PLAYER_PACKET')
+        evidence_view=roster_section(evidence)
         lines=['🏥 <b>GÜNCEL RESMÎ AVRUPA KAYNAĞI</b>','Kontrol: '+tsi(int(self.clock())),
-               'Kaynak türü: resmî haber sayfası. Maça bağlı oyuncu durumu adaptörü bağlı değil.',
+               'Kaynak türü: resmî haber sayfası; canlı sakatlık/veri sağlayıcı adaptörü bağlı değil.',
+               'Önceden doğrulanmış, maç kimliği ve ilk tahmin zamanı eşleşen oyuncu paketi kontrolü: '+packet_status+'.',
                'İlk tahmin girdisi değildir; kayıtlı skor değiştirilmedi.']
         for s in sources:
             lines.append(html.escape(str(s.get('url',BASE))))
@@ -222,12 +243,20 @@ class EuropeanDataReview:
         for row in rows:
             lines.extend(['',html.escape(row['team'])+' · <b>Resmî haber notu</b>',html.escape(row['note']),
                           'Yayın: '+tsi(row['published_at_utc']),html.escape(row['source_url'])])
-        if not rows:lines.append('Maça bağlı doğrulanmış oyuncu durum kaydı elde edilemedi; eksik oyuncu yok demek değildir.')
+        if verified_records:
+            lines.extend(['',evidence_view,
+                          'Bu paket ilk tahmin kesitinden önce yayımlanmış kanıtı gösterir; dakika/rotasyon/model etkisi değildir.'])
+        if not rows and not verified_records:
+            lines.append('Maça bağlı doğrulanmış oyuncu durum kaydı elde edilemedi; eksik oyuncu yok demek değildir.')
         lines.extend(['Haber metni maç kadrosu, ceza uygunluğu veya bağımsız tıbbi doğrulama değildir.',
                       'Oyuncu kimlikleri/ilk beş/dakika/rotasyon etkisi doğrulanmadı; modele uygulanmadı.',
                       'NOT_CALIBRATED · Güven endeksi yok.'])
-        return '\n'.join(lines),dict(sources=sources,news_observations=rows,verified_player_records=[],
-            capability='OFFICIAL_NEWS_ONLY_NOT_PLAYER_AVAILABILITY_FEED')
+        return '\n'.join(lines),dict(sources=sources,news_observations=rows,
+            verified_player_records=verified_records,verified_player_packet_status=packet_status,
+            player_evidence_rejections=evidence['rejected_count'],
+            capability=('READ_ONLY_VERIFIED_PREFORECAST_PLAYER_PACKET_AND_OFFICIAL_NEWS'
+                        if verified_records else 'OFFICIAL_NEWS_ONLY_NOT_PLAYER_AVAILABILITY_FEED'),
+            minutes_and_rotation_model_input=False,forecast_changed=False)
 
     def save_source(self,p):
         if len(json.dumps(p).encode())>3*1024*1024:raise ValueError('EUROPE_SOURCE_SIZE')
