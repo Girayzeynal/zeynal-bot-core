@@ -187,3 +187,36 @@ def test_cli_single_entry_point_all_82_summary_no_http(capsys):
     assert len(report["results"])==82
     assert report["source_http_requests"]==0
     assert report["source_observed_count"]==0
+
+
+
+def test_single_user_csv_matches_every_json_registry_link():
+    import csv
+    from pathlib import Path
+    path=Path(__file__).resolve().parents[1]/"docs"/"official_all_82_club_urls_2026_27.csv"
+    with path.open(encoding="utf-8-sig",newline="") as stream:
+        rows=list(csv.DictReader(stream))
+    expected=bulk.load_all_82()
+    assert len(rows)==len(expected)==82
+    joined={r["official_team_name"]:r for r in rows}
+    for entry in expected:
+        row=joined[entry["official_team_name"]]
+        assert row["league"]==entry["league"]
+        assert row["official_site_url"]==entry["official_site_url"]
+        assert row["official_news_entry_url"]==entry["official_news_entry_url"]
+        assert row["news_entry_kind"]==entry["news_entry_kind"]
+        assert row["live_http_status"]=="NOT_CHECKED_IN_UNIFIED_82_BATCH"
+
+
+def test_nba_news_must_stay_under_that_teams_nba_directory():
+    doc=json.loads(bulk.MANIFEST.read_text())
+    row=next(x for x in doc["records"] if
+             x["club_key"]=="nba_boston_celtics")
+    row["official_news_entry_url"]="https://www.nba.com/lakers/news"
+    from pathlib import Path
+    import tempfile
+    with tempfile.TemporaryDirectory() as directory:
+        path=Path(directory)/"bad_team_news.json"
+        path.write_text(json.dumps(doc))
+        with pytest.raises(ValueError,match="ALL_82_NBA_NEWS_TEAM_PATH_MISMATCH"):
+            bulk.load_all_82(path)
