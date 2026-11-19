@@ -128,7 +128,7 @@ def test_stage_path_or_source_sha_mismatch_is_rejected(tmp_path):
     assert r["status"]=="ABSTAIN_STAGED_NATIVE_SETTLEMENT_ERROR"
     assert r["requests"]==0
     assert original.read_bytes()==before
-    new=root/"club-pilot-evidence"/"final-staging"/"nba-final-staging-"+("0"*24)+".sqlite"
+    new=root/"club-pilot-evidence"/"final-staging"/("nba-final-staging-"+("0"*24)+".sqlite")
     new.write_bytes(Path(stage).read_bytes())
     r=settle_isolated_stage(root=root,stage=new,live=False)
     assert r["status"]=="ABSTAIN_STAGED_NATIVE_SETTLEMENT_ERROR"
