@@ -68,3 +68,11 @@ def test_oversized_body_is_not_indexed():
     import pytest
     with pytest.raises(ValueError):
         discover_article_links(b"x"*(512*1024+1),club("eurocup_tofas"))
+
+
+def test_celtics_insiders_hub_is_not_a_news_article():
+    html=b'''<a href="/celtics/news/insiders">Celtics Insiders Central</a>
+    <a href="/celtics/news/official-press-release-2026">Official release</a>'''
+    links=discover_article_links(html,club("nba_boston_celtics"))
+    assert len(links)==1
+    assert links[0]["url"]=="https://www.nba.com/celtics/news/official-press-release-2026"
