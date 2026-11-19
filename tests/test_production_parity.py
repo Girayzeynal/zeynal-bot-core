@@ -72,6 +72,18 @@ class ProductionParityTests(unittest.TestCase):
         self.assertNotIn("İzole test arşivi", "".join(msg.sent))
         self.assertEqual([league for league, _ in reader.calls], list(parity.LEAGUES))
 
+    def test_isolated_test_bot_has_no_duplicate_production_handler(self):
+        from unittest.mock import patch
+        class App:
+            def __init__(self): self.handlers = []
+            def add_handler(self, handler): self.handlers.append(handler)
+        with patch.dict("os.environ", {
+            "ZEYNAL_TEST_BOT_TOKEN": "dedicated-test-token",
+            "TELEGRAM_BOT_TOKEN": "dedicated-test-token"}):
+            app=App()
+            parity.install(app)
+        self.assertEqual(app.handlers, [])
+
     def test_registration_is_side_effect_free(self):
         class App:
             def __init__(self): self.handlers = []
