@@ -81,13 +81,13 @@ def render_league(report, league, now, *, all_matches=False):
     return lines
 
 
-def render_all(reports, *, now, detail=True):
+def render_all(reports, *, now, detail=True, source_label="İzole test arşivi, üretim değil"):
     if any(k not in reports for k in LEAGUES):
         raise ValueError("UNIFIED_THREE_LEAGUE_REPORTS_REQUIRED")
     normalized = {league: unwrap(reports[league]) for league in LEAGUES}
     totals = [summary(normalized[league], league, now) for league in LEAGUES]
     lines = ["ZEYNAL | 3 LİG | ORİJİNAL TAHMİN → DOĞRULANMIŞ SONUÇ",
-             "Normal süre, Türkiye saati | İzole test arşivi, üretim değil"]
+             "Normal süre, Türkiye saati | " + source_label]
     for row in totals:
         lines.append(f"{row['league']}: {row['matched']} doğrulanmış FINAL ile eşleşmiş "
                      f"| {row['started_unverified']} başlamış, FINAL henüz doğrulanmamış")
