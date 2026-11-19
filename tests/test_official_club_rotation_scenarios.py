@@ -5,9 +5,11 @@ a calculation path, never evidence that a real NBA/EuroLeague/EuroCup
 player is OUT or that the new model is calibrated.
 """
 from copy import deepcopy
+import hashlib
 import math
 import time
 import pytest
+from hybrid_engine import official_club_capture as cap
 
 from core.team_identity import digest
 from hybrid_engine.data import STRICT,feature_cut,Abstain
@@ -95,6 +97,11 @@ def scenario(league):
         player_identity_evidence_sha256="b"*64,
         published_at_utc=first-1000,
         first_captured_at_utc=first)
+    capture=dict(format=cap.RECEIPT_FORMAT,club_key=teamkey,
+        source_url=report["source_url"],body_sha256=report["document_sha256"],
+        observed_at_utc=first-100,captured_at_utc=first)
+    capture["receipt_sha256"]=hashlib.sha256(cap._packed(capture)).hexdigest()
+    report["first_capture_receipt"]=capture
     feature=dict(
         format=FORMAT,league=league,season="2026/2027",
         fixture_id=target["fixture_id"],
@@ -107,12 +114,17 @@ def scenario(league):
     return model,cut,feature,target["fixture_start_utc"]-600
 
 
+def _pins(feature):
+    return {(r["side"],r["provider_player_id"]):r["document_sha256"]
+            for r in feature["source_reports"]}
+
+
 @pytest.mark.parametrize("league",["NBA","EUROLEAGUE","EUROCUP"])
 def test_source_bound_synthetic_out_recalculates_real_10k_qmc_simulation(league):
     model,cut,feature,prediction_utc=scenario(league)
     r=compare_verified_rotation(model,cut,feature,
         trusted_feature_sha256=digest(feature),
-        prediction_utc=prediction_utc)
+        trusted_source_pins=_pins(feature),prediction_utc=prediction_utc)
     assert r["status"]==RESEARCH
     assert r["league"]==league
     assert r["method"]=="RQMC_HALTON"
@@ -136,15 +148,16 @@ def test_source_bound_synthetic_out_recalculates_real_10k_qmc_simulation(league)
 
 def test_false_injury_document_pin_and_after_forecast_capture_refused():
     model,cut,f,when=scenario("NBA")
-    f["source_reports"][0]["trusted_document_sha256"]="c"*64
+    bad=_pins(f)
+    bad[next(iter(bad))]="c"*64
     with pytest.raises(ValueError,match="INDEPENDENT_PLAYER_AND_SOURCE"):
         compare_verified_rotation(model,cut,f,
-            trusted_feature_sha256=digest(f),prediction_utc=when)
-    f["source_reports"][0]["trusted_document_sha256"]="a"*64
+            trusted_feature_sha256=digest(f),trusted_source_pins=bad,prediction_utc=when)
+
     f["source_reports"][0]["first_captured_at_utc"]=when+1
-    with pytest.raises(ValueError,match="FIRST_SOURCE_CAPTURE_CLOCK"):
+    with pytest.raises(ValueError,match="FIRST_CAPTURE_RECEIPT_SCOPE_CONFLICT"):
         compare_verified_rotation(model,cut,f,
-            trusted_feature_sha256=digest(f),prediction_utc=when)
+            trusted_feature_sha256=digest(f),trusted_source_pins=_pins(f),prediction_utc=when)
 
 
 def test_wrong_fixture_player_and_gleague_assignment_refused():
@@ -152,12 +165,12 @@ def test_wrong_fixture_player_and_gleague_assignment_refused():
     f["source_reports"][0]["reported_reason"]="G_LEAGUE_ASSIGNMENT"
     with pytest.raises(ValueError,match="OFFICIAL_STATUS_PLAYER_OR_FIXTURE_BINDING"):
         compare_verified_rotation(model,cut,f,
-            trusted_feature_sha256=digest(f),prediction_utc=when)
+            trusted_feature_sha256=digest(f),trusted_source_pins=_pins(f),prediction_utc=when)
     f["source_reports"][0]["reported_reason"]="PHYSICAL_INJURY"
     f["source_reports"][0]["fixture_id"]="wrong-other-game"
     with pytest.raises(ValueError,match="OFFICIAL_STATUS_PLAYER_OR_FIXTURE_BINDING"):
         compare_verified_rotation(model,cut,f,
-            trusted_feature_sha256=digest(f),prediction_utc=when)
+            trusted_feature_sha256=digest(f),trusted_source_pins=_pins(f),prediction_utc=when)
 
 
 def test_uncertified_player_status_and_unknown_lineups_abstain():
@@ -165,13 +178,13 @@ def test_uncertified_player_status_and_unknown_lineups_abstain():
     f["source_reports"]=[]
     with pytest.raises(Abstain,match="EXACT_SOURCE_AND_ID"):
         compare_verified_rotation(model,cut,f,
-            trusted_feature_sha256=digest(f),prediction_utc=when)
+            trusted_feature_sha256=digest(f),trusted_source_pins=_pins(f),prediction_utc=when)
     model,cut,f,when=scenario("NBA")
     side=f["source_reports"][0]["side"]
     f["rosters"][side]["adjusted"][0]["expected_minutes"]=12
     with pytest.raises(Abstain,match="FIVE_PLAYER_MINUTE_BUDGET"):
         compare_verified_rotation(model,cut,f,
-            trusted_feature_sha256=digest(f),prediction_utc=when)
+            trusted_feature_sha256=digest(f),trusted_source_pins=_pins(f),prediction_utc=when)
 
 
 def test_no_player_trained_model_never_guess_points_by_injury_name():
@@ -179,14 +192,14 @@ def test_no_player_trained_model_never_guess_points_by_injury_name():
     model.players=[]
     with pytest.raises(Abstain,match="PLAYER_AWARE_OFFLINE_TRAINED_POSTERIOR_REQUIRED"):
         compare_verified_rotation(model,cut,f,
-            trusted_feature_sha256=digest(f),prediction_utc=when)
+            trusted_feature_sha256=digest(f),trusted_source_pins=_pins(f),prediction_utc=when)
 
 
 def test_feature_pin_mismatch_and_model_training_lookahead_refused():
     model,cut,f,when=scenario("EUROCUP")
     with pytest.raises(ValueError,match="PREGAME_ROTATION_INPUT_PIN_REQUIRED"):
         compare_verified_rotation(model,cut,f,
-            trusted_feature_sha256="f"*64,prediction_utc=when)
+            trusted_feature_sha256="f"*64,trusted_source_pins=_pins(f),prediction_utc=when)
     with pytest.raises(ValueError,match="SOURCE_OR_MODEL_FIT_CUTOFF_LEAKAGE"):
         compare_verified_rotation(model,cut,f,
             trusted_feature_sha256=digest(f),prediction_utc=model.cutoff)
@@ -197,4 +210,4 @@ def test_cross_league_club_misassignment_refused():
     f["team_club_keys"]["home"]="nba_denver_nuggets"
     with pytest.raises(ValueError,match="ROTATION_CLUB_LEAGUE_MEMBERSHIP_MISMATCH"):
         compare_verified_rotation(model,cut,f,
-            trusted_feature_sha256=digest(f),prediction_utc=when)
+            trusted_feature_sha256=digest(f),trusted_source_pins=_pins(f),prediction_utc=when)
