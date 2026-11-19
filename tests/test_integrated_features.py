@@ -125,3 +125,11 @@ class IntegratedCommandTests(IsolatedAsyncioTestCase):
         self.assertEqual(self.api.sent,[])
         await self.command('/models NBA');self.assertIn('Kullanım:',self.api.sent[-1])
         self.nba.analyze.assert_not_awaited()
+
+    async def test_prediction_send_diagnostics_are_available_in_authorized_chat(self):
+        command=self.app.bot_data['predictions_command']
+        command.last_send=dict(status='UNCONFIRMED',parts=3,sent=1,error_code='NETWORK_ERROR')
+        await self.command('/test predictions')
+        text='\n'.join(self.api.sent)
+        self.assertIn('Tamamlanan bölüm: 1/3',text);self.assertIn('NETWORK_ERROR',text)
+        self.nba.analyze.assert_not_awaited()

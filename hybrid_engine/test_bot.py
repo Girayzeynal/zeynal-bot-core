@@ -53,15 +53,36 @@ def configuration(env):
 class AuditedRequest(HTTPXRequest):
     def __init__(self,journal,*,expected_identity=None,**kwargs):
         super().__init__(**kwargs);self.journal=journal;self.expected_identity=expected_identity;self.identity_verified=False
+        from concurrent.futures import ThreadPoolExecutor
+        self._journal_executor=ThreadPoolExecutor(max_workers=1,thread_name_prefix='telegram-journal')
+        self.journal_status='NOT_ATTEMPTED'
         # HTTPX INFO request lines contain the Bot API token in the URL path.
         logging.getLogger('httpx').setLevel(logging.ERROR)
         logging.getLogger('httpcore').setLevel(logging.ERROR)
+    async def append_journal(self,journal,key,event):
+        # Research deliberately has one worker. Accepted HTTP responses and
+        # authorized human commands must not queue behind a model fit there.
+        from functools import partial
+        try:
+            await asyncio.wait_for(asyncio.get_running_loop().run_in_executor(
+                self._journal_executor,partial(journal.append,key,event)),timeout=2)
+        except Exception as exc:
+            self.journal_status='UNAVAILABLE'
+            logging.getLogger(__name__).warning('Telegram delivery journal unavailable: %s',type(exc).__name__)
+            return False
+        self.journal_status='WRITTEN'
+        return True
+
+    async def shutdown(self):
+        try:await super().shutdown()
+        finally:self._journal_executor.shutdown(wait=False,cancel_futures=True)
+
     async def do_request(self,url,method,**kwargs):
         name=url.rsplit('/',1)[-1]
         try:status,body=await super().do_request(url,method,**kwargs)
         except Exception as exc:
             if name=='sendMessage':
-                await asyncio.to_thread(self.journal.append,digest(dict(update=_update.get(),kind='SEND_UNCONFIRMED')),
+                await self.append_journal(self.journal,digest(dict(update=_update.get(),kind='SEND_UNCONFIRMED')),
                     dict(kind='SEND_UNCONFIRMED',update_id=_update.get(),error_type=type(exc).__name__,observed_at_utc=int(time.time())))
             raise
         from hybrid_engine.telegram_evidence import official_endpoint,plaintext
@@ -86,7 +107,7 @@ class AuditedRequest(HTTPXRequest):
                     response_content_matches_request=(type(parameters.get('text')) is str and
                         plaintext(parameters['text'],parameters.get('parse_mode'))==r.get('text')),
                     response_sha256=digest(data),request_text_sha256=digest(parameters.get('text','')))
-                await asyncio.to_thread(self.journal.append,digest(dict(chat=event['chat_id'],message=event['telegram_message_id'])),event)
+                await self.append_journal(self.journal,digest(dict(chat=event['chat_id'],message=event['telegram_message_id'])),event)
         return status,body
 
 
@@ -427,7 +448,14 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             fetcher=transport or fetch_document)
         if app.bot_data['adaptive_v2_worker'].nba is not None:
             from hybrid_engine.issue90_research import Research
-            app.bot_data['issue90_research']=Research(root/'nba-research-v3-integrity-v2',app.bot_data['adaptive_v2_worker'])
+            from hybrid_engine.research_diagnostics import ObservedResearch
+            app.bot_data['issue90_research']=ObservedResearch(Research(root/'nba-research-v3-integrity-v2',app.bot_data['adaptive_v2_worker']))
+    async def journal_write(key,event):
+        request=app.bot.request
+        if isinstance(request,AuditedRequest):return await request.append_journal(journal,key,event)
+        await asyncio.to_thread(journal.append,key,event)
+        return True
+
     async def authorized(update,context):
         if update.effective_chat is None or update.effective_chat.id!=chat_id:raise ApplicationHandlerStop
         _update.set(update.update_id)
@@ -435,14 +463,14 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         if message and message.text:
             try:command_bot_id=getattr(getattr(context,'bot',None),'id',None)
             except RuntimeError:command_bot_id=None
-            await asyncio.to_thread(journal.append,'received:'+str(update.update_id),dict(kind='COMMAND_RECEIVED',update_id=update.update_id,
+            await journal_write('received:'+str(update.update_id),dict(kind='COMMAND_RECEIVED',update_id=update.update_id,
                 command=message.text.split()[0].split('@')[0],chat_id=update.effective_chat.id,
                 bot_id=command_bot_id,
                 request_sha256=digest(message.text),
                 is_bot=getattr(update.effective_user,'is_bot',None),
                 user_message_at_utc=int(message.date.timestamp()),received_at_utc=int(time.time())))
     async def error(update,context):
-        await asyncio.to_thread(journal.append,digest(dict(update=getattr(update,'update_id',None),kind='HANDLER_ERROR')),
+        await journal_write(digest(dict(update=getattr(update,'update_id',None),kind='HANDLER_ERROR')),
             dict(kind='HANDLER_ERROR',update_id=getattr(update,'update_id',None),error_type=type(context.error).__name__,observed_at_utc=int(time.time())))
     async def self_test(update,context):
         """Read-only diagnostics, available only in the authorized test chat."""
@@ -453,8 +481,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
-        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test all')
+        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime','predictions'):
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test predictions, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',
@@ -462,6 +490,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             'Bu yanıtın teslimi Telegram üzerinden kontrol edilmelidir.']
         from hybrid_engine.integrated_features import RELEASE
         lines.extend(['İşlev sürümü: '+RELEASE,'Etkin bileşenler: /features · Ayrı model skorları: /models NBA MAÇ_KİMLİĞİ'])
+        if mode=='predictions':
+            command=app.bot_data.get('predictions_command');last=getattr(command,'last_send',None) or {}
+            lines.extend(['Tahmin listesi son gönderim: '+last.get('status','HENÜZ_GÖZLENMEDİ'),
+                'Tamamlanan bölüm: '+str(last.get('sent',0))+'/'+str(last.get('parts',0)),
+                'Gönderim sınıfı: '+str(last.get('error_code') or 'YOK'),
+                'Teslim kayıt durumu: '+getattr(app.bot.request,'journal_status','BU_TAŞIMADA_İZLENMİYOR')])
         if mode=='runtime':
             from hybrid_engine.runtime_identity import describe
             from hybrid_engine.elite_render import split_blocks
@@ -615,7 +649,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         raise ApplicationHandlerStop
     from hybrid_engine.predictions_command import PredictionsCommand
     from ledger_reports import LedgerReports
-    predictions=PredictionsCommand(LedgerReports(nba_service.ledger.path) if nba_service is not None else None,journal,chat_id,league_reports=europe_readers)
+    predictions=PredictionsCommand(LedgerReports(nba_service.ledger.path) if nba_service is not None else None,journal,chat_id,
+        league_reports=europe_readers,journal_writer=journal_write)
     app.bot_data['predictions_command']=predictions
     app.add_handler(CommandHandler('predictions',predictions.handle),group=-50)
     from hybrid_engine.unified_results_view import LEAGUES,render_all,render_performance
@@ -807,22 +842,23 @@ def main():
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');transport=ControlledTransport(fetch_document)
     original=application.Application
     tasks=[]
+    from hybrid_engine.isolated_execution import IsolatedExecutor,background_task
     async def ready(app):
         me=await app.bot.get_me()
         if me.id!=config['bot_id'] or me.username!=config['username']:raise ValueError('TEST_BOT_SERVER_IDENTITY_MISMATCH')
         hook=await app.bot.get_webhook_info()
         if hook.url:raise ValueError('TEST_BOT_HAS_WEBHOOK_POLLING_NOT_STARTED')
         scheduler=app.bot_data.get('europe_prematch_scheduler')
-        if scheduler and not args.replay_only:tasks.append(asyncio.create_task(scheduler.run(app)))
+        if scheduler and not args.replay_only:tasks.append(background_task(scheduler.run(app)))
         overnight=app.bot_data.get('nba_overnight_scheduler')
-        if overnight and not args.replay_only:tasks.append(asyncio.create_task(overnight.run(app)))
+        if overnight and not args.replay_only:tasks.append(background_task(overnight.run(app)))
         adaptive=app.bot_data.get('adaptive_v2_worker')
         if adaptive and not args.replay_only:
             study=app.bot_data.get('issue90_research')
             if study:
                 from hybrid_engine.issue90_research import run_serial
-                tasks.append(asyncio.create_task(run_serial(adaptive,study,app)))
-            else:tasks.append(asyncio.create_task(adaptive.run(app)))
+                tasks.append(background_task(run_serial(adaptive,study,app)))
+            else:tasks.append(background_task(adaptive.run(app)))
         async def collect():
             while True:
                 from hybrid_engine.result_poll import poll_once
@@ -845,7 +881,7 @@ def main():
                     jobs.append(('EUROPE_HYBRID_'+code,service.collect_results))
                 app.bot_data['last_result_poll']=await poll_once(jobs,journal)
                 await asyncio.sleep(args.result_poll_seconds)
-        if not args.replay_only:tasks.append(asyncio.create_task(collect()))
+        if not args.replay_only:tasks.append(background_task(collect()))
     async def stop(app):
         for task in tasks:task.cancel()
         await asyncio.gather(*tasks,return_exceptions=True)
@@ -870,9 +906,8 @@ def main():
     app.bot_data['test_results']=results
     # Commands must arrive from the authorized HUMAN test chat; bot self-messages
     # are never counted as real command-input E2E evidence.
-    from concurrent.futures import ThreadPoolExecutor
     loop=asyncio.new_event_loop();asyncio.set_event_loop(loop)
-    loop.set_default_executor(ThreadPoolExecutor(max_workers=1,thread_name_prefix='hybrid-test'))
+    loop.set_default_executor(IsolatedExecutor())
     app.run_polling(bootstrap_retries=0,drop_pending_updates=False)
 
 

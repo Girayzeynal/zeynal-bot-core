@@ -13,6 +13,22 @@ PAGE_SIZE=25
 VERSION='PHASE91_PREDICTIONS_V1'
 
 
+def send_error_code(exc):
+    """Fixed public classes; never echo provider text, tokens or local paths."""
+    from telegram.error import BadRequest,Forbidden,NetworkError,RetryAfter,TimedOut
+    if isinstance(exc,(asyncio.TimeoutError,TimedOut)):return 'SEND_TIMEOUT'
+    if isinstance(exc,RetryAfter):return 'RATE_LIMITED'
+    if isinstance(exc,Forbidden):return 'CHAT_FORBIDDEN'
+    if isinstance(exc,BadRequest):
+        value=str(exc).lower()
+        if 'too long' in value:return 'MESSAGE_TOO_LONG'
+        if 'parse entities' in value or 'parse entity' in value:return 'TEXT_FORMAT_REJECTED'
+        if 'reply' in value and 'not found' in value:return 'REPLY_TARGET_NOT_FOUND'
+        return 'BAD_REQUEST'
+    if isinstance(exc,NetworkError):return 'NETWORK_ERROR'
+    return 'UNEXPECTED_SEND_ERROR'
+
+
 def stamp(value):
     if value is None:return 'ayrı kaydedilmemiş / bilinmiyor'
     if type(value) is not int or value<=0:raise ValueError('PREDICTIONS_UTC_INTEGER_REQUIRED')
@@ -80,40 +96,50 @@ def render_predictions(report,page=1,league='NBA'):
 
 class PredictionsCommand:
     version=VERSION
-    def __init__(self,reports,journal,chat_id,*,read_timeout=5,send_timeout=15,league_reports=None):
+    def __init__(self,reports,journal,chat_id,*,read_timeout=5,send_timeout=15,league_reports=None,journal_writer=None):
         self.reports=reports;self.journal=journal;self.chat_id=chat_id
         self.read_timeout=read_timeout;self.send_timeout=send_timeout
         self.league_reports=league_reports or {}
+        self.journal_writer=journal_writer;self.last_send=None
 
     async def event(self,update,kind,**fields):
         import time
         from core.team_identity import digest
         event=dict(kind=kind,update_id=getattr(update,'update_id',None),observed_at_utc=int(time.time()),**fields)
         try:
-            await asyncio.wait_for(asyncio.to_thread(self.journal.append,digest(dict(update=event['update_id'],kind=kind,part=fields.get('part'))),event),timeout=2)
+            key=digest(dict(update=event['update_id'],kind=kind,part=fields.get('part')))
+            task=self.journal_writer(key,event) if self.journal_writer else asyncio.to_thread(self.journal.append,key,event)
+            recorded=await asyncio.wait_for(task,timeout=2)
+            if recorded is False:log.warning('Predictions diagnostics unavailable: JOURNAL_NOT_WRITTEN')
         except Exception as exc:
             log.error('Predictions diagnostics unavailable: %s',type(exc).__name__)
 
     async def send(self,update,parts):
         message=update.effective_message
+        self.last_send=dict(status='SENDING',parts=len(parts),sent=0,error_code=None)
         for i,part in enumerate(parts):
             await self.event(update,'PREDICTIONS_SEND_ATTEMPT',part=i,parts=len(parts))
             try:
-                await asyncio.wait_for(message.reply_text(part,disable_web_page_preview=True),timeout=self.send_timeout)
+                await asyncio.wait_for(message.reply_text(part,parse_mode=None,disable_web_page_preview=True),timeout=self.send_timeout)
+                self.last_send['sent']=i+1
                 await self.event(update,'PREDICTIONS_SENT',part=i,parts=len(parts))
             except Exception as exc:
-                await self.event(update,'PREDICTIONS_SEND_FAILED',part=i,error_type=type(exc).__name__)
+                code=send_error_code(exc)
+                self.last_send.update(status='UNCONFIRMED',error_code=code)
+                await self.event(update,'PREDICTIONS_SEND_FAILED',part=i,error_type=type(exc).__name__,error_code=code)
                 log.warning('Predictions send failed: %s',type(exc).__name__)
                 # Do not resend the full list: a timeout may have been accepted by
                 # Telegram. Rate limits/forbidden chats cannot be fixed by retrying.
                 from telegram.error import RetryAfter,Forbidden
                 if not isinstance(exc,(RetryAfter,Forbidden)):
                     try:
-                        await asyncio.wait_for(message.reply_text('Tahmin listesi gönderimi tamamlanamadı. Kayıtlar korunuyor. Kod: PREDICTIONS_SEND_FAILED',disable_web_page_preview=True),timeout=self.send_timeout)
+                        await asyncio.wait_for(message.reply_text('Tahmin listesi gönderimi tamamlanamadı. Kayıtlar korunuyor. Kod: PREDICTIONS_SEND_FAILED · '+code+
+                            f' · Tamamlanan bölüm: {i}/{len(parts)}',parse_mode=None,disable_web_page_preview=True),timeout=self.send_timeout)
                         await self.event(update,'PREDICTIONS_ERROR_NOTICE_SENT',part=i)
                     except Exception as notice:
                         await self.event(update,'PREDICTIONS_ERROR_NOTICE_FAILED',part=i,error_type=type(notice).__name__)
                 return
+        self.last_send['status']='SENT'
 
     async def handle(self,update,context):
         if update.effective_chat is None or update.effective_chat.id!=self.chat_id:raise ApplicationHandlerStop

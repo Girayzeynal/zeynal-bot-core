@@ -192,6 +192,35 @@ class FailureAndIntegrityTests(IsolatedAsyncioTestCase):
             self.assertEqual(reply.call_count,1)
             self.assertTrue(any(c.args[1]['kind']=='PREDICTIONS_SEND_FAILED' for c in journal.append.call_args_list))
 
+    async def test_send_error_notice_has_fixed_class_and_progress_without_exception_text(self):
+        from telegram.error import TimedOut
+        reply=AsyncMock(side_effect=[TimedOut('private-token'),None])
+        result,journal=await self.call(None,send=reply)
+        self.assertIn('SEND_TIMEOUT',result.call_args.args[0])
+        self.assertIn('Tamamlanan bölüm: 0/1',result.call_args.args[0])
+        self.assertIsNone(result.call_args.kwargs['parse_mode'])
+        self.assertNotIn('private-token',str(result.call_args))
+        self.assertTrue(any(c.args[1].get('error_code')=='SEND_TIMEOUT' for c in journal.append.call_args_list))
+
+    async def test_predictions_use_dedicated_journal_writer_when_installed(self):
+        journal=SimpleNamespace(append=Mock(side_effect=AssertionError('NO_SHARED_EXECUTOR')))
+        writer=AsyncMock(return_value=True);reply=AsyncMock()
+        update=SimpleNamespace(update_id=1,effective_message=SimpleNamespace(reply_text=reply))
+        handler=PredictionsCommand(None,journal,17,journal_writer=writer)
+        await handler.send(update,['Plain <team> & text'])
+        self.assertEqual(handler.last_send,dict(status='SENT',sent=1,parts=1,error_code=None))
+        self.assertEqual(writer.await_count,2);journal.append.assert_not_called()
+        self.assertIsNone(reply.call_args.kwargs['parse_mode'])
+
+    async def test_partial_send_failure_keeps_progress_and_never_repeats_prior_part(self):
+        reply=AsyncMock(side_effect=[None,BadRequest('private-secret'),None])
+        update=SimpleNamespace(update_id=1,effective_message=SimpleNamespace(reply_text=reply))
+        handler=PredictionsCommand(None,SimpleNamespace(append=Mock()),17)
+        await handler.send(update,['first part','second part'])
+        self.assertEqual(handler.last_send,dict(status='UNCONFIRMED',parts=2,sent=1,error_code='BAD_REQUEST'))
+        self.assertEqual(sum(call.args[0]=='first part' for call in reply.call_args_list),1)
+        self.assertNotIn('private-secret',reply.call_args.args[0])
+
     async def test_ten_record_offline_audit_is_read_only_and_not_real_user_archive(self):
         with TemporaryDirectory() as tmp:
             path=Path(tmp)/'nba.sqlite';ten_game_ledger(path);before=path.read_bytes();r=await asyncio.to_thread(audit_ledger,path)
