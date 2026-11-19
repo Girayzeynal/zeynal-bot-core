@@ -136,6 +136,11 @@ def test_official_denver_news_permalink_is_detected_but_not_promoted():
         "https://www.nba.com/nuggets/news/nuggets-play-grizzlies-on-the-road"]
     assert report["model_input"] is False
     assert report["publication_field_count"]==0  # Timestamp not yet vetted.
+    assert report["raw_post_date_field_count"]==1
+    assert report["raw_post_timestamp_field_count"]==1
+    assert report["permalink_record_samples"][0]["raw_date"]=="2026-11-11"
+    assert report["permalink_record_samples"][0]["time_verified"] is False
+    assert report["permalink_record_samples"][0]["model_input"] is False
     assert report["diagnostic_only"] is True
 
 
