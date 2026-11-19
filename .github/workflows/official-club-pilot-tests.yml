@@ -29,7 +29,7 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: |
-          python -m py_compile hybrid_engine/official_club_sources.py hybrid_engine/official_club_link_discovery.py hybrid_engine/official_club_pilot.py hybrid_engine/official_club_article_probe.py tests/test_official_club_sources.py tests/test_official_club_link_discovery.py tests/test_official_club_article_probe.py
+          python -m py_compile hybrid_engine/official_club_sources.py hybrid_engine/official_club_link_discovery.py hybrid_engine/official_club_pilot.py hybrid_engine/official_club_article_probe.py hybrid_engine/official_club_claims.py tests/test_official_club_sources.py tests/test_official_club_link_discovery.py tests/test_official_club_article_probe.py tests/test_official_club_claims.py
       - name: Run six-club no-network regression suite
         env:
           PYTHONDONTWRITEBYTECODE: '1'
