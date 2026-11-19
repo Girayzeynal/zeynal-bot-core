@@ -95,6 +95,8 @@ def diagnose_embedded(index_html, club):
         oversized_or_excess_script_count=parser.truncated,
         parse_error_count=0, scanned_json_nodes=0,
         json_traversal_truncated=False, news_link_field_count=0,
+        slug_field_count=0, headline_or_title_field_count=0,
+        publication_field_count=0,
         article_url_candidate_count=0, article_urls_sample=[],
         next_data_top_keys=[], has_page_props=False,
         source="EMBEDDED_OFFICIAL_HTML_NOT_PUBLISHED_ARTICLE")
@@ -124,7 +126,14 @@ def diagnose_embedded(index_html, club):
                     continue
                 for key,value in item.items():
                     if not isinstance(key,str) or len(key)>64:continue
-                    if key.casefold() in _LINK_FIELDS and isinstance(value,str):
+                    folded=key.casefold()
+                    if folded=="slug" and isinstance(value,str):
+                        report["slug_field_count"]+=1
+                    elif folded in ("headline","title","articletitle","name") and isinstance(value,str):
+                        report["headline_or_title_field_count"]+=1
+                    elif folded in ("datepublished","publishedat","published_at") and isinstance(value,str):
+                        report["publication_field_count"]+=1
+                    if folded in _LINK_FIELDS and isinstance(value,str):
                         report["news_link_field_count"] += 1
                         url=_same_team_article(value,club)
                         if url is not None:candidates.add(url)
