@@ -31,6 +31,18 @@ _CEDEVITA_NON_ARTICLE=frozenset((
     "/en/news/","/en/home/","/en/club/","/en/team/","/en/contact/",
     "/en/shop/","/en/schedule/","/en/","/en/tickets/",
 ))
+# Verified category/landing page, NOT a dated Celtics news article.
+_NON_ARTICLE_ROUTES={
+    "nba_boston_celtics":frozenset(("/celtics/news/insiders",)),
+}
+
+
+def is_article_route(key,path):
+    return (key in _PATTERNS and
+            bool(_PATTERNS[key].fullmatch(path)) and
+            path.rstrip("/") not in _NON_ARTICLE_ROUTES.get(key,frozenset()) and
+            not (key=="eurocup_cedevita_olimpija" and
+                 path in _CEDEVITA_NON_ARTICLE))
 
 
 class Links(HTMLParser):
@@ -78,9 +90,7 @@ def discover_article_links(index_html,club):
             p=_bounded_https(candidate)
         except (ValueError,TypeError):
             continue
-        if p.hostname not in hosts or not _PATTERNS[key].fullmatch(p.path):
-            continue
-        if key=="eurocup_cedevita_olimpija" and p.path in _CEDEVITA_NON_ARTICLE:
+        if p.hostname not in hosts or not is_article_route(key,p.path):
             continue
         candidate=p.geturl()
         if candidate in seen:continue
