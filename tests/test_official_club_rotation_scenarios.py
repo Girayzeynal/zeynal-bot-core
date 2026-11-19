@@ -202,7 +202,7 @@ def test_feature_pin_mismatch_and_model_training_lookahead_refused():
             trusted_feature_sha256="f"*64,trusted_source_pins=_pins(f),prediction_utc=when)
     with pytest.raises(ValueError,match="SOURCE_OR_MODEL_FIT_CUTOFF_LEAKAGE"):
         compare_verified_rotation(model,cut,f,
-            trusted_feature_sha256=digest(f),prediction_utc=model.cutoff)
+            trusted_feature_sha256=digest(f),trusted_source_pins=_pins(f),prediction_utc=model.cutoff)
 
 
 def test_cross_league_club_misassignment_refused():
