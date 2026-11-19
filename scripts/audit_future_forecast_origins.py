@@ -130,7 +130,10 @@ def auto_evidence(item,auto):
         if (type(first) is int and
             type(p.get("evaluated_at_utc")) is int and
             type(p.get("completed_at_utc")) is int and
-            p["evaluated_at_utc"]<=first<=p["completed_at_utc"]+60):
+            # Both clocks come from the local scheduler. Its run cannot have
+            # created a first publication after it completed; a grace minute
+            # would misattribute a later manual/retry publication to that run.
+            p["evaluated_at_utc"]<=first<=p["completed_at_utc"]):
             matched.append(p)
     return ("AUTO_SCHEDULER_JOURNAL_SHA_AND_CLOCK_MATCHED" if matched
             else "AUTO_EVIDENCE_NOT_FOUND_CREATOR_UNDETERMINED")

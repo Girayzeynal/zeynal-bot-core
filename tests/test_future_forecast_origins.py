@@ -34,3 +34,12 @@ def test_europe_scheduler_requires_new_record_and_same_fixture():
 def test_absent_journal_is_not_manual_creation_evidence():
     assert auto_evidence(case(),None)=="JOURNAL_NOT_PRESENT"
     assert auto_evidence(case(),[])=="AUTO_EVIDENCE_NOT_FOUND_CREATOR_UNDETERMINED"
+
+
+def test_europe_completed_run_cannot_claim_a_later_first_publication():
+    row=dict(forecast_sha256='a'*64,fixture_id='fixed-event',status='ANALYSIS_OK',new_record=True)
+    entry=dict(evaluated_at_utc=100,completed_at_utc=120,leagues={'EUROCUP':{'results':[row]}})
+    for stamp,expected in ((100,True),(120,True),(121,False),(99,False)):
+        item=dict(case('EUROCUP'),archived=stamp)
+        matched=auto_evidence(item,[entry])=='AUTO_SCHEDULER_JOURNAL_SHA_AND_CLOCK_MATCHED'
+        assert matched is expected

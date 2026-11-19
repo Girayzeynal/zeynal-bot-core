@@ -24,6 +24,8 @@ def main():
         raise RuntimeError('PROVIDER_PROBE_REQUIRES_256MIB_ONE_CPU_CGROUP')
     started=time.perf_counter()
     suite=unittest.TestSuite([
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_integrated_features'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_integrated_launcher'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_bridge'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_identity'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_current_market_review'),

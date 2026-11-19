@@ -79,7 +79,8 @@ def inspect(directory):
     result=dict(format='READ_ONLY_DEVICE_VERIFICATION_V1',observed_at_utc=now,
         reader_source_sha256=file_sha(Path(__file__)),
         nba=dict(status='NOT_PRESENT'),running_process_identity='NOT_VERIFIED_USE_TEST_RUNTIME',
-        acceptance='NO_GO',automatic_promotion=False,production_changed=False,
+        acceptance='NO_GO',acceptance_scope='RESEARCH_EVIDENCE_REVIEW_NOT_FUNCTIONAL_ACTIVATION',
+        features_disabled_by_this_review=False,automatic_promotion=False,production_changed=False,
         api_requests_made=0,predictions_recomputed=False,calibration_fit=False,results_ingested=False,
         records_deleted=0,records_overwritten=0)
     if ledger.is_file():

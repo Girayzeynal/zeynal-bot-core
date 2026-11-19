@@ -460,6 +460,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             'Telegram komut alımı: OK',
             'Yetkili sohbet: OK',
             'Bu yanıtın teslimi Telegram üzerinden kontrol edilmelidir.']
+        from hybrid_engine.integrated_features import RELEASE
+        lines.extend(['İşlev sürümü: '+RELEASE,'Etkin bileşenler: /features · Ayrı model skorları: /models NBA MAÇ_KİMLİĞİ'])
         if mode=='runtime':
             from hybrid_engine.runtime_identity import describe
             from hybrid_engine.elite_render import split_blocks
@@ -565,6 +567,28 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 await update.effective_message.reply_text('V2 araştırma arşivi doğrulanamadı. Eski tahminler korunuyor.')
         raise ApplicationHandlerStop
     app.add_handler(CommandHandler('research',research_command),group=-50)
+    async def feature_command(update,context):
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:return
+        from hybrid_engine.integrated_features import features
+        from hybrid_engine.predictions_command import split_plain
+        for part in split_plain(features(app.bot_data),limit=3200):
+            await update.effective_message.reply_text(part,parse_mode=None)
+        raise ApplicationHandlerStop
+    async def model_command(update,context):
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:return
+        from hybrid_engine.integrated_features import models
+        from hybrid_engine.predictions_command import split_plain
+        args=context.args or []
+        if len(args)!=2 or args[0].upper() not in ('NBA','EUROLEAGUE','EUROCUP'):
+            value='Kullanım: /models NBA|EUROLEAGUE|EUROCUP MAÇ_KİMLİĞİ'
+        else:
+            try:value=await asyncio.to_thread(models,app.bot_data,args[0].upper(),args[1])
+            except (ValueError,KeyError,TypeError,OSError,sqlite3.Error):
+                value='Ayrı model kaydı doğrulanamadı. Kayıtlı ana tahmin korunuyor; /test research ile kaynak durumunu kontrol edin.'
+        for part in split_plain(value,limit=3200):await update.effective_message.reply_text(part,parse_mode=None)
+        raise ApplicationHandlerStop
+    app.add_handler(CommandHandler('features',feature_command),group=-50)
+    app.add_handler(CommandHandler('models',model_command),group=-50)
     from hybrid_engine.runtime_identity import install as observe_analysis
     observe_analysis(app.bot_data)
     from hybrid_engine.analyze_input import AnalyzeInputGuard

@@ -11,6 +11,7 @@ on:
       - "feature/europe-alias-replay-ui-20261118"
       - "feature/model-data-pipeline-audit-20261118"
       - "feature/issue90-chronological-engine-audit-20261118"
+      - "feature/integrated-test-bot-20261119"
   pull_request:
     branches:
       - main
@@ -21,6 +22,7 @@ on:
       - "feature/critical-integrity-audit-20261118"
       - "feature/europe-alias-replay-ui-20261118"
       - "feature/model-data-pipeline-audit-20261118"
+      - "feature/issue90-chronological-engine-audit-20261118"
 
 jobs:
   unit-tests:
@@ -36,10 +38,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
+          python -m pip install -r requirements-test.txt
       - name: Compile all Python modules
         run: python -m compileall -q .
       - name: Run regression tests
-        run: python -m unittest discover -s tests -v
+        run: python -m pytest -q
 
   docker-build:
     runs-on: ubuntu-latest
@@ -48,8 +51,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Build deployment image
         run: docker build --tag zeynal-bot-core:ci .
-      - name: Run regression suite inside deployment image
-        run: docker run --rm --network none zeynal-bot-core:ci python -m unittest discover -s tests -v
+      - name: Add test-only dependencies to a separate image
+        run: docker build --tag zeynal-bot-core:integration-tests --file Dockerfile.test .
+      - name: Run regressions with test-only pytest layer
+        run: docker run --rm --network none zeynal-bot-core:integration-tests python -m pytest -q
       - name: Verify isolated providers and Telegram under 256 MiB and one CPU
         run: >-
           docker run --rm --network none --read-only --cpus=1 --memory=256m --memory-swap=256m
