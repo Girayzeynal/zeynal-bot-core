@@ -236,6 +236,8 @@ def run(argv=None):
                       help="Existing 2026/27 season-participant JSON under ~/zeynal-test-isolated/data")
     mode.add_argument("--scan-local",action="store_true",
                       help="Bounded no-network inventory of existing 2026/27 NBA season snapshots; does not trust self-reported pins")
+    mode.add_argument("--inspect-db-schema",action="store_true",
+                      help="No-network fixed-path SQLite PRAGMA table_info only, no JSON parsing or data rows")
     p.add_argument("--trusted-sha256",
                    help="SHA256 independently pinned before this offline run")
     p.add_argument("--asof-utc",type=int,
@@ -244,7 +246,12 @@ def run(argv=None):
         "nba_denver_nuggets","nba_boston_celtics"])
     a=p.parse_args(argv)
     club=next(x for x in registry() if x["club_key"]==a.club)
-    if a.scan_local:
+    if a.inspect_db_schema:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--inspect-db-schema is metadata only; no as-of or trusted-pin claims")
+        from hybrid_engine.official_club_local_inventory import inspect_known_database_columns
+        r=inspect_known_database_columns(root=_LOCAL_ROOT)
+    elif a.scan_local:
         if a.trusted_sha256 is not None or a.asof_utc is not None:
             p.error("--scan-local has no source pin or historical cutoff; inventory only")
         r=inspect_local_season_snapshot_candidates()
