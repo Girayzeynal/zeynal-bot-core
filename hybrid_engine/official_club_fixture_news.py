@@ -79,7 +79,7 @@ def _resolve(league,name,rows):
 
 def read_fixture_club_news(ctx,*,requester=_request,clock=time.time,allow_no_fixture=False):
     """Return source index evidence only, not player medical availability."""
-    if ctx.get("league") not in ("EUROLEAGUE","EUROCUP"):
+    if ctx.get("league") not in ("NBA","EUROLEAGUE","EUROCUP"):
         raise ValueError("OFFICIAL_FIXTURE_NEWS_LEAGUE_REQUIRED")
     start=ctx.get("fixture_start_utc")
     now=int(clock())
