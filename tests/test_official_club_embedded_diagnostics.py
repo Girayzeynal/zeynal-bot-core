@@ -87,3 +87,30 @@ def test_other_league_diagnostic_refused():
     with pytest.raises(ValueError):
         diagnose_embedded(b"hello",next(c for c in registry()
                                        if c["club_key"]=="eurocup_tofas"))
+
+
+def test_boston_insiders_landing_excluded_despite_article_like_route():
+    source=page({"props":{"pageProps":{"cards":[
+        {"url":"/celtics/news/insiders","slug":"insiders","title":"Insiders hub"},
+        {"url":"/celtics/news/official-player-injury-update","slug":"official-player-injury-update",
+         "headline":"Official injury update"}
+    ]}}})
+    report=diagnose_embedded(source,club("nba_boston_celtics"))
+    assert report["article_url_candidate_count"]==1
+    assert report["article_urls_sample"]==[
+        "https://www.nba.com/celtics/news/official-player-injury-update"]
+    assert report["slug_field_count"]==2
+    assert len(report["slug_context_samples"])==2
+    assert all(row["title_present"] for row in report["slug_context_samples"])
+    assert report["model_input"] is False
+
+
+def test_slug_metadata_alone_does_not_become_a_synthetic_article_url():
+    source=page({"props":{"pageProps":{"items":[
+        {"slug":"nuggets-vs-celtics-injury-preview","headline":"News headline"},
+        {"slug":"nested-team-nav","title":"Navigation category"}
+    ]}}})
+    report=diagnose_embedded(source,club())
+    assert report["slug_field_count"]==2
+    assert report["article_url_candidate_count"]==0
+    assert report["source"]=="EMBEDDED_OFFICIAL_HTML_NOT_PUBLISHED_ARTICLE"
