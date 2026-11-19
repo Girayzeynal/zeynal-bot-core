@@ -187,6 +187,30 @@ def _request(url, *, limit, expected_mime):
         return dict(status="SOURCE_NETWORK_ERROR")
 
 
+def collect_article_candidates(index_html, club, *, observed_at_utc=None):
+    """Merge on-page anchors and explicitly indexed NBA native post URLs.
+
+    Returns only allowed official same-team links, never verified roster facts.
+    No additional network requests or immutable history rewrites.
+    """
+    from hybrid_engine.official_club_link_discovery import discover_article_links
+    html_candidates=discover_article_links(index_html,club)
+    if club["league"]!="NBA":
+        return html_candidates
+    from hybrid_engine.official_club_nba_posts import discover_nba_official_posts
+    embedded=discover_nba_official_posts(
+        index_html,club,observed_at_utc=observed_at_utc)
+    seen=set()
+    merged=[]
+    # For NBA prefer native published-post objects with source dates and IDs,
+    # then HTML anchors; duplicates do not erase source metadata.
+    for entry in embedded+html_candidates:
+        if entry["url"] not in seen:
+            seen.add(entry["url"])
+            merged.append(entry)
+    return merged
+
+
 def probe(club, *, requester=_request, link_diagnostics=False):
     """At most two same-origin requests: robots.txt, then ONE fixed source URL."""
     url=club["source_url"];p=_bounded_https(url,club["host"])
@@ -220,8 +244,7 @@ def probe(club, *, requester=_request, link_diagnostics=False):
     # their HTML includes a <time> for one or more article teaser links.
     metadata["published_utc"]=None
     metadata["publication_time_status"]="NEWS_INDEX_ARTICLE_TIME_NOT_VERIFIED"
-    from hybrid_engine.official_club_link_discovery import discover_article_links
-    candidates=discover_article_links(raw,club)
+    candidates=collect_article_candidates(raw,club,observed_at_utc=observed)
     diagnostic={}
     if link_diagnostics:
         from hybrid_engine.official_club_link_diagnostics import diagnose_links
@@ -234,6 +257,9 @@ def probe(club, *, requester=_request, link_diagnostics=False):
                 observed_at_utc=observed,body_sha256=_pin(raw),
                 document_bytes=len(raw),article_links=candidates,
                 article_links_status="CANDIDATES_ONLY_NO_ARTICLE_FETCH",
+                official_embedded_candidate_count=sum(
+                    item.get("discovered_from")=="OFFICIAL_NBA_EMBEDDED_PUBLISHED_POST"
+                    for item in candidates),
                 **metadata,**diagnostic)
 
 
