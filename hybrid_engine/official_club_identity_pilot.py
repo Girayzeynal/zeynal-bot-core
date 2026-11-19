@@ -244,6 +244,10 @@ def run(argv=None):
                       help="Zero-network read-only crosscheck of frozen NBA fixture IDs against locally stored ESPN final events; no external source attestation")
     mode.add_argument("--audit-missing-finals",action="store_true",
                       help="Zero-network local frozen NBA fixture gap list; distinguish pre-tipoff from elapsed tipoff without claiming final result")
+    mode.add_argument("--prepare-final-stage",action="store_true",
+                      help="Create new isolated NBA SQLite test copy only after frozen/final audit; zero network or source mutation")
+    mode.add_argument("--coverage-summary",action="store_true",
+                      help="Zero-network 82-club official NEWS source inventory: only six pilot URLs observed")
     p.add_argument("--trusted-sha256",
                    help="SHA256 independently pinned before this offline run")
     p.add_argument("--asof-utc",type=int,
@@ -252,7 +256,17 @@ def run(argv=None):
         "nba_denver_nuggets","nba_boston_celtics"])
     a=p.parse_args(argv)
     club=next(x for x in registry() if x["club_key"]==a.club)
-    if a.audit_missing_finals:
+    if a.coverage_summary:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--coverage-summary is a no-network inventory, not an as-of attestation")
+        from hybrid_engine.official_club_coverage import summary as coverage_summary
+        r=coverage_summary()
+    elif a.prepare_final_stage:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--prepare-final-stage never accepts external source trust claims")
+        from hybrid_engine.official_club_final_staging import prepare_isolated_final_stage
+        r=prepare_isolated_final_stage(root=_LOCAL_ROOT)
+    elif a.audit_missing_finals:
         if a.trusted_sha256 is not None:
             p.error("--audit-missing-finals does not accept external trust claims")
         from hybrid_engine.official_club_missing_final_audit import inspect_local_missing_finals
