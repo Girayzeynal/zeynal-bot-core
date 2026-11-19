@@ -9,6 +9,7 @@ metadata walk, candidate-prioritized JSON reading, and immutable SQLite
 schema introspection. SQLite immutable mode can miss uncheckpointed WAL data.
 """
 from pathlib import Path
+from contextlib import closing
 from urllib.parse import quote
 import json
 import os
@@ -235,7 +236,7 @@ def inspect_known_database_columns(*,root):
             continue
         try:
             uri="file:"+quote(str(file),safe="/")+"?mode=ro&immutable=1"
-            with sqlite3.connect(uri,uri=True,timeout=.3) as conn:
+            with closing(sqlite3.connect(uri,uri=True,timeout=.3)) as conn:
                 conn.execute("PRAGMA query_only=ON")
                 # table is a hardcoded constant from our source, not user input.
                 schema=conn.execute('PRAGMA table_info("'+table+'")').fetchall()
