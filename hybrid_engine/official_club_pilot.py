@@ -23,7 +23,9 @@ def run(argv=None):
     p.add_argument("--diagnose-links",action="store_true",
                    help="Show bounded same-page link/HTML diagnostic; only with --live, --club and --summary")
     p.add_argument("--save",action="store_true",
-                   help="Opt in to append-only metadata receipt in isolated test directory")
+                   help="Opt in to append-only NEWS INDEX receipt in isolated test directory")
+    p.add_argument("--save-article",action="store_true",
+                   help="Opt in to immutable first-observed article VERSION hash receipt in isolated test directory")
     p.add_argument("--article-url",
                    help="Opt in to one freshly indexed official article (requires --live and one --club; no --save)")
     args=p.parse_args(argv)
@@ -31,6 +33,9 @@ def run(argv=None):
         p.error("--save requires --live")
     if args.article_url and (not args.live or args.save or len(args.club)!=1):
         p.error("--article-url requires --live and exactly one --club; no --save")
+    if args.save_article and (not args.live or not args.article_url or
+                             args.save or len(args.club)!=1):
+        p.error("--save-article requires --live --article-url and exactly one --club; no --save")
     if args.diagnose_links and (not args.live or len(args.club)!=1 or
                                 not args.summary or args.article_url or args.save):
         p.error("--diagnose-links requires --live --summary --club ONE; no --article-url or --save")
@@ -60,6 +65,14 @@ def run(argv=None):
         if args.save and result.get("status")=="PUBLIC_NEWS_PAGE_OBSERVED_NOT_PLAYER_VERIFIED":
             path=append_receipt(Path.home()/"zeynal-test-isolated"/"data"/"club-pilot-evidence",result)
             result=dict(result,evidence_file=str(path))
+        if args.save_article and result.get("status")=="OFFICIAL_ARTICLE_OBSERVED_NOT_ROSTER_VERIFIED":
+            from hybrid_engine.official_club_capture import record_first_article_capture
+            receipt,receipt_file,is_new=record_first_article_capture(result,item)
+            result=dict(result,first_capture_receipt_file=str(receipt_file),
+                        first_capture_receipt_sha256=receipt["receipt_sha256"],
+                        first_capture_at_utc=receipt["captured_at_utc"],
+                        first_capture_observed_at_utc=receipt["observed_at_utc"],
+                        first_capture_record_new=is_new)
         if args.summary:
             compact=dict(league=result.get("league",item["league"]),
                          club_key=result.get("club_key",item["club_key"]),
@@ -78,7 +91,10 @@ def run(argv=None):
                             "index_clock_status","index_native_post_id",
                             "article_headline_from_index","article_title",
                             "document_bytes","visible_text_chars","body_sha256",
-                            "injury_claim_evidence_status","match_identity_status"):
+                            "injury_claim_evidence_status","match_identity_status",
+                            "first_capture_receipt_file","first_capture_receipt_sha256",
+                            "first_capture_at_utc","first_capture_observed_at_utc",
+                            "first_capture_record_new"):
                     if key in result:
                         compact[key]=result[key]
                 compact["article_claim_candidate_names_text_only"]=[
