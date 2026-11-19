@@ -64,6 +64,14 @@ class ProductionParityTests(unittest.TestCase):
         asyncio.run(parity.models_command(update, context))
         self.assertIn("Kullanım:", msg.sent[0])
 
+    def test_empty_verified_production_archive_has_production_label(self):
+        reader = Reader(status="VERIFIED_LIVE_REPORT")
+        update, context, msg = fixture(reader, ["all"])
+        asyncio.run(parity.results_command(update, context))
+        self.assertIn("Doğrulanmış üretim arşivi", "".join(msg.sent))
+        self.assertNotIn("İzole test arşivi", "".join(msg.sent))
+        self.assertEqual([league for league, _ in reader.calls], list(parity.LEAGUES))
+
     def test_registration_is_side_effect_free(self):
         class App:
             def __init__(self): self.handlers = []
