@@ -185,3 +185,22 @@ PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B
 ```
 
 CI commit `0db524b63c7163ecaddbeeaa7e8c970d07ca931c`, run `44474353203`, job `135391163326`: **134 offline tests passed in 0.89s**. Android schema detail has not yet been run. No modifications to Fly.io, Telegram, frozen results or archive; no model input or robots bypass.
+
+
+## 19 Nov 2026 — Frozen NBA pretipoff ledger commit receipt read-only audit
+
+Existing repository source `live_analysis_ledger.py` documents the difference between `live_analysis_snapshots` and `live_analysis_commit_receipts`: only snapshots with matching commit receipt SHA and `created_at_utc <= completed_utc < record_deadline_utc <= fixture_start_utc` are internally consistent pretipoff records. An unconfirmed snapshot is **not** proof of a generated pre-match forecast. The 19 Nov UserLAnd scan identified `live-nba/nba-hybrid.sqlite` but **did not read forecast rows or receipts**, so real verified counts are unknown.
+
+New opt-in `hybrid_engine/official_club_frozen_receipt_audit.py` provides bounded 0-HTTP local audit of only `~/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite` with immutable read-only SQLite mode and `query_only=ON`. Checks snapshot SHA against parsed payload, ledger key identity, live record schema (`validate_record`), receipt SHA and completed time, home/away forecast provider team IDs, orphan receipts and row consistency. At most 128 snapshot metadata records / 512 KiB each / 8 MiB payload bytes, at most 8 summarized fixture examples. No full payload or prediction number is emitted and no database or archive row is modified.
+
+Important qualifications: if a `-wal` sidecar exists, immutable mode might not see uncheckpointed rows, so it ABSTAINS instead of claiming completeness. Hashes/receipts stored inside one SQLite database prove **local structural consistency**, not independent external timestamp attestation, external fixture identity, player roster, ESPN-to-NBA.com crosswalk, or a historical news availability proof. Likewise the research `prematch_gate` still requires separately pinned season and player identity and precise article publication/capture clocks; no automatic bridge from arbitrary snapshot rows. `model_input=false`, `production_changed=false` throughout.
+
+After branch fetch from a clean UserLAnd isolated worktree, this single read-only command audits without any ESPN/club network requests:
+
+```bash
+PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B -m hybrid_engine.official_club_identity_pilot --audit-frozen-receipts --club nba_denver_nuggets
+```
+
+The command's club flag keeps the CLI schema consistent; audit targets NBA frozen receipt ledger only, not one team and not a verified identity join. `LOCALLY_CONSISTENT_FROZEN_RECEIPTS_NOT_EXTERNALLY_ATTESTED` means local SHA/receipt/clock consistency; missing or invalid receipt -> ABSTAIN; partial row/byte budget -> `AUDIT_INCOMPLETE_BOUND_REACHED`; WAL present -> ABSTAIN. A healthy audit can show at most 8 fixture ID/provider ID examples for future independently pinned crosswalk work. No values have been observed on Android yet.
+
+**GitHub Actions** commit `dec8e66dca9d40bc3053402d69cbf95a9b40575b`, run `44478289103`, job `135404037600`: **147 offline tests passed in 1.06s**. Tests include SHA tamper, missing receipt, orphan commit, post-tipoff deadline, WAL, bounded row scope, no row leakage and unchanged sqlite bytes. PR #97 remains DRAFT; no Fly.io, Telegram production, frozen archive or model changes.
