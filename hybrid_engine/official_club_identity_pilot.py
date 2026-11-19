@@ -11,6 +11,8 @@ Invocation:
 import argparse
 import json
 import time
+import re
+from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, build_opener
@@ -81,11 +83,23 @@ def capture_nba_espn_identity(club, *, requester=pinned_espn_request, now_utc=No
             if robots.get("http_status") not in (404,410):
                 return dict(format=FORMAT,status="ABSTAIN",
                             reason="ESPN_ROBOTS_UNAVAILABLE_OR_REFUSED",
+                            failed_stage="ROBOTS_POLICY_CHECK",
+                            failed_source_role=name,
+                            failed_source_host=host,
+                            robots_transport_status=robots.get("status"),
+                            robots_http_status=robots.get("http_status"),
+                            robots_decision="UNVERIFIED_NO_DATA_REQUEST",
                             club_key=club["club_key"],requests=requests,
                             model_input=False,production_changed=False)
         elif not allowed_by_robots(robots["body"].decode("utf-8","replace"),url):
             return dict(format=FORMAT,status="ABSTAIN",
                         reason="ESPN_ROBOTS_DISALLOW",
+                        failed_stage="ROBOTS_POLICY_CHECK",
+                        failed_source_role=name,
+                        failed_source_host=host,
+                        robots_transport_status=robots.get("status"),
+                        robots_http_status=robots.get("http_status"),
+                        robots_decision="DISALLOWED_NO_DATA_REQUEST",
                         club_key=club["club_key"],requests=requests,
                         model_input=False,production_changed=False)
         result=requester(url,limit=MAX_BODY,expected_mime="application/json")
@@ -142,19 +156,96 @@ def capture_nba_espn_identity(club, *, requester=pinned_espn_request, now_utc=No
                 model_input=False,production_changed=False)
 
 
+_SNAPSHOT_SHA=re.compile(r"^[0-9a-f]{64}$")
+_LOCAL_ROOT=(Path.home()/"zeynal-test-isolated"/"data").absolute()
+_MAX_LOCAL_SNAPSHOT_BYTES=4*1024*1024
+
+
+def offline_nba_espn_identity(club,*,path, trusted_snapshot_sha256,
+                              asof_utc, local_root=None):
+    """Read a user-selected prior season participant bundle; ZERO network.
+
+    The SHA is an externally supplied pin; do NOT calculate a fresh 'trusted'
+    SHA from the same untrusted file as if it were independent evidence.
+    Local source timestamps are not secure third-party time attestations.
+    """
+    root=_LOCAL_ROOT if local_root is None else Path(local_root).expanduser().absolute()
+    file=Path(path).expanduser().absolute()
+    base=dict(format=FORMAT,club_key=club["club_key"],
+              requests=0,model_input=False,production_changed=False,
+              source_mode="OFFLINE_USER_PINNED_SEASON_SNAPSHOT")
+    if (type(trusted_snapshot_sha256) is not str or
+        not _SNAPSHOT_SHA.fullmatch(trusted_snapshot_sha256) or
+        type(asof_utc) is not int or asof_utc<=0):
+        return dict(base,status="ABSTAIN",reason="INDEPENDENT_SHA_AND_ASOF_REQUIRED")
+    try:
+        if file.suffix!=".json" or not file.is_relative_to(root):
+            raise ValueError("ISOLATED_SNAPSHOT_PATH_REQUIRED")
+        if any(n.is_symlink() for n in (file,*file.parents) if
+               n==file or n.is_relative_to(root)):
+            raise ValueError("ISOLATED_SNAPSHOT_SYMLINK_REFUSED")
+        if not file.is_file() or file.stat().st_size>_MAX_LOCAL_SNAPSHOT_BYTES:
+            raise ValueError("ISOLATED_SNAPSHOT_NOT_PRESENT_OR_TOO_LARGE")
+        data=json.loads(file.read_bytes())
+        bridge=audit_nba_team_crosswalk(
+            club,data,trusted_snapshot_sha256=trusted_snapshot_sha256,
+            asof_utc=asof_utc)
+    except (OSError,UnicodeError,ValueError,TypeError,KeyError,
+            OverflowError,RecursionError) as exc:
+        # Don't expose untrusted filesystem or document contents.
+        code=str(exc)
+        reason=(code if code in (
+            "ISOLATED_SNAPSHOT_PATH_REQUIRED",
+            "ISOLATED_SNAPSHOT_SYMLINK_REFUSED",
+            "ISOLATED_SNAPSHOT_NOT_PRESENT_OR_TOO_LARGE",
+            "PARTICIPANT_SNAPSHOT_TRUST_ANCHOR_REQUIRED",
+            "SEASON_SOURCE_NOT_AVAILABLE_AT_FORECAST_CUTOFF",
+            "NBA_ESP_TEAM_NAME_NOT_UNIQUELY_MATCHED") else
+            "PINNED_SEASON_SNAPSHOT_VALIDATION_REFUSED")
+        return dict(base,status="ABSTAIN",reason=reason)
+    return dict(base,status="OFFLINE_TEAM_CROSSWALK_CANDIDATE_ONLY",
+                nba_com_team_id=bridge["nba_com_team_id"],
+                espn_team_id=bridge["espn_team_id"],
+                season=bridge["season"],league="NBA",
+                source_participant_snapshot_sha256=trusted_snapshot_sha256,
+                source_participant_ingested_at_utc=bridge[
+                    "source_participant_ingested_at_utc"],
+                asof_utc=asof_utc,
+                first_issued_forecast_proof_established=False,
+                verified_fixture_id=None,verified_player_id=None,
+                source_attestation="LOCAL_HASH_NOT_INDEPENDENT_PROVIDER_SIGNATURE")
+
+
 def run(argv=None):
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--live",action="store_true")
+    mode=p.add_mutually_exclusive_group()
+    mode.add_argument("--live",action="store_true")
+    mode.add_argument("--offline-snapshot",
+                      help="Existing 2026/27 season-participant JSON under ~/zeynal-test-isolated/data")
+    p.add_argument("--trusted-sha256",
+                   help="SHA256 independently pinned before this offline run")
+    p.add_argument("--asof-utc",type=int,
+                   help="Unix UTC second cutoff; never infer a historical timestamp")
     p.add_argument("--club",required=True,choices=[
         "nba_denver_nuggets","nba_boston_celtics"])
     a=p.parse_args(argv)
     club=next(x for x in registry() if x["club_key"]==a.club)
-    if not a.live:
+    if a.offline_snapshot:
+        if a.trusted_sha256 is None or a.asof_utc is None:
+            p.error("--offline-snapshot requires --trusted-sha256 and --asof-utc")
+        r=offline_nba_espn_identity(
+            club,path=a.offline_snapshot,
+            trusted_snapshot_sha256=a.trusted_sha256,asof_utc=a.asof_utc)
+    elif a.live:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--trusted-sha256 and --asof-utc are offline-only")
+        r=capture_nba_espn_identity(club)
+    else:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--trusted-sha256 and --asof-utc require --offline-snapshot")
         r=dict(format=FORMAT,status="DRY_RUN_ZERO_HTTP",
                club_key=a.club,requests=0,
                model_input=False,production_changed=False)
-    else:
-        r=capture_nba_espn_identity(club)
     print(json.dumps(r,ensure_ascii=False,sort_keys=True))
     return 0
 
