@@ -68,8 +68,11 @@ jobs:
           chosen=[m for m in machines if m.get('id')=='830932f77d2598']
           image=(chosen[0].get('config') or {}).get('image') if len(chosen)==1 else None
           assert isinstance(image,str) and image.startswith('registry.fly.io/zeynal-bot-core'), 'Cannot pin existing deploy image for safe rollback'
+          release=(chosen[0].get('config') or {}).get('env',{}).get('ZEYNAL_RELEASE_SHA')
+          assert isinstance(release,str) and len(release)==40 and all(c in '0123456789abcdef' for c in release), 'Current machine release SHA must be independently recorded for rollback'
           open('/tmp/zeynal-previous-image.txt','w').write(image)
-          print('Verified existing AMS machine and /data volume mount; rollback image recorded')
+          open('/tmp/zeynal-previous-release-sha.txt','w').write(release)
+          print('Verified existing AMS machine, mounted /data, old image and old release environment')
           PY
       - name: Require existing recoverable volume snapshot before deployment
         if: ${{ env.ZEYNAL_DEPLOY_MODE == 'DEPLOY' }}
@@ -109,20 +112,26 @@ jobs:
           set -euo pipefail
           test -n "${ZEYNAL_DEPLOY_IMAGE:-}"
           test -s /tmp/zeynal-previous-image.txt
+          test -s /tmp/zeynal-previous-release-sha.txt
           UPDATED=0
           rollback_if_failed() {
             result=$?
             if [[ "$UPDATED" == 1 ]]; then
               echo "Release smoke test failed; attempting previous image rollback" >&2
               flyctl machine update 830932f77d2598 --app zeynal-bot-core \
-                --image "$(cat /tmp/zeynal-previous-image.txt)" --yes --wait-timeout 300 || \
+                --image "$(cat /tmp/zeynal-previous-image.txt)" \
+                --env "ZEYNAL_RELEASE_SHA=$(cat /tmp/zeynal-previous-release-sha.txt)" \
+                --yes --wait-timeout 300 || \
                 echo "ROLLBACK_FAILED: existing machine requires manual recovery; volume was not deleted" >&2
             fi
             exit "$result"
           }
           trap rollback_if_failed ERR
           UPDATED=1
-          flyctl machine update 830932f77d2598 --app zeynal-bot-core --image "$ZEYNAL_DEPLOY_IMAGE" --yes --wait-timeout 300
+          flyctl machine update 830932f77d2598 --app zeynal-bot-core \
+            --image "$ZEYNAL_DEPLOY_IMAGE" \
+            --env "ZEYNAL_RELEASE_SHA=$ZEYNAL_RELEASE_COMMIT" \
+            --yes --wait-timeout 300
           flyctl machines list --app zeynal-bot-core --json > /tmp/zeynal-after.json
           flyctl volumes list --app zeynal-bot-core --json > /tmp/zeynal-after-volumes.json
           python3 - <<'PY'
@@ -131,6 +140,8 @@ jobs:
           volumes=json.load(open('/tmp/zeynal-after-volumes.json'))
           assert any(v.get('id')=='vol_4581deoz3xjnp594' and v.get('attached_machine_id')=='830932f77d2598' for v in volumes), 'Volume attachment changed'
           assert any(m.get('id')=='830932f77d2598' and m.get('state')=='started' and any(x.get('volume')=='vol_4581deoz3xjnp594' and x.get('path')=='/data' for x in (m.get('config',{}).get('mounts') or [])) for m in machines), 'Machine not started or /data mount changed'
+          import os
+          assert any(m.get('id')=='830932f77d2598' and (m.get('config') or {}).get('env',{}).get('ZEYNAL_RELEASE_SHA')==os.environ['ZEYNAL_RELEASE_COMMIT'] for m in machines), 'Machine runtime release environment not updated'
           print('Existing machine started; original volume still attached')
           PY
           curl --fail --silent --show-error --retry 5 --retry-delay 5 --max-time 15 \
