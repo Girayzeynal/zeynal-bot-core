@@ -99,7 +99,7 @@ def pair(ctx,*,getter=fetch_native,clock=time.time):
     league=ctx.get("league");season=ctx.get("season")
     if league not in ("EUROLEAGUE","EUROCUP"):
         raise ValueError("NATIVE_ROSTER_COMPETITION")
-    now=int(clock());rows={}
+    rows={}
     for side in ("home","away"):
         code=ctx[side].get("provider_id")
         try:url=endpoint(league,season,code)
@@ -114,7 +114,7 @@ def pair(ctx,*,getter=fetch_native,clock=time.time):
             rows[side]={"status":"SOURCE_IDENTITY_OR_SCHEMA_REFUSED",
                         "source_url":url,"registered_players":[],"model_input":False}
     return {"format":"ZEYNAL_OFFICIAL_EUROPE_PLAYER_DIRECTORY_V1",
-            "fixture_id":ctx.get("fixture_id"),"observed_at_utc":now,
+            "fixture_id":ctx.get("fixture_id"),"observed_at_utc":int(clock()),
             "teams":rows,"model_input":False,"injury_status_verified":False,
             "source_scope":"SEASON_REGISTRATION_NOT_MATCH_AVAILABILITY"}
 
