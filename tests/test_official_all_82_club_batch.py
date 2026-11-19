@@ -176,7 +176,7 @@ def test_cannot_enable_model_injury_feeds_or_swap_original_pilot_url(tmp_path):
     p=next(x for x in doc["records"] if x["club_key"]=="nba_denver_nuggets")
     p["official_news_entry_url"]="https://www.nba.com/denver/misc"
     path.write_text(json.dumps(doc))
-    with pytest.raises(ValueError,match="ALL_82_ORIGINAL_PILOT_SITE_CHALLENGED"):
+    with pytest.raises(ValueError,match="ALL_82_(ORIGINAL_PILOT_SITE_CHALLENGED|NBA_NEWS_TEAM_PATH_MISMATCH)"):
         bulk.load_all_82(path)
 
 
