@@ -1,0 +1,58 @@
+{
+  "artifacts": {
+    "handoff-el-results-20261115.json.gz": "eaff4bb247b0d6f1c0f429433f1125f62686850dd8ce3b261eef5e7e5b841e48",
+    "handoff-forward-el-20261115.tar.gz": "83b7377a945e391039a84f3295586c155277bae78ba9a659272cfad105a2fafb",
+    "handoff-native-20261115.json.gz": "0cdde97676f491521e11766f0eba9d2ea71763931a0d3947b753d0154af028a6",
+    "handoff-nba-prospective-20261115.tar.gz": "d0212b681ca3328ef5e563d5e97e93999a619b6fffe9a959e338a1ff6fd653cb"
+  },
+  "baseline_commit": "fea79f6e9ee8317ee8f3fa0e7b82c6c867117f59",
+  "dedicated_telegram_settings_present": false,
+  "format": "CLOUD_HANDOFF_VERIFICATION_V1",
+  "local_runtime": {
+    "actual_telegram_delivery_verified": false,
+    "address_space_limit_bytes": [
+      268435456,
+      268435456
+    ],
+    "command_names": [
+      "/accuracy",
+      "/analyze",
+      "/compare",
+      "/nba"
+    ],
+    "cpu_affinity": [
+      0
+    ],
+    "elapsed_seconds": 2.0992395709999983,
+    "new_prematch_records_created": 0,
+    "peak_rss_mib": 86.984375,
+    "requests": 10,
+    "status": "PASS"
+  },
+  "local_runtime_limit_scope": "RLIMIT_AS_256_MIB_AND_ONE_CPU_AFFINITY_NOT_256_MIB_CGROUP",
+  "prior_archive_files_unchanged": 46,
+  "production_changed": false,
+  "protected_model_sources": {
+    "hybrid_engine/data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+    "hybrid_engine/distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+    "hybrid_engine/live_nba.py": "40c347e5b47adbf58e720383da4d6df30aa6046e3cd30249d665b66c768ac6c2",
+    "hybrid_engine/models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+    "main.py": "aed941457ef16cafae223fa8f0ae864cf791efce0fdba36efa7aee2bc0737d02",
+    "universal_analysis.py": "a5f7260970faad35de87b4a492a9aace761f606260b3f39e5ce86f90f772ade2",
+    "verified_history.py": "a67e5268cc8aaca83715b4c983dfd8bb3457e46d2487b258e5e8bfa2ece0f6fa"
+  },
+  "real_nba_repeat": {
+    "actual_telegram_delivery_verified": false,
+    "commit_proofs_unchanged": true,
+    "integrity": {
+      "snapshots": 1,
+      "sqlite": "ok",
+      "unconfirmed_snapshots": 0,
+      "verified_results": 0
+    },
+    "new_record": false,
+    "same_snapshot_sha256": true,
+    "status": "ANALYSIS_OK"
+  },
+  "real_new_telegram_e2e_status": "BLOCKED_MISSING_DEDICATED_TEST_BOT_SETTINGS"
+}

@@ -1,0 +1,4 @@
+# CI only: production runtime/dependencies remain unchanged.
+ARG BASE_IMAGE=zeynal-bot-core:ci
+FROM ${BASE_IMAGE}
+RUN pip install --no-cache-dir -r requirements-test.txt

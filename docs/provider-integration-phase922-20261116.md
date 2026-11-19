@@ -1,0 +1,268 @@
+# Isolated provider integration: phase 92.2
+
+The existing Fly secret names (`API_SPORTS_KEY` and `ODDS_API_KEY`) are valid.
+Their presence on Fly does not provide credentials to UserLAnd or Cloud. The
+reported `API_SPORTS_KEY` is staged; no secret deployment was performed.
+
+## Confirmed code causes
+
+1. `hybrid_engine.test_bot.main` clears the legacy `API_SPORTS_KEY` before
+   constructing the production application's bootstrap. Previously no separate
+   credential capture existed for research data access.
+2. The hybrid `/analyze` route returns before the legacy Faz17 market path in
+   `main.py`. Merely constructing Faz17 did not connect it to hybrid analysis.
+3. The isolated market panel previously read ESPN receipts/manual evidence only.
+4. Keys, source verification, settlement compatibility, and calibrated model
+   probabilities are separate requirements. Adding an API cannot prove an edge.
+
+## Implemented behavior
+
+- Capture dedicated data credentials before blanking the legacy bootstrap key;
+  keep production bootstrap and scheduler isolation intact.
+- Optional private file `~/.zeynal-test-providers.env`: literal `NAME=value`
+  allowlist, owner-only mode, same owner, no symlink, maximum 8 KiB, no shell
+  evaluation. Existing process environment is also supported. No automatic Fly
+  secret export, generic `.env` loading, or Telegram token access.
+- Supported aliases: `ODDS_API_KEY` / `THE_ODDS_API_KEY`, and
+  `API_SPORTS_KEY` / `API_BASKETBALL_KEY`. Conflicting aliases stop startup with a
+  fixed diagnostic and no values.
+- Fixed HTTPS origins; authentication headers; no API key in a URL. Redirects
+  are refused. HTTP errors, exception strings, and response bodies cannot expose
+  a credential in diagnostics. Secret-echoing successful responses are refused.
+- The Odds API: check active sport catalog; exact home/away/start-time match;
+  request event-specific decimal `h2h`, `spreads`, and `totals` in one region.
+  Real bookmaker IDs and published timestamps are retained; stale/future prices,
+  incomplete opposing sides and mismatched handicaps are refused.
+- Alternative totals/spreads, team totals and quarter/half totals are supported
+  by the parser. Requests for those extra markets require the local setting
+  `ZEYNAL_TEST_ODDS_EXTENDED=1`, because more markets may consume more credits.
+  A response is not a guarantee of every market or bookmaker's coverage.
+- API-Basketball: discover the exact league ID, cross-check the exact fixture and
+  unstarted status, and capture home/away season statistics only after verifying
+  the returned fixture's season. Those aggregates are labeled current extra
+  observations, not retroactive model inputs, measured pace, injuries or lineups.
+- Positive cache preserves original receipt bytes/identity and observation time.
+  Per-provider failure cooldown; quota-zero refusal; 24 requests/provider/process/
+  UTC-day local budget, maximum 12 cached documents of 2 MiB each. Local budgets
+  reset on process restart; provider quota headers remain authoritative. Three
+  seconds per request and a shared 12-second collection deadline; no automatic
+  retries. API errors leave the original score visible.
+- Current retrieval receipts and review manifests are hash-pinned, append-only
+  files under the isolated data directory's `provider-evidence`. Existing
+  prediction ledgers/assets are not updated. Completed games make no provider
+  requests and receive no current-data historical backfill.
+  Provider evidence storage is capped at 256 files / 32 MiB; a full evidence
+  budget stops this additional provider panel without deleting old records.
+- NBA `/analyze` has a provider panel in the existing Piyasa button, with source
+  availability, auth/plan/quota/identity errors, observed lines and raw coherent
+  regulation probabilities. No settlement rules, EV, confidence percentage or
+  calibration are invented. A source acquired after an archived prediction is
+  explicitly labeled as later evidence, never as information available at issue.
+- The current source panel says missing/unverified data is not `NO EDGE`. The
+  existing sealed decision evaluator still reserves `NO_EDGE` for an actual
+  comparable EV calculation; its policy and implementation remain unchanged.
+
+## Safe UserLAnd operation
+
+The canonical launcher remains:
+
+```bash
+bash ~/zeynal-hybrid-844/scripts/run_isolated_test_bot.sh
+```
+
+Once this branch update is present, credentials can be checked without starting
+or stopping Telegram, changing Git, deploying secrets, or printing key values:
+
+```bash
+bash ~/zeynal-hybrid-844/scripts/run_isolated_test_bot.sh --provider-check
+```
+
+This queries only the provider sport catalog/account-status endpoints if a key
+is locally configured. It does not copy Fly secrets. Configure credentials
+privately in UserLAnd's dedicated file or process environment; do not send values
+to chat or commit them. No new plan, paid subscription or production restart is
+part of this change.
+
+If the known existing local application `.env` contains those data keys, an
+explicit importer can copy only the two provider allowlists into the private
+test file. It ignores Telegram and other settings, does not evaluate shell,
+preserves the source, uses mode 0600, refuses conflicting existing test values,
+and never prints key values. Normal bot startup does not read this source file.
+
+```bash
+cd ~/zeynal-hybrid-844
+.venv/bin/python -m hybrid_engine.provider_setup --from-env ~/zeynal-bot-core/zeynal-bot-core/.env --check
+```
+
+No matching local data keys means `NO_PROVIDER_KEYS_FOUND_IN_LOCAL_SOURCE`, not
+successful migration. Missing keys are never synthesized or fetched from Fly.
+
+The user's actual UserLAnd `--provider-check` returned both providers as
+`KEY_NOT_AVAILABLE_IN_TEST_PROCESS`, with `api_requests_made=0`. This establishes
+local configuration absence, not invalid Fly credentials. The importer has
+eight additional synthetic tests; local full regression is now **985 passed,
+0 failed/errors**, 68.201 seconds. No actual UserLAnd key import has yet been
+observed from Cloud.
+
+The user's actual local import subsequently returned
+`NO_PROVIDER_KEYS_FOUND_IN_LOCAL_SOURCE`; source_changed=false and zero API
+requests. The local application env therefore did not provide either accepted
+data-key alias. This does not establish that deployed Fly credentials are bad.
+
+An **explicit read-only Fly import** is available when the existing CLI session
+can access the already running production VM:
+
+```bash
+cd ~/zeynal-hybrid-844
+.venv/bin/python -m hybrid_engine.provider_fly_import --check
+```
+
+It privately captures `fly machine list --app zeynal-bot-core --json`, proves the
+single authorized machine `830932f77d2598` is already started, and only then runs
+a read-only Python SSH command on that exact machine. It selects only
+`ODDS_API_KEY` and `API_SPORTS_KEY` from the runtime environment; Telegram values
+are not transferred. Output is captured, bounded, allowlisted, and never echoed.
+The local mode0600 importer retains existing conflict/immutability guards.
+No machine start, restart, deploy, DB access, remote file write or secret-set
+command exists. A stopped/missing/ambiguous machine aborts before SSH. The source
+is current runtime values: **staged API-Sports secrets are never activated or
+recovered**. Missing keys remain explicitly missing.
+
+Eight synthetic Fly CLI tests cover running-machine targeting, stopped-machine
+refusal, partial deployed-only access, forbidden token transfer, invalid packets,
+CLI failure, missing keys and remote-code syntax. No actual Fly environment read
+has been performed in Cloud. CLI flags are verified against the
+[official machine-list implementation](https://github.com/superfly/flyctl/blob/master/internal/command/machine/list.go)
+and [SSH console reference](https://fly.io/docs/flyctl/ssh-console/).
+Local full regression after this helper: **993 passed, 0 failures/errors**, 70.523
+seconds. Read-only transfer tests use synthetic CLI responses; they do not prove
+actual Fly/SSH access or authenticated provider availability.
+
+## User-reported real provider failure and safe diagnosis
+
+The subsequent UserLAnd transfer reported both provider keys imported, followed
+by two successful real authentication checks: Odds sports catalog and
+API-Basketball account status. These are user-provided terminal results, not
+Cloud-executed or independently attested requests. No staged secret activation
+or production change was reported.
+
+The user's real Boston–Orlando Telegram panel then showed
+`THE_ODDS_API: EXACT_FIXTURE_MATCH_REQUIRED` and
+`API_BASKETBALL: PROVIDER_REPORTED_ERROR`. Its DraftKings -8.5 / total211.5
+observations came from ESPN. Thus authentication succeeded but real event/market
+availability was not verified; neither a time-zone cause nor a plan/quota cause
+can be concluded from those two generic status codes.
+
+The provider bridge now retains native failure receipt pins and reports safe
+diagnostics: target UTC start, exact/same-pair/reversed counts, provider event
+window and at most five candidate names/UTC starts/offset seconds. Different
+tipoff times and reversed home/away are still refused. No fuzzy matching,
+UTC-day relaxation, fabricated IDs or forecast rewrites were added.
+
+API-Basketball errors identify the operation (league discovery vs fixture query)
+and fixed provider-message classes for quota, plan, season, authentication and
+query parameters. Native error text, account data, unknown field names and key
+values are never printed. The games query now explicitly carries the archived
+season rather than relying on a provider default. This query-context correction
+is not claimed to be the observed failure's root cause without the diagnostic.
+
+After updating this branch, a bounded diagnostic reads the actual committed
+forecast with SQLite mode=ro/query_only and verifies its existing SHA:
+
+```bash
+cd ~/zeynal-hybrid-844
+.venv/bin/python -m hybrid_engine.provider_diagnostics --fixture-id 401909994
+```
+
+The default is the already identified isolated UserLAnd ledger. No new forecast,
+statistics or odds-market request is made: only catalog/event/fixture checks.
+Diagnostics use current retrieval time, never backdate source availability, and
+append evidence in the separate provider-evidence directory. Started fixtures
+make no fresh provider request. Eleven additional synthetic regressions cover
+offsets, reversed/ambiguous/empty matches, error-message secret exclusion,
+explicit season parameters, diagnostic quota scope and unchanged SQLite bytes.
+Local full regression: **1004 passed, 0 failures/errors**, 69.230 seconds; the
+previous 993 tests are retained. Actual diagnostic execution in UserLAnd is
+still pending, so the reported provider failure root causes remain unresolved.
+
+## Confirmed UserLAnd diagnosis and constrained NBA clock binding
+
+The user's actual diagnostic for ESPN401909994 reported a single ordered
+Boston–Orlando pair at The Odds API event `7c2ac54a119f461bf8fc1a23da536f29`:
+provider start **2026-11-17T00:10Z**, archived ESPN start **00:00Z**, delta+600s,
+eight returned events and zero reversed pairs. API-Basketball's fixture query
+returned HTTP200 with plan/subscription and season error classes. The original
+snapshot SHA was `91478ed83d542a4d55e185160d83266dbe095c761f0eaf9f0fb98f30c4bb2e62`;
+query_read_only=true and forecast_changed=false were user-reported. The full
+native catalog/error documents are in UserLAnd, not in Cloud.
+
+`NBA_ORDERED_UNIQUE_PAIR_PLUS600_V1` now permits that specific research source
+association: NBA sport key, one same-order pair in the complete bounded catalog,
+exact +600 seconds, no nearby reversed pair, fresh native retrieval proof and
+before the **earlier** start. It is not a general ±time tolerance and does not
+assert the published scheduled times are identical. Exact matching remains
+strict for existing callers and non-NBA offset matching is refused.
+
+An odds detail must independently retain the catalog event ID, teams, sport key
+and provider timestamp. A conflicting detail or a retrieval at/after the earlier
+ESPN start is refused. Native discovery and odds documents are separately
+persisted, and each observation carries a hash-bound clock association with
+both timestamps, delta, source pins and earliest prematch deadline. The archived
+fixture, prediction, generated time, model, samples and SQLite rows are never
+rewritten. A source collected after forecast generation remains later evidence.
+
+The panel displays both clocks and the conservative cutoff. This association
+does not verify OT settlement, calibrate probabilities, authorize selection or
+turn raw normal-duration frequencies into contract probabilities.
+
+The API-Basketball denial is retained as an explicit plan/season coverage block;
+the same league/season denial is reused for one hour without more provider
+requests. Its native observation timestamp and pin are preserved. No tier
+upgrade, staged-secret activation or older-season substitution occurs.
+
+Seventeen additional synthetic regressions cover exact/+600 binding, other
+offsets, ambiguous/reversed/wrong-league catalogs, native pins/freshness,
+earliest-start cutoff, catalog/detail mismatch, required discovery evidence,
+raw-probability safeguards, persisted proof, diagnostic request scope and
+season-specific access-denial caching. Actual new Odds market retrieval and
+Telegram delivery remain pending UserLAnd execution.
+Local full regression: **1021 passed, 0 failures/errors**, 71.121 seconds. The
+hard-limit CI provider probe now includes the 35 existing provider/PTB cases
+plus 17 clock-binding/coverage cases (52 total). Real API-Basketball season
+coverage remains blocked; production remains NO-GO.
+
+## Verification and remaining limits
+
+Tests exercise synthetic provider responses and an actual PTB application over
+local HTTP with exact frozen Philadelphia samples. This is not real Telegram or
+real authenticated provider E2E. Full suite/CI results are recorded in the PR.
+
+Local full regression: **977 passed, 0 failures/errors**, retaining the previous
+942 tests and adding 35 provider/Telegram integration checks. Provider-only probe:
+35 passed, peak RSS 90.82 MiB; the Cloud host has 8 GiB/2 CPUs and therefore this
+local run does **not** certify a 256 MiB cgroup. CI adds a separate provider + PTB
+probe with an enforced 256 MiB/1 CPU container; only its completed results count
+as hard-limit evidence.
+
+Cloud has neither provider key: real authentication, remaining quota and account
+coverage are BLOCKED. Actual new-head Telegram delivery is also BLOCKED. Existing
+UserLAnd-delivered prior-version commands are not proof of the new integration.
+
+NBA is the wired Telegram path in this increment. EuroLeague provider mappings
+are conservative but live EuroLeague wiring/coverage is not claimed. SportsDataIO
+and balldontlie are not newly connected; their plan, schema and PIT behavior need
+their own validation. The existing balldontlie script expects `BDL_API_KEY`, unlike
+the user's Fly name `BALLDONTLIE_API_KEY`; no production configuration is changed.
+
+No calibrated player/pace adjustment, refit, model promotion, OOS improvement,
+new confidence index, verified bookmaker settlement rule, or OT simulation is
+claimed. Production promotion remains NO-GO pending those independent gates and
+real-provider/test-bot validation.
+
+## Provider references
+
+- [The Odds API v4](https://the-odds-api.com/liveapi/guides/v4/): header
+  authentication, event listing, event odds, quota headers and market costs.
+- [API-Basketball documentation](https://www.api-basketball.com/documentation):
+  basketball league, game and statistics endpoints. Endpoint reachability is
+  not a substitute for account-specific authentication and schema verification.

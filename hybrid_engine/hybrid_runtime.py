@@ -10,7 +10,7 @@ import time
 from unittest.mock import patch
 
 
-async def run(fixture_path,repetitions=20,*,nba_archive=False):
+async def run(fixture_path,repetitions=20,*,nba_archive=False,forward_archive=None):
     from concurrent.futures import ThreadPoolExecutor
     asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=1,thread_name_prefix='hybrid-test'))
     import numpy as np
@@ -34,6 +34,21 @@ async def run(fixture_path,repetitions=20,*,nba_archive=False):
         nba_command=lambda c:'/analyze NBA 2026-11-13 '+c['home']+' vs '+c['away']
         commands=['/nba 2026-11-13']+[nba_command(c) for c in cases]+[nba_command(cases[0])]*repetitions+[
             nba_command(cases[0]).replace('2026-11-13','2026-11-12'),command(records[0]),'/accuracy EUROLEAGUE','/compare EUROLEAGUE E2026_103']
+    forward=None
+    if forward_archive:
+        from hybrid_engine.stage_forward_archive import stage
+        from hybrid_engine.forward_validation import ForwardRegistry
+        from hybrid_engine.live_euroleague import LiveEuroLeagueService
+        from hybrid_engine.frozen_archive import FrozenHybridService
+        stage(forward_archive,Path.cwd()/'forward-euroleague')
+        forward=ForwardRegistry(Path.cwd()/'forward-euroleague')
+        bridge=LiveEuroLeagueService(archive,forward,None,FrozenHybridService(archive))
+        forward_commands=[]
+        for row in forward.independent_records():
+            h,a=bridge._pair(row['payload'])
+            forward_commands.append('/analyze EUROLEAGUE 2026-11-13 '+h+' vs '+a)
+        fid=forward.independent_records()[0]['payload']['fixture']['provider_fixture_ids'][0]
+        commands=['/nba 2026-11-11']+[forward_commands[0]]*repetitions+forward_commands[1:]+[command(records[0]),'/accuracy EUROLEAGUE','/compare EUROLEAGUE '+fid]
     updates=[dict(update_id=i+1,message=dict(message_id=i+1,date=int(time.time()),chat=dict(id=17,type='private'),
         **{'from':dict(id=23,is_bot=False,first_name='Synthetic audit')},text=c,
         entities=[dict(type='bot_command',offset=0,length=len(c.split()[0]))])) for i,c in enumerate(commands)]
@@ -66,7 +81,7 @@ async def run(fixture_path,repetitions=20,*,nba_archive=False):
     native=nba_fetcher()
     def synthetic_transport(provider,url):
         r=native(provider,url);r['observed_at_utc']=int(time.time());r['ingested_at_utc']=int(time.time());return r
-    _,results=install_isolated_services(app,archive,root,chat_id=17,transport=synthetic_transport,nba_replay=replay,replay_only=nba_archive)
+    _,results=install_isolated_services(app,archive,root,chat_id=17,transport=synthetic_transport,nba_replay=replay,replay_only=nba_archive,forward_el=forward)
     resident=app.bot_data['resource_cache_resident']=main.production_service()
     fixture=json.loads(Path(fixture_path).read_text())
     for i,item in enumerate(fixture.get('cache_source_documents',[])):
@@ -93,8 +108,12 @@ async def run(fixture_path,repetitions=20,*,nba_archive=False):
         if any(e['update_id']==0 for e in inputs+sends):raise ValueError('UNAUTHORIZED_CHAT_WAS_PROCESSED')
         if not any('PREMATCH tahmini değildir' in s for s in received):raise ValueError('REPLAY_NOT_LABELED')
         if not any('Güven endeksi: hesaplanamadı' in s for s in received):raise ValueError('UNCALIBRATED_CONFIDENCE_GUARD')
-        if sum('ELITE HYBRID PRO' in s for s in received)!=(1 if nba_archive else repetitions+4) or any('Analiz hizmeti kullanılamıyor' in s for s in received):
+        if sum('ELITE HYBRID PRO' in s for s in received)!=(1 if nba_archive or forward_archive else repetitions+4) or any('Analiz hizmeti kullanılamıyor' in s for s in received):
             raise ValueError('HYBRID_INFERENCE_OR_RENDER_FAILURE')
+        if forward_archive:
+            if sum('EUROLEAGUE HİBRİT ARAŞTIRMA' in s for s in received)!=repetitions+2:
+                raise ValueError('FORWARD_EUROLEAGUE_ROUTING')
+            if not any('Kayıtlı maç: 3' in s for s in received):raise ValueError('FORWARD_REPORT_COHORT')
         if nba_archive:
             if sum('NBA ARŞİV REPLAY' in s for s in received)!=4+repetitions or not any('FIXTURE_LOCAL_DATE_MISMATCH' in s for s in received):
                 raise ValueError('NBA_REPLAY_COMMAND_OR_DATE_ROUTING')
@@ -105,14 +124,14 @@ async def run(fixture_path,repetitions=20,*,nba_archive=False):
         for name in ('main.py','verified_analysis.py','ledger_reports.py','telegram_delivery.py','projection_integrity.py','Dockerfile'):
             source_pins['../'+name]=hashlib.sha256((Path(__file__).parent.parent/name).read_bytes()).hexdigest()
         cgroup={name:(Path('/sys/fs/cgroup')/name).read_text().strip() for name in ('memory.max','memory.peak','cpu.max') if (Path('/sys/fs/cgroup')/name).exists()}
-        return dict(format='NBA_ARCHIVE_REPLAY_RUNTIME_V1' if nba_archive else 'HYBRID_TEST_BOT_RUNTIME_V1',status='PASS',actual_telegram_delivery_verified=False,
+        return dict(format='FORWARD_EUROLEAGUE_RUNTIME_V1' if forward_archive else 'NBA_ARCHIVE_REPLAY_RUNTIME_V1' if nba_archive else 'HYBRID_TEST_BOT_RUNTIME_V1',status='PASS',actual_telegram_delivery_verified=False,
             transport='LOCAL_HTTP_API_DOUBLE_NOT_REAL_TELEGRAM',requests=len(commands),successful_message_deliveries=len(received),
             nba_source='PINNED_FAZ843_NATIVE_ARCHIVE' if nba_archive else 'SYNTHETIC_NATIVE_SCHEMA_FOR_RESOURCE_TEST_ONLY',
             nba_replay_records=4 if nba_archive else 0,observed_cgroup=cgroup,
             command_names=sorted({e['command'] for e in inputs}),unauthorized_chat_rejected=True,
             frozen_records=5,frozen_components=20,archive_unchanged=True,new_prematch_records_created=0,
             inference_components=['BAYES_QMC','POSSESSION_ANALYTIC','POSSESSION_MC','FAZ13_MC'],online_training=False,
-            verified_confidence_indices=0,actual_final_results=0,report_commands_research_labeled=True,
+            verified_confidence_indices=0,actual_final_results=3 if forward_archive else 0,report_commands_research_labeled=True,
             health_ready=ready,address_space_limit_bytes=list(resource.getrlimit(resource.RLIMIT_AS)),cpu_affinity=sorted(os.sched_getaffinity(0)),
             peak_rss_mib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024,
             elapsed_seconds=time.perf_counter()-began,reply_interval_p95_seconds=float(np.quantile(latencies,.95)),

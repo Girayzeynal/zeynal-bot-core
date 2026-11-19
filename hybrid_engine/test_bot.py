@@ -5,6 +5,7 @@ from contextvars import ContextVar
 import json
 import logging
 import os
+import sqlite3
 from pathlib import Path
 import time
 
@@ -52,15 +53,36 @@ def configuration(env):
 class AuditedRequest(HTTPXRequest):
     def __init__(self,journal,*,expected_identity=None,**kwargs):
         super().__init__(**kwargs);self.journal=journal;self.expected_identity=expected_identity;self.identity_verified=False
+        from concurrent.futures import ThreadPoolExecutor
+        self._journal_executor=ThreadPoolExecutor(max_workers=1,thread_name_prefix='telegram-journal')
+        self.journal_status='NOT_ATTEMPTED'
         # HTTPX INFO request lines contain the Bot API token in the URL path.
         logging.getLogger('httpx').setLevel(logging.ERROR)
         logging.getLogger('httpcore').setLevel(logging.ERROR)
+    async def append_journal(self,journal,key,event):
+        # Research deliberately has one worker. Accepted HTTP responses and
+        # authorized human commands must not queue behind a model fit there.
+        from functools import partial
+        try:
+            await asyncio.wait_for(asyncio.get_running_loop().run_in_executor(
+                self._journal_executor,partial(journal.append,key,event)),timeout=2)
+        except Exception as exc:
+            self.journal_status='UNAVAILABLE'
+            logging.getLogger(__name__).warning('Telegram delivery journal unavailable: %s',type(exc).__name__)
+            return False
+        self.journal_status='WRITTEN'
+        return True
+
+    async def shutdown(self):
+        try:await super().shutdown()
+        finally:self._journal_executor.shutdown(wait=False,cancel_futures=True)
+
     async def do_request(self,url,method,**kwargs):
         name=url.rsplit('/',1)[-1]
         try:status,body=await super().do_request(url,method,**kwargs)
         except Exception as exc:
             if name=='sendMessage':
-                await asyncio.to_thread(self.journal.append,digest(dict(update=_update.get(),kind='SEND_UNCONFIRMED')),
+                await self.append_journal(self.journal,digest(dict(update=_update.get(),kind='SEND_UNCONFIRMED')),
                     dict(kind='SEND_UNCONFIRMED',update_id=_update.get(),error_type=type(exc).__name__,observed_at_utc=int(time.time())))
             raise
         from hybrid_engine.telegram_evidence import official_endpoint,plaintext
@@ -79,12 +101,13 @@ class AuditedRequest(HTTPXRequest):
                     message_sha256=digest(r.get('text','')))
                 request_data=kwargs.get('request_data');parameters=getattr(request_data,'parameters',{}) or {}
                 event.update(transport='OFFICIAL_TELEGRAM_BOT_API' if official else 'MOCK_OR_UNATTESTED_ENDPOINT',
+                    bot_id=identity.get('bot_id') if self.identity_verified and official else None,
                     dedicated_bot_identity_verified=self.identity_verified and official,
                     expected_chat_matches=r['chat']['id']==identity.get('chat_id'),
                     response_content_matches_request=(type(parameters.get('text')) is str and
                         plaintext(parameters['text'],parameters.get('parse_mode'))==r.get('text')),
                     response_sha256=digest(data),request_text_sha256=digest(parameters.get('text','')))
-                await asyncio.to_thread(self.journal.append,digest(dict(chat=event['chat_id'],message=event['telegram_message_id'])),event)
+                await self.append_journal(self.journal,digest(dict(chat=event['chat_id'],message=event['telegram_message_id'])),event)
         return status,body
 
 
@@ -147,12 +170,18 @@ class NBAReplayReadOnlyReports:
             'Orijinal arşiv kaydı değiştirilmedi.')
 
 
-def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None,nba_replay=None,replay_only=False):
-    if replay_only and nba_service is not None:raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_NBA_SERVICE')
+def install_isolated_services(app,archive,data_directory,*,chat_id,transport=None,nba_service=None,decision_layer=False,audit_report=None,nba_replay=None,replay_only=False,forward_el=None,provider_bridge=None,roster_review=None,europe_directory=None):
+    if replay_only and (nba_service is not None or forward_el is not None or europe_directory is not None):raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_NBA_SERVICE')
     if nba_replay is None and nba_service is None:
         from hybrid_engine.nba_replay import NBAReplayArchive
         nba_replay=NBAReplayArchive()
     root=local_path(data_directory);root.mkdir(parents=True,exist_ok=True)
+    from hybrid_engine.market_observations import ObservationStore
+    market_store=ObservationStore(root/'market-observations')
+    app.bot_data['market_observation_store']=market_store
+    if nba_service is not None:
+        from hybrid_engine.current_roster import CurrentRosterReview
+        app.bot_data['current_roster_review']=roster_review or CurrentRosterReview(root/'current-roster',report_archive=root/'official-reports')
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');results=ProspectiveResults(archive,root/'official-results')
     frozen=FrozenHybridService(archive)
     if nba_service is not None:
@@ -160,7 +189,121 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         class Dispatch:
             ledger=nba_service.ledger
             async def analyze(self,league,*args):
-                return await (nba_service if league.upper()=='NBA' else frozen).analyze(league,*args)
+                response=await (nba_service if league.upper()=='NBA' else frozen).analyze(league,*args)
+                if league.upper()=='NBA' and response.get('status')=='ABSTAIN':
+                    from hybrid_engine.fixture_rejection_diagnostic import enrich_fixture_rejection, render_fixture_rejection
+                    preflight=await enrich_fixture_rejection(response.get('preflight') or {},args[0],transport or ControlledTransport(fetch_document))
+                    diagnostic=render_fixture_rejection(preflight)
+                    if diagnostic:
+                        response=dict(response)
+                        response['html']=(response.get('html') or '')+diagnostic
+                    return response
+                if league.upper()!='NBA' or response.get('status')!='ANALYSIS_OK':
+                    return response
+                from hybrid_engine.prediction_audit import audit_snapshot,render_source_annotation
+                try:
+                    quality=await asyncio.to_thread(audit_snapshot,response['snapshot'],nba_service.assets)
+                except (ValueError,KeyError,TypeError,OSError):
+                    return dict(status='ABSTAIN',html='Kayıtlı tahminin kaynak/zaman/model bütünlüğü doğrulanamadı; tahmin değiştirilmedi ve analiz yayınlanmadı.')
+                from hybrid_engine.quality_monitor import monitor
+                from hybrid_engine.health_card import build as build_health, render as render_health
+                def prior_quality():
+                    report=LedgerReports(nba_service.ledger.path).read('NBA')
+                    return monitor(report['forecasts'],asof_utc=response['snapshot']['prediction_generated_at_utc'])
+                try:
+                    prior=await asyncio.wait_for(asyncio.to_thread(prior_quality),timeout=3)
+                except Exception as exc:
+                    logging.getLogger(__name__).warning('Prior quality read unavailable: %s',type(exc).__name__)
+                    prior=None
+                health=build_health(response['snapshot'],quality,prior_quality=prior)
+                if not health['publication_allowed']:
+                    return dict(status='ABSTAIN',html=render_health(health)+'\nVar olan tahminler değiştirilmedi; sağlık denetimi bu analiz yayını durdurdu.')
+                response=dict(response,quality_audit=quality,html_parts=[*response['html_parts'],render_source_annotation(quality)])
+                from hybrid_engine.market_evidence_report import observed_market_evidence, render_quote_line
+                import html as _html
+                from datetime import datetime, timezone
+                snapshot=response['snapshot']
+                try:
+                    evidence=observed_market_evidence(
+                        nba_service.assets,
+                        {str(i): ref for i,ref in enumerate(snapshot['source_assets'])},
+                        snapshot['fixture_id'],
+                        snapshot['prediction_generated_at_utc'],
+                        snapshot['fixture_start_utc'])
+                except (ValueError, KeyError, TypeError, OSError):
+                    evidence=[]
+                if evidence:
+                    market_lines=['<b>GÖZLENEN PİYASA | ARAŞTIRMA</b>',
+                        'Normal süre/uzatma kapsamı doğrulanmadı; karşılaştırılabilir edge veya güven endeksi yok.']
+                    report_utc=int(datetime.now(timezone.utc).timestamp())
+                    for quote in evidence:
+                        market_lines.append(_html.escape(render_quote_line(
+                            quote, snapshot['prediction_generated_at_utc'], report_utc)))
+                else:
+                    market_lines=['<b>PİYASA KAYNAĞI</b>',
+                        'Tahmin anından önce doğrulanmış piyasa çizgisi yok; barem veya güven endeksi üretilmedi.']
+                direction_cards=[]
+                if provider_bridge is not None:
+                    try:
+                        from hybrid_engine.provider_bridge import nba_provider_panel
+                        provider_panel=await asyncio.wait_for(
+                            asyncio.to_thread(nba_provider_panel,snapshot,nba_service,provider_bridge,structured=True),timeout=16)
+                        market_lines.append(provider_panel['html'])
+                        direction_cards.extend(provider_panel['cards'])
+                    except Exception as exc:
+                        logging.getLogger(__name__).warning('Provider review unavailable: %s',type(exc).__name__)
+                        market_lines.append('Sağlayıcı denetimi tamamlanamadı: PROVIDER_REVIEW_UNAVAILABLE. Bu durum NO EDGE değildir; skor tahmini korunuyor.')
+                market_note=None
+                from hybrid_engine.market_panels import nba_panel
+                try:
+                    panel=await asyncio.wait_for(asyncio.to_thread(nba_panel,snapshot,nba_service,evidence,market_store),timeout=5)
+                    market_lines.append(panel['html'])
+                    direction_cards.extend(panel.get('cards',[]))
+                    if panel['observations']:
+                        market_note=f"Piyasa düğmesinde {panel['observations']} kaynak gözlemi / {panel['lines']} barem; ham model hesabı."
+                except Exception as exc:
+                    logging.getLogger(__name__).warning('Market source panel unavailable: %s',type(exc).__name__)
+                    market_lines.append('Piyasa kaynak/dağılım denetimi tamamlanamadı; skor tahmini korunuyor. Kod: MARKET_PANEL_UNAVAILABLE')
+                response=dict(response)
+                from hybrid_engine.telegram_premium_ui import compact_summary, keyboard, detail_sections
+                import secrets
+                token=secrets.token_hex(6)
+                from hybrid_engine.market_direction_ui import order,pages as direction_pages
+                ranked=order(direction_cards)
+                first_total=next((c for c in ranked if c['current'] and c['period']=='FULL' and c['market']=='TOTAL'),None)
+                summary=compact_summary(snapshot,evidence,replayed=not response['new_record'],health=health,
+                    market_note=market_note,direction_card=first_total)
+                from hybrid_engine.telegram_roster_bridge import read_fixture_roster_evidence
+                roster=read_fixture_roster_evidence(
+                    app.bot_data.get('verified_roster_packets'),
+                    fixture_id=snapshot['fixture_id'],
+                    prediction_utc=snapshot['prediction_generated_at_utc'],
+                    fixture_start_utc=snapshot['fixture_start_utc'],
+                    home_team_id=str(snapshot['home'].get('team_id') or snapshot['home'].get('official_name')),
+                    away_team_id=str(snapshot['away'].get('team_id') or snapshot['away'].get('official_name')))
+                market_pages=direction_pages(direction_cards)
+                market_html=market_pages[0] if market_pages else '<b>PİYASA</b>\nDoğrulanabilir barem yok; yön veya yüzde üretilmedi.\nSağlayıcı ayrıntıları: Model / Kaynak düğmesi.'
+                sections=detail_sections(response['html_parts'],market_html,
+                                         roster_evidence=roster)
+                sections['audit']=render_health(health)+'\n\n'+sections['audit']+'\n\n'+'\n\n'.join(market_lines)
+                from hybrid_engine.elite_render import split_blocks
+                section_pages={k:split_blocks(v.splitlines(),limit=3200) for k,v in sections.items()}
+                if market_pages:section_pages['market']=market_pages
+                cache=app.bot_data.setdefault('premium_reports',{})
+                from hybrid_engine.telegram_premium_ui import cache_report
+                expiry=[c['valid_until_utc'] for c in ranked if c['current']]
+                entry=dict(summary=summary,sections=sections,section_pages=section_pages,chat_id=chat_id,
+                    tipoff_utc=snapshot['fixture_start_utc'],quote_valid_until_utc=min(expiry) if expiry else None)
+                try:
+                    from hybrid_engine.current_roster import context_for
+                    entry['roster_context']=context_for(snapshot)
+                    entry['original_roster_html']='🏥 <b>İLK TAHMİN ANINDAKİ KADRO KANITI</b>\n'+sections['roster']
+                except (ValueError,KeyError,TypeError):
+                    entry['roster_context']=None
+                cache_report(cache,token,entry)
+                response['html_parts']=[summary]
+                response['reply_markup']=keyboard(token)
+                return response
         class Reports:
             def __init__(self):self.live=LedgerReports(nba_service.ledger.path);self.frozen=ResearchReports(results)
             def read(self,league=None,fixture_id=None):
@@ -175,6 +318,100 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         app.bot_data['verified_analysis_service']=frozen
         app.bot_data['ledger_reports']=(NBAReplayReadOnlyReports(nba_replay,ResearchReports(results))
             if replay_only and nba_replay is not None else ResearchReports(results))
+    if forward_el is not None:
+        from hybrid_engine.live_euroleague import LiveEuroLeagueService
+        from hybrid_engine.forward_reports import ForwardEuroLeagueReports
+        live_el=LiveEuroLeagueService(archive,forward_el,transport or ControlledTransport(fetch_document),frozen)
+        prior=app.bot_data['verified_analysis_service']
+        class LeagueDispatch:
+            ledger=getattr(prior,'ledger',None)
+            async def analyze(self,league,*args):
+                return await (live_el if league.upper()=='EUROLEAGUE' else prior).analyze(league,*args)
+        app.bot_data['verified_analysis_service']=LeagueDispatch()
+        app.bot_data['ledger_reports']=ForwardEuroLeagueReports(live_el,app.bot_data['ledger_reports'])
+    # Listing the preserved five-game archive does not require enabling inference.
+    from types import SimpleNamespace
+    from hybrid_engine.europe_reports import EuropeanReports,EuropeanReportRouter
+    empty=SimpleNamespace(independent_records=lambda:[])
+    legacy_service=(SimpleNamespace(league='EUROLEAGUE',registry=forward_el,pair=live_el._pair) if forward_el is not None else
+                    SimpleNamespace(league='EUROLEAGUE',registry=empty))
+    europe_readers={'EUROLEAGUE':EuropeanReports(legacy_service,results),
+                    'EUROCUP':EuropeanReports(SimpleNamespace(league='EUROCUP',registry=empty))}
+    europe_services={}
+    if europe_directory is not None:
+        from hybrid_engine.europe_command_identity import EuropeanCommandService as EuropeanService
+        directory=local_path(europe_directory)
+        for code in ('EUROLEAGUE','EUROCUP'):
+            service=EuropeanService(code,directory/code.lower(),directory/'models',transport or ControlledTransport(fetch_document),
+                archive=archive if code=='EUROLEAGUE' else None,fallback=frozen,
+                previous=live_el if code=='EUROLEAGUE' and forward_el is not None else None)
+            europe_services[code]=service
+            extras=(legacy_service,) if code=='EUROLEAGUE' and forward_el is not None else ()
+            europe_readers[code]=EuropeanReports(service,results if code=='EUROLEAGUE' else None,extras)
+        previous_service=app.bot_data['verified_analysis_service']
+        class EuropeanDispatch:
+            ledger=getattr(previous_service,'ledger',None)
+            async def analyze(self,league,*args):
+                code=league.upper()
+                if code in europe_services:
+                    return await asyncio.wait_for(europe_services[code].analyze(code,*args),timeout=45)
+                return await previous_service.analyze(league,*args)
+        app.bot_data['verified_analysis_service']=EuropeanDispatch()
+        app.bot_data['ledger_reports']=EuropeanReportRouter(app.bot_data['ledger_reports'],europe_readers)
+    app.bot_data['europe_services']=europe_services
+    if europe_services and not replay_only:
+        from hybrid_engine.europe_prematch import EuropeanPrematchScheduler
+        app.bot_data['europe_prematch_scheduler']=EuropeanPrematchScheduler(europe_services,root/'europe-prematch')
+    app.bot_data['europe_prediction_reports']=europe_readers
+    if europe_services:
+        from hybrid_engine.europe_data import EuropeanDataReview
+        from hybrid_engine.provider_access import ProviderAccess
+        from hybrid_engine.provider_bridge import ProviderBridge
+        # Reuse the already configured, quota-limited isolated credentials.
+        european_bridge=provider_bridge or ProviderBridge(ProviderAccess({}),root/'europe-provider-evidence')
+        app.bot_data['europe_data_review']=EuropeanDataReview(europe_services,european_bridge,root/'europe-data')
+    prior_market_service=app.bot_data['verified_analysis_service']
+    class EuroLeagueMarketDisplay:
+        ledger=getattr(prior_market_service,'ledger',None)
+        async def analyze(self,league,*args):
+            report=await prior_market_service.analyze(league,*args)
+            if league.upper()!='EUROLEAGUE' or report.get('status') not in ('FROZEN_REPLAY_OK','FORWARD_EUROLEAGUE_OK'):
+                return report
+            try:
+                from hybrid_engine.market_panels import euroleague_panel
+                panel=await asyncio.wait_for(asyncio.to_thread(euroleague_panel,report,archive,market_store,forward_registry=forward_el),timeout=5)
+                if panel:
+                    from hybrid_engine.elite_render import split_blocks
+                    return dict(report,html_parts=[*report['html_parts'],*split_blocks(panel.splitlines(),limit=3200)])
+            except Exception as exc:
+                logging.getLogger(__name__).warning('EuroLeague market panel unavailable: %s',type(exc).__name__)
+            return report
+    app.bot_data['verified_analysis_service']=EuroLeagueMarketDisplay()
+    # Same authenticated/paginated callbacks as NBA; European engine files and
+    # prepared-model pins remain unchanged. All work here is presentation-only.
+    european_plain_service=app.bot_data['verified_analysis_service']
+    class EuropeanPremiumDisplay:
+        ledger=getattr(european_plain_service,'ledger',None)
+        async def analyze(self,league,*args):
+            report=await european_plain_service.analyze(league,*args)
+            code=league.upper()
+            from hybrid_engine.europe_premium_ui import present,SUPPORTED
+            if code not in europe_services or report.get('status') not in SUPPORTED:
+                return report
+            try:
+                cache=app.bot_data.setdefault('premium_reports',{})
+                displayed=await asyncio.wait_for(asyncio.to_thread(present,report,code,cache,chat_id,
+                    service=europe_services.get(code),
+                    forward_service=live_el if forward_el is not None else None,
+                    roster_store=app.bot_data.get('verified_roster_packets')),timeout=10)
+                app.bot_data.setdefault('last_europe_presentation',{})[code]=dict(status='READY',version=displayed['presentation_version'])
+                return displayed
+            except Exception as exc:
+                logging.getLogger(__name__).warning('European presentation unavailable: %s',type(exc).__name__)
+                app.bot_data.setdefault('last_europe_presentation',{})[code]=dict(status='UNAVAILABLE',error_type=type(exc).__name__)
+                return dict(report,html_parts=[*(report.get('html_parts') or [report['html']]),
+                    'Detay düğmeleri hazırlanamadı; kayıtlı tahmin korunuyor. Kod: EUROPE_UI_UNAVAILABLE'])
+    app.bot_data['verified_analysis_service']=EuropeanPremiumDisplay()
     app.bot_data['delivery_journal']=journal
     if decision_layer:
         from hybrid_engine.decision_integration import DecisionJournal,DecisionService,DecisionReports
@@ -187,24 +424,419 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         class ReplayDispatch:
             ledger=getattr(base,'ledger',None)
             async def analyze(self,league,day,home,away):
-                if league.upper()=='NBA' and (replay_only or nba_service is None or nba_replay.has_pair(home,away)):
-                    return await nba_replay.analyze(league,day,home,away)
+                if league.upper()=='NBA':
+                    if replay_only or nba_service is None:
+                        return await nba_replay.analyze(league,day,home,away)
+                    if nba_replay.has_pair(home,away):
+                        replay=await nba_replay.analyze(league,day,home,away)
+                        # The same teams may meet again on another date. A static
+                        # replay's date mismatch must not hide a live original.
+                        if replay.get('status')=='NBA_ARCHIVE_REPLAY_OK':return replay
                 return await base.analyze(league,day,home,away)
         app.bot_data['verified_analysis_service']=ReplayDispatch()
     fetch=transport or ControlledTransport(fetch_document)
     app.bot_data['nba_fixture_loader']=nba_replay.list_nba_games if replay_only else VerifiedAnalyzeService(None,fetcher=fetch).list_nba_games
+    if nba_service is not None and not replay_only:
+        from hybrid_engine.nba_overnight import NBAOvernightScheduler,LiveNBAHybridService
+        if isinstance(nba_service,LiveNBAHybridService):
+            app.bot_data['nba_overnight_scheduler']=NBAOvernightScheduler(nba_service,app.bot_data['nba_fixture_loader'],
+                root/'nba-overnight',root/'challenger-research'/'protocol')
+    if not replay_only and (europe_services or app.bot_data.get('nba_overnight_scheduler')):
+        from hybrid_engine.adaptive_worker import AdaptiveWorker
+        app.bot_data['adaptive_v2_worker']=AdaptiveWorker(root/'adaptive-v2',
+            nba=nba_service if app.bot_data.get('nba_overnight_scheduler') else None,europe=europe_services,
+            fetcher=transport or fetch_document)
+        if app.bot_data['adaptive_v2_worker'].nba is not None:
+            from hybrid_engine.native_fixture_recheck import NativeFixtureRecheck
+            recheck=NativeFixtureRecheck(app.bot_data['adaptive_v2_worker'].transport)
+            app.bot_data['adaptive_v2_worker'].verify=recheck.verify
+            app.bot_data['native_fixture_recheck']=recheck
+            from hybrid_engine.issue90_research import Research
+            from hybrid_engine.research_diagnostics import ObservedResearch
+            app.bot_data['issue90_research']=ObservedResearch(Research(root/'nba-research-v3-integrity-v2',app.bot_data['adaptive_v2_worker']))
+        from hybrid_engine.current_assessment import CurrentAssessments,install_display
+        from hybrid_engine.research_diagnostics import ResearchCycle
+        assessments=CurrentAssessments(root/'current-assessments-v1',app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'))
+        app.bot_data['current_assessments']=assessments
+        app.bot_data['research_cycle']=ResearchCycle(app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'),assessments)
+        for bridge in (provider_bridge,getattr(app.bot_data.get('europe_data_review'),'bridge',None)):
+            if bridge is not None:bridge.assessments=assessments
+        install_display(app.bot_data,assessments)
+    async def journal_write(key,event):
+        request=app.bot.request
+        if isinstance(request,AuditedRequest):return await request.append_journal(journal,key,event)
+        await asyncio.to_thread(journal.append,key,event)
+        return True
+
     async def authorized(update,context):
         if update.effective_chat is None or update.effective_chat.id!=chat_id:raise ApplicationHandlerStop
         _update.set(update.update_id)
         message=update.effective_message
         if message and message.text:
-            await asyncio.to_thread(journal.append,'received:'+str(update.update_id),dict(kind='COMMAND_RECEIVED',update_id=update.update_id,
+            try:command_bot_id=getattr(getattr(context,'bot',None),'id',None)
+            except RuntimeError:command_bot_id=None
+            await journal_write('received:'+str(update.update_id),dict(kind='COMMAND_RECEIVED',update_id=update.update_id,
                 command=message.text.split()[0].split('@')[0],chat_id=update.effective_chat.id,
+                bot_id=command_bot_id,
+                request_sha256=digest(message.text),
                 is_bot=getattr(update.effective_user,'is_bot',None),
                 user_message_at_utc=int(message.date.timestamp()),received_at_utc=int(time.time())))
     async def error(update,context):
-        await asyncio.to_thread(journal.append,digest(dict(update=getattr(update,'update_id',None),kind='HANDLER_ERROR')),
+        await journal_write(digest(dict(update=getattr(update,'update_id',None),kind='HANDLER_ERROR')),
             dict(kind='HANDLER_ERROR',update_id=getattr(update,'update_id',None),error_type=type(context.error).__name__,observed_at_utc=int(time.time())))
+    async def self_test(update,context):
+        """Read-only diagnostics, available only in the authorized test chat."""
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:
+            return
+        message=update.effective_message
+        if message is None:
+            return
+        args=(message.text or '').split()
+        mode=args[1].lower() if len(args)>1 else 'all'
+        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime','predictions'):
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test predictions, /test all')
+            raise ApplicationHandlerStop
+        lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
+            'Telegram komut alımı: OK',
+            'Yetkili sohbet: OK',
+            'Bu yanıtın teslimi Telegram üzerinden kontrol edilmelidir.']
+        from hybrid_engine.integrated_features import RELEASE
+        lines.extend(['İşlev sürümü: '+RELEASE,'Etkin bileşenler: /features · Ayrı model skorları: /models NBA MAÇ_KİMLİĞİ'])
+        if mode=='predictions':
+            command=app.bot_data.get('predictions_command');last=getattr(command,'last_send',None) or {}
+            read=getattr(command,'last_read',None) or {};kind=getattr(command,'last_response_kind',None)
+            kinds={'PREDICTION_LIST':'TAHMİN LİSTESİ','ERROR_NOTICE':'HATA BİLDİRİMİ','USAGE':'KULLANIM BİLGİSİ'}
+            lines.extend(['Arşiv okuma durumu: '+read.get('status','HENÜZ_GÖZLENMEDİ'),
+                'Arşiv okuma hata kodu: '+str(read.get('error_code') or 'YOK'),
+                'Okuma sınırı (sn): '+str(read.get('deadline_seconds','?')),
+                'Gönderilen yanıt: '+kinds.get(kind,'HENÜZ_GÖZLENMEDİ'),
+                'Tahmin listesi teslimi: '+('GÖNDERİLDİ' if kind=='PREDICTION_LIST' and last.get('status')=='SENT' else 'DOĞRULANMADI'),
+                'Yanıt mesajı gönderimi: '+last.get('status','HENÜZ_GÖZLENMEDİ'),
+                'Tamamlanan bölüm: '+str(last.get('sent',0))+'/'+str(last.get('parts',0)),
+                'Gönderim sınıfı: '+str(last.get('error_code') or 'YOK'),
+                'Teslim kayıt durumu: '+getattr(app.bot.request,'journal_status','BU_TAŞIMADA_İZLENMİYOR')])
+            if read:
+                now=time.monotonic();started=read.get('started_at')
+                queue=(started or now)-read['queued_at']
+                lines.append(f'İşçi kuyruğunda bekleme (sn): {max(0,queue):.2f}')
+                lines.append('Arşiv doğrulama süresi (sn): '+
+                    ('henüz başlamadı' if started is None else f"{max(0,(read.get('finished_at') or now)-started):.2f}"))
+        if mode=='runtime':
+            from hybrid_engine.runtime_identity import describe
+            from hybrid_engine.elite_render import split_blocks
+            value=json.dumps(describe(app.bot_data),ensure_ascii=False,indent=2)
+            for part in split_blocks(value.splitlines(),limit=3200):await message.reply_text(part,parse_mode=None)
+            raise ApplicationHandlerStop
+        if mode in ('all','data'):
+            lines.extend(['VERİ / MODEL BAĞLANTISI',
+                'Ana skor: kayıtlı tahmin veya sabit parametreli takım modeli.',
+                'V2/V3 adayları ayrı araştırmadır; otomatik ana model değişimi yok.',
+                'Piyasa ve Kadro düğmeleri mevcut skor hesabını güncellemez.',
+                'Avrupa kadro kaynağı: resmî haber metni; doğrulanmış oyuncu durum akışı değil.'])
+            bridge=provider_bridge or getattr(app.bot_data.get('europe_data_review'),'bridge',None)
+            if bridge is not None:
+                for provider,state in bridge.access.runtime_status().items():
+                    remaining=state['provider_reported_remaining']
+                    lines.append(provider+': yerel istek '+str(state['local_calls_today'])+'/'+str(state['local_daily_limit'])+
+                        ' · sağlayıcının bildirdiği kalan '+('bilinmiyor' if remaining is None else str(remaining)))
+                usage=await asyncio.to_thread(bridge.storage_status)
+                lines.append('Yerel sağlayıcı kanıtı: '+str(usage['files'])+'/'+str(usage['maximum_files'])+' belge · '+usage['status'])
+        worker=app.bot_data.get('adaptive_v2_worker')
+        if worker and mode in ('all','research'):
+            lines.extend(worker.render().splitlines())
+            recheck=app.bot_data.get('native_fixture_recheck')
+            if recheck:
+                info=recheck.identity()
+                lines.extend(['NBA fikstür yeniden kontrolü: ESPN · '+info['calendar'],
+                    'Kaynak adaptörü: '+info['format']+' · '+info['policy_sha256'][:12],
+                    'UTC maç saati ve tam native kimlik/durum kontrolleri korunur.'])
+            study=app.bot_data.get('issue90_research')
+            if study:lines.extend(study.render().splitlines())
+            cycle=app.bot_data.get('research_cycle')
+            if cycle:lines.extend(cycle.render().splitlines())
+            assessments=app.bot_data.get('current_assessments')
+            if assessments:
+                last=assessments.last_report or {}
+                lines.append('Güncel analiz zinciri: '+last.get('status','İLK TUR BEKLENİYOR'))
+                lines.extend(assessments.render_performance().splitlines())
+            bridge=provider_bridge or getattr(app.bot_data.get('europe_data_review'),'bridge',None)
+            if bridge is not None and getattr(bridge,'rule_book',None):
+                lines.append('Piyasa ödeme kuralı makbuzları: '+bridge.rule_book.status())
+        overnight=app.bot_data.get('nba_overnight_scheduler')
+        if mode in ('all','nba') and overnight:
+            lines.append('NBA otomatik PREMATCH: AÇIK · gelecek 36 saat · son 15 dk yeni kayıt yok')
+            lines.append('Kabul deneyi kaydı otomatik; gece komut vermek veya botu durdurmak gerekmez.')
+            last=app.bot_data.get('last_nba_overnight_poll') or overnight.last_report or {}
+            lines.append('Son NBA otomatik kontrol: '+str(last.get('status','HENÜZ_ÇALIŞMADI')))
+            progress=last.get('progress') or {}
+            lines.append('İleri deney: '+str(progress.get('status','HENÜZ_DOĞRULANMADI'))+
+                ' · Sonuçlu '+str(progress.get('settled','?'))+' · Bekleyen '+str(progress.get('pending','?')))
+            if progress.get('protocol_sha256'):lines.append('Korunan plan SHA: '+progress['protocol_sha256'][:12])
+            skipped=(last.get('acceptance') or {}).get('skipped',{})
+            if skipped.get('ORIGINAL_INPUTS_TOO_OLD_FOR_PROTOCOL'):
+                lines.append('Eski girdili '+str(skipped['ORIGINAL_INPUTS_TOO_OLD_FOR_PROTOCOL'])+' tahmin kabul deneyine alınmadı; ilk kayıtlar korundu.')
+            for group in progress.get('groups',[]):
+                lines.append('Aynı kohortta eşleşmiş maç: '+str(group['matched'])+'/100 · Farklı maç günü: '+str(group['day_clusters'])+'/20')
+        for code in ('EUROLEAGUE','EUROCUP'):
+            if mode in ('all',code.lower()):
+                lines.append(code+' yeni tahmin servisi: '+('AÇIK; model ve kaynak her istekte doğrulanır' if code in europe_services else 'DEVRE DIŞI; arşiv listeleme açıktır'))
+                if code in europe_services:
+                    from hybrid_engine.europe_command_identity import VERSION as alias_version
+                    from hybrid_engine.europe_premium_ui import VERSION as ui_version
+                    lines.append('Takım adı adaptörü: '+alias_version)
+                    lines.append('Düğmeli arşiv görünümü: '+ui_version)
+                    last=app.bot_data.get('last_europe_presentation',{}).get(code,{})
+                    lines.append('Son görünüm kontrolü: '+last.get('status','HENÜZ_ÇALIŞMADI')+
+                                 (' · '+last['error_type'] if last.get('error_type') else ''))
+        if mode in ('all','euroleague','eurocup') and app.bot_data.get('europe_prematch_scheduler'):
+            lines.append('Avrupa otomatik PREMATCH: AÇIK · gelecek 36 saat · son 15 dk yeni kayıt yok')
+            lines.append('EuroLeague / EuroCup için maç saatinde ek komut gerekmiyor.')
+            last=app.bot_data.get('last_europe_prematch_poll',{})
+            lines.append('Son otomatik kontrol: '+str(last.get('status','HENÜZ_ÇALIŞMADI')))
+        if mode in ('all','euroleague'):
+            try:
+                count=len(archive.records)
+                lines.append(f'EuroLeague doğrulanmış arşiv kaydı: {count}')
+                lines.append('EuroLeague arşiv: OK' if count else 'EuroLeague arşiv: BOŞ')
+            except (AttributeError,TypeError,ValueError,OSError) as exc:
+                lines.append('EuroLeague arşiv: HATA ('+type(exc).__name__+')')
+        if mode in ('all','nba'):
+            try:
+                if nba_service is not None:
+                    from hybrid_engine.results_health import inspect as inspect_results,render as render_results
+                    health=await asyncio.to_thread(inspect_results,nba_service.ledger.path)
+                    lines.extend(render_results(health,app.bot_data.get('last_result_poll')).splitlines())
+                if nba_replay is not None:
+                    cases=nba_replay.cases()
+                    lines.append(f'NBA replay kayıtları: {len(cases)}')
+                    lines.append('NBA replay: OK' if cases else 'NBA replay: BOŞ')
+                else:
+                    lines.append('NBA replay: YAPILANDIRILMADI')
+                lines.append('Canlı NBA hibrit motoru: '+('YÜKLÜ (analiz henüz doğrulanmadı)' if nba_service is not None else 'DEVRE DIŞI'))
+            except (TypeError,ValueError,OSError,KeyError) as exc:
+                lines.append('NBA replay: HATA ('+type(exc).__name__+')')
+        if mode in ('all','roster'):
+            packets=app.bot_data.get('verified_roster_packets')
+            reports=app.bot_data.get('premium_reports')
+            lines.append('Kadro kanıt paketleri (bellek): '+str(len(packets) if isinstance(packets,dict) else 0))
+            lines.append('Premium analiz oturumları (bellek): '+str(len(reports) if isinstance(reports,dict) else 0))
+            lines.append('Oyuncu kimliği / rapor içeriği / Telegram kadro teslimi: bu komutla doğrulanmaz.')
+        registered=[group for group,handlers in app.handlers.items() for handler in handlers if 'predictions' in getattr(handler,'commands',())]
+        lines.append('/predictions handler grupları: '+str(registered))
+        lines.append('Listeleyici sürümü: '+getattr(app.bot_data.get('predictions_command'),'version','YAPILANDIRILMADI'))
+        lines.append('Bu kontrol maç tahmini, gerçek fikstür veya Fly.io dağıtımını doğrulamaz.')
+        from hybrid_engine.elite_render import split_blocks
+        for part in split_blocks(lines,limit=3200):await message.reply_text(part.replace('\n\n','\n'),parse_mode=None)
+        raise ApplicationHandlerStop
+    from telegram.ext import CommandHandler, CallbackQueryHandler
+    async def research_command(update,context):
+        args=context.args or [];worker=app.bot_data.get('adaptive_v2_worker')
+        if not worker or len(args)>2 or (args and args[0].upper() not in ('NBA','EUROLEAGUE','EUROCUP')):
+            await update.effective_message.reply_text('Kullanım: /research [NBA|EUROLEAGUE|EUROCUP] [maç_kimliği]. İzole V2 araştırma servisi gerekli.')
+        else:
+            try:
+                value=await asyncio.to_thread(worker.render,args[0].upper() if args else None,args[1] if len(args)>1 else None)
+                from hybrid_engine.elite_render import split_blocks
+                for part in split_blocks(value.splitlines(),limit=3200):await update.effective_message.reply_text(part,parse_mode=None)
+            except (ValueError,KeyError,TypeError,OSError):
+                await update.effective_message.reply_text('V2 araştırma arşivi doğrulanamadı. Eski tahminler korunuyor.')
+        raise ApplicationHandlerStop
+    app.add_handler(CommandHandler('research',research_command),group=-50)
+    async def feature_command(update,context):
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:return
+        from hybrid_engine.integrated_features import features
+        from hybrid_engine.predictions_command import split_plain
+        for part in split_plain(features(app.bot_data),limit=3200):
+            await update.effective_message.reply_text(part,parse_mode=None)
+        raise ApplicationHandlerStop
+    async def model_command(update,context):
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:return
+        from hybrid_engine.integrated_features import models
+        from hybrid_engine.predictions_command import split_plain
+        args=context.args or []
+        if len(args)!=2 or args[0].upper() not in ('NBA','EUROLEAGUE','EUROCUP'):
+            value='Kullanım: /models NBA|EUROLEAGUE|EUROCUP MAÇ_KİMLİĞİ'
+        else:
+            try:value=await asyncio.to_thread(models,app.bot_data,args[0].upper(),args[1])
+            except (ValueError,KeyError,TypeError,OSError,sqlite3.Error):
+                value='Ayrı model kaydı doğrulanamadı. Kayıtlı ana tahmin korunuyor; /test research ile kaynak durumunu kontrol edin.'
+        for part in split_plain(value,limit=3200):await update.effective_message.reply_text(part,parse_mode=None)
+        raise ApplicationHandlerStop
+    app.add_handler(CommandHandler('features',feature_command),group=-50)
+    app.add_handler(CommandHandler('models',model_command),group=-50)
+    from hybrid_engine.runtime_identity import install as observe_analysis
+    observe_analysis(app.bot_data)
+    from hybrid_engine.analyze_input import AnalyzeInputGuard
+    app.add_handler(CommandHandler('analyze',AnalyzeInputGuard(chat_id).handle),group=-60)
+    async def isolated_fixtures(update,context):
+        from nba_command import parse_nba_date
+        from hybrid_engine.fixture_menu import nba_blocks,euroleague_blocks
+        from datetime import datetime,timezone
+        command=(update.effective_message.text or '').split()[0].split('@')[0].lower()
+        try:
+            day=parse_nba_date(context.args or [],datetime.now(timezone.utc))
+            code=command[1:].upper()
+            if code in europe_services:
+                parts=await asyncio.to_thread(europe_services[code].fixture_blocks,day)
+            elif command=='/euroleague':
+                receipt=await asyncio.to_thread(fetch,'EUROLEAGUE_LIVE',OFFICIAL)
+                parts=euroleague_blocks(receipt,day)
+            else:
+                games=await app.bot_data['nba_fixture_loader'](day)
+                parts=nba_blocks(games,day)
+            for part in parts:await update.effective_message.reply_text(part,parse_mode='HTML',disable_web_page_preview=True)
+        except (ValueError,KeyError,TypeError,OSError):
+            await update.effective_message.reply_text('Fikstür kaynağı doğrulanamadı veya tarih geçersiz. Kullanım: '+command+' YYYY-MM-DD. Tahmin üretilmedi.')
+        raise ApplicationHandlerStop
+    from hybrid_engine.predictions_command import PredictionsCommand
+    from ledger_reports import LedgerReports
+    predictions=PredictionsCommand(LedgerReports(nba_service.ledger.path) if nba_service is not None else None,journal,chat_id,
+        league_reports=europe_readers,journal_writer=journal_write)
+    app.bot_data['predictions_command']=predictions
+    app.add_handler(CommandHandler('predictions',predictions.handle),group=-50)
+    from hybrid_engine.unified_results_view import LEAGUES,render_all,render_performance
+    from hybrid_engine.predictions_command import split_plain
+    async def _three_league_reports():
+        reader=app.bot_data['ledger_reports']
+        result={}
+        for code in LEAGUES:
+            result[code]=await asyncio.to_thread(reader.read,code,None)
+        return result
+    async def results_all_command(update,context):
+        """All archived fixtures; never fetches or settles results on demand."""
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:
+            return
+        args=[x.lower() for x in (context.args or [])]
+        if args not in ([],['all']):
+            await update.effective_message.reply_text('Kullanım: /results all')
+            raise ApplicationHandlerStop
+        try:
+            reports=await _three_league_reports()
+            value=await asyncio.to_thread(render_all,reports,now=int(time.time()),detail=True)
+        except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,RuntimeError) as exc:
+            logging.getLogger(__name__).warning('Three-league results unavailable: %s',type(exc).__name__)
+            value='Üç lig arşivinden biri doğrulanamadı. Eksik veya hatalı kayıtlar sonuçlanmış sayılmadı.'
+        for part in split_plain(value,limit=3200):
+            await update.effective_message.reply_text(part,parse_mode=None,disable_web_page_preview=True)
+        raise ApplicationHandlerStop
+    async def accuracy_all_command(update,context):
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:
+            return
+        if [x.lower() for x in (context.args or [])]!=['all']:
+            return  # /accuracy NBA and /accuracy EUROCUP keep their existing handlers.
+        try:
+            reports=await _three_league_reports()
+            value=await asyncio.to_thread(render_performance,reports)
+            assessments=app.bot_data.get('current_assessments')
+            if assessments:value+='\n\n'+assessments.render_performance()
+        except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,RuntimeError) as exc:
+            logging.getLogger(__name__).warning('Three-league accuracy unavailable: %s',type(exc).__name__)
+            value='Üç lig için doğrulanmış performans raporu alınamadı; başarı yüzdesi uydurulmadı.'
+        for part in split_plain(value,limit=3200):
+            await update.effective_message.reply_text(part,parse_mode=None,disable_web_page_preview=True)
+        raise ApplicationHandlerStop
+    app.add_handler(CommandHandler('results',results_all_command),group=-50)
+    app.add_handler(CommandHandler('accuracy',accuracy_all_command),group=-50)
+    from hybrid_engine.health_command import HealthCommand
+    health_command=HealthCommand(predictions.reports,journal,chat_id)
+    app.bot_data['health_command']=health_command
+    app.add_handler(CommandHandler('health',health_command.handle),group=-50)
+    if nba_service is not None:app.add_handler(CommandHandler('nba',isolated_fixtures),group=-50)
+    if forward_el is not None or 'EUROLEAGUE' in europe_services:app.add_handler(CommandHandler('euroleague',isolated_fixtures),group=-50)
+    if 'EUROCUP' in europe_services:app.add_handler(CommandHandler('eurocup',isolated_fixtures),group=-50)
+    async def premium_callback(update,context):
+        query=update.callback_query
+        if query is None or update.effective_chat is None or update.effective_chat.id!=chat_id:
+            return
+        data=query.data or ''
+        parts=data.split(':')
+        if len(parts) not in (3,4) or parts[0]!='zui':
+            return
+        _,token,section=parts[:3]
+        page=int(parts[3]) if len(parts)==4 and parts[3].isascii() and parts[3].isdigit() else 0
+        cache=app.bot_data.get('premium_reports',{})
+        entry=cache.get(token)
+        if entry is None or entry['chat_id']!=chat_id:
+            await query.answer('Bu raporun oturumu sona erdi. /analyze ile tekrar açın.',show_alert=True)
+            return
+        if section!='summary' and section not in entry['sections']:
+            await query.answer('Bölüm bulunamadı.',show_alert=True)
+            return
+        from hybrid_engine.telegram_premium_ui import keyboard,page_view
+        answered=False
+        if section in ('market','roster') and page==0 and entry.get('europe_context'):
+            await query.answer('Güncel Avrupa kaynakları kontrol ediliyor…')
+            answered=True
+            try:
+                reviewer=app.bot_data['europe_data_review']
+                # First market review may retrieve two bounded official club
+                # catalog receipts before the provider's 12s admission window.
+                review=await asyncio.wait_for(asyncio.to_thread(reviewer.review,entry['europe_context'],section),
+                                            timeout=45 if section=='market' else 20)
+                if review['original_forecast_sha256']!=entry['europe_forecast_sha256'] or review['section']!=section:
+                    raise ValueError('EUROPE_SOURCE_REVIEW_BINDING')
+                from hybrid_engine.elite_render import split_blocks
+                from hybrid_engine.telegram_premium_ui import cache_report
+                entry=dict(entry,sections=dict(entry['sections']),section_pages=dict(entry['section_pages']))
+                original=entry.get('europe_original_sections',{}).get(section,'')
+                entry['sections'][section]=review['html']+'\n\n<b>İLK TAHMİN / ARŞİV KANITI</b>\n'+original
+                entry['section_pages'][section]=split_blocks(entry['sections'][section].splitlines(),limit=3200)
+                if section=='market':
+                    entry['quote_valid_until_utc']=review['valid_until_utc']
+                    if review.get('details',{}).get('admitted_observations'):
+                        entry['summary']=entry['summary'].replace('Güncel doğrulanmış barem yok; piyasa ayrıntıları butonda.',
+                            'Güncel piyasa kaynak gözlemleri Piyasa düğmesinde; kapsam ve kalibrasyon durumuna bakın.')
+                if section=='roster':
+                    entry['roster_review_at_utc']=review['observed_at_utc']
+                    entry['roster_valid_until_utc']=review['valid_until_utc']
+                cache_report(cache,token,entry)
+            except Exception as exc:
+                logging.getLogger(__name__).warning('European source review unavailable: %s',type(exc).__name__)
+                await query.edit_message_text('Avrupa veri kaynağı denetlenemedi veya süre aşıldı. '
+                    'Veri yokluğu tam kadro/NO EDGE anlamına gelmez. İlk tahmin korunuyor. Kod: EUROPE_SOURCE_REVIEW_UNAVAILABLE',
+                    reply_markup=keyboard(token))
+                return
+        if section=='roster' and page==0 and entry.get('roster_context'):
+            await query.answer('Güncel kaynaklar kontrol ediliyor…')
+            answered=True
+            reviewer=app.bot_data.get('current_roster_review')
+            if reviewer is not None:
+                try:
+                    from hybrid_engine.current_roster import render_review
+                    review=await asyncio.wait_for(asyncio.to_thread(reviewer.review,entry['roster_context']),timeout=20)
+                    if review['original_snapshot_sha256']!=entry['roster_context']['original_snapshot_sha256']:
+                        raise ValueError('ROSTER_REVIEW_CONTEXT_CONFLICT')
+                    current=render_review(review)
+                    from hybrid_engine.player_shadow import render_status as render_player_status
+                    current+='\n\n'+await asyncio.to_thread(render_player_status,root/'player-shadow')
+                    from hybrid_engine.elite_render import split_blocks
+                    from hybrid_engine.telegram_premium_ui import cache_report
+                    entry=dict(entry,sections=dict(entry['sections']),section_pages=dict(entry['section_pages']))
+                    entry['sections']['roster']=current+'\n\n'+entry['original_roster_html']
+                    entry['section_pages']['roster']=split_blocks(entry['sections']['roster'].splitlines(),limit=3200)
+                    entry['roster_review_at_utc']=review['observed_at_utc']
+                    entry['roster_valid_until_utc']=review.get('valid_until_utc',review['observed_at_utc']+300)
+                    cache_report(cache,token,entry)
+                except Exception as exc:
+                    logging.getLogger(__name__).warning('Current roster review unavailable: %s',type(exc).__name__)
+                    await query.edit_message_text('Güncel kadro kaynağı denetlenemedi veya süre aşıldı. '
+                        'Bu, sakat/cezalı oyuncu yok demek değildir. İlk tahmin değiştirilmedi.',
+                        reply_markup=keyboard(token))
+                    return
+        try:
+            body,page_count=page_view(entry,section,page,now=int(time.time()))
+        except ValueError:
+            await query.answer('Sayfa bulunamadı. Bölümü yeniden açın.',show_alert=True)
+            return
+        if not answered:await query.answer()
+        try:
+            await query.edit_message_text(body,parse_mode='HTML',
+                disable_web_page_preview=True,reply_markup=keyboard(token,section=section,page=page,pages=page_count))
+        except Exception as exc:
+            if 'Message is not modified' not in str(exc):
+                raise
+    app.add_handler(CallbackQueryHandler(premium_callback,pattern=r'^zui:[0-9a-f]{12}:(summary|period|market|ranges|audit|roster)(?::[0-9]{1,3})?$'),group=-50)
+    app.add_handler(CommandHandler('test',self_test),group=-50)
     app.add_handler(TypeHandler(Update,authorized),group=-100);app.add_error_handler(error)
     return journal,results
 
@@ -215,11 +847,17 @@ def main():
     parser.add_argument('--nba-model');parser.add_argument('--nba-model-sha')
     parser.add_argument('--decision-layer',action='store_true');parser.add_argument('--decision-audit');parser.add_argument('--decision-audit-sha')
     parser.add_argument('--forward-euroleague-directory');parser.add_argument('--forward-nba-ledger')
+    parser.add_argument('--europe-directory',help='Isolated EuroLeague/EuroCup registries and offline model directory')
     parser.add_argument('--nba-replay-packet');parser.add_argument('--replay-only',action='store_true')
     args=parser.parse_args();config=configuration(os.environ)
-    if args.preflight or config['status']=='NOT_CONFIGURED':print(json.dumps(config));return
+    # Capture dedicated data credentials before blanking the legacy production
+    # bootstrap key. Never inject data keys into main.py or its scheduler.
+    from hybrid_engine.provider_access import credentials,ProviderAccess
+    data_access=ProviderAccess(credentials())
+    if args.preflight or config['status']=='NOT_CONFIGURED':
+        print(json.dumps(dict(config,data_providers=data_access.configuration())));return
     if not args.archive_directory or not args.data_directory:raise ValueError('ISOLATED_DIRECTORIES_REQUIRED')
-    if args.replay_only and (args.nba_model or args.nba_model_sha or args.forward_euroleague_directory or args.forward_nba_ledger):
+    if args.replay_only and (args.nba_model or args.nba_model_sha or args.forward_euroleague_directory or args.forward_nba_ledger or args.europe_directory):
         raise ValueError('REPLAY_ONLY_FORBIDS_LIVE_MODELS_AND_RESULT_COLLECTION')
     from hybrid_engine.nba_replay import NBAReplayArchive,DEFAULT_PACKET
     nba_replay=NBAReplayArchive(local_path(args.nba_replay_packet) if args.nba_replay_packet else DEFAULT_PACKET)
@@ -247,28 +885,44 @@ def main():
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');transport=ControlledTransport(fetch_document)
     original=application.Application
     tasks=[]
+    from hybrid_engine.isolated_execution import IsolatedExecutor,background_task
     async def ready(app):
         me=await app.bot.get_me()
         if me.id!=config['bot_id'] or me.username!=config['username']:raise ValueError('TEST_BOT_SERVER_IDENTITY_MISMATCH')
         hook=await app.bot.get_webhook_info()
         if hook.url:raise ValueError('TEST_BOT_HAS_WEBHOOK_POLLING_NOT_STARTED')
+        scheduler=app.bot_data.get('europe_prematch_scheduler')
+        if scheduler and not args.replay_only:tasks.append(background_task(scheduler.run(app)))
+        overnight=app.bot_data.get('nba_overnight_scheduler')
+        if overnight and not args.replay_only:tasks.append(background_task(overnight.run(app)))
+        adaptive=app.bot_data.get('adaptive_v2_worker')
+        if adaptive and not args.replay_only:
+            cycle=app.bot_data.get('research_cycle')
+            if cycle:tasks.append(background_task(cycle.run(app)))
+            else:tasks.append(background_task(adaptive.run(app)))
         async def collect():
             while True:
-                try:
-                    receipt=await asyncio.to_thread(transport,'EUROLEAGUE_LIVE',OFFICIAL)
-                    await asyncio.to_thread(app.bot_data['test_results'].ingest,receipt)
+                from hybrid_engine.result_poll import poll_once
+                def euroleague_results():
+                    receipt=transport('EUROLEAGUE_LIVE',OFFICIAL)
+                    result=app.bot_data['test_results'].ingest(receipt)
                     if forward_el is not None:
                         from hybrid_engine.forward_nba_results import report_euroleague
-                        await asyncio.to_thread(forward_el.settle,receipt)
-                        await asyncio.to_thread(report_euroleague,forward_el)
-                    if forward_nba is not None:
-                        from hybrid_engine.forward_nba_results import collect as collect_forward_nba
-                        await asyncio.to_thread(collect_forward_nba,forward_nba,root/'forward-nba-results')
-                except (ValueError,OSError) as exc:
-                    await asyncio.to_thread(journal.append,digest(dict(kind='RESULT_POLL_FAILED',at=int(time.time()))),
-                        dict(kind='RESULT_POLL_FAILED',error_type=type(exc).__name__,observed_at_utc=int(time.time())))
+                        forward_el.settle(receipt)
+                        report_euroleague(forward_el)
+                    return result
+                jobs=[('EUROLEAGUE',euroleague_results)]
+                if forward_nba is not None:
+                    from hybrid_engine.forward_nba_results import collect as collect_forward_nba
+                    jobs.append(('FORWARD_NBA',lambda:collect_forward_nba(forward_nba,root/'forward-nba-results',fetcher=transport)))
+                if nba_service is not None:
+                    from hybrid_engine.nba_ledger_settlement import settle as settle_hybrid_nba
+                    jobs.append(('LIVE_NBA',lambda:settle_hybrid_nba(nba_service.ledger,fetcher=transport)))
+                for code,service in app.bot_data.get('europe_services',{}).items():
+                    jobs.append(('EUROPE_HYBRID_'+code,service.collect_results))
+                app.bot_data['last_result_poll']=await poll_once(jobs,journal)
                 await asyncio.sleep(args.result_poll_seconds)
-        if not args.replay_only:tasks.append(asyncio.create_task(collect()))
+        if not args.replay_only:tasks.append(background_task(collect()))
     async def stop(app):
         for task in tasks:task.cancel()
         await asyncio.gather(*tasks,return_exceptions=True)
@@ -282,14 +936,19 @@ def main():
     if args.nba_model:
         from hybrid_engine.live_nba import PreparedBayes,LiveNBAHybridService
         nba_service=LiveNBAHybridService(root/'live-nba',PreparedBayes(nba_model_path,trusted_sha256=args.nba_model_sha))
+    provider_bridge=None
+    if not args.replay_only:
+        from hybrid_engine.provider_bridge import ProviderBridge
+        provider_bridge=ProviderBridge(data_access,root/'provider-evidence',
+            extended=os.getenv('ZEYNAL_TEST_ODDS_EXTENDED','0')=='1')
     _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport,nba_service=nba_service,
-        decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only)
+        decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only,forward_el=forward_el,provider_bridge=provider_bridge,
+        europe_directory=None if args.replay_only else local_path(args.europe_directory) if args.europe_directory else root/'europe')
     app.bot_data['test_results']=results
     # Commands must arrive from the authorized HUMAN test chat; bot self-messages
     # are never counted as real command-input E2E evidence.
-    from concurrent.futures import ThreadPoolExecutor
     loop=asyncio.new_event_loop();asyncio.set_event_loop(loop)
-    loop.set_default_executor(ThreadPoolExecutor(max_workers=1,thread_name_prefix='hybrid-test'))
+    loop.set_default_executor(IsolatedExecutor())
     app.run_polling(bootstrap_retries=0,drop_pending_updates=False)
 
 

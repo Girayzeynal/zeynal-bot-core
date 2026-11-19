@@ -1,6 +1,10 @@
 name: Fly.io existing-volume machine deployment
 
 on:
+  workflow_run:
+    workflows: ["Python regression tests"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       confirm_deploy:
@@ -17,10 +21,31 @@ concurrency:
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    env:
+      ZEYNAL_RELEASE_COMMIT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      ZEYNAL_DEPLOY_MODE: ${{ github.event_name == 'workflow_run' && 'DEPLOY' || inputs.confirm_deploy }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.ZEYNAL_RELEASE_COMMIT }}
+      - name: Verify exact current main and one-shot release intent
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$ZEYNAL_RELEASE_COMMIT"
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$ZEYNAL_RELEASE_COMMIT"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
+            test "$(git log -1 --format=%s)" = "ZEYNAL_PRODUCTION_RELEASE_20261119"
+          fi
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Verify exact app, machine and volume before changing anything
         env:
@@ -29,7 +54,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$FLY_API_TOKEN"
-          case "${{ inputs.confirm_deploy }}" in CHECK_ONLY|DEPLOY) ;; *) echo 'Invalid confirmation value' >&2; exit 1 ;; esac
+          case "$ZEYNAL_DEPLOY_MODE" in CHECK_ONLY|DEPLOY) ;; *) echo 'Invalid confirmation value' >&2; exit 1 ;; esac
           flyctl auth whoami >/dev/null
           flyctl machines list --app zeynal-bot-core --json > /tmp/zeynal-machine.json
           flyctl volumes list --app zeynal-bot-core --json > /tmp/zeynal-volumes.json
@@ -40,28 +65,63 @@ jobs:
           assert isinstance(machines,list) and isinstance(volumes,list), 'Unexpected CLI JSON shape'
           assert any(m.get('id')=='830932f77d2598' and m.get('region')=='ams' and any(x.get('volume')=='vol_4581deoz3xjnp594' and x.get('path')=='/data' for x in (m.get('config',{}).get('mounts') or [])) for m in machines), 'Expected AMS machine or /data mount missing'
           assert any(v.get('id')=='vol_4581deoz3xjnp594' and v.get('attached_machine_id')=='830932f77d2598' for v in volumes), 'Expected volume attachment missing'
-          print('Verified existing AMS machine and /data volume mount')
+          chosen=[m for m in machines if m.get('id')=='830932f77d2598']
+          image=(chosen[0].get('config') or {}).get('image') if len(chosen)==1 else None
+          assert isinstance(image,str) and image.startswith('registry.fly.io/zeynal-bot-core'), 'Cannot pin existing deploy image for safe rollback'
+          open('/tmp/zeynal-previous-image.txt','w').write(image)
+          print('Verified existing AMS machine and /data volume mount; rollback image recorded')
           PY
-      - name: Build and push versioned Docker image
-        if: ${{ inputs.confirm_deploy == 'DEPLOY' }}
+      - name: Require existing recoverable volume snapshot before deployment
+        if: ${{ env.ZEYNAL_DEPLOY_MODE == 'DEPLOY' }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          IMAGE="registry.fly.io/zeynal-bot-core:github-${GITHUB_SHA}"
+          flyctl volumes snapshots list vol_4581deoz3xjnp594 --app zeynal-bot-core --json > /tmp/zeynal-snapshots.json
+          python3 - <<'PY'
+          import json
+          data=json.load(open('/tmp/zeynal-snapshots.json'))
+          assert isinstance(data,list) and any(
+              isinstance(row,dict) and isinstance(row.get('id'),str) and row['id'].startswith('vs_')
+              for row in data
+          ), 'No recoverable existing Fly volume snapshot verified; deploy aborted'
+          print('Existing snapshot recorded; original volume will not be modified')
+          PY
+      - name: Build and push versioned Docker image
+        if: ${{ env.ZEYNAL_DEPLOY_MODE == 'DEPLOY' }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="registry.fly.io/zeynal-bot-core:github-${ZEYNAL_RELEASE_COMMIT}"
           flyctl auth docker
-          docker build --build-arg "RELEASE_SHA=${GITHUB_SHA}" --tag "$IMAGE" .
+          docker build --build-arg "RELEASE_SHA=${ZEYNAL_RELEASE_COMMIT}" --tag "$IMAGE" .
           docker push "$IMAGE"
           echo "ZEYNAL_DEPLOY_IMAGE=$IMAGE" >> "$GITHUB_ENV"
       - name: Update only the existing volume-attached machine
-        if: ${{ inputs.confirm_deploy == 'DEPLOY' }}
+        if: ${{ env.ZEYNAL_DEPLOY_MODE == 'DEPLOY' }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
           test -n "${ZEYNAL_DEPLOY_IMAGE:-}"
+          test -s /tmp/zeynal-previous-image.txt
+          UPDATED=0
+          rollback_if_failed() {
+            result=$?
+            if [[ "$UPDATED" == 1 ]]; then
+              echo "Release smoke test failed; attempting previous image rollback" >&2
+              flyctl machine update 830932f77d2598 --app zeynal-bot-core \
+                --image "$(cat /tmp/zeynal-previous-image.txt)" --yes --wait-timeout 300 || \
+                echo "ROLLBACK_FAILED: existing machine requires manual recovery; volume was not deleted" >&2
+            fi
+            exit "$result"
+          }
+          trap rollback_if_failed ERR
+          UPDATED=1
           flyctl machine update 830932f77d2598 --app zeynal-bot-core --image "$ZEYNAL_DEPLOY_IMAGE" --yes --wait-timeout 300
           flyctl machines list --app zeynal-bot-core --json > /tmp/zeynal-after.json
           flyctl volumes list --app zeynal-bot-core --json > /tmp/zeynal-after-volumes.json
@@ -73,6 +133,17 @@ jobs:
           assert any(m.get('id')=='830932f77d2598' and m.get('state')=='started' and any(x.get('volume')=='vol_4581deoz3xjnp594' and x.get('path')=='/data' for x in (m.get('config',{}).get('mounts') or [])) for m in machines), 'Machine not started or /data mount changed'
           print('Existing machine started; original volume still attached')
           PY
+          curl --fail --silent --show-error --retry 5 --retry-delay 5 --max-time 15 \
+            https://zeynal-bot-core.fly.dev/ready > /tmp/zeynal-ready.json
+          python3 - <<'PY'
+          import json,os
+          report=json.load(open('/tmp/zeynal-ready.json'))
+          assert report.get('ready') is True, 'Telegram polling not ready after deployment'
+          assert report.get('release_sha')==os.environ['ZEYNAL_RELEASE_COMMIT'], 'Production release SHA mismatch'
+          print('Production HTTP ready + release SHA verified; Telegram delivery requires separate E2E')
+          PY
+          UPDATED=0
+          trap - ERR
       - name: Check-only summary
-        if: ${{ inputs.confirm_deploy != 'DEPLOY' }}
+        if: ${{ env.ZEYNAL_DEPLOY_MODE != 'DEPLOY' }}
         run: echo "Preflight passed; no deployment was performed."

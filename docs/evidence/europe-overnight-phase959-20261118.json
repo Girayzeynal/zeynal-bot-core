@@ -1,0 +1,42 @@
+{
+  "payload": {
+    "format": "EUROPE_OVERNIGHT_AUTOMATION_VALIDATION_V1",
+    "recorded_at_utc": "2026-11-18T05:53:27.708660+00:00",
+    "base_commit": "c0a6543585a383d8f5e9308b283a241607a710fd",
+    "checks": {
+      "full": {
+        "tests": 1463,
+        "seconds": 121.272,
+        "failures": 0,
+        "errors": 0,
+        "log_sha256": "4e5efa7a15c0aaf915b10dfef5c4ed5e9705d797f5aa5e6e4b008452f78343da"
+      }
+    },
+    "previous_tests_retained": 1461,
+    "new_tests": 2,
+    "lookahead_seconds": 129600,
+    "minimum_lead_seconds": 900,
+    "preserved_source_hashes": {
+      "hybrid_engine/live_nba.py": "40c347e5b47adbf58e720383da4d6df30aa6046e3cd30249d665b66c768ac6c2",
+      "hybrid_engine/nba_overnight.py": "5a0c2bdaf0c769d8fcf44fb81da68527e755cada5743d49e7d55897d79e10b58",
+      "hybrid_engine/challenger_forward.py": "11d9c21a94909da68c3de2c903f35710e77cd0bd4efdba7457a9aea4f72c310e",
+      "hybrid_engine/europe_live.py": "b08be3bf8fc4628ce39d3d7d15751a8e03405fa719c0094020b046f4eda1361d",
+      "hybrid_engine/europe_models.py": "b13058da002ae56f21c4799e35e7c70272002f42085d3e503e578fa70aab1e86",
+      "hybrid_engine/models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+      "hybrid_engine/data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+      "hybrid_engine/distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+      "hybrid_engine/intervals.py": "fb1eaa081f5939f137c92df929cbf7fa6155638273405267291011679907f861",
+      "live_analysis_ledger.py": "559a37b965f4c9a2ebed64f779b7166ed861240817bd9ef4acdf7a0584ce7964"
+    },
+    "transport": "SYNTHETIC_OFFICIAL_RECEIPTS_REAL_INFERENCE_AND_LOCAL_HTTP_PTB",
+    "actual_provider_authentication_verified": false,
+    "actual_telegram_delivery_verified": false,
+    "telegram_e2e_status": "BLOCKED_MISSING_DEDICATED_TEST_BOT_CONFIGURATION_IN_CLOUD",
+    "registered_nba_protocol_changed": false,
+    "old_archives_changed": false,
+    "model_training_in_request": false,
+    "production_changed": false,
+    "main_merged": false
+  },
+  "sha256": "ec827e7d0b74dfb618224a82eb7acb312dc37357ef1d11fef8d354757a948c1e"
+}

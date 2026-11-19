@@ -1,0 +1,313 @@
+"""Opt-in, bounded ESPN/NBA.com team identity crosswalk field pilot.
+
+Strict 2 fixed 2026/27 ESPN season member/name URLs. Each host's robots.txt
+must permit access. No fallback to a 30-team historical fanout. HTML/JSON
+not persisted. Output only a candidate team-ID bridge with observed source
+timestamps and SHA pins; no player IDs, fixtures or model input.
+
+Invocation:
+ python -B -m hybrid_engine.official_club_identity_pilot --live --club nba_denver_nuggets
+"""
+import argparse
+import json
+import time
+import re
+import os
+from pathlib import Path
+from urllib.parse import urlsplit
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, build_opener
+
+from hybrid_engine.official_club_sources import (
+    _bounded_https, NoRedirect, USER_AGENT, TIMEOUT_SECONDS)
+
+from core.team_identity import digest
+from providers.season_participants import parse_participants,participant_urls
+from hybrid_engine.official_club_sources import (
+    registry, _request, allowed_by_robots, MAX_ROBOTS, MAX_BODY)
+from hybrid_engine.official_club_team_crosswalk import audit_nba_team_crosswalk
+
+FORMAT="OFFICIAL_NBA_ESPN_TEAM_IDENTITY_FIELD_V1"
+HOSTS=frozenset(("site.api.espn.com","sports.core.api.espn.com"))
+
+
+def pinned_espn_request(url,*,limit,expected_mime):
+    # Existing general-purpose official-club transport correctly rejects
+    # query strings. ESPN's two *fixed* first-party membership endpoints use
+    # ?limit=100, so accept ONLY these exact URLs here, without broadening
+    # the generic transport and its security policy.
+    if url.endswith("/robots.txt"):
+        _bounded_https(url)
+        if urlsplit(url).hostname not in HOSTS:
+            raise ValueError("ESPN_ROBOTS_HOST_NOT_ALLOWLISTED")
+        return _request(url,limit=limit,expected_mime=expected_mime)
+    if url not in frozenset(participant_urls("NBA",2026).values()):
+        raise ValueError("ESPN_PARTICIPANT_UNLISTED_URL_REFUSED")
+    req=Request(url,headers={"User-Agent":USER_AGENT,"Accept":expected_mime})
+    try:
+        with build_opener(NoRedirect).open(req,timeout=TIMEOUT_SECONDS) as response:
+            status=response.status
+            mime=response.headers.get_content_type()
+            body=response.read(limit+1)
+            if len(body)>limit:
+                return dict(status="SOURCE_SIZE_LIMIT",http_status=status)
+            if status!=200 or mime!=expected_mime:
+                return dict(status="SOURCE_HTTP_OR_MIME_REFUSED",http_status=status)
+            return dict(status="DOCUMENT_RECEIVED",http_status=200,body=body,
+                        observed_at_utc=int(time.time()))
+    except HTTPError as exc:
+        return dict(status=("SOURCE_RATE_LIMITED" if exc.code==429 else
+                            "SOURCE_ACCESS_REFUSED" if exc.code in (401,403) else
+                            "SOURCE_REDIRECT_REFUSED" if exc.code in (301,302,303,307,308) else
+                            "SOURCE_HTTP_ERROR"),http_status=exc.code)
+    except (URLError,TimeoutError,OSError):
+        return dict(status="SOURCE_NETWORK_ERROR")
+
+
+def capture_nba_espn_identity(club, *, requester=pinned_espn_request, now_utc=None):
+    if (type(club) is not dict or club.get("club_key") not in
+        ("nba_denver_nuggets","nba_boston_celtics")):
+        raise ValueError("NBA_ESP_IDENTITY_TWO_TEAM_PILOT_ONLY")
+    now=int(time.time()) if now_utc is None else now_utc
+    if type(now) is not int or now<=0:
+        raise ValueError("ESPN_TEAM_IDENTITY_OBSERVATION_CLOCK")
+    documents={}
+    requests=0
+    for name,url in participant_urls("NBA",2026).items():
+        host=urlsplit(url).hostname
+        if host not in HOSTS:
+            raise ValueError("ESPN_PARTICIPANT_SOURCE_HOST_REFUSED")
+        robots_url="https://"+host+"/robots.txt"
+        robots=requester(robots_url,limit=MAX_ROBOTS,expected_mime="text/plain")
+        requests+=1
+        if robots.get("status")!="DOCUMENT_RECEIVED":
+            if robots.get("http_status") not in (404,410):
+                return dict(format=FORMAT,status="ABSTAIN",
+                            reason="ESPN_ROBOTS_UNAVAILABLE_OR_REFUSED",
+                            failed_stage="ROBOTS_POLICY_CHECK",
+                            failed_source_role=name,
+                            failed_source_host=host,
+                            robots_transport_status=robots.get("status"),
+                            robots_http_status=robots.get("http_status"),
+                            robots_decision="UNVERIFIED_NO_DATA_REQUEST",
+                            club_key=club["club_key"],requests=requests,
+                            model_input=False,production_changed=False)
+        elif not allowed_by_robots(robots["body"].decode("utf-8","replace"),url):
+            return dict(format=FORMAT,status="ABSTAIN",
+                        reason="ESPN_ROBOTS_DISALLOW",
+                        failed_stage="ROBOTS_POLICY_CHECK",
+                        failed_source_role=name,
+                        failed_source_host=host,
+                        robots_transport_status=robots.get("status"),
+                        robots_http_status=robots.get("http_status"),
+                        robots_decision="DISALLOWED_NO_DATA_REQUEST",
+                        club_key=club["club_key"],requests=requests,
+                        model_input=False,production_changed=False)
+        result=requester(url,limit=MAX_BODY,expected_mime="application/json")
+        requests+=1
+        if result.get("status")!="DOCUMENT_RECEIVED":
+            return dict(format=FORMAT,status="ABSTAIN",
+                        reason=result.get("status","ESPN_JSON_UNAVAILABLE"),
+                        club_key=club["club_key"],requests=requests,
+                        model_input=False,production_changed=False)
+        observed=result.get("observed_at_utc")
+        if (type(observed) is not int or observed<=0 or
+            observed>now+30 or now-observed>120):
+            return dict(format=FORMAT,status="ABSTAIN",
+                        reason="ESPN_SOURCE_OBSERVATION_CLOCK_INVALID",
+                        club_key=club["club_key"],requests=requests,
+                        model_input=False,production_changed=False)
+        try:
+            document=json.loads(result["body"].decode("utf-8"))
+        except (ValueError,UnicodeError,TypeError,AttributeError):
+            return dict(format=FORMAT,status="ABSTAIN",
+                        reason="ESPN_JSON_BODY_INVALID",
+                        club_key=club["club_key"],requests=requests,
+                        model_input=False,production_changed=False)
+        documents[name]=dict(
+            provider="ESPN",source_url=url,status="DOCUMENT_RECEIVED",
+            http_status=200,document=document,
+            observed_at_utc=observed,ingested_at_utc=max(observed,now),
+            document_sha256=digest(document))
+    # Explicitly NO historical fallback and no retrospective as-of claims.
+    try:
+        snapshot=parse_participants("NBA",2026,documents)
+        bridge=audit_nba_team_crosswalk(
+            club,snapshot,trusted_snapshot_sha256=snapshot["sha256"],
+            asof_utc=max(now,max(v["ingested_at_utc"] for v in documents.values())))
+    except (ValueError,TypeError,KeyError,OverflowError) as exc:
+        return dict(format=FORMAT,status="ABSTAIN",
+                    reason="ESPN_PARTICIPANT_OR_CROSSWALK_REFUSED",
+                    detail=str(exc)[:100],club_key=club["club_key"],
+                    requests=requests,model_input=False,
+                    production_changed=False)
+    return dict(format=FORMAT,
+                status="READ_ONLY_TEAM_CROSSWALK_CANDIDATE",
+                club_key=club["club_key"],league="NBA",
+                nba_com_team_id=bridge["nba_com_team_id"],
+                espn_team_id=bridge["espn_team_id"],
+                official_team_name=bridge["source_name"],
+                source_participant_snapshot_sha256=snapshot["sha256"],
+                source_observed_utc=max(v["observed_at_utc"] for v in documents.values()),
+                source_ingested_utc=max(v["ingested_at_utc"] for v in documents.values()),
+                observed_asof_is_not_historical_proof=True,
+                requests=requests,
+                verified_fixture_id=None,verified_player_id=None,
+                source_attestation="LOCAL_HASH_NOT_INDEPENDENT_PROVIDER_SIGNATURE",
+                model_input=False,production_changed=False)
+
+
+_SNAPSHOT_SHA=re.compile(r"^[0-9a-f]{64}$")
+_LOCAL_ROOT=(Path.home()/"zeynal-test-isolated"/"data").absolute()
+_MAX_LOCAL_SNAPSHOT_BYTES=4*1024*1024
+
+
+def offline_nba_espn_identity(club,*,path, trusted_snapshot_sha256,
+                              asof_utc, local_root=None):
+    """Read a user-selected prior season participant bundle; ZERO network.
+
+    The SHA is an externally supplied pin; do NOT calculate a fresh 'trusted'
+    SHA from the same untrusted file as if it were independent evidence.
+    Local source timestamps are not secure third-party time attestations.
+    """
+    root=_LOCAL_ROOT if local_root is None else Path(local_root).expanduser().absolute()
+    file=Path(path).expanduser().absolute()
+    base=dict(format=FORMAT,club_key=club["club_key"],
+              requests=0,model_input=False,production_changed=False,
+              source_mode="OFFLINE_USER_PINNED_SEASON_SNAPSHOT")
+    if (type(trusted_snapshot_sha256) is not str or
+        not _SNAPSHOT_SHA.fullmatch(trusted_snapshot_sha256) or
+        type(asof_utc) is not int or asof_utc<=0):
+        return dict(base,status="ABSTAIN",reason="INDEPENDENT_SHA_AND_ASOF_REQUIRED")
+    try:
+        if file.suffix!=".json" or not file.is_relative_to(root):
+            raise ValueError("ISOLATED_SNAPSHOT_PATH_REQUIRED")
+        if any(n.is_symlink() for n in (file,*file.parents) if
+               n==file or n.is_relative_to(root)):
+            raise ValueError("ISOLATED_SNAPSHOT_SYMLINK_REFUSED")
+        if not file.is_file() or file.stat().st_size>_MAX_LOCAL_SNAPSHOT_BYTES:
+            raise ValueError("ISOLATED_SNAPSHOT_NOT_PRESENT_OR_TOO_LARGE")
+        data=json.loads(file.read_bytes())
+        bridge=audit_nba_team_crosswalk(
+            club,data,trusted_snapshot_sha256=trusted_snapshot_sha256,
+            asof_utc=asof_utc)
+    except (OSError,UnicodeError,ValueError,TypeError,KeyError,
+            OverflowError,RecursionError) as exc:
+        # Don't expose untrusted filesystem or document contents.
+        code=str(exc)
+        reason=(code if code in (
+            "ISOLATED_SNAPSHOT_PATH_REQUIRED",
+            "ISOLATED_SNAPSHOT_SYMLINK_REFUSED",
+            "ISOLATED_SNAPSHOT_NOT_PRESENT_OR_TOO_LARGE",
+            "PARTICIPANT_SNAPSHOT_TRUST_ANCHOR_REQUIRED",
+            "SEASON_SOURCE_NOT_AVAILABLE_AT_FORECAST_CUTOFF",
+            "NBA_ESP_TEAM_NAME_NOT_UNIQUELY_MATCHED") else
+            "PINNED_SEASON_SNAPSHOT_VALIDATION_REFUSED")
+        return dict(base,status="ABSTAIN",reason=reason)
+    return dict(base,status="OFFLINE_TEAM_CROSSWALK_CANDIDATE_ONLY",
+                nba_com_team_id=bridge["nba_com_team_id"],
+                espn_team_id=bridge["espn_team_id"],
+                season=bridge["season"],league="NBA",
+                source_participant_snapshot_sha256=trusted_snapshot_sha256,
+                source_participant_ingested_at_utc=bridge[
+                    "source_participant_ingested_at_utc"],
+                asof_utc=asof_utc,
+                first_issued_forecast_proof_established=False,
+                verified_fixture_id=None,verified_player_id=None,
+                source_attestation="LOCAL_HASH_NOT_INDEPENDENT_PROVIDER_SIGNATURE")
+
+
+def inspect_local_season_snapshot_candidates(*,root=None):
+    """Zero-network local candidate inventory including readonly SQLite schema.
+
+    This compatibility entrypoint preserves the --scan-local CLI but now
+    reports an INCOMPLETE status whenever any safety limit was hit.
+    """
+    from hybrid_engine.official_club_local_inventory import inspect_local_source_inventory
+    return inspect_local_source_inventory(
+        root=_LOCAL_ROOT if root is None else root)
+
+
+def run(argv=None):
+    p=argparse.ArgumentParser(description=__doc__)
+    mode=p.add_mutually_exclusive_group()
+    mode.add_argument("--live",action="store_true")
+    mode.add_argument("--offline-snapshot",
+                      help="Existing 2026/27 season-participant JSON under ~/zeynal-test-isolated/data")
+    mode.add_argument("--scan-local",action="store_true",
+                      help="Bounded no-network inventory of existing 2026/27 NBA season snapshots; does not trust self-reported pins")
+    mode.add_argument("--inspect-db-schema",action="store_true",
+                      help="No-network fixed-path SQLite PRAGMA table_info only, no JSON parsing or data rows")
+    mode.add_argument("--audit-frozen-receipts",action="store_true",
+                      help="Zero-network read-only bounded NBA live snapshot/commit receipt integrity; reads but never exports record payloads")
+    mode.add_argument("--audit-fixture-finals",action="store_true",
+                      help="Zero-network read-only crosscheck of frozen NBA fixture IDs against locally stored ESPN final events; no external source attestation")
+    mode.add_argument("--audit-missing-finals",action="store_true",
+                      help="Zero-network local frozen NBA fixture gap list; distinguish pre-tipoff from elapsed tipoff without claiming final result")
+    mode.add_argument("--prepare-final-stage",action="store_true",
+                      help="Create new isolated NBA SQLite test copy only after frozen/final audit; zero network or source mutation")
+    mode.add_argument("--coverage-summary",action="store_true",
+                      help="Zero-network 82-club official NEWS source inventory: only six pilot URLs observed")
+    p.add_argument("--trusted-sha256",
+                   help="SHA256 independently pinned before this offline run")
+    p.add_argument("--asof-utc",type=int,
+                   help="Unix UTC second cutoff; never infer a historical timestamp")
+    p.add_argument("--club",required=True,choices=[
+        "nba_denver_nuggets","nba_boston_celtics"])
+    a=p.parse_args(argv)
+    club=next(x for x in registry() if x["club_key"]==a.club)
+    if a.coverage_summary:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--coverage-summary is a no-network inventory, not an as-of attestation")
+        from hybrid_engine.official_club_coverage import summary as coverage_summary
+        r=coverage_summary()
+    elif a.prepare_final_stage:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--prepare-final-stage never accepts external source trust claims")
+        from hybrid_engine.official_club_final_staging import prepare_isolated_final_stage
+        r=prepare_isolated_final_stage(root=_LOCAL_ROOT)
+    elif a.audit_missing_finals:
+        if a.trusted_sha256 is not None:
+            p.error("--audit-missing-finals does not accept external trust claims")
+        from hybrid_engine.official_club_missing_final_audit import inspect_local_missing_finals
+        r=inspect_local_missing_finals(root=_LOCAL_ROOT,asof_utc=a.asof_utc)
+    elif a.audit_fixture_finals:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--audit-fixture-finals uses stored local evidence only, no external as-of claim")
+        from hybrid_engine.official_club_fixture_outcome_audit import inspect_local_nba_final_fixture_links
+        r=inspect_local_nba_final_fixture_links(root=_LOCAL_ROOT)
+    elif a.audit_frozen_receipts:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--audit-frozen-receipts uses local ledger only; no external trust claim")
+        from hybrid_engine.official_club_frozen_receipt_audit import audit_isolated_nba_frozen_receipts
+        r=audit_isolated_nba_frozen_receipts(root=_LOCAL_ROOT)
+    elif a.inspect_db_schema:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--inspect-db-schema is metadata only; no as-of or trusted-pin claims")
+        from hybrid_engine.official_club_local_inventory import inspect_known_database_columns
+        r=inspect_known_database_columns(root=_LOCAL_ROOT)
+    elif a.scan_local:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--scan-local has no source pin or historical cutoff; inventory only")
+        r=inspect_local_season_snapshot_candidates()
+    elif a.offline_snapshot:
+        if a.trusted_sha256 is None or a.asof_utc is None:
+            p.error("--offline-snapshot requires --trusted-sha256 and --asof-utc")
+        r=offline_nba_espn_identity(
+            club,path=a.offline_snapshot,
+            trusted_snapshot_sha256=a.trusted_sha256,asof_utc=a.asof_utc)
+    elif a.live:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--trusted-sha256 and --asof-utc are offline-only")
+        r=capture_nba_espn_identity(club)
+    else:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--trusted-sha256 and --asof-utc require --offline-snapshot")
+        r=dict(format=FORMAT,status="DRY_RUN_ZERO_HTTP",
+               club_key=a.club,requests=0,
+               model_input=False,production_changed=False)
+    print(json.dumps(r,ensure_ascii=False,sort_keys=True))
+    return 0
+
+if __name__=="__main__":
+    raise SystemExit(run())

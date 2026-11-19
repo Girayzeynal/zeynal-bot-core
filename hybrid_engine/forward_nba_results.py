@@ -3,6 +3,7 @@ import argparse
 from contextlib import closing
 import json
 import sqlite3
+import time
 
 from core.team_identity import digest
 from hybrid_engine.boxes import publish_json
@@ -14,9 +15,14 @@ from season_archive_collect import fetch_document
 def read_confirmed(path):
     path=local_path(path)
     with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True)) as db:
-        rows=db.execute('SELECT s.payload,s.sha256,r.snapshot_sha256,r.completed_utc FROM live_analysis_snapshots s JOIN live_analysis_commit_receipts r USING(league,fixture_id,model_digest)').fetchall()
+        db.execute('PRAGMA query_only=ON')
+        deadline=time.monotonic()+2
+        db.set_progress_handler(lambda:int(time.monotonic()>deadline),1000)
+        rows=db.execute('SELECT CASE WHEN length(CAST(s.payload AS BLOB))<=524288 THEN s.payload END,s.sha256,r.snapshot_sha256,r.completed_utc FROM live_analysis_snapshots s JOIN live_analysis_commit_receipts r USING(league,fixture_id,model_digest) LIMIT 1001').fetchall()
+    if len(rows)>1000:raise ValueError('NBA_FORWARD_SCAN_LIMIT')
     output=[]
     for raw,pin,receipt_pin,archived in rows:
+        if raw is None:raise ValueError('NBA_FORWARD_PAYLOAD_LIMIT')
         p=json.loads(raw)
         if digest(p)!=pin or pin!=receipt_pin or p['league']!='NBA':raise ValueError('NBA_FORWARD_SNAPSHOT_PIN')
         if not p['prediction_generated_at_utc']<=p['created_at_utc']<=archived<p['fixture_start_utc']:raise ValueError('NBA_FORWARD_COMMIT_CLOCK')
@@ -45,12 +51,9 @@ def report_euroleague(registry):
     from hybrid_engine.evaluation import summarize
     from hybrid_engine.intervals import empirical_coverage
     rows=defaultdict(list);bands=defaultdict(list);pending=0
-    for item in registry.records():
-        p=item['payload'];fid=p['fixture']['canonical_id'];files=list(registry.root.glob('outcome-'+fid+'-*.json'))
-        if not files:pending+=1;continue
-        w=json.loads(files[0].read_text());o=w['payload']
-        if digest(o)!=w['sha256'] or o['forecast_sha256']!=digest(p):raise ValueError('FORWARD_COMPARISON_PIN')
-        registry.read_asset(o['source'])
+    for item in registry.independent_records():
+        p=item['payload'];fid=p['fixture']['canonical_id'];o=registry.outcome(p)
+        if o is None:pending+=1;continue
         if not item['publication']['eligible_for_prospective_audit']:continue
         q=np.asarray([o['periods'][s][:4] for s in ('home','away')]).T
         for name,m in p['components'].items():
@@ -60,7 +63,8 @@ def report_euroleague(registry):
             bands[name].append((m['intervals'],o['periods']))
     metrics={name:summarize(values) for name,values in rows.items()}
     for m in metrics.values():m.pop('runtime_seconds',None)
-    report=dict(format='FORWARD_EUROLEAGUE_COMPARISON_V1',metrics=metrics,pending=pending,
+    report=dict(format='FORWARD_EUROLEAGUE_COMPARISON_V1',metrics=metrics,pending=pending,cohort_policy='FIRST_ISSUED_PER_FIXTURE',
+        confidence_index=None,superiority_claim=False,
         coverage={name:empirical_coverage(values) for name,values in bands.items()},
         market_status='MARKET_UNAVAILABLE',calibration_status='UNCALIBRATED',calibration_fit=False,production_changed=False)
     path=registry.root/('report-'+digest(report)+'.json');publish_json(path,dict(payload=report,sha256=digest(report)))
