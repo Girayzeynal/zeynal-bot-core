@@ -107,15 +107,34 @@ def assess_against_frozen_forecast(article, *, club, frozen=None,
         b.get("league")!=f.get("league") or
         b.get("provider_team_id")!=team):
         blocked("INDEPENDENT_FIXTURE_BINDING_REQUIRED")
-    if (not _ident(b,"provider_player_id") or not _ident(b,"player_name_text") or
+    # Preserve original source semantics: physical injury OUT is NOT the
+    # same as a G League assignment or questionable/probable availability.
+    turkish_claims=[
+        x for x in a.get("injury_absence_claim_candidates",[])
+        if isinstance(x,dict)] if isinstance(
+            a.get("injury_absence_claim_candidates"),list) else []
+    nba_claims=[
+        x for x in a.get("nba_injury_report_claim_candidates",[])
+        if isinstance(x,dict)] if isinstance(
+            a.get("nba_injury_report_claim_candidates"),list) else []
+    mapped_name=_ident(b,"player_name_text")
+    exact_text_claims=[x for x in (turkish_claims+nba_claims)
+                       if mapped_name is not None and
+                       x.get("player_name_text")==mapped_name]
+    if (not _ident(b,"provider_player_id") or mapped_name is None or
         _ident(b,"identity_evidence_sha256") is None or
         not SHA256.fullmatch(b["identity_evidence_sha256"]) or
-        not isinstance(a.get("injury_absence_claim_candidates"),list) or
-        b["player_name_text"] not in {
-            x.get("player_name_text") for x in
-            a.get("injury_absence_claim_candidates",[])
-            if isinstance(x,dict)}):
+        not exact_text_claims):
         blocked("INDEPENDENT_PLAYER_ROSTER_BINDING_REQUIRED")
+    if exact_text_claims:
+        injury_out=any(
+            (x.get("reported_status")=="CLUB_STATES_UNAVAILABLE_FOR_THIS_MATCH"
+             and x.get("reported_reason")=="INJURY_IN_SOURCE_SENTENCE")
+            or (x.get("reported_status")=="OUT"
+                and x.get("reason_category")=="INJURY_REASON_REPORTED")
+            for x in exact_text_claims)
+        if not injury_out:
+            blocked("NO_EXPLICIT_PHYSICAL_INJURY_OUT_CLAIM_FOR_SHADOW")
 
     # Check as-of using FIRST ACTUAL OBSERVATION, not an earlier displayed
     # article date or a later after-the-fact downloaded PDF.
