@@ -73,6 +73,8 @@ def run(argv=None):
                          model_input=False,production_changed=False)
             if args.diagnose_links:
                 compact["link_diagnostics"]=result.get("link_diagnostics")
+                if item["league"]=="NBA":
+                    compact["embedded_diagnostics"]=result.get("embedded_diagnostics")
             print(json.dumps(compact,ensure_ascii=False,sort_keys=True))
         else:
             print(json.dumps(result,ensure_ascii=False,sort_keys=True))
