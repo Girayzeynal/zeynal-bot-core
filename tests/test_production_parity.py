@@ -91,7 +91,7 @@ class ProductionParityTests(unittest.TestCase):
         app=App()
         parity.install(app)
         commands={cmd for h in app.handlers for cmd in h.commands}
-        self.assertEqual(commands, {"features","models","predictions","results","sources","test"})
+        self.assertEqual(commands, {"features","models","predictions","results","sources","sourceplayers","test"})
 
 
 if __name__ == "__main__":
