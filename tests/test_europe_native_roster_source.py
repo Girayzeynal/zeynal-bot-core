@@ -62,6 +62,22 @@ class NativeRosterSourceTests(unittest.TestCase):
         self.assertFalse(result["player_status_verified"])
         self.assertEqual(result["registered_players"],[])
 
+    def test_real_http_response_arriving_after_request_start_is_valid(self):
+        t=[NOW]
+        def clock():return t[0]
+        def getter(url):
+            # A 2-second real provider request is NOT a future timestamp.
+            t[0]+=2
+            club=url.split("/clubs/")[1].split("/")[0]
+            r=payload(club)
+            r["observed_at_utc"]=t[0]
+            return r
+        rows=pair(CTX,getter=getter,clock=clock)
+        self.assertEqual(rows["teams"]["home"]["status"],
+                         "OFFICIAL_SEASON_REGISTRATION_OBSERVED")
+        self.assertEqual(rows["teams"]["away"]["status"],
+                         "OFFICIAL_SEASON_REGISTRATION_OBSERVED")
+
     def test_fixture_pair_uses_exact_codes_and_never_claims_injury(self):
         calls=[]
         def getter(url):
