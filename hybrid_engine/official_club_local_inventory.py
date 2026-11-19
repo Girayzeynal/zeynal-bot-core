@@ -173,8 +173,14 @@ def inspect_local_source_inventory(*,root):
             if len(report["sqlite_database_paths"])<MAX_RESULTS:
                 report["sqlite_database_paths"].append(relative)
             if names:
+                known_forecast_names=frozenset((
+                    "snapshots","live_analysis_snapshots","market_snapshots"))
+                role=("FORECAST_SNAPSHOT_SCHEMA_ONLY"
+                      if all(v.casefold() in known_forecast_names for v in names)
+                      else "POTENTIAL_SOURCE_SCHEMA_UNVERIFIED")
                 report["sqlite_schema_candidates"].append(dict(
                     relative_path=relative,table_names=names,
+                    schema_role=role,
                     status="SCHEMA_NAMES_ONLY_NOT_SOURCE_PROOF"))
             if capped:
                 stats["scan_capped"]=True
@@ -187,10 +193,15 @@ def inspect_local_source_inventory(*,root):
         json_bytes_read=stats["json_bytes_read"],
         scan_capped=stats["scan_capped"],
         scan_cap_reasons=sorted(stats["scan_cap_reasons"]))
-    if report["candidate_files"] or report["sqlite_schema_candidates"]:
+    potential_identity=any(
+        x["schema_role"]=="POTENTIAL_SOURCE_SCHEMA_UNVERIFIED"
+        for x in report["sqlite_schema_candidates"])
+    if report["candidate_files"] or potential_identity:
         report["status"]="LOCAL_IDENTITY_SOURCE_CANDIDATES_UNVERIFIED"
     elif report["scan_capped"]:
         report["status"]="LOCAL_IDENTITY_SCAN_INCOMPLETE_NO_MATCH"
+    elif report["sqlite_schema_candidates"]:
+        report["status"]="LOCAL_FORECAST_SCHEMAS_ONLY_NOT_IDENTITY_SOURCE"
     else:
         report["status"]="NO_IDENTITY_SOURCE_FOUND_IN_SCANNED_LOCAL_SCOPE"
     return report
