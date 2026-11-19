@@ -2,6 +2,9 @@ name: EuroLeague real native player identity source smoke
 on:
   push:
     branches: [feature/euroleague-native-player-roster-source-20261119]
+    paths:
+      - hybrid_engine/europe_native_roster_source.py
+      - .github/workflows/europe-real-roster-source-smoke.yml
   workflow_dispatch:
 permissions:
   contents: read
