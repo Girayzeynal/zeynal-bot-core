@@ -8,6 +8,8 @@ is for a future *human-reviewed shadow experiment* only.
 """
 import re
 
+from hybrid_engine.official_club_capture import verify_article_capture
+
 SHA256=re.compile(r"^[0-9a-f]{64}$")
 LEAGUES=frozenset(("NBA","EUROLEAGUE","EUROCUP"))
 MAX_AGE_SECONDS=72*3600
@@ -66,6 +68,10 @@ def assess_against_frozen_forecast(article, *, club, frozen=None,
     # A later reconstruction of source metadata is NEVER a pregame capture.
     first=_utc(r,"observed_at_utc")
     sealed=_utc(r,"captured_at_utc")
+    try:
+        verify_article_capture(r)
+    except (ValueError,TypeError,KeyError,OverflowError):
+        blocked("FIRST_CAPTURE_RECEIPT_HASH_OR_CLOCK_INVALID")
     if (r.get("format")!="OFFICIAL_CLUB_CAPTURE_RECEIPT_V1" or
         r.get("club_key")!=a.get("club_key") or
         r.get("source_url")!=url or r.get("body_sha256")!=digest or
