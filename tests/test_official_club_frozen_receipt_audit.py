@@ -159,3 +159,42 @@ def test_symlink_forecast_db_rejected_without_write(tmp_path):
     result=aud.audit_isolated_nba_frozen_receipts(root=root)
     assert result["status"]=="ISOLATED_FROZEN_LEDGER_UNAVAILABLE"
     assert result["requests"]==0
+
+
+
+def test_orphan_commit_receipt_never_counts_as_an_existing_frozen_snapshot(tmp_path):
+    root,file=_ledger(tmp_path)
+    now=int(time.time())-100
+    with sqlite3.connect(file) as db:
+        db.execute("INSERT INTO live_analysis_commit_receipts VALUES (?,?,?,?,?)",
+                   ("NBA","nonexistent-game","d"*64,"a"*64,now))
+    r=aud.audit_isolated_nba_frozen_receipts(root=root)
+    assert r["orphan_commit_receipt_detected"] is True
+    assert r["status"]=="ABSTAIN_INVALID_OR_UNCONFIRMED_FROZEN_ROWS"
+    assert r["verified_local_receipts"]==0
+
+
+def test_deadline_after_tipoff_rejected_even_if_commit_before_deadline(tmp_path):
+    root,file=_ledger(tmp_path)
+    now=int(time.time())-100
+    p=_forecast(now)
+    p["record_deadline_utc"]=p["fixture_start_utc"]+500
+    _insert(file,p)
+    r=aud.audit_isolated_nba_frozen_receipts(root=root)
+    assert r["status"]=="ABSTAIN_INVALID_OR_UNCONFIRMED_FROZEN_ROWS"
+    assert r["invalid_receipts"]==1
+    assert r["verified_local_receipts"]==0
+
+
+def test_receipt_after_tipoff_rejected_even_if_late_deadline(tmp_path):
+    root,file=_ledger(tmp_path)
+    now=int(time.time())-100
+    p=_forecast(now)
+    p["record_deadline_utc"]=p["fixture_start_utc"]+500
+    _insert(file,p)
+    with sqlite3.connect(file) as db:
+        db.execute("UPDATE live_analysis_commit_receipts SET completed_utc=?",
+                   (p["fixture_start_utc"]+1,))
+    r=aud.audit_isolated_nba_frozen_receipts(root=root)
+    assert r["invalid_receipts"]==1
+    assert r["verified_local_receipts"]==0
