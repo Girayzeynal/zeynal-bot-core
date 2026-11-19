@@ -297,3 +297,25 @@ PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B
 Test coverage includes closed robots/no request, source denial, synthetic native staged one-time append, second-run idempotence, wrong stage SHA/path, original byte preservation, discovered candidate security, and no unauthorized roster/claim promotion. **CI commit `7a2d65663793e604c276487c05c40b2281c9347a`, run `44488145894`, job `135436691921`: `193 passed` (Python 3.11)**. Prior stages also passed `188` after installing the existing numpy dependency into CI, which prevented false failures from the performance report import. The synthetic CI source replies are NOT proof of 12 real ESPN source documents.
 
 Current PR #97 remains **DRAFT, UNMERGED**; no Fly.io production, original frozen snapshots/results, existing Telegram bot or its scheduler altered. For expanding to all 82 teams: independently verify another 72 domains/news index pages, check robots/terms, source timestamps, native fixture and player IDs, as-of capture and use only with a separately calibrated shadow model. The official NBA injury hub has been discovered but PDFs remain unparsed/not input to model.
+
+
+## 19 Nov 2026 — User-requested SINGLE BATCH: all 82 official club website and news entry URLs
+
+The user explicitly requested **ALL NBA + EuroLeague + EuroCup clubs together, not another 4/6-club incremental addition**. This request is addressed in one season-scoped source registry and one batch CLI:
+
+- `hybrid_engine/official_all_82_club_urls_2026_27.json` contains **82 club keys** (NBA 30 / EuroLeague 20 / EuroCup 32), each with both an `official_site_url` and an `official_news_entry_url`, an explicit `DIRECT_NEWS` vs `HOME_HAS_NEWS` (or web-access restriction) marker, membership evidence, and *unverified* live, injury and player status. Source records are never presented as confirmed player absences.
+- Human-readable, Excel-compatible one-file CSV: `docs/official_all_82_club_urls_2026_27.csv` includes all 82 club names, leagues, website URLs, news entry URLs and honest status. A regression test confirms CSV/JSON equality for all 82; no per-club manual selection is needed.
+- `hybrid_engine/official_all_82_club_batch.py` has one **zero-request default** `--summary`, or **one explicit opt-in** `--live --summary` that enumerates all 82 club entry URLs. A single robots request per exact website/news host (shared NBA host once, not 30 times), fail-closed robots unknown/denied, hardcoded source URL scope, no redirects, 512 KiB HTML cap, 128 KiB robots cap, 5-second per-request deadline, up to 164 requests, 900-second global stop with explicit incomplete status, cached host policy. Refused, challenge-blocked, and http-200 HTML states are distinguished per club. A successful HTML probe proves only an official homepage/news entry was reachable; not roster, injury, lineup or publication time.
+- All 82 site/news pairs are validated against current canonical 2026/27 participant identities and the six original pilot news URLs. Additional rules defend NBA cross-team path swaps, Paris Basketball club (`parisbasketball.com`) vs unrelated `parisbasketball.paris` media, and the two unrelated Roma club sites. The six-source article/medical claim parser remains a sealed separate pilot; no 82-team player-feed activation from bulk HTML.
+- Initial 82 links were researched using public NBA/ECA league directories, club-owned official websites/news search evidence. **Not every URL had an independent successful 200 index fetch**, and the real 82-site UserLAnd batch HTTP probe has not been run. The registry is complete; **confirmed live connectivity and player/injury coverage are NOT complete**. Some direct news index URLs are club homepage fallback or challenge-protected; failure to read doesn't imply injury-free teams. Venue/league membership is not proof of a team's domain ownership.
+
+Full single-command UserLAnd probe (after refreshing the current clean isolated PR #97 branch; no per-club commands):
+
+```bash
+cd ~/zeynal-club-pilot-97 || exit 1
+test -z "$(git status --porcelain)" || { echo 'Local edits; abort'; exit 1; }
+git fetch -q origin feature/official-club-news-pilot-20261119 && git checkout --detach -q FETCH_HEAD || exit 1
+PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B -m hybrid_engine.official_all_82_club_batch --live --summary
+```
+
+The CLI prints 82 per-club statuses and counts; no new files, no foreground Telegram restarts, no Fly config changes, no forecast/archive modifications, no model input or unverified medical statuses. Local network access/robots results on the user's device remain unknown until the real one-shot output is observed.
