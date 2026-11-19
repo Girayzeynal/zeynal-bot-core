@@ -24,8 +24,12 @@ def article():
         observed_at_utc=OBS,
         published_utc=OBS-3600,
         publication_time_status="PRECISE_PAGE_PUBLICATION_TIME",
-        injury_absence_claim_candidates=[
+        injury_absence_claim_candidates=[],
+        nba_injury_report_claim_candidates=[
             dict(player_name_text="Julian Strawther",
+                 reported_status="OUT",
+                 reported_reason_text="Left Knee Sprain",
+                 reason_category="INJURY_REASON_REPORTED",
                  evidence_level="OFFICIAL_TEAM_REPORT_TEXT_CANDIDATE_ONLY",
                  model_input=False)],
         model_input=False)
@@ -203,3 +207,57 @@ def test_wrong_team_or_stale_article_is_rejected():
     a["published_utc"]=OBS-10*86400
     result=audit(article_override=a)
     assert "ARTICLE_OLDER_THAN_72H_FOR_FIXTURE" in result["reasons"]
+
+
+def test_nba_g_league_assignment_out_is_not_an_injury_out_claim():
+    a=article()
+    a["nba_injury_report_claim_candidates"][0]["reason_category"]="NON_INJURY_G_LEAGUE"
+    a["nba_injury_report_claim_candidates"][0]["reported_reason_text"]="G League Assignment"
+    result=audit(article_override=a)
+    assert result["status"]=="ABSTAIN"
+    assert "NO_EXPLICIT_PHYSICAL_INJURY_OUT_CLAIM_FOR_SHADOW" in result["reasons"]
+    assert result["model_input"] is False
+
+
+def test_nba_questionable_even_with_injury_is_not_out():
+    a=article()
+    a["nba_injury_report_claim_candidates"][0]["reported_status"]="QUESTIONABLE"
+    result=audit(article_override=a)
+    assert "NO_EXPLICIT_PHYSICAL_INJURY_OUT_CLAIM_FOR_SHADOW" in result["reasons"]
+    assert result["human_shadow_review_eligible"] is False
+
+
+def test_nba_text_claim_with_no_native_identity_never_passes():
+    b=binding()
+    b["provider_player_id"]=None
+    result=audit(binding_override=b)
+    assert "INDEPENDENT_PLAYER_ROSTER_BINDING_REQUIRED" in result["reasons"]
+
+
+def test_tofas_native_team_id_unbound_cannot_reach_shadow_gate():
+    a=article()
+    a["club_key"]="eurocup_tofas"
+    a["league"]="EUROCUP"
+    a["source_url"]="https://tofasspor.com/haber-3715-tofas_eurocupta_chemnitz_deplasmaninda"
+    a["injury_absence_claim_candidates"]=[
+        dict(player_name_text="Efe Postel",
+             reported_status="CLUB_STATES_UNAVAILABLE_FOR_THIS_MATCH",
+             reported_reason="INJURY_IN_SOURCE_SENTENCE",model_input=False)]
+    a["nba_injury_report_claim_candidates"]=[]
+    f=frozen()
+    f["league"]="EUROCUP"
+    b=binding()
+    b["league"]="EUROCUP"
+    b["player_name_text"]="Efe Postel"
+    # Create a signed capture matching this article, but no native EuroCup
+    # team identity is yet present in the manifest. Must remain abstain.
+    captured=dict(format=cap.RECEIPT_FORMAT,club_key=a["club_key"],
+                  source_url=a["source_url"],body_sha256=a["body_sha256"],
+                  observed_at_utc=OBS,captured_at_utc=OBS+10)
+    import hashlib
+    captured["receipt_sha256"]=hashlib.sha256(cap._packed(captured)).hexdigest()
+    result=assess_against_frozen_forecast(
+        a,club=club("eurocup_tofas"),frozen=f,captured=captured,binding=b)
+    assert result["status"]=="ABSTAIN"
+    assert "SOURCE_TEAM_NOT_BOUND_TO_FIXTURE_SIDE" in result["reasons"]
+    assert result["model_input"] is False
