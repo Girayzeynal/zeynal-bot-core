@@ -1,0 +1,75 @@
+{
+  "format": "OFFICIAL_CLUB_NEWS_PILOT_V1",
+  "season": "2026/2027",
+  "scope": "PILOT_ONLY_NO_TEAM_IDENTITY_BINDING_NO_FORECAST_INPUT",
+  "verified_on_utc_date": "2026-11-19",
+  "notes": "Public club home/news pages verified via official page content; this registry is not license to crawl at scale. 2026/27 league membership must be bound to canonical native team IDs separately.",
+  "clubs": [
+    {
+      "club_key": "nba_denver_nuggets",
+      "league": "NBA",
+      "name": "Denver Nuggets",
+      "native_team_id": "1610612743",
+      "host": "www.nba.com",
+      "path": "/nuggets/news",
+      "source_url": "https://www.nba.com/nuggets/news",
+      "example_url": "https://www.nba.com/nuggets/news/nuggets-look-to-bounce-back-against-celtics",
+      "site_evidence_url": "https://www.nba.com/team/1610612743/nuggets"
+    },
+    {
+      "club_key": "nba_boston_celtics",
+      "league": "NBA",
+      "name": "Boston Celtics",
+      "native_team_id": "1610612738",
+      "host": "www.nba.com",
+      "path": "/celtics/news",
+      "source_url": "https://www.nba.com/celtics/news",
+      "example_url": null,
+      "site_evidence_url": "https://www.nba.com/team/1610612738/celtics"
+    },
+    {
+      "club_key": "euroleague_olympiacos",
+      "league": "EUROLEAGUE",
+      "name": "Olympiacos Piraeus",
+      "native_team_id": null,
+      "host": "www.olympiacosbc.gr",
+      "path": "/en/news/announcements/",
+      "source_url": "https://www.olympiacosbc.gr/en/news/announcements/",
+      "example_url": null,
+      "site_evidence_url": "https://www.olympiacosbc.gr/en/contact-en.html"
+    },
+    {
+      "club_key": "euroleague_zalgiris",
+      "league": "EUROLEAGUE",
+      "name": "Žalgiris Kaunas",
+      "native_team_id": null,
+      "host": "zalgiris.lt",
+      "path": "/naujienos",
+      "source_url": "https://zalgiris.lt/naujienos",
+      "example_url": "https://zalgiris.lt/en/naujienos/injury-update-on-williams-goss-and-tubelis",
+      "site_evidence_url": "https://zalgiris.lt/naujienos"
+    },
+    {
+      "club_key": "eurocup_tofas",
+      "league": "EUROCUP",
+      "name": "TOFAŞ Bursa",
+      "native_team_id": null,
+      "host": "tofasspor.com",
+      "path": "/haberler",
+      "source_url": "https://tofasspor.com/haberler",
+      "example_url": "https://www.tofasspor.com/haber-3715-tofas_eurocupta_chemnitz_deplasmaninda",
+      "site_evidence_url": "https://tofasspor.com/haberler"
+    },
+    {
+      "club_key": "eurocup_cedevita_olimpija",
+      "league": "EUROCUP",
+      "name": "Cedevita Olimpija Ljubljana",
+      "native_team_id": null,
+      "host": "cedevita.olimpija.com",
+      "path": "/en/news/",
+      "source_url": "https://cedevita.olimpija.com/en/news/",
+      "example_url": null,
+      "site_evidence_url": "https://cedevita.olimpija.com/en/club/"
+    }
+  ]
+}

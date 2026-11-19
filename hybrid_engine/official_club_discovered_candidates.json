@@ -1,0 +1,47 @@
+{
+  "format": "OFFICIAL_CLUB_NEWS_DISCOVERED_CANDIDATES_V1",
+  "season": "2026/2027",
+  "scope": "FOUR_OFFICIAL_LINKS_DISCOVERED_NOT_DEVICE_PROBED_NOT_MODEL_INPUT",
+  "candidates": [
+    {
+      "club_key": "nba_golden_state_warriors",
+      "league": "NBA",
+      "name": "Golden State Warriors",
+      "native_team_id": "1610612744",
+      "source_url": "https://www.nba.com/warriors/news",
+      "site_evidence_url": "https://www.nba.com/team/1610612744/warriors",
+      "evidence_kind": "NBA_OFFICIAL_TEAM_AND_NEWS_URL",
+      "status": "PUBLIC_LINK_DISCOVERED_NOT_PROBED"
+    },
+    {
+      "club_key": "euroleague_anadolu_efes_istanbul",
+      "league": "EUROLEAGUE",
+      "name": "Anadolu Efes Istanbul",
+      "native_team_id": null,
+      "source_url": "https://anadoluefessk.org/tr/news",
+      "site_evidence_url": "https://anadoluefessk.org/tr",
+      "evidence_kind": "CLUB_OWNED_NEWS_INDEX",
+      "status": "PUBLIC_LINK_DISCOVERED_NOT_PROBED"
+    },
+    {
+      "club_key": "euroleague_panathinaikos_athens",
+      "league": "EUROLEAGUE",
+      "name": "Panathinaikos Athens",
+      "native_team_id": null,
+      "source_url": "https://www.paobc.gr/en/news/",
+      "site_evidence_url": "https://www.paobc.gr/en/",
+      "evidence_kind": "CLUB_OWNED_NEWS_INDEX",
+      "status": "PUBLIC_LINK_DISCOVERED_NOT_PROBED"
+    },
+    {
+      "club_key": "eurocup_turk_telekom_ankara",
+      "league": "EUROCUP",
+      "name": "Turk Telekom Ankara",
+      "native_team_id": null,
+      "source_url": "https://turktelekombasketbol.com.tr/haberler/",
+      "site_evidence_url": "https://www.turktelekombasketbol.com.tr/",
+      "evidence_kind": "CLUB_OWNED_NEWS_INDEX",
+      "status": "PUBLIC_LINK_DISCOVERED_NOT_PROBED"
+    }
+  ]
+}
