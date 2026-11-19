@@ -240,6 +240,8 @@ def run(argv=None):
                       help="No-network fixed-path SQLite PRAGMA table_info only, no JSON parsing or data rows")
     mode.add_argument("--audit-frozen-receipts",action="store_true",
                       help="Zero-network read-only bounded NBA live snapshot/commit receipt integrity; reads but never exports record payloads")
+    mode.add_argument("--audit-fixture-finals",action="store_true",
+                      help="Zero-network read-only crosscheck of frozen NBA fixture IDs against locally stored ESPN final events; no external source attestation")
     p.add_argument("--trusted-sha256",
                    help="SHA256 independently pinned before this offline run")
     p.add_argument("--asof-utc",type=int,
@@ -248,7 +250,12 @@ def run(argv=None):
         "nba_denver_nuggets","nba_boston_celtics"])
     a=p.parse_args(argv)
     club=next(x for x in registry() if x["club_key"]==a.club)
-    if a.audit_frozen_receipts:
+    if a.audit_fixture_finals:
+        if a.trusted_sha256 is not None or a.asof_utc is not None:
+            p.error("--audit-fixture-finals uses stored local evidence only, no external as-of claim")
+        from hybrid_engine.official_club_fixture_outcome_audit import inspect_local_nba_final_fixture_links
+        r=inspect_local_nba_final_fixture_links(root=_LOCAL_ROOT)
+    elif a.audit_frozen_receipts:
         if a.trusted_sha256 is not None or a.asof_utc is not None:
             p.error("--audit-frozen-receipts uses local ledger only; no external trust claim")
         from hybrid_engine.official_club_frozen_receipt_audit import audit_isolated_nba_frozen_receipts
