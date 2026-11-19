@@ -108,7 +108,8 @@ def pair(ctx,*,getter=fetch_native,clock=time.time):
                         "registered_players":[],"model_input":False}
             continue
         try:
-            rows[side]=parse_native(getter(url),league,season,code,now=now)
+            receipt=getter(url)
+            rows[side]=parse_native(receipt,league,season,code,now=int(clock()))
         except (ValueError,KeyError,TypeError):
             rows[side]={"status":"SOURCE_IDENTITY_OR_SCHEMA_REFUSED",
                         "source_url":url,"registered_players":[],"model_input":False}
