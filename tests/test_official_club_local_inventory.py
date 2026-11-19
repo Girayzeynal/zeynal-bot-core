@@ -132,3 +132,59 @@ def test_root_absent_is_not_exhaustive_no_identity_proof(tmp_path):
     assert report["status"]=="LOCAL_ISOLATED_DATA_ROOT_UNAVAILABLE"
     assert report["historical_pregame_proof"] is False
     assert report["requests"]==0
+
+
+def test_targeted_db_schema_reports_snapshot_columns_only_and_preserves_bytes(tmp_path):
+    root=tmp_path/"isolated"
+    (root/"live-nba").mkdir(parents=True)
+    path_a=root/"faz23_storage.sqlite"
+    path_b=root/"live-nba"/"nba-hybrid.sqlite"
+    with sqlite3.connect(path_a) as conn:
+        conn.execute("CREATE TABLE snapshots(id INTEGER PRIMARY KEY, ts INTEGER, fixture_key TEXT, payload TEXT)")
+        conn.execute("INSERT INTO snapshots(ts,fixture_key,payload) VALUES (1,'fixture',?)",
+                     ("SENSITIVE_PRIVATE_ROW",))
+    with sqlite3.connect(path_b) as conn:
+        conn.execute("CREATE TABLE live_analysis_snapshots(league TEXT,fixture_id TEXT,model_digest TEXT,created_utc INTEGER,payload TEXT,sha256 TEXT)")
+        conn.execute("INSERT INTO live_analysis_snapshots(league,fixture_id,model_digest,created_utc,payload,sha256) VALUES ('NBA','fixture','model',1,?,?)",
+                     ("SENSITIVE_PRIVATE_ROW","f"*64))
+    before_a,before_b=path_a.read_bytes(),path_b.read_bytes()
+    report=inv.inspect_known_database_columns(root=root)
+    assert path_a.read_bytes()==before_a
+    assert path_b.read_bytes()==before_b
+    assert report["status"]=="KNOWN_LOCAL_SCHEMAS_OBSERVED_NOT_IDENTITY_VALIDATED"
+    assert len(report["inspected_tables"])==2
+    assert report["inspected_tables"][0]["table"]=="snapshots"
+    assert [x["name"] for x in report["inspected_tables"][0]["columns"]]==[
+        "id","ts","fixture_key","payload"]
+    assert report["inspected_tables"][1]["table"]=="live_analysis_snapshots"
+    assert report["inspected_tables"][1]["contains_opaque_payload_column"] is True
+    assert report["direct_provider_team_id_column_found"] is False
+    assert report["extracted_records"]==0
+    assert report["requests"]==0
+    assert report["model_input"] is False
+    assert "SENSITIVE_PRIVATE_ROW" not in json.dumps(report)
+    assert report["sqlite_inspection_mode"]=="READ_ONLY_IMMUTABLE_SCHEMA_ONLY_WAL_NOT_INCLUDED"
+
+
+def test_targeted_db_schema_absent_does_not_invent_identity(tmp_path):
+    root=tmp_path/"isolated"
+    root.mkdir()
+    report=inv.inspect_known_database_columns(root=root)
+    assert report["inspected_tables"]==[]
+    assert len(report["unavailable_targets"])==3
+    assert report["status"]=="NO_KNOWN_SQLITE_SCHEMAS_OBSERVED"
+    assert report["participant_identity_verified"] is False
+    assert report["requests"]==0
+
+
+def test_targeted_db_schema_skips_symlinks_and_other_tables(tmp_path):
+    root=tmp_path/"isolated"
+    root.mkdir()
+    outside=tmp_path/"outside.sqlite"
+    with sqlite3.connect(outside) as conn:
+        conn.execute("CREATE TABLE snapshots(provider_team_id TEXT)")
+    (root/"faz23_storage.sqlite").symlink_to(outside)
+    report=inv.inspect_known_database_columns(root=root)
+    assert not report["inspected_tables"]
+    assert report["direct_provider_team_id_column_found"] is False
+    assert report["unavailable_targets"][0]["reason"]=="MISSING_OR_SYMLINK"
