@@ -123,7 +123,7 @@ async def results_command(update, context):
         return
     try:
         reports = await _all(context)
-        value = await asyncio.to_thread(render_all, reports, now=int(time.time()), detail=True)
+        value = await asyncio.to_thread(render_all, reports, now=int(time.time()), detail=True, source_label="Doğrulanmış üretim arşivi")
     except (ValueError, TypeError, KeyError, OSError, sqlite3.Error, asyncio.TimeoutError, RuntimeError):
         value = "Üç ligde doğrulanmış üretim FINAL arşivi tam okunamadı; sonuç veya performans uydurulmadı."
     await _send(update, value)
