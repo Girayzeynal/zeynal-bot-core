@@ -32,6 +32,7 @@ def audit_isolated_nba_frozen_receipts(*,root):
         source_mode="READ_ONLY_IMMUTABLE_FROZEN_FORECAST_RECEIPT_AUDIT",
         candidate_rows=0,verified_local_receipts=0,
         missing_receipts=0,invalid_snapshots=0,invalid_receipts=0,
+        orphan_commit_receipt_detected=False,
         schema_missing=[],verified_fixture_examples=[],
         scan_capped=False,scan_cap_reasons=[],payload_bytes_read=0,
         sqlite_wal_present=False,
@@ -65,6 +66,17 @@ def audit_isolated_nba_frozen_receipts(*,root):
                 report["status"]="ABSTAIN_FROZEN_RECEIPT_SCHEMA_MISSING"
                 report["schema_missing"]=missing
                 return report
+            # Orphan commit receipts cannot be a proof of any frozen
+            # snapshot. Observe existence only; never export their data.
+            orphan=db.execute(
+                """SELECT 1 FROM live_analysis_commit_receipts r
+                   LEFT JOIN live_analysis_snapshots s
+                     ON s.league=r.league
+                    AND s.fixture_id=r.fixture_id
+                    AND s.model_digest=r.model_digest
+                   WHERE r.league='NBA' AND s.fixture_id IS NULL
+                   LIMIT 1""").fetchone()
+            report["orphan_commit_receipt_detected"]=orphan is not None
             snapshots=db.execute(
                 """SELECT s.league,s.fixture_id,s.model_digest,s.created_utc,
                           s.sha256,length(CAST(s.payload AS BLOB)),
@@ -112,7 +124,8 @@ def audit_isolated_nba_frozen_receipts(*,root):
                                    p["fixture_start_utc"])
                     if (type(completed) is not int or
                         type(deadline) is not int or
-                        receipt_pin!=pin or not created<=completed<deadline):
+                        receipt_pin!=pin or
+                        not created<=completed<deadline<=p["fixture_start_utc"]):
                         report["invalid_receipts"]+=1
                         continue
                     home=p.get("home")
@@ -142,7 +155,8 @@ def audit_isolated_nba_frozen_receipts(*,root):
         if report["scan_capped"]:
             report["status"]="AUDIT_INCOMPLETE_BOUND_REACHED"
         elif (report["invalid_snapshots"] or report["invalid_receipts"] or
-              report["missing_receipts"]):
+              report["missing_receipts"] or
+              report["orphan_commit_receipt_detected"]):
             report["status"]="ABSTAIN_INVALID_OR_UNCONFIRMED_FROZEN_ROWS"
         elif report["verified_local_receipts"]:
             report["status"]="LOCALLY_CONSISTENT_FROZEN_RECEIPTS_NOT_EXTERNALLY_ATTESTED"
