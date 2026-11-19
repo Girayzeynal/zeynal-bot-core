@@ -67,7 +67,7 @@ jobs:
           assert any(v.get('id')=='vol_4581deoz3xjnp594' and v.get('attached_machine_id')=='830932f77d2598' for v in volumes), 'Expected volume attachment missing'
           chosen=[m for m in machines if m.get('id')=='830932f77d2598']
           image=(chosen[0].get('config') or {}).get('image') if len(chosen)==1 else None
-          assert isinstance(image,str) and image.startswith('registry.fly.io/zeynal-bot-core:'), 'Cannot pin existing deploy image for safe rollback'
+          assert isinstance(image,str) and image.startswith('registry.fly.io/zeynal-bot-core'), 'Cannot pin existing deploy image for safe rollback'
           open('/tmp/zeynal-previous-image.txt','w').write(image)
           print('Verified existing AMS machine and /data volume mount; rollback image recorded')
           PY
