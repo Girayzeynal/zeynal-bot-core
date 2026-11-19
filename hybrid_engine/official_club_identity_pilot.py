@@ -218,74 +218,14 @@ def offline_nba_espn_identity(club,*,path, trusted_snapshot_sha256,
 
 
 def inspect_local_season_snapshot_candidates(*,root=None):
-    """Zero-network bounded scan: finds only possible old season bundles.
+    """Zero-network local candidate inventory including readonly SQLite schema.
 
-    A scanned JSON's own SHA field is *not* an independent prior trust pin.
-    Do not feed scanner output directly into as-of forecast gating.
+    This compatibility entrypoint preserves the --scan-local CLI but now
+    reports an INCOMPLETE status whenever any safety limit was hit.
     """
-    base=_LOCAL_ROOT if root is None else Path(root).expanduser().absolute()
-    report=dict(format=FORMAT,status="LOCAL_SNAPSHOT_INVENTORY_ONLY",
-                source_mode="LOCAL_ISOLATED_JSON_SCAN",
-                scanned_json_files=0,scan_capped=False,candidate_files=[],
-                snapshot_sha_independently_pinned=False,
-                historical_pregame_proof=False,requests=0,model_input=False,
-                production_changed=False)
-    if not base.is_dir() or base.is_symlink():
-        report["status"]="LOCAL_ISOLATED_DATA_ROOT_UNAVAILABLE"
-        return report
-    max_files=500
-    max_bytes=16*1024*1024
-    budget=0
-    for current,dirs,files in os.walk(base,followlinks=False):
-        folder=Path(current)
-        if len(folder.relative_to(base).parts)>4:
-            dirs[:]=[]
-            continue
-        dirs[:]=sorted(x for x in dirs if not (folder/x).is_symlink())
-        for name in sorted(files):
-            if not name.endswith(".json"):
-                continue
-            if report["scanned_json_files"]>=max_files or budget>=max_bytes:
-                report["scan_capped"]=True
-                break
-            file=folder/name
-            if file.is_symlink():
-                continue
-            report["scanned_json_files"]+=1
-            try:
-                n=file.stat().st_size
-                if n<=0 or n>_MAX_LOCAL_SNAPSHOT_BYTES or n>max_bytes-budget:
-                    continue
-                # Avoid full JSON reads for ordinary ledgers/source samples.
-                with file.open("rb") as fh:
-                    head=fh.read(8192)
-                if b"SEASON_PARTICIPANTS_V1" not in head:
-                    continue
-                budget+=n
-                data=json.loads(file.read_bytes())
-                if (not isinstance(data,dict) or
-                    not isinstance(data.get("payload"),dict) or
-                    data["payload"].get("format")!="SEASON_PARTICIPANTS_V1" or
-                    data["payload"].get("league_id")!="NBA" or
-                    data["payload"].get("season_id")!="2026/2027"):
-                    continue
-                report["candidate_files"].append(dict(
-                    relative_path=str(file.relative_to(base)),
-                    claimed_snapshot_sha256=data.get("sha256"),
-                    source_ingested_at_utc=data["payload"].get("ingested_at_utc"),
-                    status="UNTRUSTED_SNAPSHOT_CANDIDATE_NOT_ASOF_PROOF"))
-                if len(report["candidate_files"])>=10:
-                    report["scan_capped"]=True
-                    break
-            except (OSError,ValueError,UnicodeError,TypeError):
-                continue
-        if report["scan_capped"]:
-            break
-    if report["candidate_files"]:
-        report["status"]="LOCAL_SNAPSHOT_CANDIDATES_REQUIRE_INDEPENDENT_PIN"
-    else:
-        report["status"]="NO_LOCAL_SEASON_SNAPSHOT_IN_BOUNDED_SCAN"
-    return report
+    from hybrid_engine.official_club_local_inventory import inspect_local_source_inventory
+    return inspect_local_source_inventory(
+        root=_LOCAL_ROOT if root is None else root)
 
 
 def run(argv=None):
