@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 from urllib.parse import urljoin
 
 from hybrid_engine.official_club_sources import _bounded_https
-from hybrid_engine.official_club_link_discovery import _ALIASES, _PATTERNS
+from hybrid_engine.official_club_link_discovery import _ALIASES, _PATTERNS, is_article_route
 
 MAX_AUDIT_LINKS=600
 MAX_SAMPLES=8
@@ -72,7 +72,7 @@ def diagnose_links(index_html,club):
             summary["other_host_href_count"]+=1;continue
         summary["same_club_host_href_count"]+=1
         path=p.path
-        if _PATTERNS[key].fullmatch(path):
+        if is_article_route(key,path):
             summary["allowed_article_path_href_count"]+=1
             if not (aria_label or visible_label):
                 summary["allowed_article_path_unlabelled_count"]+=1
