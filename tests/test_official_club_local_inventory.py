@@ -188,3 +188,35 @@ def test_targeted_db_schema_skips_symlinks_and_other_tables(tmp_path):
     assert not report["inspected_tables"]
     assert report["direct_provider_team_id_column_found"] is False
     assert report["unavailable_targets"][0]["reason"]=="MISSING_OR_SYMLINK"
+
+
+def test_old_faz23_and_live_analysis_snapshots_are_forecast_not_team_identity(tmp_path):
+    root=tmp_path/"isolated"
+    (root/"live-nba").mkdir(parents=True)
+    with sqlite3.connect(root/"faz23_storage.sqlite") as conn:
+        conn.execute("CREATE TABLE snapshots(id INTEGER PRIMARY KEY,fixture_key TEXT,payload TEXT)")
+    with sqlite3.connect(root/"live-nba"/"nba-hybrid.sqlite") as conn:
+        conn.execute("CREATE TABLE live_analysis_snapshots(league TEXT,fixture_id TEXT,model_digest TEXT,payload TEXT,sha256 TEXT)")
+    report=inv.inspect_local_source_inventory(root=root)
+    assert report["sqlite_files_inspected"]==2
+    assert report["scan_capped"] is False
+    assert report["status"]=="LOCAL_FORECAST_SCHEMAS_ONLY_NOT_IDENTITY_SOURCE"
+    assert all(x["schema_role"]=="FORECAST_SNAPSHOT_SCHEMA_ONLY"
+               for x in report["sqlite_schema_candidates"])
+    assert report["snapshot_sha_independently_pinned"] is False
+    assert report["requests"]==0
+    assert report["model_input"] is False
+
+
+def test_forecast_only_sqlite_and_capped_json_is_still_incomplete(tmp_path,monkeypatch):
+    root=tmp_path/"isolated"
+    root.mkdir()
+    with sqlite3.connect(root/"faz23_storage.sqlite") as conn:
+        conn.execute("CREATE TABLE snapshots(id INTEGER PRIMARY KEY,payload TEXT)")
+    for i in range(4):
+        (root/f"other-{i}.json").write_text('{"just":"irrelevant"}')
+    monkeypatch.setattr(inv,"MAX_JSON_READS",2)
+    report=inv.inspect_local_source_inventory(root=root)
+    assert report["scan_capped"] is True
+    assert report["status"]=="LOCAL_IDENTITY_SCAN_INCOMPLETE_NO_MATCH"
+    assert report["sqlite_schema_candidates"][0]["schema_role"]=="FORECAST_SNAPSHOT_SCHEMA_ONLY"
