@@ -5,6 +5,7 @@ from contextvars import ContextVar
 import json
 import logging
 import os
+import sqlite3
 from pathlib import Path
 import time
 
@@ -593,6 +594,47 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
     predictions=PredictionsCommand(LedgerReports(nba_service.ledger.path) if nba_service is not None else None,journal,chat_id,league_reports=europe_readers)
     app.bot_data['predictions_command']=predictions
     app.add_handler(CommandHandler('predictions',predictions.handle),group=-50)
+    from hybrid_engine.unified_results_view import LEAGUES,render_all,render_performance
+    from hybrid_engine.predictions_command import split_plain
+    async def _three_league_reports():
+        reader=app.bot_data['ledger_reports']
+        result={}
+        for code in LEAGUES:
+            result[code]=await asyncio.to_thread(reader.read,code,None)
+        return result
+    async def results_all_command(update,context):
+        """All archived fixtures; never fetches or settles results on demand."""
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:
+            return
+        args=[x.lower() for x in (context.args or [])]
+        if args not in ([],['all']):
+            await update.effective_message.reply_text('Kullanım: /results all')
+            raise ApplicationHandlerStop
+        try:
+            reports=await _three_league_reports()
+            value=await asyncio.to_thread(render_all,reports,now=int(time.time()),detail=True)
+        except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,RuntimeError) as exc:
+            logging.getLogger(__name__).warning('Three-league results unavailable: %s',type(exc).__name__)
+            value='Üç lig arşivinden biri doğrulanamadı. Eksik veya hatalı kayıtlar sonuçlanmış sayılmadı.'
+        for part in split_plain(value,limit=3200):
+            await update.effective_message.reply_text(part,parse_mode=None,disable_web_page_preview=True)
+        raise ApplicationHandlerStop
+    async def accuracy_all_command(update,context):
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:
+            return
+        if [x.lower() for x in (context.args or [])]!=['all']:
+            return  # /accuracy NBA and /accuracy EUROCUP keep their existing handlers.
+        try:
+            reports=await _three_league_reports()
+            value=await asyncio.to_thread(render_performance,reports)
+        except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,RuntimeError) as exc:
+            logging.getLogger(__name__).warning('Three-league accuracy unavailable: %s',type(exc).__name__)
+            value='Üç lig için doğrulanmış performans raporu alınamadı; başarı yüzdesi uydurulmadı.'
+        for part in split_plain(value,limit=3200):
+            await update.effective_message.reply_text(part,parse_mode=None,disable_web_page_preview=True)
+        raise ApplicationHandlerStop
+    app.add_handler(CommandHandler('results',results_all_command),group=-50)
+    app.add_handler(CommandHandler('accuracy',accuracy_all_command),group=-50)
     from hybrid_engine.health_command import HealthCommand
     health_command=HealthCommand(predictions.reports,journal,chat_id)
     app.bot_data['health_command']=health_command
