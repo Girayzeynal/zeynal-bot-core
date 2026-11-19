@@ -79,12 +79,13 @@ def article_rows(receipt,ctx,now):
 
 
 class EuropeanDataReview:
-    def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time,roster_store=None):
+    def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time,roster_store=None,native_roster_getter=None):
         self.services=services;self.bridge=bridge;self.root=local_path(directory)
         self.getter=getter;self.clock=clock;self.cache={};self.catalogs={};self.lock=threading.Lock()
         # A shared, explicitly verified packet store. Empty is NOT a live feed.
         # The roster view only reads evidence; numerical model inputs are unchanged.
         self.roster_store=roster_store
+        self.native_roster_getter=native_roster_getter
 
     def current_identity_context(self,ctx,owner):
         """Separate current association evidence; never alter forecast feature clocks."""
@@ -243,6 +244,13 @@ class EuropeanDataReview:
         for row in rows:
             lines.extend(['',html.escape(row['team'])+' · <b>Resmî haber notu</b>',html.escape(row['note']),
                           'Yayın: '+tsi(row['published_at_utc']),html.escape(row['source_url'])])
+        native_report=None
+        if self.native_roster_getter is not None and int(self.clock())<ctx['fixture_start_utc']:
+            from hybrid_engine.europe_native_roster_source import pair as native_pair, render_public
+            native_report=native_pair(ctx,getter=self.native_roster_getter,clock=self.clock)
+            lines.extend(['',html.escape(render_public(native_report))])
+        elif self.native_roster_getter is None:
+            lines.append('Resmî sezon oyuncu kimliği adaptörü: YAPILANDIRILMADI.')
         if verified_records:
             lines.extend(['',evidence_view,
                           'Bu paket ilk tahmin kesitinden önce yayımlanmış kanıtı gösterir; dakika/rotasyon/model etkisi değildir.'])
@@ -254,6 +262,7 @@ class EuropeanDataReview:
         return '\n'.join(lines),dict(sources=sources,news_observations=rows,
             verified_player_records=verified_records,verified_player_packet_status=packet_status,
             player_evidence_rejections=evidence['rejected_count'],
+            native_season_player_directory=native_report,
             capability=('READ_ONLY_VERIFIED_PREFORECAST_PLAYER_PACKET_AND_OFFICIAL_NEWS'
                         if verified_records else 'OFFICIAL_NEWS_ONLY_NOT_PLAYER_AVAILABILITY_FEED'),
             minutes_and_rotation_model_input=False,forecast_changed=False)

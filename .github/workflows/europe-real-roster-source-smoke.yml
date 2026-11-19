@@ -1,0 +1,24 @@
+name: EuroLeague real native player identity source smoke
+on:
+  push:
+    branches: [feature/euroleague-native-player-roster-source-20261119]
+    paths:
+      - hybrid_engine/europe_native_roster_source.py
+      - .github/workflows/europe-real-roster-source-smoke.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Real EuroLeague 2026-27 ZAL and PAN roster identities (not injury statuses)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B -m hybrid_engine.europe_native_roster_source --league EUROLEAGUE --season 2026/2027 --home ZAL --away PAN --require-live
