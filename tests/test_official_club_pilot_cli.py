@@ -122,3 +122,63 @@ def test_failed_article_status_is_not_success_and_no_news_count(monkeypatch,caps
     assert report["article_access_verified"] is False
     assert "article_candidate_count" not in report
     assert report["model_input"] is False
+
+
+def test_opt_in_first_article_receipt_is_metadata_only_and_not_automatic(monkeypatch,capsys):
+    from hybrid_engine import official_club_article_probe
+    from hybrid_engine import official_club_capture
+    from pathlib import Path
+    fake_url="https://www.nba.com/nuggets/news/nuggets-conclude-road-trip-pelicans"
+    times=[]
+    def fake_article(item,url):
+        times.append("probed")
+        return dict(status="OFFICIAL_ARTICLE_OBSERVED_NOT_ROSTER_VERIFIED",
+                    club_key=item["club_key"],league=item["league"],
+                    source_http_status=200,source_url=url,
+                    body_sha256="a"*64,observed_at_utc=1795061771,
+                    publication_time_status="NO_VERIFIED_PUBLICATION_TIME",
+                    nba_injury_report_claim_candidates=[
+                        dict(player_name_text="Julian Strawther",
+                             reported_status="OUT",
+                             reported_reason_text="Left Knee Sprain",
+                             reason_category="INJURY_REASON_REPORTED")],
+                    model_input=False)
+    def fake_capture(article,item):
+        times.append("capture")
+        return (dict(receipt_sha256="b"*64,
+                     captured_at_utc=1795061780,
+                     observed_at_utc=1795061771),
+                Path("/isolated/article-first-synthetic.json"),True)
+    monkeypatch.setattr(official_club_article_probe,"probe_article",fake_article)
+    monkeypatch.setattr(official_club_capture,"record_first_article_capture",fake_capture)
+
+    # Reading a single article without --save-article never persists anything.
+    assert official_club_pilot.run(
+        ["--live","--summary","--club","nba_denver_nuggets",
+         "--article-url",fake_url])==0
+    assert times==["probed"]
+    first=next(json.loads(x) for x in capsys.readouterr().out.splitlines()
+               if x.startswith("{"))
+    assert "first_capture_receipt_sha256" not in first
+    assert first["nba_report_claims_text_only"]==[
+        dict(player_name_text="Julian Strawther",reported_status="OUT",
+             reported_reason_text="Left Knee Sprain",
+             reason_category="INJURY_REASON_REPORTED",model_input=False)]
+
+    assert official_club_pilot.run(
+        ["--live","--summary","--save-article","--club","nba_denver_nuggets",
+         "--article-url",fake_url])==0
+    assert times==["probed","probed","capture"]
+    receipt=next(json.loads(x) for x in capsys.readouterr().out.splitlines()
+                 if x.startswith("{"))
+    assert receipt["first_capture_receipt_sha256"]=="b"*64
+    assert receipt["first_capture_record_new"] is True
+    assert receipt["first_capture_at_utc"]==1795061780
+    assert receipt["model_input"] is False
+
+
+def test_save_article_requires_live_one_article_and_one_club():
+    import pytest
+    with pytest.raises(SystemExit) as e:
+        official_club_pilot.run(["--save-article"])
+    assert e.value.code==2
