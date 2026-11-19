@@ -226,6 +226,9 @@ def probe(club, *, requester=_request, link_diagnostics=False):
     if link_diagnostics:
         from hybrid_engine.official_club_link_diagnostics import diagnose_links
         diagnostic["link_diagnostics"]=diagnose_links(raw,club)
+        if club["league"]=="NBA":
+            from hybrid_engine.official_club_embedded_diagnostics import diagnose_embedded
+            diagnostic["embedded_diagnostics"]=diagnose_embedded(raw,club)
     return dict(base,status="PUBLIC_NEWS_PAGE_OBSERVED_NOT_PLAYER_VERIFIED",
                 source_page_kind="NEWS_INDEX",source_http_status=200,
                 observed_at_utc=observed,body_sha256=_pin(raw),
