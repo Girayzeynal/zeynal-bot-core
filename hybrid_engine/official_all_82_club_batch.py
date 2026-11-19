@@ -81,8 +81,13 @@ def load_all_82(path=MANIFEST):
             _host_family(site.hostname)!=_host_family(news.hostname) and
             (site.hostname,news.hostname)!=_SPECIAL_NEWS_HOSTS.get(key)):
             raise ValueError("ALL_82_SITE_NEWS_HOST_RELATION_INVALID")
-        if r["league"]=="NBA" and site.hostname!="www.nba.com":
-            raise ValueError("ALL_82_NBA_NEWS_MUST_BE_NBA_OFFICIAL_HOST")
+        if r["league"]=="NBA":
+            if site.hostname!="www.nba.com":
+                raise ValueError("ALL_82_NBA_NEWS_MUST_BE_NBA_OFFICIAL_HOST")
+            prefix=site.path.rstrip("/")
+            if (not prefix or prefix=="/" or
+                not (news.path==prefix or news.path.startswith(prefix+"/"))):
+                raise ValueError("ALL_82_NBA_NEWS_TEAM_PATH_MISMATCH")
         if key in six and r["official_news_entry_url"]!=six[key]["source_url"]:
             raise ValueError("ALL_82_ORIGINAL_PILOT_SITE_CHALLENGED")
         if key=="euroleague_paris_basketball":
