@@ -20,7 +20,7 @@ MAX_EMBEDDED_SCRIPTS = 8
 MAX_NODES = 12000
 MAX_DEPTH = 32
 MAX_SAMPLES = 8
-_LINK_FIELDS = frozenset(("url", "href", "path", "canonicalurl", "articleurl", "link"))
+_LINK_FIELDS = frozenset(("url", "href", "path", "canonicalurl", "articleurl", "link", "permalink"))
 _ALLOWED_KEYS = frozenset(("nba_denver_nuggets", "nba_boston_celtics"))
 
 
@@ -96,7 +96,9 @@ def diagnose_embedded(index_html, club):
         parse_error_count=0, scanned_json_nodes=0,
         json_traversal_truncated=False, news_link_field_count=0,
         slug_field_count=0, headline_or_title_field_count=0,
-        publication_field_count=0, slug_context_samples=[],
+        publication_field_count=0, permalink_field_count=0,
+        same_team_permalink_candidate_count=0,
+        permalink_article_urls_sample=[], slug_context_samples=[],
         article_url_candidate_count=0, article_urls_sample=[],
         next_data_top_keys=[], has_page_props=False,
         source="EMBEDDED_OFFICIAL_HTML_NOT_PUBLISHED_ARTICLE")
@@ -139,7 +141,7 @@ def diagnose_embedded(index_html, club):
                                 title_present=any(k in item for k in
                                     ("title","headline","name","articleTitle")),
                                 url_field_present=any(k in item for k in
-                                    ("url","href","path","canonicalUrl","articleUrl","link"))))
+                                    ("url","href","path","canonicalUrl","articleUrl","link","permalink"))))
                     elif folded in ("headline","title","articletitle","name") and isinstance(value,str):
                         report["headline_or_title_field_count"]+=1
                     elif folded in ("datepublished","publishedat","published_at") and isinstance(value,str):
@@ -147,6 +149,12 @@ def diagnose_embedded(index_html, club):
                     if folded in _LINK_FIELDS and isinstance(value,str):
                         report["news_link_field_count"] += 1
                         url=_same_team_article(value,club)
+                        if folded=="permalink":
+                            report["permalink_field_count"]+=1
+                            if url is not None:
+                                report["same_team_permalink_candidate_count"]+=1
+                                if len(report["permalink_article_urls_sample"])<MAX_SAMPLES and url not in report["permalink_article_urls_sample"]:
+                                    report["permalink_article_urls_sample"].append(url)
                         if url is not None:candidates.add(url)
                     elif isinstance(value,(dict,list)):
                         stack.append((value,depth+1))
