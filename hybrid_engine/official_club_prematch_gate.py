@@ -77,10 +77,12 @@ def assess_against_frozen_forecast(article, *, club, frozen=None,
         r.get("source_url")!=url or r.get("body_sha256")!=digest or
         not _ident(r,"receipt_sha256") or
         not SHA256.fullmatch(r["receipt_sha256"]) or
-        observed is None or first!=observed or sealed is None or
-        sealed<first or sealed>first+600):
+        observed is None or first is None or first>observed or
+        sealed is None or sealed<first or sealed>first+600):
         blocked("PINNED_FIRST_CAPTURE_RECEIPT_REQUIRED")
     publication=_utc(a,"published_utc")
+    if publication is not None and first is not None and publication>first:
+        blocked("PUBLICATION_AFTER_FIRST_CAPTURE")
     if publication is not None and observed is not None and publication>observed:
         blocked("PUBLICATION_AFTER_OBSERVATION")
 
@@ -139,12 +141,16 @@ def assess_against_frozen_forecast(article, *, club, frozen=None,
     # Check as-of using FIRST ACTUAL OBSERVATION, not an earlier displayed
     # article date or a later after-the-fact downloaded PDF.
     if cutoff is not None:
-        if observed is None or sealed is None or observed>cutoff or sealed>cutoff:
+        # A re-read after a historical forecast is fine ONLY when the exact
+        # article bytes were first captured before the cutoff and the
+        # immutable capture receipt matches URL+body SHA. Never use the
+        # later re-read time as a fabricated early observation.
+        if first is None or sealed is None or first>cutoff or sealed>cutoff:
             blocked("ARTICLE_EVIDENCE_CAPTURED_AFTER_FROZEN_FORECAST")
         if publication is None or publication>cutoff:
             blocked("ARTICLE_PUBLICATION_NOT_PRE_FORECAST")
     if tipoff is not None:
-        if observed is None or sealed is None or observed>=tipoff or sealed>=tipoff:
+        if first is None or sealed is None or first>=tipoff or sealed>=tipoff:
             blocked("ARTICLE_EVIDENCE_NOT_PRE_TIPOFF")
         if publication is None or publication>=tipoff:
             blocked("ARTICLE_PUBLICATION_NOT_PRE_TIPOFF")
