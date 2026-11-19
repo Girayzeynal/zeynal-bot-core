@@ -34,4 +34,4 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: '1'
           PYTHONPATH: '.'
-        run: python -m pytest -q tests/test_official_club_sources.py tests/test_official_club_link_discovery.py tests/test_official_club_article_probe.py
+        run: python -m pytest -q tests/test_official_club_sources.py tests/test_official_club_link_discovery.py tests/test_official_club_article_probe.py tests/test_official_club_claims.py
