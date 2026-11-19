@@ -57,3 +57,26 @@ Other first-party examples: Denver's official 18 Nov Nuggets–Celtics preview i
 5. Add bounded opt-in scheduling, team/site coverage counters, Telegram diagnostic UI, provider license and source quality metrics. Confirm E2E on actual Telegram test bot before any release.
 
 No production merge, Fly deploy, new secret, paid subscription, automatic forecast promotion, or overwrite of immutable archives.
+
+
+## 19 Nov 2026 — NBA real-device permalink discovery and read-only adapter
+
+Real UserLAnd result from `--live --summary --club nba_denver_nuggets --diagnose-links`: Denver official index HTTP 200; Next.js JSON has **28 `permalink` fields**, **15 official same-team URL candidates**, but HTML anchor article count was zero. Source post record fields include `id, permalink, slug, status, date, timestamp, category`. News dates include April, October and November 2026; these are not all current games.
+
+PR #97 now includes `hybrid_engine/official_club_nba_posts.py`: bounded, zero-extra-request `__NEXT_DATA__` native post discovery. Only explicit native `status=publish` objects with `id`, valid slug and strict official same-team permalink are accepted as URL *candidates*. At most 24 links; blocks cross-team/other-host, querystring, unlisted paths, known Celtics Insiders landing. Sorts by consistent **unverified** `date`/`timestamp` metadata. Never treats those as proven pregame publication time. No automated article download.
+
+The original `official_club_sources.probe()` merges anchored articles and native NBA post candidates. The explicit one-article `official_club_article_probe` now also accepts an index-pinned native NBA link after robots checking; still at most three controlled network requests. It never claims native player ID, match fixture, verified injury, forecast input or historical eligibility.
+
+New Android UserLAnd check after branch fetch:
+
+```bash
+PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B -m hybrid_engine.official_club_pilot --live --summary --club nba_denver_nuggets
+```
+
+Optional explicit single official article check only after index/robots approval:
+
+```bash
+PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 ~/zeynal-hybrid-844/.venv/bin/python -B -m hybrid_engine.official_club_pilot --live --summary --club nba_denver_nuggets --article-url https://www.nba.com/nuggets/news/nuggets-conclude-road-trip-pelicans
+```
+
+GitHub Actions run `44461994839`, commit `253a557643ff82b3d0fe810ae511a1d0af5bc030`: **66 offline tests passed**. New integrated NBA candidate discovery has not yet been verified via Android UserLAnd. Historical forecasts/archive, Telegram, Fly.io, secrets and production remain untouched.
