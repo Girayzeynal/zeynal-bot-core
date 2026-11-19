@@ -18,6 +18,8 @@ def run(argv=None):
                    help="Opt in to bounded robots-respecting requests to the fixed club sites")
     p.add_argument("--club",action="append",default=[],
                    help="Pilot club_key; repeat for several (default: all six)")
+    p.add_argument("--summary",action="store_true",
+                   help="Compact per-club evidence status for safe six-club access audit")
     p.add_argument("--save",action="store_true",
                    help="Opt in to append-only metadata receipt in isolated test directory")
     p.add_argument("--article-url",
@@ -53,7 +55,20 @@ def run(argv=None):
         if args.save and result.get("status")=="PUBLIC_NEWS_PAGE_OBSERVED_NOT_PLAYER_VERIFIED":
             path=append_receipt(Path.home()/"zeynal-test-isolated"/"data"/"club-pilot-evidence",result)
             result=dict(result,evidence_file=str(path))
-        print(json.dumps(result,ensure_ascii=False,sort_keys=True))
+        if args.summary:
+            compact=dict(league=result.get("league",item["league"]),
+                         club_key=result.get("club_key",item["club_key"]),
+                         status=result.get("status"),
+                         source_http_status=result.get("source_http_status"),
+                         robots_http_status=result.get("robots_http_status"),
+                         article_candidate_count=len(result.get("article_links",[])),
+                         article_claim_candidate_names_text_only=[x.get("player_name_text") for x in result.get("injury_absence_claim_candidates",[])],
+                         publication_time_status=result.get("publication_time_status"),
+                         source_url=result.get("source_url",item["source_url"]),
+                         model_input=False,production_changed=False)
+            print(json.dumps(compact,ensure_ascii=False,sort_keys=True))
+        else:
+            print(json.dumps(result,ensure_ascii=False,sort_keys=True))
     print("RESULT: No forecasts, results, score coefficients, or delivery records were modified.")
     return 0
 
