@@ -31,6 +31,32 @@ class SourceHubUnitTests(unittest.TestCase):
         self.assertEqual(len([r for r in rows if r["kind"]=="OFFICIAL_CLUB_INDEX"]),len(rows)-3)
         self.assertEqual(sources_for(dict(CTX,league="EUROCUP")),[])
 
+    def test_structured_editorial_table_is_only_an_unverified_candidate(self):
+        page=b"""<html><title>Injury report</title>
+        <table><tr><th>Player</th><th>Team</th><th>Status</th></tr>
+        <tr><td>Rolands Smits</td><td>Baskonia</td><td>Out</td></tr>
+        <tr><td>Rolands Smits</td><td>Baskonia</td><td>Cleared</td></tr>
+        <tr><td>Iffe Lundberg</td><td>Maccabi</td><td>Doubtful</td></tr></table>
+        <a href="/en/injury-update/">Injury update</a>
+        <a href="https://evil.example/injuries/">Injury report</a></html>"""
+        def getter(url,**kwargs):
+            if url.endswith("/robots.txt"):
+                return dict(status="RECEIVED",body=ROBOTS)
+            return dict(status="RECEIVED",body=page)
+        src=sources_for(CTX)[0]
+        row=probe(src,requester=getter,now=TIME+60)
+        self.assertEqual(row["candidate_count"],1)
+        c=row["unverified_player_candidates"][0]
+        self.assertEqual(c["source_reported_status"],"DOUBTFUL_SITE_REPORTED")
+        self.assertEqual(c["player_text"],"Iffe Lundberg")
+        self.assertIsNone(c["official_player_id"])
+        self.assertFalse(c["match_availability_verified"])
+        self.assertFalse(c["model_input"])
+        self.assertEqual(len(row["unverified_injury_article_links"]),1)
+        self.assertIn("basketballsphere.com",row["unverified_injury_article_links"][0]["url"])
+        self.assertIn("GENEL LİG ADAYI",render(dict(sources=[row])))
+        self.assertNotIn("Rolands Smits",render(dict(sources=[row])))
+
     def test_robots_and_html_receipt_is_sha_bound_but_never_a_player_status(self):
         spec=sources_for(CTX)[0]
         calls=[]
