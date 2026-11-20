@@ -13,9 +13,6 @@ import re
 import time
 import threading
 import unicodedata
-from urllib.error import HTTPError, URLError
-from urllib.parse import quote
-from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 SOURCE="https://api.rotowire.com/Basketball/EURO/Injuries.php"
 MAX_BYTES=256*1024
@@ -26,38 +23,18 @@ STATUSES={"OUT":"OUT_REPORTED","GTD":"GAME_TIME_DECISION_REPORTED",
 KEY=re.compile(r"^[A-Za-z0-9._-]{8,256}$")
 
 
-class NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
-
-
 def fetch(*, api_key=None, enabled=False, opener=None, clock=time.time):
-    """One bounded authorized request, disabled unless explicitly enabled.
+    """Security hold: never construct a secret-bearing URL or contact RotoWire.
 
-    Never return/log the credential-bearing URL, headers or response body.
+    The deprecated opener/clock arguments are accepted solely for compatibility
+    with existing offline audit code. Enabling a legacy environment variable
+    cannot override this hold.
     """
     if enabled is not True or not api_key:
         return dict(status="INJURY_PROVIDER_NOT_CONFIGURED",source=SOURCE)
     if type(api_key) is not str or not KEY.fullmatch(api_key):
         return dict(status="INJURY_PROVIDER_KEY_INVALID",source=SOURCE)
-    url=SOURCE+"?format=json&key="+quote(api_key,safe="")
-    request=Request(url,headers={"Accept":"application/json",
-                                  "User-Agent":"ZeynalInjuryAudit/1.0"})
-    transport=opener if opener is not None else build_opener(NoRedirect).open
-    try:
-        with transport(request,timeout=TIMEOUT) as response:
-            if response.status!=200 or response.headers.get_content_type()!="application/json":
-                return dict(status="INJURY_PROVIDER_UNSUPPORTED_RESPONSE",source=SOURCE,
-                            http_status=response.status)
-            body=response.read(MAX_BYTES+1)
-            if len(body)>MAX_BYTES:
-                return dict(status="INJURY_PROVIDER_OVERSIZE",source=SOURCE)
-        return dict(status="RECEIVED",source=SOURCE,observed_at_utc=int(clock()),
-                    body_sha256=hashlib.sha256(body).hexdigest(),body=body)
-    except HTTPError as exc:
-        return dict(status="INJURY_PROVIDER_HTTP_ERROR",http_status=exc.code,source=SOURCE)
-    except (URLError,OSError,TimeoutError):
-        return dict(status="INJURY_PROVIDER_UNREACHABLE",source=SOURCE)
+    return dict(status="INJURY_PROVIDER_SECURITY_HOLD",source=SOURCE)
 
 
 class AdvisoryClient:
