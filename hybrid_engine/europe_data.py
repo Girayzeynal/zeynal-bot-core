@@ -200,7 +200,10 @@ class EuropeanDataReview:
         return '\n\n'.join(parts),dict(provider_report=report,admitted_observations=accepted)
 
     def roster(self,ctx):
-        deadline=time.monotonic()+12;league=ctx['league'];sources=[];rows=[];seen=set()
+        # Telegram's European roster callback has a 20s ceiling. Reserve
+        # >=8s for the two 4-second native player-identity requests plus
+        # rendering/caching. Otherwise a slow news page can hide all results.
+        deadline=time.monotonic()+9;league=ctx['league'];sources=[];rows=[];seen=set()
         queue=[BASE+path for path in PATHS[league]]
         while queue and len(seen)<3 and time.monotonic()<deadline:
             url=queue.pop(0)

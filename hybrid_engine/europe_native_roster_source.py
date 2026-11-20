@@ -110,9 +110,16 @@ def pair(ctx,*,getter=fetch_native,clock=time.time):
         try:
             receipt=getter(url)
             rows[side]=parse_native(receipt,league,season,code,now=int(clock()))
+        except (TimeoutError,OSError):
+            # One provider failure must not erase the other club's verified
+            # season directory or fail the entire Telegram roster panel.
+            rows[side]={"status":"SOURCE_NETWORK_OR_TIMEOUT",
+                        "source_url":url,"registered_players":[],
+                        "player_status_verified":False,"model_input":False}
         except (ValueError,KeyError,TypeError):
             rows[side]={"status":"SOURCE_IDENTITY_OR_SCHEMA_REFUSED",
-                        "source_url":url,"registered_players":[],"model_input":False}
+                        "source_url":url,"registered_players":[],
+                        "player_status_verified":False,"model_input":False}
     return {"format":"ZEYNAL_OFFICIAL_EUROPE_PLAYER_DIRECTORY_V1",
             "fixture_id":ctx.get("fixture_id"),"observed_at_utc":int(clock()),
             "teams":rows,"model_input":False,"injury_status_verified":False,
@@ -124,6 +131,11 @@ def render_public(report):
     for side in ("home","away"):
         r=report["teams"][side]
         rows.append(side.upper()+": "+r["status"])
+        if r.get("http_status") is not None:
+            rows.append("HTTP durum kodu: "+str(r["http_status"]))
+        if r.get("status") in ("SOURCE_NETWORK_OR_TIMEOUT","SOURCE_HTTP_ERROR",
+                               "SOURCE_UNREACHABLE","SOURCE_IDENTITY_OR_SCHEMA_REFUSED"):
+            rows.append("Oyuncu durumu bilinmiyor; kaynak hatası sağlıklı kadro anlamına gelmez.")
         if r.get("status")=="OFFICIAL_SEASON_REGISTRATION_OBSERVED":
             rows.append("Kayıtlı oyuncu: "+str(r["named_players"])+
                         " | kimliği eşleşebilir oyuncu: "+str(r["mapped_player_ids"]))
@@ -155,9 +167,17 @@ async def telegram_command(update,context):
             raise ValueError("Same club")
         result=await asyncio.wait_for(asyncio.to_thread(pair,ctx),timeout=13)
         report=render_public(result)
-    except (KeyError,TypeError,ValueError,asyncio.TimeoutError):
+    except asyncio.TimeoutError:
+        report=("Resmî oyuncu dizini sorgusu zaman aşımına uğradı. "
+                "Bu sonuç oyuncuların sağlıklı olduğunu veya takım kimliğinin yanlış olduğunu göstermez. "
+                "Sakatlık/ilk beş/dakika ve skor etkisi doğrulanmadı.")
+    except (KeyError,TypeError,ValueError):
         report="Resmî takım/lig/sezon eşleşmesi doğrulanamadı. Örnek: /sourceplayers EUROLEAGUE 2026/2027 ZAL PAN"
-    await update.effective_message.reply_text(report[:3500],parse_mode=None)
+    # Never silently truncate the away team or the no-injury-proof warning.
+    # Telegram limits UTF-16 units; preserve full, line-safe output.
+    from hybrid_engine.predictions_command import split_plain
+    for part in split_plain(report,limit=3200):
+        await update.effective_message.reply_text(part,parse_mode=None)
 
 
 def command_handler():

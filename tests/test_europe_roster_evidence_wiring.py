@@ -6,6 +6,8 @@ report has been captured or applied to the live model.
 import tempfile
 import unittest
 
+from unittest.mock import patch
+
 from hybrid_engine.europe_data import EuropeanDataReview
 
 
@@ -27,9 +29,11 @@ class EuropeanRosterAdapterTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.calls = []
+        self.deadlines = []
 
     def getter(self, url, league, *, deadline):
         self.calls.append((league, url))
+        self.deadlines.append(deadline)
         return dict(status="SOURCE_HTTP_ERROR", http_status=429, url=url,
                     retry_after_seconds=300)
 
@@ -83,6 +87,15 @@ class EuropeanRosterAdapterTests(unittest.TestCase):
                 self.assertEqual(details["verified_player_packet_status"],
                                  "NO_VERIFIED_PREFORECAST_PLAYER_PACKET")
                 self.assertNotIn("native-player-42", html)
+
+    def test_news_requests_reserve_native_roster_callback_budget(self):
+        # The callback allows 20 seconds total; news must leave a bounded
+        # window for two native HTTP reads and Telegram response rendering.
+        with patch("hybrid_engine.europe_data.time.monotonic", return_value=100.0):
+            html, details = self.reviewer({}).roster(CTX)
+        self.assertEqual(self.deadlines, [109.0])
+        self.assertIn("HTTP 429", html)
+        self.assertFalse(details["forecast_changed"])
 
     def test_empty_source_still_explicitly_reports_no_live_adapter(self):
         html, details = self.reviewer({}).roster(CTX)
