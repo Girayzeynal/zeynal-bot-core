@@ -62,15 +62,17 @@ def observe_article(index_spec,link,*,requester=request,now):
     if not isinstance(url,str) or not _safe_url(url) or urlsplit(url).hostname!=root.hostname:
         return dict(result,status="ARTICLE_HOST_OR_URL_REFUSED")
     robots=requester("https://"+root.hostname+"/robots.txt",mime="text/plain",limit=MAX_ROBOTS)
-    if robots.get("status")!="RECEIVED" or type(robots.get("body")) is not bytes:
-        return dict(result,status="ARTICLE_ROBOTS_UNAVAILABLE")
-    rp=RobotFileParser()
-    try:
-        rp.parse(robots["body"].decode("utf-8","replace").splitlines())
-        if not rp.can_fetch(UA,url):
-            return dict(result,status="ARTICLE_ROBOTS_DISALLOW")
-    except (ValueError,TypeError,UnicodeError):
-        return dict(result,status="ARTICLE_ROBOTS_INVALID")
+    robots_absent=(robots.get("http_status") in (404,410))
+    if not robots_absent:
+        if robots.get("status")!="RECEIVED" or type(robots.get("body")) is not bytes:
+            return dict(result,status="ARTICLE_ROBOTS_UNAVAILABLE")
+        rp=RobotFileParser()
+        try:
+            rp.parse(robots["body"].decode("utf-8","replace").splitlines())
+            if not rp.can_fetch(UA,url):
+                return dict(result,status="ARTICLE_ROBOTS_DISALLOW")
+        except (ValueError,TypeError,UnicodeError):
+            return dict(result,status="ARTICLE_ROBOTS_INVALID")
     payload=requester(url,mime="text/html",limit=MAX_BYTES)
     if payload.get("status")!="RECEIVED":
         return dict(result,status="ARTICLE_"+str(payload.get("status","UNREACHABLE"))[:60],
