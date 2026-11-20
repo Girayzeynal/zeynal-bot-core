@@ -126,6 +126,11 @@ def _article_matches_index_competition(source_url, candidate_url):
     child=urlsplit(candidate_url)
     path=child.path.lower().rstrip("/")+"/"
     host=parent.hostname or ""
+    # A pagination index is not an injury article. Previously /page/2 and
+    # /page/3 were shown as articles merely because the parent URL contained
+    # "injuries". Do not read or label these navigation pages as news.
+    if re.search(r"/page/[1-9][0-9]*/$",path):
+        return False
     # A global category portal is not a specific report; do not follow
     # another competition's injury pages regardless of which source linked it.
     if (path in ("/en/injuries/","/injuries/","/en/injury/",
