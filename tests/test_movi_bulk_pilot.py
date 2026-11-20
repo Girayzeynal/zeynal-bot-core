@@ -43,12 +43,12 @@ def test_three_leagues_in_one_board():
 def test_stale_missing_clock_live_and_duplicates():
     live = fixture("NBA", "3", in_play=True)
     stale = fixture("NBA", "4", group_status={"99": {"polled_at": (NOW - timedelta(hours=2)).isoformat()}}, quotes=[
-        dict(market_id="99", sel_id="9", odds_dec=1.95,
+        dict(market_id="99", group_id="99", sel_id="9", odds_dec=1.95,
              ts=(NOW - timedelta(hours=2)).isoformat())])
     no_timestamp = fixture("NBA", "5", quotes=[
         dict(market_id="88", sel_id="8", odds_dec=1.95)])
     duplicate = fixture("NBA", "6", group_status={"88": {"polled_at": NOW.isoformat()}}, quotes=[
-        dict(market_id="88", sel_id="8", odds_dec=1.95, ts=NOW.isoformat())] * 2)
+        dict(market_id="88", group_id="88", sel_id="8", odds_dec=1.95, ts=NOW.isoformat())] * 2)
     summary = inspect_board({"matches": [
         live, stale, no_timestamp, duplicate, duplicate
     ]}, NOW)["leagues"]["NBA"]
