@@ -24,7 +24,7 @@ jobs:
           python -m compileall -q hybrid_engine/europe_injury_public_sources.py hybrid_engine/europe_multi_source_simulation_measure.py hybrid_engine/europe_data.py hybrid_engine/test_bot.py
       - name: Offline adapters, robots gates and Telegram callback E2E (synthetic HTTP)
         run: |
-          python -m pytest -q tests/test_europe_public_sources.py tests/test_europe_article_identity.py tests/test_production_parity.py tests/test_europe_public_telegram.py tests/test_europe_roster_evidence_wiring.py tests/test_integrated_features.py
+          python -m pytest -q tests/test_europe_public_sources.py tests/test_europe_article_identity.py tests/test_europe_source_partial.py tests/test_production_parity.py tests/test_europe_public_telegram.py tests/test_europe_roster_evidence_wiring.py tests/test_integrated_features.py
       - name: Numerical 10000 path Bayesian/QMC rotation measurement (synthetic sources)
         run: |
           python -m hybrid_engine.europe_multi_source_simulation_measure --output /tmp/ze-synthetic-qmc-measure.json
