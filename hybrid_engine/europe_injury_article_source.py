@@ -74,9 +74,10 @@ def observe_article(index_spec,link,*,requester=request,now):
         except (ValueError,TypeError,UnicodeError):
             return dict(result,status="ARTICLE_ROBOTS_INVALID")
     payload=requester(url,mime="text/html",limit=MAX_BYTES)
-    if payload.get("status")!="RECEIVED":
+    if payload.get("status") not in ("RECEIVED","RECEIVED_PARTIAL"):
         return dict(result,status="ARTICLE_"+str(payload.get("status","UNREACHABLE"))[:60],
                     http_status=payload.get("http_status"))
+    incomplete=(payload.get("status")=="RECEIVED_PARTIAL")
     body=payload.get("body")
     if type(body) is not bytes or not 0<len(body)<=MAX_BYTES:
         return dict(result,status="ARTICLE_BODY_INVALID")
@@ -85,7 +86,9 @@ def observe_article(index_spec,link,*,requester=request,now):
     # claim a pre-tipoff date when no precise source timestamp is available.
     published=(meta["published_utc"] if
                meta["publication_time_status"]=="PRECISE_PAGE_PUBLICATION_TIME" else None)
-    return dict(result,status="ARTICLE_TEXT_OBSERVED_CANDIDATES_ONLY",
+    return dict(result,status=("ARTICLE_TEXT_PARTIAL_CANDIDATES_ONLY" if incomplete
+                               else "ARTICLE_TEXT_OBSERVED_CANDIDATES_ONLY"),
+        incomplete_html=incomplete,captured_bytes=len(body),
         publication_time_status=meta["publication_time_status"],
         source_published_at_utc=published,
         title=meta["page_title"],body_sha256=hashlib.sha256(body).hexdigest(),
