@@ -34,6 +34,10 @@ def features(state):
     lines.extend([
         'Avrupa kadro kanıtı okuyucusu: '+('BAĞLI' if review is not None else 'BAĞLI DEĞİL'),
         'Maça ve ilk tahmin saatine doğrulanmış oyuncu paketi: otomatik sağlayıcı veri akışı henüz yok',
+        'İkincil anlık sakatlık kaynak denetimi (isteğe bağlı): '+(
+            'ERİŞİM ETKİN, OYUNCU VERİSİ HENÜZ DOĞRULANMADI'
+            if state.get('europe_injury_advisory_enabled') is True else 'ETKİN DEĞİL; ÜCRETLİ KAYNAK SORGULANMAZ'),
+        'İkincil kaynak yalnız güncel gözlemdir; maça özel resmî sakatlık kanıtı değildir.',
         'Maç bazlı sakatlık etkisi / sayısal dakika modeli: CANLI ANALİZE BAĞLI DEĞİL.',
         'Yerel oyuncu paket adayı sayısı: '+str(len(packet_store) if isinstance(packet_store,dict) else 0)+
         ' (sayı doğrulanmış oyuncu/maç kanıtı değildir).',
