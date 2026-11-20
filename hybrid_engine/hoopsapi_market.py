@@ -240,3 +240,6 @@ def render(report):
                     keys[1]+" "+("%.2f"%p[keys[1]])))
     if len(rows)>24:lines.append("... "+str(len(rows)-24)+" ek çizgi için sayfalı görünüm gerekli.")
     return "\n".join(lines)
+
+# Global keyless in-memory quota/cache: credentials are read only for an opted-in call.
+SOURCE=HoopsFreeMarket()
