@@ -380,9 +380,14 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         advisory_getter=None
         app.bot_data['europe_injury_advisory_setup_status']='SECURITY_HOLD_ROTOWIRE'
         app.bot_data['europe_injury_advisory_enabled']=False
+        from hybrid_engine.europe_injury_public_sources import PublicEuroInjuryNewsHub
+        # Anonymous public indexes only; opt-in and robots-gated, no secret.
+        public_news=PublicEuroInjuryNewsHub(
+            enabled=os.getenv('ZEYNAL_PUBLIC_EURO_NEWS_ENABLED','0')=='1')
+        app.bot_data['europe_public_injury_news_hub']=public_news
         app.bot_data['europe_data_review']=EuropeanDataReview(europe_services,european_bridge,root/'europe-data',
             roster_store=app.bot_data['verified_roster_packets'],native_roster_getter=fetch_native,
-            injury_advisory_getter=advisory_getter)
+            injury_advisory_getter=advisory_getter,public_news_hub=public_news)
     prior_market_service=app.bot_data['verified_analysis_service']
     class EuroLeagueMarketDisplay:
         ledger=getattr(prior_market_service,'ledger',None)
