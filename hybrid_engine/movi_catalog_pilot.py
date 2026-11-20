@@ -26,6 +26,53 @@ ISTANBUL = ZoneInfo("Europe/Istanbul")
 TARGETS = ("NBA", "EUROLEAGUE", "EUROCUP")
 
 
+def propose_odds_slots(upcoming: dict, now: datetime) -> list[dict]:
+    """Dry-run only: at most 4 regular odds pulls/day + 1 catalog + 1 reserve.
+
+    The calendar poll and the odds pulls are separate provider requests.
+    A proposal does not create a background task or consume quota.
+    """
+    candidates = {}
+    for fixtures in upcoming.values():
+        for kickoff, _ in fixtures:
+            # A pre-match check at T-20 minutes, not after the event starts.
+            proposed = kickoff - timedelta(minutes=20)
+            if proposed <= now:
+                continue
+            local = proposed.astimezone(ISTANBUL)
+            candidates.setdefault(local.date(), []).append(local)
+    schedule = []
+    for day, timestamps in sorted(candidates.items()):
+        moments = sorted(set(timestamps))
+        slots = []
+        baseline = datetime.combine(day, datetime.min.time(), tzinfo=ISTANBUL).replace(
+            hour=10, minute=30
+        )
+        if baseline > now.astimezone(ISTANBUL) and baseline < moments[0]:
+            slots.append(baseline)
+        skipped = 0
+        for moment in moments:
+            if any(abs(moment - prior) < timedelta(minutes=80) for prior in slots):
+                continue
+            if len(slots) >= 4:
+                skipped += 1
+                continue
+            slots.append(moment)
+        if slots:
+            schedule.append({
+                "tsi_day": day.isoformat(),
+                "regular_odds_slots_tsi": [
+                    item.strftime("%Y-%m-%d %H:%M") for item in sorted(slots)
+                ],
+                "catalog_calls_per_day": 1,
+                "regular_odds_calls": len(slots),
+                "emergency_odds_reserve": 1,
+                "max_total_calls_including_reserve": 2 + len(slots),
+                "uncovered_80_min_clusters": skipped,
+            })
+    return schedule
+
+
 def inspect_catalog(data: dict, now: datetime | None = None) -> dict:
     """Never confuse an empty catalog / premarket week with unsupported league."""
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
@@ -85,6 +132,8 @@ def inspect_catalog(data: dict, now: datetime | None = None) -> dict:
             dt.astimezone(ISTANBUL).strftime("%Y-%m-%d %H:%M %z")
             for dt, _ in sorted(upcoming[competition])[:8]
         ]
+    result["dry_run_schedule"] = propose_odds_slots(upcoming, now)
+    result["schedule_status"] = "PROPOSAL_ONLY_NOT_INSTALLED"
     result["coverage_statement"] = (
         "Catalog listing is not proof of a current bet365 price; zero "
         "fixtures is not proof that a league is unsupported."
