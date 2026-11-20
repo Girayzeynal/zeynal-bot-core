@@ -25,7 +25,7 @@ class PremiumProductionTests(unittest.TestCase):
         cache={}
         enhanced=enhance(original,cache,1)
         self.assertEqual(original,frozen)
-        self.assertIn("115", enhanced["html_parts"][0] if False else "115")
+        self.assertIn("112.7", enhanced["html_parts"][0])
         self.assertIn("219.1",enhanced["html_parts"][0])
         self.assertIn("Aralıklar",str(enhanced["reply_markup"].inline_keyboard))
         self.assertEqual(len(cache),1)
