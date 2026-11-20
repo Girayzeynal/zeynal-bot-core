@@ -79,13 +79,14 @@ def article_rows(receipt,ctx,now):
 
 
 class EuropeanDataReview:
-    def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time,roster_store=None,native_roster_getter=None):
+    def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time,roster_store=None,native_roster_getter=None,injury_advisory_getter=None):
         self.services=services;self.bridge=bridge;self.root=local_path(directory)
         self.getter=getter;self.clock=clock;self.cache={};self.catalogs={};self.lock=threading.Lock()
         # A shared, explicitly verified packet store. Empty is NOT a live feed.
         # The roster view only reads evidence; numerical model inputs are unchanged.
         self.roster_store=roster_store
         self.native_roster_getter=native_roster_getter
+        self.injury_advisory_getter=injury_advisory_getter
 
     def current_identity_context(self,ctx,owner):
         """Separate current association evidence; never alter forecast feature clocks."""
@@ -203,7 +204,9 @@ class EuropeanDataReview:
         # Telegram's European roster callback has a 20s ceiling. Reserve
         # >=8s for the two 4-second native player-identity requests plus
         # rendering/caching. Otherwise a slow news page can hide all results.
-        deadline=time.monotonic()+9;league=ctx['league'];sources=[];rows=[];seen=set()
+        # Bound optional advisory request after the existing two native reads.
+        # The 20s Telegram callback must retain headroom for rendering.
+        deadline=time.monotonic()+(6 if self.injury_advisory_getter is not None else 9);league=ctx['league'];sources=[];rows=[];seen=set()
         queue=[BASE+path for path in PATHS[league]]
         while queue and len(seen)<3 and time.monotonic()<deadline:
             url=queue.pop(0)
@@ -254,6 +257,22 @@ class EuropeanDataReview:
             lines.extend(['',html.escape(render_public(native_report))])
         elif self.native_roster_getter is None:
             lines.append('Resmî sezon oyuncu kimliği adaptörü: YAPILANDIRILMADI.')
+        # Independent *current* secondary observations can help diagnose
+        # gaps, but they have no fixture-specific official status publication
+        # time and must NEVER be inserted into verified_player_records.
+        advisory=None
+        if self.injury_advisory_getter is not None and int(self.clock())<ctx['fixture_start_utc']:
+            from hybrid_engine.europe_injury_advisory import bind as bind_injury,render as render_injury
+            try:
+                secondary_receipt=self.injury_advisory_getter()
+                advisory=bind_injury(secondary_receipt,ctx=ctx,native_report=native_report,now=int(self.clock()))
+            except (ValueError,TypeError,KeyError,TimeoutError,OSError):
+                advisory=dict(status='INJURY_PROVIDER_REVIEW_UNAVAILABLE',player_rows=[],
+                              injury_status_verified_for_fixture=False,original_prediction_eligible=False,
+                              model_input=False,forecast_changed=False)
+            lines.extend(['',html.escape(render_injury(advisory))])
+        else:
+            lines.append('İkincil canlı sakatlık sağlayıcısı: YAPILANDIRILMADI; kayıtsız oyuncu sağlıklı sayılmaz.')
         if verified_records:
             lines.extend(['',evidence_view,
                           'Bu paket ilk tahmin kesitinden önce yayımlanmış kanıtı gösterir; dakika/rotasyon/model etkisi değildir.'])
@@ -266,6 +285,8 @@ class EuropeanDataReview:
             verified_player_records=verified_records,verified_player_packet_status=packet_status,
             player_evidence_rejections=evidence['rejected_count'],
             native_season_player_directory=native_report,
+            secondary_current_injury_advisory=advisory,
+            match_specific_injury_feed_model_input=False,
             capability=('READ_ONLY_VERIFIED_PREFORECAST_PLAYER_PACKET_AND_OFFICIAL_NEWS'
                         if verified_records else 'OFFICIAL_NEWS_ONLY_NOT_PLAYER_AVAILABILITY_FEED'),
             minutes_and_rotation_model_input=False,forecast_changed=False)
