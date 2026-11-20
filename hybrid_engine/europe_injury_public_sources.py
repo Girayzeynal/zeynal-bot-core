@@ -27,6 +27,7 @@ SITE_URLS=(
 UA="ZeynalBasketballSourceAudit/1.0"
 MAX_BYTES=256*1024
 MAX_ROBOTS=32768
+MAX_FETCH_SECONDS=2.0
 COOLDOWN=900
 TIME_BUDGET=3.8
 MAX_CLUB_SITES=2
@@ -73,8 +74,9 @@ def request(url,*,mime="text/html",limit=MAX_BYTES):
     if not _safe_url(url):
         return dict(status="URL_REFUSED")
     try:
+        began=time.monotonic()
         with requests.get(url,headers={"User-Agent":UA,"Accept":mime},
-                          timeout=(0.7,1.1),allow_redirects=False,stream=True) as r:
+                          timeout=(0.5,0.8),allow_redirects=False,stream=True) as r:
             if r.status_code!=200:
                 return dict(status=("SOURCE_RATE_LIMITED" if r.status_code==429 else
                                     "SOURCE_HTTP_NOT_200"),http_status=r.status_code)
@@ -83,6 +85,8 @@ def request(url,*,mime="text/html",limit=MAX_BYTES):
                 return dict(status="SOURCE_UNEXPECTED_MIME",mime=reported[:50])
             parts=[];total=0
             for buf in r.iter_content(chunk_size=8192):
+                if time.monotonic()-began>MAX_FETCH_SECONDS:
+                    return dict(status="SOURCE_DEADLINE")
                 total+=len(buf)
                 if total>limit:return dict(status="SOURCE_OVERSIZE")
                 parts.append(buf)
