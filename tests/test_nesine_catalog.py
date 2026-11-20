@@ -75,7 +75,10 @@ class NesineCatalogTests(TestCase):
     def test_provider_panel_reports_native_nesine_match_separately_without_paid_keys(self):
         access=SimpleNamespace(configuration=lambda:{k:'KEY_NOT_AVAILABLE_IN_TEST_PROCESS' for k in ('THE_ODDS_API','API_BASKETBALL')})
         with TemporaryDirectory() as folder:
-            bridge=ProviderBridge(access,Path(folder)/'providers')
+            # ProviderBridge's default clock=time.time was bound at import,
+            # before setUp patches time.time. Inject the replay clock so the
+            # 19 Nov prematch fixture is not mistaken for a started 20 Nov game.
+            bridge=ProviderBridge(access,Path(folder)/'providers',clock=lambda:self.now)
             getter=Mock(return_value=self.receipt)
             bridge.nesine=NesineCatalog(Path(folder)/'nesine',getter)
             snapshot=dict(self.snapshots[0],prediction_generated_at_utc=self.now-60)
