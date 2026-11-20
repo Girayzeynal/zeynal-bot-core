@@ -237,8 +237,11 @@ class EuropeanDataReview:
                        if verified_records else
                        'NO_VERIFIED_PREFORECAST_PLAYER_PACKET')
         evidence_view=roster_section(evidence)
+        source_description=('Kaynak türü: resmî haber sayfası + isteğe bağlı ikincil sakatlık adaptörü YAPILANDIRILDI; gerçek veri yanıtı henüz doğrulanmadı.'
+            if league=='EUROLEAGUE' and self.injury_advisory_getter is not None else
+            'Kaynak türü: resmî haber sayfası; canlı sakatlık/veri sağlayıcı adaptörü bağlı değil.')
         lines=['🏥 <b>GÜNCEL RESMÎ AVRUPA KAYNAĞI</b>','Kontrol: '+tsi(int(self.clock())),
-               'Kaynak türü: resmî haber sayfası; canlı sakatlık/veri sağlayıcı adaptörü bağlı değil.',
+               source_description,
                'Önceden doğrulanmış, maç kimliği ve ilk tahmin zamanı eşleşen oyuncu paketi kontrolü: '+packet_status+'.',
                'İlk tahmin girdisi değildir; kayıtlı skor değiştirilmedi.']
         for s in sources:
@@ -271,6 +274,8 @@ class EuropeanDataReview:
                               injury_status_verified_for_fixture=False,original_prediction_eligible=False,
                               model_input=False,forecast_changed=False)
             lines.extend(['',html.escape(render_injury(advisory))])
+        elif league=='EUROLEAGUE' and self.injury_advisory_getter is not None:
+            lines.append('İkincil canlı sakatlık sağlayıcısı: YAPILANDIRILDI ancak maç başladı; geriye dönük yeni sorgu yapılmadı.')
         else:
             lines.append('İkincil canlı sakatlık sağlayıcısı: YAPILANDIRILMADI; kayıtsız oyuncu sağlıklı sayılmaz.')
         if verified_records:
@@ -286,6 +291,8 @@ class EuropeanDataReview:
             player_evidence_rejections=evidence['rejected_count'],
             native_season_player_directory=native_report,
             secondary_current_injury_advisory=advisory,
+            secondary_injury_adapter_attached=(league=='EUROLEAGUE' and self.injury_advisory_getter is not None),
+            secondary_injury_last_status=advisory['status'] if advisory else 'NOT_QUERIED',
             match_specific_injury_feed_model_input=False,
             capability=('READ_ONLY_VERIFIED_PREFORECAST_PLAYER_PACKET_AND_OFFICIAL_NEWS'
                         if verified_records else 'OFFICIAL_NEWS_ONLY_NOT_PLAYER_AVAILABILITY_FEED'),
