@@ -143,6 +143,7 @@ def compare_cached(cached, boards):
             provider[key] = ev
     mismatches = []
     missing = {}
+    weekly_schedule = []
     counts = {str(start_day + timedelta(days=i)): {
         "espn": 0, "moviodds_matched": 0, "not_in_moviodds_catalog": 0
     } for i in range(7)}
@@ -150,6 +151,18 @@ def compare_cached(cached, boards):
         day = fixture["date_tsi"]
         counts[day]["espn"] += 1
         match = provider.get((day, fixture["home"], fixture["away"]))
+        row = {
+            "date_tsi": day,
+            "start_tsi": fixture["start_tsi"],
+            "espn_id": fixture["id"],
+            "away": CANONICAL[fixture["away"]],
+            "home": CANONICAL[fixture["home"]],
+            "start_source": "ESPN_INDEPENDENT_FIXTURE",
+            "moviodds_catalog": "MISSING_FROM_SAVED_SNAPSHOT" if match is None else "PRESENT_IN_SAVED_SNAPSHOT",
+            "price_freshness": "NOT_EVALUATED",
+            "kickoff_delta_minutes": None,
+        }
+        weekly_schedule.append(row)
         if match is None:
             counts[day]["not_in_moviodds_catalog"] += 1
             missing.setdefault(day, []).append({
@@ -161,6 +174,7 @@ def compare_cached(cached, boards):
             counts[day]["moviodds_matched"] += 1
             diff = round((utc_time(match["utc"]) -
                           utc_time(fixture["start_utc"])).total_seconds() / 60, 1)
+            row["kickoff_delta_minutes"] = diff
             if diff != 0:
                 mismatches.append({"date_tsi": day, "matchup":
                     CANONICAL[fixture["away"]] + " @ " + CANONICAL[fixture["home"]],
@@ -172,6 +186,8 @@ def compare_cached(cached, boards):
         "official_fixtures": len(official),
         "provider_fixture_rows": len(provider),
         "matched": sum(x["moviodds_matched"] for x in counts.values()),
+        "weekly_schedule_tsi": weekly_schedule,
+        "fixture_source": "ESPN_INDEPENDENT_NOT_OFFICIAL_NBA",
         "time_differences": mismatches[:60],
         "day_summary": counts,
         "missing_from_provider_examples": {day: games[:4] for day, games in missing.items()},
@@ -196,6 +212,8 @@ def main():
     parser = argparse.ArgumentParser(description="Compare saved MoviOdds week with ESPN fixture dates")
     parser.add_argument("--cached", default="nba_week_21_27.json")
     parser.add_argument("--live", action="store_true")
+    parser.add_argument("--compact", action="store_true",
+                        help="Print a readable full-week lineup instead of verbose JSON.")
     args = parser.parse_args()
     if not args.live:
         print(json.dumps({"status": "OFFLINE_ONLY", "network_calls": 0}))
@@ -224,7 +242,31 @@ def main():
         result = {"status": "ESPN_COMPARISON_UNAVAILABLE",
                   "network_calls_moviodds": 0,
                   "note": "Partial ESPN calls possible; no coverage claimed."}
-    print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+    if args.compact and result.get("status") == "OK":
+        print("DURUM:", result["status"])
+        print("KAYNAK: ESPN fikstür referansı (NBA resmî servis değildir)")
+        print("MOVIODDS EK API ISTEK:", result["network_calls_moviodds"])
+        print("ESPN API ISTEK:", result["network_calls_espn"])
+        print("HAFTA (TSI):", " - ".join(result["week_tsi"]))
+        print("NBA TOPLAM:", result["official_fixtures"],
+              "| MOVIODDS KATALOG ESLESME:", result["matched"],
+              "| KATALOGDA OLMAYAN:", result["official_fixtures"] - result["matched"])
+        for day, entry in result["day_summary"].items():
+            if entry["espn"] == 0:
+                continue
+            print("\\n" + day + " (TSI) | ESPN MAC: " + str(entry["espn"]))
+            for fixture in result["weekly_schedule_tsi"]:
+                if fixture["date_tsi"] != day:
+                    continue
+                marker = "M+" if fixture["moviodds_catalog"] == "PRESENT_IN_SAVED_SNAPSHOT" else "M-"
+                delta = fixture["kickoff_delta_minutes"]
+                flag = (" | MOVI_SAAT_FARKI:" + str(delta) + "dk") if delta not in (None, 0) else ""
+                print(fixture["start_tsi"][11:], fixture["away"], "@", fixture["home"],
+                      "[" + marker + "]" + flag)
+        print("\\nM+ = kayitli MoviOdds katalogunda; M- = kayitli katalogda bulunmuyor.")
+        print("Bu isaretler guncel oran var/yok anlami tasimaz.")
+    else:
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
