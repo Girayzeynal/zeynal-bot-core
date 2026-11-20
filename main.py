@@ -145,6 +145,9 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error('Analysis service failed: %s',type(exc).__name__)
             await update.message.reply_text('Analiz hizmeti kullanılamıyor veya süre aşıldı. Arşiv durumu doğrulanamadı.')
             return
+        if os.getenv('ZEYNAL_PRODUCTION_PREMIUM_UI','0')=='1' and report.get('status')=='ANALYSIS_OK':
+            from hybrid_engine.production_premium_ui import enhance
+            report=enhance(report,context.application.bot_data.setdefault('production_premium_reports',{}),update.effective_chat.id)
         await reply_analysis(update,context,report,release_service)
         return
     try:
@@ -531,6 +534,9 @@ def build_app() -> Application:
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("analyze", analyze_command))
+    if os.getenv('ZEYNAL_PRODUCTION_PREMIUM_UI','0')=='1':
+        from hybrid_engine.production_premium_ui import install as install_production_premium
+        install_production_premium(app)
     app.add_handler(CommandHandler("nba", nba_command))
     from hybrid_engine.production_parity import accuracy_command as production_accuracy_command
     app.add_handler(CommandHandler("accuracy", production_accuracy_command))
