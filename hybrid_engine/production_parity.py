@@ -143,6 +143,48 @@ async def accuracy_command(update, context):
     await _send(update, value)
 
 
+
+async def injurynews_command(update, context):
+    """On-demand exact-team news receipt; no fixture or player admission."""
+    args=context.args or []
+    if (len(args)<5 or len(args)>18 or args[0].upper() not in
+            ("EUROLEAGUE","EUROCUP") or
+        sum(x.lower()=="vs" for x in args)!=1):
+        await _send(update,"Kullanım: /injurynews EUROLEAGUE|EUROCUP Ev Sahibi vs Deplasman")
+        return
+    boundary=next(i for i,v in enumerate(args) if v.lower()=="vs")
+    home=" ".join(args[1:boundary])
+    away=" ".join(args[boundary+1:])
+    if not (2<=len(home)<=100 and 2<=len(away)<=100 and home!=away):
+        await _send(update,"Tam ve birbirinden farklı takım adları gereklidir.")
+        return
+    from hybrid_engine.europe_injury_public_sources import (
+        review_current_team_news,render)
+    state=context.application.bot_data
+    now=int(time.time())
+    key=(args[0].upper(),home,away)
+    cache=state.setdefault("_injurynews_cache",{})
+    previous=cache.get(key)
+    if previous and now<previous["valid_until_utc"]:
+        report=previous["report"]
+    else:
+        try:
+            report=await asyncio.wait_for(asyncio.to_thread(
+                review_current_team_news,args[0].upper(),home,away),
+                timeout=16)
+        except (ValueError,KeyError,TypeError,OSError,RuntimeError,asyncio.TimeoutError):
+            await _send(update,"Resmî/haber kaynakları şu anda doğrulanamadı; eski kadro veya tahmin değiştirilmedi.")
+            return
+        if len(cache)>=16:cache.clear()
+        cache[key]=dict(valid_until_utc=now+600,report=report)
+    heading=("ZEYNAL | GÜNCEL KULÜP HABER KONTROLÜ\n"+
+             args[0].upper()+" | "+home+" vs "+away+"\n"+
+             "Kaynak kulüp eşleşmeleri: "+str(len(report.get("official_club_matches",[])))+
+             " / 2\n"+
+             "Bu sorgu maç fikstürü ya da resmî 12 kişilik kadro doğrulaması değildir.\n")
+    await _send(update,heading+"\n"+render(report))
+
+
 async def runtime_command(update, context):
     if [v.lower() for v in (context.args or [])] != ["runtime"]:
         await _send(update, "Kullanım: /test runtime")
@@ -166,4 +208,5 @@ def install(app):
     app.add_handler(CommandHandler("predictions", predictions_command))
     app.add_handler(CommandHandler("results", results_command))
     app.add_handler(CommandHandler("sources", sources_command))
+    app.add_handler(CommandHandler("injurynews", injurynews_command))
     app.add_handler(CommandHandler("test", runtime_command))

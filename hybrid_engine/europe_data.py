@@ -207,7 +207,7 @@ class EuropeanDataReview:
         # rendering/caching. Otherwise a slow news page can hide all results.
         # Bound optional advisory request after the existing two native reads.
         # The 20s Telegram callback must retain headroom for rendering.
-        deadline=time.monotonic()+(4 if self.public_news_hub is not None and ctx['league']=='EUROLEAGUE' else 6 if self.injury_advisory_getter is not None and ctx['league']=='EUROLEAGUE' else 9);league=ctx['league'];sources=[];rows=[];seen=set()
+        deadline=time.monotonic()+(4 if self.public_news_hub is not None and ctx['league'] in ('EUROLEAGUE','EUROCUP') else 6 if self.injury_advisory_getter is not None and ctx['league']=='EUROLEAGUE' else 9);league=ctx['league'];sources=[];rows=[];seen=set()
         queue=[BASE+path for path in PATHS[league]]
         while queue and len(seen)<3 and time.monotonic()<deadline:
             url=queue.pop(0)
@@ -282,7 +282,7 @@ class EuropeanDataReview:
         # Independent editorial and exact-match club indexes, never a verified
         # player packet. Retain old results and do not touch the model/forecast.
         public_news=None
-        if self.public_news_hub is not None and league=='EUROLEAGUE':
+        if self.public_news_hub is not None and league in ('EUROLEAGUE','EUROCUP'):
             from hybrid_engine.europe_injury_public_sources import render as render_public_news
             try:
                 public_news=self.public_news_hub.review(ctx)
