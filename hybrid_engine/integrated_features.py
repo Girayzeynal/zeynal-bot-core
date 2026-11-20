@@ -30,6 +30,9 @@ def features(state):
         'Kadro ve piyasa panelleri: doğrulanmış veri varsa kullanılır.',
         'Resmî kulüp kaynakları: isteğe bağlı pilot; oyuncu etkisi otomatik uygulanmaz.']
     review=state.get('europe_data_review')
+    advisory_getter=getattr(review,'injury_advisory_getter',None)
+    # Read-only snapshot: /features must never consume a paid API request.
+    advisory_health=advisory_getter.public_status() if callable(getattr(advisory_getter,'public_status',None)) else None
     packet_store=state.get('verified_roster_packets')
     lines.extend([
         'Avrupa kadro kanıtı okuyucusu: '+('BAĞLI' if review is not None else 'BAĞLI DEĞİL'),
@@ -37,6 +40,11 @@ def features(state):
         'İkincil anlık sakatlık kaynak denetimi (isteğe bağlı): '+(
             'ERİŞİM ETKİN, OYUNCU VERİSİ HENÜZ DOĞRULANMADI'
             if state.get('europe_injury_advisory_enabled') is True else 'ETKİN DEĞİL; ÜCRETLİ KAYNAK SORGULANMAZ'),
+        'İkincil sakatlık adaptörü yapılandırması: '+str(state.get('europe_injury_advisory_setup_status','DURUM_BİLİNMİYOR')),
+        'İkincil sağlayıcı son HTTP/veri durumu: '+(
+            str(advisory_health['last_source_status'])+
+            (' · HTTP '+str(advisory_health['last_http_status']) if advisory_health['last_http_status'] is not None else '')
+            if advisory_health else 'KAYNAK_ETKİN_DEĞİL; İSTEK_YAPILMADI'),
         'İkincil kaynak yalnız güncel gözlemdir; maça özel resmî sakatlık kanıtı değildir.',
         'Maç bazlı sakatlık etkisi / sayısal dakika modeli: CANLI ANALİZE BAĞLI DEĞİL.',
         'Yerel oyuncu paket adayı sayısı: '+str(len(packet_store) if isinstance(packet_store,dict) else 0)+
