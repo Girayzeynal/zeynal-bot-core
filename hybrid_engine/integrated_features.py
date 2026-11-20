@@ -34,6 +34,8 @@ def features(state):
     # Read-only snapshot: /features must never consume a paid API request.
     advisory_health=advisory_getter.public_status() if callable(getattr(advisory_getter,'public_status',None)) else None
     packet_store=state.get('verified_roster_packets')
+    public_hub=state.get('europe_public_injury_news_hub')
+    public_status=public_hub.public_status() if callable(getattr(public_hub,'public_status',None)) else None
     lines.extend([
         'Avrupa kadro kanıtı okuyucusu: '+('BAĞLI' if review is not None else 'BAĞLI DEĞİL'),
         'Maça ve ilk tahmin saatine doğrulanmış oyuncu paketi: otomatik sağlayıcı veri akışı henüz yok',
@@ -46,6 +48,13 @@ def features(state):
             (' · HTTP '+str(advisory_health['last_http_status']) if advisory_health['last_http_status'] is not None else '')
             if advisory_health else 'KAYNAK_ETKİN_DEĞİL; İSTEK_YAPILMADI'),
         'İkincil kaynak yalnız güncel gözlemdir; maça özel resmî sakatlık kanıtı değildir.',
+        'Kamuya açık sakatlık haber adaptörleri: '+('BAĞLI; HTTPS/robots kontrolünden sonra sorgulanır'
+            if public_status and public_status['enabled'] else 'YAPILANDIRILDI, SORGULAMA KAPALI'),
+        'Kamuya açık kaynaklar: Basketball Sphere / Eurohoops / Basketlogy + eşleşen resmî kulüpler',
+        'Son kaynak sorgu sonuçları: '+(
+            ', '.join(x['source']+':'+x['status'] for x in public_status['last_statuses'])[:550]
+            if public_status and public_status['last_statuses'] else 'HENÜZ İSTEK YOK'),
+        'Sosyal medya / X: yetkili veri bağlantısı yok; otomatik çekilmiyor.',
         'Maç bazlı sakatlık etkisi / sayısal dakika modeli: CANLI ANALİZE BAĞLI DEĞİL.',
         'Yerel oyuncu paket adayı sayısı: '+str(len(packet_store) if isinstance(packet_store,dict) else 0)+
         ' (sayı doğrulanmış oyuncu/maç kanıtı değildir).',
