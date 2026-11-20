@@ -9,6 +9,8 @@ import html
 import json
 import math
 import os
+from pathlib import Path
+import stat
 import re
 import threading
 import time
@@ -86,6 +88,30 @@ def bound_game(g,ctx):
                 and namekey(g["away"])==namekey(ctx["away"]["official_name"]))
     except (KeyError,ValueError,TypeError,AttributeError):
         return False
+
+
+def read_key():
+    """Optional private per-user key; no sourcing shell files or symlinks."""
+    key=os.getenv("ZEYNAL_HOOPSAPI_KEY","").strip()
+    if key:return key
+    path=Path.home()/".zeynal-test-hoopsapi.key"
+    if not path.exists() and not path.is_symlink():return ""
+    st=path.lstat()
+    if (not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or
+        st.st_mode & 0o077 or not 12<=st.st_size<=512):
+        return ""
+    fd=os.open(path,os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        current=os.fstat(fd)
+        if (current.st_ino!=st.st_ino or current.st_dev!=st.st_dev or
+            current.st_uid!=os.getuid() or current.st_mode & 0o077 or
+            not stat.S_ISREG(current.st_mode)):
+            return ""
+        return os.read(fd,513).decode("utf-8","strict").strip()
+    except (OSError,UnicodeError):
+        return ""
+    finally:
+        os.close(fd)
 
 
 def valid_pair(value,market):
@@ -176,7 +202,7 @@ class HoopsFreeMarket:
         now=int(self.clock())
         if os.getenv("ZEYNAL_HOOPSAPI_ENABLED")!="1":
             return {"status":"OPT_IN_DISABLED","quotes":[],"model_input":False}
-        key=os.getenv("ZEYNAL_HOOPSAPI_KEY","").strip()
+        key=read_key()
         if not key:return {"status":"FREE_API_KEY_NOT_CONFIGURED","quotes":[],"model_input":False}
         if ctx.get("league") not in COMPETITION:
             return {"status":"LEAGUE_NOT_SUPPORTED","quotes":[],"model_input":False}
