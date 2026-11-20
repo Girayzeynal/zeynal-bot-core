@@ -94,5 +94,73 @@ class NativeRosterSourceTests(unittest.TestCase):
         self.assertIn("SAKATLIK RAPORU DEĞİL",render_public(rows))
 
 
+    def test_provider_timeout_does_not_hide_other_club(self):
+        calls=[]
+        def getter(url):
+            club=url.split("/clubs/")[1].split("/")[0]
+            calls.append(club)
+            if club=="ZAL":
+                raise TimeoutError("synthetic upstream timeout")
+            return payload(club)
+        result=pair(CTX,getter=getter,clock=lambda:NOW)
+        self.assertEqual(calls,["ZAL","PAN"])
+        self.assertEqual(result["teams"]["home"]["status"],"SOURCE_NETWORK_OR_TIMEOUT")
+        self.assertEqual(result["teams"]["home"]["registered_players"],[])
+        self.assertEqual(result["teams"]["away"]["status"],"OFFICIAL_SEASON_REGISTRATION_OBSERVED")
+        self.assertEqual(result["teams"]["away"]["registered_players"][0]["player_id"],"P001")
+        public=render_public(result)
+        self.assertIn("SOURCE_NETWORK_OR_TIMEOUT",public)
+        self.assertIn("PLAYER, TEST",public)
+        self.assertIn("kaynak hatası sağlıklı kadro anlamına gelmez",public)
+        self.assertFalse(result["injury_status_verified"])
+        self.assertFalse(result["model_input"])
+
+    def test_unexpected_oserror_does_not_crash_entire_europe_roster(self):
+        def getter(url):
+            if "/clubs/PAN/" in url:
+                raise ConnectionResetError("synthetic connection reset")
+            return payload("ZAL")
+        result=pair(CTX,getter=getter,clock=lambda:NOW)
+        self.assertEqual(result["teams"]["home"]["mapped_player_ids"],1)
+        self.assertEqual(result["teams"]["away"]["status"],"SOURCE_NETWORK_OR_TIMEOUT")
+
+    def test_http_429_is_visible_but_not_assumed_to_be_healthy(self):
+        report=pair(CTX,getter=lambda url: {"status":"SOURCE_HTTP_ERROR","http_status":429},
+                    clock=lambda:NOW)
+        public=render_public(report)
+        self.assertEqual(public.count("HTTP durum kodu: 429"),2)
+        self.assertEqual(public.count("kaynak hatası sağlıklı kadro anlamına gelmez"),2)
+        self.assertFalse(report["injury_status_verified"])
+        self.assertFalse(report["model_input"])
+
+
+
+class NativeRosterTelegramOutputTests(unittest.IsolatedAsyncioTestCase):
+    async def test_sourceplayers_long_two_club_directory_is_not_truncated(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from hybrid_engine.europe_native_roster_source import telegram_command
+        sent=[]
+        async def reply_text(body,**kwargs):
+            sent.append(body)
+        players=[dict(player_id=f"P{i:03}",name="REAL-LENGTH-TEST-"+("X"*100)+str(i))
+                 for i in range(24)]
+        def record():
+            return dict(status="OFFICIAL_SEASON_REGISTRATION_OBSERVED",named_players=24,
+                        mapped_player_ids=24,body_sha256="f"*64,
+                        source_url="https://api-live.euroleague.net/official",
+                        registered_players=players)
+        response=dict(teams={"home":record(),"away":record()})
+        update=SimpleNamespace(effective_message=SimpleNamespace(reply_text=reply_text))
+        context=SimpleNamespace(args=["EUROLEAGUE","2026/2027","ZAL","PAN"])
+        with patch("hybrid_engine.europe_native_roster_source.pair",return_value=response):
+            await telegram_command(update,context)
+        self.assertGreaterEqual(len(sent),2)
+        self.assertTrue(all(len(x.encode("utf-16-le"))//2<=3200 for x in sent))
+        self.assertIn("Oyuncu durumu ve sayısal skor etkisi doğrulanmadı", "".join(sent))
+        self.assertEqual("".join(sent),render_public(response))
+
+
+
 if __name__=="__main__":
     unittest.main()
