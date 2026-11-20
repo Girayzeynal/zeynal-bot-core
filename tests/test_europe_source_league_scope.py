@@ -32,6 +32,56 @@ class LeagueTeamScopeTests(unittest.TestCase):
         self.assertEqual([x["url"] for x in links],
             ["https://basketballsphere.com/en/injuries/euroleague/absences/"])
 
+    def test_basketball_sphere_twenty_club_tables_not_only_first_six(self):
+        # Real index layout: 10 recent updates table, then 20
+        # Player/Status/Injury/Expected-return tables under club headings.
+        primary="<table><tr><th>Player</th><th>Team</th><th>Status</th></tr><tr><td>Rolands Smits</td><td>Baskonia</td><td>Out</td></tr></table>"
+        unrelated="".join(
+            "<h3>Real Madrid</h3><table><tr><th>Player</th><th>Status</th></tr>"+
+            "<tr><td>Example Player</td><td>Out</td></tr></table>"
+            for _ in range(8))
+        club=("<h3><a href='/team/zalgiris'>Zalgiris</a></h3>"
+              "<table><tr><th>Player</th><th>Status</th><th>Injury</th>"
+              "<th>Expected return</th></tr>"
+              "<tr><td>Nigel Williams-Goss</td><td>Out</td><td>Hamstring</td>"
+              "<td>4 weeks</td></tr></table>"
+              "<h3>Panathinaikos</h3><p>No injured players reported.</p>")
+        body=("<html><body>"+primary+unrelated+club+"</body></html>").encode()
+        from hybrid_engine.europe_injury_public_sources import _page_candidates
+        rows,links=_page_candidates(body,
+                    "https://basketballsphere.com/en/injuries/euroleague/")
+        self.assertEqual(links,[])
+        match=[r for r in rows if r["player_text"]=="Nigel Williams-Goss"]
+        self.assertEqual(len(match),1)
+        self.assertEqual(match[0]["team_text"],"Zalgiris")
+        self.assertEqual(match[0]["source_reported_status"],"OUT_SITE_REPORTED")
+        self.assertFalse(match[0]["match_availability_verified"])
+        self.assertFalse(match[0]["model_input"])
+        self.assertFalse(any(r["team_text"]=="Panathinaikos" for r in rows))
+        report={"league":"EUROLEAGUE",
+                "selected_team_keys":["euroleague_zalgiris",
+                                      "euroleague_panathinaikos_athens"],
+                "sources":[{"source":"BASKETBALL_SPHERE",
+                            "status":"SOURCE_INDEX_OBSERVED_CANDIDATES_ONLY",
+                            "unverified_player_candidates":rows}]}
+        text=render(report)
+        self.assertIn("Nigel Williams-Goss",text)
+        self.assertNotIn("Rolands Smits",text)
+        self.assertIn("MAÇ DOĞRULANMADI",text)
+
+    def test_club_table_requires_unambiguous_own_heading_and_status(self):
+        from hybrid_engine.europe_injury_public_sources import _page_candidates
+        html=("<html><body>"
+              "<h3>Latest updates</h3><table><tr><th>Player</th>"
+              "<th>Status</th></tr><tr><td>Fake Absentee</td>"
+              "<td>Out</td></tr></table>"
+              "<h3>Zalgiris</h3><table><tr><th>Player</th>"
+              "<th>Status</th></tr><tr><td>Unknown Player</td>"
+              "<td>Injured maybe</td></tr></table></body></html>").encode()
+        rows,_=_page_candidates(html,
+                   "https://basketballsphere.com/en/injuries/euroleague/")
+        self.assertEqual(rows,[])
+
     def test_pagination_is_not_an_injury_article(self):
         from hybrid_engine.europe_injury_public_sources import (
             _article_matches_index_competition, probe)

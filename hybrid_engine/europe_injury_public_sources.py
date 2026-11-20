@@ -110,6 +110,23 @@ def _official_team_key(league, name):
             "zalgiris":"euroleague_zalgiris",
             "fenerbahce":"euroleague_fenerbahce_istanbul",
             "baskonia":"euroleague_baskonia_vitoria_gasteiz",
+            "asvel":"euroleague_ldlc_asvel_villeurbanne",
+            "barcelona":"euroleague_fc_barcelona",
+            "bayern":"euroleague_fc_bayern_munich",
+            "besiktas":"euroleague_besiktas_istanbul",
+            "dubai":"euroleague_dubai_basketball",
+            "fenerbahce":"euroleague_fenerbahce_istanbul",
+            "maccabitelaviv":"euroleague_maccabi_tel_aviv",
+            "milano":"euroleague_ea7_emporio_armani_milan",
+            "olympiacos":"euroleague_olympiacos",
+            "paris":"euroleague_paris_basketball",
+            "partizan":"euroleague_partizan_belgrade",
+            "realmadrid":"euroleague_real_madrid",
+            "valencia":"euroleague_valencia_basket",
+            "virtus":"euroleague_virtus_bologna",
+            "hapoeltelaviv":"euroleague_hapoel_tel_aviv",
+            "crvenazvezda":"euroleague_crvena_zvezda_belgrade",
+            "anadoluefes":"euroleague_anadolu_efes_istanbul",
         })
         candidate=aliases.get(key)
         known={c["club_key"] for c in load_all_82() if c["league"]==league}
@@ -209,23 +226,43 @@ def _page_candidates(body,source_url):
               "day to day":"DAY_TO_DAY_SITE_REPORTED","cleared":"CLEARED_SITE_REPORTED",
               "questionable":"QUESTIONABLE_SITE_REPORTED"}
     found={};conflicts=set()
-    for table in soup.find_all("table")[:6]:
+    # Basketball Sphere has TWO distinct layouts: newest league-wide
+    # Player/Team/Status rows and 20 per-club Player/Status tables. Formerly
+    # only the first six tables were inspected and all club sections missed.
+    club_sections=("basketballsphere.com"==urlsplit(source_url).hostname and
+                   urlsplit(source_url).path.startswith("/en/injuries/euroleague/"))
+    labels={"player":("player","playername","oyuncu","oyuncuadi"),
+            "team":("team","club","takim"),
+            "status":("status","injurystatus","availability","durum","injury")}
+    for table in soup.find_all("table")[:32]:
         header=table.find("tr")
         if header is None:continue
-        headings=[name_key(x.get_text(" ",strip=True)) for x in header.find_all(["th","td"])]
-        labels={"player":("player","playername","oyuncu","oyuncuadi"),
-                "team":("team","club","takim","takım"),
-                "status":("status","injurystatus","availability","durum","injury")}
-        chosen={}
-        for field,variants in labels.items():
-            chosen[field]=next((i for i,h in enumerate(headings) if h in variants),None)
-        if any(v is None for v in chosen.values()):continue
-        ix=[chosen[k] for k in ("player","team","status")]
+        headings=[name_key(x.get_text(" ",strip=True))
+                  for x in header.find_all(["th","td"])]
+        chosen={field:next((i for i,h in enumerate(headings) if h in variants),None)
+                for field,variants in labels.items()}
+        if chosen["player"] is None or chosen["status"] is None:continue
+        fixed_team=None
+        if chosen["team"] is None:
+            if not club_sections:continue
+            # A table without a Team column MUST be directly preceded by
+            # a recognized club heading, not merely a generic league heading.
+            prior=table.find_previous(["h2","h3","h4"])
+            if prior is None or prior.name not in ("h3","h4"):continue
+            label=prior.get_text(" ",strip=True)
+            if _official_team_key("EUROLEAGUE",label) is None:
+                continue
+            fixed_team=label
         for tr in table.find_all("tr")[1:81]:
             cells=tr.find_all(["th","td"])
-            if len(cells)<=max(ix):continue
-            player,team,status=[cells[i].get_text(" ",strip=True) for i in ix]
-            key=(name_key(player),name_key(team))
+            if len(cells)<=max(x for x in chosen.values() if x is not None):
+                continue
+            player=cells[chosen["player"]].get_text(" ",strip=True)
+            team=(cells[chosen["team"]].get_text(" ",strip=True)
+                  if chosen["team"] is not None else fixed_team)
+            status=cells[chosen["status"]].get_text(" ",strip=True)
+            official_key=_official_team_key("EUROLEAGUE",team) if club_sections else None
+            key=(name_key(player),official_key or name_key(team))
             if not all(key) or len(player)>85 or len(team)>90:continue
             mapped=statuses.get(status.casefold().strip())
             if mapped is None:continue
@@ -236,8 +273,11 @@ def _page_candidates(body,source_url):
                        match_availability_verified=False,model_input=False)
             if key in found and found[key]["source_reported_status"]!=mapped:
                 conflicts.add(key)
-            found[key]=value
-    rows=[v for k,v in found.items() if k not in conflicts][:12]
+            # Preserve first table evidence when the same status occurs in
+            # the club section; never select between conflicting statuses.
+            if key not in found:
+                found[key]=value
+    rows=[v for k,v in found.items() if k not in conflicts][:96]
     root=urlsplit(source_url)
     links=[];seen=set()
     for a in soup.find_all("a",href=True):
