@@ -683,6 +683,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
     from hybrid_engine.europe_native_roster_source import command_handler as player_source_handler
     app.add_handler(player_source_handler(),group=-50)
     app.add_handler(CommandHandler('features',feature_command),group=-50)
+    # Same on-demand read-only public club/news command on test and production.
+    from hybrid_engine.production_parity import injurynews_command
+    app.add_handler(CommandHandler('injurynews',injurynews_command),group=-50)
     app.add_handler(CommandHandler('models',model_command),group=-50)
     from hybrid_engine.runtime_identity import install as observe_analysis
     observe_analysis(app.bot_data)
