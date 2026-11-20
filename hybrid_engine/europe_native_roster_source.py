@@ -173,7 +173,11 @@ async def telegram_command(update,context):
                 "Sakatlık/ilk beş/dakika ve skor etkisi doğrulanmadı.")
     except (KeyError,TypeError,ValueError):
         report="Resmî takım/lig/sezon eşleşmesi doğrulanamadı. Örnek: /sourceplayers EUROLEAGUE 2026/2027 ZAL PAN"
-    await update.effective_message.reply_text(report[:3500],parse_mode=None)
+    # Never silently truncate the away team or the no-injury-proof warning.
+    # Telegram limits UTF-16 units; preserve full, line-safe output.
+    from hybrid_engine.predictions_command import split_plain
+    for part in split_plain(report,limit=3200):
+        await update.effective_message.reply_text(part,parse_mode=None)
 
 
 def command_handler():
