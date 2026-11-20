@@ -180,7 +180,8 @@ def bind(receipt, *, ctx, native_report, now):
                          source_reported_status=status,
                          match_availability_confirmed=False))
     rows.sort(key=lambda x:(x["team_id"],x["player_id"]))
-    return dict(result,status="CURRENT_THIRD_PARTY_INJURY_ADVISORY_ONLY",
+    return dict(result,status=("CURRENT_THIRD_PARTY_INJURY_ADVISORY_ONLY" if rows
+                               else "INJURY_PROVIDER_NO_EXACT_PLAYER_MATCH"),
                 observed_at_utc=observed,body_sha256=pin,player_rows=rows,
                 unmatched=unmatched)
 
