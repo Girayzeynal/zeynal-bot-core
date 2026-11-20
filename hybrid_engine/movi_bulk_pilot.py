@@ -1,0 +1,169 @@
+"""Isolated MoviOdds basketball bulk-market probe (NOT wired to production).
+
+Network is disabled unless --live and ZEYNAL_MOVIODDS_ENABLED=1 and
+ZEYNAL_MOVIODDS_KEY is present. No model, archives, or settlement writes.
+"""
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timezone, timedelta
+import gzip
+import io
+import json
+import math
+import os
+import re
+from urllib.error import HTTPError, URLError
+from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+URL = "https://moviodds.com/odds?sport=basketball"
+MAX_COMPRESSED = 12 * 1024 * 1024
+MAX_JSON = 25 * 1024 * 1024
+FRESH_MINUTES = 30
+ALIASES = {
+    "nba": "NBA",
+    "nationalbasketballassociation": "NBA",
+    "euroleague": "EUROLEAGUE",
+    "turkishairlineseuroleague": "EUROLEAGUE",
+    "eurocup": "EUROCUP",
+    "bkteurocup": "EUROCUP",
+    "7dayseurocup": "EUROCUP",
+}
+
+
+def league_id(name: str) -> str | None:
+    if not isinstance(name, str):
+        return None
+    return ALIASES.get(re.sub(r"[^a-z0-9]", "", name.lower()))
+
+
+def utc_time(value: str) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        result = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return result.astimezone(timezone.utc) if result.tzinfo else None
+
+
+def inspect_board(board: dict, now: datetime | None = None) -> dict:
+    """Count verified prematch evidence; do not invent line labels or odds."""
+    now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    if not isinstance(board, dict) or not isinstance(board.get("matches"), list):
+        return {"status": "BAD_SCHEMA", "leagues": {}, "covered": [], "unclassified": []}
+    results = {"status": "OK", "leagues": {
+        name: {"fixtures": 0, "priced": 0, "fresh_quotes": 0,
+               "stale_quotes": 0, "unknown_time_quotes": 0, "market_groups": []}
+        for name in ("NBA", "EUROLEAGUE", "EUROCUP")
+    }, "covered": [], "unclassified": []}
+    seen = set()
+    groups = {league: set() for league in results["leagues"]}
+    for match in board["matches"][:3000]:
+        if not isinstance(match, dict):
+            continue
+        league = league_id(match.get("league"))
+        if league is None:
+            name = match.get("league")
+            if isinstance(name, str) and "euro" in name.lower() and name not in results["unclassified"]:
+                results["unclassified"].append(name[:80])
+            continue
+        kickoff = utc_time(match.get("kickoff_utc"))
+        fixture_id = match.get("id")
+        if not isinstance(fixture_id, (str, int)) or not str(fixture_id).strip() or kickoff is None:
+            continue
+        if (league, str(fixture_id)) in seen or not now < kickoff <= now + timedelta(hours=36):
+            continue
+        if match.get("in_play") is not False or not all(
+            isinstance(match.get(key), str) and match[key].strip()
+            for key in ("home", "away")
+        ):
+            continue
+        seen.add((league, str(fixture_id)))
+        current = results["leagues"][league]
+        current["fixtures"] += 1
+        quotes_seen = set()
+        quotes = match.get("quotes")
+        if not isinstance(quotes, list):
+            continue
+        for quote in quotes[:10000]:
+            if not isinstance(quote, dict) or quote.get("suspended") is True:
+                continue
+            price = quote.get("odds_dec")
+            if type(price) not in (float, int) or not math.isfinite(price) or not (1 < price <= 1000):
+                continue
+            sel_id = quote.get("sel_id")
+            if not sel_id:
+                continue
+            # Basketball example may omit market_id. The selection id is still required.
+            identity = (str(quote.get("market_id") or quote.get("group_id") or ""),
+                        str(sel_id))
+            if identity in quotes_seen:
+                continue
+            quotes_seen.add(identity)
+            observed = utc_time(quote.get("ts"))
+            if observed is None:
+                current["unknown_time_quotes"] += 1
+            elif -timedelta(minutes=1) <= now - observed <= timedelta(minutes=FRESH_MINUTES):
+                current["fresh_quotes"] += 1
+                group = quote.get("group_name") or quote.get("group_id")
+                if isinstance(group, (str, int)):
+                    groups[league].add(str(group)[:80])
+            else:
+                current["stale_quotes"] += 1
+        if quotes_seen:
+            current["priced"] += 1
+    results["covered"] = [lg for lg, row in results["leagues"].items() if row["fixtures"]]
+    for league in groups:
+        results["leagues"][league]["market_groups"] = sorted(groups[league])[:80]
+    return results
+
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def read_live_board(key: str) -> dict:
+    """One fixed-host read, max response size, TLS verification by urllib defaults."""
+    req = Request(URL, headers={
+        "X-API-Key": key,
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip",
+        "User-Agent": "ZEYNAL-TestOnly-MarketProbe/1",
+    })
+    with build_opener(NoRedirect()).open(req, timeout=20) as response:
+        if response.status != 200 or response.headers.get_content_type() != "application/json":
+            raise ValueError("UNEXPECTED_HTTP_RESPONSE")
+        body = response.read(MAX_COMPRESSED + 1)
+        if len(body) > MAX_COMPRESSED:
+            raise ValueError("RESPONSE_TOO_LARGE")
+        if response.headers.get("Content-Encoding", "").lower() == "gzip":
+            with gzip.GzipFile(fileobj=io.BytesIO(body)) as stream:
+                body = stream.read(MAX_JSON + 1)
+        if len(body) > MAX_JSON:
+            raise ValueError("JSON_TOO_LARGE")
+        return json.loads(body)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="MoviOdds test-only bulk-market probe")
+    parser.add_argument("--live", action="store_true")
+    args = parser.parse_args()
+    if not args.live:
+        result = {"status": "OFFLINE_ONLY", "endpoint": URL, "network_calls": 0}
+    elif os.getenv("ZEYNAL_MOVIODDS_ENABLED") != "1" or not os.getenv("ZEYNAL_MOVIODDS_KEY"):
+        result = {"status": "NOT_AUTHORIZED", "network_calls": 0}
+    else:
+        try:
+            result = inspect_board(read_live_board(os.environ["ZEYNAL_MOVIODDS_KEY"]))
+            result["network_calls"] = 1
+        except HTTPError as exc:
+            result = {"status": "HTTP_ERROR", "http_status": exc.code, "network_calls": 1}
+        except (URLError, OSError, ValueError, json.JSONDecodeError):
+            result = {"status": "SOURCE_UNAVAILABLE", "network_calls": 1}
+    print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()
