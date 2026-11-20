@@ -134,5 +134,33 @@ class NativeRosterSourceTests(unittest.TestCase):
         self.assertFalse(report["model_input"])
 
 
+
+class NativeRosterTelegramOutputTests(unittest.IsolatedAsyncioTestCase):
+    async def test_sourceplayers_long_two_club_directory_is_not_truncated(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from hybrid_engine.europe_native_roster_source import telegram_command
+        sent=[]
+        async def reply_text(body,**kwargs):
+            sent.append(body)
+        players=[dict(player_id=f"P{i:03}",name="REAL-LENGTH-TEST-"+("X"*100)+str(i))
+                 for i in range(24)]
+        def record():
+            return dict(status="OFFICIAL_SEASON_REGISTRATION_OBSERVED",named_players=24,
+                        mapped_player_ids=24,body_sha256="f"*64,
+                        source_url="https://api-live.euroleague.net/official",
+                        registered_players=players)
+        response=dict(teams={"home":record(),"away":record()})
+        update=SimpleNamespace(effective_message=SimpleNamespace(reply_text=reply_text))
+        context=SimpleNamespace(args=["EUROLEAGUE","2026/2027","ZAL","PAN"])
+        with patch("hybrid_engine.europe_native_roster_source.pair",return_value=response):
+            await telegram_command(update,context)
+        self.assertGreaterEqual(len(sent),2)
+        self.assertTrue(all(len(x.encode("utf-16-le"))//2<=3200 for x in sent))
+        self.assertIn("Oyuncu durumu ve sayısal skor etkisi doğrulanmadı", "".join(sent))
+        self.assertEqual("".join(sent),render_public(response))
+
+
+
 if __name__=="__main__":
     unittest.main()
