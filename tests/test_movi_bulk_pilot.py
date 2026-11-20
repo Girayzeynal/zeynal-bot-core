@@ -11,6 +11,7 @@ def fixture(league, identity="11", quotes=None, **overrides):
         id=identity, league=league, home="Team A", away="Team B",
         kickoff_utc=(NOW + timedelta(hours=3)).isoformat(),
         in_play=False,
+        group_status={"1453": {"polled_at": NOW.isoformat()}},
         quotes=[dict(market_id="55", sel_id="xx", odds_dec=1.95,
                      group_id="1453", group_name="Game", ts=NOW.isoformat())]
         if quotes is None else quotes,
@@ -41,12 +42,12 @@ def test_three_leagues_in_one_board():
 
 def test_stale_missing_clock_live_and_duplicates():
     live = fixture("NBA", "3", in_play=True)
-    stale = fixture("NBA", "4", quotes=[
+    stale = fixture("NBA", "4", group_status={"99": {"polled_at": (NOW - timedelta(hours=2)).isoformat()}}, quotes=[
         dict(market_id="99", sel_id="9", odds_dec=1.95,
              ts=(NOW - timedelta(hours=2)).isoformat())])
     no_timestamp = fixture("NBA", "5", quotes=[
         dict(market_id="88", sel_id="8", odds_dec=1.95)])
-    duplicate = fixture("NBA", "6", quotes=[
+    duplicate = fixture("NBA", "6", group_status={"88": {"polled_at": NOW.isoformat()}}, quotes=[
         dict(market_id="88", sel_id="8", odds_dec=1.95, ts=NOW.isoformat())] * 2)
     summary = inspect_board({"matches": [
         live, stale, no_timestamp, duplicate, duplicate
@@ -70,3 +71,33 @@ def test_official_basketball_sample_without_market_id():
                  odds_dec=1.90909, ts=NOW.isoformat())
     report = inspect_board({"matches": [fixture("NBA", quotes=[quote])]}, NOW)
     assert report["leagues"]["NBA"]["fresh_quotes"] == 1
+
+
+def test_old_price_change_time_does_not_imply_stale_market():
+    match = fixture("NBA", quotes=[dict(group_id="1453", sel_id="xx",
+        odds_dec=1.95, ts=(NOW - timedelta(days=4)).isoformat())])
+    report = inspect_board({"matches": [match], "server_time": NOW.isoformat()}, NOW)
+    assert report["leagues"]["NBA"]["fresh_quotes"] == 1
+    assert report["leagues"]["NBA"]["stale_quotes"] == 0
+
+
+def test_fixture_only_polled_time_not_per_market_evidence():
+    match = fixture("NBA", group_status={}, polled_at=NOW.isoformat())
+    report = inspect_board({"matches": [match]}, NOW)
+    assert report["leagues"]["NBA"]["fresh_quotes"] == 0
+    assert report["leagues"]["NBA"]["fixture_only_quotes"] == 1
+
+
+def test_stale_explicit_group_flag_rejects_recent_clock():
+    match = fixture("EUROLEAGUE", group_status={"1453": {"polled_at": NOW.isoformat(), "stale": True}})
+    report = inspect_board({"matches": [match]}, NOW)
+    assert report["leagues"]["EUROLEAGUE"]["stale_quotes"] == 1
+    assert report["leagues"]["EUROLEAGUE"]["fresh_quotes"] == 0
+
+
+def test_league_catalog_does_not_claim_market_coverage():
+    long_horizon = fixture("EuroLeague", kickoff_utc=(NOW + timedelta(days=6)).isoformat())
+    report = inspect_board({"matches": [long_horizon]}, NOW)
+    assert report["leagues"]["EUROLEAGUE"]["listed_all_dates"] == 1
+    assert report["leagues"]["EUROLEAGUE"]["fixtures"] == 0
+    assert "EUROLEAGUE" not in report["covered"]
