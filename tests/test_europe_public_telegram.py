@@ -2,13 +2,19 @@
 
 No production token, real Telegram delivery or real provider HTTP is claimed.
 """
+from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 from hybrid_engine.europe_injury_public_sources import PublicEuroInjuryNewsHub
 from tests.test_europe_premium_ui import EuropeanButtonTests
 from tests.test_europe_public_sources import fake_http
 
 
-class MultiSourceTelegramTests(EuropeanButtonTests):
+class MultiSourceTelegramTests(IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        await EuropeanButtonTests.asyncSetUp(self)
+    open=EuropeanButtonTests.open
+    click=EuropeanButtonTests.click
+    files=EuropeanButtonTests.files
     async def test_real_ptb_roster_callback_renders_source_status_without_resimulation(self):
         report=await self.open("EUROLEAGUE")
         token=report["reply_markup"].inline_keyboard[0][0].callback_data.split(":")[1]
