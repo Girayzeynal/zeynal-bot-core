@@ -12,7 +12,7 @@ import threading
 import time
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit,urljoin
 from urllib.robotparser import RobotFileParser
 
 from bs4 import BeautifulSoup
@@ -97,6 +97,59 @@ def _title(body):
     return re.sub(r"\s+"," ",title)[:160]
 
 
+def _page_candidates(body,source_url):
+    """Unverified *public index* hints only; not player/fixture identities.
+
+    Whitelist table statuses, drop conflicting duplicates and retain short
+    metadata only. Article links are same HTTPS host and never followed here.
+    """
+    soup=BeautifulSoup(body[:MAX_BYTES],"html.parser")
+    statuses={"out":"OUT_SITE_REPORTED","doubtful":"DOUBTFUL_SITE_REPORTED",
+              "day to day":"DAY_TO_DAY_SITE_REPORTED","cleared":"CLEARED_SITE_REPORTED",
+              "questionable":"QUESTIONABLE_SITE_REPORTED"}
+    found={};conflicts=set()
+    for table in soup.find_all("table")[:6]:
+        header=table.find("tr")
+        if header is None:continue
+        headings=[name_key(x.get_text(" ",strip=True)) for x in header.find_all(["th","td"])]
+        if not all(k in headings for k in ("player","team","status")):continue
+        ix=[headings.index(k) for k in ("player","team","status")]
+        for tr in table.find_all("tr")[1:81]:
+            cells=tr.find_all(["th","td"])
+            if len(cells)<=max(ix):continue
+            player,team,status=[cells[i].get_text(" ",strip=True) for i in ix]
+            key=(name_key(player),name_key(team))
+            if not all(key) or len(player)>85 or len(team)>90:continue
+            mapped=statuses.get(status.casefold().strip())
+            if mapped is None:continue
+            value=dict(player_text=player[:85],team_text=team[:90],
+                       source_reported_status=mapped,
+                       official_player_id=None,fixture_id=None,
+                       source_publication_verified=False,
+                       match_availability_verified=False,model_input=False)
+            if key in found and found[key]["source_reported_status"]!=mapped:
+                conflicts.add(key)
+            found[key]=value
+    rows=[v for k,v in found.items() if k not in conflicts][:12]
+    root=urlsplit(source_url)
+    links=[];seen=set()
+    for a in soup.find_all("a",href=True):
+        label=a.get_text(" ",strip=True)
+        if not any(word in name_key(label) for word in ("injur","sakat","absenc","sidelin")):
+            continue
+        href=urljoin(source_url,a["href"])
+        parsed=urlsplit(href)
+        if (parsed.scheme!="https" or parsed.hostname!=root.hostname or
+            parsed.query or parsed.fragment or not parsed.path.startswith("/")):
+            continue
+        if href not in seen and href!=source_url:
+            seen.add(href)
+            links.append(dict(url=href,title=re.sub(r"\s+"," ",label)[:100],
+                              article_read=False,publication_time_verified=False))
+        if len(links)>=4:break
+    return rows,links
+
+
 def probe(spec,*,requester=request,now=None):
     """Robots must be readable and allow the index URL BEFORE fetching."""
     timestamp=int(time.time()) if now is None else int(now)
@@ -127,9 +180,13 @@ def probe(spec,*,requester=request,now=None):
     body=response.get("body")
     if type(body) is not bytes or len(body)>MAX_BYTES:
         return dict(result,status="SOURCE_BODY_INVALID")
+    candidates,links=_page_candidates(body,url)
     return dict(result,status="SOURCE_INDEX_OBSERVED_CANDIDATES_ONLY",
                 title=_title(body),document_sha256=hashlib.sha256(body).hexdigest(),
-                published_at_utc=None,source_publication_clock_verified=False)
+                published_at_utc=None,source_publication_clock_verified=False,
+                unverified_player_candidates=candidates,
+                unverified_injury_article_links=links,
+                candidate_count=len(candidates))
 
 
 class PublicEuroInjuryNewsHub:
@@ -198,6 +255,14 @@ def render(report):
         lines.append(line)
         if r.get("title"):
             lines.append("Sayfa başlığı: "+r["title"])
+        # Only short, explicitly UNVERIFIED secondary player hints. Never
+        # attribute these to the requested fixture or infer healthy status.
+        for candidate in r.get("unverified_player_candidates",[])[:2]:
+            lines.append("GENEL LİG ADAYI / MAÇ DOĞRULANMADI: "+
+                         candidate["player_text"]+" · "+candidate["team_text"]+
+                         " · "+candidate["source_reported_status"])
+        for link in r.get("unverified_injury_article_links",[])[:2]:
+            lines.append("Haber bağlantı adayı (makale doğrulanmadı): "+link["url"])
     lines.extend(["EuroLeague resmî kaynağı ve resmî sezon kimlik adaptörü ayrıca çalışır.",
                   "X/kulüp sosyal medya API'si: YETKİLİ ERİŞİM YOK, OTOMATİK SORGULANMIYOR.",
                   "Kaynak sayfası bulunması oyuncunun maçta OUT/AVAILABLE olduğunu kanıtlamaz.",
