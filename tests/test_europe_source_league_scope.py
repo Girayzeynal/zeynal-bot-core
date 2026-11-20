@@ -32,6 +32,40 @@ class LeagueTeamScopeTests(unittest.TestCase):
         self.assertEqual([x["url"] for x in links],
             ["https://basketballsphere.com/en/injuries/euroleague/absences/"])
 
+    def test_pagination_is_not_an_injury_article(self):
+        from hybrid_engine.europe_injury_public_sources import (
+            _article_matches_index_competition, probe)
+        index_url="https://basketballsphere.com/en/injuries/euroleague/"
+        html=b"""<html><title>EuroLeague Injuries</title>
+        <a href="/en/injuries/euroleague/page/2/">Euroleague injuries page 2</a>
+        <a href="/en/injuries/euroleague/page/3/">Euroleague injuries page 3</a>
+        <a href="/en/injuries/euroleague/fixture-absence-report/">Injury report</a>
+        </html>"""
+        self.assertFalse(_article_matches_index_competition(
+            index_url,index_url+"page/2/"))
+        self.assertFalse(_article_matches_index_competition(
+            index_url,index_url+"page/3/"))
+        _, links=_page_candidates(html,index_url)
+        self.assertEqual([x["url"] for x in links],
+                         [index_url+"fixture-absence-report/"])
+        calls=[]
+        def requester(url,*,mime,limit):
+            calls.append(url)
+            if url.endswith("/robots.txt"):
+                return dict(status="RECEIVED",body=ROBOTS)
+            if url==index_url:
+                return dict(status="RECEIVED",body=html)
+            return dict(status="RECEIVED",body=ART)
+        observed=probe(dict(name="BASKETBALL_SPHERE",
+                            url=index_url,kind="SECONDARY_EDITORIAL"),
+                       requester=requester,now=1795179600,read_article=True)
+        self.assertEqual(len(observed["inspected_articles"]),1)
+        self.assertNotIn("page/2",str(observed))
+        self.assertNotIn("page/3",str(observed))
+        self.assertNotIn(index_url+"page/2/",calls)
+        self.assertNotIn(index_url+"page/3/",calls)
+        self.assertFalse(observed["model_input"])
+
     def test_current_team_panel_only_shows_two_relevant_team_candidates(self):
         report=review_current_team_news(
             "EUROLEAGUE","Zalgiris Kaunas","Panathinaikos AKTOR Athens",
