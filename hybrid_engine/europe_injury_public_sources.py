@@ -118,7 +118,17 @@ def request(url,*,mime="text/html",limit=MAX_BYTES):
                 if time.monotonic()-began>MAX_FETCH_SECONDS:
                     return dict(status="SOURCE_DEADLINE")
                 total+=len(buf)
-                if total>limit:return dict(status="SOURCE_OVERSIZE")
+                if total>limit:
+                    # Discarding all already received text made large but
+                    # accessible Eurohoops/club indexes falsely look empty.
+                    # Keep ONLY the bounded first HTML bytes; do not treat
+                    # an incomplete robots policy as permission to fetch.
+                    if mime!="text/html":
+                        return dict(status="SOURCE_OVERSIZE")
+                    available=max(0,limit-(total-len(buf)))
+                    if available:parts.append(buf[:available])
+                    return dict(status="RECEIVED_PARTIAL",body=b"".join(parts),
+                                truncated=True)
                 parts.append(buf)
         return dict(status="RECEIVED",body=b"".join(parts))
     except requests.RequestException:
@@ -221,9 +231,10 @@ def probe(spec,*,requester=request,now=None,read_article=False):
         except (ValueError,TypeError,UnicodeError):
             return dict(result,status="SOURCE_ROBOTS_INVALID")
     response=requester(url,mime="text/html",limit=MAX_BYTES)
-    if response.get("status")!="RECEIVED":
+    if response.get("status") not in ("RECEIVED","RECEIVED_PARTIAL"):
         return dict(result,status=response.get("status","SOURCE_UNREACHABLE"),
                     http_status=response.get("http_status"))
+    partial=response.get("status")=="RECEIVED_PARTIAL"
     body=response.get("body")
     if type(body) is not bytes or len(body)>MAX_BYTES:
         return dict(result,status="SOURCE_BODY_INVALID")
@@ -234,7 +245,9 @@ def probe(spec,*,requester=request,now=None,read_article=False):
         # under that article's own robots policy; never follow a redirect.
         from hybrid_engine.europe_injury_article_source import observe_article
         articles=[observe_article(spec,links[0],requester=requester,now=timestamp)]
-    return dict(result,status="SOURCE_INDEX_OBSERVED_CANDIDATES_ONLY",
+    return dict(result,status=("SOURCE_INDEX_PARTIAL_CANDIDATES_ONLY" if partial
+                                else "SOURCE_INDEX_OBSERVED_CANDIDATES_ONLY"),
+                incomplete_html=partial,captured_bytes=len(body),
                 title=_title(body),document_sha256=hashlib.sha256(body).hexdigest(),
                 published_at_utc=None,source_publication_clock_verified=False,
                 unverified_player_candidates=candidates,
@@ -348,6 +361,8 @@ def render(report):
         lines.append(line)
         if r.get("title"):
             lines.append("Sayfa başlığı: "+r["title"])
+        if r.get("incomplete_html"):
+            lines.append("UYARI: Sayfanın yalnız ilk 256 KB bölümü okundu; eksik bilgiler sağlıklı/uygun kadro kanıtı DEĞİLDİR.")
         # Only short, explicitly UNVERIFIED secondary player hints. Never
         # attribute these to the requested fixture or infer healthy status.
         for candidate in r.get("unverified_player_candidates",[])[:2]:
