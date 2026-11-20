@@ -377,10 +377,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         advisory_getter=None
         if (os.getenv('ZEYNAL_ROTOWIRE_ADVISORY_ENABLED')=='1' and
                 os.getenv('ZEYNAL_ROTOWIRE_API_KEY')):
-            from functools import partial
-            from hybrid_engine.europe_injury_advisory import fetch as fetch_europe_injuries
-            advisory_getter=partial(fetch_europe_injuries,
-                                    api_key=os.environ['ZEYNAL_ROTOWIRE_API_KEY'],enabled=True)
+            from hybrid_engine.europe_injury_advisory import AdvisoryClient
+            advisory_getter=AdvisoryClient(
+                os.environ['ZEYNAL_ROTOWIRE_API_KEY'],enabled=True)
         app.bot_data['europe_injury_advisory_enabled']=advisory_getter is not None
         app.bot_data['europe_data_review']=EuropeanDataReview(europe_services,european_bridge,root/'europe-data',
             roster_store=app.bot_data['verified_roster_packets'],native_roster_getter=fetch_native,
