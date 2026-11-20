@@ -20,7 +20,7 @@ class IsolatedLauncherTests(unittest.TestCase):
                          'ZEYNAL_TEST_BOT_ID','ZEYNAL_TEST_CHAT_ID',
                          '--nba-model-sha ae4e578f441770883247e648314c1a7a29c86caa76ab4aa6af006fda4b10254e',
                          '--result-poll-seconds 300',
-                         'exec .venv/bin/python -m hybrid_engine.test_bot'):
+                         'exec "${test_python}" -m hybrid_engine.test_bot'):
             with self.subTest(required=required):
                 self.assertIn(required,body)
         self.assertNotIn('fly deploy',body)

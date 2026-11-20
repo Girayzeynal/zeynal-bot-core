@@ -170,7 +170,7 @@ def odds_observations(receipt, snapshot, *, discovery=None):
 
 
 class ProviderBridge:
-    def __init__(self, access, directory, *, extended=False, clock=time.time, diagnostic_only=False):
+    def __init__(self, access, directory, *, extended=False, clock=time.time, diagnostic_only=False, rule_book=None):
         self.access = access
         self.root = local_path(directory)
         self.extended = extended
@@ -178,6 +178,10 @@ class ProviderBridge:
         self.clock = clock
         self.lock = threading.Lock()
         self.coverage_blocks = {}
+        from hybrid_engine.settlement_rules import RuleBook
+        self.rule_book=rule_book if rule_book is not None else RuleBook.configured()
+        self.assessments=None
+        self.nesine=None
 
     def storage_status(self):
         files=list(self.root.glob('provider-*.json')) if self.root.exists() else []
@@ -396,6 +400,10 @@ class ProviderBridge:
                     state!='KEY_NOT_AVAILABLE_IN_TEST_PROCESS' else state,observations=[]) for p,state in config.items()}
                 return report
             deadline = self.clock()+12
+            if self.nesine is not None:
+                try:report['nesine']=self.nesine.review(snapshot)
+                except (ValueError,KeyError,TypeError,OSError):
+                    report['nesine']=dict(platform='Nesine',status='NATIVE_CATALOG_BINDING_FAILED',prices_admitted=False)
             for provider, method in [('THE_ODDS_API', self._odds), ('API_BASKETBALL', self._basketball)]:
                 if config[provider] == 'KEY_NOT_AVAILABLE_IN_TEST_PROCESS':
                     report['providers'][provider] = dict(status=config[provider])
@@ -424,6 +432,13 @@ def render(report):
              'Durum: '+html.escape(message(report['status']))]
     if report['status']=='LOCAL_EVIDENCE_STORAGE_FULL':
         lines.append('Yerel kanıt deposunun sınırına ulaşıldı; bu bir API erişim veya abonelik hatası değildir. Eski belgeler silinmedi.')
+    if report.get('nesine'):
+        nesine=report['nesine']
+        lines.extend(['Hedef bahis platformu: Nesine',
+            'Nesine resmî bülten denetimi: '+html.escape(nesine['status']),
+            'Nesine oranı ve ödeme kuralı henüz doğrulanmadı; diğer platformlar yalnız ayrı referanstır.'])
+        if nesine.get('matched'):lines.append('Nesine maç kimliği: '+html.escape(nesine['matched']['provider_fixture_id']))
+        if nesine.get('http_status'):lines.append('Nesine kaynak HTTP durumu: '+str(nesine['http_status']))
     if report.get('current_team_identity'):
         identity=report['current_team_identity']
         lines.append('Takım kimliği: '+html.escape(message(identity['status'])))
@@ -485,7 +500,10 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
     direction_cards=[]
     observations = report['providers'].get('THE_ODDS_API', {}).get('observations', [])
     if observations:
-        distribution = replay_nba(snapshot, service)
+        assessment=bridge.assessments.available_market_context(snapshot) if getattr(bridge,'assessments',None) else None
+        if getattr(bridge,'assessments',None) and assessment is None:
+            parts.append('Güncel değerlendirme yolları hazır/güncel değil; piyasa ilk tahminin dağılımıyla ayrı referans olarak gösteriliyor.')
+        evaluation_snapshot,distribution=assessment if assessment else (snapshot,replay_nba(snapshot,service))
         row=report['providers']['THE_ODDS_API']
         try:
             discovery=bridge.read_receipt(row['discovery_source_pin'])
@@ -497,11 +515,12 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
             # The old prediction time is immutable; later quotes use a new
             # actual decision clock and never enter original forecast metrics.
             decision_utc=int(time.time())
-            reviews=[evaluate(o,distribution,asof_utc=decision_utc,native_quotes=q)
+            from hybrid_engine.settlement_rules import evaluate_bound
+            reviews=[evaluate_bound(bridge,o,distribution,evaluation_snapshot,asof_utc=decision_utc,native_quotes=q)
                      for o,q in zip(observations,quotes)]
             try:
                 batch=CurrentReviewJournal(bridge.root.parent/'current-market-reviews').record(
-                    snapshot,distribution,reviews,decision_utc=decision_utc)
+                    evaluation_snapshot,distribution,reviews,decision_utc=decision_utc)
             except (OSError,ValueError,KeyError,TypeError):
                 parts.append(message('CURRENT_REVIEW_ARCHIVE_FAILED'))
             else:

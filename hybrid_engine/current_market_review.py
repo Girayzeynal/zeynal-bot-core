@@ -167,6 +167,10 @@ class CurrentReviewJournal:
             original_snapshot_sha256=digest(snapshot),sample_sha256=band['sample_sha256'],
             prediction_utc=snapshot['prediction_generated_at_utc'],decision_utc=decision_utc,
             reviews=deepcopy(reviews),forecast_changed=False,eligible_for_original_forecast_metrics=False)
+        if snapshot.get('record_type') in ('CURRENT_RESEARCH_ASSESSMENT_V1','CURRENT_RESEARCH_ASSESSMENT_V2'):
+            manifest.update(forecast_record_type=snapshot['record_type'],
+                linked_original_snapshot_sha256=snapshot['linked_original_snapshot_sha256'],
+                current_assessment_sha256=snapshot['current_assessment_sha256'])
         key=digest(manifest);path=local_path(self.root/('review-'+key+'.json'))
         if path.exists():
             if path.stat().st_size>2*1024*1024:raise ValueError('CURRENT_REVIEW_RECORD_SIZE')

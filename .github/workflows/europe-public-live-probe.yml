@@ -1,0 +1,45 @@
+name: Public EuroLeague injury source one-shot accessibility probe
+on:
+  push:
+    branches:
+      - feature/integrated-test-bot-20261119
+jobs:
+  source-access:
+    if: contains(github.event.head_commit.message, '[euro-live-source-probe]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install no-credential HTML parsing dependencies
+        run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
+      - name: Bounded live robots/HTTP check (not Telegram; no player admission)
+        run: |
+          python - <<'PY'
+          import json,time
+          from pathlib import Path
+          from hybrid_engine.europe_injury_public_sources import PublicEuroInjuryNewsHub
+          now=int(time.time())
+          ctx=dict(league="EUROLEAGUE",fixture_id="SOURCE_INDEX_PROBE_ONLY_NO_REAL_MATCH",
+                   fixture_start_utc=now+86400,
+                   home=dict(official_name="Zalgiris Kaunas"),
+                   away=dict(official_name="Panathinaikos AKTOR Athens"))
+          report=PublicEuroInjuryNewsHub(enabled=True).review(ctx)
+          public=dict(format="SINGLE_RUN_PUBLIC_SOURCE_ACCESS_ONLY",
+                      status=report["status"],source_checks=[dict(
+                          name=x.get("source"),kind=x.get("kind"),status=x.get("status"),
+                          http_status=x.get("http_status"),
+                          candidate_count=x.get("candidate_count",0))
+                          for x in report["sources"]],
+                      actual_fixture_verified=False,real_player_status_verified=False,
+                      model_input=False,live_telegram_verified=False)
+          Path("/tmp/europe-public-http-proof.json").write_text(json.dumps(public,indent=2))
+          print(json.dumps(public))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: europe-public-http-proof
+          path: /tmp/europe-public-http-proof.json
+          retention-days: 7

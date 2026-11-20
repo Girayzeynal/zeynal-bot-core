@@ -41,6 +41,9 @@ def cards(view,forecast,*,tipoff_utc,fixture_id,batch=None):
         captured<=available<=asof<deadline and 0<=asof-captured<=POLICY['quote_max_age_seconds'] and
         (published is None or 0<=asof-published<=POLICY['quote_max_age_seconds']) and
         (batch is None or batch['payload']['record_class']=='PREGAME_CURRENT_REVIEW'))
+    if 'parameter_fit_age_seconds' in view:
+        age=view['parameter_fit_age_seconds']
+        current=current and type(age) is int and 0<=age<=21600
     out=[]
     for row in view['rows']:
         p=row['conditional_regulation_probabilities']

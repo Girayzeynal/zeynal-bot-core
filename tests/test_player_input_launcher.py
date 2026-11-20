@@ -35,7 +35,7 @@ class PlayerInputLauncherTests(TestCase):
                     args=[flag,'401910001'] if flag=='--roster-status' else [flag]
                     if flag=='--europe-data-check':args=[flag,'EUROLEAGUE','E2026_112']
                     if flag=='--roster-pdf': args=[flag,'https://ak-static.cms.nba.com/referee/injury/Injury-Report_2026-11-16_10_45AM.pdf']
-                    p=subprocess.run(['bash',str(root/'scripts/run_isolated_test_bot.sh'),*args],env=env,
+                    p=subprocess.run(['bash',str(installed),*args],env=env,
                         capture_output=True,text=True,check=True,timeout=15)
                     d=json.loads(next(line for line in p.stdout.splitlines() if line.startswith('{')))
                     self.assertIn(expected,d['argv'])
@@ -134,6 +134,19 @@ class LauncherUpdateTests(TestCase):
         p=self.call('--player-inputs-plna')
         self.assertEqual(p.returncode,2); self.assertIn('UNKNOWN_LAUNCHER_OPTION',p.stderr)
         self.assertNotIn('"module": "test_bot"',p.stdout)
+        self.assertNotIn('SYNTHETIC_NOT_A_REAL_TOKEN',p.stdout+p.stderr)
+
+    def test_integration_branch_starts_its_own_modules_and_reports_its_head_using_old_venv(self):
+        self.branch='feature/integrated-test-bot-20261119'
+        self.checkout=self.home/'integrated checkout'
+        self.setup_installation(self.current);self.bootstrap_bot_shim()
+        old=self.home/'zeynal-hybrid-844';old.mkdir()
+        (self.checkout/'.venv').rename(old/'.venv')
+        (self.checkout/'hybrid_engine/test_bot.py').write_text(
+            'import json,os\nprint(json.dumps(dict(cwd=os.getcwd(),release=os.environ["ZEYNAL_RELEASE_SHA"])))\n')
+        head=self.git(self.checkout,'rev-parse','HEAD').stdout.strip()
+        p=self.call();r=self.json_reply(p)
+        self.assertEqual(r['cwd'],str(self.checkout));self.assertEqual(r['release'],head)
         self.assertNotIn('SYNTHETIC_NOT_A_REAL_TOKEN',p.stdout+p.stderr)
 
     def test_extra_arguments_do_not_silently_start_a_different_mode(self):

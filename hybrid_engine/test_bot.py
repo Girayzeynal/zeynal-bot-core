@@ -5,6 +5,7 @@ from contextvars import ContextVar
 import json
 import logging
 import os
+import sqlite3
 from pathlib import Path
 import time
 
@@ -52,15 +53,36 @@ def configuration(env):
 class AuditedRequest(HTTPXRequest):
     def __init__(self,journal,*,expected_identity=None,**kwargs):
         super().__init__(**kwargs);self.journal=journal;self.expected_identity=expected_identity;self.identity_verified=False
+        from concurrent.futures import ThreadPoolExecutor
+        self._journal_executor=ThreadPoolExecutor(max_workers=1,thread_name_prefix='telegram-journal')
+        self.journal_status='NOT_ATTEMPTED'
         # HTTPX INFO request lines contain the Bot API token in the URL path.
         logging.getLogger('httpx').setLevel(logging.ERROR)
         logging.getLogger('httpcore').setLevel(logging.ERROR)
+    async def append_journal(self,journal,key,event):
+        # Research deliberately has one worker. Accepted HTTP responses and
+        # authorized human commands must not queue behind a model fit there.
+        from functools import partial
+        try:
+            await asyncio.wait_for(asyncio.get_running_loop().run_in_executor(
+                self._journal_executor,partial(journal.append,key,event)),timeout=2)
+        except Exception as exc:
+            self.journal_status='UNAVAILABLE'
+            logging.getLogger(__name__).warning('Telegram delivery journal unavailable: %s',type(exc).__name__)
+            return False
+        self.journal_status='WRITTEN'
+        return True
+
+    async def shutdown(self):
+        try:await super().shutdown()
+        finally:self._journal_executor.shutdown(wait=False,cancel_futures=True)
+
     async def do_request(self,url,method,**kwargs):
         name=url.rsplit('/',1)[-1]
         try:status,body=await super().do_request(url,method,**kwargs)
         except Exception as exc:
             if name=='sendMessage':
-                await asyncio.to_thread(self.journal.append,digest(dict(update=_update.get(),kind='SEND_UNCONFIRMED')),
+                await self.append_journal(self.journal,digest(dict(update=_update.get(),kind='SEND_UNCONFIRMED')),
                     dict(kind='SEND_UNCONFIRMED',update_id=_update.get(),error_type=type(exc).__name__,observed_at_utc=int(time.time())))
             raise
         from hybrid_engine.telegram_evidence import official_endpoint,plaintext
@@ -85,7 +107,7 @@ class AuditedRequest(HTTPXRequest):
                     response_content_matches_request=(type(parameters.get('text')) is str and
                         plaintext(parameters['text'],parameters.get('parse_mode'))==r.get('text')),
                     response_sha256=digest(data),request_text_sha256=digest(parameters.get('text','')))
-                await asyncio.to_thread(self.journal.append,digest(dict(chat=event['chat_id'],message=event['telegram_message_id'])),event)
+                await self.append_journal(self.journal,digest(dict(chat=event['chat_id'],message=event['telegram_message_id'])),event)
         return status,body
 
 
@@ -154,6 +176,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         from hybrid_engine.nba_replay import NBAReplayArchive
         nba_replay=NBAReplayArchive()
     root=local_path(data_directory);root.mkdir(parents=True,exist_ok=True)
+    # Shared typed evidence gate for NBA and Europe; an empty dict is not a data provider.
+    app.bot_data.setdefault('verified_roster_packets',{})
     from hybrid_engine.market_observations import ObservationStore
     market_store=ObservationStore(root/'market-observations')
     app.bot_data['market_observation_store']=market_store
@@ -347,7 +371,24 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         from hybrid_engine.provider_bridge import ProviderBridge
         # Reuse the already configured, quota-limited isolated credentials.
         european_bridge=provider_bridge or ProviderBridge(ProviderAccess({}),root/'europe-provider-evidence')
-        app.bot_data['europe_data_review']=EuropeanDataReview(europe_services,european_bridge,root/'europe-data')
+        from hybrid_engine.europe_native_roster_source import fetch_native
+        # Opt-in only: a commercial provider must NEVER be queried merely
+        # because a key exists. No provider key enters bot_data or reports.
+        # Security hold: do not instantiate RotoWire even if old private
+        # environment variables remain set. The official roster source
+        # and Telegram UI must continue to function without this provider.
+        advisory_getter=None
+        app.bot_data['europe_injury_advisory_setup_status']='SECURITY_HOLD_ROTOWIRE'
+        app.bot_data['europe_injury_advisory_enabled']=False
+        from hybrid_engine.europe_injury_public_sources import PublicEuroInjuryNewsHub
+        # Explicit opt-in for anonymous public-source checks, bounded by robots
+        # and per-source HTTP limits; no bot provider keys are copied.
+        public_news=PublicEuroInjuryNewsHub(
+            enabled=os.getenv('ZEYNAL_PUBLIC_EURO_NEWS_ENABLED','0')=='1')
+        app.bot_data['europe_public_injury_news_hub']=public_news
+        app.bot_data['europe_data_review']=EuropeanDataReview(europe_services,european_bridge,root/'europe-data',
+            roster_store=app.bot_data['verified_roster_packets'],native_roster_getter=fetch_native,
+            injury_advisory_getter=advisory_getter,public_news_hub=public_news)
     prior_market_service=app.bot_data['verified_analysis_service']
     class EuroLeagueMarketDisplay:
         ledger=getattr(prior_market_service,'ledger',None)
@@ -425,8 +466,27 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             nba=nba_service if app.bot_data.get('nba_overnight_scheduler') else None,europe=europe_services,
             fetcher=transport or fetch_document)
         if app.bot_data['adaptive_v2_worker'].nba is not None:
+            from hybrid_engine.native_fixture_recheck import NativeFixtureRecheck
+            recheck=NativeFixtureRecheck(app.bot_data['adaptive_v2_worker'].transport)
+            app.bot_data['adaptive_v2_worker'].verify=recheck.verify
+            app.bot_data['native_fixture_recheck']=recheck
             from hybrid_engine.issue90_research import Research
-            app.bot_data['issue90_research']=Research(root/'nba-research-v3-integrity-v2',app.bot_data['adaptive_v2_worker'])
+            from hybrid_engine.research_diagnostics import ObservedResearch
+            app.bot_data['issue90_research']=ObservedResearch(Research(root/'nba-research-v3-integrity-v2',app.bot_data['adaptive_v2_worker']))
+        from hybrid_engine.current_assessment import CurrentAssessments,install_display
+        from hybrid_engine.research_diagnostics import ResearchCycle
+        assessments=CurrentAssessments(root/'current-assessments-v2',app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'))
+        app.bot_data['current_assessments']=assessments
+        app.bot_data['research_cycle']=ResearchCycle(app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'),assessments)
+        for bridge in (provider_bridge,getattr(app.bot_data.get('europe_data_review'),'bridge',None)):
+            if bridge is not None:bridge.assessments=assessments
+        install_display(app.bot_data,assessments)
+    async def journal_write(key,event):
+        request=app.bot.request
+        if isinstance(request,AuditedRequest):return await request.append_journal(journal,key,event)
+        await asyncio.to_thread(journal.append,key,event)
+        return True
+
     async def authorized(update,context):
         if update.effective_chat is None or update.effective_chat.id!=chat_id:raise ApplicationHandlerStop
         _update.set(update.update_id)
@@ -434,14 +494,14 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         if message and message.text:
             try:command_bot_id=getattr(getattr(context,'bot',None),'id',None)
             except RuntimeError:command_bot_id=None
-            await asyncio.to_thread(journal.append,'received:'+str(update.update_id),dict(kind='COMMAND_RECEIVED',update_id=update.update_id,
+            await journal_write('received:'+str(update.update_id),dict(kind='COMMAND_RECEIVED',update_id=update.update_id,
                 command=message.text.split()[0].split('@')[0],chat_id=update.effective_chat.id,
                 bot_id=command_bot_id,
                 request_sha256=digest(message.text),
                 is_bot=getattr(update.effective_user,'is_bot',None),
                 user_message_at_utc=int(message.date.timestamp()),received_at_utc=int(time.time())))
     async def error(update,context):
-        await asyncio.to_thread(journal.append,digest(dict(update=getattr(update,'update_id',None),kind='HANDLER_ERROR')),
+        await journal_write(digest(dict(update=getattr(update,'update_id',None),kind='HANDLER_ERROR')),
             dict(kind='HANDLER_ERROR',update_id=getattr(update,'update_id',None),error_type=type(context.error).__name__,observed_at_utc=int(time.time())))
     async def self_test(update,context):
         """Read-only diagnostics, available only in the authorized test chat."""
@@ -452,13 +512,34 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
-        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test all')
+        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime','predictions'):
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test predictions, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',
             'Yetkili sohbet: OK',
             'Bu yanıtın teslimi Telegram üzerinden kontrol edilmelidir.']
+        from hybrid_engine.integrated_features import RELEASE
+        lines.extend(['İşlev sürümü: '+RELEASE,'Etkin bileşenler: /features · Ayrı model skorları: /models NBA MAÇ_KİMLİĞİ'])
+        if mode=='predictions':
+            command=app.bot_data.get('predictions_command');last=getattr(command,'last_send',None) or {}
+            read=getattr(command,'last_read',None) or {};kind=getattr(command,'last_response_kind',None)
+            kinds={'PREDICTION_LIST':'TAHMİN LİSTESİ','ERROR_NOTICE':'HATA BİLDİRİMİ','USAGE':'KULLANIM BİLGİSİ'}
+            lines.extend(['Arşiv okuma durumu: '+read.get('status','HENÜZ_GÖZLENMEDİ'),
+                'Arşiv okuma hata kodu: '+str(read.get('error_code') or 'YOK'),
+                'Okuma sınırı (sn): '+str(read.get('deadline_seconds','?')),
+                'Gönderilen yanıt: '+kinds.get(kind,'HENÜZ_GÖZLENMEDİ'),
+                'Tahmin listesi teslimi: '+('GÖNDERİLDİ' if kind=='PREDICTION_LIST' and last.get('status')=='SENT' else 'DOĞRULANMADI'),
+                'Yanıt mesajı gönderimi: '+last.get('status','HENÜZ_GÖZLENMEDİ'),
+                'Tamamlanan bölüm: '+str(last.get('sent',0))+'/'+str(last.get('parts',0)),
+                'Gönderim sınıfı: '+str(last.get('error_code') or 'YOK'),
+                'Teslim kayıt durumu: '+getattr(app.bot.request,'journal_status','BU_TAŞIMADA_İZLENMİYOR')])
+            if read:
+                now=time.monotonic();started=read.get('started_at')
+                queue=(started or now)-read['queued_at']
+                lines.append(f'İşçi kuyruğunda bekleme (sn): {max(0,queue):.2f}')
+                lines.append('Arşiv doğrulama süresi (sn): '+
+                    ('henüz başlamadı' if started is None else f"{max(0,(read.get('finished_at') or now)-started):.2f}"))
         if mode=='runtime':
             from hybrid_engine.runtime_identity import describe
             from hybrid_engine.elite_render import split_blocks
@@ -482,8 +563,24 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         worker=app.bot_data.get('adaptive_v2_worker')
         if worker and mode in ('all','research'):
             lines.extend(worker.render().splitlines())
+            recheck=app.bot_data.get('native_fixture_recheck')
+            if recheck:
+                info=recheck.identity()
+                lines.extend(['NBA fikstür yeniden kontrolü: ESPN · '+info['calendar'],
+                    'Kaynak adaptörü: '+info['format']+' · '+info['policy_sha256'][:12],
+                    'UTC maç saati ve tam native kimlik/durum kontrolleri korunur.'])
             study=app.bot_data.get('issue90_research')
             if study:lines.extend(study.render().splitlines())
+            cycle=app.bot_data.get('research_cycle')
+            if cycle:lines.extend(cycle.render().splitlines())
+            assessments=app.bot_data.get('current_assessments')
+            if assessments:
+                last=assessments.last_report or {}
+                lines.append('Güncel analiz zinciri: '+last.get('status','İLK TUR BEKLENİYOR'))
+                lines.extend(assessments.render_performance().splitlines())
+            bridge=provider_bridge or getattr(app.bot_data.get('europe_data_review'),'bridge',None)
+            if bridge is not None and getattr(bridge,'rule_book',None):
+                lines.append('Piyasa ödeme kuralı makbuzları: '+bridge.rule_book.status())
         overnight=app.bot_data.get('nba_overnight_scheduler')
         if mode in ('all','nba') and overnight:
             lines.append('NBA otomatik PREMATCH: AÇIK · gelecek 36 saat · son 15 dk yeni kayıt yok')
@@ -564,6 +661,33 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 await update.effective_message.reply_text('V2 araştırma arşivi doğrulanamadı. Eski tahminler korunuyor.')
         raise ApplicationHandlerStop
     app.add_handler(CommandHandler('research',research_command),group=-50)
+    async def feature_command(update,context):
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:return
+        from hybrid_engine.integrated_features import features
+        from hybrid_engine.predictions_command import split_plain
+        for part in split_plain(features(app.bot_data),limit=3200):
+            await update.effective_message.reply_text(part,parse_mode=None)
+        raise ApplicationHandlerStop
+    async def model_command(update,context):
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:return
+        from hybrid_engine.integrated_features import models
+        from hybrid_engine.predictions_command import split_plain
+        args=context.args or []
+        if len(args)!=2 or args[0].upper() not in ('NBA','EUROLEAGUE','EUROCUP'):
+            value='Kullanım: /models NBA|EUROLEAGUE|EUROCUP MAÇ_KİMLİĞİ'
+        else:
+            try:value=await asyncio.to_thread(models,app.bot_data,args[0].upper(),args[1])
+            except (ValueError,KeyError,TypeError,OSError,sqlite3.Error):
+                value='Ayrı model kaydı doğrulanamadı. Kayıtlı ana tahmin korunuyor; /test research ile kaynak durumunu kontrol edin.'
+        for part in split_plain(value,limit=3200):await update.effective_message.reply_text(part,parse_mode=None)
+        raise ApplicationHandlerStop
+    from hybrid_engine.europe_native_roster_source import command_handler as player_source_handler
+    app.add_handler(player_source_handler(),group=-50)
+    app.add_handler(CommandHandler('features',feature_command),group=-50)
+    # Same on-demand read-only public club/news command on test and production.
+    from hybrid_engine.production_parity import injurynews_command
+    app.add_handler(CommandHandler('injurynews',injurynews_command),group=-50)
+    app.add_handler(CommandHandler('models',model_command),group=-50)
     from hybrid_engine.runtime_identity import install as observe_analysis
     observe_analysis(app.bot_data)
     from hybrid_engine.analyze_input import AnalyzeInputGuard
@@ -590,9 +714,53 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         raise ApplicationHandlerStop
     from hybrid_engine.predictions_command import PredictionsCommand
     from ledger_reports import LedgerReports
-    predictions=PredictionsCommand(LedgerReports(nba_service.ledger.path) if nba_service is not None else None,journal,chat_id,league_reports=europe_readers)
+    predictions=PredictionsCommand(LedgerReports(nba_service.ledger.path) if nba_service is not None else None,journal,chat_id,
+        league_reports=europe_readers,journal_writer=journal_write)
     app.bot_data['predictions_command']=predictions
     app.add_handler(CommandHandler('predictions',predictions.handle),group=-50)
+    from hybrid_engine.unified_results_view import LEAGUES,render_all,render_performance
+    from hybrid_engine.predictions_command import split_plain
+    async def _three_league_reports():
+        reader=app.bot_data['ledger_reports']
+        result={}
+        for code in LEAGUES:
+            result[code]=await asyncio.to_thread(reader.read,code,None)
+        return result
+    async def results_all_command(update,context):
+        """All archived fixtures; never fetches or settles results on demand."""
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:
+            return
+        args=[x.lower() for x in (context.args or [])]
+        if args not in ([],['all']):
+            await update.effective_message.reply_text('Kullanım: /results all')
+            raise ApplicationHandlerStop
+        try:
+            reports=await _three_league_reports()
+            value=await asyncio.to_thread(render_all,reports,now=int(time.time()),detail=True)
+        except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,RuntimeError) as exc:
+            logging.getLogger(__name__).warning('Three-league results unavailable: %s',type(exc).__name__)
+            value='Üç lig arşivinden biri doğrulanamadı. Eksik veya hatalı kayıtlar sonuçlanmış sayılmadı.'
+        for part in split_plain(value,limit=3200):
+            await update.effective_message.reply_text(part,parse_mode=None,disable_web_page_preview=True)
+        raise ApplicationHandlerStop
+    async def accuracy_all_command(update,context):
+        if update.effective_chat is None or update.effective_chat.id!=chat_id:
+            return
+        if [x.lower() for x in (context.args or [])]!=['all']:
+            return  # /accuracy NBA and /accuracy EUROCUP keep their existing handlers.
+        try:
+            reports=await _three_league_reports()
+            value=await asyncio.to_thread(render_performance,reports)
+            assessments=app.bot_data.get('current_assessments')
+            if assessments:value+='\n\n'+assessments.render_performance()
+        except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,RuntimeError) as exc:
+            logging.getLogger(__name__).warning('Three-league accuracy unavailable: %s',type(exc).__name__)
+            value='Üç lig için doğrulanmış performans raporu alınamadı; başarı yüzdesi uydurulmadı.'
+        for part in split_plain(value,limit=3200):
+            await update.effective_message.reply_text(part,parse_mode=None,disable_web_page_preview=True)
+        raise ApplicationHandlerStop
+    app.add_handler(CommandHandler('results',results_all_command),group=-50)
+    app.add_handler(CommandHandler('accuracy',accuracy_all_command),group=-50)
     from hybrid_engine.health_command import HealthCommand
     health_command=HealthCommand(predictions.reports,journal,chat_id)
     app.bot_data['health_command']=health_command
@@ -741,22 +909,21 @@ def main():
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');transport=ControlledTransport(fetch_document)
     original=application.Application
     tasks=[]
+    from hybrid_engine.isolated_execution import IsolatedExecutor,background_task
     async def ready(app):
         me=await app.bot.get_me()
         if me.id!=config['bot_id'] or me.username!=config['username']:raise ValueError('TEST_BOT_SERVER_IDENTITY_MISMATCH')
         hook=await app.bot.get_webhook_info()
         if hook.url:raise ValueError('TEST_BOT_HAS_WEBHOOK_POLLING_NOT_STARTED')
         scheduler=app.bot_data.get('europe_prematch_scheduler')
-        if scheduler and not args.replay_only:tasks.append(asyncio.create_task(scheduler.run(app)))
+        if scheduler and not args.replay_only:tasks.append(background_task(scheduler.run(app)))
         overnight=app.bot_data.get('nba_overnight_scheduler')
-        if overnight and not args.replay_only:tasks.append(asyncio.create_task(overnight.run(app)))
+        if overnight and not args.replay_only:tasks.append(background_task(overnight.run(app)))
         adaptive=app.bot_data.get('adaptive_v2_worker')
         if adaptive and not args.replay_only:
-            study=app.bot_data.get('issue90_research')
-            if study:
-                from hybrid_engine.issue90_research import run_serial
-                tasks.append(asyncio.create_task(run_serial(adaptive,study,app)))
-            else:tasks.append(asyncio.create_task(adaptive.run(app)))
+            cycle=app.bot_data.get('research_cycle')
+            if cycle:tasks.append(background_task(cycle.run(app)))
+            else:tasks.append(background_task(adaptive.run(app)))
         async def collect():
             while True:
                 from hybrid_engine.result_poll import poll_once
@@ -779,7 +946,7 @@ def main():
                     jobs.append(('EUROPE_HYBRID_'+code,service.collect_results))
                 app.bot_data['last_result_poll']=await poll_once(jobs,journal)
                 await asyncio.sleep(args.result_poll_seconds)
-        if not args.replay_only:tasks.append(asyncio.create_task(collect()))
+        if not args.replay_only:tasks.append(background_task(collect()))
     async def stop(app):
         for task in tasks:task.cancel()
         await asyncio.gather(*tasks,return_exceptions=True)
@@ -798,15 +965,16 @@ def main():
         from hybrid_engine.provider_bridge import ProviderBridge
         provider_bridge=ProviderBridge(data_access,root/'provider-evidence',
             extended=os.getenv('ZEYNAL_TEST_ODDS_EXTENDED','0')=='1')
+        from hybrid_engine.nesine_catalog import NesineCatalog
+        provider_bridge.nesine=NesineCatalog(root/'nesine-catalog')
     _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport,nba_service=nba_service,
         decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only,forward_el=forward_el,provider_bridge=provider_bridge,
         europe_directory=None if args.replay_only else local_path(args.europe_directory) if args.europe_directory else root/'europe')
     app.bot_data['test_results']=results
     # Commands must arrive from the authorized HUMAN test chat; bot self-messages
     # are never counted as real command-input E2E evidence.
-    from concurrent.futures import ThreadPoolExecutor
     loop=asyncio.new_event_loop();asyncio.set_event_loop(loop)
-    loop.set_default_executor(ThreadPoolExecutor(max_workers=1,thread_name_prefix='hybrid-test'))
+    loop.set_default_executor(IsolatedExecutor())
     app.run_polling(bootstrap_retries=0,drop_pending_updates=False)
 
 

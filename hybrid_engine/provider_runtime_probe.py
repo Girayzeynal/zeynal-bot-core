@@ -24,6 +24,13 @@ def main():
         raise RuntimeError('PROVIDER_PROBE_REQUIRES_256MIB_ONE_CPU_CGROUP')
     started=time.perf_counter()
     suite=unittest.TestSuite([
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_prediction_read_pipeline'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_europe_report_read_work'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_isolated_execution'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_isolated_delivery_io'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_research_diagnostics'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_integrated_features'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_integrated_launcher'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_bridge'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_identity'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_current_market_review'),
@@ -59,6 +66,9 @@ def main():
         unittest.defaultTestLoader.loadTestsFromName('tests.test_nba_overnight'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_adaptive_research'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_issue90'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_native_fixture_recheck'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_analysis_revision'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_nesine_catalog'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_critical_integrity'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_seasons')])
     result=unittest.TextTestRunner(verbosity=1).run(suite)

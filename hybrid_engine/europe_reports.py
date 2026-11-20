@@ -21,14 +21,15 @@ class EuropeanReports:
                 g=p['fixture'];ids=[g['provider_fixture_id']]
                 if fixture_id and fixture_id not in [fid,*ids]:continue
                 legacy_fids.add(fid);outcome=outcomes.get(fid)
+                snapshot_pin=digest(p)
                 for name,m in p['models'].items():
                     if m['status']!='FORECAST_CREATED':continue
                     q=m['prediction'];r=dict(fixture_id=fid,league=code,season=f"{g['season_start_year']}/{g['season_start_year']+1}",
-                        model_version=name,model_digest=m.get('model_digest',digest(dict(forecast=digest(p),component=name))),
+                        model_version=name,model_digest=m.get('model_digest',digest(dict(forecast=snapshot_pin,component=name))),
                         provider_fixture_ids=ids,home=g['home_name'],away=g['away_name'],prediction=[q['home'],q['away']],
                         fixture_start_utc=g['start_ts_utc'],created_utc=p['created_at_utc'],
                         prediction_generated_at_utc=p.get('prediction_generated_at_utc'),first_archived_at_utc=p.get('first_archived_at_utc'),
-                        snapshot_sha256=digest(p),actual=None if outcome is None else outcome['actual'],
+                        snapshot_sha256=snapshot_pin,actual=None if outcome is None else outcome['actual'],
                         legacy_publication_clock_unrecorded=True,eligible_for_live_performance=False)
                     if outcome:r.update(actual_periods=outcome['periods'],final_with_ot=outcome['final_with_ot'])
                     rows.append(r)
@@ -40,6 +41,11 @@ class EuropeanReports:
             if fid in seen or (fixture_id and fixture_id not in [fid,*ids]):continue
             seen.add(fid)
             pair=service.pair(p);outcome=service.registry.outcome(p)
+            snapshot_pin=digest(p);label_clock=None
+            if outcome and any(m['status']=='FORECAST_CREATED' for m in p['components'].values()):
+                # All components share this exact native final witness. Validate
+                # and read it once, retaining the same source/identity checks.
+                label_clock=service.registry.read_asset(outcome['source'])['ingested_at_utc']
             for name,m in p['components'].items():
                 if m['status']!='FORECAST_CREATED':continue
                 q=m['prediction'];version=digest(dict(version=p['version'],component=name))
@@ -48,11 +54,10 @@ class EuropeanReports:
                     prediction=[q['home'],q['away']],predicted_quarters=q['quarters'],predicted_halves=q['halves'],winner=q.get('winner'),
                     intervals=m['intervals'],fixture_start_utc=g['start_ts_utc'],created_utc=p['snapshot_created_at_utc'],
                     prediction_generated_at_utc=p['prediction_generated_at_utc'],first_archived_at_utc=item['publication']['first_archived_at_utc'],
-                    snapshot_sha256=digest(p),actual=None if outcome is None else [sum(outcome['periods'][s][:4]) for s in ('home','away')],
+                    snapshot_sha256=snapshot_pin,actual=None if outcome is None else [sum(outcome['periods'][s][:4]) for s in ('home','away')],
                     eligible_for_live_performance=item['publication']['eligible_for_prospective_audit'])
                 if outcome:
-                    receipt=service.registry.read_asset(outcome['source'])
-                    r.update(actual_periods=outcome['periods'],final_with_ot=outcome['full_final'],label_available_utc=receipt['ingested_at_utc'])
+                    r.update(actual_periods=outcome['periods'],final_with_ot=outcome['full_final'],label_available_utc=label_clock)
                     if r['eligible_for_live_performance']:cohorts[(r['season'],name,version)].append(r)
                 rows.append(r)
         groups=[]

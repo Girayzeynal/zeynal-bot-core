@@ -1,33 +1,45 @@
 #!/usr/bin/env bash
 # Isolated Android/UserLAnd test bot restart. Never touches Fly.io production.
 set -Eeuo pipefail
-cd "${HOME}/zeynal-hybrid-844"
+# Run the code from THIS checkout, including a separate integration worktree.
+launcher_checkout="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cd "${launcher_checkout}"
+test_python="${launcher_checkout}/.venv/bin/python"
+if [[ ! -x "${test_python}" ]]; then test_python="${HOME}/zeynal-hybrid-844/.venv/bin/python"; fi
+if [[ ! -x "${test_python}" ]]; then echo "ISOLATED_PYTHON_NOT_FOUND" >&2; exit 2; fi
 # Diagnostics can run alongside the poller. They neither update Git nor start
 # Telegram, and read only dedicated local data-provider credentials.
 if [[ "${1:-}" == "--provider-check" ]]; then
-  exec .venv/bin/python -m hybrid_engine.provider_access --check
+  exec "${test_python}" -m hybrid_engine.provider_access --check
+fi
+if [[ "${1:-}" == "--settle-results" || "${1:-}" == "--results-review" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  result_args=()
+  if [[ "$1" == "--settle-results" ]]; then result_args=(--apply); fi
+  exec "${test_python}" -B -m scripts.settle_all_leagues --data-directory "${HOME}/zeynal-test-isolated/data" "${result_args[@]}"
 fi
 if [[ "${1:-}" == "--verification-review" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
-  exec .venv/bin/python -B -m hybrid_engine.device_verification \
+  exec "${test_python}" -B -m hybrid_engine.device_verification \
     --data-directory "${HOME}/zeynal-test-isolated/data"
 fi
 if [[ "${1:-}" == "--pipeline-audit" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
-  exec .venv/bin/python -B -m hybrid_engine.pipeline_audit \
+  exec "${test_python}" -B -m hybrid_engine.pipeline_audit \
     --data-directory "${HOME}/zeynal-test-isolated/data" \
     --nba-model "${HOME}/zeynal-test-isolated/models/nba-prepared-ae4e578f441770883247e648314c1a7a29c86caa76ab4aa6af006fda4b10254e.json" \
     --nba-model-sha ae4e578f441770883247e648314c1a7a29c86caa76ab4aa6af006fda4b10254e
 fi
 if [[ "${1:-}" == "--issue90-status" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
-  exec .venv/bin/python -B -m hybrid_engine.issue90_research \
+  exec "${test_python}" -B -m hybrid_engine.issue90_research \
     --directory "${HOME}/zeynal-test-isolated/data/nba-research-v3-integrity-v2"
 fi
 if [[ "${1:-}" == "--issue90-audit" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
-  exec .venv/bin/python -B -m hybrid_engine.nba_failure_audit \
+  exec "${test_python}" -B -m hybrid_engine.nba_failure_audit \
     --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
     --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
     --output-directory "${HOME}/zeynal-test-isolated/data/issue90/reports"
@@ -41,7 +53,7 @@ if [[ "${1:-}" == "--error-review" ]]; then
   if compgen -G "${plan_dir}/plan-*.json" >/dev/null; then
     plan_args=(--existing-calibration-plan-directory "${plan_dir}")
   fi
-  exec .venv/bin/python -m hybrid_engine.quality_report \
+  exec "${test_python}" -m hybrid_engine.quality_report \
     --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
     --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
     --output-directory "${HOME}/zeynal-test-isolated/data/quality-phase924/reports" "${plan_args[@]}"
@@ -52,7 +64,7 @@ if [[ "${1:-}" == "--europe-prematch-status" || "${1:-}" == "--nba-overnight-sta
   status_directory="europe-prematch"
   if [[ "$1" == "--nba-overnight-status" ]]; then status_directory="nba-overnight"; fi
   if [[ "$1" == "--adaptive-status" ]]; then status_directory="adaptive-v2/attempts"; fi
-  exec .venv/bin/python -B -m hybrid_engine.europe_prematch \
+  exec "${test_python}" -B -m hybrid_engine.europe_prematch \
     --directory "${HOME}/zeynal-test-isolated/data/${status_directory}"
 fi
 # One isolated poller per local installation; prevent Telegram getUpdates conflicts.
@@ -69,7 +81,7 @@ if ! flock -n 9; then
 fi
 branch="$(git branch --show-current)"
 case "$branch" in
-  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118|feature/europe-alias-replay-ui-20261118|feature/model-data-pipeline-audit-20261118|feature/issue90-chronological-engine-audit-20261118) ;;
+  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118|feature/europe-alias-replay-ui-20261118|feature/model-data-pipeline-audit-20261118|feature/issue90-chronological-engine-audit-20261118|feature/integrated-test-bot-20261119) ;;
   *) echo "WRONG_BRANCH: checkout an isolated test branch first" >&2; exit 2 ;;
 esac
 launcher_path="${PWD}/scripts/run_isolated_test_bot.sh"
@@ -103,12 +115,12 @@ case "${1:-}" in
 esac
 if [[ "${1:-}" == "--europe-data-check" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
-  exec .venv/bin/python -m hybrid_engine.europe_data \
+  exec "${test_python}" -m hybrid_engine.europe_data \
     --data-directory "${HOME}/zeynal-test-isolated/data" --league "$2" --fixture-id "$3"
 fi
 if [[ "${1:-}" == "--prepare-europe" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
-  exec .venv/bin/python -m hybrid_engine.europe_models \
+  exec "${test_python}" -m hybrid_engine.europe_models \
     --directory "${HOME}/zeynal-test-isolated/data/europe/models"
 fi
 if [[ "${1:-}" == "--challenger-plan" || "${1:-}" == "--challenger-capture" || "${1:-}" == "--challenger-results" ]]; then
@@ -120,29 +132,29 @@ if [[ "${1:-}" == "--challenger-plan" || "${1:-}" == "--challenger-capture" || "
   if [[ "$1" == "--challenger-capture" ]]; then
     challenger_args+=(--assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets")
   fi
-  exec .venv/bin/python -m hybrid_engine.challenger_forward "${1#--challenger-}" "${challenger_args[@]}"
+  exec "${test_python}" -m hybrid_engine.challenger_forward "${1#--challenger-}" "${challenger_args[@]}"
 fi
 if [[ "${1:-}" == "--challenger-summary" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
-  exec .venv/bin/python -m hybrid_engine.challenger_summary \
+  exec "${test_python}" -m hybrid_engine.challenger_summary \
     --directory "${HOME}/zeynal-test-isolated/data/challenger-research/reports"
 fi
 if [[ "${1:-}" == "--challenger-review" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
-  exec .venv/bin/python -m hybrid_engine.challenger_summary --run-review \
+  exec "${test_python}" -m hybrid_engine.challenger_summary --run-review \
     --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
     --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
     --output-directory "${HOME}/zeynal-test-isolated/data/challenger-research/reports"
 fi
 if [[ "${1:-}" == "--roster-pdf" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
-  exec .venv/bin/python -m hybrid_engine.official_report_link \
+  exec "${test_python}" -m hybrid_engine.official_report_link \
     --url "$2" --directory "${HOME}/zeynal-test-isolated/data/official-reports"
 fi
 if [[ "${1:-}" == "--roster-status" ]]; then
   if [[ ! "${2:-}" =~ ^[0-9]{1,15}$ ]]; then echo "NUMERIC_ESPN_FIXTURE_REQUIRED" >&2; exit 2; fi
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
-  exec .venv/bin/python -m hybrid_engine.current_roster \
+  exec "${test_python}" -m hybrid_engine.current_roster \
     --fixture-id "$2" --inspect \
     --output-directory "${HOME}/zeynal-test-isolated/data/player-shadow/current-roster"
 fi
@@ -150,7 +162,7 @@ if [[ "${1:-}" == "--player-inputs-plan" || "${1:-}" == "--player-inputs-all" ]]
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
   player_args=()
   if [[ "${1}" == "--player-inputs-plan" ]]; then player_args=(--dry-run); fi
-  exec .venv/bin/python -m hybrid_engine.player_inputs \
+  exec "${test_python}" -m hybrid_engine.player_inputs \
     --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
     --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
     --all-pending --maximum 4 "${player_args[@]}" \
@@ -162,25 +174,25 @@ if [[ "${1:-}" == "--player-inputs" ]]; then
     exit 2
   fi
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
-  exec .venv/bin/python -m hybrid_engine.player_inputs \
+  exec "${test_python}" -m hybrid_engine.player_inputs \
     --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
     --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
     --fixture-id "$2" --output-directory "${HOME}/zeynal-test-isolated/data/player-shadow"
 fi
 if [[ "${1:-}" == "--player-shadow-review" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
-  exec .venv/bin/python -m hybrid_engine.player_shadow \
+  exec "${test_python}" -m hybrid_engine.player_shadow \
     --directory "${HOME}/zeynal-test-isolated/data/player-shadow"
 fi
 if [[ "${1:-}" == "--player-shadow-results" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
-  exec .venv/bin/python -m hybrid_engine.player_shadow \
+  exec "${test_python}" -m hybrid_engine.player_shadow \
     --directory "${HOME}/zeynal-test-isolated/data/player-shadow" \
     --report-ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite"
 fi
 if [[ "${1:-}" == "--roster-setup" ]]; then
   # Optional PDF extraction runs in a bounded child, never production main.py.
-  .venv/bin/python -m pip install -r requirements-injury-research.txt
+  "${test_python}" -m pip install -r requirements-injury-research.txt
 fi
 if [[ ! -f "${HOME}/.zeynal-elite-test-token" ]]; then
   echo "TEST_TOKEN_FILE_MISSING" >&2
@@ -196,8 +208,15 @@ export ZEYNAL_TEST_BOT_TOKEN="$(cat "${HOME}/.zeynal-elite-test-token")"
 export ZEYNAL_TEST_BOT_ID="${ZEYNAL_TEST_BOT_ID:-9126277519}"
 export ZEYNAL_TEST_BOT_USERNAME="${ZEYNAL_TEST_BOT_USERNAME:-ZeynalEliteTestBot}"
 export ZEYNAL_TEST_CHAT_ID="${ZEYNAL_TEST_CHAT_ID:-7032156495}"
+export ZEYNAL_RELEASE_SHA="$(git rev-parse --verify HEAD)"
+# Anonymous editorial-source metadata only; every request is robots-gated,
+# bounded and never used to change forecast scores.
+export ZEYNAL_PUBLIC_EURO_NEWS_ENABLED="${ZEYNAL_PUBLIC_EURO_NEWS_ENABLED:-1}"
+# Reads a private free HoopsAPI key only when the Market button is pressed.
+# No key => zero API calls; this does not enable automated monitoring.
+export ZEYNAL_HOOPSAPI_ENABLED="${ZEYNAL_HOOPSAPI_ENABLED:-1}"
 export PYTHONPATH="$PWD"
-exec .venv/bin/python -m hybrid_engine.test_bot \
+exec "${test_python}" -m hybrid_engine.test_bot \
   --archive-directory "${HOME}/zeynal-test-isolated/archive" \
   --data-directory "${HOME}/zeynal-test-isolated/data" \
   --nba-model "${model}" \

@@ -1,0 +1,35 @@
+name: Europe multi-source adapters Telegram and QMC research
+on:
+  push:
+    branches:
+      - feature/verified-europe-multisource-shadow-20261120
+  pull_request:
+    branches:
+      - feature/integrated-test-bot-20261119
+jobs:
+  sources-ptb-and-simulation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install runtime and test packages
+        run: |
+          python -m pip install -r requirements.txt -r requirements-test.txt
+      - name: Syntax and import validation
+        run: |
+          python -m compileall -q hybrid_engine/europe_injury_public_sources.py hybrid_engine/europe_multi_source_simulation_measure.py hybrid_engine/europe_data.py hybrid_engine/test_bot.py hybrid_engine/hoopsapi_market.py
+      - name: Offline adapters, robots gates and Telegram callback E2E (synthetic HTTP)
+        run: |
+          python -m pytest -q tests/test_hoopsapi_market.py tests/test_europe_public_sources.py tests/test_europe_article_identity.py tests/test_europe_source_partial.py tests/test_europe_source_league_scope.py tests/test_production_parity.py tests/test_europe_public_telegram.py tests/test_europe_roster_evidence_wiring.py tests/test_integrated_features.py
+      - name: Numerical 10000 path Bayesian/QMC rotation measurement (synthetic sources)
+        run: |
+          python -m hybrid_engine.europe_multi_source_simulation_measure --output /tmp/ze-synthetic-qmc-measure.json
+      - name: Publish bounded synthetic experiment evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: europe-multisource-synthetic-qmc
+          path: /tmp/ze-synthetic-qmc-measure.json
+          retention-days: 7

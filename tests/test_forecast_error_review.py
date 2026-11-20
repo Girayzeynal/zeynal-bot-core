@@ -276,8 +276,10 @@ class OfflineLauncherTests(unittest.TestCase):
             module.write_text('import json,sys\nprint(json.dumps(dict(argv=sys.argv[1:],module_file=__file__)))\n')
             # HOME belongs only to the emulated child installation; the actual
             # process environment and real UserLAnd HOME are never modified.
+            installed=checkout/'scripts/run_isolated_test_bot.sh';installed.parent.mkdir()
+            installed.write_text((root/'scripts/run_isolated_test_bot.sh').read_text())
             env=dict(os.environ,HOME=str(home))
-            p=subprocess.run(['bash',str(root/'scripts/run_isolated_test_bot.sh'),'--error-review'],env=env,
+            p=subprocess.run(['bash',str(installed),'--error-review'],env=env,
                              capture_output=True,text=True,timeout=5,check=True)
             result=json.loads(p.stdout);args=result['argv']
             self.assertEqual(Path(result['module_file']),module)
@@ -285,7 +287,7 @@ class OfflineLauncherTests(unittest.TestCase):
             self.assertNotIn('hybrid_engine.test_bot',args);self.assertFalse((home/'.zeynal-elite-test-token').exists())
             plan=home/'zeynal-test-isolated/data/quality-phase92/calibration-plan';plan.mkdir(parents=True)
             (plan/('plan-'+'f'*64+'.json')).write_text('{}')
-            again=subprocess.run(['bash',str(root/'scripts/run_isolated_test_bot.sh'),'--error-review'],env=env,
+            again=subprocess.run(['bash',str(installed),'--error-review'],env=env,
                                  capture_output=True,text=True,timeout=5,check=True)
             extra=json.loads(again.stdout)['argv'];self.assertIn('--existing-calibration-plan-directory',extra)
             self.assertNotIn('--calibration-plan-directory',extra)

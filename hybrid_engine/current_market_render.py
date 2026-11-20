@@ -9,12 +9,15 @@ from telegram_delivery import tsi
 
 def render_batch(batch):
     p=batch['payload'];lines=['📈 <b>GÜNCEL PİYASA DEĞERLENDİRMESİ</b>',
-        'İlk tahmin: '+tsi(p['prediction_utc']),
+        ('Güncel model değerlendirmesi: ' if p.get('forecast_record_type') else 'İlk tahmin: ')+tsi(p['prediction_utc']),
         'Bu değerlendirme: '+tsi(p['decision_utc']),
         'Kararın ilk kaydı: '+tsi(p['recorded_at_utc']),
         'Karar SHA: '+batch['sha256'][:16],
         'Kayıtlı tahmin korunuyor; güncel fiyatlar ayrı değerlendiriliyor.',
         'Ham normal süre olasılıkları, ödeme olasılığı ve güven endeksi farklıdır.']
+    if p['reviews']:
+        r=p['reviews'][0]
+        lines.append('Değerlendirilen model: '+html.escape(r['model_version'])+' · '+html.escape(r['model_digest'][:16]))
     if p['record_class']=='POST_TIPOFF_REVIEW_ONLY':
         lines.append('Karar kaydı maç başlangıcından sonra tamamlandı; yeni maç öncesi karar sayılmaz.')
     groups={}

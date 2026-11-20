@@ -86,6 +86,8 @@ class DeviceReviewTests(TestCase):
         root=self.root/'missing';r=inspect(root);self.assertFalse(root.exists())
         self.assertEqual(r['nba']['status'],'NOT_PRESENT');self.assertEqual(r['telegram']['status'],'NOT_PRESENT')
         self.assertEqual(r['acceptance'],'NO_GO');self.assertFalse(r['api_requests_made'])
+        self.assertEqual(r['acceptance_scope'],'RESEARCH_EVIDENCE_REVIEW_NOT_FUNCTIONAL_ACTIVATION')
+        self.assertFalse(r['features_disabled_by_this_review'])
 
     def test_real_readonly_sqlite_retains_bytes_and_does_not_export_ids_or_raw_content(self):
         p=self.journal();before=p.read_bytes()
@@ -144,7 +146,9 @@ class DeviceReviewTests(TestCase):
         (module/'__init__.py').write_text('')
         (module/'device_verification.py').write_text('import json,sys;print(json.dumps(sys.argv[1:]))')
         launcher=Path(__file__).resolve().parents[1]/'scripts/run_isolated_test_bot.sh'
-        result=subprocess.run(['bash',str(launcher),'--verification-review'],env=dict(os.environ,HOME=str(self.root)),
+        installed=checkout/'scripts/run_isolated_test_bot.sh';installed.parent.mkdir()
+        installed.write_text(launcher.read_text())
+        result=subprocess.run(['bash',str(installed),'--verification-review'],env=dict(os.environ,HOME=str(self.root)),
             text=True,capture_output=True,check=True,timeout=5)
         self.assertEqual(json.loads(result.stdout),['--data-directory',str(self.root/'zeynal-test-isolated/data')])
         self.assertFalse((self.root/'zeynal-test-isolated').exists())

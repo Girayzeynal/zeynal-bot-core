@@ -32,6 +32,7 @@ def context(view,league):
         away=dict(provider_id=g['away_team_id'],official_name=view['pair'][1]),
         prediction_generated_at_utc=view['generated'],first_archived_at_utc=view['archived'],
         model_version=q['model'],model_digest=view['version'],intervals=view['bands'],
+        parameter_fit_cutoff_utc=q.get('metadata',{}).get('fit_cutoff_utc'),
         input_clocks=[dict(ingested_at_utc=p.get('source_available_max_utc',p.get('source_data_time_utc')))],
         original_forecast_sha256=view['forecast_sha256'])
 
@@ -78,9 +79,15 @@ def article_rows(receipt,ctx,now):
 
 
 class EuropeanDataReview:
-    def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time):
+    def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time,roster_store=None,native_roster_getter=None,injury_advisory_getter=None,public_news_hub=None):
         self.services=services;self.bridge=bridge;self.root=local_path(directory)
         self.getter=getter;self.clock=clock;self.cache={};self.catalogs={};self.lock=threading.Lock()
+        # A shared, explicitly verified packet store. Empty is NOT a live feed.
+        # The roster view only reads evidence; numerical model inputs are unchanged.
+        self.roster_store=roster_store
+        self.native_roster_getter=native_roster_getter
+        self.injury_advisory_getter=injury_advisory_getter
+        self.public_news_hub=public_news_hub
 
     def current_identity_context(self,ctx,owner):
         """Separate current association evidence; never alter forecast feature clocks."""
@@ -178,18 +185,40 @@ class EuropeanDataReview:
             row=report['providers']['THE_ODDS_API'];discovery=self.bridge.read_receipt(row['discovery_source_pin'])
             detail=self.bridge.read_receipt(row['source_pin'])
             try:
-                distribution=self.distribution(owner,p,ctx);now=int(self.clock())
-                reviews=[evaluate(o,distribution,asof_utc=now,native_quotes=admit_odds(o,ctx,discovery,detail)) for o in observations]
+                assessment=self.bridge.assessments.available_market_context(ctx) if getattr(self.bridge,'assessments',None) else None
+                if getattr(self.bridge,'assessments',None) and assessment is None:
+                    parts.append('Güncel değerlendirme yolları hazır/güncel değil; ilk tahminin dağılımı ayrı referans olarak kullanıldı.')
+                evaluation_context,distribution=assessment if assessment else (ctx,self.distribution(owner,p,ctx))
+                now=int(self.clock())
+                from hybrid_engine.settlement_rules import evaluate_bound
+                reviews=[evaluate_bound(self.bridge,o,distribution,evaluation_context,asof_utc=now,
+                    native_quotes=admit_odds(o,ctx,discovery,detail)) for o in observations]
                 if int(self.clock())>=ctx['fixture_start_utc']:raise ValueError('TIPOFF_DURING_PROVIDER_REVIEW')
-                batch=CurrentReviewJournal(self.root/'market').record(ctx,distribution,reviews,decision_utc=now)
+                batch=CurrentReviewJournal(self.root/'market').record(evaluation_context,distribution,reviews,decision_utc=now)
                 parts.append(render_batch(batch));accepted=len(observations)
             except (ValueError,KeyError,TypeError,OSError):
                 parts.append('Kaynak fiyatı veya arşiv dağılımı doğrulanamadı; yüzde/edge üretilmedi. Kod: EUROPE_MARKET_REPLAY_OR_ADMISSION_BLOCKED')
         if not accepted:parts.append('Doğrulanmış ve eşleşmiş piyasa değerlendirmesi yok; barem veya olasılık uydurulmadı.')
+        # The free HoopsAPI connection is an independent current-price read.
+        # It is NEVER admitted to original pregame pricing, settlement EV,
+        # paid bookmaker rules, calibration, or previously frozen projections.
+        import os
+        if os.getenv("ZEYNAL_HOOPSAPI_ENABLED")=="1":
+            from hybrid_engine.hoopsapi_market import SOURCE as hoops_source,render as render_hoops
+            try:
+                lines=hoops_source.review(ctx)
+                parts.append(render_hoops(lines))
+            except (ValueError,KeyError,TypeError,OSError):
+                parts.append("HoopsAPI: Ücretsiz piyasa referansı doğrulanamadı; eski tahmin korunuyor.")
         return '\n\n'.join(parts),dict(provider_report=report,admitted_observations=accepted)
 
     def roster(self,ctx):
-        deadline=time.monotonic()+12;league=ctx['league'];sources=[];rows=[];seen=set()
+        # Telegram's European roster callback has a 20s ceiling. Reserve
+        # >=8s for the two 4-second native player-identity requests plus
+        # rendering/caching. Otherwise a slow news page can hide all results.
+        # Bound optional advisory request after the existing two native reads.
+        # The 20s Telegram callback must retain headroom for rendering.
+        deadline=time.monotonic()+(4 if self.public_news_hub is not None and ctx['league'] in ('EUROLEAGUE','EUROCUP') else 6 if self.injury_advisory_getter is not None and ctx['league']=='EUROLEAGUE' else 9);league=ctx['league'];sources=[];rows=[];seen=set()
         queue=[BASE+path for path in PATHS[league]]
         while queue and len(seen)<3 and time.monotonic()<deadline:
             url=queue.pop(0)
@@ -203,8 +232,29 @@ class EuropeanDataReview:
                 sources.append(r)
                 if r.get('status')=='SOURCE_REDIRECT' and r.get('location'):queue.insert(0,r['location'])
                 if r.get('http_status') in (403,429):break
+        # Read the very same fixture-scoped, pre-forecast evidence contract
+        # used by the isolated NBA view. Never infer injury or player minutes
+        # from a generic news page or from an 82-URL source directory.
+        from hybrid_engine.telegram_roster_bridge import read_fixture_roster_evidence
+        from hybrid_engine.telegram_premium_ui import roster_section
+        evidence=read_fixture_roster_evidence(
+            self.roster_store,
+            fixture_id=ctx['fixture_id'],
+            prediction_utc=ctx['prediction_generated_at_utc'],
+            fixture_start_utc=ctx['fixture_start_utc'],
+            home_team_id=str(ctx['home']['provider_id']),
+            away_team_id=str(ctx['away']['provider_id']))
+        verified_records=evidence['records']
+        packet_status=('FIXTURE_BOUND_PREFORECAST_PLAYER_STATUS_AVAILABLE'
+                       if verified_records else
+                       'NO_VERIFIED_PREFORECAST_PLAYER_PACKET')
+        evidence_view=roster_section(evidence)
+        source_description=('Kaynak türü: resmî haber sayfası + isteğe bağlı ikincil sakatlık adaptörü YAPILANDIRILDI; gerçek veri yanıtı henüz doğrulanmadı.'
+            if league=='EUROLEAGUE' and self.injury_advisory_getter is not None else
+            'Kaynak türü: resmî haber sayfası; canlı sakatlık/veri sağlayıcı adaptörü bağlı değil.')
         lines=['🏥 <b>GÜNCEL RESMÎ AVRUPA KAYNAĞI</b>','Kontrol: '+tsi(int(self.clock())),
-               'Kaynak türü: resmî haber sayfası. Maça bağlı oyuncu durumu adaptörü bağlı değil.',
+               source_description,
+               'Önceden doğrulanmış, maç kimliği ve ilk tahmin zamanı eşleşen oyuncu paketi kontrolü: '+packet_status+'.',
                'İlk tahmin girdisi değildir; kayıtlı skor değiştirilmedi.']
         for s in sources:
             lines.append(html.escape(str(s.get('url',BASE))))
@@ -215,12 +265,63 @@ class EuropeanDataReview:
         for row in rows:
             lines.extend(['',html.escape(row['team'])+' · <b>Resmî haber notu</b>',html.escape(row['note']),
                           'Yayın: '+tsi(row['published_at_utc']),html.escape(row['source_url'])])
-        if not rows:lines.append('Maça bağlı doğrulanmış oyuncu durum kaydı elde edilemedi; eksik oyuncu yok demek değildir.')
+        native_report=None
+        if self.native_roster_getter is not None and int(self.clock())<ctx['fixture_start_utc']:
+            from hybrid_engine.europe_native_roster_source import pair as native_pair, render_public
+            native_report=native_pair(ctx,getter=self.native_roster_getter,clock=self.clock)
+            lines.extend(['',html.escape(render_public(native_report))])
+        elif self.native_roster_getter is None:
+            lines.append('Resmî sezon oyuncu kimliği adaptörü: YAPILANDIRILMADI.')
+        # Independent *current* secondary observations can help diagnose
+        # gaps, but they have no fixture-specific official status publication
+        # time and must NEVER be inserted into verified_player_records.
+        advisory=None
+        if league=='EUROLEAGUE' and self.injury_advisory_getter is not None and int(self.clock())<ctx['fixture_start_utc']:
+            from hybrid_engine.europe_injury_advisory import bind as bind_injury,render as render_injury
+            try:
+                secondary_receipt=self.injury_advisory_getter()
+                advisory=bind_injury(secondary_receipt,ctx=ctx,native_report=native_report,now=int(self.clock()))
+            except (ValueError,TypeError,KeyError,TimeoutError,OSError):
+                advisory=dict(status='INJURY_PROVIDER_REVIEW_UNAVAILABLE',player_rows=[],
+                              injury_status_verified_for_fixture=False,original_prediction_eligible=False,
+                              model_input=False,forecast_changed=False)
+            lines.extend(['',html.escape(render_injury(advisory))])
+        elif league=='EUROLEAGUE' and self.injury_advisory_getter is not None:
+            lines.append('İkincil canlı sakatlık sağlayıcısı: YAPILANDIRILDI ancak maç başladı; geriye dönük yeni sorgu yapılmadı.')
+        else:
+            lines.append('İkincil canlı sakatlık sağlayıcısı: YAPILANDIRILMADI; kayıtsız oyuncu sağlıklı sayılmaz.')
+        # Independent editorial and exact-match club indexes, never a verified
+        # player packet. Retain old results and do not touch the model/forecast.
+        public_news=None
+        if self.public_news_hub is not None and league in ('EUROLEAGUE','EUROCUP'):
+            from hybrid_engine.europe_injury_public_sources import render as render_public_news
+            try:
+                public_news=self.public_news_hub.review(ctx)
+            except (ValueError,KeyError,TypeError,TimeoutError,OSError):
+                public_news=dict(status='PUBLIC_NEWS_SOURCE_UNAVAILABLE',sources=[],
+                                 player_status_verified=False,model_input=False)
+            lines.extend(['',html.escape(render_public_news(public_news))])
+        if verified_records:
+            lines.extend(['',evidence_view,
+                          'Bu paket ilk tahmin kesitinden önce yayımlanmış kanıtı gösterir; dakika/rotasyon/model etkisi değildir.'])
+        if not rows and not verified_records:
+            lines.append('Maça bağlı doğrulanmış oyuncu durum kaydı elde edilemedi; eksik oyuncu yok demek değildir.')
         lines.extend(['Haber metni maç kadrosu, ceza uygunluğu veya bağımsız tıbbi doğrulama değildir.',
                       'Oyuncu kimlikleri/ilk beş/dakika/rotasyon etkisi doğrulanmadı; modele uygulanmadı.',
                       'NOT_CALIBRATED · Güven endeksi yok.'])
-        return '\n'.join(lines),dict(sources=sources,news_observations=rows,verified_player_records=[],
-            capability='OFFICIAL_NEWS_ONLY_NOT_PLAYER_AVAILABILITY_FEED')
+        return '\n'.join(lines),dict(sources=sources,news_observations=rows,
+            verified_player_records=verified_records,verified_player_packet_status=packet_status,
+            player_evidence_rejections=evidence['rejected_count'],
+            native_season_player_directory=native_report,
+            secondary_current_injury_advisory=advisory,
+            public_news_candidate_review=public_news,
+            public_news_model_input=False,
+            secondary_injury_adapter_attached=(league=='EUROLEAGUE' and self.injury_advisory_getter is not None),
+            secondary_injury_last_status=advisory['status'] if advisory else 'NOT_QUERIED',
+            match_specific_injury_feed_model_input=False,
+            capability=('READ_ONLY_VERIFIED_PREFORECAST_PLAYER_PACKET_AND_OFFICIAL_NEWS'
+                        if verified_records else 'OFFICIAL_NEWS_ONLY_NOT_PLAYER_AVAILABILITY_FEED'),
+            minutes_and_rotation_model_input=False,forecast_changed=False)
 
     def save_source(self,p):
         if len(json.dumps(p).encode())>3*1024*1024:raise ValueError('EUROPE_SOURCE_SIZE')
