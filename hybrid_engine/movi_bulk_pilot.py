@@ -57,6 +57,8 @@ def inspect_board(board: dict, now: datetime | None = None) -> dict:
                "leagues": {
         name: {"fixtures": 0, "listed_all_dates": 0, "priced": 0,
                "quoted_rows_seen": 0, "truncated_rows": 0,
+               "matches_with_market_status": 0, "market_status_groups": 0,
+               "matches_with_fixture_poll": 0, "quotes_missing_group_status": 0,
                "fresh_quotes": 0, "stale_quotes": 0,
                "fixture_only_quotes": 0, "unknown_time_quotes": 0,
                "market_groups": []}
@@ -102,6 +104,11 @@ def inspect_board(board: dict, now: datetime | None = None) -> dict:
         if not isinstance(group_status, dict):
             group_status = {}
         fixture_polled = utc_time(match.get("polled_at"))
+        if group_status:
+            current["matches_with_market_status"] += 1
+            current["market_status_groups"] += len(group_status)
+        if fixture_polled is not None:
+            current["matches_with_fixture_poll"] += 1
         for quote in quotes[:10000]:
             if not isinstance(quote, dict) or quote.get("suspended") is True:
                 continue
@@ -125,6 +132,8 @@ def inspect_board(board: dict, now: datetime | None = None) -> dict:
             group_record = group_status.get(group_id)
             if not isinstance(group_record, dict):
                 group_record = {}
+            if not group_record:
+                current["quotes_missing_group_status"] += 1
             group_polled = utc_time(group_record.get("polled_at"))
             if group_record.get("stale") is True:
                 current["stale_quotes"] += 1
