@@ -53,10 +53,16 @@ def inspect_board(board: dict, now: datetime | None = None) -> dict:
     if not isinstance(board, dict) or not isinstance(board.get("matches"), list):
         return {"status": "BAD_SCHEMA", "leagues": {}, "covered": [], "unclassified": []}
     results = {"status": "OK", "leagues": {
-        name: {"fixtures": 0, "priced": 0, "fresh_quotes": 0,
-               "stale_quotes": 0, "unknown_time_quotes": 0, "market_groups": []}
+        name: {"fixtures": 0, "listed_all_dates": 0, "priced": 0,
+               "fresh_quotes": 0, "stale_quotes": 0,
+               "fixture_only_quotes": 0, "unknown_time_quotes": 0,
+               "market_groups": []}
         for name in ("NBA", "EUROLEAGUE", "EUROCUP")
     }, "covered": [], "unclassified": []}
+    server = utc_time(board.get("server_time")) or now
+    # A server timestamp cannot be taken as a fresh quote timestamp.
+    # Use per-market group_status first; a fixture polled_at proves only
+    # that *some* groups were rechecked, not which ones.
     seen = set()
     groups = {league: set() for league in results["leagues"]}
     for match in board["matches"][:3000]:
@@ -68,6 +74,7 @@ def inspect_board(board: dict, now: datetime | None = None) -> dict:
             if isinstance(name, str) and "euro" in name.lower() and name not in results["unclassified"]:
                 results["unclassified"].append(name[:80])
             continue
+        results["leagues"][league]["listed_all_dates"] += 1
         kickoff = utc_time(match.get("kickoff_utc"))
         fixture_id = match.get("id")
         if not isinstance(fixture_id, (str, int)) or not str(fixture_id).strip() or kickoff is None:
@@ -86,6 +93,10 @@ def inspect_board(board: dict, now: datetime | None = None) -> dict:
         quotes = match.get("quotes")
         if not isinstance(quotes, list):
             continue
+        group_status = match.get("group_status")
+        if not isinstance(group_status, dict):
+            group_status = {}
+        fixture_polled = utc_time(match.get("polled_at"))
         for quote in quotes[:10000]:
             if not isinstance(quote, dict) or quote.get("suspended") is True:
                 continue
@@ -95,22 +106,36 @@ def inspect_board(board: dict, now: datetime | None = None) -> dict:
             sel_id = quote.get("sel_id")
             if not sel_id:
                 continue
-            # Basketball example may omit market_id. The selection id is still required.
-            identity = (str(quote.get("market_id") or quote.get("group_id") or ""),
-                        str(sel_id))
+            # Same group_id can contain several market_id values.
+            # sel_id/market_id alone are not sufficient for deduplication.
+            group_id = str(quote.get("group_id") or "")
+            identity = (group_id, str(quote.get("market_id") or ""),
+                        str(quote.get("market_key") or ""), str(sel_id))
             if identity in quotes_seen:
                 continue
             quotes_seen.add(identity)
-            observed = utc_time(quote.get("ts"))
-            if observed is None:
-                current["unknown_time_quotes"] += 1
-            elif -timedelta(minutes=1) <= now - observed <= timedelta(minutes=FRESH_MINUTES):
-                current["fresh_quotes"] += 1
-                group = quote.get("group_name") or quote.get("group_id")
-                if isinstance(group, (str, int)):
-                    groups[league].add(str(group)[:80])
-            else:
+            group = quote.get("group_name") or quote.get("group_id")
+            if isinstance(group, (str, int)):
+                groups[league].add(str(group)[:80])
+            group_record = group_status.get(group_id)
+            if not isinstance(group_record, dict):
+                group_record = {}
+            group_polled = utc_time(group_record.get("polled_at"))
+            if group_record.get("stale") is True:
                 current["stale_quotes"] += 1
+            elif group_polled is not None:
+                age = server - group_polled
+                if -timedelta(minutes=1) <= age <= timedelta(minutes=FRESH_MINUTES):
+                    current["fresh_quotes"] += 1
+                else:
+                    current["stale_quotes"] += 1
+            elif fixture_polled is not None:
+                # Never treat a recheck of a different group as proof
+                # that *this* market's prices are confirmed.
+                current["fixture_only_quotes"] += 1
+            else:
+                # Even if price-change ts exists, it says nothing about liveness.
+                current["unknown_time_quotes"] += 1
         if quotes_seen:
             current["priced"] += 1
     results["covered"] = [lg for lg, row in results["leagues"].items() if row["fixtures"]]
