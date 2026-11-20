@@ -75,6 +75,13 @@ def page_view(entry,section,page,*,now):
     values=([body] if section=='summary' else entry.get('section_pages',{}).get(section)) or split_blocks(body.splitlines(),limit=3200)
     if type(page) is not int or not 0<=page<len(values):raise ValueError('PREMIUM_PAGE_NOT_FOUND')
     text=values[page]
+    # A repeated quote from the same model/book can produce identical text on
+    # consecutive pages. A visible page identity prevents Telegram from
+    # rejecting navigation as MESSAGE_NOT_MODIFIED and leaving it stuck.
+    if len(values)>1:
+        labels={'summary':'ÖZET','period':'PERİYOTLAR','ranges':'ARALIKLAR',
+                'market':'PİYASA','audit':'MODEL / KAYNAK','roster':'KADRO / SAKATLIK'}
+        text=f"📄 {labels.get(section,section)} · {page+1}/{len(values)}\n\n"+text
     if section=='roster' and entry.get('roster_review_at_utc') is not None:
         if entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc']:
             text='Maç başladı; aşağıdaki kadro bilgisi arşiv gözlemidir.\n\n'+text
