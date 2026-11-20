@@ -295,6 +295,44 @@ class PublicEuroInjuryNewsHub:
             return dict(report)
 
 
+
+def review_current_team_news(league,home_name,away_name,*,requester=request,now=None):
+    """On-demand official/editorial current news, NO manufactured fixture.
+
+    Intended for production /injurynews where no verified tipoff/fixture
+    context is supplied. The returned result is deliberately source context
+    only, never a player packet or numerical model input.
+    """
+    if league not in ("EUROLEAGUE","EUROCUP"):
+        raise ValueError("EUROPE_NEWS_LEAGUE_REQUIRED")
+    for name in (home_name,away_name):
+        if not isinstance(name,str) or not 2<=len(name)<=100 or name!=name.strip():
+            raise ValueError("EUROPE_NEWS_TEAM_IDENTITY_REQUIRED")
+    when=int(time.time() if now is None else now)
+    ctx=dict(league=league,home=dict(official_name=home_name),
+             away=dict(official_name=away_name))
+    specs=sources_for(ctx)
+    matches=[x["name"] for x in specs if x["kind"]=="OFFICIAL_CLUB_INDEX"]
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        futures=[pool.submit(probe,x,requester=requester,now=when,read_article=True)
+                 for x in specs]
+        rows=[]
+        for future,spec in zip(futures,specs):
+            try:
+                rows.append(future.result(timeout=TIME_BUDGET))
+            except Exception:
+                rows.append(dict(source=spec["name"],url=spec["url"],
+                                 status="SOURCE_TIMEOUT_OR_INVALID",
+                                 player_status_verified=False,model_input=False))
+    return dict(status="CURRENT_TEAM_NEWS_NOT_FIXTURE_VERIFIED",
+                source_checked_at_utc=when,league=league,
+                official_club_matches=matches,sources=rows,
+                fixture_id=None,player_status_verified=False,
+                verified_player_records=[],model_input=False,
+                production_score_modified=False,
+                historical_forecasts_modified=False)
+
+
 def render(report):
     lines=["KAMUYA AÇIK KADRO / SAKATLIK HABER KAYNAKLARI (GÖZLEM)"]
     for r in report.get("sources",[]):
