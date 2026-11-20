@@ -126,6 +126,13 @@ def _article_matches_index_competition(source_url, candidate_url):
     child=urlsplit(candidate_url)
     path=child.path.lower().rstrip("/")+"/"
     host=parent.hostname or ""
+    # A global category portal is not a specific report; do not follow
+    # another competition's injury pages regardless of which source linked it.
+    if (path in ("/en/injuries/","/injuries/","/en/injury/",
+                 "/en/injuries/nba/","/en/injuries/eurocup/") or
+        any(route in path for route in ("/nba/","/injuries/nba/",
+                                        "/injuries/eurocup/"))):
+        return False
     if "basketballsphere.com" in host:
         return (path.startswith("/en/injuries/euroleague/") and
                 path!="/en/injuries/euroleague/")
