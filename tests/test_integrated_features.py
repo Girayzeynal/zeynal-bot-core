@@ -70,6 +70,18 @@ class ModelViewTests(TestCase):
         text=models(self.state,'EUROCUP','U2026_119')
         self.assertIn('Kayıtlı BAYES_QMC:',text);self.assertNotIn('V3 ayrı PREMATCH:',text)
 
+    def test_provider_health_reports_real_setup_without_network_requests(self):
+        class Provider:
+            def public_status(self):
+                return dict(last_source_status='INJURY_PROVIDER_HTTP_ERROR',last_http_status=429)
+        self.state.update(europe_injury_advisory_enabled=True,
+            europe_injury_advisory_setup_status='CONFIGURED_UNVERIFIED',
+            europe_data_review=SimpleNamespace(injury_advisory_getter=Provider()))
+        value=features(self.state)
+        self.assertIn('CONFIGURED_UNVERIFIED',value)
+        self.assertIn('INJURY_PROVIDER_HTTP_ERROR · HTTP 429',value)
+        self.assertIn('CANLI ANALİZE BAĞLI DEĞİL',value)
+
     def test_loaded_status_is_independent_of_a_failed_acceptance_gate(self):
         self.state.update(acceptance='NO_GO',verified_analysis_service=object(),
             europe_services={'EUROLEAGUE':object(),'EUROCUP':object()})
