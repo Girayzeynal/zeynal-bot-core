@@ -73,3 +73,30 @@ def test_identity_mismatch_is_not_marked_as_matching_odds():
     result = compare_cached(cached_week(), [doc])
     assert result["official_fixtures"] == 1
     assert result["matched"] == 0
+
+
+
+def test_full_week_report_shows_every_fixture_and_snapshot_status():
+    doc = {"events": [
+        event("e1", "2026-11-21T00:00:00Z"),
+        event("e2", "2026-11-22T02:00:00Z", "IND", "CLE"),
+        event("e3", "2026-11-24T03:30:00Z", "MIL", "TOR"),
+    ]}
+    result = compare_cached(cached_week(), [doc])
+    rows = result["weekly_schedule_tsi"]
+    assert len(rows) == result["official_fixtures"] == 3
+    assert sum(x["moviodds_catalog"] == "PRESENT_IN_SAVED_SNAPSHOT" for x in rows) == 1
+    assert sum(x["moviodds_catalog"] == "MISSING_FROM_SAVED_SNAPSHOT" for x in rows) == 2
+    assert rows[0]["kickoff_delta_minutes"] == 10.0
+    assert all(x["price_freshness"] == "NOT_EVALUATED" for x in rows)
+    assert result["fixture_source"] == "ESPN_INDEPENDENT_NOT_OFFICIAL_NBA"
+
+
+def test_report_sorts_across_days_in_tsi():
+    doc = {"events": [
+        event("late", "2026-11-26T01:00:00Z", "NYK", "BOS"),
+        event("early", "2026-11-21T00:00:00Z", "CHA", "ATL"),
+    ]}
+    result = compare_cached(cached_week(), [doc])
+    rows = result["weekly_schedule_tsi"]
+    assert [x["date_tsi"] for x in rows] == ["2026-11-21", "2026-11-26"]
