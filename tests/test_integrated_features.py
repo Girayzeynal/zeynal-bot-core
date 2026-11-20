@@ -82,6 +82,14 @@ class ModelViewTests(TestCase):
         self.assertIn('INJURY_PROVIDER_HTTP_ERROR · HTTP 429',value)
         self.assertIn('CANLI ANALİZE BAĞLI DEĞİL',value)
 
+    def test_rotowire_security_hold_is_visible_without_source_activity(self):
+        self.state.update(europe_injury_advisory_enabled=False,
+                          europe_injury_advisory_setup_status='SECURITY_HOLD_ROTOWIRE')
+        value=features(self.state)
+        self.assertIn('SECURITY_HOLD_ROTOWIRE',value)
+        self.assertIn('KAYNAK_ETKİN_DEĞİL; İSTEK_YAPILMADI',value)
+        self.assertIn('CANLI ANALİZE BAĞLI DEĞİL',value)
+
     def test_loaded_status_is_independent_of_a_failed_acceptance_gate(self):
         self.state.update(acceptance='NO_GO',verified_analysis_service=object(),
             europe_services={'EUROLEAGUE':object(),'EUROCUP':object()})
