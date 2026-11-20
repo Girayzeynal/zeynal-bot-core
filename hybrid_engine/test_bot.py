@@ -378,8 +378,14 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         if (os.getenv('ZEYNAL_ROTOWIRE_ADVISORY_ENABLED')=='1' and
                 os.getenv('ZEYNAL_ROTOWIRE_API_KEY')):
             from hybrid_engine.europe_injury_advisory import AdvisoryClient
-            advisory_getter=AdvisoryClient(
-                os.environ['ZEYNAL_ROTOWIRE_API_KEY'],enabled=True)
+            try:
+                advisory_getter=AdvisoryClient(
+                    os.environ['ZEYNAL_ROTOWIRE_API_KEY'],enabled=True)
+            except ValueError:
+                # Optional commercial adapter misconfiguration must not
+                # prevent official roster analysis or Telegram startup.
+                logging.getLogger(__name__).warning('Optional European injury advisory key invalid; adapter disabled')
+                advisory_getter=None
         app.bot_data['europe_injury_advisory_enabled']=advisory_getter is not None
         app.bot_data['europe_data_review']=EuropeanDataReview(europe_services,european_bridge,root/'europe-data',
             roster_store=app.bot_data['verified_roster_packets'],native_roster_getter=fetch_native,
