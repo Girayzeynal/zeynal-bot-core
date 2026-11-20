@@ -199,6 +199,17 @@ class EuropeanDataReview:
             except (ValueError,KeyError,TypeError,OSError):
                 parts.append('Kaynak fiyatı veya arşiv dağılımı doğrulanamadı; yüzde/edge üretilmedi. Kod: EUROPE_MARKET_REPLAY_OR_ADMISSION_BLOCKED')
         if not accepted:parts.append('Doğrulanmış ve eşleşmiş piyasa değerlendirmesi yok; barem veya olasılık uydurulmadı.')
+        # The free HoopsAPI connection is an independent current-price read.
+        # It is NEVER admitted to original pregame pricing, settlement EV,
+        # paid bookmaker rules, calibration, or previously frozen projections.
+        import os
+        if os.getenv("ZEYNAL_HOOPSAPI_ENABLED")=="1":
+            from hybrid_engine.hoopsapi_market import SOURCE as hoops_source,render as render_hoops
+            try:
+                lines=hoops_source.review(ctx)
+                parts.append(render_hoops(lines))
+            except (ValueError,KeyError,TypeError,OSError):
+                parts.append("HoopsAPI: Ücretsiz piyasa referansı doğrulanamadı; eski tahmin korunuyor.")
         return '\n\n'.join(parts),dict(provider_report=report,admitted_observations=accepted)
 
     def roster(self,ctx):
