@@ -212,6 +212,9 @@ export ZEYNAL_RELEASE_SHA="$(git rev-parse --verify HEAD)"
 # Anonymous editorial-source metadata only; every request is robots-gated,
 # bounded and never used to change forecast scores.
 export ZEYNAL_PUBLIC_EURO_NEWS_ENABLED="${ZEYNAL_PUBLIC_EURO_NEWS_ENABLED:-1}"
+# Reads a private free HoopsAPI key only when the Market button is pressed.
+# No key => zero API calls; this does not enable automated monitoring.
+export ZEYNAL_HOOPSAPI_ENABLED="${ZEYNAL_HOOPSAPI_ENABLED:-1}"
 export PYTHONPATH="$PWD"
 exec "${test_python}" -m hybrid_engine.test_bot \
   --archive-directory "${HOME}/zeynal-test-isolated/archive" \
