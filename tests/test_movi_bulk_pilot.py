@@ -101,3 +101,31 @@ def test_league_catalog_does_not_claim_market_coverage():
     assert report["leagues"]["EUROLEAGUE"]["listed_all_dates"] == 1
     assert report["leagues"]["EUROLEAGUE"]["fixtures"] == 0
     assert "EUROLEAGUE" not in report["covered"]
+
+
+def test_http_400_error_diagnostic_does_not_echo_secret():
+    import io
+    from urllib.error import HTTPError
+    from hybrid_engine.movi_bulk_pilot import classify_http_error
+    secret = "secret-credential-that-must-not-appear"
+    error = HTTPError("https://moviodds.com/odds?sport=basketball", 400,
+                      "Bad Request", {}, io.BytesIO(
+                          ('{"error":"unknown sport key: '+secret+'"}').encode()))
+    assert classify_http_error(error) == "UNKNOWN_SPORT_FILTER"
+
+
+def test_http_400_unrecognized_error_does_not_show_body():
+    import io
+    from urllib.error import HTTPError
+    from hybrid_engine.movi_bulk_pilot import classify_http_error
+    error = HTTPError("https://moviodds.com/odds?sport=basketball", 400,
+                      "Bad Request", {}, io.BytesIO(
+                          b'{"error":"secret provider details"}'))
+    assert classify_http_error(error) == "BAD_REQUEST_UNCLASSIFIED"
+
+
+def test_http_401_and_429_categories():
+    from urllib.error import HTTPError
+    from hybrid_engine.movi_bulk_pilot import classify_http_error
+    assert classify_http_error(HTTPError("", 401, "", {}, None)) == "KEY_MISSING_OR_INVALID"
+    assert classify_http_error(HTTPError("", 429, "", {}, None)) == "RATE_LIMIT"
