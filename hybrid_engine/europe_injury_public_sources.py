@@ -146,8 +146,14 @@ def _page_candidates(body,source_url):
         header=table.find("tr")
         if header is None:continue
         headings=[name_key(x.get_text(" ",strip=True)) for x in header.find_all(["th","td"])]
-        if not all(k in headings for k in ("player","team","status")):continue
-        ix=[headings.index(k) for k in ("player","team","status")]
+        labels={"player":("player","playername","oyuncu","oyuncuadi"),
+                "team":("team","club","takim","takım"),
+                "status":("status","injurystatus","availability","durum","injury")}
+        chosen={}
+        for field,variants in labels.items():
+            chosen[field]=next((i for i,h in enumerate(headings) if h in variants),None)
+        if any(v is None for v in chosen.values()):continue
+        ix=[chosen[k] for k in ("player","team","status")]
         for tr in table.find_all("tr")[1:81]:
             cells=tr.find_all(["th","td"])
             if len(cells)<=max(ix):continue
@@ -169,7 +175,7 @@ def _page_candidates(body,source_url):
     links=[];seen=set()
     for a in soup.find_all("a",href=True):
         label=a.get_text(" ",strip=True)
-        if not any(word in name_key(label) for word in ("injur","sakat","absenc","sidelin")):
+        if not any(word in name_key(label+" "+href) for word in ("injur","sakat","absenc","sidelin","ruledout","willmiss","rosterupdate","formagiyemeyecek")):
             continue
         href=urljoin(source_url,a["href"])
         parsed=urlsplit(href)
