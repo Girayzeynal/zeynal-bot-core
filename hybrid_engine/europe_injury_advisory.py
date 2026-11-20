@@ -38,8 +38,13 @@ def fetch(*, api_key=None, enabled=False, opener=None, clock=time.time):
     """
     if enabled is not True or not api_key:
         return dict(status="INJURY_PROVIDER_NOT_CONFIGURED",source=SOURCE)
+    # SECURITY HOLD 2026-11-20: the authenticated URL puts secrets in the
+    # query string. Even an explicit opt-in MUST NOT reach this transport
+    # until its credential-delivery method has passed security review.
     if type(api_key) is not str or not KEY.fullmatch(api_key):
         return dict(status="INJURY_PROVIDER_KEY_INVALID",source=SOURCE)
+    return dict(status="INJURY_PROVIDER_SECURITY_HOLD",source=SOURCE)
+    # Dormant transport retained for audit, unreachable while this hold is set.
     url=SOURCE+"?format=json&key="+quote(api_key,safe="")
     request=Request(url,headers={"Accept":"application/json",
                                   "User-Agent":"ZeynalInjuryAudit/1.0"})
