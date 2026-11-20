@@ -42,16 +42,15 @@ class EuroInjuryAdvisoryTests(unittest.TestCase):
         self.assertEqual(fetch(api_key="TEST-12345678",enabled=False,opener=transport)["status"],
                          "INJURY_PROVIDER_NOT_CONFIGURED")
         self.assertEqual(called,[])
-        body=json.dumps(SAMPLE).encode()
+        # A legacy opt-in + key must not make any outbound request.
         def opener(request,*,timeout):
-            self.assertIn("format=json",request.full_url)
-            self.assertIn("TEST-12345678",request.full_url)
-            self.assertEqual(timeout,2.0)
-            return FakeResponse(body)
+            called.append(request)
+            raise AssertionError("SECURITY_HOLD_MUST_PREVENT_HTTP")
         row=fetch(api_key="TEST-12345678",enabled=True,opener=opener,clock=lambda:NOW)
-        self.assertEqual(row["status"],"RECEIVED")
+        self.assertEqual(row["status"],"INJURY_PROVIDER_SECURITY_HOLD")
         self.assertEqual(row["source"],SOURCE)
-        self.assertNotIn("TEST-12345678",str({k:v for k,v in row.items() if k!="body"}))
+        self.assertEqual(called,[])
+        self.assertNotIn("TEST-12345678",str(row))
 
     def test_current_source_joins_only_unique_official_player_ids(self):
         r=bind(capture(),ctx=CTX,native_report=NATIVE,now=NOW)
