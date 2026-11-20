@@ -139,6 +139,24 @@ class EuroInjuryAdvisoryTests(unittest.TestCase):
         self.assertEqual(client()["observed_at_utc"],NOW)
         self.assertEqual(called,[NOW])
 
+    def test_public_health_never_queries_provider_or_leaks_credentials(self):
+        calls=[]
+        def getter(**kwargs):
+            calls.append(True)
+            return {"status":"INJURY_PROVIDER_HTTP_ERROR","http_status":429,"source":SOURCE}
+        client=AdvisoryClient("TEST-12345678",enabled=True,getter=getter,clock=lambda:NOW)
+        first=client.public_status()
+        self.assertEqual(first["last_source_status"],"NOT_QUERIED")
+        self.assertEqual(calls,[])
+        client()
+        result=client.public_status()
+        self.assertEqual(result["last_http_status"],429)
+        self.assertEqual(result["last_source_status"],"INJURY_PROVIDER_HTTP_ERROR")
+        self.assertEqual(result["cached_until_utc"],NOW+300)
+        self.assertFalse(result["score_model_connected"])
+        self.assertNotIn("TEST-12345678",str(result))
+        self.assertEqual(calls,[True])
+
     def test_source_mismatch_refused_even_with_valid_payload_sha(self):
         bad=capture()
         bad["source"]="https://untrusted.example/other-feed"

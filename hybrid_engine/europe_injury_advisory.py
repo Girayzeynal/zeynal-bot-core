@@ -92,6 +92,20 @@ class AdvisoryClient:
             return dict(self._cached)
 
 
+    def public_status(self):
+        """Read-only, credential-free state; NEVER triggers an API request."""
+        with self.lock:
+            last=self._cached if isinstance(self._cached,dict) else {}
+            return dict(
+                configured=True,
+                last_source_status=last.get("status","NOT_QUERIED"),
+                last_http_status=last.get("http_status"),
+                last_observed_at_utc=last.get("observed_at_utc") if last.get("status")=="RECEIVED" else None,
+                cached_until_utc=self._valid_until if last else None,
+                fixture_availability_verified=False,
+                score_model_connected=False)
+
+
 def name_key(value):
     if type(value) is not str:
         return None

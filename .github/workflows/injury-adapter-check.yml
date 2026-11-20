@@ -1,0 +1,25 @@
+name: EuroLeague injury adapter regression gate
+on:
+  push:
+    branches:
+      - fix/euro-injury-observability-20261120
+  pull_request:
+    branches:
+      - feature/integrated-test-bot-20261119
+jobs:
+  injury-adapter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install -r requirements.txt -r requirements-test.txt
+      - name: Compile modified modules
+        run: |
+          python -m py_compile hybrid_engine/europe_injury_advisory.py hybrid_engine/test_bot.py hybrid_engine/europe_data.py hybrid_engine/integrated_features.py
+      - name: Focused provider and Telegram regressions (offline)
+        run: python -m pytest -q tests/test_europe_injury_advisory.py tests/test_europe_roster_evidence_wiring.py tests/test_integrated_features.py
