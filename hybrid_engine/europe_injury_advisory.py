@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import time
+import threading
 import unicodedata
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
@@ -59,6 +60,38 @@ def fetch(*, api_key=None, enabled=False, opener=None, clock=time.time):
         return dict(status="INJURY_PROVIDER_UNREACHABLE",source=SOURCE)
 
 
+class AdvisoryClient:
+    """Single bounded, quota-conscious client shared across fixture buttons.
+
+    A key does not enable anything unless the deployment explicitly opts in.
+    One successful request is reused for 5 minutes; a 429 is also cooled down
+    for 5 minutes rather than repeated across multiple fixtures.
+    """
+    def __init__(self, api_key, *, enabled=False, getter=fetch, clock=time.time):
+        if enabled is not True or type(api_key) is not str or not KEY.fullmatch(api_key):
+            raise ValueError("EXPLICIT_AUTHORIZED_INJURY_SOURCE_REQUIRED")
+        self._key=api_key
+        self._getter=getter
+        self.clock=clock
+        self.lock=threading.Lock()
+        self._cached=None
+        self._valid_until=0
+
+    def __call__(self):
+        with self.lock:
+            now=int(self.clock())
+            if self._cached is not None and now<self._valid_until:
+                return dict(self._cached)
+            receipt=self._getter(api_key=self._key,enabled=True,clock=self.clock)
+            if type(receipt) is not dict or type(receipt.get("status")) is not str:
+                receipt=dict(status="INJURY_PROVIDER_RESPONSE_REFUSED",source=SOURCE)
+            status=receipt["status"]
+            delay=300 if status=="RECEIVED" or receipt.get("http_status")==429 else 60
+            self._cached=dict(receipt)
+            self._valid_until=now+delay
+            return dict(self._cached)
+
+
 def name_key(value):
     if type(value) is not str:
         return None
@@ -88,6 +121,8 @@ def bind(receipt, *, ctx, native_report, now):
     if receipt.get("status")!="RECEIVED":
         return dict(result,status=receipt.get("status","INJURY_PROVIDER_UNAVAILABLE"),
                     http_status=receipt.get("http_status"))
+    if receipt.get("source")!=SOURCE:
+        return dict(result,status="INJURY_PROVIDER_SOURCE_REFUSED")
     observed=receipt.get("observed_at_utc")
     if type(now) is not int or type(observed) is not int or not 0<observed<=now or now-observed>300:
         return dict(result,status="INJURY_PROVIDER_CAPTURE_CLOCK_REFUSED")
