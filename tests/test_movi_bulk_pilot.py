@@ -147,3 +147,22 @@ def test_group_status_coverage_counters():
     assert report["matches_with_market_status"] == 1
     assert report["market_status_groups"] == 1
     assert report["quotes_missing_group_status"] == 0
+
+
+
+def test_per_group_poll_counters():
+    match = fixture("NBA", group_status={
+        "1453": {"polled_at": NOW.isoformat()},
+        "1454": {"stale": True},
+        "1455": {"polled_at": "not-a-timestamp"},
+        "1456": None,
+    })
+    report = inspect_board({"matches": [match], "server_time": NOW.isoformat()}, NOW)
+    row = report["leagues"]["NBA"]
+    assert report["provider_server_time_present"] is True
+    assert row["market_status_groups"] == 4
+    assert row["groups_with_valid_poll"] == 1
+    assert row["groups_with_missing_poll"] == 1
+    assert row["groups_with_invalid_poll"] == 1
+    assert row["groups_marked_stale"] == 1
+    assert row["groups_non_mapping"] == 1
