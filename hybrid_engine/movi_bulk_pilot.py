@@ -59,12 +59,17 @@ def inspect_board(board: dict, now: datetime | None = None) -> dict:
                "quoted_rows_seen": 0, "truncated_rows": 0,
                "matches_with_market_status": 0, "market_status_groups": 0,
                "matches_with_fixture_poll": 0, "quotes_missing_group_status": 0,
+               "groups_with_valid_poll": 0, "groups_with_missing_poll": 0,
+               "groups_with_invalid_poll": 0, "groups_marked_stale": 0,
+               "groups_non_mapping": 0,
                "fresh_quotes": 0, "stale_quotes": 0,
                "fixture_only_quotes": 0, "unknown_time_quotes": 0,
                "market_groups": []}
         for name in ("NBA", "EUROLEAGUE", "EUROCUP")
     }, "covered": [], "unclassified": []}
-    server = utc_time(board.get("server_time")) or now
+    server_time = utc_time(board.get("server_time"))
+    results["provider_server_time_present"] = server_time is not None
+    server = server_time or now
     # A server timestamp cannot be taken as a fresh quote timestamp.
     # Use per-market group_status first; a fixture polled_at proves only
     # that *some* groups were rechecked, not which ones.
@@ -107,6 +112,18 @@ def inspect_board(board: dict, now: datetime | None = None) -> dict:
         if group_status:
             current["matches_with_market_status"] += 1
             current["market_status_groups"] += len(group_status)
+            for group_meta in group_status.values():
+                if not isinstance(group_meta, dict):
+                    current["groups_non_mapping"] += 1
+                    continue
+                if group_meta.get("stale") is True:
+                    current["groups_marked_stale"] += 1
+                if group_meta.get("polled_at") in (None, ""):
+                    current["groups_with_missing_poll"] += 1
+                elif utc_time(group_meta.get("polled_at")) is None:
+                    current["groups_with_invalid_poll"] += 1
+                else:
+                    current["groups_with_valid_poll"] += 1
         if fixture_polled is not None:
             current["matches_with_fixture_poll"] += 1
         for quote in quotes[:10000]:
