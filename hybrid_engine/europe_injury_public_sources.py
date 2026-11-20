@@ -175,9 +175,12 @@ def _page_candidates(body,source_url):
     links=[];seen=set()
     for a in soup.find_all("a",href=True):
         label=a.get_text(" ",strip=True)
-        if not any(word in name_key(label+" "+href) for word in ("injur","sakat","absenc","sidelin","ruledout","willmiss","rosterupdate","formagiyemeyecek")):
+        raw_href=a["href"]
+        if not isinstance(raw_href,str) or len(raw_href)>512:
             continue
-        href=urljoin(source_url,a["href"])
+        if not any(word in name_key(label+" "+raw_href) for word in ("injur","sakat","absenc","sidelin","ruledout","willmiss","rosterupdate","formagiyemeyecek")):
+            continue
+        href=urljoin(source_url,raw_href)
         parsed=urlsplit(href)
         if (parsed.scheme!="https" or parsed.hostname!=root.hostname or
             parsed.query or parsed.fragment or not parsed.path.startswith("/")):
