@@ -149,6 +149,38 @@ def inspect_board(board: dict, now: datetime | None = None) -> dict:
     return results
 
 
+def classify_http_error(exc: HTTPError, key: str) -> str:
+    """Categorize a provider error without printing provider text or credentials."""
+    if exc.code == 401:
+        return "KEY_MISSING_OR_INVALID"
+    if exc.code == 403:
+        return "ACCESS_NOT_ALLOWED"
+    if exc.code == 429:
+        return "RATE_LIMIT"
+    if exc.code == 503:
+        return "PROVIDER_BUSY"
+    if exc.code != 400:
+        return "HTTP_UNCLASSIFIED"
+    try:
+        raw = exc.read(4096)
+        payload = json.loads(raw)
+        error = payload.get("error", "")
+        if not isinstance(error, str):
+            return "BAD_REQUEST_UNCLASSIFIED"
+        normalized = error.lower()
+        if "unknown sport" in normalized:
+            return "UNKNOWN_SPORT_FILTER"
+        if "invalid or revoked api key" in normalized or "api key required" in normalized:
+            return "KEY_MISSING_OR_INVALID"
+        if "invalid" in normalized and "parameter" in normalized:
+            return "INVALID_PARAMETER"
+        if "unknown" in normalized and ("site" in normalized or "filter" in normalized):
+            return "UNSUPPORTED_FILTER"
+        return "BAD_REQUEST_UNCLASSIFIED"
+    except (OSError, UnicodeDecodeError, ValueError, TypeError, AttributeError):
+        return "BAD_REQUEST_UNCLASSIFIED"
+
+
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -189,7 +221,11 @@ def main() -> None:
             result = inspect_board(read_live_board(os.environ["ZEYNAL_MOVIODDS_KEY"]))
             result["network_calls"] = 1
         except HTTPError as exc:
-            result = {"status": "HTTP_ERROR", "http_status": exc.code, "network_calls": 1}
+            code = exc.code
+            category = classify_http_error(exc, os.environ["ZEYNAL_MOVIODDS_KEY"])
+            exc.close()
+            result = {"status": "HTTP_ERROR", "http_status": code,
+                      "error_category": category, "network_calls": 1}
         except (URLError, OSError, ValueError, json.JSONDecodeError):
             result = {"status": "SOURCE_UNAVAILABLE", "network_calls": 1}
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
