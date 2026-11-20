@@ -1,10 +1,13 @@
 """Offline evidence contract: no private key, no provider call in CI."""
 from datetime import datetime,timezone
 from unittest.mock import patch
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import os
 import unittest
 
 from hybrid_engine.hoopsapi_market import (
-    BASE,HoopsFreeMarket,valid_pair,bound_game,parse_lines,render,namekey
+    BASE,HoopsFreeMarket,valid_pair,bound_game,parse_lines,render,namekey,read_key
 )
 NOW=int(datetime.fromisoformat("2026-11-20T19:00:00+00:00").timestamp())
 TIP=int(datetime.fromisoformat("2026-11-20T19:45:00+00:00").timestamp())
@@ -105,6 +108,20 @@ class HoopsMarketTest(unittest.TestCase):
         row=client._get(BASE+"/games/99","not-real-api-key",ttl=0)
         self.assertEqual(row["status"],"LOCAL_FREE_DAILY_BUDGET")
         self.assertEqual(len(self.calls),8)
+
+    def test_private_key_file_requires_owner_only_mode(self):
+        with TemporaryDirectory() as root:
+            path=Path(root)/".zeynal-test-hoopsapi.key"
+            path.write_text("a-private-test-key-not-live")
+            os.chmod(path,0o644)
+            with patch("hybrid_engine.hoopsapi_market.Path.home",return_value=Path(root)):
+                with patch.dict("os.environ",{"ZEYNAL_HOOPSAPI_KEY":""},clear=False):
+                    self.assertEqual(read_key(),"")
+                    os.chmod(path,0o600)
+                    self.assertEqual(read_key(),"a-private-test-key-not-live")
+                    path.unlink()
+                    path.symlink_to(Path(root)/"outside")
+                    self.assertEqual(read_key(),"")
 
     def test_price_schema_and_provider_capture_clock(self):
         self.assertIsNone(valid_pair({"line":163.5,"over":1.9},"total"))
