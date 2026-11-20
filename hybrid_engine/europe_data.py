@@ -79,7 +79,7 @@ def article_rows(receipt,ctx,now):
 
 
 class EuropeanDataReview:
-    def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time,roster_store=None,native_roster_getter=None,injury_advisory_getter=None):
+    def __init__(self,services,bridge,directory,*,getter=fetch,clock=time.time,roster_store=None,native_roster_getter=None,injury_advisory_getter=None,public_news_hub=None):
         self.services=services;self.bridge=bridge;self.root=local_path(directory)
         self.getter=getter;self.clock=clock;self.cache={};self.catalogs={};self.lock=threading.Lock()
         # A shared, explicitly verified packet store. Empty is NOT a live feed.
@@ -87,6 +87,7 @@ class EuropeanDataReview:
         self.roster_store=roster_store
         self.native_roster_getter=native_roster_getter
         self.injury_advisory_getter=injury_advisory_getter
+        self.public_news_hub=public_news_hub
 
     def current_identity_context(self,ctx,owner):
         """Separate current association evidence; never alter forecast feature clocks."""
@@ -206,7 +207,7 @@ class EuropeanDataReview:
         # rendering/caching. Otherwise a slow news page can hide all results.
         # Bound optional advisory request after the existing two native reads.
         # The 20s Telegram callback must retain headroom for rendering.
-        deadline=time.monotonic()+(6 if self.injury_advisory_getter is not None and ctx['league']=='EUROLEAGUE' else 9);league=ctx['league'];sources=[];rows=[];seen=set()
+        deadline=time.monotonic()+(4 if self.public_news_hub is not None and ctx['league']=='EUROLEAGUE' else 6 if self.injury_advisory_getter is not None and ctx['league']=='EUROLEAGUE' else 9);league=ctx['league'];sources=[];rows=[];seen=set()
         queue=[BASE+path for path in PATHS[league]]
         while queue and len(seen)<3 and time.monotonic()<deadline:
             url=queue.pop(0)
@@ -278,6 +279,17 @@ class EuropeanDataReview:
             lines.append('İkincil canlı sakatlık sağlayıcısı: YAPILANDIRILDI ancak maç başladı; geriye dönük yeni sorgu yapılmadı.')
         else:
             lines.append('İkincil canlı sakatlık sağlayıcısı: YAPILANDIRILMADI; kayıtsız oyuncu sağlıklı sayılmaz.')
+        # Independent editorial and exact-match club indexes, never a verified
+        # player packet. Retain old results and do not touch the model/forecast.
+        public_news=None
+        if self.public_news_hub is not None and league=='EUROLEAGUE':
+            from hybrid_engine.europe_injury_public_sources import render as render_public_news
+            try:
+                public_news=self.public_news_hub.review(ctx)
+            except (ValueError,KeyError,TypeError,TimeoutError,OSError):
+                public_news=dict(status='PUBLIC_NEWS_SOURCE_UNAVAILABLE',sources=[],
+                                 player_status_verified=False,model_input=False)
+            lines.extend(['',html.escape(render_public_news(public_news))])
         if verified_records:
             lines.extend(['',evidence_view,
                           'Bu paket ilk tahmin kesitinden önce yayımlanmış kanıtı gösterir; dakika/rotasyon/model etkisi değildir.'])
@@ -291,6 +303,8 @@ class EuropeanDataReview:
             player_evidence_rejections=evidence['rejected_count'],
             native_season_player_directory=native_report,
             secondary_current_injury_advisory=advisory,
+            public_news_candidate_review=public_news,
+            public_news_model_input=False,
             secondary_injury_adapter_attached=(league=='EUROLEAGUE' and self.injury_advisory_getter is not None),
             secondary_injury_last_status=advisory['status'] if advisory else 'NOT_QUERIED',
             match_specific_injury_feed_model_input=False,
