@@ -424,7 +424,8 @@ def render(report):
                  if scoped else candidates)
         omitted=len(candidates)-len(visible)
         for candidate in visible[:2]:
-            lines.append("İLGİLİ KULÜP HABER ADAYI / MAÇ DOĞRULANMADI: "+
+            lines.append(("İLGİLİ KULÜP HABER ADAYI" if scoped else
+                          "GENEL LİG ADAYI")+" / MAÇ DOĞRULANMADI: "+
                          candidate["player_text"]+" · "+candidate["team_text"]+
                          " · "+candidate["source_reported_status"])
         if omitted:
