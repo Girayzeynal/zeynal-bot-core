@@ -4,7 +4,7 @@ import json
 import unittest
 from types import SimpleNamespace
 
-from hybrid_engine.europe_injury_advisory import fetch,bind,render,SOURCE
+from hybrid_engine.europe_injury_advisory import fetch,bind,render,SOURCE,AdvisoryClient
 
 NOW=1800000000
 CTX={"league":"EUROLEAGUE","fixture_start_utc":NOW+3600,
@@ -106,6 +106,44 @@ class EuroInjuryAdvisoryTests(unittest.TestCase):
         r=bind(capture(),ctx=ctx,native_report=NATIVE,now=NOW)
         self.assertEqual(r["status"],"EUROLEAGUE_ONLY_INJURY_FEED")
         self.assertEqual(r["player_rows"],[])
+
+    def test_rate_limit_cooldown_prevents_multiple_billed_queries(self):
+        called=[]
+        tick=[NOW]
+        def getter(**kwargs):
+            called.append(tick[0])
+            return {"status":"INJURY_PROVIDER_HTTP_ERROR","http_status":429,"source":SOURCE}
+        client=AdvisoryClient("TEST-12345678",enabled=True,getter=getter,
+                              clock=lambda:tick[0])
+        self.assertEqual(client()["http_status"],429)
+        for t in (NOW+1,NOW+60,NOW+299):
+            tick[0]=t
+            self.assertEqual(client()["http_status"],429)
+        self.assertEqual(called,[NOW])
+        tick[0]=NOW+300
+        client()
+        self.assertEqual(called,[NOW,NOW+300])
+
+    def test_success_cache_and_disabled_client_rejected(self):
+        with self.assertRaises(ValueError):
+            AdvisoryClient("TEST-12345678",enabled=False)
+        called=[]
+        tick=[NOW]
+        def getter(**kwargs):
+            called.append(tick[0])
+            return capture(at=tick[0])
+        client=AdvisoryClient("TEST-12345678",enabled=True,getter=getter,
+                              clock=lambda:tick[0])
+        self.assertEqual(client()["status"],"RECEIVED")
+        tick[0]=NOW+299
+        self.assertEqual(client()["observed_at_utc"],NOW)
+        self.assertEqual(called,[NOW])
+
+    def test_source_mismatch_refused_even_with_valid_payload_sha(self):
+        bad=capture()
+        bad["source"]="https://untrusted.example/other-feed"
+        self.assertEqual(bind(bad,ctx=CTX,native_report=NATIVE,now=NOW)["status"],
+                         "INJURY_PROVIDER_SOURCE_REFUSED")
 
     def test_http_denial_is_unknown_not_healthy(self):
         row=bind({"status":"INJURY_PROVIDER_HTTP_ERROR","http_status":429},
