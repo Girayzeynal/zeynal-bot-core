@@ -81,7 +81,9 @@ def bind(receipt, *, ctx, native_report, now):
                 injury_status_verified_for_fixture=False,
                 original_prediction_eligible=False,model_input=False,
                 forecast_changed=False)
-    if type(receipt) is not dict or type(ctx) is not dict or type(native_report) is not dict:
+    if type(ctx) is not dict or ctx.get("league")!="EUROLEAGUE":
+        return dict(result,status="EUROLEAGUE_ONLY_INJURY_FEED")
+    if type(receipt) is not dict or type(native_report) is not dict:
         return dict(result,status="PLAYER_SOURCE_OR_OFFICIAL_DIRECTORY_UNAVAILABLE")
     if receipt.get("status")!="RECEIVED":
         return dict(result,status=receipt.get("status","INJURY_PROVIDER_UNAVAILABLE"),
