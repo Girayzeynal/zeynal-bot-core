@@ -209,6 +209,8 @@ export ZEYNAL_TEST_BOT_ID="${ZEYNAL_TEST_BOT_ID:-9126277519}"
 export ZEYNAL_TEST_BOT_USERNAME="${ZEYNAL_TEST_BOT_USERNAME:-ZeynalEliteTestBot}"
 export ZEYNAL_TEST_CHAT_ID="${ZEYNAL_TEST_CHAT_ID:-7032156495}"
 export ZEYNAL_RELEASE_SHA="$(git rev-parse --verify HEAD)"
+# Bounded public-source index probes, each behind robots.txt; override with 0.
+export ZEYNAL_PUBLIC_EURO_NEWS_ENABLED="${ZEYNAL_PUBLIC_EURO_NEWS_ENABLED:-1}"
 export PYTHONPATH="$PWD"
 exec "${test_python}" -m hybrid_engine.test_bot \
   --archive-directory "${HOME}/zeynal-test-isolated/archive" \
