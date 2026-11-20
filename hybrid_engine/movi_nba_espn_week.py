@@ -112,7 +112,9 @@ def parse_espn_board(doc, start_day, end_day):
 
 def compare_cached(cached, boards):
     if (not isinstance(cached, dict) or cached.get("league") != "NBA"
-            or not isinstance(cached.get("days"), dict)):
+            or not isinstance(cached.get("days"), dict)
+            or not isinstance(cached.get("start_day_tsi"), str)
+            or not isinstance(cached.get("end_day_tsi"), str)):
         return {"status": "INVALID_MOVIODDS_CACHE"}
     start_day = date.fromisoformat(cached["start_day_tsi"])
     end_day = date.fromisoformat(cached["end_day_tsi"])
