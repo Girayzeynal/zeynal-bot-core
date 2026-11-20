@@ -94,5 +94,45 @@ class NativeRosterSourceTests(unittest.TestCase):
         self.assertIn("SAKATLIK RAPORU DEĞİL",render_public(rows))
 
 
+    def test_provider_timeout_does_not_hide_other_club(self):
+        calls=[]
+        def getter(url):
+            club=url.split("/clubs/")[1].split("/")[0]
+            calls.append(club)
+            if club=="ZAL":
+                raise TimeoutError("synthetic upstream timeout")
+            return payload(club)
+        result=pair(CTX,getter=getter,clock=lambda:NOW)
+        self.assertEqual(calls,["ZAL","PAN"])
+        self.assertEqual(result["teams"]["home"]["status"],"SOURCE_NETWORK_OR_TIMEOUT")
+        self.assertEqual(result["teams"]["home"]["registered_players"],[])
+        self.assertEqual(result["teams"]["away"]["status"],"OFFICIAL_SEASON_REGISTRATION_OBSERVED")
+        self.assertEqual(result["teams"]["away"]["registered_players"][0]["player_id"],"P001")
+        public=render_public(result)
+        self.assertIn("SOURCE_NETWORK_OR_TIMEOUT",public)
+        self.assertIn("PLAYER, TEST",public)
+        self.assertIn("kaynak hatası sağlıklı kadro anlamına gelmez",public)
+        self.assertFalse(result["injury_status_verified"])
+        self.assertFalse(result["model_input"])
+
+    def test_unexpected_oserror_does_not_crash_entire_europe_roster(self):
+        def getter(url):
+            if "/clubs/PAN/" in url:
+                raise ConnectionResetError("synthetic connection reset")
+            return payload("ZAL")
+        result=pair(CTX,getter=getter,clock=lambda:NOW)
+        self.assertEqual(result["teams"]["home"]["mapped_player_ids"],1)
+        self.assertEqual(result["teams"]["away"]["status"],"SOURCE_NETWORK_OR_TIMEOUT")
+
+    def test_http_429_is_visible_but_not_assumed_to_be_healthy(self):
+        report=pair(CTX,getter=lambda url: {"status":"SOURCE_HTTP_ERROR","http_status":429},
+                    clock=lambda:NOW)
+        public=render_public(report)
+        self.assertEqual(public.count("HTTP durum kodu: 429"),2)
+        self.assertEqual(public.count("kaynak hatası sağlıklı kadro anlamına gelmez"),2)
+        self.assertFalse(report["injury_status_verified"])
+        self.assertFalse(report["model_input"])
+
+
 if __name__=="__main__":
     unittest.main()
