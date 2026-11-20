@@ -66,3 +66,43 @@ def test_unverified_time_is_never_converted_to_fake_match():
 def test_bad_schema_no_network():
     assert inspect_catalog({"matches": []}, NOW)["status"] == "BAD_SCHEMA"
     assert inspect_catalog({"fixtures": [], "warming": True}, NOW)["status"] == "WARMING"
+
+
+def test_adaptive_plan_limits_total_daily_api_usage_to_six():
+    board = {"fixtures": [
+        make_fixture("NBA", "a", hours=16),
+        make_fixture("NBA", "b", hours=18),
+        make_fixture("EuroLeague", "c", hours=21),
+        make_fixture("EuroLeague", "d", hours=24),
+        make_fixture("BKT EuroCup", "e", hours=27),
+        make_fixture("BKT EuroCup", "f", hours=30),
+    ]}
+    result = inspect_catalog(board, NOW)
+    assert result["schedule_status"] == "PROPOSAL_ONLY_NOT_INSTALLED"
+    assert result["dry_run_schedule"]
+    assert all(day["max_total_calls_including_reserve"] <= 6
+               for day in result["dry_run_schedule"])
+    assert all(day["catalog_calls_per_day"] == 1
+               for day in result["dry_run_schedule"])
+
+
+def test_quiet_week_schedules_zero_odds_pulls():
+    report = inspect_catalog({"fixtures": []}, NOW)
+    assert report["dry_run_schedule"] == []
+
+
+def test_early_morning_tsi_uses_previous_local_day_when_needed():
+    # 2026-11-22 00:10 TSİ => refresh at 2026-11-21 23:50 TSİ
+    kickoff = datetime(2026, 11, 21, 21, 10, tzinfo=timezone.utc)
+    board = {"fixtures": [make_fixture("NBA", "early",
+        kickoff_utc=kickoff.isoformat())]}
+    report = inspect_catalog(board, NOW)
+    plans = report["dry_run_schedule"]
+    assert plans[0]["tsi_day"] == "2026-11-21"
+    assert "2026-11-21 23:50" in plans[0]["regular_odds_slots_tsi"]
+
+
+def test_does_not_schedule_after_match_would_start():
+    board = {"fixtures": [make_fixture("NBA", "soon",
+        kickoff_utc=(NOW + timedelta(minutes=9)).isoformat())]}
+    assert inspect_catalog(board, NOW)["dry_run_schedule"] == []
