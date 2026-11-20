@@ -41,23 +41,53 @@ def name_key(value):
     return _NAME.sub("","".join(c for c in norm if not unicodedata.combining(c)))
 
 
+# Explicitly reviewed sponsor/official-display aliases only. Never infer a
+# club from a city substring or an arbitrary fuzzy-name similarity score.
+KNOWN_ALIASES={
+    "panathinaikosaktorathens":"euroleague_panathinaikos_athens",
+    "panathinaikosaktor":"euroleague_panathinaikos_athens",
+    "fenerbahcebeko":"euroleague_fenerbahce_istanbul",
+    "fenerbahcebekoistanbul":"euroleague_fenerbahce_istanbul",
+    "anadoluefes":"euroleague_anadolu_efes_istanbul",
+    "anadoluefesistanbul":"euroleague_anadolu_efes_istanbul",
+    "olympiacospiraeus":"euroleague_olympiacos",
+    "partizanmozzartbet":"euroleague_partizan_belgrade",
+    "partizanmozzartbetbelgrade":"euroleague_partizan_belgrade",
+    "zalgiriskaunas":"euroleague_zalgiris",
+    "crvenazvezdameridianbet":"euroleague_crvena_zvezda_belgrade",
+    "maccabirapydtelaviv":"euroleague_maccabi_tel_aviv",
+    "realmadrid":"euroleague_real_madrid",
+}
+
+
 def sources_for(ctx):
-    """Exactly three editorial indexes plus at most two *exact* team sites."""
-    if not isinstance(ctx,dict) or ctx.get("league")!="EUROLEAGUE":
+    """Relevant clubs by canonical identity and explicit sponsor aliases.
+
+    The 82-entry directory is the team registry, NOT an injury source.
+    EuroLeague additionally reviews three editorial indexes; EuroCup gets
+    its exact two official club indexes, never EuroLeague-specific articles.
+    """
+    league=ctx.get("league") if isinstance(ctx,dict) else None
+    if league not in ("EUROLEAGUE","EUROCUP"):
         return []
-    rows=[dict(name=name,url=url,kind="SECONDARY_EDITORIAL") for name,url in SITE_URLS]
+    rows=([dict(name=name,url=url,kind="SECONDARY_EDITORIAL")
+           for name,url in SITE_URLS] if league=="EUROLEAGUE" else [])
     from hybrid_engine.official_all_82_club_batch import load_all_82
-    clubs=load_all_82()
-    names={name_key(ctx.get(side,{}).get("official_name")) for side in ("home","away")}
-    found=[]
-    for club in clubs:
-        if club["league"]!="EUROLEAGUE":
-            continue
-        if name_key(club["official_team_name"]) in names and name_key(club["official_team_name"]):
-            found.append(dict(name=club["club_key"],url=club["official_news_entry_url"],
-                              kind="OFFICIAL_CLUB_INDEX"))
-    # No fuzzy team matching or cross-league club substitution.
-    rows.extend(found[:MAX_CLUB_SITES])
+    clubs=[c for c in load_all_82() if c["league"]==league]
+    by_name={name_key(c["official_team_name"]):c for c in clubs}
+    by_key={c["club_key"]:c for c in clubs}
+    selected=set()
+    for side in ("home","away"):
+        name=name_key(ctx.get(side,{}).get("official_name"))
+        club=by_name.get(name)
+        if club is None and league=="EUROLEAGUE":
+            key=KNOWN_ALIASES.get(name)
+            club=by_key.get(key) if key else None
+        if club is not None:
+            selected.add(club["club_key"])
+    rows.extend(dict(name=c["club_key"],url=c["official_news_entry_url"],
+                     kind="OFFICIAL_CLUB_INDEX") for c in clubs
+                if c["club_key"] in selected)
     return rows
 
 
@@ -154,7 +184,7 @@ def _page_candidates(body,source_url):
     return rows,links
 
 
-def probe(spec,*,requester=request,now=None):
+def probe(spec,*,requester=request,now=None,read_article=False):
     """Robots must be readable and allow the index URL BEFORE fetching."""
     timestamp=int(time.time()) if now is None else int(now)
     name=spec.get("name");url=spec.get("url")
@@ -185,12 +215,20 @@ def probe(spec,*,requester=request,now=None):
     if type(body) is not bytes or len(body)>MAX_BYTES:
         return dict(result,status="SOURCE_BODY_INVALID")
     candidates,links=_page_candidates(body,url)
+    articles=[]
+    if read_article and links:
+        # An index link is NOT an article. Fetch one bounded article separately
+        # under that article's own robots policy; never follow a redirect.
+        from hybrid_engine.europe_injury_article_source import observe_article
+        articles=[observe_article(spec,links[0],requester=requester,now=timestamp)]
     return dict(result,status="SOURCE_INDEX_OBSERVED_CANDIDATES_ONLY",
                 title=_title(body),document_sha256=hashlib.sha256(body).hexdigest(),
                 published_at_utc=None,source_publication_clock_verified=False,
                 unverified_player_candidates=candidates,
                 unverified_injury_article_links=links,
-                candidate_count=len(candidates))
+                inspected_articles=articles,
+                candidate_count=len(candidates)+sum(
+                    len(a.get("unverified_player_candidates",[])) for a in articles))
 
 
 class PublicEuroInjuryNewsHub:
@@ -215,7 +253,7 @@ class PublicEuroInjuryNewsHub:
         if not self.enabled:
             return dict(status="PUBLIC_NEWS_HUB_DISABLED",sources=[],
                         player_status_verified=False,model_input=False)
-        if not isinstance(ctx,dict) or ctx.get("league")!="EUROLEAGUE":
+        if not isinstance(ctx,dict) or ctx.get("league") not in ("EUROLEAGUE","EUROCUP"):
             return dict(status="UNSUPPORTED_LEAGUE",sources=[],
                         player_status_verified=False,model_input=False)
         when=int(self.clock())
@@ -232,7 +270,7 @@ class PublicEuroInjuryNewsHub:
             # run concurrently under a strict callback budget. Each worker makes
             # at most a robots and an index request (no redirects).
             with ThreadPoolExecutor(max_workers=5) as pool:
-                futures=[pool.submit(probe,x,requester=self.requester,now=when) for x in specs]
+                futures=[pool.submit(probe,x,requester=self.requester,now=when,read_article=True) for x in specs]
                 for future,spec in zip(futures,specs):
                     try:
                         rows.append(future.result(timeout=TIME_BUDGET))
@@ -266,7 +304,17 @@ def render(report):
                          candidate["player_text"]+" · "+candidate["team_text"]+
                          " · "+candidate["source_reported_status"])
         for link in r.get("unverified_injury_article_links",[])[:2]:
-            lines.append("Haber bağlantı adayı (makale doğrulanmadı): "+link["url"])
+            lines.append("Haber bağlantı adayı: "+link["url"])
+        for article in r.get("inspected_articles",[]):
+            lines.append("Makale erişimi: "+article["status"]+
+                         ((" · "+str(article["http_status"])) if article.get("http_status") else ""))
+            if article.get("source_published_at_utc") is not None:
+                lines.append("Kaynak yayın UTC: "+str(article["source_published_at_utc"]))
+            else:
+                lines.append("Makale yayın saati doğrulanmadı.")
+            for candidate in article.get("unverified_player_candidates",[])[:4]:
+                lines.append("HABER METNİNDE OYNAMAYACAK ADAYI / MAÇ DOĞRULANMADI: "+
+                             candidate["player_name_text"]+" · "+candidate["source_reported_status"])
     lines.extend(["EuroLeague resmî kaynağı ve resmî sezon kimlik adaptörü ayrıca çalışır.",
                   "X/kulüp sosyal medya API'si: YETKİLİ ERİŞİM YOK, OTOMATİK SORGULANMIYOR.",
                   "Kaynak sayfası bulunması oyuncunun maçta OUT/AVAILABLE olduğunu kanıtlamaz.",
