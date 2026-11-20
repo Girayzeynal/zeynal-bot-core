@@ -206,16 +206,20 @@ def probe(spec,*,requester=request,now=None,read_article=False):
     parsed=urlsplit(url)
     robots_url="https://"+parsed.hostname+"/robots.txt"
     policy=requester(robots_url,mime="text/plain",limit=MAX_ROBOTS)
-    if policy.get("status")!="RECEIVED" or not isinstance(policy.get("body"),bytes):
-        return dict(result,status="SOURCE_ROBOTS_UNAVAILABLE",
-                    robots_status=policy.get("status"))
-    try:
-        robot=RobotFileParser()
-        robot.parse(policy["body"].decode("utf-8","replace").splitlines())
-        if not robot.can_fetch(UA,url):
-            return dict(result,status="SOURCE_ROBOTS_DISALLOW")
-    except (ValueError,TypeError,UnicodeError):
-        return dict(result,status="SOURCE_ROBOTS_INVALID")
+    # RFC 9309: robots 404/410 means policy unavailable by absence, not
+    # a blanket prohibition. 401/403/429/5xx remain fail-closed.
+    robots_absent=(policy.get("http_status") in (404,410))
+    if not robots_absent:
+        if policy.get("status")!="RECEIVED" or not isinstance(policy.get("body"),bytes):
+            return dict(result,status="SOURCE_ROBOTS_UNAVAILABLE",
+                        robots_status=policy.get("status"))
+        try:
+            robot=RobotFileParser()
+            robot.parse(policy["body"].decode("utf-8","replace").splitlines())
+            if not robot.can_fetch(UA,url):
+                return dict(result,status="SOURCE_ROBOTS_DISALLOW")
+        except (ValueError,TypeError,UnicodeError):
+            return dict(result,status="SOURCE_ROBOTS_INVALID")
     response=requester(url,mime="text/html",limit=MAX_BYTES)
     if response.get("status")!="RECEIVED":
         return dict(result,status=response.get("status","SOURCE_UNREACHABLE"),
