@@ -52,8 +52,11 @@ def inspect_board(board: dict, now: datetime | None = None) -> dict:
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     if not isinstance(board, dict) or not isinstance(board.get("matches"), list):
         return {"status": "BAD_SCHEMA", "leagues": {}, "covered": [], "unclassified": []}
-    results = {"status": "OK", "leagues": {
+    results = {"status": "WARMING" if board.get("warming") is True else "OK",
+               "provider_market_scope": "main" if board.get("markets") == "main" else "not_declared",
+               "leagues": {
         name: {"fixtures": 0, "listed_all_dates": 0, "priced": 0,
+               "quoted_rows_seen": 0, "truncated_rows": 0,
                "fresh_quotes": 0, "stale_quotes": 0,
                "fixture_only_quotes": 0, "unknown_time_quotes": 0,
                "market_groups": []}
@@ -93,6 +96,8 @@ def inspect_board(board: dict, now: datetime | None = None) -> dict:
         quotes = match.get("quotes")
         if not isinstance(quotes, list):
             continue
+        current["quoted_rows_seen"] += len(quotes)
+        current["truncated_rows"] += max(0, len(quotes) - 10000)
         group_status = match.get("group_status")
         if not isinstance(group_status, dict):
             group_status = {}
