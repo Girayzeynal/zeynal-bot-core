@@ -206,7 +206,7 @@ class EuropeanDataReview:
         # rendering/caching. Otherwise a slow news page can hide all results.
         # Bound optional advisory request after the existing two native reads.
         # The 20s Telegram callback must retain headroom for rendering.
-        deadline=time.monotonic()+(6 if self.injury_advisory_getter is not None else 9);league=ctx['league'];sources=[];rows=[];seen=set()
+        deadline=time.monotonic()+(6 if self.injury_advisory_getter is not None and ctx['league']=='EUROLEAGUE' else 9);league=ctx['league'];sources=[];rows=[];seen=set()
         queue=[BASE+path for path in PATHS[league]]
         while queue and len(seen)<3 and time.monotonic()<deadline:
             url=queue.pop(0)
@@ -261,7 +261,7 @@ class EuropeanDataReview:
         # gaps, but they have no fixture-specific official status publication
         # time and must NEVER be inserted into verified_player_records.
         advisory=None
-        if self.injury_advisory_getter is not None and int(self.clock())<ctx['fixture_start_utc']:
+        if league=='EUROLEAGUE' and self.injury_advisory_getter is not None and int(self.clock())<ctx['fixture_start_utc']:
             from hybrid_engine.europe_injury_advisory import bind as bind_injury,render as render_injury
             try:
                 secondary_receipt=self.injury_advisory_getter()
