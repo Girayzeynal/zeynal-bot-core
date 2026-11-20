@@ -96,7 +96,10 @@ class HoopsMarketTest(unittest.TestCase):
         self.assertEqual(len(self.calls),1)
 
     def test_free_local_budget_eight_calls(self):
-        client=HoopsFreeMarket(requester=self.provider,clock=lambda:NOW)
+        def always_received(url,key):
+            self.calls.append(url)
+            return {"status":"RECEIVED","document":{}}
+        client=HoopsFreeMarket(requester=always_received,clock=lambda:NOW)
         for i in range(1,9):
             client._get(BASE+"/games/"+str(i),"not-real-api-key",ttl=0)
         row=client._get(BASE+"/games/99","not-real-api-key",ttl=0)
