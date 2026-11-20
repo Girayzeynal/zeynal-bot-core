@@ -277,6 +277,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     entry['original_roster_html']='🏥 <b>İLK TAHMİN ANINDAKİ KADRO KANITI</b>\n'+sections['roster']
                 except (ValueError,KeyError,TypeError):
                     entry['roster_context']=None
+                    entry['sections']['roster']=(
+                        '🏥 <b>KADRO / SAKATLIK | KAYNAK BAĞLANTISI YOK</b>\n'
+                        'Bu maçın ESPN kimliği, zaman kesiti veya arşiv bağı doğrulanamadı. '
+                        'Güncel sorgu başlatılamıyor. Kod: ROSTER_CONTEXT_NOT_VERIFIED.\n\n'
+                        +sections['roster'])
+                    entry['section_pages']['roster']=split_blocks(entry['sections']['roster'].splitlines(),limit=3200)
                 cache_report(cache,token,entry)
                 response['html_parts']=[summary]
                 response['reply_markup']=keyboard(token)
@@ -642,7 +648,18 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             await query.edit_message_text(body,parse_mode='HTML',
                 disable_web_page_preview=True,reply_markup=keyboard(token,section=section,page=page,pages=page_count))
         except Exception as exc:
-            if 'Message is not modified' not in str(exc):
+            if 'Message is not modified' in str(exc):
+                return
+            logging.getLogger(__name__).warning('Premium page edit failed: %s',type(exc).__name__)
+            # Editing an old message can fail. Keep the requested page usable
+            # by delivering it as a new message with live navigation buttons.
+            if query.message is None:
+                raise
+            try:
+                await query.message.reply_text(body,parse_mode='HTML',
+                    disable_web_page_preview=True,
+                    reply_markup=keyboard(token,section=section,page=page,pages=page_count))
+            except Exception:
                 raise
     app.add_handler(CallbackQueryHandler(premium_callback,pattern=r'^zui:[0-9a-f]{12}:(summary|period|market|ranges|audit|roster)(?::[0-9]{1,3})?$'),group=-50)
     app.add_handler(CommandHandler('test',self_test),group=-50)
