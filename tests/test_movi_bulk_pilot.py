@@ -129,3 +129,21 @@ def test_http_401_and_429_categories():
     from hybrid_engine.movi_bulk_pilot import classify_http_error
     assert classify_http_error(HTTPError("", 401, "", {}, None)) == "KEY_MISSING_OR_INVALID"
     assert classify_http_error(HTTPError("", 429, "", {}, None)) == "RATE_LIMIT"
+
+
+
+def test_missing_per_market_status_is_counted_without_claiming_fresh():
+    match = fixture("NBA", group_status={}, polled_at=None)
+    report = inspect_board({"matches": [match]}, NOW)["leagues"]["NBA"]
+    assert report["matches_with_market_status"] == 0
+    assert report["matches_with_fixture_poll"] == 0
+    assert report["quotes_missing_group_status"] == 1
+    assert report["fresh_quotes"] == 0
+
+
+def test_group_status_coverage_counters():
+    match = fixture("NBA")
+    report = inspect_board({"matches": [match]}, NOW)["leagues"]["NBA"]
+    assert report["matches_with_market_status"] == 1
+    assert report["market_status_groups"] == 1
+    assert report["quotes_missing_group_status"] == 0
