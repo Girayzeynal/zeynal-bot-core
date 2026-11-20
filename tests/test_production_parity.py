@@ -84,6 +84,30 @@ class ProductionParityTests(unittest.TestCase):
             parity.install(app)
         self.assertEqual(app.handlers, [])
 
+    def test_news_command_reads_sources_without_issued_fixture_or_model(self):
+        from unittest.mock import patch
+        update,ctx,msg=fixture(args=[
+            "EUROLEAGUE","Zalgiris","Kaunas","vs",
+            "Panathinaikos","AKTOR","Athens"])
+        observation=dict(status="CURRENT_TEAM_NEWS_NOT_FIXTURE_VERIFIED",
+            official_club_matches=["euroleague_zalgiris",
+                                  "euroleague_panathinaikos_athens"],
+            sources=[dict(source="EUROHOOPS",status="SOURCE_INDEX_OBSERVED_CANDIDATES_ONLY")],
+            player_status_verified=False,model_input=False)
+        with patch("hybrid_engine.europe_injury_public_sources.review_current_team_news",
+                   return_value=observation) as news:
+            asyncio.run(parity.injurynews_command(update,ctx))
+        news.assert_called_once()
+        self.assertIn("2 / 2","".join(msg.sent))
+        self.assertIn("MAÇ", "".join(msg.sent).upper())
+        self.assertFalse(observation["model_input"])
+        self.assertNotIn("final_scores",ctx.application.bot_data)
+
+    def test_news_invalid_command_does_not_call_provider(self):
+        update,ctx,msg=fixture(args=["EUROLEAGUE","Athens"])
+        asyncio.run(parity.injurynews_command(update,ctx))
+        self.assertIn("Kullanım:",msg.sent[0])
+
     def test_registration_is_side_effect_free(self):
         class App:
             def __init__(self): self.handlers = []
@@ -91,7 +115,7 @@ class ProductionParityTests(unittest.TestCase):
         app=App()
         parity.install(app)
         commands={cmd for h in app.handlers for cmd in h.commands}
-        self.assertEqual(commands, {"features","models","predictions","results","sources","sourceplayers","test"})
+        self.assertEqual(commands, {"features","models","predictions","results","sources","sourceplayers","injurynews","test"})
 
 
 if __name__ == "__main__":
