@@ -374,23 +374,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         from hybrid_engine.europe_native_roster_source import fetch_native
         # Opt-in only: a commercial provider must NEVER be queried merely
         # because a key exists. No provider key enters bot_data or reports.
+        # Security hold: do not instantiate RotoWire even if old private
+        # environment variables remain set. The official roster source
+        # and Telegram UI must continue to function without this provider.
         advisory_getter=None
-        injury_setup='OPT_IN_DISABLED'
-        if os.getenv('ZEYNAL_ROTOWIRE_ADVISORY_ENABLED')=='1':
-            if not os.getenv('ZEYNAL_ROTOWIRE_API_KEY'):
-                injury_setup='CREDENTIAL_MISSING'
-            else:
-                from hybrid_engine.europe_injury_advisory import AdvisoryClient
-                try:
-                    advisory_getter=AdvisoryClient(
-                        os.environ['ZEYNAL_ROTOWIRE_API_KEY'],enabled=True)
-                    injury_setup='CONFIGURED_UNVERIFIED'
-                except ValueError:
-                    # Never prevent Telegram startup, or expose provider credentials.
-                    logging.getLogger(__name__).warning('Optional European injury advisory key invalid; adapter disabled')
-                    injury_setup='CREDENTIAL_INVALID'
-        app.bot_data['europe_injury_advisory_setup_status']=injury_setup
-        app.bot_data['europe_injury_advisory_enabled']=advisory_getter is not None
+        app.bot_data['europe_injury_advisory_setup_status']='SECURITY_HOLD_ROTOWIRE'
+        app.bot_data['europe_injury_advisory_enabled']=False
         app.bot_data['europe_data_review']=EuropeanDataReview(europe_services,european_bridge,root/'europe-data',
             roster_store=app.bot_data['verified_roster_packets'],native_roster_getter=fetch_native,
             injury_advisory_getter=advisory_getter)
