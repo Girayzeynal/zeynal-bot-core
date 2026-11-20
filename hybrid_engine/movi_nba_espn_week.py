@@ -254,7 +254,7 @@ def main():
         for day, entry in result["day_summary"].items():
             if entry["espn"] == 0:
                 continue
-            print("\\n" + day + " (TSI) | ESPN MAC: " + str(entry["espn"]))
+            print("\n" + day + " (TSI) | ESPN MAC: " + str(entry["espn"]))
             for fixture in result["weekly_schedule_tsi"]:
                 if fixture["date_tsi"] != day:
                     continue
@@ -263,7 +263,7 @@ def main():
                 flag = (" | MOVI_SAAT_FARKI:" + str(delta) + "dk") if delta not in (None, 0) else ""
                 print(fixture["start_tsi"][11:], fixture["away"], "@", fixture["home"],
                       "[" + marker + "]" + flag)
-        print("\\nM+ = kayitli MoviOdds katalogunda; M- = kayitli katalogda bulunmuyor.")
+        print("\nM+ = kayitli MoviOdds katalogunda; M- = kayitli katalogda bulunmuyor.")
         print("Bu isaretler guncel oran var/yok anlami tasimaz.")
     else:
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
