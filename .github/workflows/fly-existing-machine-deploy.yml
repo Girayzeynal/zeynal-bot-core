@@ -44,7 +44,14 @@ jobs:
           git fetch origin main
           test "$(git rev-parse origin/main)" = "$ZEYNAL_RELEASE_COMMIT"
           if [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
-            test "$(git log -1 --format=%s)" = "ZEYNAL_PRODUCTION_RELEASE_20261119"
+            # A release is an explicit, dated merge commit, never an arbitrary
+            # successful main push. Keep exact SHA, branch, snapshot and
+            # machine/volume gates below unchanged.
+            subject="$(git log -1 --format=%s)"
+            if [[ ! "$subject" =~ ^ZEYNAL_PRODUCTION_RELEASE_[0-9]{8}$ ]]; then
+              echo "DEPLOY_INTENT_REQUIRED: release commit subject must be ZEYNAL_PRODUCTION_RELEASE_YYYYMMDD" >&2
+              exit 1
+            fi
           fi
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Verify exact app, machine and volume before changing anything
