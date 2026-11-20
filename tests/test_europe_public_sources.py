@@ -1,0 +1,121 @@
+"""Public EuroLeague editorial+club adapters, zero real network in CI.
+
+PTB integration uses the actual six-button callback handler and a synthetic
+Telegram HTTP Bot API double. This is NOT delivery to a real Telegram account.
+"""
+import hashlib
+import unittest
+from unittest.mock import patch
+
+from hybrid_engine.europe_injury_public_sources import (
+    PublicEuroInjuryNewsHub, probe,render,sources_for,request,VERSION)
+from tests.test_europe_roster_evidence_wiring import CTX,EuropeanRosterAdapterTests,TIME
+
+HTML=b"<html><head><title>EuroLeague Injury &amp; Roster</title></head><body>Report</body></html>"
+ROBOTS=b"User-agent: *\nAllow: /\n"
+
+
+def fake_http(url,*,mime,limit):
+    if url.endswith("/robots.txt"):
+        return dict(status="RECEIVED",body=ROBOTS)
+    return dict(status="RECEIVED",body=HTML)
+
+
+class SourceHubUnitTests(unittest.TestCase):
+    def test_three_editorial_adapters_and_exact_club_indexes(self):
+        rows=sources_for(CTX)
+        self.assertEqual([r["name"] for r in rows[:3]],
+                         ["BASKETBALL_SPHERE","EUROHOOPS","BASKETLOGY"])
+        self.assertGreaterEqual(len(rows),3)
+        self.assertLessEqual(len(rows),5)
+        self.assertEqual(len([r for r in rows if r["kind"]=="OFFICIAL_CLUB_INDEX"]),len(rows)-3)
+        self.assertEqual(sources_for(dict(CTX,league="EUROCUP")),[])
+
+    def test_robots_and_html_receipt_is_sha_bound_but_never_a_player_status(self):
+        spec=sources_for(CTX)[0]
+        calls=[]
+        def getter(url,**kwargs):
+            calls.append(url)
+            return fake_http(url,**kwargs)
+        row=probe(spec,requester=getter,now=TIME+60)
+        self.assertEqual(row["status"],"SOURCE_INDEX_OBSERVED_CANDIDATES_ONLY")
+        self.assertEqual(row["document_sha256"],hashlib.sha256(HTML).hexdigest())
+        self.assertEqual(row["title"],"EuroLeague Injury & Roster")
+        self.assertFalse(row["player_status_verified"])
+        self.assertFalse(row["model_input"])
+        self.assertFalse(row["source_publication_clock_verified"])
+        self.assertEqual(len(calls),2)
+
+    def test_403_or_429_or_robots_disallow_cannot_be_bypassed(self):
+        spec=sources_for(CTX)[0]
+        for outcome in ({"status":"SOURCE_HTTP_NOT_200","http_status":403},
+                        {"status":"SOURCE_RATE_LIMITED","http_status":429}):
+            calls=[]
+            def getter(url,**kwargs):
+                calls.append(url)
+                return outcome
+            r=probe(spec,requester=getter,now=TIME)
+            self.assertEqual(r["status"],"SOURCE_ROBOTS_UNAVAILABLE")
+            self.assertEqual(len(calls),1)
+        calls=[]
+        def denied(url,**kwargs):
+            calls.append(url)
+            if url.endswith("robots.txt"):
+                return dict(status="RECEIVED",body=b"User-agent: *\nDisallow: /\n")
+            raise AssertionError("ROBOTS_DISALLOW_MUST_NOT_FETCH_HTML")
+        self.assertEqual(probe(spec,requester=denied,now=TIME)["status"],"SOURCE_ROBOTS_DISALLOW")
+        self.assertEqual(len(calls),1)
+
+    def test_config_disabled_and_post_tipoff_make_zero_network_requests(self):
+        calls=[]
+        def getter(url,**kwargs):
+            calls.append(url)
+            return fake_http(url,**kwargs)
+        disabled=PublicEuroInjuryNewsHub(clock=lambda:TIME+10,requester=getter,enabled=False)
+        self.assertEqual(disabled.review(CTX)["status"],"PUBLIC_NEWS_HUB_DISABLED")
+        active=PublicEuroInjuryNewsHub(clock=lambda:CTX["fixture_start_utc"],requester=getter,enabled=True)
+        self.assertEqual(active.review(CTX)["status"],"POST_TIPOFF_NO_NEW_NEWS")
+        self.assertEqual(calls,[])
+
+    def test_live_optin_hub_uses_robots_and_cache_without_player_promotion(self):
+        calls=[]
+        def getter(url,**kwargs):
+            calls.append(url)
+            return fake_http(url,**kwargs)
+        hub=PublicEuroInjuryNewsHub(clock=lambda:TIME+60,requester=getter,enabled=True)
+        before=hub.public_status()
+        self.assertEqual(before["last_statuses"],[])
+        self.assertFalse(before["model_input"])
+        r=hub.review(CTX)
+        self.assertEqual(r["status"],"PUBLIC_NEWS_SOURCES_REVIEWED_CANDIDATES_ONLY")
+        self.assertEqual(r["verified_player_records"],[])
+        self.assertFalse(r["player_status_verified"])
+        self.assertFalse(r["model_input"])
+        self.assertTrue(all(x["status"]=="SOURCE_INDEX_OBSERVED_CANDIDATES_ONLY" for x in r["sources"]))
+        self.assertIn("X/kulüp sosyal medya",render(r))
+        count=len(calls)
+        self.assertEqual(hub.review(CTX),r)
+        self.assertEqual(len(calls),count)
+        self.assertEqual(len(hub.public_status()["last_statuses"]),len(r["sources"]))
+
+    def test_existing_roster_admission_remains_separate(self):
+        helper=EuropeanRosterAdapterTests("runTest")
+        helper.setUp()
+        try:
+            hub=PublicEuroInjuryNewsHub(clock=lambda:TIME+60,requester=fake_http,enabled=True)
+            reviewer=helper.reviewer({})
+            reviewer.public_news_hub=hub
+            with patch("hybrid_engine.europe_data.time.monotonic",return_value=100.0):
+                body,details=reviewer.roster(CTX)
+            self.assertIn("BASKETBALL_SPHERE",body)
+            self.assertIn("EUROHOOPS",body)
+            self.assertIn("BASKETLOGY",body)
+            self.assertEqual(details["verified_player_records"],[])
+            self.assertFalse(details["public_news_model_input"])
+            self.assertFalse(details["forecast_changed"])
+        finally:
+            helper.doCleanups()
+
+
+if __name__=="__main__":
+    unittest.main()
