@@ -149,7 +149,7 @@ def inspect_board(board: dict, now: datetime | None = None) -> dict:
     return results
 
 
-def classify_http_error(exc: HTTPError, key: str) -> str:
+def classify_http_error(exc: HTTPError) -> str:
     """Categorize a provider error without printing provider text or credentials."""
     if exc.code == 401:
         return "KEY_MISSING_OR_INVALID"
@@ -222,7 +222,7 @@ def main() -> None:
             result["network_calls"] = 1
         except HTTPError as exc:
             code = exc.code
-            category = classify_http_error(exc, os.environ["ZEYNAL_MOVIODDS_KEY"])
+            category = classify_http_error(exc)
             exc.close()
             result = {"status": "HTTP_ERROR", "http_status": code,
                       "error_category": category, "network_calls": 1}
