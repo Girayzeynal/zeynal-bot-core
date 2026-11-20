@@ -37,7 +37,7 @@ class SourceHubUnitTests(unittest.TestCase):
         <tr><td>Rolands Smits</td><td>Baskonia</td><td>Out</td></tr>
         <tr><td>Rolands Smits</td><td>Baskonia</td><td>Cleared</td></tr>
         <tr><td>Iffe Lundberg</td><td>Maccabi</td><td>Doubtful</td></tr></table>
-        <a href="/en/injury-update/">Injury update</a>
+        <a href="/en/injuries/euroleague/absences/">EuroLeague injury update</a>
         <a href="https://evil.example/injuries/">Injury report</a></html>"""
         def getter(url,**kwargs):
             if url.endswith("/robots.txt"):

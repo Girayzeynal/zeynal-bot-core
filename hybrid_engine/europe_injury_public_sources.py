@@ -91,6 +91,58 @@ def sources_for(ctx):
     return rows
 
 
+# Bind secondary-source names only to a known official team registry identity.
+# Never infer matches by city substring, player name, or edit distance.
+def _official_team_key(league, name):
+    from hybrid_engine.official_all_82_club_batch import load_all_82
+    key=name_key(name)
+    if not key or league not in ("EUROLEAGUE","EUROCUP"):
+        return None
+    matches={c["club_key"] for c in load_all_82()
+             if c["league"]==league and name_key(c["official_team_name"])==key}
+    if len(matches)==1:
+        return next(iter(matches))
+    if league=="EUROLEAGUE":
+        aliases=dict(KNOWN_ALIASES)
+        # Only curated aliases that unambiguously identify a club.
+        aliases.update({
+            "panathinaikos":"euroleague_panathinaikos_athens",
+            "zalgiris":"euroleague_zalgiris",
+            "fenerbahce":"euroleague_fenerbahce_istanbul",
+            "baskonia":"euroleague_baskonia_vitoria_gasteiz",
+        })
+        candidate=aliases.get(key)
+        known={c["club_key"] for c in load_all_82() if c["league"]==league}
+        return candidate if candidate in known else None
+    return None
+
+
+def _article_matches_index_competition(source_url, candidate_url):
+    """Reject generic injury categories and links to another competition.
+
+    A same-host URL is not sufficient proof of topic relevance.
+    """
+    parent=urlsplit(source_url)
+    child=urlsplit(candidate_url)
+    path=child.path.lower().rstrip("/")+"/"
+    host=parent.hostname or ""
+    # A global category portal is not a specific report; do not follow
+    # another competition's injury pages regardless of which source linked it.
+    if (path in ("/en/injuries/","/injuries/","/en/injury/",
+                 "/en/injuries/nba/","/en/injuries/eurocup/") or
+        any(route in path for route in ("/nba/","/injuries/nba/",
+                                        "/injuries/eurocup/"))):
+        return False
+    if "basketballsphere.com" in host:
+        return (path.startswith("/en/injuries/euroleague/") and
+                path!="/en/injuries/euroleague/")
+    if "eurohoops.net" in host:
+        return not any(x in path for x in ("/nba/","/eurocup/","/bcl/"))
+    if "basketlogy.com" in host:
+        return not any(x in path for x in ("/nba/","/eurocup/"))
+    return True
+
+
 def _safe_url(value):
     u=urlsplit(value)
     return (u.scheme=="https" and bool(u.hostname) and u.username is None and
@@ -193,7 +245,8 @@ def _page_candidates(body,source_url):
         href=urljoin(source_url,raw_href)
         parsed=urlsplit(href)
         if (parsed.scheme!="https" or parsed.hostname!=root.hostname or
-            parsed.query or parsed.fragment or not parsed.path.startswith("/")):
+            parsed.query or parsed.fragment or not parsed.path.startswith("/") or
+            not _article_matches_index_competition(source_url,href)):
             continue
         if href not in seen and href!=source_url:
             seen.add(href)
@@ -305,6 +358,9 @@ class PublicEuroInjuryNewsHub:
                                          kind=spec["kind"],status="SOURCE_TIMEOUT_OR_INVALID",
                                          player_status_verified=False,model_input=False))
             report=dict(status="PUBLIC_NEWS_SOURCES_REVIEWED_CANDIDATES_ONLY",
+                        league=ctx["league"],
+                        selected_team_keys=[x["name"] for x in specs
+                                            if x["kind"]=="OFFICIAL_CLUB_INDEX"],
                         sources=rows,observed_at_utc=when,
                         player_status_verified=False,verified_player_records=[],
                         lineup_verified=False,rotation_minutes_verified=False,
@@ -346,7 +402,8 @@ def review_current_team_news(league,home_name,away_name,*,requester=request,now=
                                  player_status_verified=False,model_input=False))
     return dict(status="CURRENT_TEAM_NEWS_NOT_FIXTURE_VERIFIED",
                 source_checked_at_utc=when,league=league,
-                official_club_matches=matches,sources=rows,
+                official_club_matches=matches,selected_team_keys=matches,
+                sources=rows,
                 fixture_id=None,player_status_verified=False,
                 verified_player_records=[],model_input=False,
                 production_score_modified=False,
@@ -355,6 +412,9 @@ def review_current_team_news(league,home_name,away_name,*,requester=request,now=
 
 def render(report):
     lines=["KAMUYA AÇIK KADRO / SAKATLIK HABER KAYNAKLARI (GÖZLEM)"]
+    scoped="selected_team_keys" in report
+    relevant=set(report.get("selected_team_keys") or ())
+    league=report.get("league")
     for r in report.get("sources",[]):
         line=(r["source"]+" / "+r["status"]+
               (" HTTP "+str(r["http_status"]) if r.get("http_status") else ""))
@@ -365,10 +425,19 @@ def render(report):
             lines.append("UYARI: Sayfanın yalnız ilk 256 KB bölümü okundu; eksik bilgiler sağlıklı/uygun kadro kanıtı DEĞİLDİR.")
         # Only short, explicitly UNVERIFIED secondary player hints. Never
         # attribute these to the requested fixture or infer healthy status.
-        for candidate in r.get("unverified_player_candidates",[])[:2]:
-            lines.append("GENEL LİG ADAYI / MAÇ DOĞRULANMADI: "+
+        candidates=r.get("unverified_player_candidates",[])
+        visible=([c for c in candidates
+                  if _official_team_key(league,c.get("team_text")) in relevant]
+                 if scoped else candidates)
+        omitted=len(candidates)-len(visible)
+        for candidate in visible[:2]:
+            lines.append(("İLGİLİ KULÜP HABER ADAYI" if scoped else
+                          "GENEL LİG ADAYI")+" / MAÇ DOĞRULANMADI: "+
                          candidate["player_text"]+" · "+candidate["team_text"]+
                          " · "+candidate["source_reported_status"])
+        if omitted:
+            lines.append(str(omitted)+
+                         " farklı kulübe ait aday bu maç panelinden çıkarıldı.")
         for link in r.get("unverified_injury_article_links",[])[:2]:
             lines.append("Haber bağlantı adayı: "+link["url"])
         for article in r.get("inspected_articles",[]):
@@ -378,6 +447,12 @@ def render(report):
                 lines.append("Kaynak yayın UTC: "+str(article["source_published_at_utc"]))
             else:
                 lines.append("Makale yayın saati doğrulanmadı.")
+            # Only club-owned story text has a club association. Editorial
+            # article text without team binding cannot become a matchup hint.
+            if scoped and r.get("kind")!="OFFICIAL_CLUB_INDEX":
+                if article.get("unverified_player_candidates"):
+                    lines.append("Editoryal makale oyuncuları maça/kulübe bağlanamadı; gösterilmedi.")
+                continue
             for candidate in article.get("unverified_player_candidates",[])[:4]:
                 lines.append("HABER METNİNDE OYNAMAYACAK ADAYI / MAÇ DOĞRULANMADI: "+
                              candidate["player_name_text"]+" · "+candidate["source_reported_status"])
