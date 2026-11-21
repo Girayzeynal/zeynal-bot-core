@@ -157,7 +157,7 @@ class ThreeLeagueRosterBridgeTests(unittest.TestCase):
 
     def test_absent_registered_player_never_infers_playing_or_minutes(self):
         fix,h,a,status,minutes,fit=complete()
-        minutes['home']['unknown']=minutes['home'].pop('p1')
+        minutes['home']['unknown']=minutes['home'].pop('h1')
         out=fixture_gate(fixture=fix,home_roster=h,away_roster=a,
                         availability=status,exposures=minutes,fit=fit)
         self.assertIn('BLOCKED_UNKNOWN_PLAYER_ID',out['status'])
