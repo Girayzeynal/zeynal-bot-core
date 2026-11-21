@@ -63,7 +63,8 @@ def describe(state, root, *, now=None):
                        code_loaded=worker is not None,
                        actual_research_collection_attempt=attempted,
                        last_status=input_status,
-                       reason=player_inputs.get("reason"),
+                       reason=progress.get("player_input_reason") or player_inputs.get("reason"),
+                       source_attempt_completed_at_utc=progress.get("player_input_completed_at_utc"),
                        valid_prospective_packet_confirmed=input_status in
                         ("PROSPECTIVE_MINUTES_ARCHIVED","EXISTING_MINUTES_REPLAY")),
                    player_shadow=dict(code_importable=True,
