@@ -215,10 +215,15 @@ class AdaptiveWorker:
                         index_origin=None
                     original_denial=diag.get('index_failure')
                     original_denial=original_denial if isinstance(original_denial,dict) else {}
+                    alternate_denial=diag.get('alternate_index_failure')
+                    alternate_denial=alternate_denial if isinstance(alternate_denial,dict) else {}
+                    alternate_http=alternate_denial.get('http_status')
                     self.progress['player_input_corroboration']=dict(
                         official_code=source_code,
                         official_discovery_mode=index_origin,
                         legacy_index_denied_403=original_denial.get('http_status')==403,
+                        nba_com_alternate_index_http_status=(alternate_http if
+                            type(alternate_http) is int and 100<=alternate_http<=599 else None),
                         missing_absence_count=count if type(count) is int and 0<=count<=100 else None,
                         examples=summaries,
                         official_stage=diag.get('official_stage') if diag.get('official_stage') in
