@@ -65,6 +65,7 @@ def describe(state, root, *, now=None):
                        last_status=input_status,
                        reason=progress.get("player_input_reason") or player_inputs.get("reason"),
                        source_attempt_completed_at_utc=progress.get("player_input_completed_at_utc"),
+                       absence_source_corroboration=progress.get("player_input_corroboration"),
                        valid_prospective_packet_confirmed=input_status in
                         ("PROSPECTIVE_MINUTES_ARCHIVED","EXISTING_MINUTES_REPLAY")),
                    player_shadow=dict(code_importable=True,
