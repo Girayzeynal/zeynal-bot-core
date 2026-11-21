@@ -64,7 +64,14 @@ class FirstPlayerEvidenceOrderTests(IsolatedAsyncioTestCase):
             self.assertEqual(worker.progress["phase"],"PREGAME_PLAYER_MINUTES_SOURCE")
             self.assertEqual(worker.progress["player_input_status"],"RUNNING")
             return dict(fixture_id="f",status="BLOCKED",
-                        reason="SYNTHETIC_CURRENT_LINEUP_NOT_ATTESTED")
+                        reason="ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS",
+                        roster_diagnostics=dict(
+                            missing_absence_count=1,
+                            missing_absence_corroboration=[dict(
+                                team="TestHome",player_id="100",player="Test Player",
+                                missing_sources=["NBA_OFFICIAL_PDF"])],
+                            official_stage="INDEX_FETCH",official_http_status=429,
+                            latest_report_verified=False,official_fixture_rows=0))
         with patch("hybrid_engine.adaptive_worker.collect_player_inputs",side_effect=minutes):
             report=await worker.tick()
         self.assertEqual(actions,["minutes","admit","refresh","fit"])
@@ -75,6 +82,14 @@ class FirstPlayerEvidenceOrderTests(IsolatedAsyncioTestCase):
         self.assertEqual(worker.progress["admission_skipped_after_cutoff"],0)
         self.assertEqual(report["player_inputs"]["status"],"BLOCKED")
         self.assertEqual(worker.progress["player_input_status"],"BLOCKED")
+        self.assertEqual(worker.progress["player_input_reason"],
+                         "ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS")
+        diag=worker.progress["player_input_corroboration"]
+        self.assertEqual(diag["missing_absence_count"],1)
+        self.assertEqual(diag["examples"],[dict(
+            team="TestHome",player_id="100",missing_sources=["NBA_OFFICIAL_PDF"])])
+        self.assertEqual(diag["official_http_status"],429)
+        self.assertNotIn("Test Player",str(diag))
         self.assertEqual(worker.progress["phase"],"COMPLETED")
         self.assertTrue(report["original_predictions_changed"] is False)
         self.assertTrue(report["production_changed"] is False)
