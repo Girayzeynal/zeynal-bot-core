@@ -244,7 +244,7 @@ class RuleBindingTests(TestCase):
 
 
 class CycleTests(IsolatedAsyncioTestCase):
-    async def test_v3_before_v2_and_one_failure_does_not_starve_other_stages(self):
+    async def test_player_input_v2_before_slow_v3_one_failure_does_not_starve_stages(self):
         order=[]
         def v3():order.append('v3');raise ValueError('DYNAMIC_RECENT_TEAM_HISTORY_REQUIRED')
         async def v2():order.append('v2');return dict(status='CHECKED')
@@ -252,7 +252,7 @@ class CycleTests(IsolatedAsyncioTestCase):
         worker=SimpleNamespace(tick=v2);study=SimpleNamespace(tick=v3,last_report=None)
         cycle=ResearchCycle(worker,study,SimpleNamespace(tick=current));app=SimpleNamespace(bot_data={})
         await cycle.once(app)
-        self.assertEqual(order,['v3','v2','current']);self.assertIn('FAILED',cycle.render())
+        self.assertEqual(order,['v2','v3','current']);self.assertIn('FAILED',cycle.render())
         self.assertIn('DYNAMIC_RECENT_TEAM_HISTORY_REQUIRED',cycle.render())
         self.assertEqual(app.bot_data['last_current_assessment_poll']['status'],'CHECKED')
 
