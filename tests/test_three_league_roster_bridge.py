@@ -5,8 +5,11 @@ import time
 import unittest
 
 from hybrid_engine.three_league_roster_bridge import (
-    LEAGUES, snapshot, verify, compare, europe_pair, fixture_gate, readiness
+    LEAGUES, snapshot, verify, compare, europe_pair, fixture_gate, readiness,
+    existing_nba_minutes_candidate
 )
+from unittest.mock import patch
+from hybrid_engine.data import Abstain
 
 NOW=int(time.time())-120
 SOURCE='a'*64
@@ -194,6 +197,37 @@ class ThreeLeagueRosterBridgeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'ROSTER_FIXTURE'):
             fixture_gate(fixture=fix,home_roster=h,away_roster=reg('NBA','wrong'),
                          availability=status,exposures=minutes,fit=fit)
+
+    def test_existing_nba_player_minutes_source_is_reused_without_refitting(self):
+        ctx=dict(league='NBA',season='2026/2027',fixture_id='nba-future',
+                 fixture_start_utc=NOW+3000,
+                 home=dict(provider_id='1610612738'),
+                 away=dict(provider_id='1610612743'))
+        fake=dict(payload={'fixture_id':'nba-future'},sha256='a'*64)
+        accepted=dict(fixture_id='nba-future',
+                      source_available_max_utc=NOW,
+                      home=[dict(player_id='h1')],away=[dict(player_id='a1')])
+        with patch('hybrid_engine.player_minutes.projection',return_value=fake) as make, \
+             patch('hybrid_engine.player_minutes.validate_minutes',return_value=accepted) as validate:
+            out=existing_nba_minutes_candidate(ctx,{}, {},[],generated_at_utc=NOW+1)
+        self.assertEqual(out['status'],'VALIDATED_PROSPECTIVE_NBA_MINUTES_RESEARCH_ONLY')
+        self.assertEqual(out['minutes_projection'],fake)
+        self.assertFalse(out['model_fit_completed'])
+        self.assertFalse(out['scoring_engine_connected'])
+        self.assertEqual(validate.call_args.kwargs['fixture']['home_team_id'],'1610612738')
+        make.assert_called_once()
+
+    def test_existing_nba_projection_abstain_is_not_silent_healthy_roster(self):
+        ctx=dict(league='NBA')
+        with patch('hybrid_engine.player_minutes.projection',
+                   side_effect=Abstain('FRESH_COMPLETE_TEAM_DIRECTORY_REQUIRED')):
+            out=existing_nba_minutes_candidate(ctx,{}, {},[],generated_at_utc=NOW+1)
+        self.assertEqual(out['status'],'BLOCKED_ACTUAL_PREGAME_PLAYER_INPUTS')
+        self.assertIsNone(out['minutes_projection'])
+        self.assertFalse(out['production_changed'])
+        with self.assertRaisesRegex(ValueError,'NBA_ONLY'):
+            existing_nba_minutes_candidate(dict(league='EUROCUP'),{}, {},[],
+                                           generated_at_utc=NOW+1)
 
     def test_production_coverage_is_not_claimed(self):
         r=readiness()
