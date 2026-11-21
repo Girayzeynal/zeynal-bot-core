@@ -135,7 +135,7 @@ class ThreeLeagueRosterBridgeTests(unittest.TestCase):
     def test_unverified_effect_artifact_blocks_all_three(self):
         for league in LEAGUES:
             with self.subTest(league=league):
-                fix=game(league);h=reg(league,'H');a=reg(league,'A')
+                fix=game(league);h=reg(league,'H',players=tuple('h'+str(i) for i in range(1,7)));a=reg(league,'A',players=tuple('a'+str(i) for i in range(1,7)))
                 out=fixture_gate(fixture=fix,home_roster=h,away_roster=a,
                                  availability=None,exposures=None,fit=None)
                 self.assertEqual(out['status'],'BLOCKED_PLAYER_STATUS_MINUTES_OR_FIT_MISSING')
