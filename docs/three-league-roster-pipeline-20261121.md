@@ -154,3 +154,23 @@ Operational restart uses existing isolated `scripts/run_isolated_test_bot.sh` wh
 ### Source-first vs player Bayes dependency (post-review correction)
 
 During the initial long V2 research tick, verify native NBA **player minute evidence first**, before expensive fixture refresh/box acquisition. **Do not create player Bayes shadow immediately**: a newly fitted time-valid adaptive model may only become available after the native history, box cohort and fit steps. That separate player shadow capture is deliberately deferred until **after** model fitting in the same serial tick; original previous first forecasts remain frozen. The live runtime diagnostic records the phase and whether the minute probe was actually attempted even before a final V2 report exists. On user device, a 57-second RUNNING report from the *old* SHA does not establish a deadlock; the new SHA must be tested separately.
+
+## 22 Nov 2026 — real Telegram source/plan abstentions and immutable protocol migration
+
+Actual /test engines and /test research output on the isolated phone process:
+- V2 stage COMPLETED but V2 reported ABSTAIN, ADAPTIVE_PLAN_SOURCE_OR_ARCHIVE_UNAVAILABLE, player_minutes NO_ATTEMPT_OBSERVED; no native cohort group reached
+- player_shadow witness checked: BLOCKED_NO_PROSPECTIVE_PLAYER_MINUTES; genuinely eligible minute archives 0, trained player artifacts 0
+- V3 issue90 FAILED: ISSUE90_PLAN_CHANGED_REQUIRES_NEW_STUDY
+- Current assessments FAILED: CURRENT_ASSESSMENT_POLICY_CHANGED_NEW_STUDY_REQUIRED
+- Main score no current player/coach numeric coefficients, no old first forecast modified
+
+V3 and current-plan failures result directly from immutable plan policy and model source SHA checks. V2 has a generic error; its exact cause is NOT yet proven and will be recorded from the next source attempt. These errors must NOT be fixed by altering signed prior plans, deleting archives, or bypassing SHA gates.
+
+Correction on the isolated research branch: hybrid_engine/research_protocol_namespace.py derives exact policy plus source-pinned workspaces for V2, V3 and Current. V2 retains its old adaptive-v2/inputs sources while using a fresh version-specific research protocol; V3 and current each use separate versioned root. Old roots and prior original first predictions are untouched. Current assessment code SHA is included explicitly. /test engines reports only protocol IDs (not local paths) and V2's safe error code, error type and exact failed phase. Three new synthetic namespace tests verify no old-byte changes and all three modules can write new plans separately.
+
+IMPORTANT: a new directory is not real athlete eligibility data and does not validate scoring accuracy. Prospectively sourced NBA minutes, full team current roster/injury, pretipoff independent player effects and all Euro player dynamics remain unverified. No production Fly deployment on this research PR.
+
+UserLAnd phone after current CI is checked: stop existing isolated Telegram bot with Ctrl+C and run:
+    cd ~/zeynal-3lig-test && bash scripts/run_isolated_test_bot.sh
+Telegram: /test engines, /test research, /test integrations
+Inspect actual V2 last_failure_code / last_failure_phase, player_minutes.last_status, and V3 and current stage states. Never claim model activation from installed code alone.
