@@ -17,7 +17,10 @@ def receipt():
                 quote_sha256="f"*64,observed_at_utc=100,
                 age_at_prediction_seconds=100,
                 freshness_status="FRESH_AT_PREDICTION",
-                settlement_scope="UNKNOWN")
+                settlement_scope="UNKNOWN",
+                native_observation=dict(payload=dict(
+                    decimal_over_or_home_cover=1.91,
+                    decimal_under_or_away_cover=1.91)))
 
 
 def example():
@@ -198,6 +201,23 @@ class DirectionEvidenceTests(TestCase):
         self.assertEqual(out["simulated_direction_differs_from_original_mean_count"],1)
         self.assertEqual(out["descriptive_regulation_direction_agreement"],0.0)
         self.assertFalse(out["published_direction_proven"])
+
+    def test_shadow_qmc_and_timestamped_market_probabilities_scored_on_same_side(self):
+        row=dict(fixture_id="example",provider_fixture_ids=["1"],
+                 frozen_qmc_evidence=dict(
+                    raw_more_likely_side="ALT",
+                    research_regulation_only_side="UST",
+                    original_mean_side="ALT",line=230.5,
+                    raw_under_probability=.75,raw_over_probability=.25,
+                    model_conditional_over_probability=.25,
+                    market_no_vig_over_probability=.5))
+        result=frozen_qmc_report([row])
+        scores=result["paired_raw_probability_vs_market_price"]
+        self.assertEqual(scores["n"],1)
+        self.assertAlmostEqual(scores["original_qmc_conditional_on_no_push"]["brier"],.75**2)
+        self.assertAlmostEqual(scores["timestamped_bookmaker_no_vig_reference"]["brier"],.5**2)
+        self.assertEqual(scores["realized_regulation_over_frequency"],1.0)
+        self.assertFalse(result["published_direction_proven"])
 
     def test_quality_pin_and_bad_quote_rejected(self):
         _, report=example()
