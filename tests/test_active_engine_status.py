@@ -59,6 +59,40 @@ class EngineActivationTests(TestCase):
         self.assertFalse(x["scoring"]["main_model_uses_verified_player_minutes"])
         self.assertFalse(x["scoring"]["main_model_automatically_selects_adaptive_model"])
 
+
+    def test_running_phase_and_real_minutes_are_visible_before_adaptive_model_finishes(self):
+        worker=SimpleNamespace(sequence=1,progress=dict(
+            phase="PREGAME_PLAYER_MINUTES_SOURCE",phase_at_utc=1790000990,
+            started_at_utc=1790000980,player_input_status="RUNNING",
+            source_scope=None,fixture_id="original-future"),last_report=None)
+        cycle=SimpleNamespace(stages={"adaptive_v2":{"status":"RUNNING"}})
+        with patch("hybrid_engine.player_shadow.readiness",
+                   return_value=dict(status="BLOCKED_NO_PROSPECTIVE_PLAYER_MINUTES",
+                                     prospective_minutes_games=0,prepared_artifacts=0)):
+            x=describe(dict(adaptive_v2_worker=worker,research_cycle=cycle),
+                       "/tmp/isolated",now=1790001000)
+        self.assertTrue(x["modes"]["player_minutes"]["actual_research_collection_attempt"])
+        self.assertEqual(x["modes"]["player_minutes"]["last_status"],"RUNNING")
+        self.assertFalse(x["modes"]["player_minutes"]["valid_prospective_packet_confirmed"])
+        self.assertEqual(x["modes"]["adaptive_models"]["live_phase"],"PREGAME_PLAYER_MINUTES_SOURCE")
+        self.assertEqual(x["modes"]["adaptive_models"]["live_phase_elapsed_seconds"],10)
+        self.assertFalse(x["scoring"]["main_model_uses_verified_player_minutes"])
+
+    def test_live_phase_reports_blocker_before_adaptive_fit_finishes(self):
+        worker=SimpleNamespace(sequence=1,progress=dict(
+            phase="FETCH_MISSING_NATIVE_BOXSCORES",phase_at_utc=1790000970,
+            started_at_utc=1790000950,player_input_status="BLOCKED",
+            source_scope="NBA",fixture_id="original-future"),last_report=None)
+        with patch("hybrid_engine.player_shadow.readiness",
+                   return_value=dict(status="BLOCKED_NO_PROSPECTIVE_PLAYER_MINUTES",
+                                     prospective_minutes_games=0,prepared_artifacts=0)):
+            x=describe(dict(adaptive_v2_worker=worker),"/tmp/isolated",now=1790001000)
+        self.assertEqual(x["modes"]["player_minutes"]["last_status"],"BLOCKED")
+        self.assertEqual(x["modes"]["adaptive_models"]["live_phase_source_scope"],"NBA")
+        self.assertEqual(x["modes"]["adaptive_models"]["live_phase_elapsed_seconds"],30)
+        self.assertEqual(x["modes"]["adaptive_models"]["latest_status"],
+                         "NO_ADAPTIVE_RESEARCH_REPORT_OBSERVED")
+
     def test_negative_clock_or_invalid_state_rejected(self):
         with self.assertRaisesRegex(ValueError,"POSITIVE_CLOCK"):
             describe({},None,now=0)
