@@ -41,7 +41,7 @@ def complete():
         observed_at_utc=NOW+2,scope='PREGAME_NOT_BACKFILLED',
         home={f'h{i}':48.0 for i in range(1,6)},
         away={f'a{i}':48.0 for i in range(1,6)})
-    fit=dict(status='VERIFIED_HISTORICAL_PREFIT_EXPOSURE_MODEL',
+    fit=dict(status='DECLARED_HISTORICAL_PREFIT_EXPOSURE_MODEL',
         trained_until_utc=NOW-100,training_includes_target=False,
         source_attestation='INDEPENDENT_VERIFICATION_PENDING')
     return fixture,h,a,availability,exposures,fit
@@ -63,7 +63,8 @@ class ThreeLeagueRosterBridgeTests(unittest.TestCase):
         self.assertEqual(d['newly_registered_player_ids'],['new'])
         self.assertEqual(d['no_longer_registered_player_ids'],['p6'])
         self.assertFalse(d['confirms_transfer_contract'])
-        self.assertTrue(d['can_automatically_update_observed_roster'])
+        self.assertFalse(d['can_automatically_update_observed_roster'])
+        self.assertTrue(d['can_append_to_isolated_research_registry'])
         self.assertFalse(d['changes_forecast'])
 
     def test_only_a_news_story_does_not_update_roster(self):
