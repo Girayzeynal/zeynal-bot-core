@@ -21,24 +21,64 @@ VERSION="NBA_SYNTHETIC_PLAYER_EFFECT_SMOKE_V1"
 
 
 def execute():
-    # Real production implementations; tests only supply MANUFACTURED inputs.
-    from tests.test_player_shadow import PlayerShadowTests, case_for
+    # Training inputs and outcome labels are entirely manufactured. Introduce
+    # a deterministic exposure/score relationship (rather than declaring
+    # arbitrary player coefficients) to test whether the *actual* posterior
+    # responds to a withheld player when rotation minutes are reallocated.
+    from dataclasses import replace
+    from tests.test_player_shadow import case_for
+    from tests.test_hybrid_models import synthetic_cohort
+    from tests.test_player_minutes import archive_inputs
+    from hybrid_engine.data import feature_cut
     from hybrid_engine.player_minutes import projection
-    from hybrid_engine.player_shadow import PreparedPlayerPair
-    cls=PlayerShadowTests
-    cls.setUpClass()
-    try:
-        with patch("time.time",return_value=cls.now):
-            model=PreparedPlayerPair(cls.artifact,trusted_sha256=cls.artifact["sha256"])
-            cut=cls().target()
-            data=case_for(cls.cohort[70][0])
+    from hybrid_engine.player_shadow import fit_pair, PreparedPlayerPair
+
+    cohort=synthetic_cohort(80)
+    for versions in cohort:
+        for row in versions:
+            for side in ("home","away"):
+                row[side+"_team_id"]="1" if row[side+"_team_id"]=="A" else "2"
+    # 40 synthetic completed games, 14 deliberately without a focal player.
+    # Only in this synthetic universe does that correlate with 12 fewer
+    # scored points, so the Bayesian fit has a testable injected signal.
+    synthetic_absent_training_games=0
+    with TemporaryDirectory() as directory:
+        publications=[]
+        for i,versions in enumerate(cohort[:40]):
+            row=versions[0]
+            data=case_for(row)
+            if i%3==0:
+                synthetic_absent_training_games+=1
+                side="home" if row["home_team_id"]=="1" else "away"
+                player=data["rosters"][side]["players"][0]
+                data["review"]["records"]=[
+                    dict(team_id="1",player_id=player,status="Out",source=src,
+                         status_updated_at_utc=row["fixture_start_utc"]-1810)
+                    for src in ("ESPN","NBA_OFFICIAL_PDF")]
+                # Inject outcome signal into synthetic labels only, AFTER the
+                # pregame source fixture was constructed. No real outcomes.
+                row["periods"][side]=[v-3 for v in row["periods"][side]]
+                row["final_scores"][0 if side=="home" else 1]=sum(row["periods"][side])
+                row["box"]["teams"][side]["points"]=sum(row["periods"][side])
+            with patch("time.time",return_value=row["fixture_start_utc"]-1800):
+                publications.append(archive_inputs(directory,data))
+        target=cohort[71][0]  # team '1' is HOME, unlike row 70.
+        now=target["fixture_start_utc"]-1800
+        cutoff=cohort[50][0]["fixture_start_utc"]
+        with patch("time.time",return_value=now):
+            artifact,audit=fit_pair(cohort,publications,directory,
+                                    cutoff_utc=cutoff,minimum_games=30)
+            if artifact is None:raise ValueError("SMOKE_SYNTHETIC_TRAINING_NOT_PREPARED")
+            model=PreparedPlayerPair(artifact,trusted_sha256=artifact["sha256"])
+            cut=replace(feature_cut(cohort,target),cutoff_utc=now)
+            data=case_for(target)
             no_injury=projection(**data)
             injured=deepcopy(data)
             home=injured["context"]["home"]["provider_id"]
             missing=injured["rosters"]["home"]["players"][0]
             injured["review"]["records"]=[
                 dict(team_id=home,player_id=missing,status="Out",
-                     source=src,status_updated_at_utc=cls.now-10)
+                     source=src,status_updated_at_utc=now-10)
                 for src in ("ESPN","NBA_OFFICIAL_PDF")]
             out_projection=projection(**injured)
             team_control=model.predict(cut,no_injury)
@@ -53,10 +93,10 @@ def execute():
             raise ValueError("SMOKE_MISSING_PLAYER_NOT_EXCLUDED")
         if not any(out_m[p]>base_m[p] for p in out_m if p!=missing):
             raise ValueError("SMOKE_REPLACEMENTS_NOT_ALLOCATED")
-        for v in (team_control,out_forecast):
-            for f in v.values():
-                if not math.isfinite(float(f.scores.sum())) or abs(
-                        float(f.quarter_means.sum()-f.scores.sum()))>1e-6:
+        for forecasts in (team_control,out_forecast):
+            for value in forecasts.values():
+                if not math.isfinite(float(value.scores.sum())) or abs(
+                        float(value.quarter_means.sum()-value.scores.sum()))>1e-6:
                     raise ValueError("SMOKE_SCORE_QMC_OR_QUARTERS_INCOHERENT")
         control_before=team_control["TEAM_BAYES"].scores.tolist()
         control_after=out_forecast["TEAM_BAYES"].scores.tolist()
@@ -78,8 +118,10 @@ def execute():
             production_enabled=False,original_forecasts_changed=False,
             original_archive_accessed=False,network_requests_made=0,
             training_in_telegram=False,
-            synthetic_fit_games=cls.audit["eligible_games"],
-            synthetic_training_audit=cls.audit["status"],
+            synthetic_fit_games=audit["eligible_games"],
+            synthetic_absent_training_games=synthetic_absent_training_games,
+            injected_synthetic_absence_score_change=-12,
+            synthetic_training_audit=audit["status"],
             fitted_player_coefficients=len(model.candidate.players),
             simulated_injury=dict(side="home",player_id=missing,
                 fake_ESPN_status="Out",fake_NBA_OFFICIAL_PDF_status="Out"),
@@ -105,8 +147,6 @@ def execute():
         if not response["score_sensitivity_observed"]:
             response["status"]="SYNTHETIC_MINUTES_PASSED_SCORE_SENSITIVITY_NOT_IDENTIFIED"
         return response
-    finally:
-        cls.doClassCleanups()
 
 
 def main():
