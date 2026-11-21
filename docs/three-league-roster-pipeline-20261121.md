@@ -51,3 +51,16 @@ The club codes here are optional source-test example parameters; the code does n
 6. Forward-only evidence on true market lines and final results, regression tests and explicit deployment approval.
 
 **New bridge and observation store do NOT mean full production model integration.** When a claim is unverified, it blocks rather than fabricates numeric impact.
+
+
+## Reuse discovered working modules, do NOT rebuild them
+
+Additional source audit found already implemented but not production-promoted modules:
+
+- hybrid_engine/player_minutes.py, player_inputs.py: native NBA source/roster + six prior box games + corroborated OUT status -> exact prospective, SHA-pinned PLAYER_MINUTES_PROJECTION_V1; output is a *projected prior*, not confirmed playing time.
+- hybrid_engine/player_shadow.py: separate own-team scoring regression using prospective minute projections, a frozen team control and player Bayes candidate. Not used by existing production Bayes and fit is blocked when no genuine prospective minute archive. This module has its own >=100 record research policy, not a validation of predictive edge nor a reason to wait instead of fixing data flow.
+- hybrid_engine/adaptive_models.py / adaptive_research.py: separate pace-efficiency and team strength variants across leagues; no trained player effects for EuroLeague or EuroCup. These are research-only and not a trained unified ensemble.
+
+The bridge now exposes existing_nba_minutes_candidate(): a direct call to player_minutes.projection followed by validate_minutes, returning the original canonical output packet untouched if real game-specific inputs pass. Any missing roster/availability/historical boxes aborts with specific BLOCKED status. This is the actual code-level reuse contract; it does not fit a player model or publish a Telegram forecast. Europe still requires independent league-appropriate player minutes and 40-minute model fitting; no NBA parameters are copied.
+
+GitHub Actions initial full test run #44931798031 showed 1999 passed / two synthetic regression failures: a stale example player ID and a duplicate synthetic player assigned to both sides. Both test data problems were corrected on the same isolated branch and rerun; do not report the later full CI as successful until its completed conclusion is observed.
