@@ -266,10 +266,11 @@ def existing_nba_minutes_candidate(context,review,rosters,boxes,*,generated_at_u
     try:
         wrapped=projection(context,review,rosters,boxes,
                            generated_at_utc=generated_at_utc)
-        p=validate_minutes(wrapped,asof_utc=generated_at_utc,
-                           fixture={k:context[k] for k in
-                             ("league","season","fixture_id","fixture_start_utc",
-                              "home_team_id","away_team_id")})
+        expected={k:context[k] for k in
+                  ("league","season","fixture_id","fixture_start_utc")}
+        expected.update(home_team_id=context["home"]["provider_id"],
+                        away_team_id=context["away"]["provider_id"])
+        p=validate_minutes(wrapped,asof_utc=generated_at_utc,fixture=expected)
     except Abstain as exc:
         return dict(status="BLOCKED_ACTUAL_PREGAME_PLAYER_INPUTS",
                     reason=str(exc),minutes_projection=None,
