@@ -209,8 +209,16 @@ class AdaptiveWorker:
                     if not (isinstance(source_code,str) and 4<=len(source_code)<=110 and
                             all(ch in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789' for ch in source_code)):
                         source_code=None
+                    index_origin=diag.get('official_discovery_mode')
+                    if index_origin not in ('LIVE_OFFICIAL_INDEX',
+                            'LIVE_NBA_COM_OFFICIAL_INDEX','EXPLICIT_OFFICIAL_CDN_LINK'):
+                        index_origin=None
+                    original_denial=diag.get('index_failure')
+                    original_denial=original_denial if isinstance(original_denial,dict) else {}
                     self.progress['player_input_corroboration']=dict(
                         official_code=source_code,
+                        official_discovery_mode=index_origin,
+                        legacy_index_denied_403=original_denial.get('http_status')==403,
                         missing_absence_count=count if type(count) is int and 0<=count<=100 else None,
                         examples=summaries,
                         official_stage=diag.get('official_stage') if diag.get('official_stage') in
