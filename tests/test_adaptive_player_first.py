@@ -11,6 +11,25 @@ from hybrid_engine.adaptive_worker import AdaptiveWorker
 
 
 class FirstPlayerEvidenceOrderTests(IsolatedAsyncioTestCase):
+
+    async def test_empty_three_league_original_scan_shows_exact_counts_not_fake_minute_attempt(self):
+        worker=object.__new__(AdaptiveWorker)
+        worker.progress=dict(phase="NOT_STARTED")
+        worker.nba=SimpleNamespace(ledger=SimpleNamespace(path="/tmp/synthetic-read-only"))
+        worker.europe={
+            "EUROLEAGUE":SimpleNamespace(registry=SimpleNamespace(independent_records=lambda:[])),
+            "EUROCUP":SimpleNamespace(registry=SimpleNamespace(independent_records=lambda:[])),
+        }
+        worker.seen=set()
+        with patch("hybrid_engine.adaptive_worker.read_confirmed",return_value=[]):
+            matches=await __import__("asyncio").to_thread(worker.cases)
+        self.assertEqual(matches,[])
+        self.assertEqual(worker.progress["phase"],"ORIGINAL_SCAN_COMPLETE")
+        self.assertEqual(worker.progress["original_scan_counts"],
+                         {"NBA":0,"EUROLEAGUE":0,"EUROCUP":0})
+        self.assertEqual(worker.progress["eligible_future_fixtures"],0)
+        self.assertEqual(worker.progress["eligible_nba_fixtures"],0)
+
     async def test_fixture_player_minutes_checked_before_native_history_and_fit(self):
         actions=[]
         worker=object.__new__(AdaptiveWorker)
