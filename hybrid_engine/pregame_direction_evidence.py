@@ -67,12 +67,12 @@ def quote_row(observation, forecast, actual):
 
 
 def inspect(data, ledger, assets):
+    if not isinstance(data, dict) or digest(data.get("payload"))!=data.get("sha256"):
+        raise ValueError("DIRECTION_QUALITY_REPORT_PIN_REQUIRED")
     root = Path(ledger).expanduser().absolute()
     directory = Path(assets).expanduser().absolute()
     if root.is_symlink() or not root.is_file() or directory.is_symlink() or not directory.is_dir():
         raise ValueError("DIRECTION_EXISTING_UNMUTATED_LOCAL_SOURCES_REQUIRED")
-    if not isinstance(data, dict) or digest(data.get("payload"))!=data.get("sha256"):
-        raise ValueError("DIRECTION_QUALITY_REPORT_PIN_REQUIRED")
     p=data["payload"]
     if p.get("format")!="PHASE92_READ_ONLY_QUALITY_REPORT_V1":
         raise ValueError("DIRECTION_QUALITY_REPORT_FORMAT_REQUIRED")
