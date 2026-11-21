@@ -223,8 +223,16 @@ class AdaptiveWorker:
             self._phase('COMPLETED',completion_status=report['status'])
             self.last_report=report;return report
         except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,RuntimeError) as exc:
-            self._phase('ABSTAIN',failure_type=type(exc).__name__)
-            report.update(status='ABSTAIN',reason='ADAPTIVE_PLAN_SOURCE_OR_ARCHIVE_UNAVAILABLE',error_type=type(exc).__name__)
+            # Only internal uppercase error identifiers appear in Telegram.
+            failure_phase=self.progress.get('phase','UNKNOWN')
+            candidate=str(exc)
+            safe=(candidate if 4<=len(candidate)<=110 and
+                  candidate.startswith(('ADAPTIVE_','NATIVE_','NBA_','ISSUE90_','CURRENT_','PLAYER_')) and
+                  all(ch in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789' for ch in candidate)
+                  else 'ADAPTIVE_PLAN_SOURCE_OR_ARCHIVE_UNAVAILABLE')
+            self._phase('ABSTAIN',failure_type=type(exc).__name__,failure_code=safe)
+            report.update(status='ABSTAIN',reason=safe,error_type=type(exc).__name__,
+                          failed_phase=failure_phase)
             self.last_report=report;return report
         finally:self.running=False
 
@@ -242,6 +250,8 @@ class AdaptiveWorker:
         lines=['🧪 AYRI ADAY MODEL ARAŞTIRMASI | V2','Aktif skor ve eski deney değiştirilmedi.','NOT_CALIBRATED · Güven endeksi yok.']
         last=self.last_report or {};lines.append('Son kontrol: '+last.get('status','HENÜZ_ÇALIŞMADI'))
         if last.get('reason'):lines.append('Engel: '+last['reason'])
+        if last.get('failed_phase'):lines.append('Hatanın gerçekleştiği aşama: '+last['failed_phase'])
+        if last.get('error_type'):lines.append('Hata sınıfı: '+last['error_type'])
         if last.get('protocol_sha256'):lines.append('Ayrı V2 planı: '+last['protocol_sha256'][:12])
         for code,g in last.get('groups',{}).items():
             if league and code!=league:continue
