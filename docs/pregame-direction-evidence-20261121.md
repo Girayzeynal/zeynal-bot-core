@@ -110,3 +110,42 @@ start at `direction_research.confusion_matrix`, then
 
 No historical snapshots, positive original forecasts, score parameters or
 market prices are modified by these read-only queries.
+
+## Actual frozen simulation ALT/ÜST test (optional)
+
+The earlier **42.42% (14 of 33)** statistic compares the *original predicted
+mean* to a verified original bookmaker total line and the **regulation-only**
+realized total. That is useful diagnosis but it is **not necessarily the model's
+actual raw probability direction**, which the original display constructs from
+the frozen QMC sample counts (`p_under` vs `p_over`).
+
+For this stronger **read-only** original-input replay, run the exact same
+`git show FETCH_HEAD:hybrid_engine/pregame_direction_evidence.py | python ...`
+command above, adding both `--summary-only --replay-qmc` at the end.
+
+The replay:
+1. Requires an original model snapshot with **exactly one fresh preforecast
+   TOTAL quote** and already verified regulation result.
+2. Uses the existing `decision_audit.replay_snapshot` + local pinned assets.
+   This validates the **original prepared fitted model**, historical input
+   availability, frozen algorithm source SHA, unmodified predicted quarter
+   means and the **exact original 10,000 QMC score-sample SHA**.
+3. Compares raw counts of simulated regulation `total < original_line`
+   versus `total > original_line` (and pushes) at that exact line.
+4. Reports a separate QMC-direction confusion matrix, difference count
+   from the mean-based side, and descriptive agreement to regulation
+   results. This replay **does not claim an original published Telegram
+   decision**, bookmaker-certified settled win, validated confidence, or
+   future predictive success. The replay is performed after labels are
+   known, but every score-sample digest is checked against the archived
+   original preforecast digest, preventing outcome-dependent refitting.
+
+On any SHA, source-clock or QMC sample mismatch it fails closed rather than
+printing a direction accuracy. Positive originals are never overwritten;
+no new sample distribution or market line is installed. On mobile the
+SHA-verified 10,000-sample replays for 33 fixtures may use more CPU time
+than the original quote-only census.
+
+The tested headline of 14/33 is not promoted as the official direction hit
+rate until original published direction and exact bookmaker overtime
+settlement evidence are present.
