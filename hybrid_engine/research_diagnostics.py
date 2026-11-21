@@ -113,8 +113,13 @@ class ResearchCycle:
             elif self.assessments:self.assessments.last_report=value
 
     async def once(self,app):
-        if self.study:await self._stage('issue90',self.study.tick,app)
+        # V2 already collects native boxes and attempts the genuine NBA
+        # player_minutes input packet. Start this source gate FIRST, not
+        # after V3's potentially expensive independent calibration work.
+        # Keep stages SERIAL: concurrent fits can corrupt source snapshots
+        # or consume overlapping source quotas.
         await self._stage('adaptive_v2',self.worker.tick,app,asynchronous=True)
+        if self.study:await self._stage('issue90',self.study.tick,app)
         if self.assessments:await self._stage('current_assessment',self.assessments.tick,app)
 
     async def run(self,app):
@@ -122,7 +127,7 @@ class ResearchCycle:
             await self.once(app);await asyncio.sleep(60)
 
     def render(self):
-        lines=['Araştırma işçisi: seri V3 → V2 → güncel değerlendirme']
+        lines=['Araştırma işçisi: seri V2 (oyuncu kanıtı) → V3 → güncel değerlendirme']
         for name in ('issue90','adaptive_v2','current_assessment'):
             s=self.stages.get(name)
             if not s:lines.append(name+': İLK TUR BEKLENİYOR');continue
