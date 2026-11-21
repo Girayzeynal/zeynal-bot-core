@@ -149,3 +149,29 @@ than the original quote-only census.
 The tested headline of 14/33 is not promoted as the official direction hit
 rate until original published direction and exact bookmaker overtime
 settlement evidence are present.
+
+## Paired original QMC vs observed bookmaker direction probability (2026-11-21)
+
+The optional `--replay-qmc` audit additionally reads only **the same pinned
+native price observation** that yielded each authentic original pre-forecast
+TOTAL line. It computes, on the exact same 33 eligible fixtures:
+
+- Original QMC regulation-only conditional `P(ÜST | no push)`, from the
+  SHA-verified 10,000 fixed simulation paths.
+- Timestamped bookmaker **proportional no-vig** ÜST price-implied fraction,
+  from both original decimal odds (`1/decimal_price` normalized).
+- Original realized regulation-only ÜST indicator for that identical line.
+- Separately for original QMC and price reference: paired **Brier score**,
+  **binary log loss**, and mean raw implied ÜST probability; and actual
+  regulation ÜST fraction.
+
+For Brier and log loss **lower is better**, but this is only a small,
+historical, *non-random, already used* cohort, the bookmaker overtime
+settlement contract is not independently verified, and no bookmaker price is
+proof of the true betting event probability. Results are **diagnostic only**,
+not validated prediction accuracy or permission to tune a market edge.
+
+No arbitrary score correction, no reverse-the-model policy, no P95 widening,
+no outcome-dependent cutoff selection, and no modification of original
+positive signed-error forecasts. To collect actual results on UserLAnd run
+`--summary-only --replay-qmc` with the same pinned report and source paths.
