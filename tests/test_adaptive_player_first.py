@@ -20,7 +20,8 @@ class FirstPlayerEvidenceOrderTests(IsolatedAsyncioTestCase):
         worker.retry={};worker.player_retry={}
         worker.progress=dict(phase="NOT_STARTED")
         case=dict(code="NBA",
-                  target=dict(fixture_id="f",season="2026/2027",league="NBA"),
+                  target=dict(fixture_id="f",season="2026/2027",league="NBA",
+                              fixture_start_utc=int(time.time())+7200),
                   original="a"*64,snapshot=dict(fixture_id="f"))
         worker.cases=lambda:[case]
         worker.nba=SimpleNamespace(assets="/tmp/never-access-real-archive")
