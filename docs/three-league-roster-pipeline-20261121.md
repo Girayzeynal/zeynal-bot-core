@@ -64,3 +64,18 @@ Additional source audit found already implemented but not production-promoted mo
 The bridge now exposes existing_nba_minutes_candidate(): a direct call to player_minutes.projection followed by validate_minutes, returning the original canonical output packet untouched if real game-specific inputs pass. Any missing roster/availability/historical boxes aborts with specific BLOCKED status. This is the actual code-level reuse contract; it does not fit a player model or publish a Telegram forecast. Europe still requires independent league-appropriate player minutes and 40-minute model fitting; no NBA parameters are copied.
 
 GitHub Actions initial full test run #44931798031 showed 1999 passed / two synthetic regression failures: a stale example player ID and a duplicate synthetic player assigned to both sides. Both test data problems were corrected on the same isolated branch and rerun; do not report the later full CI as successful until its completed conclusion is observed.
+
+
+## Real Telegram E2E diagnostic wiring (production + isolated test)
+
+Code now binds same read-only /test integrations to production_parity.py real production handler and test_bot.py isolated authorized test-chat handler.
+Displays current bot process service status, observed analysis metadata, archive reader configured, reported release SHA, source coverage and explicit unconnected player/coach scoring impact status. This diagnostics call does no network fetch, fit, scoring or archive mutation.
+
+- /test runtime: existing runtime identity and analysis probe
+- /test integrations: newly added live process and source-model stage audit
+- /features /sourceplayers /injurynews /predictions NBA /results all /accuracy all: old commands testing their own coverage, not a claim that injury data alters score
+
+## Protected Fly release conditions
+
+See .github/workflows/fly-existing-machine-deploy.yml: main branch only, exact release SHA, single existing AMS machine and its /data volume, existing volume snapshot, previous image rollback and after-deploy /ready proof. Automatic workflow_run additionally checks a historical fixed commit subject ZEYNAL_PRODUCTION_RELEASE_20261119; GitHub Actions manual dispatch requires confirm_deploy=DEPLOY.
+Draft PR #145 is not merged or deployed. No Telegram delivery observed by the assistant; current live Fly image/version not yet verified. Synthetic CI passing is not proof of live player data or fitted model output. Do not bypass source readiness or deploy unverified numeric model coefficients.
