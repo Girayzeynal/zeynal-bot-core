@@ -145,6 +145,42 @@ class RosterPureTests(TestCase):
                          [dict(id='22',displayName='Test Player'),dict(id='22',displayName='Other Player')]):
             self.assertEqual(roster_ids(dict(base,athletes=athletes),self.teams['away'],'2026/2027'),{})
 
+    def test_live_nyk_pdf_code_maps_exact_espn_ny_identity_without_fuzzy_matching(self):
+        # Genuine NBA published table labels POR@NYK, but ESPN's verified
+        # New York Knicks summary abbreviates the same franchise as NY.
+        # This is a manufactured fixture, NOT a live roster projection.
+        from zoneinfo import ZoneInfo
+        when=datetime(2026,11,21,19,30,tzinfo=ZoneInfo('America/New_York'))
+        ctx=dict(fixture_start_utc=int(when.timestamp()))
+        teams=dict(home=dict(id='18',name='New York Knicks',abbreviation='NY'),
+                   away=dict(id='22',name='Portland Trail Blazers',abbreviation='POR'))
+        extracted=dict(rows=[
+            dict(game_date='11/21/2026',game_time='07:30 (ET)',
+                 matchup='POR@NYK',team='Portland Trail Blazers',
+                 player_name='Sharpe, Shaedon',status='Out',reason='Injury/Illness'),
+            dict(game_date='11/21/2026',game_time='07:30 (ET)',
+                 matchup='POR@NYK',team='New York Knicks',
+                 player_name='Anunoby, OG',status='Out',reason='Injury/Illness')])
+        dirs={'18':{'oganunoby':'200'},'22':{'shaedonsharpe':'100'}}
+        rows,rejected=nba_rows(extracted,teams,dirs,ctx,int(when.timestamp())-3600)
+        self.assertEqual(rejected,0)
+        self.assertEqual([(r['team_name'],r['player_id']) for r in rows],
+                         [('Portland Trail Blazers','100'),('New York Knicks','200')])
+        self.assertTrue(all(r['identity_status']=='EXACT_ESPN_ROSTER_MATCH' for r in rows))
+        self.assertTrue(all(not r['independent_status_verified'] for r in rows))
+        for change in ('wrong_date','wrong_pair','wrong_team'):
+            with self.subTest(change=change):
+                bad=deepcopy(extracted)
+                altered=deepcopy(teams)
+                if change=='wrong_date':
+                    for row in bad['rows']:row['game_date']='11/22/2026'
+                elif change=='wrong_pair':
+                    for row in bad['rows']:row['matchup']='NYK@POR'
+                else:
+                    altered['home']['name']='Another Franchise'
+                matched,_=nba_rows(bad,altered,dirs,ctx,int(when.timestamp())-3600)
+                self.assertEqual(matched,[])
+
     def test_official_pdf_row_matches_date_pair_and_exact_roster_name_but_is_not_medically_verified(self):
         rows,n=nba_rows(extraction(),self.teams,{'2':{'testplayer':'22'}},self.context,NOW-3600)
         self.assertEqual(n,0); self.assertEqual(rows[0]['player_id'],'22')
