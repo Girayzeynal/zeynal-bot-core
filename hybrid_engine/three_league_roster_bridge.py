@@ -249,6 +249,48 @@ def fixture_gate(*,fixture,home_roster,away_roster,availability,exposures,fit):
         scoring_engine_connected=False,production_model_changed=False)
 
 
+
+def existing_nba_minutes_candidate(context,review,rosters,boxes,*,generated_at_utc):
+    """Connect already-implemented native NBA player_minutes projection.
+
+    This is not a new heuristic minutes formula. Native source/identity,
+    published time, injury corroboration, 6 old box games and 240 minutes
+    are all checked by the existing player_minutes implementation.
+    Caller may archive the exact returned prospective packet *separately*
+    before tipoff; this function never writes, fits, or issues a forecast.
+    """
+    from hybrid_engine.data import Abstain
+    from hybrid_engine.player_minutes import projection,validate_minutes
+    if not isinstance(context,dict) or context.get("league")!="NBA":
+        raise ValueError("BRIDGE_EXISTING_MINUTES_NBA_ONLY")
+    try:
+        wrapped=projection(context,review,rosters,boxes,
+                           generated_at_utc=generated_at_utc)
+        p=validate_minutes(wrapped,asof_utc=generated_at_utc,
+                           fixture={k:context[k] for k in
+                             ("league","season","fixture_id","fixture_start_utc",
+                              "home_team_id","away_team_id")})
+    except Abstain as exc:
+        return dict(status="BLOCKED_ACTUAL_PREGAME_PLAYER_INPUTS",
+                    reason=str(exc),minutes_projection=None,
+                    model_fit_completed=False,scoring_engine_connected=False,
+                    production_changed=False)
+    except (KeyError,ValueError,TypeError) as exc:
+        return dict(status="BLOCKED_PLAYER_INPUT_CONTRACT_OR_IDENTITY",
+                    reason=str(exc) if isinstance(exc,ValueError) else type(exc).__name__,
+                    minutes_projection=None,model_fit_completed=False,
+                    scoring_engine_connected=False,production_changed=False)
+    return dict(status="VALIDATED_PROSPECTIVE_NBA_MINUTES_RESEARCH_ONLY",
+                minutes_projection=wrapped,
+                fixture_id=p["fixture_id"],minutes_sha256=wrapped["sha256"],
+                home_projected_player_count=len(p["home"]),
+                away_projected_player_count=len(p["away"]),
+                source_available_max_utc=p["source_available_max_utc"],
+                roster_source_attestation_not_independent=True,
+                model_fit_completed=False,scoring_engine_connected=False,
+                original_forecast_changed=False,production_changed=False)
+
+
 def readiness():
     """Real repository integrations, not a live availability/transfer claim."""
     from hybrid_engine.official_club_coverage import summary
@@ -260,6 +302,10 @@ def readiness():
         not_connected_club_news_sites=coverage["source_pages_not_yet_verified"],
         native_euro_season_registration_adapter=True,
         native_nba_roster_complete_adapter=False,
+        existing_nba_player_minutes_projection_adapter=True,
+        nba_existing_player_minutes_bridge_added=True,
+        existing_nba_player_shadow_offline_fit_module=True,
+        existing_three_league_adaptive_team_pace_module=True,
         historic_box_players_can_be_archived=True,
         automatic_registration_snapshot_comparison_added=True,
         fully_automatic_transfer_news_to_current_roster=False,
