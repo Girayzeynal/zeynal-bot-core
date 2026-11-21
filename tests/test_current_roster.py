@@ -193,6 +193,63 @@ class RosterPureTests(TestCase):
                 matched,_=nba_rows(bad,altered,dirs,ctx,int(when.timestamp())-3600)
                 self.assertEqual(matched,[])
 
+    def test_live_spurs_pelicans_pdf_alias_requires_exact_espn_team_identity(self):
+        # Regression for ESPN SA/NO vs NBA's published NOP@SAS.
+        # Native PDF observations remain unverified until player IDs are joined.
+        from zoneinfo import ZoneInfo
+        from hybrid_engine.current_roster import _official_pdf_abbreviation
+        when=datetime(2026,11,21,20,0,tzinfo=ZoneInfo('America/New_York'))
+        ctx=dict(fixture_start_utc=int(when.timestamp()))
+        teams=dict(home=dict(id='24',name='San Antonio Spurs',abbreviation='SA'),
+                   away=dict(id='3',name='New Orleans Pelicans',abbreviation='NO'))
+        self.assertEqual(_official_pdf_abbreviation(teams['home']),'SAS')
+        self.assertEqual(_official_pdf_abbreviation(teams['away']),'NOP')
+        extracted=dict(rows=[
+            dict(game_date='11/21/2026',game_time='08:00(ET)',matchup='NOP@SAS',
+                 team='SanAntonioSpurs',player_name='Harper, Dylan',status='Out',
+                 reason='Injury/Illness'),
+            dict(game_date='11/21/2026',game_time='08:00(ET)',matchup='NOP@SAS',
+                 team='NewOrleansPelicans',player_name='Murphy III, Trey',status='Out',
+                 reason='Injury/Illness')])
+        dirs={'24':{'dylanharper':'5037871'},'3':{'treymurphyiii':'4397688'}}
+        rows,rejected=nba_rows(extracted,teams,dirs,ctx,int(when.timestamp())-3600)
+        self.assertEqual(rejected,0)
+        self.assertEqual({(r['team_id'],r['player_id']) for r in rows},
+                         {('24','5037871'),('3','4397688')})
+        self.assertTrue(all(r['source']=='NBA_OFFICIAL_PDF' and
+                            not r['independent_status_verified'] for r in rows))
+        for alteration in ('wrong_date','wrong_pair','wrong_time','wrong_name','wrong_code'):
+            bad=deepcopy(extracted); identities=deepcopy(teams)
+            if alteration=='wrong_date':
+                bad['rows'][0]['game_date']='11/22/2026'
+            elif alteration=='wrong_pair':
+                bad['rows'][0]['matchup']='SAS@NOP'
+                bad['rows'][1]['matchup']='SAS@NOP'
+            elif alteration=='wrong_time':
+                bad['rows'][0]['game_time']='07:30(ET)'
+            elif alteration=='wrong_name':
+                identities['away']['name']='Another Franchise'
+            else:
+                identities['home']['abbreviation']='SAS'
+            result,_=nba_rows(bad,identities,dirs,ctx,int(when.timestamp())-3600)
+            if alteration in ('wrong_date','wrong_time'):
+                self.assertEqual(len(result),1)
+            else:
+                self.assertEqual(result,[])
+
+    def test_pdf_aliases_require_name_and_espn_abbreviation_together(self):
+        from hybrid_engine.current_roster import _official_pdf_abbreviation
+        pairs=[
+            ('New York Knicks','NY','NYK'),
+            ('New Orleans Pelicans','NO','NOP'),
+            ('San Antonio Spurs','SA','SAS'),
+            ('Golden State Warriors','GS','GSW')]
+        for name,espn,official in pairs:
+            with self.subTest(team=name):
+                self.assertEqual(_official_pdf_abbreviation(dict(name=name,abbreviation=espn)),official)
+                self.assertEqual(_official_pdf_abbreviation(dict(name='Other Team',abbreviation=espn)),espn)
+                self.assertEqual(_official_pdf_abbreviation(dict(name=name,abbreviation='ZZ')), 'ZZ')
+
     def test_official_pdf_row_matches_date_pair_and_exact_roster_name_but_is_not_medically_verified(self):
         rows,n=nba_rows(extraction(),self.teams,{'2':{'testplayer':'22'}},self.context,NOW-3600)
         self.assertEqual(n,0); self.assertEqual(rows[0]['player_id'],'22')
