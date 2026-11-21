@@ -82,12 +82,16 @@ class EngineActivationTests(TestCase):
         worker=SimpleNamespace(sequence=1,progress=dict(
             phase="FETCH_MISSING_NATIVE_BOXSCORES",phase_at_utc=1790000970,
             started_at_utc=1790000950,player_input_status="BLOCKED",
+            player_input_reason="CURRENT_ROSTER_SOURCE_REVIEW_REQUIRED",
+            player_input_completed_at_utc=1790000975,
             source_scope="NBA",fixture_id="original-future"),last_report=None)
         with patch("hybrid_engine.player_shadow.readiness",
                    return_value=dict(status="BLOCKED_NO_PROSPECTIVE_PLAYER_MINUTES",
                                      prospective_minutes_games=0,prepared_artifacts=0)):
             x=describe(dict(adaptive_v2_worker=worker),"/tmp/isolated",now=1790001000)
         self.assertEqual(x["modes"]["player_minutes"]["last_status"],"BLOCKED")
+        self.assertEqual(x["modes"]["player_minutes"]["reason"],"CURRENT_ROSTER_SOURCE_REVIEW_REQUIRED")
+        self.assertEqual(x["modes"]["player_minutes"]["source_attempt_completed_at_utc"],1790000975)
         self.assertEqual(x["modes"]["adaptive_models"]["live_phase_source_scope"],"NBA")
         self.assertEqual(x["modes"]["adaptive_models"]["live_phase_elapsed_seconds"],30)
         self.assertEqual(x["modes"]["adaptive_models"]["latest_status"],
