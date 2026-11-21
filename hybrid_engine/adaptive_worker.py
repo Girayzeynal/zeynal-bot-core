@@ -62,14 +62,20 @@ class AdaptiveWorker:
 
     def cases(self):
         cases=[];now=int(time.time())
+        counts={}
         if self.nba is not None:
+            self._phase('READ_NBA_FROZEN_LEDGER',source_scope='NBA')
             rows=read_confirmed(self.nba.ledger.path)
+            counts['NBA']=len(rows)
+            self.progress['original_scan_counts']=dict(counts)
             if len(rows)>2048:raise ValueError('ADAPTIVE_ORIGINAL_SCAN_BUDGET')
             fresh=sorted(rows,key=lambda r:r['snapshot']['prediction_generated_at_utc'],reverse=True)
             harvested=0
-            for entry in fresh:
+            for i,entry in enumerate(fresh):
                 p=entry['snapshot'];pin=digest(p)
                 if pin not in self.seen and harvested<2:
+                    self._phase('VERIFY_NBA_FROZEN_ASSET',source_scope='NBA',
+                                original_scan_position=i+1,original_scan_total=len(fresh))
                     audit_snapshot(p,self.nba.assets)
                     for ref in p['source_assets']:
                         receipt=Assets(self.nba.assets).read(ref);url=receipt['source_url']
@@ -82,13 +88,20 @@ class AdaptiveWorker:
                     frozen=dict(status='FORECAST_CREATED',prediction=p['prediction'],intervals=p['intervals'])
                     cases.append(dict(target=t,original=pin,snapshot=p,frozen=frozen,code='NBA'))
         for code,service in self.europe.items():
+            self._phase('READ_EUROPE_FROZEN_LEDGER',source_scope=code,
+                        original_scan_position=0,original_scan_total=None)
             records=service.registry.independent_records()
+            counts[code]=len(records)
+            self.progress['original_scan_counts']=dict(counts)
             if len(records)>2048:raise ValueError('ADAPTIVE_ORIGINAL_SCAN_BUDGET')
             harvested=0
-            for item in sorted(records,key=lambda r:r['payload']['prediction_generated_at_utc'],reverse=True):
+            for i,item in enumerate(sorted(records,key=lambda r:r['payload']['prediction_generated_at_utc'],reverse=True)):
                 p=item['payload'];pin=digest(p);g=p['fixture']
                 if pin not in self.seen and harvested<2:
+                    self._phase('VERIFY_EUROPE_FROZEN_FIXTURE',source_scope=code,
+                                original_scan_position=i+1,original_scan_total=len(records))
                     service.pair(p)  # Replays the original native fixture binding.
+                    self._phase('INGEST_EUROPE_FROZEN_SOURCE',source_scope=code)
                     ref=p['fixture_source'];self.store.ingest(service.registry.root/ref['file'],ref['sha256'],code,g['season_start_year'])
                     self.seen.add(pin);harvested+=1
                 if now+900<g['start_ts_utc']<=now+36*3600:
@@ -96,6 +109,10 @@ class AdaptiveWorker:
                         fixture_id=g['canonical_id'],fixture_start_utc=g['start_ts_utc'],home_team_id=g['home_team_id'],away_team_id=g['away_team_id'],
                         provider_fixture_ids=g['provider_fixture_ids'])
                     cases.append(dict(target=t,original=pin,frozen=p['components']['BAYES_QMC'],code=code))
+        self._phase('ORIGINAL_SCAN_COMPLETE',source_scope=None,
+                    original_scan_counts=dict(counts),
+                    eligible_future_fixtures=len(cases),
+                    eligible_nba_fixtures=sum(v['code']=='NBA' for v in cases))
         return sorted(cases,key=lambda c:(c['target']['fixture_start_utc'],c['code'],c['target']['fixture_id']))
 
     def verify(self,target):
