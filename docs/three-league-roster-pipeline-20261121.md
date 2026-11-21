@@ -79,3 +79,29 @@ Displays current bot process service status, observed analysis metadata, archive
 
 See .github/workflows/fly-existing-machine-deploy.yml: main branch only, exact release SHA, single existing AMS machine and its /data volume, existing volume snapshot, previous image rollback and after-deploy /ready proof. Automatic workflow_run additionally checks a historical fixed commit subject ZEYNAL_PRODUCTION_RELEASE_20261119; GitHub Actions manual dispatch requires confirm_deploy=DEPLOY.
 Draft PR #145 is not merged or deployed. No Telegram delivery observed by the assistant; current live Fly image/version not yet verified. Synthetic CI passing is not proof of live player data or fitted model output. Do not bypass source readiness or deploy unverified numeric model coefficients.
+
+## Phone: ACTUAL isolated Telegram bot E2E (after its last CI code pass)
+
+Terminate an already running isolated bot with Ctrl+C in its original UserLAnd shell; never run two getUpdates pollers using the same test token.
+
+From existing checkout:
+
+    cd ~/zeynal-hybrid-844 &&
+    git fetch origin feature/three-league-roster-integration-20261121 &&
+    git worktree add -b feature/three-league-roster-integration-20261121 "$HOME/zeynal-3lig-test" FETCH_HEAD &&
+    cd "$HOME/zeynal-3lig-test" &&
+    bash scripts/run_isolated_test_bot.sh
+
+Existing launcher enforces a single local poller, a separate test token, isolated test data/models and a branch allowlist; this research branch has now been added to the allowlist only.
+
+Inside the authorized Telegram **test** bot:
+
+    /test integrations
+    /test runtime
+    /features
+    /test data
+    /sourceplayers EUROLEAGUE 2026/2027 ZAL PAN
+
+The sourceplayers command only tests official current season registration for those exact test parameters and may be unavailable/429. Neither it nor the diagnostics proves a current active five, injury absence, trained player effect or accurate future scoring. Real bot delivery can only be confirmed by actual Telegram response on user device. Do not disclose tokens or use Telegram Bot API directly in chat.
+
+**Production is separate:** main.py is the Fly poller, not the isolated test bot; moving this branch to main alone does not auto-deploy due the existing protected Fly release workflow. Never overwrite Fly volume or deploy unverified numeric parameters. This PR is draft until real source coverage and latest full CI confirmed.
