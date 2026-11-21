@@ -30,6 +30,38 @@ def load_snapshot(ledger,fixture_id):
     return LiveAnalysisLedger._decode(raw,pin,expected=('NBA',row['fixture_id'],row['model_digest']))
 
 
+def rotation_coverage_diagnostics(context,review,rosters,boxes,now):
+    """Explain unknown players in the last six boxes; never infer minutes.
+
+    A new roster member can be valid without appearing in this team's six
+    historical boxes. This diagnostic exposes the identity gap without
+    assuming the player will sit or fabricating a transferable minute prior.
+    """
+    result={}
+    for side in ('home','away'):
+        team=context[side]['provider_id']
+        eligible=sorted((box for box in boxes if
+            box.get('league')=='NBA' and box.get('season')==context['season'] and
+            team in (box.get('home_team_id'),box.get('away_team_id')) and
+            box.get('scope')=='FINAL_WITH_OT' and box.get('regulation_eligible') is True and
+            box.get('fixture_start_utc',0)<now),
+            key=lambda box:(box['fixture_start_utc'],box['fixture_id']))[-6:]
+        previously_listed={p['player_id'] for box in eligible for p in box['players']
+                           if p.get('team_id')==team}
+        records={}
+        for row in review.get('records',[]):
+            if row.get('team_id')==team and row.get('player_id'):
+                records.setdefault(row['player_id'],[]).append(row)
+        two_source_out={pid for pid,items in records.items() if
+            {r.get('status') for r in items} <= {'Out','Suspended'} and
+            {'ESPN','NBA_OFFICIAL_PDF'} <= {r.get('source') for r in items}}
+        unknown=sorted(set(rosters[side]['players'])-previously_listed-two_source_out)
+        result[side]=dict(past_regulation_games=len(eligible),
+            missing_history_player_ids=unknown,missing_history_count=len(unknown),
+            actual_minutes_assumed=False,unverified_players_given_zero_minutes=False)
+    return result
+
+
 def collect(snapshot,assets,directory,*,reviewer=None,box_collector=collect_boxes):
     root=local_path(directory); root.mkdir(parents=True,exist_ok=True)
     now=int(time.time()); before=digest(snapshot)
@@ -80,7 +112,13 @@ def collect(snapshot,assets,directory,*,reviewer=None,box_collector=collect_boxe
         boxes,failures=collected['games'],collected['failures']
         if failures or len(boxes)!=len(targets): raise Abstain('INCOMPLETE_NATIVE_PAST_PLAYER_BOXES')
         generated=int(time.time())
-        packet=projection(context,review,rosters,boxes,generated_at_utc=generated)
+        try:
+            packet=projection(context,review,rosters,boxes,generated_at_utc=generated)
+        except Abstain as exc:
+            if str(exc)=='CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY':
+                result['rotation_diagnostics']=rotation_coverage_diagnostics(
+                    context,review,rosters,boxes,generated)
+            raise
         bundle=dict(format='PLAYER_MINUTES_INPUT_WITNESSES_V1',context=context,review=review,rosters=rosters,
             boxes=boxes,original_cut_sha256=ref['sha256'],projection_sha256=packet['sha256'])
         witness=root/('inputs-'+packet['sha256']+'.json')
@@ -190,7 +228,7 @@ def collect_batch(ledger,assets,directory,*,maximum=4,minimum_lead_seconds=900,
                 if digest(snapshot)!=row['snapshot_sha256']:
                     raise ValueError('PLAYER_BATCH_SNAPSHOT_CHANGED_DURING_READ')
                 one=collect_one(snapshot,assets,root)
-                item={k:one.get(k) for k in ('fixture_id','status','reason','projection','new_record','roster_diagnostics')}
+                item={k:one.get(k) for k in ('fixture_id','status','reason','projection','new_record','roster_diagnostics','rotation_diagnostics')}
             except (ValueError,KeyError,TypeError,OSError,sqlite3.Error):
                 item=dict(fixture_id=row['fixture_id'],status='BLOCKED',reason='PLAYER_BATCH_ARCHIVE_OR_SOURCE_UNAVAILABLE')
             result['results'].append(item)
