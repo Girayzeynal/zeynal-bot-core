@@ -308,6 +308,7 @@ def review_diagnostics(review):
         latest_report_verified=review.get('latest_report_verified'),
         official_pdf_clock_verified=review.get('official_pdf_clock_verified'),
         index_failure=review.get('index_failure'),
+        alternate_index_failure=review.get('alternate_index_failure'),
         successful_source_urls=[s.get('url') for s in review.get('sources',[])],
         missing_absence_corroboration=missing[:20],missing_absence_count=len(missing),
         diagnostic_only=True,confidence_index=None)
@@ -426,10 +427,23 @@ class CurrentRosterReview:
                     denied=self.last_source_failure
                     if not denied or denied.get('http_status')!=403:
                         raise
+                    # Record the original 403 separately from any fallback
+                    # failure. A later 404 cannot erase the real first denial.
+                    primary_failure=deepcopy(denied)
                     base['index_failure']=dict(stage='INDEX_FETCH',http_status=403)
                     try:
                         index=self._get(NBA_COM_INJURY_INDEX,deadline)
                     except ValueError:
+                        alternate_failure=self.last_source_failure
+                        if (isinstance(alternate_failure,dict) and
+                                alternate_failure.get('url')==NBA_COM_INJURY_INDEX):
+                            http=alternate_failure.get('http_status')
+                            base['alternate_index_failure']=dict(
+                                http_status=http if type(http) is int and 100<=http<=599 else None)
+                        # The first-party page may also be unreachable. Keep
+                        # the *original* 403 as the operative source failure,
+                        # while exposing secondary failure distinctly.
+                        self.last_source_failure=primary_failure
                         # Existing explicitly imported fresh, SHA-pinned
                         # official CDN report, not claimed latest.
                         if self.report_archive is None: raise
