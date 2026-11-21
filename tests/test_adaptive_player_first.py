@@ -71,6 +71,7 @@ class FirstPlayerEvidenceOrderTests(IsolatedAsyncioTestCase):
                                 team="TestHome",player_id="100",player="Test Player",
                                 missing_sources=["NBA_OFFICIAL_PDF"])],
                             official_stage="INDEX_FETCH",official_http_status=429,
+                            official_code="ROSTER_SOURCE_UNAVAILABLE",
                             latest_report_verified=False,official_fixture_rows=0))
         with patch("hybrid_engine.adaptive_worker.collect_player_inputs",side_effect=minutes):
             report=await worker.tick()
@@ -89,6 +90,7 @@ class FirstPlayerEvidenceOrderTests(IsolatedAsyncioTestCase):
         self.assertEqual(diag["examples"],[dict(
             team="TestHome",player_id="100",missing_sources=["NBA_OFFICIAL_PDF"])])
         self.assertEqual(diag["official_http_status"],429)
+        self.assertEqual(diag["official_code"],"ROSTER_SOURCE_UNAVAILABLE")
         self.assertNotIn("Test Player",str(diag))
         self.assertEqual(worker.progress["phase"],"COMPLETED")
         self.assertTrue(report["original_predictions_changed"] is False)
