@@ -101,6 +101,22 @@ class PlayerInputTests(TestCase):
         self.assertEqual(self.run_collect()['reason'],'INCOMPLETE_NATIVE_PAST_PLAYER_BOXES')
         self.assertEqual(list((self.root/'player-shadow').glob('minutes/minutes-*')),[])
 
+    def test_unknown_current_roster_player_is_reported_without_guessed_minutes(self):
+        # A current roster player absent from this team's six prior game boxes
+        # is NOT automatically Out or a zero-minute projection.
+        self.data['rosters']['home']['players'][0]='999'
+        result=self.run_collect()
+        self.assertEqual(result['status'],'BLOCKED')
+        self.assertEqual(result['reason'],'CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY')
+        gap=result['rotation_diagnostics']
+        self.assertEqual(gap['home']['past_regulation_games'],6)
+        self.assertEqual(gap['home']['missing_history_player_ids'],['999'])
+        self.assertEqual(gap['away']['missing_history_player_ids'],[])
+        self.assertFalse(gap['home']['actual_minutes_assumed'])
+        self.assertFalse(gap['home']['unverified_players_given_zero_minutes'])
+        self.assertIsNone(result['projection'])
+        self.assertEqual(list((self.root/'player-shadow').glob('minutes/minutes-*')),[])
+
     def test_missing_ledger_does_not_create_database(self):
         path=self.root/'missing.sqlite'
         with self.assertRaises((ValueError,FileNotFoundError)): load_snapshot(path,'401000001')
