@@ -66,6 +66,104 @@ def quote_row(observation, forecast, actual):
             "NO_PROVEN_ORIGINAL_PUBLISHED_PICK_AND_BOOKMAKER_SETTLEMENT_UNVERIFIED"))
 
 
+
+def research_direction_summary(fixtures):
+    """Descriptive original-mean-vs-quote regulation comparison, not published picks.
+
+    Exactly one FRESH original TOTAL quote per settled fixture is admitted to
+    the per-game headline to avoid counting bookmakers as independent games.
+    Multiple books/lines are reported as ambiguous, not cherry-picked.
+    """
+    matrix=Counter()
+    by_book={}
+    by_gap={}
+    signed_groups={}
+    disagreements=[]
+    status=Counter()
+    for fixture in fixtures:
+        observed=fixture["observed_total_quote_rows"]
+        if not fixture["actual_native_regulation_result_available"]:
+            status["without_verified_final"]+=1
+            continue
+        if not observed:
+            status["with_final_but_no_quote"]+=1
+            continue
+        fresh=[x for x in observed if x["quote_fresh_at_prediction"]]
+        if not fresh:
+            status["only_stale_quotes"]+=1
+            continue
+        if len(fresh)!=1:
+            status["multiple_fresh_quotes_ambiguous_fixture"]+=1
+            continue
+        q=fresh[0]
+        pred=q["original_model_mean_relative_to_line"]
+        realized=q["research_regulation_only_side"]
+        if realized is None:
+            raise ValueError("DIRECTION_MISSING_SETTLED_REGULATION_SIDE")
+        if pred=="ESIT":
+            status["model_on_barem_no_direction"]+=1
+            continue
+        if realized=="ESIT":
+            status["regulation_push_not_decided"]+=1
+            continue
+        if pred not in ("ALT","UST") or realized not in ("ALT","UST"):
+            raise ValueError("DIRECTION_UNKNOWN_SIDE")
+        if not q["reconstructed_from_frozen_mean_only"] or q["original_direction_publication_proven"]:
+            raise ValueError("DIRECTION_RESEARCH_SCOPE_CONFLICT")
+        mean=finite(q["original_model_total"])
+        actual=finite(q["actual_regulation_total"])
+        line=finite(q["line"])
+        distance=abs(mean-line)
+        if distance<3: bucket="0-3"
+        elif distance<7: bucket="3-7"
+        else: bucket="7+"
+        ok=pred==realized
+        matrix[pred+"_"+realized]+=1
+        status["eligible_unique_fixtures"]+=1
+        status["research_direction_matched" if ok else "research_direction_mismatched"]+=1
+        for target,key in ((by_book,q["bookmaker"]),(by_gap,bucket),
+                           (signed_groups,"PRED_MINUS_ACTUAL_POSITIVE" if mean>actual else "PRED_MINUS_ACTUAL_NEGATIVE" if mean<actual else "ZERO")):
+            item=target.setdefault(key,dict(n=0,matched=0,mismatched=0))
+            item["n"]+=1
+            item["matched" if ok else "mismatched"]+=1
+        if not ok:
+            disagreements.append(dict(
+                fixture_id=fixture["fixture_id"],
+                provider_fixture_ids=fixture["provider_fixture_ids"],
+                home=fixture.get("home"),away=fixture.get("away"),
+                bookmaker=q["bookmaker"],line=line,
+                model_total=mean,actual_regulation_total=actual,
+                frozen_model_minus_line=mean-line,
+                absolute_model_line_distance=distance,
+                mean_vs_line_side=pred,actual_regulation_side=realized,
+                quote_age_seconds=q["age_at_original_prediction_seconds"]))
+    n=status["eligible_unique_fixtures"]
+    status["settled_unassessable"]=sum(status[k] for k in (
+        "with_final_but_no_quote","only_stale_quotes",
+        "multiple_fresh_quotes_ambiguous_fixture","model_on_barem_no_direction",
+        "regulation_push_not_decided"))
+    if status["research_direction_matched"]+status["research_direction_mismatched"]!=n:
+        raise ValueError("DIRECTION_RESEARCH_PARTITION_CONFLICT")
+    return dict(
+        label="RECONSTRUCTED_FROZEN_MEAN_VS_ORIGINAL_LINE__RESEARCH_ONLY",
+        status_counts=dict(status),
+        eligible_unique_fixtures=n,
+        matched=status["research_direction_matched"],
+        mismatched=status["research_direction_mismatched"],
+        descriptive_regulation_direction_agreement=(status["research_direction_matched"]/n if n else None),
+        confusion_matrix=dict(matrix),
+        by_bookmaker=dict(sorted(by_book.items())),
+        by_original_mean_line_gap=dict(sorted(by_gap.items())),
+        by_score_error_sign=dict(sorted(signed_groups.items())),
+        mismatches_sorted_by_original_mean_line_distance=sorted(
+            disagreements,key=lambda x:(-x["absolute_model_line_distance"],x["fixture_id"])),
+        published_pregame_direction_accuracy=None,
+        official_bookmaker_settlement_accuracy=None,
+        confidence_calibration_proven=False,
+        no_selection_or_correction_performed=True,
+        caveat="ORIGINAL_MEAN_VS_QUOTE_RECONSTRUCTED_AFTER_OUTCOME; NOT THE HISTORIC TELEGRAM DECISION. MARKET OVERTIME SCOPE NOT VERIFIED. DO NOT FLIP DIRECTIONS OR TUNE GAP BUCKETS USING THESE RESULTS.")
+
+
 def inspect(data, ledger, assets):
     if not isinstance(data, dict) or digest(data.get("payload"))!=data.get("sha256"):
         raise ValueError("DIRECTION_QUALITY_REPORT_PIN_REQUIRED")
@@ -139,6 +237,7 @@ def inspect(data, ledger, assets):
     return dict(format=VERSION,quality_report_pin=data["sha256"],
                 scope="LOCAL_ORIGINAL_NBA_SNAPSHOT_ASSETS_ONLY_NO_REMOTE_FLY",
                 counts=dict(coverage),
+                direction_research=research_direction_summary(results),
                 fixture_quotes=[r for r in results if r["archived_total_quotes_before_prediction"]][:100],
                 no_quote_fixture_count=len(results)-coverage["fixtures_with_total_quote"],
                 actual_original_direction_decision_hit_rate=None,
@@ -169,9 +268,18 @@ def main():
     parser.add_argument("--report",required=True)
     parser.add_argument("--ledger",required=True)
     parser.add_argument("--assets",required=True)
+    parser.add_argument("--summary-only",action="store_true",
+                        help="Print coverage and direction confusion only, without fixture cards")
     args=parser.parse_args()
-    print(json.dumps(inspect_file(args.report,args.ledger,args.assets),
-                     ensure_ascii=False,indent=2,sort_keys=True))
+    report=inspect_file(args.report,args.ledger,args.assets)
+    if args.summary_only:
+        report={k:report[k] for k in (
+            "format","counts","no_quote_fixture_count","direction_research",
+            "actual_original_direction_decision_hit_rate",
+            "actual_bookmaker_direction_settlement_rate",
+            "original_forecasts_changed","positive_signed_original_cases_modified",
+            "production_changed","quality_report_bytes_unchanged")}
+    print(json.dumps(report,ensure_ascii=False,indent=2,sort_keys=True))
 
 
 if __name__=="__main__":
