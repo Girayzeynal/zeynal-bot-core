@@ -28,6 +28,12 @@ def describe(state, root, *, now=None):
     last_check=report.get("completed_at_utc") or report.get("evaluated_at_utc")
     player_inputs=report.get("player_inputs") if isinstance(report.get("player_inputs"),dict) else {}
     player_capture=report.get("player_capture") if isinstance(report.get("player_capture"),dict) else {}
+    research_paths=state.get("research_protocol_directories")
+    if not isinstance(research_paths,dict):research_paths={}
+    # Reveal no device filesystem paths; only the deterministic protocol IDs.
+    protocol_ids={k:Path(v).name for k,v in research_paths.items()
+                  if k in ("adaptive_v2","nba_v3","current_assessment")
+                  and isinstance(v,str) and v}
     progress=getattr(worker,"progress",{}) if worker is not None else {}
     if not isinstance(progress,dict):progress={}
     phase=progress.get("phase","NOT_STARTED")
@@ -52,6 +58,7 @@ def describe(state, root, *, now=None):
                            native_box_games=value.get("native_box_games"))
     return dict(
         format=VERSION,examined_at_utc=now,
+        separate_research_protocol_ids=protocol_ids,
         modes=dict(player_minutes=dict(
                        code_loaded=worker is not None,
                        actual_research_collection_attempt=attempted,
@@ -78,6 +85,9 @@ def describe(state, root, *, now=None):
                        live_phase_source_scope=progress.get("source_scope"),
                        live_fixture_id=progress.get("fixture_id"),
                        latest_status=report.get("status","NO_ADAPTIVE_RESEARCH_REPORT_OBSERVED"),
+                       last_failure_code=report.get("reason"),
+                       last_failure_phase=report.get("failed_phase"),
+                       last_error_type=report.get("error_type"),
                        last_check_utc=last_check,
                        competition_groups=teams)),
         scoring=dict(main_model_uses_verified_player_minutes=False,
