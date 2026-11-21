@@ -62,7 +62,7 @@ fi
 case "${1:-}" in
   "")
     if [[ "$#" -ne 0 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
-  --player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup|--challenger-review|--challenger-summary|--challenger-plan|--challenger-capture|--challenger-results|--prepare-europe)
+  --archive-census|--player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup|--challenger-review|--challenger-summary|--challenger-plan|--challenger-capture|--challenger-results|--prepare-europe)
     if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
   --europe-data-check)
     if [[ "$#" -ne 3 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
@@ -72,6 +72,13 @@ case "${1:-}" in
     echo "UNKNOWN_LAUNCHER_OPTION: update the test checkout and use a documented mode" >&2
     exit 2 ;;
 esac
+if [[ "${1:-}" == "--archive-census" ]]; then
+  # Local-only native data inventory; no bot token, model training, SQLite writes or Fly access.
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -B -m hybrid_engine.archive_census \
+    --data-directory "${HOME}/zeynal-test-isolated/data" \
+    --archive-directory "${HOME}/zeynal-test-isolated/archive"
+fi
 if [[ "${1:-}" == "--europe-data-check" ]]; then
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
   exec .venv/bin/python -m hybrid_engine.europe_data \
