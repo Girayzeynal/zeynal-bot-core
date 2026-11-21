@@ -185,6 +185,35 @@ class AdaptiveWorker:
                 else:
                     self.progress['player_input_reason']=None
                 self.progress['player_input_completed_at_utc']=int(time.time())
+                # Keep missing confirmation visible even when V2 is still
+                # training. Limited to public team/player IDs and enum source
+                # names: never embed report PDF, URLs or player medical notes.
+                diag=result.get('roster_diagnostics')
+                if isinstance(diag,dict):
+                    missing=diag.get('missing_absence_corroboration')
+                    missing=missing if isinstance(missing,list) else []
+                    summaries=[]
+                    for row in missing[:8]:
+                        if not isinstance(row,dict):continue
+                        tid=row.get('team')
+                        pid=row.get('player_id')
+                        sources=row.get('missing_sources')
+                        summaries.append(dict(
+                            team=str(tid)[:80] if tid is not None else None,
+                            player_id=pid if isinstance(pid,str) and pid.isdigit() and len(pid)<=15 else None,
+                            missing_sources=sorted(s for s in sources if s in ('ESPN','NBA_OFFICIAL_PDF'))
+                                if isinstance(sources,list) else []))
+                    count=diag.get('missing_absence_count')
+                    status=diag.get('official_http_status')
+                    self.progress['player_input_corroboration']=dict(
+                        missing_absence_count=count if type(count) is int and 0<=count<=100 else None,
+                        examples=summaries,
+                        official_stage=diag.get('official_stage') if diag.get('official_stage') in
+                            ('INDEX_FETCH','INDEX_DISCOVERY','PDF_FETCH','PDF_EXTRACT','ROSTER_IDENTITY','NBA_ROWS') else None,
+                        official_http_status=status if type(status) is int and 100<=status<=599 else None,
+                        latest_report_verified=diag.get('latest_report_verified') is True,
+                        official_fixture_rows=diag.get('official_fixture_rows') if
+                            type(diag.get('official_fixture_rows')) is int else None)
                 report['player_inputs']={k:result.get(k) for k in ('fixture_id','status','reason','projection','new_record')}
             # A new adaptive model forecast must NEVER skip original
             # prefixture admission. The source-only minute probe above has
