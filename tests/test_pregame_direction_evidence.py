@@ -9,7 +9,7 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from core.team_identity import digest
-from hybrid_engine.pregame_direction_evidence import quote_row,inspect,inspect_file,research_direction_summary,frozen_qmc_report
+from hybrid_engine.pregame_direction_evidence import quote_row,inspect,inspect_file,research_direction_summary,frozen_qmc_report,original_recent_history_reference
 
 
 def receipt():
@@ -264,6 +264,52 @@ class DirectionEvidenceTests(TestCase):
                       market_no_vig_over_probability=.5))]
         with self.assertRaisesRegex(ValueError,"SIDE_PROBABILITY_CONFLICT"):
             frozen_qmc_report(bad)
+
+    def test_frozen_native_recent_history_is_paired_only_as_unpublished_reference(self):
+        rows=[
+            dict(fixture_id="a",provider_fixture_ids=["1"],
+                 saved_score_total=220,
+                 frozen_qmc_evidence=dict(line=230.5,raw_more_likely_side="ALT",
+                    research_regulation_only_side="UST"),
+                 native_pregame_history_reference=dict(
+                    preforecast_recent_cross_mean_total=245.0,
+                    fit_age_days=5.0,new_games_since_fit=4)),
+            dict(fixture_id="b",provider_fixture_ids=["2"],
+                 saved_score_total=240,
+                 frozen_qmc_evidence=dict(line=230.5,raw_more_likely_side="UST",
+                    research_regulation_only_side="UST"),
+                 native_pregame_history_reference=dict(
+                    preforecast_recent_cross_mean_total=210.0,
+                    fit_age_days=2.0,new_games_since_fit=0)),
+            dict(fixture_id="c",provider_fixture_ids=["3"],
+                 saved_score_total=210,
+                 frozen_qmc_evidence=dict(line=230.5,raw_more_likely_side="ALT",
+                    research_regulation_only_side="UST"),
+                 native_pregame_history_reference=None),
+        ]
+        before=json.dumps(rows,sort_keys=True)
+        out=original_recent_history_reference(rows)
+        self.assertEqual(json.dumps(rows,sort_keys=True),before)
+        self.assertEqual(out["counts"]["paired_evaluable"],2)
+        self.assertEqual(out["counts"]["missing_verified_history_reference"],1)
+        self.assertEqual(out["counts"]["reference_only_matched"],1)
+        self.assertEqual(out["counts"]["original_only_matched"],1)
+        self.assertEqual(out["by_new_games_since_fit"]["1-4"]["reference_matched"],1)
+        self.assertFalse(out["reference_was_published_forecast"])
+        self.assertFalse(out["candidate_selected"])
+        self.assertFalse(out["original_forecasts_modified"])
+
+    def test_reference_push_is_not_a_direction_success(self):
+        cases=[dict(fixture_id="push",provider_fixture_ids=["1"],
+                    saved_score_total=220,
+                    frozen_qmc_evidence=dict(line=230.5,
+                        raw_more_likely_side="ALT",research_regulation_only_side="UST"),
+                    native_pregame_history_reference=dict(
+                        preforecast_recent_cross_mean_total=230.5,
+                        fit_age_days=1.0,new_games_since_fit=1))]
+        out=original_recent_history_reference(cases)
+        self.assertEqual(out["counts"]["undecided_or_push"],1)
+        self.assertEqual(out["counts"].get("paired_evaluable",0),0)
 
     def test_quality_pin_and_bad_quote_rejected(self):
         _, report=example()
