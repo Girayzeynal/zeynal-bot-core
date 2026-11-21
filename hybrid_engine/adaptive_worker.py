@@ -142,8 +142,11 @@ class AdaptiveWorker:
             plan=await asyncio.to_thread(self.research.plan,create=True);report['protocol_sha256']=plan['sha256']
             self._phase('READ_SOURCE_PINNED_ORIGINALS')
             cases=await asyncio.to_thread(self.cases)
-            self._phase('ADMIT_UNSTARTED_ORIGINALS')
-            for c in cases:await asyncio.to_thread(self.research.admit,c['target'],c['original'])
+            self.progress.update(eligible_future_fixtures=len(cases),
+                                 eligible_nba_fixtures=sum(c['code']=='NBA' for c in cases))
+            # Prospective NBA player evidence does not depend on V2
+            # admission, which may be slow on Android storage. Prioritize
+            # the original fixture-bound witness while it is still pretipoff.
             # Prospective player inputs accumulate without a night-time command.
             # A lack of official corroboration stays an explicit block.
             eligible=[c for c in cases if c['code']=='NBA' and self.player_retry.get(c['target']['fixture_id'],0)<=int(time.time())]
@@ -156,6 +159,14 @@ class AdaptiveWorker:
                 result=await asyncio.to_thread(collect_player_inputs,c['snapshot'],self.nba.assets,self.research.players)
                 self.progress['player_input_status']=result.get('status','UNKNOWN')
                 report['player_inputs']={k:result.get(k) for k in ('fixture_id','status','reason','projection','new_record')}
+            # A new adaptive model forecast must NEVER skip original
+            # prefixture admission. The source-only minute probe above has
+            # no model score to publish and is safe to do first.
+            self._phase('ADMIT_UNSTARTED_ORIGINALS',eligible_future_fixtures=len(cases))
+            for c in cases:
+                if int(time.time())>=c['target']['fixture_start_utc']-900:
+                    continue  # Past cutoff is NOT a new prefixture admission.
+                await asyncio.to_thread(self.research.admit,c['target'],c['original'])
             scopes=sorted({(c['code'],c['target']['season']) for c in cases})
             if scopes:
                 code,season=scopes[(self.sequence-1)%len(scopes)]
