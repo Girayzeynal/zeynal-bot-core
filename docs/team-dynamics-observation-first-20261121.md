@@ -75,3 +75,57 @@ Additional synthetic regression tests for exact source pins and clock leakage br
 - `tests/test_team_dynamics_native_census.py`: `289b36df934a027365ff413f5cd491c6add6819f`
 
 **Crucial:** This is empirical observation inventory, not training, a future score recommendation, a new betting pick, injury adaptation, or a real player-aware model. Nothing has been deployed or backfilled.
+
+
+## User-device observation received: 54/54 original first forecasts
+
+On 2026-11-21, user executed the source-pinned **actual NBA** `team_dynamics_native_census.py` successfully. The original, immutable report showed:
+
+- `original_native_forecasts=54`, `native_profiles=54`,
+  `profiles_with_both_team_histories=54`.
+- `total_original_history_fixture_observations=1069`: total repeated
+  *forecast-input historical match references*, **NOT 1,069 independent NBA fixtures**.
+- Every displayed side in six sampled fixtures used 10 own historical games,
+  with each side's own observed periods, opponent identities and venue counts.
+- An original fixture had team ID 15 home 10-game Q1–Q4 means
+  `[22.9,21.6,31.7,26.1]` and team ID 1 away
+  `[26.9,32.5,28.5,27.6]`. This is observational evidence of distinct
+  previous-game patterns, NOT a rule for other teams or a future score prediction.
+- `current_player_injury_coach_context_available=false`,
+  `directional_betting_accuracy=null`, `original_forecasts_changed=false`,
+  `positive_original_cases_changed=false`, `production_changed=false`.
+
+**Now added (not yet executed on user's actual original files)**:
+`--player-coverage-only` on the *same* SHA-pinned native census checks
+`cut.features[home/away].boxes`. These are prior completed-game
+ESPN player box records, time-eligible at the original forecast. The report
+counts the historical games with box scores, player rows, distinct historical
+athlete IDs and minutes *display* fields for each team. No missing box scores
+are filled. Players who appeared in prior box scores must NOT be asserted to
+be on a current playable roster, nor should their observed postgame minutes
+be substituted for a time-eligible projected rotation.
+
+The source and corrected synthetic test file were checked by exact Git
+blob hashes against the committed GitHub files. **19/19 synthetic regression
+tests pass locally**, including player rows in an original historical Cut,
+rejecting duplicate player IDs and historical side mismatch, historical
+prediction SHA and input asset pins, no false current lineup status.
+
+### Single Android device check for historical player box availability
+
+```bash
+cd ~/zeynal-hybrid-844 &&
+git fetch origin feature/team-dynamics-pregame-evidence-20261121 &&
+TD_TMP="$(mktemp -d)" &&
+git show FETCH_HEAD:hybrid_engine/team_dynamics_evidence.py > "$TD_TMP/team_dynamics_evidence.py" &&
+git show FETCH_HEAD:hybrid_engine/team_dynamics_native_census.py > "$TD_TMP/team_dynamics_native_census.py" &&
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$TD_TMP:$PWD" .venv/bin/python -B "$TD_TMP/team_dynamics_native_census.py" \
+  --report "$HOME/zeynal-test-isolated/data/quality-phase924/reports/quality-4b2be633584586dd439fcfc3f6414001217ac4d9f8c60a9d8fc68c6e17a7a2f1.json" \
+  --ledger "$HOME/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
+  --assets "$HOME/zeynal-test-isolated/data/live-nba/assets" \
+  --examples 2 --player-coverage-only
+```
+
+The preforecast player-box count cannot establish true 5-man lineup rotations,
+pregame injury status, coach tactics, or causal player strength. Do not
+promote this evidence census to production direction forecasting.
