@@ -9,9 +9,11 @@ class SyntheticPlayerBayesRuntimeTests(TestCase):
     def test_actual_rotation_and_bayesian_qmc_are_executed_and_not_live(self):
         result=execute()
         self.assertEqual(result['format'],VERSION)
-        self.assertIn(result['status'],(
-            'SYNTHETIC_PIPELINE_PASSED',
-            'SYNTHETIC_MINUTES_PASSED_SCORE_SENSITIVITY_NOT_IDENTIFIED'))
+        # A simulation that changes minutes but leaves the fitted player
+        # forecast unchanged is a FAILED sensitivity test, never a pass.
+        self.assertEqual(result['status'],'SYNTHETIC_PIPELINE_PASSED')
+        self.assertTrue(result['score_sensitivity_observed'])
+        self.assertGreater(max(abs(x) for x in result['PLAYER_BAYES_DELTA'].values()),1e-7)
         self.assertFalse(result['evidence_is_real_game'])
         self.assertFalse(result['player_effect_is_live'])
         self.assertFalse(result['production_enabled'])
