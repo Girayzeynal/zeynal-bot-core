@@ -118,13 +118,15 @@ class ResearchCycle:
         # after V3's potentially expensive independent calibration work.
         # Keep stages SERIAL: concurrent fits can corrupt source snapshots
         # or consume overlapping source quotas.
-        await self._stage('adaptive_v2',self.worker.tick,app,asynchronous=True)
-        # Observe the already-written, preforecast NBA minute witness files
-        # independently. When none exist, player_shadow reports BLOCKED;
-        # it never invents a lineup or publishes a score adjustment.
+        # Read the player witness directory BEFORE the potentially slow
+        # V2 network acquisition, so users immediately see a real blocker.
+        # Refresh after V2, which may have appended a genuine new minute packet.
         players=getattr(getattr(self.worker,'research',None),'players',None)
         if players is not None:
             from hybrid_engine.player_shadow import readiness
+            await self._stage('player_shadow',lambda:readiness(players),app)
+        await self._stage('adaptive_v2',self.worker.tick,app,asynchronous=True)
+        if players is not None:
             await self._stage('player_shadow',lambda:readiness(players),app)
         if self.study:await self._stage('issue90',self.study.tick,app)
         if self.assessments:await self._stage('current_assessment',self.assessments.tick,app)
@@ -134,7 +136,7 @@ class ResearchCycle:
             await self.once(app);await asyncio.sleep(60)
 
     def render(self):
-        lines=['Araştırma işçisi: seri V2 → oyuncu gölge veri kanıtı → V3 → güncel değerlendirme']
+        lines=['Araştırma işçisi: oyuncu kanıtı ilk denetim → V2 → oyuncu kanıtı tekrar → V3 → değerlendirme']
         for name in ('adaptive_v2','player_shadow','issue90','current_assessment'):
             s=self.stages.get(name)
             if not s:lines.append(name+': İLK TUR BEKLENİYOR');continue
