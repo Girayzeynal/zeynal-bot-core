@@ -78,6 +78,7 @@ def research_direction_summary(fixtures):
     by_book={}
     by_gap={}
     signed_groups={}
+    by_overtime={}
     disagreements=[]
     status=Counter()
     for fixture in fixtures:
@@ -122,7 +123,9 @@ def research_direction_summary(fixtures):
         status["eligible_unique_fixtures"]+=1
         status["research_direction_matched" if ok else "research_direction_mismatched"]+=1
         for target,key in ((by_book,q["bookmaker"]),(by_gap,bucket),
-                           (signed_groups,"PRED_MINUS_ACTUAL_POSITIVE" if mean>actual else "PRED_MINUS_ACTUAL_NEGATIVE" if mean<actual else "ZERO")):
+                           (signed_groups,"PRED_MINUS_ACTUAL_POSITIVE" if mean>actual else "PRED_MINUS_ACTUAL_NEGATIVE" if mean<actual else "ZERO"),
+                           (by_overtime,"OVERTIME_PRESENT" if (fixture.get("overtime_points_excluded") or 0)>0 else
+                            "NO_OVERTIME" if fixture.get("overtime_points_excluded") is not None else "OVERTIME_UNKNOWN")):
             item=target.setdefault(key,dict(n=0,matched=0,mismatched=0))
             item["n"]+=1
             item["matched" if ok else "mismatched"]+=1
@@ -155,6 +158,7 @@ def research_direction_summary(fixtures):
         by_bookmaker=dict(sorted(by_book.items())),
         by_original_mean_line_gap=dict(sorted(by_gap.items())),
         by_score_error_sign=dict(sorted(signed_groups.items())),
+        by_overtime_status=dict(sorted(by_overtime.items())),
         mismatches_sorted_by_original_mean_line_distance=sorted(
             disagreements,key=lambda x:(-x["absolute_model_line_distance"],x["fixture_id"])),
         published_pregame_direction_accuracy=None,
@@ -207,6 +211,12 @@ def inspect(data, ledger, assets):
             if abs(mean-sum(map(finite,row["prediction"])))>1e-5:
                 raise ValueError("DIRECTION_ORIGINAL_SCORE_CONFLICT")
             actual=(sum(map(finite,row["actual"])) if row["actual"] is not None else None)
+            final_with_ot=row.get("final_with_ot")
+            overtime_points=None
+            if actual is not None and final_with_ot is not None:
+                overtime_points=sum(map(finite,final_with_ot))-actual
+                if overtime_points < 0:
+                    raise ValueError("DIRECTION_NEGATIVE_OVERTIME_POINTS")
             source_assets=snapshot.get("source_assets",[])
             source_refs={str(i):ref for i,ref in enumerate(source_assets)}
             quotes=observed_market_evidence(directory,source_refs,
@@ -223,7 +233,8 @@ def inspect(data, ledger, assets):
                 native_source_asset_count=len(source_assets),
                 archived_total_quotes_before_prediction=len(records),
                 observed_total_quote_rows=records,
-                actual_native_regulation_result_available=actual is not None))
+                actual_native_regulation_result_available=actual is not None,
+                overtime_points_excluded=overtime_points))
     coverage=Counter()
     for r in results:
         coverage["fixtures"]+=1
