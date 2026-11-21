@@ -54,6 +54,8 @@ def describe(state, root, *, now=None):
                        valid_prospective_packet_confirmed=player_inputs.get("status") in
                         ("PROSPECTIVE_MINUTES_ARCHIVED","EXISTING_MINUTES_REPLAY")),
                    player_shadow=dict(code_importable=True,
+                       background_witness_stage=(stages.get("player_shadow") or {}).get("status","NOT_OBSERVED"),
+                       last_background_witness_status=(state.get("last_player_shadow_poll") or {}).get("status","NO_WITNESS_ATTEMPT_OBSERVED"),
                        readiness=shadow.get("status"),
                        observed_prospective_minutes_games=shadow.get("prospective_minutes_games"),
                        prepared_model_artifacts=shadow.get("prepared_artifacts"),
