@@ -101,6 +101,11 @@ class DirectionEvidenceTests(TestCase):
         self.assertEqual((result["matched"],result["mismatched"]),(2,2))
         self.assertEqual(result["confusion_matrix"],
                          {"ALT_UST":1,"UST_UST":1,"UST_ALT":1,"ALT_ALT":1})
+        self.assertEqual(result["research_side_counts"],
+                         dict(model_ALT=2,model_UST=2,
+                              actual_regulation_ALT=2,actual_regulation_UST=2))
+        self.assertEqual(result["descriptive_constant_side_references"]["always_ALT"],0.5)
+        self.assertEqual(result["descriptive_constant_side_references"]["always_UST"],0.5)
         self.assertEqual(result["by_score_error_sign"]["PRED_MINUS_ACTUAL_POSITIVE"]["n"],2)
         self.assertEqual(result["by_score_error_sign"]["PRED_MINUS_ACTUAL_NEGATIVE"]["n"],2)
         self.assertIsNone(result["published_pregame_direction_accuracy"])
