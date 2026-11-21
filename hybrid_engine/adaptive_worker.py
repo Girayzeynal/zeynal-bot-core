@@ -38,6 +38,12 @@ class AdaptiveWorker:
         self.journal=EuropeanPrematchScheduler({},self.root/'attempts')
         self.seen=set();self.running=False;self.sequence=0;self.retry={};self.player_retry={}
         self.last_report=None;self.last_journal=0;self.group_reports={};self.refreshed=set()
+        self.progress=dict(phase='NOT_STARTED',phase_at_utc=None,
+            started_at_utc=None,player_input_status='NO_ATTEMPT_OBSERVED')
+
+    def _phase(self,phase,**fields):
+        # In-memory progress only. No original ledger or fixture snapshot writes.
+        self.progress.update(phase=phase,phase_at_utc=int(time.time()),**fields)
 
     def refresh_native_history(self,code,year):
         key=(code,year,int(time.time())//21600)
@@ -128,45 +134,25 @@ class AdaptiveWorker:
         report=dict(format='ADAPTIVE_V2_BACKGROUND_ATTEMPT',evaluated_at_utc=now,completed_at_utc=now,sequence=time.time_ns(),
             status='CHECKED',groups={},captures=[],player_inputs=None,production_changed=False,original_predictions_changed=False,
             existing_nba_plan_changed=False,training_in_telegram_request=False,actual_telegram_delivery_verified=False)
+        self.progress=dict(phase='REGISTER_ADAPTIVE_RESEARCH_PLAN',phase_at_utc=now,
+            started_at_utc=now,sequence=self.sequence,
+            player_input_status='NO_ATTEMPT_OBSERVED',source_scope=None)
         try:
             plan=await asyncio.to_thread(self.research.plan,create=True);report['protocol_sha256']=plan['sha256']
+            self._phase('READ_SOURCE_PINNED_ORIGINALS')
             cases=await asyncio.to_thread(self.cases)
+            self._phase('ADMIT_UNSTARTED_ORIGINALS')
             for c in cases:await asyncio.to_thread(self.research.admit,c['target'],c['original'])
-            scopes=sorted({(c['code'],c['target']['season']) for c in cases})
-            if scopes:
-                code,season=scopes[(self.sequence-1)%len(scopes)]
-                selected=[c for c in cases if (c['code'],c['target']['season'])==(code,season)]
-                year=int(season.split('/')[0]);league=selected[0]['target']['league']
-                await asyncio.to_thread(self.refresh_native_history,code,year)
-                cohort=await asyncio.to_thread(self.store.cohort,code,year,int(time.time()))
-                boxes=await asyncio.to_thread(self.store.acquire_boxes,cohort)
-                cohort=await asyncio.to_thread(self.store.cohort,code,year,int(time.time()))
-                state=dict(season=season,native_training_games=len(cohort),native_box_games=sum(bool(v[0].get('box')) for v in cohort),acquisition=boxes)
-                try:
-                    artifact,new=await asyncio.to_thread(self.research.fit,cohort,league,season)
-                    state.update(status='SCHEDULED_MODEL_AVAILABLE',new_model=new,model_sha256=artifact['sha256'],
-                        fit_cutoff_utc=artifact['payload']['cutoff_utc'],player_readiness=artifact['payload']['player_readiness'])
-                    saved={r['payload']['fixture']['canonical_id'] for r in self.research.registry.records()}
-                    ready=[c for c in selected if c['target']['fixture_id'] not in saved and
-                           self.retry.get(c['target']['fixture_id'],0)<=int(time.time())]
-                    for c in ready[:2]:
-                        fid=c['target']['fixture_id']
-                        if self.retry.get(fid,0)>int(time.time()):continue
-                        try:
-                            p,created=await asyncio.to_thread(self.research.capture,c['target'],c['original'],artifact,self.verify,frozen=c['frozen'])
-                            report['captures'].append(dict(fixture_id=fid,status='ARCHIVED' if created else 'REPLAY',forecast_sha256=digest(p)))
-                        except (ValueError,KeyError,TypeError,OSError) as exc:
-                            self.retry[fid]=int(time.time())+300
-                            report['captures'].append(dict(fixture_id=fid,status='ABSTAIN',reason='ADAPTIVE_INPUT_SOURCE_OR_CAPTURE_UNAVAILABLE',error_type=type(exc).__name__))
-                except (ValueError,KeyError,TypeError,OSError) as exc:
-                    state.update(status='ABSTAIN',reason='ADAPTIVE_NATIVE_BOX_HISTORY_OR_MODEL_INSUFFICIENT',error_type=type(exc).__name__)
-                self.group_reports[code]=dict(state,observed_at_utc=int(time.time()))
             # Prospective player inputs accumulate without a night-time command.
             # A lack of official corroboration stays an explicit block.
             eligible=[c for c in cases if c['code']=='NBA' and self.player_retry.get(c['target']['fixture_id'],0)<=int(time.time())]
+            if not eligible:
+                self.progress['player_input_status']='NO_ELIGIBLE_NBA_OR_PRETIPOFF_SNAPSHOT'
             if eligible:
                 c=eligible[0];fid=c['target']['fixture_id'];self.player_retry[fid]=int(time.time())+900
+                self._phase('PREGAME_PLAYER_MINUTES_SOURCE',fixture_id=fid)
                 result=await asyncio.to_thread(collect_player_inputs,c['snapshot'],self.nba.assets,self.research.players)
+                self.progress['player_input_status']=result.get('status','UNKNOWN')
                 report['player_inputs']={k:result.get(k) for k in ('fixture_id','status','reason','projection','new_record')}
                 if result['status'] in ('PROSPECTIVE_MINUTES_ARCHIVED','EXISTING_MINUTES_REPLAY'):
                     def player_capture():
@@ -178,12 +164,49 @@ class AdaptiveWorker:
                         if not models:raise Abstain('ADAPTIVE_PROSPECTIVE_PLAYER_MODEL_NOT_READY')
                         model=max(models,key=lambda m:m['payload']['prepared_at_utc'])
                         return self.research.capture_player(c['target'],c['original'],model,self.verify)
+                    self._phase('PLAYER_BAYES_SHADOW_CANDIDATE',fixture_id=fid)
                     try:
                         p,new=await asyncio.to_thread(player_capture)
                         report['player_capture']=dict(status='ARCHIVED' if new else 'REPLAY',forecast_sha256=digest(p),fixture_id=fid)
                     except (ValueError,KeyError,TypeError,OSError):
                         report['player_capture']=dict(status='ABSTAIN',reason='ADAPTIVE_PROSPECTIVE_PLAYER_MODEL_OR_FRESH_INPUTS_REQUIRED')
+            scopes=sorted({(c['code'],c['target']['season']) for c in cases})
+            if scopes:
+                code,season=scopes[(self.sequence-1)%len(scopes)]
+                selected=[c for c in cases if (c['code'],c['target']['season'])==(code,season)]
+                year=int(season.split('/')[0]);league=selected[0]['target']['league']
+                self._phase('REFRESH_NATIVE_HISTORY',source_scope=code)
+                await asyncio.to_thread(self.refresh_native_history,code,year)
+                self._phase('READ_NATIVE_HISTORICAL_GAMES')
+                cohort=await asyncio.to_thread(self.store.cohort,code,year,int(time.time()))
+                self._phase('FETCH_MISSING_NATIVE_BOXSCORES')
+                boxes=await asyncio.to_thread(self.store.acquire_boxes,cohort)
+                self._phase('VERIFY_NATIVE_BOX_COHORT')
+                cohort=await asyncio.to_thread(self.store.cohort,code,year,int(time.time()))
+                state=dict(season=season,native_training_games=len(cohort),native_box_games=sum(bool(v[0].get('box')) for v in cohort),acquisition=boxes)
+                try:
+                    self._phase('FIT_TIME_ELIGIBLE_ADAPTIVE_MODEL')
+                    artifact,new=await asyncio.to_thread(self.research.fit,cohort,league,season)
+                    state.update(status='SCHEDULED_MODEL_AVAILABLE',new_model=new,model_sha256=artifact['sha256'],
+                        fit_cutoff_utc=artifact['payload']['cutoff_utc'],player_readiness=artifact['payload']['player_readiness'])
+                    saved={r['payload']['fixture']['canonical_id'] for r in self.research.registry.records()}
+                    ready=[c for c in selected if c['target']['fixture_id'] not in saved and
+                           self.retry.get(c['target']['fixture_id'],0)<=int(time.time())]
+                    for c in ready[:2]:
+                        fid=c['target']['fixture_id']
+                        if self.retry.get(fid,0)>int(time.time()):continue
+                        try:
+                            self._phase('CAPTURE_ORIGINAL_LINKED_ADAPTIVE_SHADOW')
+                            p,created=await asyncio.to_thread(self.research.capture,c['target'],c['original'],artifact,self.verify,frozen=c['frozen'])
+                            report['captures'].append(dict(fixture_id=fid,status='ARCHIVED' if created else 'REPLAY',forecast_sha256=digest(p)))
+                        except (ValueError,KeyError,TypeError,OSError) as exc:
+                            self.retry[fid]=int(time.time())+300
+                            report['captures'].append(dict(fixture_id=fid,status='ABSTAIN',reason='ADAPTIVE_INPUT_SOURCE_OR_CAPTURE_UNAVAILABLE',error_type=type(exc).__name__))
+                except (ValueError,KeyError,TypeError,OSError) as exc:
+                    state.update(status='ABSTAIN',reason='ADAPTIVE_NATIVE_BOX_HISTORY_OR_MODEL_INSUFFICIENT',error_type=type(exc).__name__)
+                self.group_reports[code]=dict(state,observed_at_utc=int(time.time()))
             report['groups']=dict(self.group_reports)
+            self._phase('REVIEW_ACTUAL_MODEL_METRICS')
             report['performance']=await asyncio.to_thread(self.research.performance,await asyncio.to_thread(self.labels))
             report['completed_at_utc']=int(time.time())
             if any(g['status']=='ABSTAIN' for g in report['groups'].values()) or any(c['status']=='ABSTAIN' for c in report['captures']):report['status']='PARTIAL_ABSTAIN'
@@ -192,9 +215,12 @@ class AdaptiveWorker:
             if (any(c['status']=='ARCHIVED' for c in report['captures']) or
                     (report.get('player_capture') or {}).get('status')=='ARCHIVED' or
                     any(g.get('new_model') for g in report['groups'].values()) or int(time.time())-self.last_journal>=3600):
+                self._phase('ARCHIVE_SEPARATE_RESEARCH_REPORT')
                 await asyncio.to_thread(self.journal.publish,report);self.last_journal=int(time.time())
+            self._phase('COMPLETED',completion_status=report['status'])
             self.last_report=report;return report
         except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,RuntimeError) as exc:
+            self._phase('ABSTAIN',failure_type=type(exc).__name__)
             report.update(status='ABSTAIN',reason='ADAPTIVE_PLAN_SOURCE_OR_ARCHIVE_UNAVAILABLE',error_type=type(exc).__name__)
             self.last_report=report;return report
         finally:self.running=False
