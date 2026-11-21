@@ -107,7 +107,7 @@ def historical_player_box_coverage(cut):
             unique_historical_player_ids=len(unique_players),
             historical_player_rows_with_displayed_minutes=with_displayed_minutes,
             minutes_precision='PROVIDER_DISPLAY_NOT_EXACT_SECONDS',
-            postgame_historical_box_predecision_available=True,
+            postgame_historical_box_predecision_available=bool(seen),
             confirms_current_active_roster=False,
             proves_future_minutes_or_injury=False,
             fitted_player_effects=False)
@@ -200,11 +200,31 @@ def main():
     for key in ('report','ledger','assets'):
         parser.add_argument('--'+key,required=True)
     parser.add_argument('--examples',type=int,default=8)
+    parser.add_argument('--player-coverage-only',action='store_true',
+                        help='Print original predecision historical player-box coverage, not a roster or prediction')
     args=parser.parse_args()
     if not 0<=args.examples<=54:
         raise ValueError('DYNAMICS_EXAMPLE_BUDGET')
-    print(json.dumps(inspect(args.report,args.ledger,args.assets,limit=args.examples),
-                     ensure_ascii=False,sort_keys=True,indent=2))
+    report=inspect(args.report,args.ledger,args.assets,limit=args.examples)
+    if args.player_coverage_only:
+        report=dict(
+            format=report['format'],
+            original_native_forecasts=report['original_native_forecasts'],
+            original_quality_report_sha256=report['original_quality_report_sha256'],
+            preforecast_historical_box_coverage=report['preforecast_historical_box_coverage'],
+            sample_teams=[dict(
+                fixture_id=p['fixture_id'],
+                home_team_id=p['home']['team_id'],
+                away_team_id=p['away']['team_id'],
+                home_box=p['home']['historical_player_box_coverage'],
+                away_box=p['away']['historical_player_box_coverage'])
+                for p in report['sampled_profiles']],
+            current_player_injury_coach_context_available=False,
+            no_retrospective_replacement_predictions=True,
+            original_forecasts_changed=report['original_forecasts_changed'],
+            positive_original_cases_changed=report['positive_original_cases_changed'],
+            production_changed=report['production_changed'])
+    print(json.dumps(report,ensure_ascii=False,sort_keys=True,indent=2))
 
 
 if __name__=='__main__':main()
