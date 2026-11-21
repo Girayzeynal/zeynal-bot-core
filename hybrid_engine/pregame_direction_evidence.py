@@ -188,6 +188,7 @@ def frozen_qmc_report(rows):
     no_side=0
     valid=0
     proper_pairs=[]
+    conditional_side_records=[]
     for row in rows:
         evidence=row.get("frozen_qmc_evidence")
         if evidence is None:
@@ -210,6 +211,20 @@ def frozen_qmc_report(rows):
             if not 0<=pmodel<=1 or not 0<pmarket<1:
                 raise ValueError("DIRECTION_MODEL_OR_PRICE_PROBABILITY_RANGE")
             proper_pairs.append((pmodel,pmarket,y))
+            pside=pmodel if direction=="UST" else 1-pmodel
+            reference_side=pmarket if direction=="UST" else 1-pmarket
+            if pside<0.5-1e-12:
+                raise ValueError("DIRECTION_MODEL_SIDE_PROBABILITY_CONFLICT")
+            conditional_side_records.append(dict(
+                fixture_id=row["fixture_id"],
+                provider_fixture_ids=row["provider_fixture_ids"],
+                predicted_side=direction,actual_regulation_side=actual,
+                matched=(direction==actual),
+                original_line=finite(evidence["line"]),
+                original_model_direction_probability=pside,
+                original_market_implied_direction_probability=reference_side,
+                model_brier_over=(pmodel-y)**2,
+                market_brier_over=(pmarket-y)**2))
         if direction!=evidence["original_mean_side"]:
             differences.append(dict(fixture_id=row["fixture_id"],
                 provider_fixture_ids=row["provider_fixture_ids"],
@@ -239,6 +254,33 @@ def frozen_qmc_report(rows):
             timestamped_bookmaker_no_vig_reference=scores(1),
             realized_regulation_over_frequency=sum(v[2] for v in proper_pairs)/n,
             caveat="POSTHOC DESCRIPTIVE ONE-COHORT RESEARCH; BOOKMAKER PRICE SETTLEMENT UNKNOWN, NOT CERTIFIED ODDS FAIRNESS OR FUTURE ROI")
+    by_side={}
+    for side in ("ALT","UST"):
+        subset=[r for r in conditional_side_records if r["predicted_side"]==side]
+        if not subset:
+            continue
+        n=len(subset)
+        by_side[side]=dict(
+            n=n,matched=sum(r["matched"] for r in subset),
+            mismatched=sum(not r["matched"] for r in subset),
+            mean_model_selected_side_probability=(
+                sum(r["original_model_direction_probability"] for r in subset)/n),
+            mean_market_selected_side_probability=(
+                sum(r["original_market_implied_direction_probability"] for r in subset)/n),
+            mean_qmc_brier_over=sum(r["model_brier_over"] for r in subset)/n,
+            mean_market_brier_over=sum(r["market_brier_over"] for r in subset)/n)
+    wrongly_confident=sorted(
+        (dict(fixture_id=r["fixture_id"],
+              provider_fixture_ids=r["provider_fixture_ids"],
+              predicted_side=r["predicted_side"],
+              actual_regulation_side=r["actual_regulation_side"],
+              original_line=r["original_line"],
+              original_model_selected_side_probability=(
+                  r["original_model_direction_probability"]),
+              original_market_selected_side_probability=(
+                  r["original_market_implied_direction_probability"]))
+         for r in conditional_side_records if not r["matched"]),
+        key=lambda r:(-r["original_model_selected_side_probability"],r["fixture_id"]))
     return dict(
         class_="FROZEN_QMC_SAMPLE_SHA_VERIFIED_REPLAY_RESEARCH_ONLY",
         eligible_replays=valid,undecided_replays=no_side,
@@ -247,6 +289,8 @@ def frozen_qmc_report(rows):
         mismatched=matrix["ALT_UST"]+matrix["UST_ALT"],
         confusion_matrix=dict(matrix),
         paired_raw_probability_vs_market_price=price_model_comparison,
+        by_original_qmc_selected_side=by_side,
+        strongest_probability_wrong_side_examples=wrongly_confident[:8],
         descriptive_regulation_direction_agreement=(
             (matrix["ALT_ALT"]+matrix["UST_UST"])/decided if decided else None),
         simulated_direction_differs_from_original_mean_count=len(differences),
@@ -453,6 +497,8 @@ def main():
                             "descriptive_regulation_direction_agreement",
                             "simulated_direction_differs_from_original_mean_count",
                             "paired_raw_probability_vs_market_price",
+                            "by_original_qmc_selected_side",
+                            "strongest_probability_wrong_side_examples",
                             "published_direction_proven","bookmaker_settlement_proven",
                             "calibrated_probabilities","warning")},
                     original_forecasts_changed=report["original_forecasts_changed"],
