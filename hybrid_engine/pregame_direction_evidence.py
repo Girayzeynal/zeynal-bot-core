@@ -177,7 +177,57 @@ def research_direction_summary(fixtures):
         caveat="ORIGINAL_MEAN_VS_QUOTE_RECONSTRUCTED_AFTER_OUTCOME; NOT THE HISTORIC TELEGRAM DECISION. MARKET OVERTIME SCOPE NOT VERIFIED. DO NOT FLIP DIRECTIONS OR TUNE GAP BUCKETS USING THESE RESULTS.")
 
 
-def inspect(data, ledger, assets):
+def frozen_qmc_report(rows):
+    """Original-sample-sha-verified raw O/U probability side, regulation ONLY.
+
+    This is not a recovered published Telegram selection nor bookmaker-bet
+    settlement. It cannot attest a decision issued before tipoff.
+    """
+    matrix=Counter()
+    differences=[]
+    no_side=0
+    valid=0
+    for row in rows:
+        evidence=row.get("frozen_qmc_evidence")
+        if evidence is None:
+            continue
+        valid+=1
+        direction=evidence["raw_more_likely_side"]
+        actual=evidence["research_regulation_only_side"]
+        if direction=="ESIT" or actual=="ESIT":
+            no_side+=1
+            continue
+        if direction not in ("ALT","UST") or actual not in ("ALT","UST"):
+            raise ValueError("DIRECTION_REPLAY_SIDE_CONFLICT")
+        matrix[direction+"_"+actual]+=1
+        if direction!=evidence["original_mean_side"]:
+            differences.append(dict(fixture_id=row["fixture_id"],
+                provider_fixture_ids=row["provider_fixture_ids"],
+                original_model_mean_side=evidence["original_mean_side"],
+                sample_probability_side=direction,
+                raw_under_probability=evidence["raw_under_probability"],
+                raw_over_probability=evidence["raw_over_probability"],
+                line=evidence["line"],
+                actual_regulation_side=actual))
+    decided=sum(matrix.values())
+    return dict(
+        class_="FROZEN_QMC_SAMPLE_SHA_VERIFIED_REPLAY_RESEARCH_ONLY",
+        eligible_replays=valid,undecided_replays=no_side,
+        assessed_unique_fixtures=decided,
+        matched=matrix["ALT_ALT"]+matrix["UST_UST"],
+        mismatched=matrix["ALT_UST"]+matrix["UST_ALT"],
+        confusion_matrix=dict(matrix),
+        descriptive_regulation_direction_agreement=(
+            (matrix["ALT_ALT"]+matrix["UST_UST"])/decided if decided else None),
+        simulated_direction_differs_from_original_mean_count=len(differences),
+        original_mean_vs_sample_direction_disagreements=differences,
+        published_direction_proven=False,
+        calibrated_probabilities=False,
+        bookmaker_settlement_proven=False,
+        warning="REPLAY OF ORIGINAL PINNED PREMATCH SAMPLES AFTER RESULT; NOT A PUBLISHED DECISION, NOT A VALIDATED BETTING EDGE.")
+
+
+def inspect(data, ledger, assets, *, replay_qmc=False):
     if not isinstance(data, dict) or digest(data.get("payload"))!=data.get("sha256"):
         raise ValueError("DIRECTION_QUALITY_REPORT_PIN_REQUIRED")
     root = Path(ledger).expanduser().absolute()
@@ -195,6 +245,21 @@ def inspect(data, ledger, assets):
     if len(forecasts)>MAX_FIXTURES:
         raise ValueError("DIRECTION_FIXTURE_BUDGET")
     results=[]
+    # Replay reuses original frozen inputs/parameter SHA pins and exact archived
+    # simulation sample SHA; all input data remain read-only.
+    if replay_qmc:
+        import numpy as np
+        from hybrid_engine.decision_audit import replay_snapshot
+        from hybrid_engine.prediction_audit import Assets
+
+        class LocalAssetReader:
+            def __init__(self, folder):
+                self.native=Assets(folder)
+
+            def read(self, variant, ref):
+                return self.native.read(ref)
+
+        local_reader=LocalAssetReader(directory)
     with closing(sqlite3.connect(root.as_uri()+"?mode=ro",uri=True,timeout=.3)) as db:
         db.execute("PRAGMA query_only=ON")
         db.execute("BEGIN")
@@ -232,6 +297,35 @@ def inspect(data, ledger, assets):
                                             snapshot["fixture_id"],generated,tipoff)
             full=[q for q in quotes if q["market"]=="TOTAL"]
             records=[quote_row(q,mean,actual) for q in full]
+            qmc_evidence=None
+            eligible_quotes=[q for q in records if q["quote_fresh_at_prediction"]]
+            if replay_qmc and actual is not None and len(eligible_quotes)==1:
+                quote=eligible_quotes[0]
+                line=finite(quote["line"])
+                replay,_=replay_snapshot(dict(snapshot=snapshot,variant="local"),
+                                         local_reader)
+                sample=replay.values("FULL","TOTAL")
+                if len(sample)!=snapshot["intervals"]["scenarios"]:
+                    raise ValueError("DIRECTION_REPLAY_SCENARIO_COUNT_CONFLICT")
+                under=float(np.mean(sample<line))
+                push=float(np.mean(sample==line))
+                over=float(np.mean(sample>line))
+                if abs(under+push+over-1.0)>1e-8:
+                    raise ValueError("DIRECTION_REPLAY_PROBABILITY_CONFLICT")
+                qmc_evidence=dict(
+                    line=line,
+                    original_mean_side=quote["original_model_mean_relative_to_line"],
+                    raw_more_likely_side="ALT" if under>over else
+                        "UST" if over>under else "ESIT",
+                    raw_under_probability=under,
+                    raw_over_probability=over,
+                    raw_push_probability=push,
+                    research_regulation_only_side=quote["research_regulation_only_side"],
+                    original_sample_sha256=snapshot["intervals"]["sample_sha256"],
+                    exact_sample_pin_verified=True,
+                    original_telegram_direction_proven=False,
+                    calibrated_probability=False,
+                    bookmaker_settlement_rule_verified=False)
             results.append(dict(
                 fixture_id=snapshot["fixture_id"],
                 provider_fixture_ids=snapshot.get("provider_fixture_ids",[]),
@@ -243,7 +337,8 @@ def inspect(data, ledger, assets):
                 archived_total_quotes_before_prediction=len(records),
                 observed_total_quote_rows=records,
                 actual_native_regulation_result_available=actual is not None,
-                overtime_points_excluded=overtime_points))
+                overtime_points_excluded=overtime_points,
+                frozen_qmc_evidence=qmc_evidence))
     coverage=Counter()
     for r in results:
         coverage["fixtures"]+=1
@@ -258,6 +353,7 @@ def inspect(data, ledger, assets):
                 scope="LOCAL_ORIGINAL_NBA_SNAPSHOT_ASSETS_ONLY_NO_REMOTE_FLY",
                 counts=dict(coverage),
                 direction_research=research_direction_summary(results),
+                frozen_qmc_direction_replay=(frozen_qmc_report(results) if replay_qmc else None),
                 fixture_quotes=[r for r in results if r["archived_total_quotes_before_prediction"]][:100],
                 no_quote_fixture_count=len(results)-coverage["fixtures_with_total_quote"],
                 actual_original_direction_decision_hit_rate=None,
@@ -269,14 +365,14 @@ def inspect(data, ledger, assets):
                 production_changed=False, no_new_predictions=True)
 
 
-def inspect_file(quality,ledger,assets):
+def inspect_file(quality,ledger,assets,*,replay_qmc=False):
     path=Path(quality).expanduser()
     if path.is_symlink() or not path.is_file():
         raise ValueError("DIRECTION_EXISTING_QUALITY_REPORT_REQUIRED")
     with path.open("rb") as stream: raw=stream.read(MAX_REPORT+1)
     if len(raw)>MAX_REPORT:raise ValueError("DIRECTION_REPORT_BUDGET")
     before=hashlib.sha256(raw).hexdigest()
-    result=inspect(json.loads(raw),ledger,assets)
+    result=inspect(json.loads(raw),ledger,assets,replay_qmc=replay_qmc)
     if hashlib.sha256(path.read_bytes()).hexdigest()!=before:
         raise ValueError("DIRECTION_REPORT_CONCURRENT_CHANGE")
     result["quality_report_bytes_unchanged"]=True
@@ -290,11 +386,14 @@ def main():
     parser.add_argument("--assets",required=True)
     parser.add_argument("--summary-only",action="store_true",
                         help="Print coverage and direction confusion only, without fixture cards")
+    parser.add_argument("--replay-qmc",action="store_true",
+                        help="Verify original QMC SHA and compare its raw ALT/UST probability side")
     args=parser.parse_args()
-    report=inspect_file(args.report,args.ledger,args.assets)
+    report=inspect_file(args.report,args.ledger,args.assets,replay_qmc=args.replay_qmc)
     if args.summary_only:
         report={k:report[k] for k in (
             "format","counts","no_quote_fixture_count","direction_research",
+            "frozen_qmc_direction_replay",
             "actual_original_direction_decision_hit_rate",
             "actual_bookmaker_direction_settlement_rate",
             "original_forecasts_changed","positive_signed_original_cases_modified",
