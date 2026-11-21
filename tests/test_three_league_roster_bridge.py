@@ -27,15 +27,17 @@ def game(league='NBA'):
 
 
 def complete():
-    fixture=game();h=reg('NBA','H');a=reg('NBA','A')
+    fixture=game()
+    h=reg('NBA','H',players=tuple('h'+str(i) for i in range(1,7)))
+    a=reg('NBA','A',players=tuple('a'+str(i) for i in range(1,7)))
     availability=dict(fixture_id=fixture['fixture_id'],
         observed_at_utc=NOW+1,scope='PREGAME_NOT_BACKFILLED',
-        home={f'p{i}':'AVAILABLE' for i in range(1,7)},
-        away={f'p{i}':'AVAILABLE' for i in range(1,7)})
+        home={f'h{i}':'AVAILABLE' for i in range(1,7)},
+        away={f'a{i}':'AVAILABLE' for i in range(1,7)})
     exposures=dict(fixture_id=fixture['fixture_id'],
         observed_at_utc=NOW+2,scope='PREGAME_NOT_BACKFILLED',
-        home={f'p{i}':48.0 for i in range(1,6)},
-        away={f'p{i}':48.0 for i in range(1,6)})
+        home={f'h{i}':48.0 for i in range(1,6)},
+        away={f'a{i}':48.0 for i in range(1,6)})
     fit=dict(status='VERIFIED_HISTORICAL_PREFIT_EXPOSURE_MODEL',
         trained_until_utc=NOW-100,training_includes_target=False,
         source_attestation='INDEPENDENT_VERIFICATION_PENDING')
@@ -147,7 +149,7 @@ class ThreeLeagueRosterBridgeTests(unittest.TestCase):
         self.assertFalse(out['source_attestation_independently_verified'])
         self.assertFalse(out['scoring_engine_connected'])
         self.assertFalse(out['numeric_effect_coefficients_applied'])
-        self.assertEqual(out['model_player_input']['home']['expected_minutes']['p1'],48)
+        self.assertEqual(out['model_player_input']['home']['expected_minutes']['h1'],48)
 
     def test_absent_registered_player_never_infers_playing_or_minutes(self):
         fix,h,a,status,minutes,fit=complete()
@@ -160,18 +162,25 @@ class ThreeLeagueRosterBridgeTests(unittest.TestCase):
         for case in ('OUT','QUESTIONABLE'):
             with self.subTest(status=case):
                 fix,h,a,status,minutes,fit=complete()
-                status['home']['p1']=case
+                status['home']['h1']=case
                 out=fixture_gate(fixture=fix,home_roster=h,away_roster=a,
                                  availability=status,exposures=minutes,fit=fit)
                 self.assertIn('UNAVAILABLE_OR_UNCERTAIN',out['status'])
 
     def test_50_minute_player_or_missing_team_minutes_blocks(self):
         fix,h,a,status,minutes,fit=complete()
-        minutes['home']['p1']=52
-        minutes['home']['p2']=44
+        minutes['home']['h1']=52
+        minutes['home']['h2']=44
         out=fixture_gate(fixture=fix,home_roster=h,away_roster=a,
                          availability=status,exposures=minutes,fit=fit)
         self.assertIn('BLOCKED_ROTATION',out['status'])
+
+    def test_player_in_two_teams_must_be_rejected(self):
+        fix,h,a,status,minutes,fit=complete()
+        duplicated=reg('NBA','A',players=('h1','a2','a3','a4','a5','a6'))
+        with self.assertRaisesRegex(ValueError,'DUPLICATED_ACROSS_TEAMS'):
+            fixture_gate(fixture=fix,home_roster=h,away_roster=duplicated,
+                         availability=status,exposures=minutes,fit=fit)
 
     def test_postdecision_status_cannot_rewrite_prematch(self):
         fix,h,a,status,minutes,fit=complete()
