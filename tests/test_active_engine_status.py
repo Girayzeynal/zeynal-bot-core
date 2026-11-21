@@ -84,6 +84,11 @@ class EngineActivationTests(TestCase):
             started_at_utc=1790000950,player_input_status="BLOCKED",
             player_input_reason="CURRENT_ROSTER_SOURCE_REVIEW_REQUIRED",
             player_input_completed_at_utc=1790000975,
+            player_input_corroboration=dict(
+                missing_absence_count=1,official_stage="INDEX_FETCH",
+                official_http_status=429,latest_report_verified=False,
+                official_fixture_rows=0,examples=[dict(team="TestHome",
+                    player_id="100",missing_sources=["NBA_OFFICIAL_PDF"])]),
             source_scope="NBA",fixture_id="original-future"),last_report=None)
         with patch("hybrid_engine.player_shadow.readiness",
                    return_value=dict(status="BLOCKED_NO_PROSPECTIVE_PLAYER_MINUTES",
@@ -92,6 +97,11 @@ class EngineActivationTests(TestCase):
         self.assertEqual(x["modes"]["player_minutes"]["last_status"],"BLOCKED")
         self.assertEqual(x["modes"]["player_minutes"]["reason"],"CURRENT_ROSTER_SOURCE_REVIEW_REQUIRED")
         self.assertEqual(x["modes"]["player_minutes"]["source_attempt_completed_at_utc"],1790000975)
+        corroboration=x["modes"]["player_minutes"]["absence_source_corroboration"]
+        self.assertEqual(corroboration["missing_absence_count"],1)
+        self.assertEqual(corroboration["examples"][0]["missing_sources"],["NBA_OFFICIAL_PDF"])
+        self.assertEqual(corroboration["official_http_status"],429)
+        self.assertFalse(x["modes"]["player_minutes"]["valid_prospective_packet_confirmed"])
         self.assertEqual(x["modes"]["adaptive_models"]["live_phase_source_scope"],"NBA")
         self.assertEqual(x["modes"]["adaptive_models"]["live_phase_elapsed_seconds"],30)
         self.assertEqual(x["modes"]["adaptive_models"]["latest_status"],
