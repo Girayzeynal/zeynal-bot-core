@@ -207,7 +207,7 @@ def frozen_qmc_report(rows):
             y=1 if actual=="UST" else 0
             pmodel=finite(pmodel)
             pmarket=finite(pmarket)
-            if not 0<pmodel<1 or not 0<pmarket<1:
+            if not 0<=pmodel<=1 or not 0<pmarket<1:
                 raise ValueError("DIRECTION_MODEL_OR_PRICE_PROBABILITY_RANGE")
             proper_pairs.append((pmodel,pmarket,y))
         if direction!=evidence["original_mean_side"]:
@@ -229,8 +229,10 @@ def frozen_qmc_report(rows):
             observed=[v[2] for v in proper_pairs]
             return dict(
                 brier=sum((p-y)**2 for p,y in zip(probs,observed))/n,
-                log_loss=-sum(y*math.log(p)+(1-y)*math.log(1-p)
-                              for p,y in zip(probs,observed))/n,
+                log_loss=-sum(
+                    y*math.log(max(1e-15,min(1-1e-15,p)))+
+                    (1-y)*math.log(1-max(1e-15,min(1-1e-15,p)))
+                    for p,y in zip(probs,observed))/n,
                 mean_probability_over=sum(probs)/n)
         price_model_comparison=dict(
             n=n, original_qmc_conditional_on_no_push=scores(0),
@@ -436,9 +438,28 @@ def main():
                         help="Print coverage and direction confusion only, without fixture cards")
     parser.add_argument("--replay-qmc",action="store_true",
                         help="Verify original QMC SHA and compare its raw ALT/UST probability side")
+    parser.add_argument("--prob-summary-only",action="store_true",
+                        help="Print only QMC direction and paired original bookmaker price-probability audit")
     args=parser.parse_args()
-    report=inspect_file(args.report,args.ledger,args.assets,replay_qmc=args.replay_qmc)
-    if args.summary_only:
+    report=inspect_file(args.report,args.ledger,args.assets,
+                        replay_qmc=args.replay_qmc or args.prob_summary_only)
+    if args.prob_summary_only:
+        q=report["frozen_qmc_direction_replay"]
+        report=dict(format=report["format"],counts=report["counts"],
+                    frozen_qmc_direction_replay={
+                        k:q[k] for k in (
+                            "class_","eligible_replays","assessed_unique_fixtures",
+                            "matched","mismatched","confusion_matrix",
+                            "descriptive_regulation_direction_agreement",
+                            "simulated_direction_differs_from_original_mean_count",
+                            "paired_raw_probability_vs_market_price",
+                            "published_direction_proven","bookmaker_settlement_proven",
+                            "calibrated_probabilities","warning")},
+                    original_forecasts_changed=report["original_forecasts_changed"],
+                    positive_signed_original_cases_modified=report["positive_signed_original_cases_modified"],
+                    production_changed=report["production_changed"],
+                    quality_report_bytes_unchanged=report["quality_report_bytes_unchanged"])
+    elif args.summary_only:
         report={k:report[k] for k in (
             "format","counts","no_quote_fixture_count","direction_research",
             "frozen_qmc_direction_replay",
