@@ -32,6 +32,7 @@ def execute():
     from hybrid_engine.data import feature_cut
     from hybrid_engine.player_minutes import projection
     from hybrid_engine.player_shadow import fit_pair, PreparedPlayerPair
+    from hybrid_engine.distributions import Budget
 
     cohort=synthetic_cohort(80)
     for versions in cohort:
@@ -81,8 +82,12 @@ def execute():
                      source=src,status_updated_at_utc=now-10)
                 for src in ("ESPN","NBA_OFFICIAL_PDF")]
             out_projection=projection(**injured)
-            team_control=model.predict(cut,no_injury)
-            out_forecast=model.predict(cut,out_projection)
+            # Explicitly bounded 10k QMC paths, with a mobile-friendly
+            # OFFLINE runtime budget; this never trains in Telegram.
+            budget=Budget(scenarios=10000,seed=20261112,seconds=20,
+                          array_bytes=32*1024*1024)
+            team_control=model.predict(cut,no_injury,budget=budget)
+            out_forecast=model.predict(cut,out_projection,budget=budget)
         base_m={r["player_id"]:r["expected_minutes"]
                 for r in no_injury["payload"]["home"]}
         out_m={r["player_id"]:r["expected_minutes"]
