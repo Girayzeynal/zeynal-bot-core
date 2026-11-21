@@ -105,3 +105,20 @@ Inside the authorized Telegram **test** bot:
 The sourceplayers command only tests official current season registration for those exact test parameters and may be unavailable/429. Neither it nor the diagnostics proves a current active five, injury absence, trained player effect or accurate future scoring. Real bot delivery can only be confirmed by actual Telegram response on user device. Do not disclose tokens or use Telegram Bot API directly in chat.
 
 **Production is separate:** main.py is the Fly poller, not the isolated test bot; moving this branch to main alone does not auto-deploy due the existing protected Fly release workflow. Never overwrite Fly volume or deploy unverified numeric parameters. This PR is draft until real source coverage and latest full CI confirmed.
+
+## 2026-11-21 User requested activation of player_minutes, player_shadow and adaptive_models
+
+Code on this isolated branch now gives source-first **automatic RESEARCH execution** precedence: `ResearchCycle.once` begins with `AdaptiveWorker.tick()` (adaptive_models native box/pace candidate and NBA `player_inputs.collect` -> existing `player_minutes`), then original V3 model and current assessment, always serial (never concurrent V2/V3 source fits). At restart, actual `test_bot.py.ready` schedules the same ResearchCycle.run task. This replaces earlier V3-first ordering that could leave V2 unobserved on a cold Android process.
+
+New authorized `/test engines` shows genuine runtime `AdaptiveWorker` sequence, exact research cycle stage, the latest V2 result, available source/box counts by league, player minute acquisition success or specific blockage, and `player_shadow.readiness()` from the isolated research directory. It also exposes whether a prospective NBA player Bayes candidate was archived; **the main numeric score input remains off** until a real validated player model and actual available minutes exist. There is no fabricated +/− impact, no auto promotion based on passing CI, and no overwriting original first predictions.
+
+Use the live isolated Android test bot after new branch is fetched/restarted:
+
+    /test engines
+    /test research
+    /test integrations
+    /models NBA ACTUAL_FIXTURE_ID
+
+Do not confuse an installed candidate or a single `CHECKED` work attempt with a calibrated player effect in production. If the device reports `NO_PREGAME_MINUTES_ATTEMPT_OBSERVED` or `BLOCKED`, we must fix the exact source/identity/first-archive issue from that report; no numerical output can be declared trustworthy until the data exists.
+
+Tests now include `tests/test_active_engine_status.py` and change `CycleTests` to check V2-before-V3 serial startup. Latest full CI conclusion and user-device execution must be observed before reporting activation successful. PR remains DRAFT, no protected Fly `/data` change or production rollout.
