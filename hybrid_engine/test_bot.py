@@ -527,7 +527,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
-        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime','integrations','engines','predictions'):
+        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime','integrations','engines','predictions','playerimpact'):
             await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test integrations, /test predictions, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
@@ -555,6 +555,55 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 lines.append(f'İşçi kuyruğunda bekleme (sn): {max(0,queue):.2f}')
                 lines.append('Arşiv doğrulama süresi (sn): '+
                     ('henüz başlamadı' if started is None else f"{max(0,(read.get('finished_at') or now)-started):.2f}"))
+        if mode=='playerimpact':
+            from hybrid_engine.predictions_command import split_plain
+            path=root/'player-effect-smoke.json'
+            record=dict(format='NBA_PLAYER_IMPACT_TEST_STATUS_V1',
+                mode='SYNTHETIC_AND_LIVE_ARE_SEPARATE',
+                training_in_telegram=False,production_changed=False,
+                original_forecasts_changed=False,
+                live_fixture_player_model_status='BLOCKED_UNLESS_PROSPECTIVE_EVIDENCE_EXISTS')
+            worker=app.bot_data.get('adaptive_v2_worker')
+            progress=getattr(worker,'progress',{}) if worker else {}
+            record['live_player_minutes_status']=(
+                progress.get('player_input_status','NO_ATTEMPT_OBSERVED')
+                if isinstance(progress,dict) else 'NOT_OBSERVED')
+            record['live_player_model_coefficients_applied']=False
+            if not path.is_file() or path.is_symlink() or path.stat().st_size>18000:
+                record['synthetic_demo']='NOT_RUN'
+                record['next_step']='UserLAnd: bash scripts/run_isolated_test_bot.sh --player-effect-smoke'
+            else:
+                try:
+                    wrapped=json.loads(path.read_text())
+                    p=wrapped['payload']
+                    if (wrapped['sha256']!=digest(p) or
+                            p['format']!='NBA_SYNTHETIC_PLAYER_EFFECT_SMOKE_V1' or
+                            p['input_classification']!='FULLY_MANUFACTURED_TEST_GAMES_AND_INJURY' or
+                            p['original_forecasts_changed'] is not False or
+                            p['production_enabled'] is not False or
+                            p['network_requests_made']!=0 or
+                            p['evidence_is_real_game'] is not False or
+                            p['player_effect_is_live'] is not False):
+                        raise ValueError('SYNTHETIC_PLAYER_REPORT_PIN_OR_SCOPE')
+                    record.update(synthetic_demo=p['status'],
+                        synthetic_fit_games=p['synthetic_fit_games'],
+                        fake_missing_player=p['simulated_injury'],
+                        minute_conservation=dict(before=p['home_rotation_minutes_before'],
+                            after=p['home_rotation_minutes_after']),
+                        missing_player_minutes=dict(before=p['missing_player_minutes_before'],
+                            after=p['missing_player_minutes_after']),
+                        replacement_minutes=p['replacement_minutes_top4'],
+                        team_control=p['TEAM_BAYES_CONTROL'],
+                        player_bayes_before=p['PLAYER_BAYES_BEFORE'],
+                        player_bayes_after=p['PLAYER_BAYES_AFTER'],
+                        player_bayes_delta=p['PLAYER_BAYES_DELTA'],
+                        score_sensitivity_observed=p['score_sensitivity_observed'],
+                        warning='SENTETIK_TEST; GERCEK_MAC_OYUNCU_ETKISI_DEGIL')
+                except (ValueError,KeyError,TypeError,UnicodeError,OSError):
+                    record['synthetic_demo']='INVALID_OR_UNVERIFIED_TEST_REPORT'
+            for part in split_plain(json.dumps(record,ensure_ascii=False,indent=2),limit=3200):
+                await message.reply_text(part,parse_mode=None)
+            raise ApplicationHandlerStop
         if mode=='engines':
             from hybrid_engine.active_engine_status import describe as engine_status
             from hybrid_engine.predictions_command import split_plain
