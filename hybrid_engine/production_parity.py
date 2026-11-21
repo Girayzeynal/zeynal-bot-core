@@ -214,6 +214,7 @@ async def runtime_command(update, context):
         last_analysis=runtime["last_analysis"],
         data_mount_present=runtime["data_mount_present"],
         original_archive_reader_configured=state.get("ledger_reports") is not None,
+        last_actual_official_player_directory_query=state.get("last_sourceplayers_native_receipt"),
         league_counts=sources["membership_inventory"],
         observed_official_news_pilots=sources["observed_official_club_news_pilots"],
         unverified_official_news_sites=sources["not_connected_club_news_sites"],
