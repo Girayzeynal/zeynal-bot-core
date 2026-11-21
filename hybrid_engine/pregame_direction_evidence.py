@@ -598,10 +598,25 @@ def main():
                         help="Verify original QMC SHA and compare its raw ALT/UST probability side")
     parser.add_argument("--prob-summary-only",action="store_true",
                         help="Print only QMC direction and paired original bookmaker price-probability audit")
+    parser.add_argument("--history-summary-only",action="store_true",
+                        help="Compare the original preforecast last-N scoring reference on original quote lines")
     args=parser.parse_args()
     report=inspect_file(args.report,args.ledger,args.assets,
-                        replay_qmc=args.replay_qmc or args.prob_summary_only)
-    if args.prob_summary_only:
+                        replay_qmc=args.replay_qmc or args.prob_summary_only
+                        or args.history_summary_only)
+    if args.history_summary_only:
+        r=report["original_recent_history_reference"]
+        report=dict(format=report["format"],counts=report["counts"],
+                    qmc_direction_summary={
+                        k:report["frozen_qmc_direction_replay"][k]
+                        for k in ("assessed_unique_fixtures","matched","mismatched",
+                                  "confusion_matrix","published_direction_proven")},
+                    original_recent_history_reference=r,
+                    original_forecasts_changed=report["original_forecasts_changed"],
+                    positive_signed_original_cases_modified=report["positive_signed_original_cases_modified"],
+                    production_changed=report["production_changed"],
+                    quality_report_bytes_unchanged=report["quality_report_bytes_unchanged"])
+    elif args.prob_summary_only:
         q=report["frozen_qmc_direction_replay"]
         report=dict(format=report["format"],counts=report["counts"],
                     frozen_qmc_direction_replay={
