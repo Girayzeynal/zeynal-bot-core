@@ -200,6 +200,8 @@ def fixture_gate(*,fixture,home_roster,away_roster,availability,exposures,fit):
             roster["observed_at_utc"]>decision):
             raise ValueError("BRIDGE_ROSTER_FIXTURE_OR_CLOCK_CONFLICT")
         current[side]=set(row["player_id"] for row in roster["players"])
+    if current["home"] & current["away"]:
+        raise ValueError("BRIDGE_PLAYER_ID_DUPLICATED_ACROSS_TEAMS")
     if not all(isinstance(x,dict) for x in (availability,exposures,fit)):
         return dict(status="BLOCKED_PLAYER_STATUS_MINUTES_OR_FIT_MISSING",
                     model_player_input=None,production_model_changed=False)
