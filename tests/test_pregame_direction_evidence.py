@@ -9,7 +9,7 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from core.team_identity import digest
-from hybrid_engine.pregame_direction_evidence import quote_row,inspect,inspect_file,research_direction_summary
+from hybrid_engine.pregame_direction_evidence import quote_row,inspect,inspect_file,research_direction_summary,frozen_qmc_report
 
 
 def receipt():
@@ -150,6 +150,54 @@ class DirectionEvidenceTests(TestCase):
         self.assertEqual(out["by_original_mean_line_gap"]["0-3"]["n"],1)
         self.assertEqual(out["by_original_mean_line_gap"]["3-7"]["n"],1)
         self.assertEqual(out["by_original_mean_line_gap"]["7+"]["n"],1)
+
+    def test_optional_qmc_replay_is_raw_model_direction_not_published_pick(self):
+        import numpy as np
+        snapshot,report=example()
+        snapshot["intervals"]=dict(scenarios=4,sample_sha256="f"*64)
+        report["payload"]["archive_audit"]["performance"]["forecasts"][0]["snapshot_sha256"]=digest(snapshot)
+        report["sha256"]=digest(report["payload"])
+        with tempfile.TemporaryDirectory() as folder:
+            ledger=Path(folder)/"ledger.sqlite"
+            assets=Path(folder)/"assets";assets.mkdir()
+            with sqlite3.connect(ledger) as db:
+                db.execute("CREATE TABLE live_analysis_snapshots (league TEXT,fixture_id TEXT,model_digest TEXT,payload TEXT,sha256 TEXT)")
+                db.execute("INSERT INTO live_analysis_snapshots VALUES(?,?,?,?,?)",
+                           ("NBA","fixture","model","{}", "hash"))
+            class DummyDistribution:
+                def values(self,period,market):
+                    self_checked=(period=="FULL" and market=="TOTAL")
+                    if not self_checked:
+                        raise AssertionError("WRONG_REPLAY_SCOPE")
+                    return np.array([190,210,218,251])
+            with patch("hybrid_engine.pregame_direction_evidence.LiveAnalysisLedger._decode",return_value=snapshot),patch(
+                    "hybrid_engine.pregame_direction_evidence.observed_market_evidence",return_value=[receipt()]),patch(
+                    "hybrid_engine.decision_audit.replay_snapshot",return_value=(DummyDistribution(),[])) as replay:
+                out=inspect(report,ledger,assets,replay_qmc=True)
+            model=out["frozen_qmc_direction_replay"]
+            self.assertEqual(model["eligible_replays"],1)
+            self.assertEqual(model["matched"],0)
+            self.assertEqual(model["mismatched"],1)
+            self.assertEqual(model["confusion_matrix"],{"ALT_UST":1})
+            self.assertEqual(model["simulated_direction_differs_from_original_mean_count"],0)
+            self.assertFalse(model["published_direction_proven"])
+            self.assertFalse(model["bookmaker_settlement_proven"])
+            self.assertFalse(out["positive_signed_original_cases_modified"])
+            self.assertEqual(replay.call_count,1)
+
+    def test_replayed_probability_side_may_disagree_with_point_mean_side(self):
+        rows=[
+            dict(fixture_id="example",provider_fixture_ids=["1"],
+                 frozen_qmc_evidence=dict(raw_more_likely_side="UST",
+                    research_regulation_only_side="ALT",
+                    original_mean_side="ALT",line=240,
+                    raw_under_probability=.30,raw_over_probability=.70))
+        ]
+        out=frozen_qmc_report(rows)
+        self.assertEqual(out["confusion_matrix"],{"UST_ALT":1})
+        self.assertEqual(out["simulated_direction_differs_from_original_mean_count"],1)
+        self.assertEqual(out["descriptive_regulation_direction_agreement"],0.0)
+        self.assertFalse(out["published_direction_proven"])
 
     def test_quality_pin_and_bad_quote_rejected(self):
         _, report=example()
