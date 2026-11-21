@@ -150,7 +150,7 @@ class AdaptiveWorker:
                 self.progress['player_input_status']='NO_ELIGIBLE_NBA_OR_PRETIPOFF_SNAPSHOT'
             if eligible:
                 c=eligible[0];fid=c['target']['fixture_id'];self.player_retry[fid]=int(time.time())+900
-                self._phase('PREGAME_PLAYER_MINUTES_SOURCE',fixture_id=fid)
+                self._phase('PREGAME_PLAYER_MINUTES_SOURCE',fixture_id=fid,player_input_status='RUNNING')
                 result=await asyncio.to_thread(collect_player_inputs,c['snapshot'],self.nba.assets,self.research.players)
                 self.progress['player_input_status']=result.get('status','UNKNOWN')
                 report['player_inputs']={k:result.get(k) for k in ('fixture_id','status','reason','projection','new_record')}
