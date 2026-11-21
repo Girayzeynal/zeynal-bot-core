@@ -2,7 +2,7 @@
 import copy
 import unittest
 from team_dynamics_evidence import digest
-from team_dynamics_native_census import brief,profile
+from team_dynamics_native_census import brief,profile,historical_player_box_coverage
 from test_team_dynamics_evidence import rows
 
 
@@ -38,6 +38,46 @@ class NativeReadOnlyIntegrationTests(unittest.TestCase):
         self.assertNotEqual(simple['home']['observed_scoring_quarter_means'],
                             simple['away']['observed_scoring_quarter_means'])
         self.assertFalse(simple['home']['player_injury_coach_context_verified'])
+
+    def test_original_historical_player_box_coverage_is_not_current_roster(self):
+        p,r,c=records()
+        original=copy.deepcopy(c)
+        for side in ('home','away'):
+            tid=c['features'][side]['team_id'] if 'features' in c else ('TEAM-A' if side=='home' else 'TEAM-B')
+            if 'features' not in c:
+                c['features']={}
+            c['features'][side]=dict(team_id=tid,n_games=3,boxes=[])
+        historical=c['history'][0]
+        box=dict(fixture_id=historical['fixture_id'],
+                 players=[dict(team_id='TEAM-A',player_id='p1',
+                               minutes_display='24',points=10,
+                               data_kind='POSTGAME_ACTUAL_NOT_PREMATCH_LINEUP')])
+        c['features']['home']['boxes'].append([historical,box,'home','away'])
+        stats=historical_player_box_coverage(c)
+        self.assertEqual(stats['home']['historical_box_games_with_player_rows'],1)
+        self.assertEqual(stats['home']['historical_player_rows_with_displayed_minutes'],1)
+        self.assertEqual(stats['away']['historical_box_games_with_player_rows'],0)
+        self.assertFalse(stats['home']['confirms_current_active_roster'])
+        self.assertFalse(stats['home']['fitted_player_effects'])
+        self.assertFalse(stats['home']['proves_future_minutes_or_injury'])
+        self.assertEqual(original['history'],c['history'])
+
+    def test_historical_player_box_duplicate_or_wrong_team_refused(self):
+        p,r,c=records()
+        h=c['history'][0]
+        c['features']={
+          'home':dict(team_id='TEAM-A',n_games=3,
+                      boxes=[[h,dict(fixture_id=h['fixture_id'],
+                                     players=[dict(team_id='TEAM-A',player_id='p1'),
+                                              dict(team_id='TEAM-A',player_id='p1')]),
+                              'home','away']]),
+          'away':dict(team_id='TEAM-B',n_games=3,boxes=[])}
+        with self.assertRaisesRegex(ValueError,'PLAYER_ID_CONFLICT'):
+            historical_player_box_coverage(c)
+        c['features']['home']['boxes'][0][1]['players'].pop()
+        c['features']['home']['boxes'][0][2]='away'
+        with self.assertRaisesRegex(ValueError,'BOX_HISTORICAL_IDENTITY'):
+            historical_player_box_coverage(c)
 
     def test_original_snapshot_sha_mismatch_refused(self):
         p,r,c=records();r['snapshot_sha256']='0'*64
