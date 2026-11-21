@@ -166,6 +166,29 @@ async def telegram_command(update,context):
         if ctx["home"]["provider_id"]==ctx["away"]["provider_id"]:
             raise ValueError("Same club")
         result=await asyncio.wait_for(asyncio.to_thread(pair,ctx),timeout=13)
+        # Ephemeral REAL adapter receipt for same-process Telegram runtime audits.
+        # Source observation is NOT athlete health, confirmed transfer, minutes,
+        # score-model input or a durable original preforecast player packet.
+        state=getattr(getattr(context,"application",None),"bot_data",None)
+        if isinstance(state,dict):
+            summaries={}
+            for side in ("home","away"):
+                row=result["teams"][side]
+                ok=row.get("status")=="OFFICIAL_SEASON_REGISTRATION_OBSERVED"
+                summaries[side]=dict(
+                    club_code=ctx[side]["provider_id"],
+                    status=row.get("status","UNKNOWN"),
+                    official_player_ids=row.get("mapped_player_ids") if ok else None,
+                    observed_at_utc=row.get("observed_at_utc") if ok else None,
+                    source_sha256=row.get("body_sha256") if ok else None,
+                    fixture_active_player_status_confirmed=False)
+            state["last_sourceplayers_native_receipt"]=dict(
+                format="REAL_NATIVE_EURO_SEASON_REGISTRATION_OBSERVATION_V1",
+                league=ctx["league"],season=ctx["season"],
+                captured_at_utc=int(__import__("time").time()),
+                teams=summaries,
+                roster_confirmed_for_game=False,
+                numeric_player_effect_applied=False)
         report=render_public(result)
     except asyncio.TimeoutError:
         report=("Resmî oyuncu dizini sorgusu zaman aşımına uğradı. "
