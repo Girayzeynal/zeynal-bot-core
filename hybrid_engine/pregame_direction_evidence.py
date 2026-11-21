@@ -187,6 +187,7 @@ def frozen_qmc_report(rows):
     differences=[]
     no_side=0
     valid=0
+    proper_pairs=[]
     for row in rows:
         evidence=row.get("frozen_qmc_evidence")
         if evidence is None:
@@ -200,6 +201,15 @@ def frozen_qmc_report(rows):
         if direction not in ("ALT","UST") or actual not in ("ALT","UST"):
             raise ValueError("DIRECTION_REPLAY_SIDE_CONFLICT")
         matrix[direction+"_"+actual]+=1
+        pmodel=evidence.get("model_conditional_over_probability")
+        pmarket=evidence.get("market_no_vig_over_probability")
+        if pmodel is not None and pmarket is not None:
+            y=1 if actual=="UST" else 0
+            pmodel=finite(pmodel)
+            pmarket=finite(pmarket)
+            if not 0<pmodel<1 or not 0<pmarket<1:
+                raise ValueError("DIRECTION_MODEL_OR_PRICE_PROBABILITY_RANGE")
+            proper_pairs.append((pmodel,pmarket,y))
         if direction!=evidence["original_mean_side"]:
             differences.append(dict(fixture_id=row["fixture_id"],
                 provider_fixture_ids=row["provider_fixture_ids"],
@@ -210,6 +220,23 @@ def frozen_qmc_report(rows):
                 line=evidence["line"],
                 actual_regulation_side=actual))
     decided=sum(matrix.values())
+    price_model_comparison=None
+    if proper_pairs:
+        import math
+        n=len(proper_pairs)
+        def scores(index):
+            probs=[v[index] for v in proper_pairs]
+            observed=[v[2] for v in proper_pairs]
+            return dict(
+                brier=sum((p-y)**2 for p,y in zip(probs,observed))/n,
+                log_loss=-sum(y*math.log(p)+(1-y)*math.log(1-p)
+                              for p,y in zip(probs,observed))/n,
+                mean_probability_over=sum(probs)/n)
+        price_model_comparison=dict(
+            n=n, original_qmc_conditional_on_no_push=scores(0),
+            timestamped_bookmaker_no_vig_reference=scores(1),
+            realized_regulation_over_frequency=sum(v[2] for v in proper_pairs)/n,
+            caveat="POSTHOC DESCRIPTIVE ONE-COHORT RESEARCH; BOOKMAKER PRICE SETTLEMENT UNKNOWN, NOT CERTIFIED ODDS FAIRNESS OR FUTURE ROI")
     return dict(
         class_="FROZEN_QMC_SAMPLE_SHA_VERIFIED_REPLAY_RESEARCH_ONLY",
         eligible_replays=valid,undecided_replays=no_side,
@@ -217,6 +244,7 @@ def frozen_qmc_report(rows):
         matched=matrix["ALT_ALT"]+matrix["UST_UST"],
         mismatched=matrix["ALT_UST"]+matrix["UST_ALT"],
         confusion_matrix=dict(matrix),
+        paired_raw_probability_vs_market_price=price_model_comparison,
         descriptive_regulation_direction_agreement=(
             (matrix["ALT_ALT"]+matrix["UST_UST"])/decided if decided else None),
         simulated_direction_differs_from_original_mean_count=len(differences),
@@ -312,9 +340,29 @@ def inspect(data, ledger, assets, *, replay_qmc=False):
                 over=float(np.mean(sample>line))
                 if abs(under+push+over-1.0)>1e-8:
                     raise ValueError("DIRECTION_REPLAY_PROBABILITY_CONFLICT")
+                # Price is copied only from the already pinned original
+                # bookmaker quote. No invented odds and no new download.
+                matches=[source for source in full
+                         if source["quote_sha256"]==quote["native_quote_sha256"]]
+                if len(matches)!=1:
+                    raise ValueError("DIRECTION_QUOTE_REPLAY_PRICE_PIN")
+                native=matches[0]["native_observation"]["payload"]
+                over_odds=finite(native["decimal_over_or_home_cover"])
+                under_odds=finite(native["decimal_under_or_away_cover"])
+                if not 1<over_odds<=1001 or not 1<under_odds<=1001:
+                    raise ValueError("DIRECTION_BOOKMAKER_PRICE_RANGE")
+                implied_over=(1/over_odds)/(1/over_odds+1/under_odds)
+                no_push=over+under
+                if no_push<=0:
+                    raise ValueError("DIRECTION_NO_SETTLED_QMC_SIDE_MASS")
                 qmc_evidence=dict(
                     line=line,
                     original_mean_side=quote["original_model_mean_relative_to_line"],
+                    model_conditional_over_probability=over/no_push,
+                    market_no_vig_over_probability=implied_over,
+                    observed_decimal_over=over_odds,
+                    observed_decimal_under=under_odds,
+                    bookmaker_price_scope="PRE_FORECAST_OBSERVED_NO_OT_SETTLEMENT_ATTESTATION",
                     raw_more_likely_side="ALT" if under>over else
                         "UST" if over>under else "ESIT",
                     raw_under_probability=under,
