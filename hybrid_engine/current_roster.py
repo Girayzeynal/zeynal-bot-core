@@ -315,6 +315,8 @@ def review_diagnostics(review):
         official_extraction_status=review.get('official_extraction_status'),
         official_parsed_rows=review.get('official_parsed_rows'),
         official_fixture_rows=review.get('official_fixture_rows'),
+        official_expected_matchup=review.get('official_expected_matchup'),
+        official_report_matchups_seen=review.get('official_report_matchups_seen'),
         official_note_scope=review.get('official_note_scope'),
         official_discovery_mode=review.get('official_discovery_mode'),
         latest_report_verified=review.get('latest_report_verified'),
@@ -503,6 +505,16 @@ class CurrentRosterReview:
                         assert_report_title(extraction,ref)
                         base['official_pdf_clock_verified']=True
                     base['official_extraction_status'] = extraction['status']
+                    # Team-code diagnostics only: no player/medical details,
+                    # and never use these codes to waive exact fixture checks.
+                    expected_pdf_pair=(_official_pdf_abbreviation(teams['away'])+'@'+
+                                       _official_pdf_abbreviation(teams['home']))
+                    pdf_pairs=sorted(set(str(x.get('matchup')) for x in
+                        extraction.get('rows',[]) if isinstance(x,dict) and
+                        re.fullmatch(r'[A-Z]{2,4}@[A-Z]{2,4}',
+                                     str(x.get('matchup')))))[:40]
+                    base['official_expected_matchup']=expected_pdf_pair
+                    base['official_report_matchups_seen']=pdf_pairs
                     base.update(official_stage=stage,official_code=extraction['status'],
                         official_parsed_rows=len(extraction.get('rows',[])),
                         official_parser_rejected_count=extraction.get('rejected_count'),
