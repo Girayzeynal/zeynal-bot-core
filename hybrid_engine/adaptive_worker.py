@@ -29,12 +29,13 @@ LOG=logging.getLogger(__name__)
 
 
 class AdaptiveWorker:
-    def __init__(self,directory,*,nba=None,europe=None,fetcher=fetch_document):
+    def __init__(self,directory,*,nba=None,europe=None,fetcher=fetch_document,research_directory=None):
         self.root=local_path(directory);self.nba=nba;self.europe=europe or {}
         roots=([nba.assets] if nba is not None else [])+[s.registry.root for s in self.europe.values()]
         self.transport=ControlledTransport(fetcher,max_cache_bytes=1024*1024)
         self.store=FeatureStore(self.root/'inputs',roots,self.transport)
-        self.research=AdaptiveResearch(self.root,player_directory=self.root.parent/'player-shadow')
+        self.research=AdaptiveResearch(research_directory if research_directory is not None else self.root,
+            player_directory=self.root.parent/'player-shadow')
         self.journal=EuropeanPrematchScheduler({},self.root/'attempts')
         self.seen=set();self.running=False;self.sequence=0;self.retry={};self.player_retry={}
         self.last_report=None;self.last_journal=0;self.group_reports={};self.refreshed=set()
