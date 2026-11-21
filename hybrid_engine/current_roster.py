@@ -224,9 +224,21 @@ def roster_ids(document, team, season):
     return result
 
 
+def _official_pdf_abbreviation(team):
+    """Bind official NBA matchup codes to already verified ESPN team identity.
+
+    ESPN abbreviates New York Knicks as NY while NBA's injury PDF uses
+    NYK. This is NOT a fuzzy match: it requires BOTH the franchise's exact
+    official name and its known ESPN abbreviation. Other codes are untouched.
+    """
+    if team_key(team['name']) == 'newyorkknicks' and team['abbreviation'] == 'NY':
+        return 'NYK'
+    return team['abbreviation']
+
+
 def nba_rows(extraction, teams, directories, context, report_at):
     start = datetime.fromtimestamp(context['fixture_start_utc'], ZoneInfo('America/New_York'))
-    matchup = teams['away']['abbreviation']+'@'+teams['home']['abbreviation']
+    matchup = _official_pdf_abbreviation(teams['away'])+'@'+_official_pdf_abbreviation(teams['home'])
     result = []; rejected = 0
     for row in extraction.get('rows', []):
         if row.get('matchup') != matchup:
