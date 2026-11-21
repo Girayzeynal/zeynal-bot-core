@@ -143,6 +143,10 @@ class Explicit403FallbackTests(TestCase):
         if url==URL:
             if self.pdf_override: return dict(receipt(),body_sha256='0'*64)
             return receipt()
+        if url=='https://www.nba.com/players/injury-report':
+            # Simulate NBA.com first-party page also unavailable, so this
+            # fixture specifically exercises archived explicit PDF fallback.
+            return dict(status='SOURCE_HTTP_ERROR',http_status=404,retry_after=300)
         return self.fake(url,deadline=deadline)
 
     def service(self,http=403,archive=True,extractor=extract):
