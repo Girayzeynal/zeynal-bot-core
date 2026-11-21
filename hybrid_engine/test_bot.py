@@ -479,7 +479,14 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         from hybrid_engine.current_assessment import CurrentAssessments,install_display, POLICY as ASSESS_POLICY
         from hybrid_engine.issue90_research import pins as assessment_pins
         from hybrid_engine.research_diagnostics import ResearchCycle
-        assessment_protocol=namespace(root,'current-assessment',policy=ASSESS_POLICY,source_pins=assessment_pins())
+        # The current-assessment implementation is itself part of the
+        # experiment identity; V3's inherited pins do not cover this module.
+        import hashlib as _protocol_hashlib
+        assessment_source_pins=dict(assessment_pins())
+        assessment_source_pins['current_assessment_module_sha256']=_protocol_hashlib.sha256(
+            (Path(__file__).parent/'current_assessment.py').read_bytes()).hexdigest()
+        assessment_protocol=namespace(root,'current-assessment',policy=ASSESS_POLICY,
+                                      source_pins=assessment_source_pins)
         assessments=CurrentAssessments(assessment_protocol,app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'))
         app.bot_data['research_protocol_directories']=dict(
             adaptive_v2=str(adaptive_protocol),nba_v3=str(v3_protocol) if app.bot_data['adaptive_v2_worker'].nba is not None else None,
