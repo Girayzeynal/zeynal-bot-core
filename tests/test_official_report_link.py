@@ -177,6 +177,9 @@ class Explicit403FallbackTests(TestCase):
         r=self.service().review(self.context)
         self.assertNotIn('official_discovery_mode',r)
         self.assertEqual(r['official_http_status'],403)
+        self.assertEqual(r['index_failure']['http_status'],403)
+        self.assertEqual(r['alternate_index_failure']['http_status'],404)
+        self.assertEqual(review_diagnostics(r)['alternate_index_failure']['http_status'],404)
 
     def test_pdf_body_pin_cannot_be_changed_after_import(self):
         self.pdf_override=True; r=self.service().review(self.context)
