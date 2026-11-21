@@ -168,6 +168,18 @@ class RosterPureTests(TestCase):
                          [('Portland Trail Blazers','100'),('New York Knicks','200')])
         self.assertTrue(all(r['identity_status']=='EXACT_ESPN_ROSTER_MATCH' for r in rows))
         self.assertTrue(all(not r['independent_status_verified'] for r in rows))
+        # Real native pdfplumber extraction emits no spaces in team cells,
+        # and a compact ET clock token; the strict binding must behave
+        # identically for actual archive output, not just synthetic spacing.
+        compact=deepcopy(extracted)
+        for row in compact['rows']:
+            row['team']=row['team'].replace(' ','')
+            row['game_time']='07:30(ET)'
+        real_rows,real_rejected=nba_rows(compact,teams,dirs,ctx,int(when.timestamp())-3600)
+        self.assertEqual(real_rejected,0)
+        self.assertEqual([(r['team_name'],r['player_id']) for r in real_rows],
+                         [(r['team_name'],r['player_id']) for r in rows])
+
         for change in ('wrong_date','wrong_pair','wrong_team'):
             with self.subTest(change=change):
                 bad=deepcopy(extracted)
