@@ -511,8 +511,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
-        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime','predictions'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test predictions, /test all')
+        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime','integrations','predictions'):
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test integrations, /test predictions, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',
@@ -539,6 +539,10 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 lines.append(f'İşçi kuyruğunda bekleme (sn): {max(0,queue):.2f}')
                 lines.append('Arşiv doğrulama süresi (sn): '+
                     ('henüz başlamadı' if started is None else f"{max(0,(read.get('finished_at') or now)-started):.2f}"))
+        if mode=='integrations':
+            from hybrid_engine.production_parity import runtime_command
+            await runtime_command(update,context)
+            raise ApplicationHandlerStop
         if mode=='runtime':
             from hybrid_engine.runtime_identity import describe
             from hybrid_engine.elite_render import split_blocks
