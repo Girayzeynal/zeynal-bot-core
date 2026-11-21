@@ -205,7 +205,12 @@ class AdaptiveWorker:
                                 if isinstance(sources,list) else []))
                     count=diag.get('missing_absence_count')
                     status=diag.get('official_http_status')
+                    source_code=diag.get('official_code')
+                    if not (isinstance(source_code,str) and 4<=len(source_code)<=110 and
+                            all(ch in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789' for ch in source_code)):
+                        source_code=None
                     self.progress['player_input_corroboration']=dict(
+                        official_code=source_code,
                         missing_absence_count=count if type(count) is int and 0<=count<=100 else None,
                         examples=summaries,
                         official_stage=diag.get('official_stage') if diag.get('official_stage') in
