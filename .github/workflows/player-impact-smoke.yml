@@ -40,3 +40,11 @@ jobs:
       - name: Fail if the actual fitted player forecast does not respond to a missing player
         run: |
           python -m pytest -q tests/test_player_effect_smoke.py tests/test_player_shadow.py tests/test_player_minutes.py tests/test_three_league_roster_bridge.py
+      - name: Record numerical before-after synthetic simulation
+        run: |
+          python -m hybrid_engine.player_effect_smoke --output /tmp/player-effect-smoke.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-player-impact-numerical-report
+          path: /tmp/player-effect-smoke.json
+          if-no-files-found: error
