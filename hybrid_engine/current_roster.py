@@ -73,6 +73,9 @@ def context_for(snapshot):
     return result
 
 
+NBA_COM_INJURY_INDEX='https://www.nba.com/players/injury-report'
+
+
 def season_index(season):
     match = re.fullmatch(r'(20[0-9]{2})/(20[0-9]{2})', season)
     if match is None or int(match[2]) != int(match[1])+1:
@@ -84,6 +87,8 @@ def allowed_url(url):
     if re.fullmatch(re.escape(PREFIX)+r'(summary\?event=[0-9]{1,15}|teams/[0-9]{1,8}/roster\?season=20[0-9]{2})', url):
         return True
     if re.fullmatch(r'https://official\.nba\.com/nba-injury-report-20[0-9]{2}-[0-9]{2}-season/', url):
+        return True
+    if url==NBA_COM_INJURY_INDEX:
         return True
     return bool(re.fullmatch(r'https://ak-static\.cms\.nba\.com/referee/injury/Injury-Report_20[0-9]{2}-[0-9]{2}-[0-9]{2}_[0-9]{2}_[0-9]{2}(AM|PM)\.pdf', url))
 
@@ -409,29 +414,43 @@ class CurrentRosterReview:
             stage='INDEX_FETCH'
             try:
                 explicit=None
+                index=None
+                discovery='LIVE_OFFICIAL_INDEX'
                 try:
-                    index = self._get(season_index(context['season']), deadline)
+                    index=self._get(season_index(context['season']),deadline)
                 except ValueError:
-                    # Optional research fallback, ONLY for a real index 403.
-                    # Never enumerate timestamps, retry denied HTML or assert
-                    # that a user-supplied CDN link is the globally latest PDF.
-                    if self.report_archive is None or not self.last_source_failure or self.last_source_failure['http_status']!=403:
+                    # Public first-party NBA.com index is an official second
+                    # publication path; never enumerate PDF timestamps or
+                    # spoof authentication/redirects. Only original 403 permits
+                    # trying the fixed NBA.com page. Do NOT retry 429/401/404.
+                    denied=self.last_source_failure
+                    if not denied or denied.get('http_status')!=403:
                         raise
-                    from hybrid_engine.official_report_link import select_link,reference,MAX_AGE
-                    selected=select_link(self.report_archive,context['season'],int(self.clock()))
-                    if selected is None: raise
-                    explicit,entry_pin=selected
-                    ref=reference(explicit['url'],int(self.clock()))
-                    base.update(official_discovery_mode='EXPLICIT_OFFICIAL_CDN_LINK',latest_report_verified=False,
-                        explicit_report_entry_sha256=entry_pin,
-                        explicit_report_expires_at_utc=ref['report_timestamp_utc']+MAX_AGE,
-                        index_failure=dict(stage='INDEX_FETCH',http_status=403))
-                    base['warnings'].append('INDEX_403_EXPLICIT_LINK_NOT_ASSERTED_LATEST')
-                else:
-                    base['sources'].append({k: v for k, v in index.items() if k != 'body'})
+                    base['index_failure']=dict(stage='INDEX_FETCH',http_status=403)
+                    try:
+                        index=self._get(NBA_COM_INJURY_INDEX,deadline)
+                    except ValueError:
+                        # Existing explicitly imported fresh, SHA-pinned
+                        # official CDN report, not claimed latest.
+                        if self.report_archive is None: raise
+                        from hybrid_engine.official_report_link import select_link,reference,MAX_AGE
+                        selected=select_link(self.report_archive,context['season'],int(self.clock()))
+                        if selected is None: raise
+                        explicit,entry_pin=selected
+                        ref=reference(explicit['url'],int(self.clock()))
+                        base.update(official_discovery_mode='EXPLICIT_OFFICIAL_CDN_LINK',
+                            latest_report_verified=False,
+                            explicit_report_entry_sha256=entry_pin,
+                            explicit_report_expires_at_utc=ref['report_timestamp_utc']+MAX_AGE)
+                        base['warnings'].append('INDEX_403_EXPLICIT_LINK_NOT_ASSERTED_LATEST')
+                    else:
+                        discovery='LIVE_NBA_COM_OFFICIAL_INDEX'
+                if index is not None:
+                    base['sources'].append({k:v for k,v in index.items() if k!='body'})
                     stage='INDEX_DISCOVERY'
-                    ref = latest_report(index['body'], int(self.clock()), context['season'])
-                    base.update(official_discovery_mode='LIVE_OFFICIAL_INDEX',latest_report_verified=ref is not None)
+                    ref=latest_report(index['body'],int(self.clock()),context['season'])
+                    base.update(official_discovery_mode=discovery,
+                                latest_report_verified=ref is not None)
                 base['official_report'] = ref
                 base.update(official_stage=stage,official_code='NO_RECENT_PUBLISHED_REPORT')
                 if ref:
