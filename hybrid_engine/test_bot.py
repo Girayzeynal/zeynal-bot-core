@@ -461,20 +461,29 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 root/'nba-overnight',root/'challenger-research'/'protocol')
     if not replay_only and (europe_services or app.bot_data.get('nba_overnight_scheduler')):
         from hybrid_engine.adaptive_worker import AdaptiveWorker
+        from hybrid_engine.research_protocol_namespace import namespace
+        from hybrid_engine.adaptive_research import POLICY as V2_POLICY, source_pins as v2_pins
+        adaptive_protocol=namespace(root,'adaptive-v2',policy=V2_POLICY,source_pins=v2_pins())
         app.bot_data['adaptive_v2_worker']=AdaptiveWorker(root/'adaptive-v2',
             nba=nba_service if app.bot_data.get('nba_overnight_scheduler') else None,europe=europe_services,
-            fetcher=transport or fetch_document)
+            fetcher=transport or fetch_document,research_directory=adaptive_protocol)
         if app.bot_data['adaptive_v2_worker'].nba is not None:
             from hybrid_engine.native_fixture_recheck import NativeFixtureRecheck
             recheck=NativeFixtureRecheck(app.bot_data['adaptive_v2_worker'].transport)
             app.bot_data['adaptive_v2_worker'].verify=recheck.verify
             app.bot_data['native_fixture_recheck']=recheck
-            from hybrid_engine.issue90_research import Research
+            from hybrid_engine.issue90_research import Research, POLICY as V3_POLICY, pins as v3_pins
             from hybrid_engine.research_diagnostics import ObservedResearch
-            app.bot_data['issue90_research']=ObservedResearch(Research(root/'nba-research-v3-integrity-v2',app.bot_data['adaptive_v2_worker']))
-        from hybrid_engine.current_assessment import CurrentAssessments,install_display
+            v3_protocol=namespace(root,'nba-v3',policy=V3_POLICY,source_pins=v3_pins())
+            app.bot_data['issue90_research']=ObservedResearch(Research(v3_protocol,app.bot_data['adaptive_v2_worker']))
+        from hybrid_engine.current_assessment import CurrentAssessments,install_display, POLICY as ASSESS_POLICY
+        from hybrid_engine.issue90_research import pins as assessment_pins
         from hybrid_engine.research_diagnostics import ResearchCycle
-        assessments=CurrentAssessments(root/'current-assessments-v1',app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'))
+        assessment_protocol=namespace(root,'current-assessment',policy=ASSESS_POLICY,source_pins=assessment_pins())
+        assessments=CurrentAssessments(assessment_protocol,app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'))
+        app.bot_data['research_protocol_directories']=dict(
+            adaptive_v2=str(adaptive_protocol),nba_v3=str(v3_protocol) if app.bot_data['adaptive_v2_worker'].nba is not None else None,
+            current_assessment=str(assessment_protocol))
         app.bot_data['current_assessments']=assessments
         app.bot_data['research_cycle']=ResearchCycle(app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'),assessments)
         for bridge in (provider_bridge,getattr(app.bot_data.get('europe_data_review'),'bridge',None)):
