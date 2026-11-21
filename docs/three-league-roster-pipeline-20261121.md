@@ -122,3 +122,21 @@ Use the live isolated Android test bot after new branch is fetched/restarted:
 Do not confuse an installed candidate or a single `CHECKED` work attempt with a calibrated player effect in production. If the device reports `NO_PREGAME_MINUTES_ATTEMPT_OBSERVED` or `BLOCKED`, we must fix the exact source/identity/first-archive issue from that report; no numerical output can be declared trustworthy until the data exists.
 
 Tests now include `tests/test_active_engine_status.py` and change `CycleTests` to check V2-before-V3 serial startup. Latest full CI conclusion and user-device execution must be observed before reporting activation successful. PR remains DRAFT, no protected Fly `/data` change or production rollout.
+
+### Activated additional real source witness stage
+
+After `AdaptiveWorker.tick` automatically attempts preforecast `player_inputs.collect`, the serial research cycle invokes `player_shadow.readiness` over the exact isolated `research.players` directory, exposing actual validated minutes/archive/model counts as `last_player_shadow_poll` and `stages.player_shadow`. It is a real read/validation call, **not a claim that training or full numeric player effects succeeded**. Any missing witness stays BLOCKED and main score remains unchanged.
+
+The new `/test engines` is the recommended live Telegram proof, because `/features` only displays installed code, and `/test runtime` shows the core analysis wrapper rather than whether the background V2/player engines attempted work. The report explicitly displays background stage status, last V2 source result, original player minute packet status and actual player-shadow evidence, with no hidden provider calls on the diagnostic itself.
+
+UserLand isolated bot restart:
+
+    cd ~/zeynal-3lig-test && bash scripts/run_isolated_test_bot.sh
+
+Telegram commands:
+
+    /test engines
+    /test research
+    /test integrations
+
+If the worker is installed but hasn't yet executed, status is `RESEARCH_WORKER_INSTALLED_NOT_YET_OBSERVED`; if it has attempted even with abstention, it is `RESEARCH_ACTIVATION_OBSERVED` **not** `PRODUCTION_SCORING_ENABLED`. Main Fly bot still uses its legacy analysis unless separately and safely deployed through the guarded release path, after real model evidence has passed.
