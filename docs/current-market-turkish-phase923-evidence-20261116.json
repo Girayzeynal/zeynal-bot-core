@@ -1,0 +1,94 @@
+{
+  "format": "PHASE923_CURRENT_MARKET_TURKISH_LOCAL_EVIDENCE_V1",
+  "start_commit": "0932713d41dbd2fac1c271fcb5006f61f4450922",
+  "full_suite": {
+    "tests": 1056,
+    "failures": 0,
+    "errors": 0,
+    "elapsed_seconds": 72.739,
+    "log_sha256": "c72992bde1831e3769278d03594ca8311cba58a45059098abee2569b7213c66d"
+  },
+  "new_test_cases": 35,
+  "baseline_test_cases": 1021,
+  "resource_probe": {
+    "actual_provider_authentication_verified": false,
+    "actual_telegram_delivery_verified": false,
+    "cgroup_cpu_max": "200000 100000",
+    "cgroup_limits_verified": false,
+    "cgroup_memory_max": "8589934592",
+    "cgroup_memory_peak": "914423808",
+    "elapsed_seconds": 2.9829241240076954,
+    "errors": 0,
+    "failures": 0,
+    "format": "ISOLATED_PROVIDER_RUNTIME_V1",
+    "peak_rss_mib": 91.8125,
+    "production_changed": false,
+    "tests": 87,
+    "transport": "SYNTHETIC_PROVIDER_RESPONSES_AND_LOCAL_HTTP_TELEGRAM"
+  },
+  "protected_sources": [
+    {
+      "file": "main.py",
+      "sha256": "aed941457ef16cafae223fa8f0ae864cf791efce0fdba36efa7aee2bc0737d02",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "hybrid_engine/models.py",
+      "sha256": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "hybrid_engine/distributions.py",
+      "sha256": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "hybrid_engine/data.py",
+      "sha256": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "hybrid_engine/live_nba.py",
+      "sha256": "40c347e5b47adbf58e720383da4d6df30aa6046e3cd30249d665b66c768ac6c2",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "verified_history.py",
+      "sha256": "a67e5268cc8aaca83715b4c983dfd8bb3457e46d2487b258e5e8bfa2ece0f6fa",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "universal_analysis.py",
+      "sha256": "a5f7260970faad35de87b4a492a9aace761f606260b3f39e5ce86f90f772ade2",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "hybrid_engine/decision_layer.py",
+      "sha256": "bfaf6039ff102729d98c19f03b634763021cbc4c6ce741337cb13e74a62e14b2",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "hybrid_engine/calibration_guard.py",
+      "sha256": "571f0995b5c3b312c4b6c3ca613082735d383ac55a5dc5882847ab2695c8ad0c",
+      "unchanged_from_start": true
+    }
+  ],
+  "prospective_and_evidence_archives_unchanged": true,
+  "default_faz13_unchanged": true,
+  "real_provider_authentication_at_this_head_verified": false,
+  "actual_telegram_delivery_verified": false,
+  "live_bookmaker_rules_configured": false,
+  "current_review_calibration_approved": false,
+  "confidence_index": null,
+  "fixture_count_increased_by_quote_count": false,
+  "original_prediction_retimed": false,
+  "production_changed": false,
+  "main_merged": false,
+  "go_no_go": "NO_GO",
+  "limitations": [
+    "Local probe is not a 256 MiB/1 CPU constrained run; exact-head Docker CI must be checked separately.",
+    "Synthetic rules verify mathematics only; no real bookmaker OT/settlement rule is fabricated.",
+    "User-reported prior live quotes are not Cloud Bot API receipt evidence for the new revision.",
+    "Current reviews are excluded from original prediction performance and do not imply calibrated confidence."
+  ]
+}

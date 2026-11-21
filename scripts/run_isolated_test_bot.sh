@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# Isolated Android/UserLAnd test bot restart. Never touches Fly.io production.
+set -Eeuo pipefail
+cd "${HOME}/zeynal-hybrid-844"
+# Diagnostics can run alongside the poller. They neither update Git nor start
+# Telegram, and read only dedicated local data-provider credentials.
+if [[ "${1:-}" == "--provider-check" ]]; then
+  exec .venv/bin/python -m hybrid_engine.provider_access --check
+fi
+# Offline read-only archive/input diagnosis. No token/model bootstrap, Git
+# update, network access, fitting, polling, or existing forecast writes.
+if [[ "${1:-}" == "--error-review" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  plan_dir="${HOME}/zeynal-test-isolated/data/quality-phase92/calibration-plan"
+  plan_args=()
+  if compgen -G "${plan_dir}/plan-*.json" >/dev/null; then
+    plan_args=(--existing-calibration-plan-directory "${plan_dir}")
+  fi
+  exec .venv/bin/python -m hybrid_engine.quality_report \
+    --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
+    --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
+    --output-directory "${HOME}/zeynal-test-isolated/data/quality-phase924/reports" "${plan_args[@]}"
+fi
+# Read-only automatic capture status can run without stopping the poller.
+if [[ "${1:-}" == "--europe-prematch-status" || "${1:-}" == "--nba-overnight-status" || "${1:-}" == "--adaptive-status" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
+  status_directory="europe-prematch"
+  if [[ "$1" == "--nba-overnight-status" ]]; then status_directory="nba-overnight"; fi
+  if [[ "$1" == "--adaptive-status" ]]; then status_directory="adaptive-v2/attempts"; fi
+  exec .venv/bin/python -B -m hybrid_engine.europe_prematch \
+    --directory "${HOME}/zeynal-test-isolated/data/${status_directory}"
+fi
+# One isolated poller per local installation; prevent Telegram getUpdates conflicts.
+lock_dir="${HOME}/zeynal-test-isolated"
+mkdir -p "${lock_dir}"
+if ! command -v flock >/dev/null 2>&1; then
+  echo "FLOCK_REQUIRED_FOR_SINGLE_INSTANCE" >&2
+  exit 2
+fi
+exec 9>"${lock_dir}/test-bot.lock"
+if ! flock -n 9; then
+  echo "TEST_BOT_ALREADY_RUNNING: existing process kept untouched" >&2
+  exit 0
+fi
+branch="feature/hybrid-market-roster-evidence-20261114"
+launcher_path="${PWD}/scripts/run_isolated_test_bot.sh"
+launcher_before="$(sha256sum -- "${launcher_path}")"
+git fetch origin "${branch}"
+if [[ "$(git branch --show-current)" != "${branch}" ]]; then
+  echo "WRONG_BRANCH: checkout the test branch first" >&2
+  exit 2
+fi
+git merge --ff-only FETCH_HEAD
+if [[ "$(sha256sum -- "${launcher_path}")" != "${launcher_before}" ]]; then
+  # Bash can keep reading the old inode/buffer after Git replaces this file.
+  # Reload before dispatching the requested mode; close the inherited lock so
+  # the new invocation acquires it normally instead of rejecting itself.
+  echo "RESTARTING_UPDATED_LAUNCHER" >&2
+  exec 9>&-
+  exec bash "${launcher_path}" "$@"
+fi
+case "${1:-}" in
+  "")
+    if [[ "$#" -ne 0 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
+  --archive-census|--player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup|--challenger-review|--challenger-summary|--challenger-plan|--challenger-capture|--challenger-results|--prepare-europe)
+    if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
+  --europe-data-check)
+    if [[ "$#" -ne 3 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
+  --player-inputs|--roster-status|--roster-pdf)
+    if [[ "$#" -ne 2 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
+  *)
+    echo "UNKNOWN_LAUNCHER_OPTION: update the test checkout and use a documented mode" >&2
+    exit 2 ;;
+esac
+if [[ "${1:-}" == "--archive-census" ]]; then
+  # Local-only native data inventory; no bot token, model training, SQLite writes or Fly access.
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -B -m hybrid_engine.archive_census \
+    --data-directory "${HOME}/zeynal-test-isolated/data" \
+    --archive-directory "${HOME}/zeynal-test-isolated/archive"
+fi
+if [[ "${1:-}" == "--europe-data-check" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.europe_data \
+    --data-directory "${HOME}/zeynal-test-isolated/data" --league "$2" --fixture-id "$3"
+fi
+if [[ "${1:-}" == "--prepare-europe" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.europe_models \
+    --directory "${HOME}/zeynal-test-isolated/data/europe/models"
+fi
+if [[ "${1:-}" == "--challenger-plan" || "${1:-}" == "--challenger-capture" || "${1:-}" == "--challenger-results" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  challenger_args=(--directory "${HOME}/zeynal-test-isolated/data/challenger-research/protocol")
+  if [[ "$1" != "--challenger-plan" ]]; then
+    challenger_args+=(--ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite")
+  fi
+  if [[ "$1" == "--challenger-capture" ]]; then
+    challenger_args+=(--assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets")
+  fi
+  exec .venv/bin/python -m hybrid_engine.challenger_forward "${1#--challenger-}" "${challenger_args[@]}"
+fi
+if [[ "${1:-}" == "--challenger-summary" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.challenger_summary \
+    --directory "${HOME}/zeynal-test-isolated/data/challenger-research/reports"
+fi
+if [[ "${1:-}" == "--challenger-review" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.challenger_summary --run-review \
+    --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
+    --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
+    --output-directory "${HOME}/zeynal-test-isolated/data/challenger-research/reports"
+fi
+if [[ "${1:-}" == "--roster-pdf" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.official_report_link \
+    --url "$2" --directory "${HOME}/zeynal-test-isolated/data/official-reports"
+fi
+if [[ "${1:-}" == "--roster-status" ]]; then
+  if [[ ! "${2:-}" =~ ^[0-9]{1,15}$ ]]; then echo "NUMERIC_ESPN_FIXTURE_REQUIRED" >&2; exit 2; fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.current_roster \
+    --fixture-id "$2" --inspect \
+    --output-directory "${HOME}/zeynal-test-isolated/data/player-shadow/current-roster"
+fi
+if [[ "${1:-}" == "--player-inputs-plan" || "${1:-}" == "--player-inputs-all" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  player_args=()
+  if [[ "${1}" == "--player-inputs-plan" ]]; then player_args=(--dry-run); fi
+  exec .venv/bin/python -m hybrid_engine.player_inputs \
+    --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
+    --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
+    --all-pending --maximum 4 "${player_args[@]}" \
+    --output-directory "${HOME}/zeynal-test-isolated/data/player-shadow"
+fi
+if [[ "${1:-}" == "--player-inputs" ]]; then
+  if [[ ! "${2:-}" =~ ^[0-9]{1,15}$ ]]; then
+    echo "Kullanım: run_isolated_test_bot.sh --player-inputs ESPN_MAC_KIMLIGI" >&2
+    exit 2
+  fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.player_inputs \
+    --ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
+    --assets-directory "${HOME}/zeynal-test-isolated/data/live-nba/assets" \
+    --fixture-id "$2" --output-directory "${HOME}/zeynal-test-isolated/data/player-shadow"
+fi
+if [[ "${1:-}" == "--player-shadow-review" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.player_shadow \
+    --directory "${HOME}/zeynal-test-isolated/data/player-shadow"
+fi
+if [[ "${1:-}" == "--player-shadow-results" ]]; then
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec .venv/bin/python -m hybrid_engine.player_shadow \
+    --directory "${HOME}/zeynal-test-isolated/data/player-shadow" \
+    --report-ledger "${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite"
+fi
+if [[ "${1:-}" == "--roster-setup" ]]; then
+  # Optional PDF extraction runs in a bounded child, never production main.py.
+  .venv/bin/python -m pip install -r requirements-injury-research.txt
+fi
+if [[ ! -f "${HOME}/.zeynal-elite-test-token" ]]; then
+  echo "TEST_TOKEN_FILE_MISSING" >&2
+  exit 2
+fi
+model="${HOME}/zeynal-test-isolated/models/nba-prepared-ae4e578f441770883247e648314c1a7a29c86caa76ab4aa6af006fda4b10254e.json"
+if [[ ! -f "${model}" ]]; then
+  echo "PINNED_MODEL_FILE_MISSING" >&2
+  exit 2
+fi
+export ZEYNAL_TEST_BOT_TOKEN="$(cat "${HOME}/.zeynal-elite-test-token")"
+# Dedicated isolated bot identity. Allow private environment overrides.
+export ZEYNAL_TEST_BOT_ID="${ZEYNAL_TEST_BOT_ID:-9126277519}"
+export ZEYNAL_TEST_BOT_USERNAME="${ZEYNAL_TEST_BOT_USERNAME:-ZeynalEliteTestBot}"
+export ZEYNAL_TEST_CHAT_ID="${ZEYNAL_TEST_CHAT_ID:-7032156495}"
+export PYTHONPATH="$PWD"
+exec .venv/bin/python -m hybrid_engine.test_bot \
+  --archive-directory "${HOME}/zeynal-test-isolated/archive" \
+  --data-directory "${HOME}/zeynal-test-isolated/data" \
+  --nba-model "${model}" \
+  --nba-model-sha ae4e578f441770883247e648314c1a7a29c86caa76ab4aa6af006fda4b10254e \
+  --europe-directory "${HOME}/zeynal-test-isolated/data/europe" \
+  --result-poll-seconds 300

@@ -17,7 +17,7 @@ def _need(test,reason):
     if not test: raise ParticipantSourceError(reason)
 
 
-def _variants(row,at):
+def _variants(row,at,*,include_city=False):
     result={}
     for key in ('displayName','shortDisplayName','abbreviation','name','abbreviatedName','editorialName',
                 'tvCode','sponsor','clubPermanentName','clubPermanentAlias'):
@@ -38,6 +38,12 @@ def _variants(row,at):
                 value=row[key]+' '+city
                 result[(normalize_name(value),'city_added')]=dict(name=value,kind='SOURCE_NAME_WITH_SOURCE_CITY',language='und',
                     valid_from_utc=at,valid_until_utc=None,validity_basis='OBSERVED_FROM_COLLECTION')
+    # European city-only requests remain exact source aliases. The registry
+    # checks the whole season and refuses shared-city/name collisions. NBA
+    # snapshots retain their original alias set and hashes.
+    if include_city and type(city) is str and city.strip():
+        result[(normalize_name(city),'source_city')]=dict(name=city.strip(),kind='SOURCE_CITY',
+            language='und',valid_from_utc=at,valid_until_utc=None,validity_basis='OBSERVED_FROM_COLLECTION')
     return list(result.values())
 
 
@@ -92,7 +98,7 @@ def parse_participants(league,year,documents):
     for pid,row,name in rows:
         normalize_name(name)
         participants.append(dict(internal_id=internal_team_id(spec.identity_namespace,pid),provider=spec.provider,
-            provider_id=pid,official_name=name,aliases=_variants(row,at)))
+            provider_id=pid,official_name=name,aliases=_variants(row,at,include_city=spec.code!='NBA')))
     p=dict(format='SEASON_PARTICIPANTS_V1',league_id=spec.code,year=year,season_id=f'{year}/{year+1}',
         observed_at_utc=max(observed),ingested_at_utc=at,participant_count=len(participants),
         participants=sorted(participants,key=lambda t:t['internal_id']),source_pins=pins,

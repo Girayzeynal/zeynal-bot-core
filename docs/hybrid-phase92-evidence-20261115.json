@@ -1,0 +1,2567 @@
+{
+  "format": "PHASE92_RESEARCH_LAYER_EVIDENCE_V1",
+  "baseline_commit": "43971086a8993321599542b09eda62ef045f937d",
+  "cloud_ledger_survey": [
+    {
+      "path": "/workspace/research-artifacts/handoff-20261115/live-nba/nba-hybrid.sqlite",
+      "snapshots": 1
+    },
+    {
+      "path": "/workspace/research-artifacts/phase845-20261113/forward-nba/nba-hybrid.sqlite",
+      "snapshots": 1
+    },
+    {
+      "path": "/workspace/research-artifacts/phase843-20261113/live-nba-optimized/nba-hybrid.sqlite",
+      "snapshots": 4
+    },
+    {
+      "path": "/workspace/research-artifacts/phase843-20261113/live-nba/nba-hybrid.sqlite",
+      "snapshots": 4
+    }
+  ],
+  "remote_userland_ten_record_ledger": "BLOCKED_NOT_ACCESSIBLE_FINAL_VERIFICATION_LEFT_TO_USERLAND",
+  "original_snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343",
+  "protected_files": 51,
+  "changed_protected_files": [],
+  "health_card": {
+    "format": "PHASE92_FORECAST_HEALTH_CARD_V1",
+    "snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343",
+    "status": "LIMITED_RESEARCH",
+    "publication_allowed": true,
+    "confidence_index": null,
+    "calibration_status": "NOT_CALIBRATED",
+    "reasons": [
+      "MISSING_INJURIES",
+      "MISSING_LINEUPS",
+      "MISSING_MARKET",
+      "MISSING_ROTATION",
+      "MISSING_VERIFIED_PACE",
+      "NO_DISJOINT_VERIFIED_CALIBRATION",
+      "PLAYER_ROTATION_EFFECT_NOT_VERIFIED",
+      "POSSESSION_PACE_NOT_OBSERVED",
+      "QUARTER_UNCERTAINTY_ALLOCATION_LIMITATION"
+    ],
+    "blockers": [],
+    "missing_data": [
+      "injuries",
+      "lineups",
+      "market",
+      "rotation",
+      "verified_pace"
+    ],
+    "fixture_source_age_at_generation_seconds": 0,
+    "freshness_policy_seconds": 300,
+    "prior_validated_results": 0,
+    "prior_metrics": {
+      "n": 0,
+      "calibration_status": "NOT_CALIBRATED",
+      "confidence_index": null,
+      "calibration_fit": false,
+      "superiority_claim": false
+    },
+    "prior_quality_asof_utc": 1794741245,
+    "probability_meaning": "RAW_EVENT_PROBABILITY_NOT_CONFIDENCE",
+    "interval_meaning": "NOMINAL_MODEL_QUANTILES_NOT_EMPIRICAL_COVERAGE",
+    "predictions_changed": false,
+    "production_enabled": false
+  },
+  "offline_candidates": {
+    "readiness": {
+      "format": "PHASE92_RESEARCH_CANDIDATE_GATE_V1",
+      "cutoff_utc": 1794741245,
+      "league": "NBA",
+      "fixture_id": "2295e83b287fc5084e916c78226c2f05e06ae299a3299f4fb807495f9e12fabf",
+      "sides": {
+        "home": {
+          "box_games": 0,
+          "source_pins": [],
+          "estimated_possessions_per_regulation_game": null,
+          "estimated_offensive_rating": null,
+          "estimated_defensive_rating": null,
+          "turnover_rate": null,
+          "offensive_rebounds": null,
+          "free_throw_attempts": null
+        },
+        "away": {
+          "box_games": 0,
+          "source_pins": [],
+          "estimated_possessions_per_regulation_game": null,
+          "estimated_offensive_rating": null,
+          "estimated_defensive_rating": null,
+          "turnover_rate": null,
+          "offensive_rebounds": null,
+          "free_throw_attempts": null
+        }
+      },
+      "possession_readiness": "ABSTAIN_INSUFFICIENT_PAST_BOXES",
+      "pace_definition": "FGA_PLUS_0.44FTA_MINUS_ORB_PLUS_TOTAL_TOV_ESTIMATE_NOT_MEASURED_PBP",
+      "regulation_minutes": 48,
+      "rest": "START_TIME_GAP_IS_A_PROXY_NOT_VERIFIED_TRAVEL_OR_RECOVERY",
+      "roster": "NO_VERIFIED_PREMATCH_MINUTE_EXPOSURES_OR_PLAYER_COEFFICIENTS",
+      "context_markov": "ANNOTATED_POSSESSION_BOUNDARIES_AND_CONTEXT_COVERAGE_REQUIRED",
+      "calibration_fit": false,
+      "production_enabled": false
+    },
+    "candidates": {
+      "POSSESSION": {
+        "status": "ABSTAIN",
+        "reason": "ABSTAIN_INSUFFICIENT_PAST_BOXES"
+      }
+    },
+    "calibration_fit": false,
+    "evidence_class": "OFFLINE_RESEARCH_NOT_AN_ACTUAL_PREMATCH_CAPTURE",
+    "forecast_replaced": false,
+    "production_enabled": false,
+    "promotion_decision": "NO_GO_WITHOUT_PAIRED_OOS"
+  },
+  "actual_telegram_delivery_verified": false,
+  "calibration_applied": false,
+  "production_changed": false,
+  "promotion_decision": "NO_GO",
+  "archive_quality": {
+    "payload": {
+      "archive_audit": {
+        "calibration_fit": false,
+        "concurrent_append_not_ruled_out": true,
+        "database_bytes_unchanged": true,
+        "database_sha256_after": "d6fcd9f89c150b09f873fb05efe1642b75370a52260d9160e050564360d6ce01",
+        "database_sha256_before": "d6fcd9f89c150b09f873fb05efe1642b75370a52260d9160e050564360d6ce01",
+        "format": "READ_ONLY_NBA_LEDGER_AUDIT_V1",
+        "issues": [],
+        "multiple_model_versions": [],
+        "observed_at_utc": 1794761014,
+        "performance": {
+          "forecasts": [
+            {
+              "actual": null,
+              "away": "Indiana Pacers",
+              "created_utc": 1794741245,
+              "first_archived_at_utc": 1794741245,
+              "fixture_id": "2295e83b287fc5084e916c78226c2f05e06ae299a3299f4fb807495f9e12fabf",
+              "fixture_start_utc": 1794765600,
+              "home": "Philadelphia 76ers",
+              "intervals": {
+                "distinction": "NOMINAL_CENTRAL_MASS_IS_NOT_EMPIRICAL_COVERAGE_OR_MODEL_CONFIDENCE",
+                "markets": {
+                  "1H": {
+                    "narrow_width": 12.0,
+                    "p05": 97.0,
+                    "p10": 100.0,
+                    "p25": 106.0,
+                    "p50": 112.0,
+                    "p75": 118.0,
+                    "p90": 124.0,
+                    "p95": 127.0,
+                    "wide_width": 30.0
+                  },
+                  "1Q": {
+                    "narrow_width": 6.0,
+                    "p05": 48.0,
+                    "p10": 50.0,
+                    "p25": 53.0,
+                    "p50": 56.0,
+                    "p75": 59.0,
+                    "p90": 62.0,
+                    "p95": 64.0,
+                    "wide_width": 16.0
+                  },
+                  "2H": {
+                    "narrow_width": 12.0,
+                    "p05": 95.0,
+                    "p10": 98.0,
+                    "p25": 104.0,
+                    "p50": 110.0,
+                    "p75": 116.0,
+                    "p90": 121.0,
+                    "p95": 125.0,
+                    "wide_width": 30.0
+                  },
+                  "2Q": {
+                    "narrow_width": 6.0,
+                    "p05": 48.0,
+                    "p10": 50.0,
+                    "p25": 53.0,
+                    "p50": 56.0,
+                    "p75": 59.0,
+                    "p90": 62.0,
+                    "p95": 64.0,
+                    "wide_width": 16.0
+                  },
+                  "3Q": {
+                    "narrow_width": 6.0,
+                    "p05": 47.0,
+                    "p10": 49.0,
+                    "p25": 52.0,
+                    "p50": 55.0,
+                    "p75": 58.0,
+                    "p90": 61.0,
+                    "p95": 63.0,
+                    "wide_width": 16.0
+                  },
+                  "4Q": {
+                    "narrow_width": 6.0,
+                    "p05": 47.0,
+                    "p10": 49.0,
+                    "p25": 52.0,
+                    "p50": 55.0,
+                    "p75": 58.0,
+                    "p90": 60.0,
+                    "p95": 62.0,
+                    "wide_width": 15.0
+                  },
+                  "AWAY": {
+                    "narrow_width": 17.0,
+                    "p05": 88.0,
+                    "p10": 93.0,
+                    "p25": 101.0,
+                    "p50": 109.0,
+                    "p75": 118.0,
+                    "p90": 126.0,
+                    "p95": 131.0,
+                    "wide_width": 43.0
+                  },
+                  "HOME": {
+                    "narrow_width": 17.0,
+                    "p05": 91.0,
+                    "p10": 96.0,
+                    "p25": 104.0,
+                    "p50": 112.0,
+                    "p75": 121.0,
+                    "p90": 129.0,
+                    "p95": 134.0,
+                    "wide_width": 43.0
+                  },
+                  "HOME_HANDICAP": {
+                    "narrow_width": 25.0,
+                    "p05": -33.0,
+                    "p10": -27.0,
+                    "p25": -16.0,
+                    "p50": -3.0,
+                    "p75": 9.0,
+                    "p90": 20.0,
+                    "p95": 27.0,
+                    "wide_width": 60.0
+                  },
+                  "MARGIN": {
+                    "narrow_width": 25.0,
+                    "p05": -27.0,
+                    "p10": -20.0,
+                    "p25": -9.0,
+                    "p50": 3.0,
+                    "p75": 16.0,
+                    "p90": 27.0,
+                    "p95": 33.0,
+                    "wide_width": 60.0
+                  },
+                  "TOTAL": {
+                    "narrow_width": 25.0,
+                    "p05": 192.0,
+                    "p10": 198.0,
+                    "p25": 209.0,
+                    "p50": 222.0,
+                    "p75": 234.0,
+                    "p90": 245.0,
+                    "p95": 252.0,
+                    "wide_width": 60.0
+                  }
+                },
+                "quantile_method": "LINEAR",
+                "sample_sha256": "68bee56e5eaccdc3835cf0a3240cf7ebb3f5290710a53538d31d91d9eff797a6",
+                "scenarios": 10000,
+                "scope": "REGULATION_ONLY",
+                "simulated_correlations": {
+                  "quarter_totals": [
+                    [
+                      1.0,
+                      0.9856634736300219,
+                      0.9898255218993426,
+                      0.9888800742063094
+                    ],
+                    [
+                      0.9856634736300219,
+                      0.9999999999999999,
+                      0.9869994191814484,
+                      0.9880577292130518
+                    ],
+                    [
+                      0.9898255218993426,
+                      0.9869994191814484,
+                      1.0,
+                      0.98841737779407
+                    ],
+                    [
+                      0.9888800742063094,
+                      0.9880577292130518,
+                      0.98841737779407,
+                      0.9999999999999998
+                    ]
+                  ],
+                  "team_scores": [
+                    [
+                      1.0,
+                      -0.0006522497015448711
+                    ],
+                    [
+                      -0.0006522497015448711,
+                      1.0
+                    ]
+                  ]
+                },
+                "status": "RAW_MODEL_QUANTILES_NOT_CALIBRATED",
+                "verified_coverage": null
+              },
+              "league": "NBA",
+              "model_digest": "cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982",
+              "model_version": "ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
+              "parameter_fit_cutoff_utc": 1794526101,
+              "predicted_halves": [
+                [
+                  57.37196258262655,
+                  54.701125012416846
+                ],
+                [
+                  55.10918174798739,
+                  54.60664869498415
+                ]
+              ],
+              "predicted_quarters": [
+                [
+                  27.527143446759286,
+                  28.373724305256566
+                ],
+                [
+                  29.84481913586726,
+                  26.32740070716028
+                ],
+                [
+                  27.265458225431445,
+                  27.86938296213198
+                ],
+                [
+                  27.843723522555948,
+                  26.737265732852173
+                ]
+              ],
+              "prediction": [
+                112.48114433061394,
+                109.307773707401
+              ],
+              "prediction_generated_at_utc": 1794741245,
+              "provider_fixture_ids": [
+                "401909985"
+              ],
+              "season": "2026/2027",
+              "snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343",
+              "winner": [
+                0.5573,
+                0.0221,
+                0.4206
+              ]
+            }
+          ],
+          "groups": [],
+          "pending": 1,
+          "query_read_only": true,
+          "research_backtests_included": false,
+          "scope": "REGULATION_ONLY",
+          "status": "VERIFIED_LIVE_REPORT",
+          "unique_fixtures": 1
+        },
+        "performance_status": "READ_ONLY_NATIVE_VERIFIED",
+        "predictions_recomputed": false,
+        "production_changed": false,
+        "records_deleted": 0,
+        "records_overwritten": 0,
+        "results_fetched": false,
+        "rows": [
+          {
+            "away": "Indiana Pacers",
+            "calibration_inputs": {
+              "inputs_available_max_utc": 1794741245,
+              "model_fit_cutoff_utc": 1794526101,
+              "model_training_ids": [
+                "004068bc94113669af01671a62c47a4d097589ce30d8c12262513aac74477ab8",
+                "030860bc9e39326ab790de1b3440501ee8df82d6707f828e0b4d2b291049269d",
+                "037662c22e22fc462d0c941eaa555e108fbed8f6e8a1309b589f247c9a17d185",
+                "03b81510041da2059c0681dc0bcde074aa80dbd2b8fc89aee04bfe06c23f9b53",
+                "04f7224cc1dfd50def8636a26a3c96c5c56c1f96fde95afb3825b9c28617283d",
+                "05605cc25f1e7f5f588f9e3b04618fd46bfee4c57bd9b181d916820c6dedd19d",
+                "06d6885459a3c781a78128ae36ca2bbd524e939e42424614e94ec925e9dd15b8",
+                "06e6453c481a93774fbb499658074627c32940da77174ad01e32c89899316517",
+                "07d50de96f5cca7f6b2ce4acf5fa336f9d7eb12c73c2f03d612b50b148786776",
+                "091b95ae48f398badf4c66df349e2335d532f74c2e80482954a690ff653bf79f",
+                "0c373224ff449314d36ee4e9a228c36370374b3519e7726fef1ee65e4c99917e",
+                "0e5edf4919012dd00c4e449bc577b160c631c3a01cd3c03ce5128d7efa17a1b2",
+                "0fa4244de5e564b61b83393fcd7257a229fafaa24f217670418ca5fa8bb3c49e",
+                "10dde7dde9d2b5d83b24fc17ec10f6c7e33f482a3889a90c9825f2704fe3a8ec",
+                "13aea6c5f7a9113e0420348c9ca07e95b245f6a177f00ea7557adf39373b319d",
+                "18691fa7069a7b0c98620470878c576d81ca0c54da3c2e769300d2c8a56e535c",
+                "190ff1fdabdb38ad7d7a34862756a5a09145b491c240f064e3fd1de4e1d1792c",
+                "1a97c16b9cae64d0c7761cdfa536b9b37b03111e684397a059a672658918f82e",
+                "1c49e6d69bd17e0cc93ea00cd10895b9e980b8b6193bbd19e453ca35f7c5c6e9",
+                "1e5ce1fa1772899a74251fbda80ed6ca451210ff30f9b6ccddd74347298df8da",
+                "1e71014907edf01a9f4c307857481b941bdf11f779aecd9954b8b62d8bf6e9d5",
+                "1e7791c18b509bf35bb2e8a9ac8ce36409fd448949f2f8844e32a0224f6faf7a",
+                "20ee68340a45d7f951f66e2eb9005b13429f044ca03c0c93007156874b180b0f",
+                "2139b60b79572bcc99f16a45735e83820ed099646aa755073049eabdcd9e0085",
+                "248fbbab6c8f89eac81cf89dceb1a80fedb0eb022fff1da7f52384b1b4e48cd9",
+                "26bfa065eebc06606a68f38f07c82b2019ea190ed554ce8783db9d9522c60fec",
+                "2984edf02895a9bb12f293f9352eef8cf6e3cf25d198c44047c7660edaf8c939",
+                "2c4612658779d7041b0dc3b3ba8f3419606eab9c095c7a07f95b10700c1f57c2",
+                "2d276490e6b736c32338f4083710904c8d071e55080538077931e5958150a98e",
+                "2dc52ee0d9d211b8bd08dffa7e842b45df94103703d6f9c8affde2196d4f5a0d",
+                "2f0faf266b4ac5a8d62cf1378b38b87a10eca88e6ac70825f736eedb67d20020",
+                "31aa87d42fd3f7554445dbc6e8afbf3da680aac07b781e2f220b8562d5651693",
+                "31eb2dff5275d14bf33e9ba127a07f575d29bc525311ee0abd8b3a0b1ca4f9a4",
+                "321b34d1a4391910fd895ba7de6a7df615e82cbdc8e4e5fd6bf5cf77c293122a",
+                "358c15a30a18fa0eb8eebc8db24354b600984972b423e0069978a0af4de688e5",
+                "365dd9e4c9dad763dd396b51ea79eb35097dcdc64c015835769c66dbc53e1abd",
+                "3a884a324f9e1aaa7ced702d84888e9efdfdf94ac6e253dd940ba44b92c30b64",
+                "3b5cdec16a49f74f112724ed8e4568b8fa8a55f881b19101f066f1f5db446ece",
+                "3dafdf39635e957e7b4ddd4a2c5ab2266c3043652192957aeade1d5562583555",
+                "3eebec01d2ec7a315ab72a706a0881cedef8ee075cb32c1d8345644a379e8af7",
+                "41176acbfbbd406a306da527afd529fb05cd0b256d21dd7964df3d1a5ca9e604",
+                "44e5068b7e91b7effa0a52b2ccd342cc9dc5bf251cffd882aa31db13272efb2f",
+                "4612881bfd2db8b5296136339a52dfe5544c5efe6df8fe9d3da8c44f55dfad44",
+                "48f1ccda8ba067d28ff39da3baac59b7d6338257389bf3d877a24f1a35855869",
+                "492248060e458cdac09272eec7a57931e6b3038d9881b31a819035d1e2f9f1a1",
+                "4a5b6db22d894cec4d574eb5f34b24bcff7bca624089179452e88d63e7bdcc6d",
+                "4ae54c62f39faf0e0d0c8d9c03ad202a8bac26ae9cd57480d00f701d9835b78e",
+                "549d538b2ed2dc10ad8faf81b4e5934000d2ef39c42bdd3697327f1835921ab2",
+                "54b0316521e174174239aeb70b1dfc6ca02be31ed8608a5157dc544d0b6a67a6",
+                "56585259ef790f0d39127775cace8ac519a376febc1bb64edc61b9aae02c1d93",
+                "565df37d442577370ead4e41d8fb92da9c6b51aabb8f098f7a5140ca7cd08699",
+                "566ad19dfd1981d5b2b256a545020840ab0760081c5be6f9b17e26e31a2fd29b",
+                "5a766cc07981c96b859f5b89cfbc727731cbb0bd6d7b7f04a36f71b6542c8044",
+                "5b5e79a7773d6a765a4e54bb6a783573de53eb6492fac61832d89092fb078ecc",
+                "5c369b633405f6a4036cf61f695e0b7b00a4b1b96613abe900166baaeb893fe9",
+                "5c39ee5881d0e2122291c2c276a13b30d8346b50301b43ec46f6179f40e2542e",
+                "5d6e8d4011280e1f295c35ed54477a4ea744a225d0a8f8c3f759b5a778bbd04f",
+                "5eb01cca9ce2098d41247fc9e47ad60886f24bf6bd4226b4b354fa916056389c",
+                "5f04e0cd744d9d2befa41bea91183ecc41697bfa63b2e09a47d15d83c5c08ae1",
+                "5f3cb0aacdc92d24587f25875e01f1550b6324633ee4a8b690ee46a4ce155608",
+                "63a65f3e24782e8508667d6780a869fb09cbb2d830c4f00d1423db5a2e1fad81",
+                "641d3f1bfbf79abf3c73722883ff5960863d82d758dacd5db321812d90dfff00",
+                "643373fd6a248c0f6d35685c1a882f0ef5c0519b3539c027280b6c9a72fcbb83",
+                "6513432ae1fbbf3697d2e2bc968ace5516875cb7b194f719fa3bb02550f9798c",
+                "6605886d7686f56b37bcdf7e1dd884504fb9d945e3db980da618e472b1697ed7",
+                "67e71e6185573f40b432da9dd3b9c155cb020f37fe797d9fd3179787c662ced6",
+                "6a5f1fbd48b90629280412a9e08049093577ab3cf7afccb4d1d1405f632b414e",
+                "6cac87daa67ffb095f1751da6f3c4652a1c263dfb0078db760e09d9b54ac135c",
+                "6ce9fd992e80956f62d15864073e9f47020ef3a749337c344bd4062c952d173e",
+                "6e6548bbdd7bdcd227181277a53acbeef3d881566d4d64d142cd282310ca9ed0",
+                "7114cf3c02ed06fb3f4645fc2e53dcdff916b5f81864bf5da570380fa937eede",
+                "724f19797654140c95b15d7eb08d2b0d93dc5ace5188e4cbf31b841da4fa56f7",
+                "72de24f0568c8d6d7b3c0826cc5689742eaf0e12f8b1a622cca387d9753c12ca",
+                "7371bb5988c6d7deeb7787b353f606bef2eb1e647d54d5979b48822eafdd026a",
+                "768b3a8a008fcc6c12ded0fb054eca8d068b9eb93dd1fcc5dbca07f1c1e43c75",
+                "7702997eb31c1cc34277f75ef677c091bd0af979bcb92e94bcf6eff22dd5a6ee",
+                "78110c42c320143738df02dcf1184014f79fd0e181b30525971b493fcb1b54cd",
+                "7ba7975813678775200a81e12a2574b2c51d5fbd28e657a0c9e05ec2e4eff173",
+                "7bc138f53498a817499d6d878b39156e346a4ca11c312f14abc15469a4095887",
+                "7c02570a506644f80b7c2a6c178d5845aa89b652c70479ef3af9e11e47ac463b",
+                "7ce3bc647a08c3aa04ff80a3d202d58b91189704bfc27fc8d06647e945b5bd07",
+                "7d1732dae84d460e0e90f20b6aa3b8a36e1d3c00799a54610023e96686a23e8a",
+                "7db28fa7551db24cf1e1ccd4110d789b987c16afea2e52321538510bee0726f3",
+                "80497fb6cdcfbe3d187216594fe8e853354cc47b2773940ed54469e9f531e835",
+                "83f6180bbde2fbefcffdfefea8d51ba2055cc8550a6a1fed477fb0f14d941226",
+                "8476ea1c6ce3be3dbdef14e094c66f37fae04d5a138b5fcd456a262e07ebf9e9",
+                "848f1d663f98b90700b40296c19144f9b511fb04395e5be1fe2425a01e69441b",
+                "85b579f23639c082cff869414826fc2a214fb31b4d232dfc79631258c4c8abcb",
+                "87cb3083c583b742f1c1dfa4b3af9aeab45055de76aef47f666962e50a934c88",
+                "8915c4b6e308059d4498471dd0ba446a7447358ce40c94438c3105e9c232572f",
+                "8d64f90ee8bc6ecde6bf70dcf921de55faf92e1bfe011855512550517fb6485f",
+                "8d763457b8a91c2c35f3cbdbda0a717549eadb28c218a1bbfcf2a1640bd0d91d",
+                "8f3f67c050388d16b9c32ccf5b0f2f12d92561f18b96f147700b08b7b57e6129",
+                "8f80b55fdcb2ab40fd19c835c39f095332235f0965d09e5ef3d6fbafe79a3684",
+                "8f90ad64354497498c7f91dc6d93878d5ba8d061d99df9a2f369a830f31c71db",
+                "8fc8a5e298352b6ea71794051e15b3ba31659f2066ea1fe2cf040b64d15afb0e",
+                "916e452b53876a304088547a3cb85e448ae5e5fb4dff57f4be09a2340c7bf7bb",
+                "959958688b11ad4a66fa41e502eff63f661635b5d1e8c797518bf3a203cf250b",
+                "97d190045877609b2a216921a11f16c13af43ca89ca7e40bd34b6cd7770e9780",
+                "9af67bf8cdc426cafbf1b6d51f814e8636cb321f45ca9e1688183baad42d3eac",
+                "9d45d5bb51229e0981b68fe5052b5ee505fef13312dbcd5e77c56bc69aca4a75",
+                "9f063a8f934e5d9b49c0fc5130fb11799fd899b9023ea651402f1e29aecdacbb",
+                "a0150435362fa92786248cfc93387bf806f18a1a39d48295efa8767ac1f27b19",
+                "a13efebf9158346319adc8c88bfe0f8bd81f2888797aca20be04cec6b5193506",
+                "a2511f8c64c9b4efc29c2e6f4174bcea5b30cb3dd8caba57d92ede10abefc52f",
+                "a33626eb19ef6cd9b19483c37b7a124ef9a6a27356d621dd31f42adb4d8faa98",
+                "a33c63da9ba46646b03ba582adaff07a8fe2461b20028cbf4bba584e96937163",
+                "a3691173efe1991d06c8c6fe4cfe89aa5dbf8790884425e2916422a37ea3c5ed",
+                "a4796fbc79df951e58d17fadbc61a22f355e1d6b6c8b24ca8c28d70d38291c17",
+                "a487c51a9ec56403dce3b67e77364e586ff786fff7653e37455d6404d5181a2a",
+                "a488fd145fea0d7801bcfd0404a055bd477910262763e49891f5b98661cbb6fb",
+                "a87e5054ac5a3414039795c04238511b7477e70b4627a689ddb5866b8b7d6b94",
+                "aa60fd3b82b297ed388dd8817d5098b7400feb1ec37e2a96efb94c738455458c",
+                "abc09c9c62eba3084f4748c78eac33af1ef8b6a7ddd2ca1b4aab4ccf5be4e6c7",
+                "abe39ab51b8834349d8e8825a163b84f2561616bf7ef30d26d9f4a1939f2bcb9",
+                "ac1be9e2a44388fbd7182435eed64ef3d1edd02b47636d0b0f39c1925f3488bd",
+                "ae2996ab224448875308eae2a264a01aa46fa1a862a78724b8f051bd1814dc84",
+                "aeadeea31439bd0132e7cf871b3a12b88bff5cd5257683577ed3d97f3289f64a",
+                "aef393467f99c7e576a3c941ff4b3fd9cfe2e31c14bec107ca36aaf0e5a844da",
+                "b0a8260741e741f7ac3d1cc6f2773dd44a43fba1abe9d1be5c071aa5adcdc86f",
+                "b0ef6e0065fde7203bee2d97ea9cae50fab62f5924385279b18dd28cc888f6cf",
+                "b59f59546478748cf7ef5e4d170b4b26b6d48196caf65e72ee93cb7e6c55bff4",
+                "b5d9c1908d1006659de05faafe5fa3e9e0db3b919ee2beec2d205a289563aafa",
+                "b649db9cb6a612ac1ee8f7a3917bd0fa4a9b737f998b064da77ddd0c0fb5b095",
+                "b82fddb760eb8325945b1f919b0d3a39373e35171c54fb507a8b43bccdbe183d",
+                "b854b2684a651e42291ec25ba693514560ea768e878a636a875c3c9c163f3449",
+                "b85fe3464c79ce8608d601828446c71a7946f9ecb7685d5420f79fd15c7d05c6",
+                "b9dad04c25952a160e54b8f3abef70361a75bedda583e03451833bcf39d3a3c6",
+                "bfe090fa71f38c11762576a16ff6e5f93a5047ed085979598c622233aedb6df1",
+                "c17bde4760137ed31fb13b2050ae81ce006777b334a4cdea1e21c04c875a3874",
+                "c2b30e2d50b080952d736dcb5c0adc8e2dee505eb25d52840c401a0c92b5ad30",
+                "c4d37955386f12b0e423820f2cddeb0ce9621f5e4096d5ed3f4616caf7286cdc",
+                "c4f5289f227018498e1f0dfa71ddf7227e2ad5ab394ac16641d8e9e471d4c1b0",
+                "c56ab43b7e5e73a3caa08dd0c893a03568d4ac02ba04f6f81882a2f40985c15c",
+                "cc2ba3ff77d71b856cd05d3a9336c4657bcf5a809b6a70c2dd8f534d67981f38",
+                "cc882930f439574d93323b9a980002712398b542a686118c759118c2516cbe9c",
+                "ccba9a289bf33adeeec54b447a24b190f29da4592ffff2e4f8c2c7ab09e37fc1",
+                "ccd4082ded02c7d723a3a047b8472fcef3652c241b6810f5f014637ec904d8ef",
+                "cecc2ac5832f342888b2293a075e21ff52f6b7a625c3da23e51d724e763ad61d",
+                "cef478b7007e21399069fbdbf27d22ace6bcf3059c26b18a78716466c56f36f0",
+                "d064b8f6afd1c7d2b7690d484f9552445f4e4b22d2dee4b15f8881b91337dbf3",
+                "d06846720daff50b867f2c818ad79446bb4d6d7d54e7bdc9695f8d0ab0d5e462",
+                "d0d0c00897b187020fbcdf76db4f8c0c458ed3abec15b3547c0726671f42148d",
+                "d8c318a376ac10f21ab77021015398bc0c710ffad46792efaf05932b96996ce7",
+                "d91ad5620ae8a282acea50e9a04906d763cf81581675547e6307d60761773a71",
+                "db07534b9ea567fd6f151cd8484c3240634734ec59ee43e99009cff920a5c8c3",
+                "dc51c4eb0323079b2e744904c768246bc868b136c349c865fb9f0cea7e2c5a97",
+                "df14e79aef573fd625a2e78c19dd1e9ccc8b57bb7c6b677054740223923ba07d",
+                "e0d0d98bd65dc8604ee43957be744c01ce89b8b3846d123237a5e11b32d97e39",
+                "e113ef5ef36c938f7d86377dc467d98b5504721e2c85da0fac6a696f92fd4f53",
+                "e13086dcf8bf8558409a5b3c264cdd6e608c8bce624476e4f6ea713ffbf28cbd",
+                "e3efe440cc6c67d556c9ff16fb2b92eb57fb54b330a9fb6b504a32b747ad1b94",
+                "e420bd385a8ff162aa275d2971f2a836886d8d74914497240ca73935c2b00aeb",
+                "e461fd1783ea67a55ef98b6f50efe8147a4ffd4df7ff72a2758884797d1aa775",
+                "e5dbe3ecc40608f7c49482089a3069c0b32c5d910348d9c3a360f35b3998792a",
+                "e64388a6d188caaa8463fb99dd34e1ce892255dc5fc8ee7252cbf73aef4253af",
+                "e69a0ff95f15e02c18067ce9e4e1caabbc021d5b35e43b6d2011fc9d3237c86c",
+                "e6b5cc59c135d92edb7e35ec9f70bd988d7be13d735a3448d4e44e1c5fcd3af3",
+                "e702621ba0e8948e837dee65278d4c1149e020214e7a520b3d4d82a42194e271",
+                "e74e33d6a8017bd10ed2168c4b5128445d199061b9472e1a998594a7c9c7e2da",
+                "e8ccb0db5cb1fb03b61e1191c36d8ce517e4570115109db608459b9a7e7a7e90",
+                "ecd0a4cb2ac671bd334e655ea87cc7dc6bfba8005b3db7b46c28ead69d03dc54",
+                "ed532749159b45e583d0821bd184fbf14e343e06b577c1db3f1ef4875fd49e5c",
+                "eee86d22b438cb8f0932fcaa3a03b24c8a8f43de8f3e0a21fda2a96825c3ccb5",
+                "f1c48eaf45526886416e2692387a57c79181b6d1094ba427282e08e7e1c8d4e1",
+                "f1c6bbcc9921dc00b89478d7542f7e19a922ecd83d90f5e0aa1dd4facb0f7345",
+                "f4350157907b177908e007ef667036fc0423eea36cd6ae392ea7a0ecaab382f9",
+                "f659b968f772a98c4a53999ec3c59a992843ce5982eaefbff6c34cb8d751bf33",
+                "f83a3624d754b6d8ec1233af56bc2cfd5a9aa21138ba3e3dcc6cd3f13c1e8285",
+                "fb4d72a1206302c4e14f0c387b5a02c19484c7a44a22646dac9da2b3e6f8ef33"
+              ],
+              "prepared_artifact_sha256": "ae4e578f441770883247e648314c1a7a29c86caa76ab4aa6af006fda4b10254e"
+            },
+            "findings": [],
+            "first_archived_at_utc": 1794741245,
+            "fixture_id": "2295e83b287fc5084e916c78226c2f05e06ae299a3299f4fb807495f9e12fabf",
+            "fixture_start_utc": 1794765600,
+            "home": "Philadelphia 76ers",
+            "model_digest": "cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982",
+            "model_version": "ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
+            "prediction": {
+              "away": 109.307773707401,
+              "calibration_status": "NOT_CALIBRATED",
+              "halves": [
+                [
+                  57.37196258262655,
+                  54.701125012416846
+                ],
+                [
+                  55.10918174798739,
+                  54.60664869498415
+                ]
+              ],
+              "home": 112.48114433061394,
+              "home_handicap": -3.1733706232129464,
+              "margin": 3.1733706232129464,
+              "metadata": {
+                "artifact_digest": "c9c073c5203f0167ee1157d15158097d8253634e5525063b2e2240236bd5b028",
+                "coefficient_posterior_covariance": "CONJUGATE_GAUSSIAN_EMPIRICAL_BAYES",
+                "correlation_assumption": -0.001871975076464755,
+                "distribution": "ROUNDED_CLIPPED_NORMAL",
+                "elapsed_seconds": 0.01208294299976842,
+                "fit_cutoff_utc": 1794526101,
+                "latent_normal_locations": [
+                  112.48114433061394,
+                  109.307773707401
+                ],
+                "method": "RQMC_HALTON",
+                "noise_variance": 153.6318237029325,
+                "player_effect": "NO_VERIFIED_PREMATCH_PLAYER_EXPOSURES",
+                "quarter_allocation": "LARGEST_REMAINDER_HISTORICAL_WEIGHTS_NOT_PBP",
+                "scenarios": 10000,
+                "seed": 20261112,
+                "training_games": 170
+              },
+              "model": "BAYES_TEAM_ATTACK_DEFENSE_V1",
+              "quarters": [
+                [
+                  27.527143446759286,
+                  28.373724305256566
+                ],
+                [
+                  29.84481913586726,
+                  26.32740070716028
+                ],
+                [
+                  27.265458225431445,
+                  27.86938296213198
+                ],
+                [
+                  27.843723522555948,
+                  26.737265732852173
+                ]
+              ],
+              "scope": "REGULATION_ONLY",
+              "total": 221.78891803801494,
+              "winner": [
+                0.5573,
+                0.0221,
+                0.4206
+              ]
+            },
+            "prediction_generated_at_utc": 1794741245,
+            "provider_fixture_ids": [
+              "401909985"
+            ],
+            "snapshot_created_at_utc": 1794741245,
+            "snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343",
+            "source_audit": {
+              "archived_prediction_changed": false,
+              "audit_at_utc": 1794761014,
+              "audit_implementation_sha256": "0f657ddb29b61acd0cf0535bf3e8b32cb69d56471b383567967d1a370cc60508",
+              "calibration_status": "NOT_CALIBRATED",
+              "confidence_index": null,
+              "format": "FROZEN_PREMATCH_QUALITY_AUDIT_V1",
+              "mean_off_diagonal_quarter_correlation": 0.9879739326540408,
+              "measured_possession_pace_used": false,
+              "missing_data": [
+                "verified_pace",
+                "injuries",
+                "lineups",
+                "rotation",
+                "market"
+              ],
+              "model_type": "EMPIRICAL_BAYES_TEAM_ATTACK_DEFENSE_IN_POINTS_NOT_PER_100_POSSESSIONS",
+              "model_version": "ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
+              "original_recorded_fixture_source": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261114&limit=1000",
+              "parameter_fit_cutoff_utc": 1794526101,
+              "period_allocation": "LARGEST_REMAINDER_HISTORICAL_WEIGHTS_NOT_PBP",
+              "period_uncertainty_limit": "DETERMINISTIC_ALLOCATION_NOT_INDEPENDENT_POSSESSION_OR_PBP_SIMULATION",
+              "raw_projection_coherent": true,
+              "recorded_source_contains_fixture": false,
+              "replay_only": false,
+              "scope": "REGULATION_ONLY",
+              "snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343",
+              "source_annotation_policy": "KEEP_ORIGINAL_FIELD_DISPLAY_VERIFIED_NATIVE_SOURCE_SEPARATELY",
+              "source_annotation_required": true,
+              "source_time_utc": 1794741245,
+              "status": "VERIFIED_WITH_LIMITATIONS",
+              "training_in_request": false,
+              "verified_fixture_sources": [
+                "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261115&limit=1000"
+              ],
+              "verified_rotation_or_player_impact_used": false,
+              "winner_class_order": [
+                "HOME",
+                "REGULATION_TIE",
+                "AWAY"
+              ]
+            }
+          }
+        ],
+        "snapshots_examined": 1,
+        "source_asset_audit_requested": true,
+        "sqlite_integrity": "ok",
+        "unique_fixtures": 1
+      },
+      "calibration_fit": false,
+      "calibration_review": {
+        "calibration_applied_to_forecasts": false,
+        "confidence_index": null,
+        "exclusions": {
+          "NO_ELIGIBLE_PUBLISHED_PREMATCH_AND_AVAILABLE_FINAL": 1
+        },
+        "format": "PHASE92_NATIVE_CALIBRATION_REVIEW_V1",
+        "groups": [],
+        "minimum_day_clusters": 8,
+        "minimum_future_audit": 100,
+        "minimum_past_fit": 100,
+        "plan_sha256": "f0aa092468ed907b399cb21a44cab8e09353a9b610e696398d6c00861a4824f5",
+        "production_enabled": false,
+        "status": "INSUFFICIENT_NATIVE_SETTLED_COHORTS"
+      },
+      "current_quality": {
+        "asof_utc": 1794761014,
+        "automatic_promotion": false,
+        "calibration_fit": false,
+        "exclusions": {},
+        "format": "PHASE92_POINT_IN_TIME_QUALITY_V1",
+        "groups": [
+          {
+            "calibration_status": "NOT_CALIBRATED",
+            "confidence_index": null,
+            "drift": {
+              "alerts": [],
+              "calibration_fit": false,
+              "status": "INSUFFICIENT_DATA"
+            },
+            "forecasts": 1,
+            "league": "NBA",
+            "metrics": {
+              "calibration_fit": false,
+              "calibration_status": "NOT_CALIBRATED",
+              "confidence_index": null,
+              "n": 0,
+              "superiority_claim": false
+            },
+            "model_digest": "cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982",
+            "model_version": "ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
+            "pending": 1,
+            "season": "2026/2027",
+            "settled": 0
+          }
+        ],
+        "input_provenance_required": "LEDGER_REPORTS_NATIVE_VERIFIED_READ_ONLY",
+        "policy": {
+          "heuristic_brier_change": 0.05,
+          "minimum_days_each": 8,
+          "minimum_recent": 100,
+          "minimum_reference": 100
+        },
+        "production_changed": false,
+        "unit": "FIRST_ARCHIVED_FIXTURE_PER_EXACT_FITTED_MODEL"
+      },
+      "format": "PHASE92_READ_ONLY_QUALITY_REPORT_V1",
+      "prediction_time_evidence": [
+        {
+          "calibration_status": "NOT_CALIBRATED",
+          "confidence_index": null,
+          "fixture_id": "2295e83b287fc5084e916c78226c2f05e06ae299a3299f4fb807495f9e12fabf",
+          "native_source_audit": {
+            "archived_prediction_changed": false,
+            "audit_at_utc": 1794761014,
+            "audit_implementation_sha256": "0f657ddb29b61acd0cf0535bf3e8b32cb69d56471b383567967d1a370cc60508",
+            "calibration_status": "NOT_CALIBRATED",
+            "confidence_index": null,
+            "format": "FROZEN_PREMATCH_QUALITY_AUDIT_V1",
+            "mean_off_diagonal_quarter_correlation": 0.9879739326540408,
+            "measured_possession_pace_used": false,
+            "missing_data": [
+              "verified_pace",
+              "injuries",
+              "lineups",
+              "rotation",
+              "market"
+            ],
+            "model_type": "EMPIRICAL_BAYES_TEAM_ATTACK_DEFENSE_IN_POINTS_NOT_PER_100_POSSESSIONS",
+            "model_version": "ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
+            "original_recorded_fixture_source": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261114&limit=1000",
+            "parameter_fit_cutoff_utc": 1794526101,
+            "period_allocation": "LARGEST_REMAINDER_HISTORICAL_WEIGHTS_NOT_PBP",
+            "period_uncertainty_limit": "DETERMINISTIC_ALLOCATION_NOT_INDEPENDENT_POSSESSION_OR_PBP_SIMULATION",
+            "raw_projection_coherent": true,
+            "recorded_source_contains_fixture": false,
+            "replay_only": false,
+            "scope": "REGULATION_ONLY",
+            "snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343",
+            "source_annotation_policy": "KEEP_ORIGINAL_FIELD_DISPLAY_VERIFIED_NATIVE_SOURCE_SEPARATELY",
+            "source_annotation_required": true,
+            "source_time_utc": 1794741245,
+            "status": "VERIFIED_WITH_LIMITATIONS",
+            "training_in_request": false,
+            "verified_fixture_sources": [
+              "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261115&limit=1000"
+            ],
+            "verified_rotation_or_player_impact_used": false,
+            "winner_class_order": [
+              "HOME",
+              "REGULATION_TIE",
+              "AWAY"
+            ]
+          },
+          "prior_only_quality": {
+            "asof_utc": 1794741245,
+            "automatic_promotion": false,
+            "calibration_fit": false,
+            "exclusions": {},
+            "format": "PHASE92_POINT_IN_TIME_QUALITY_V1",
+            "groups": [
+              {
+                "calibration_status": "NOT_CALIBRATED",
+                "confidence_index": null,
+                "drift": {
+                  "alerts": [],
+                  "calibration_fit": false,
+                  "status": "INSUFFICIENT_DATA"
+                },
+                "forecasts": 1,
+                "league": "NBA",
+                "metrics": {
+                  "calibration_fit": false,
+                  "calibration_status": "NOT_CALIBRATED",
+                  "confidence_index": null,
+                  "n": 0,
+                  "superiority_claim": false
+                },
+                "model_digest": "cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982",
+                "model_version": "ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
+                "pending": 1,
+                "season": "2026/2027",
+                "settled": 0
+              }
+            ],
+            "input_provenance_required": "LEDGER_REPORTS_NATIVE_VERIFIED_READ_ONLY",
+            "policy": {
+              "heuristic_brier_change": 0.05,
+              "minimum_days_each": 8,
+              "minimum_recent": 100,
+              "minimum_reference": 100
+            },
+            "production_changed": false,
+            "unit": "FIRST_ARCHIVED_FIXTURE_PER_EXACT_FITTED_MODEL"
+          },
+          "snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343"
+        }
+      ],
+      "predictions_recomputed": false,
+      "production_changed": false,
+      "real_telegram_e2e": "BLOCKED_NOT_TESTED_BY_THIS_OFFLINE_REPORT"
+    },
+    "sha256": "05bdb679b514e19f8faf64b2444d5f6be63aca95570dfba00fdda4c08868115a"
+  },
+  "forward_calibration_plan": {
+    "payload": {
+      "automatic_promotion": false,
+      "automatic_refit": false,
+      "bootstrap_iterations": 100000,
+      "brier_drift_delta": 0.05,
+      "candidate_version": "SHADOW_DIRICHLET_RELIABILITY_V1",
+      "checkpoints": [
+        100,
+        250,
+        500
+      ],
+      "dirichlet_prior_per_class": 1.0,
+      "evaluation_block": 25,
+      "family_size": 66,
+      "format": "CALIBRATION_REVIEW_PLAN_V1",
+      "implementation_sha256": "571f0995b5c3b312c4b6c3ca613082735d383ac55a5dc5882847ab2695c8ad0c",
+      "maximum_log_loss_difference": 0.0,
+      "minimum_brier_advantage": 0.01,
+      "minimum_day_clusters": 8,
+      "minimum_oos_audit": 100,
+      "minimum_past_fit": 100,
+      "probability_bins": 10,
+      "registered_at_utc": 1794761013,
+      "seed": 20261113
+    },
+    "sha256": "f0aa092468ed907b399cb21a44cab8e09353a9b610e696398d6c00861a4824f5"
+  },
+  "local_http_runtime": {
+    "format": "NBA_NATIVE_PAYLOAD_RESOURCE_REPLAY_V1",
+    "status": "PASS",
+    "actual_telegram_delivery_verified": false,
+    "evidence_class": "MOCK_CLOCK_NATIVE_SOURCE_REPLAY_NOT_NEW_PROSPECTIVE_FORECASTS",
+    "transport": "LOCAL_HTTP_BOT_API_DOUBLE",
+    "requests": 14,
+    "messages": 14,
+    "unique_nba_snapshots": 4,
+    "original_prospective_archive_modified": false,
+    "online_training": false,
+    "native_payload_urls": 84,
+    "address_space_limit_bytes": [
+      268435456,
+      268435456
+    ],
+    "cpu_affinity": [
+      0
+    ],
+    "peak_rss_mib": 100.3359375,
+    "elapsed_seconds": 16.4749314949986,
+    "reply_interval_p95_seconds": 3.715964579049614,
+    "native_ml_libraries_loaded": [],
+    "isolated_sqlite_integrity": {
+      "sqlite": "ok",
+      "snapshots": 4,
+      "unconfirmed_snapshots": 0,
+      "verified_results": 0
+    },
+    "decision_layer_enabled": false,
+    "decision_batches": 0,
+    "selected_market_lines": 0,
+    "observed_cgroup": {
+      "memory.max": "8589934592",
+      "memory.peak": "914423808",
+      "cpu.max": "200000 100000"
+    },
+    "health_ready": {
+      "ready": true,
+      "release_sha": "UNKNOWN"
+    },
+    "post_collection_process_memory": {
+      "VmPeak_mib": 213.98046875,
+      "VmSize_mib": 211.32421875,
+      "VmHWM_mib": 100.3359375,
+      "VmRSS_mib": 98.14453125
+    },
+    "workload_peak_rss_mib": 100.3359375,
+    "post_shutdown_process_memory": {
+      "VmPeak_mib": 219.34375,
+      "VmSize_mib": 219.3125,
+      "VmHWM_mib": 100.3359375,
+      "VmRSS_mib": 98.1640625
+    },
+    "shutdown_completed": true
+  },
+  "tests": {
+    "last_complete_local_suite": {
+      "passed": 886,
+      "failed": 0,
+      "log": "phase92-final-tests.log"
+    },
+    "after_final_changes_targeted": {
+      "passed": 76,
+      "failed": 0,
+      "log": "phase92-targeted-final2.log"
+    },
+    "current_discovered_total": 888,
+    "final_head_ci": "VERIFY_IN_PR_CHECKS_NO_COMPLETION_CLAIM_IN_THIS_PRE_PUSH_FILE"
+  },
+  "existing_oos_evidence_reused_not_rerun": {
+    "strict_sample_sizes": {
+      "EuroLeague": 77,
+      "NBA": 7,
+      "EuroCup": 0
+    },
+    "quarter_shadow": {
+      "calibration_fit": false,
+      "cohorts": {
+        "EuroCup 2026/2027": {
+          "n": 0,
+          "status": "INSUFFICIENT_DATA"
+        },
+        "EuroLeague 2025/2026": {
+          "baseline_coverage": {
+            "cross_game_dependence_not_corrected": true,
+            "intervals_assume_independent_games": true,
+            "markets": {
+              "1H": {
+                "P05_P95": {
+                  "hits": 61,
+                  "mean_width": 26.792207792207794,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.7922077922077922,
+                  "wilson_95": [
+                    0.6887958540760097,
+                    0.8678492220576328
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 53,
+                  "mean_width": 20.80649350649351,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.6883116883116883,
+                  "wilson_95": [
+                    0.5779996467585954,
+                    0.7807271800830852
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 34,
+                  "mean_width": 11.0,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.44155844155844154,
+                  "wilson_95": [
+                    0.33605334633457495,
+                    0.5526176384386964
+                  ]
+                }
+              },
+              "1Q": {
+                "P05_P95": {
+                  "hits": 49,
+                  "mean_width": 13.403246753246753,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.6363636363636364,
+                  "wilson_95": [
+                    0.5248220271273843,
+                    0.7349456750683153
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 41,
+                  "mean_width": 10.403896103896109,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.5324675324675324,
+                  "wilson_95": [
+                    0.42215020982869184,
+                    0.639699243075046
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 30,
+                  "mean_width": 5.548701298701299,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.38961038961038963,
+                  "wilson_95": [
+                    0.28842252906406524,
+                    0.5012893310632255
+                  ]
+                }
+              },
+              "2H": {
+                "P05_P95": {
+                  "hits": 59,
+                  "mean_width": 25.805194805194805,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.7662337662337663,
+                  "wilson_95": [
+                    0.660461714721147,
+                    0.8467037990895051
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 49,
+                  "mean_width": 20.079220779220783,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.6363636363636364,
+                  "wilson_95": [
+                    0.5248220271273843,
+                    0.7349456750683153
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 28,
+                  "mean_width": 10.444805194805195,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.36363636363636365,
+                  "wilson_95": [
+                    0.2650543249316847,
+                    0.47517797287261554
+                  ]
+                }
+              },
+              "2Q": {
+                "P05_P95": {
+                  "hits": 43,
+                  "mean_width": 13.467532467532468,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.5584415584415584,
+                  "wilson_95": [
+                    0.44738236156130345,
+                    0.6639466536654248
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 32,
+                  "mean_width": 10.428571428571429,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.4155844155844156,
+                  "wilson_95": [
+                    0.31209184642228643,
+                    0.5270995760279946
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 23,
+                  "mean_width": 5.558441558441558,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.2987012987012987,
+                  "wilson_95": [
+                    0.20803894987616744,
+                    0.40849444212065666
+                  ]
+                }
+              },
+              "3Q": {
+                "P05_P95": {
+                  "hits": 51,
+                  "mean_width": 12.857792207792206,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.6623376623376623,
+                  "wilson_95": [
+                    0.551246483089225,
+                    0.7580007814294651
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 42,
+                  "mean_width": 10.0,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.5454545454545454,
+                  "wilson_95": [
+                    0.43473084293295094,
+                    0.6518583911322823
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 22,
+                  "mean_width": 5.220779220779221,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.2857142857142857,
+                  "wilson_95": [
+                    0.1968951815913284,
+                    0.3948984292440005
+                  ]
+                }
+              },
+              "4Q": {
+                "P05_P95": {
+                  "hits": 47,
+                  "mean_width": 12.974025974025974,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.6103896103896104,
+                  "wilson_95": [
+                    0.4987106689367745,
+                    0.7115774709359347
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 42,
+                  "mean_width": 10.196103896103894,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.5454545454545454,
+                  "wilson_95": [
+                    0.43473084293295094,
+                    0.6518583911322823
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 22,
+                  "mean_width": 5.298701298701299,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.2857142857142857,
+                  "wilson_95": [
+                    0.1968951815913284,
+                    0.3948984292440005
+                  ]
+                }
+              },
+              "AWAY": {
+                "P05_P95": {
+                  "hits": 76,
+                  "mean_width": 37.040259740259735,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.987012987012987,
+                  "wilson_95": [
+                    0.9300380108531947,
+                    0.9977037827028759
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 74,
+                  "mean_width": 28.846753246753256,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.961038961038961,
+                  "wilson_95": [
+                    0.8916001812736711,
+                    0.986662049959409
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 55,
+                  "mean_width": 15.168831168831169,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.7142857142857143,
+                  "wilson_95": [
+                    0.6051015707559996,
+                    0.8031048184086717
+                  ]
+                }
+              },
+              "HOME": {
+                "P05_P95": {
+                  "hits": 71,
+                  "mean_width": 37.02662337662338,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.922077922077922,
+                  "wilson_95": [
+                    0.8402438428027608,
+                    0.9637990449458338
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 64,
+                  "mean_width": 28.82077922077922,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.8311688311688312,
+                  "wilson_95": [
+                    0.7322711067008882,
+                    0.8985933129172399
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 43,
+                  "mean_width": 15.272727272727273,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5584415584415584,
+                  "wilson_95": [
+                    0.44738236156130345,
+                    0.6639466536654248
+                  ]
+                }
+              },
+              "HOME_HANDICAP": {
+                "P05_P95": {
+                  "hits": 76,
+                  "mean_width": 52.324675324675326,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.987012987012987,
+                  "wilson_95": [
+                    0.9300380108531947,
+                    0.9977037827028759
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 74,
+                  "mean_width": 40.716883116883125,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.961038961038961,
+                  "wilson_95": [
+                    0.8916001812736711,
+                    0.986662049959409
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 46,
+                  "mean_width": 21.532467532467532,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5974025974025974,
+                  "wilson_95": [
+                    0.48576853167949463,
+                    0.6997798270317195
+                  ]
+                }
+              },
+              "MARGIN": {
+                "P05_P95": {
+                  "hits": 76,
+                  "mean_width": 52.324675324675326,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.987012987012987,
+                  "wilson_95": [
+                    0.9300380108531947,
+                    0.9977037827028759
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 74,
+                  "mean_width": 40.71688311688312,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.961038961038961,
+                  "wilson_95": [
+                    0.8916001812736711,
+                    0.986662049959409
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 46,
+                  "mean_width": 21.532467532467532,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5974025974025974,
+                  "wilson_95": [
+                    0.48576853167949463,
+                    0.6997798270317195
+                  ]
+                }
+              },
+              "TOTAL": {
+                "P05_P95": {
+                  "hits": 71,
+                  "mean_width": 52.611038961038965,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.922077922077922,
+                  "wilson_95": [
+                    0.8402438428027608,
+                    0.9637990449458338
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 66,
+                  "mean_width": 40.84675324675326,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.8571428571428571,
+                  "wilson_95": [
+                    0.7620272983402657,
+                    0.9183166836008526
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 45,
+                  "mean_width": 21.506493506493506,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5844155844155844,
+                  "wilson_95": [
+                    0.47290042397200527,
+                    0.6879081535777135
+                  ]
+                }
+              }
+            },
+            "status": "DESCRIPTIVE_NOT_CALIBRATION_PROOF"
+          },
+          "candidate_coverage": {
+            "cross_game_dependence_not_corrected": true,
+            "intervals_assume_independent_games": true,
+            "markets": {
+              "1H": {
+                "P05_P95": {
+                  "hits": 69,
+                  "mean_width": 35.84415584415584,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.8961038961038961,
+                  "wilson_95": [
+                    0.8081562490731851,
+                    0.946407076352419
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 62,
+                  "mean_width": 27.935064935064936,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.8051948051948052,
+                  "wilson_95": [
+                    0.7031488665717038,
+                    0.8782359907234338
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 43,
+                  "mean_width": 14.64935064935065,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5584415584415584,
+                  "wilson_95": [
+                    0.44738236156130345,
+                    0.6639466536654248
+                  ]
+                }
+              },
+              "1Q": {
+                "P05_P95": {
+                  "hits": 71,
+                  "mean_width": 24.714935064935055,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.922077922077922,
+                  "wilson_95": [
+                    0.8402438428027608,
+                    0.9637990449458338
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 65,
+                  "mean_width": 19.22077922077922,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.8441558441558441,
+                  "wilson_95": [
+                    0.7470629230044414,
+                    0.9085412777751818
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 40,
+                  "mean_width": 10.012987012987013,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5194805194805194,
+                  "wilson_95": [
+                    0.4096400507720929,
+                    0.6274696209701498
+                  ]
+                }
+              },
+              "2H": {
+                "P05_P95": {
+                  "hits": 70,
+                  "mean_width": 35.09155844155844,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.9090909090909091,
+                  "wilson_95": [
+                    0.8240388171888766,
+                    0.9552642893982226
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 65,
+                  "mean_width": 27.314285714285713,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.8441558441558441,
+                  "wilson_95": [
+                    0.7470629230044414,
+                    0.9085412777751818
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 33,
+                  "mean_width": 14.37987012987013,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.42857142857142855,
+                  "wilson_95": [
+                    0.32403652422604634,
+                    0.5398946793857298
+                  ]
+                }
+              },
+              "2Q": {
+                "P05_P95": {
+                  "hits": 69,
+                  "mean_width": 24.845454545454526,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.8961038961038961,
+                  "wilson_95": [
+                    0.8081562490731851,
+                    0.946407076352419
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 59,
+                  "mean_width": 19.416883116883117,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.7662337662337663,
+                  "wilson_95": [
+                    0.660461714721147,
+                    0.8467037990895051
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 32,
+                  "mean_width": 10.198051948051948,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.4155844155844156,
+                  "wilson_95": [
+                    0.31209184642228643,
+                    0.5270995760279946
+                  ]
+                }
+              },
+              "3Q": {
+                "P05_P95": {
+                  "hits": 70,
+                  "mean_width": 24.00064935064934,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.9090909090909091,
+                  "wilson_95": [
+                    0.8240388171888766,
+                    0.9552642893982226
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 66,
+                  "mean_width": 18.74285714285714,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.8571428571428571,
+                  "wilson_95": [
+                    0.7620272983402657,
+                    0.9183166836008526
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 42,
+                  "mean_width": 9.847402597402597,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5454545454545454,
+                  "wilson_95": [
+                    0.43473084293295094,
+                    0.6518583911322823
+                  ]
+                }
+              },
+              "4Q": {
+                "P05_P95": {
+                  "hits": 67,
+                  "mean_width": 24.234415584415583,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.8701298701298701,
+                  "wilson_95": [
+                    0.7771820531649647,
+                    0.927901709937649
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 60,
+                  "mean_width": 18.833766233766244,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.7792207792207793,
+                  "wilson_95": [
+                    0.6745693253831342,
+                    0.857335969589013
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 41,
+                  "mean_width": 9.935064935064934,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5324675324675324,
+                  "wilson_95": [
+                    0.42215020982869184,
+                    0.639699243075046
+                  ]
+                }
+              },
+              "AWAY": {
+                "P05_P95": {
+                  "hits": 76,
+                  "mean_width": 37.040259740259735,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.987012987012987,
+                  "wilson_95": [
+                    0.9300380108531947,
+                    0.9977037827028759
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 74,
+                  "mean_width": 28.846753246753256,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.961038961038961,
+                  "wilson_95": [
+                    0.8916001812736711,
+                    0.986662049959409
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 55,
+                  "mean_width": 15.168831168831169,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.7142857142857143,
+                  "wilson_95": [
+                    0.6051015707559996,
+                    0.8031048184086717
+                  ]
+                }
+              },
+              "HOME": {
+                "P05_P95": {
+                  "hits": 71,
+                  "mean_width": 37.02662337662338,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.922077922077922,
+                  "wilson_95": [
+                    0.8402438428027608,
+                    0.9637990449458338
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 64,
+                  "mean_width": 28.82077922077922,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.8311688311688312,
+                  "wilson_95": [
+                    0.7322711067008882,
+                    0.8985933129172399
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 43,
+                  "mean_width": 15.272727272727273,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5584415584415584,
+                  "wilson_95": [
+                    0.44738236156130345,
+                    0.6639466536654248
+                  ]
+                }
+              },
+              "HOME_HANDICAP": {
+                "P05_P95": {
+                  "hits": 76,
+                  "mean_width": 52.324675324675326,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.987012987012987,
+                  "wilson_95": [
+                    0.9300380108531947,
+                    0.9977037827028759
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 74,
+                  "mean_width": 40.716883116883125,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.961038961038961,
+                  "wilson_95": [
+                    0.8916001812736711,
+                    0.986662049959409
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 46,
+                  "mean_width": 21.532467532467532,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5974025974025974,
+                  "wilson_95": [
+                    0.48576853167949463,
+                    0.6997798270317195
+                  ]
+                }
+              },
+              "MARGIN": {
+                "P05_P95": {
+                  "hits": 76,
+                  "mean_width": 52.324675324675326,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.987012987012987,
+                  "wilson_95": [
+                    0.9300380108531947,
+                    0.9977037827028759
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 74,
+                  "mean_width": 40.71688311688312,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.961038961038961,
+                  "wilson_95": [
+                    0.8916001812736711,
+                    0.986662049959409
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 46,
+                  "mean_width": 21.532467532467532,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5974025974025974,
+                  "wilson_95": [
+                    0.48576853167949463,
+                    0.6997798270317195
+                  ]
+                }
+              },
+              "TOTAL": {
+                "P05_P95": {
+                  "hits": 71,
+                  "mean_width": 52.611038961038965,
+                  "n": 77,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.922077922077922,
+                  "wilson_95": [
+                    0.8402438428027608,
+                    0.9637990449458338
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 66,
+                  "mean_width": 40.84675324675326,
+                  "n": 77,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.8571428571428571,
+                  "wilson_95": [
+                    0.7620272983402657,
+                    0.9183166836008526
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 45,
+                  "mean_width": 21.506493506493506,
+                  "n": 77,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5844155844155844,
+                  "wilson_95": [
+                    0.47290042397200527,
+                    0.6879081535777135
+                  ]
+                }
+              }
+            },
+            "status": "DESCRIPTIVE_NOT_CALIBRATION_PROOF"
+          },
+          "day_clusters": 24,
+          "n": 77,
+          "point_scores_and_full_game_distributions_unchanged": true,
+          "quarter_total_90_interval_score": {
+            "baseline": 48.30551948051948,
+            "candidate": 32.435876623376615,
+            "difference": -15.869642857142868,
+            "exploratory_day_cluster_95": [
+              -20.911721640081456,
+              -10.878954311708869
+            ],
+            "lower_is_better": true
+          }
+        },
+        "NBA 2026/2027": {
+          "baseline_coverage": {
+            "cross_game_dependence_not_corrected": true,
+            "intervals_assume_independent_games": true,
+            "markets": {
+              "1H": {
+                "P05_P95": {
+                  "hits": 6,
+                  "mean_width": 30.857142857142858,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.8571428571428571,
+                  "wilson_95": [
+                    0.4868721707256811,
+                    0.9743203756552565
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 5,
+                  "mean_width": 24.0,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.7142857142857143,
+                  "wilson_95": [
+                    0.35893445183261935,
+                    0.9177810759959433
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 2,
+                  "mean_width": 12.714285714285714,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.2857142857142857,
+                  "wilson_95": [
+                    0.08221892400405678,
+                    0.6410655481673808
+                  ]
+                }
+              },
+              "1Q": {
+                "P05_P95": {
+                  "hits": 6,
+                  "mean_width": 15.428571428571429,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.8571428571428571,
+                  "wilson_95": [
+                    0.4868721707256811,
+                    0.9743203756552565
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 6,
+                  "mean_width": 12.0,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.8571428571428571,
+                  "wilson_95": [
+                    0.4868721707256811,
+                    0.9743203756552565
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 4,
+                  "mean_width": 6.571428571428571,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5714285714285714,
+                  "wilson_95": [
+                    0.2504583645276572,
+                    0.8417801447485302
+                  ]
+                }
+              },
+              "2H": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 30.142857142857142,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 6,
+                  "mean_width": 23.571428571428573,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.8571428571428571,
+                  "wilson_95": [
+                    0.4868721707256811,
+                    0.9743203756552565
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 5,
+                  "mean_width": 12.428571428571429,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.7142857142857143,
+                  "wilson_95": [
+                    0.35893445183261935,
+                    0.9177810759959433
+                  ]
+                }
+              },
+              "2Q": {
+                "P05_P95": {
+                  "hits": 3,
+                  "mean_width": 15.428571428571429,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.42857142857142855,
+                  "wilson_95": [
+                    0.15821985525146975,
+                    0.7495416354723428
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 3,
+                  "mean_width": 11.714285714285714,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.42857142857142855,
+                  "wilson_95": [
+                    0.15821985525146975,
+                    0.7495416354723428
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 2,
+                  "mean_width": 6.0,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.2857142857142857,
+                  "wilson_95": [
+                    0.08221892400405678,
+                    0.6410655481673808
+                  ]
+                }
+              },
+              "3Q": {
+                "P05_P95": {
+                  "hits": 6,
+                  "mean_width": 15.857142857142858,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.8571428571428571,
+                  "wilson_95": [
+                    0.4868721707256811,
+                    0.9743203756552565
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 4,
+                  "mean_width": 12.142857142857142,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.5714285714285714,
+                  "wilson_95": [
+                    0.2504583645276572,
+                    0.8417801447485302
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 2,
+                  "mean_width": 6.285714285714286,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.2857142857142857,
+                  "wilson_95": [
+                    0.08221892400405678,
+                    0.6410655481673808
+                  ]
+                }
+              },
+              "4Q": {
+                "P05_P95": {
+                  "hits": 5,
+                  "mean_width": 14.721428571428564,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.7142857142857143,
+                  "wilson_95": [
+                    0.35893445183261935,
+                    0.9177810759959433
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 4,
+                  "mean_width": 11.571428571428571,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.5714285714285714,
+                  "wilson_95": [
+                    0.2504583645276572,
+                    0.8417801447485302
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 3,
+                  "mean_width": 5.857142857142857,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.42857142857142855,
+                  "wilson_95": [
+                    0.15821985525146975,
+                    0.7495416354723428
+                  ]
+                }
+              },
+              "AWAY": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 43.00714285714285,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 33.57142857142857,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 4,
+                  "mean_width": 17.571428571428573,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5714285714285714,
+                  "wilson_95": [
+                    0.2504583645276572,
+                    0.8417801447485302
+                  ]
+                }
+              },
+              "HOME": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 43.285714285714285,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 33.57142857142857,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 4,
+                  "mean_width": 17.571428571428573,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5714285714285714,
+                  "wilson_95": [
+                    0.2504583645276572,
+                    0.8417801447485302
+                  ]
+                }
+              },
+              "HOME_HANDICAP": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 61.0,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 47.42857142857143,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 4,
+                  "mean_width": 25.0,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5714285714285714,
+                  "wilson_95": [
+                    0.2504583645276572,
+                    0.8417801447485302
+                  ]
+                }
+              },
+              "MARGIN": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 61.0,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 47.42857142857143,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 4,
+                  "mean_width": 25.0,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5714285714285714,
+                  "wilson_95": [
+                    0.2504583645276572,
+                    0.8417801447485302
+                  ]
+                }
+              },
+              "TOTAL": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 60.86428571428571,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 47.285714285714285,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 5,
+                  "mean_width": 25.0,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.7142857142857143,
+                  "wilson_95": [
+                    0.35893445183261935,
+                    0.9177810759959433
+                  ]
+                }
+              }
+            },
+            "status": "DESCRIPTIVE_NOT_CALIBRATION_PROOF"
+          },
+          "candidate_coverage": {
+            "cross_game_dependence_not_corrected": true,
+            "intervals_assume_independent_games": true,
+            "markets": {
+              "1H": {
+                "P05_P95": {
+                  "hits": 6,
+                  "mean_width": 41.87142857142836,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.8571428571428571,
+                  "wilson_95": [
+                    0.4868721707256811,
+                    0.9743203756552565
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 6,
+                  "mean_width": 32.57142857142857,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.8571428571428571,
+                  "wilson_95": [
+                    0.4868721707256811,
+                    0.9743203756552565
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 4,
+                  "mean_width": 17.571428571428573,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5714285714285714,
+                  "wilson_95": [
+                    0.2504583645276572,
+                    0.8417801447485302
+                  ]
+                }
+              },
+              "1Q": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 29.0,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 22.44285714285713,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 6,
+                  "mean_width": 12.035714285714286,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.8571428571428571,
+                  "wilson_95": [
+                    0.4868721707256811,
+                    0.9743203756552565
+                  ]
+                }
+              },
+              "2H": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 41.72142857142847,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 32.72857142857141,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 5,
+                  "mean_width": 17.178571428571427,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.7142857142857143,
+                  "wilson_95": [
+                    0.35893445183261935,
+                    0.9177810759959433
+                  ]
+                }
+              },
+              "2Q": {
+                "P05_P95": {
+                  "hits": 6,
+                  "mean_width": 29.142857142857142,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 0.8571428571428571,
+                  "wilson_95": [
+                    0.4868721707256811,
+                    0.9743203756552565
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 5,
+                  "mean_width": 22.857142857142858,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 0.7142857142857143,
+                  "wilson_95": [
+                    0.35893445183261935,
+                    0.9177810759959433
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 3,
+                  "mean_width": 12.0,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.42857142857142855,
+                  "wilson_95": [
+                    0.15821985525146975,
+                    0.7495416354723428
+                  ]
+                }
+              },
+              "3Q": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 29.857142857142858,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 23.0,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 5,
+                  "mean_width": 12.285714285714286,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.7142857142857143,
+                  "wilson_95": [
+                    0.35893445183261935,
+                    0.9177810759959433
+                  ]
+                }
+              },
+              "4Q": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 28.571428571428573,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 22.285714285714285,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 4,
+                  "mean_width": 11.714285714285714,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5714285714285714,
+                  "wilson_95": [
+                    0.2504583645276572,
+                    0.8417801447485302
+                  ]
+                }
+              },
+              "AWAY": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 43.00714285714285,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 33.57142857142857,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 4,
+                  "mean_width": 17.571428571428573,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5714285714285714,
+                  "wilson_95": [
+                    0.2504583645276572,
+                    0.8417801447485302
+                  ]
+                }
+              },
+              "HOME": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 43.285714285714285,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 33.57142857142857,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 4,
+                  "mean_width": 17.571428571428573,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5714285714285714,
+                  "wilson_95": [
+                    0.2504583645276572,
+                    0.8417801447485302
+                  ]
+                }
+              },
+              "HOME_HANDICAP": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 61.0,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 47.42857142857143,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 4,
+                  "mean_width": 25.0,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5714285714285714,
+                  "wilson_95": [
+                    0.2504583645276572,
+                    0.8417801447485302
+                  ]
+                }
+              },
+              "MARGIN": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 61.0,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 47.42857142857143,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 4,
+                  "mean_width": 25.0,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.5714285714285714,
+                  "wilson_95": [
+                    0.2504583645276572,
+                    0.8417801447485302
+                  ]
+                }
+              },
+              "TOTAL": {
+                "P05_P95": {
+                  "hits": 7,
+                  "mean_width": 60.86428571428571,
+                  "n": 7,
+                  "nominal_mass": 0.9,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P10_P90": {
+                  "hits": 7,
+                  "mean_width": 47.285714285714285,
+                  "n": 7,
+                  "nominal_mass": 0.8,
+                  "observed_coverage": 1.0,
+                  "wilson_95": [
+                    0.6456695649333126,
+                    1.0
+                  ]
+                },
+                "P25_P75": {
+                  "hits": 5,
+                  "mean_width": 25.0,
+                  "n": 7,
+                  "nominal_mass": 0.5,
+                  "observed_coverage": 0.7142857142857143,
+                  "wilson_95": [
+                    0.35893445183261935,
+                    0.9177810759959433
+                  ]
+                }
+              }
+            },
+            "status": "DESCRIPTIVE_NOT_CALIBRATION_PROOF"
+          },
+          "day_clusters": 2,
+          "n": 7,
+          "point_scores_and_full_game_distributions_unchanged": true,
+          "quarter_total_90_interval_score": {
+            "baseline": 32.50178571428571,
+            "candidate": 33.42857142857143,
+            "difference": 0.9267857142857159,
+            "exploratory_day_cluster_95": null,
+            "lower_is_better": true
+          }
+        }
+      },
+      "format": "EXPLORATORY_QUARTER_SHADOW_WALK_FORWARD_V1",
+      "fresh_confirmatory_holdout": false,
+      "model_version": "SHADOW_DIRICHLET_PERIOD_ALLOCATION_V1",
+      "production_enabled": false,
+      "promotion_decision": "NO_GO;NEW_DISJOINT_PROSPECTIVE_VALIDATION_REQUIRED",
+      "reused_historical_test_set": true
+    }
+  },
+  "telegram_access": {
+    "current_head": "BLOCKED_NO_DIRECT_TEST_BOT_OR_USERLAND_ACCESS",
+    "user_reported_previous_real_delivery": "PRESERVED_NOT_RECLASSIFIED_AS_MOCK",
+    "credentials_requested": false
+  },
+  "source_sha256": {
+    "hybrid_engine/live_runtime.py": "057b9c1ed8d208311cd6cde9d80fcaf44a56fdb20191fce2fd2d8ee62c4fa1c5",
+    "hybrid_engine/calibration_review.py": "ef7fcecfc378339a09effb65a4cc261fa61b8c2830ae4ff9b287e2ffe135e97f",
+    "hybrid_engine/quality_monitor.py": "5c84282dfdc9d1e30fa97436ca7a05228c131610f967b0f07f0ab7bd6f6d46eb",
+    "hybrid_engine/quality_report.py": "436dff6f47d39aecd5097a89ca08aa7e64d693f90f402f84d60339491afdca8e",
+    "hybrid_engine/health_command.py": "7a7494890826b11bda4e2882a5bcd7963d85ecba6dc5c592e010c2b3a99f009b",
+    "hybrid_engine/research_candidates.py": "e492c545e3898c22f2549553c62066b5c34d233cd1de7049f772b6059874e2dd",
+    "hybrid_engine/telegram_premium_ui.py": "28b1e1f2c019ada952006b4f0156acaa434eb39814162afb30fb3cce6cc84e1d",
+    "hybrid_engine/health_card.py": "69169316cfa1d2307cda982bcabeee0eb506c86fc53dfc65d955ec9fc74a9ba3",
+    "hybrid_engine/archive_audit.py": "c6c9844e1a6ff3caf00df84f55de093367bc3a0b7afce7534c15bb47b793e44a",
+    "hybrid_engine/test_bot.py": "24814d87f84abd0608d89bc847066886f52ec5a3e8f83c48c048db67c0d19b82"
+  }
+}

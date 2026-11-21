@@ -97,9 +97,10 @@ def evaluate_observation(quote,forecast,*,trusted_sha256,model_digest,prediction
     if p['settlement_scope']!='REGULATION_ONLY':result['reasons'].append('MARKET_SCOPE_UNVERIFIED_WITH_REGULATION_MODEL')
     raw=result.pop('raw_probabilities')
     prices=implied_prices(p['decimal_over_or_home_cover'],p['decimal_under_or_away_cover'])
+    direction=None if raw is None or raw['under']==raw['over'] else (('HOME_COVER' if raw['over']>raw['under'] else 'AWAY_COVER') if p['market']=='HOME_HANDICAP' else 'OVER' if raw['over']>raw['under'] else 'UNDER')
     result.update(quote_sha256=trusted_sha256,bookmaker=p['bookmaker'],observed_at_utc=p['observed_at_utc'],
         conditional_regulation_probabilities=raw,conditional_probability_is_settlement_probability=False,
-        conditional_direction=None if raw is None or raw['under']==raw['over'] else 'OVER' if raw['over']>raw['under'] else 'UNDER',
+        conditional_direction=direction,
         recommended_direction=None,risk_level='NOT_ESTIMABLE',verified_confidence_index=None,
         observed_price_probabilities=prices,
         comparable_model_market_edge=None,

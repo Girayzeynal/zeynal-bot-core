@@ -230,12 +230,14 @@ def main():
     parser.add_argument('--exercise-live-nba', action='store_true')
     parser.add_argument('--exercise-decision', action='store_true')
     parser.add_argument('--exercise-nba-replay', action='store_true')
+    parser.add_argument('--forward-euroleague-packet')
     parser.add_argument('--require-cgroup-limits', action='store_true')
     parser.add_argument('--telegram-errors', action='store_true'); args = parser.parse_args()
     if args.telegram_errors and not args.exercise_v1: raise ValueError('FAILURE_PROBE_REQUIRES_V1_FLOW')
     if not 1 <= args.repetitions <= 50: raise ValueError('BOUNDED_REPETITIONS_REQUIRED')
     resource.setrlimit(resource.RLIMIT_AS, (256*1024*1024, 256*1024*1024))
     os.sched_setaffinity(0, {min(os.sched_getaffinity(0))})
+    if args.forward_euroleague_packet:args.forward_euroleague_packet=str(Path(args.forward_euroleague_packet).resolve())
     original = Path.cwd()
     try:
         if args.require_cgroup_limits:
@@ -251,7 +253,10 @@ def main():
             # executor-shutdown helper thread. The peak metrics above include the
             # entire workload; collection does not hide an inference memory peak.
             with asyncio.Runner() as runner:
-                if args.exercise_nba_replay:
+                if args.forward_euroleague_packet:
+                    from hybrid_engine.hybrid_runtime import run as run_forward
+                    report=runner.run(run_forward(args.fixture,args.repetitions,forward_archive=Path(args.forward_euroleague_packet).resolve()))
+                elif args.exercise_nba_replay:
                     from hybrid_engine.hybrid_runtime import run as run_replay
                     report=runner.run(run_replay(args.fixture,args.repetitions,nba_archive=True))
                 elif args.exercise_decision:

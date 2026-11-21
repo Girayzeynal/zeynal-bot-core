@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - "dev/**"
+      - "feature/hybrid-market-roster-evidence-20261114"
   pull_request:
     branches:
       - main
       - "dev/**"
+      - "feature/hybrid-telegram-optin-20261114"
 
 jobs:
   unit-tests:
@@ -38,6 +40,18 @@ jobs:
         run: docker build --tag zeynal-bot-core:ci .
       - name: Run regression suite inside deployment image
         run: docker run --rm --network none zeynal-bot-core:ci python -m unittest discover -s tests -v
+      - name: Verify isolated providers and Telegram under 256 MiB and one CPU
+        run: >-
+          docker run --rm --network none --read-only --cpus=1 --memory=256m --memory-swap=256m
+          --tmpfs /tmp:rw,size=96m zeynal-bot-core:ci
+          python -m hybrid_engine.provider_runtime_probe --require-cgroup-limits
+      - name: Build optional injury-report research image
+        run: docker build --tag zeynal-bot-core:injury-research --file Dockerfile.injury-research .
+      - name: Verify native NBA PDF and roster callbacks under 256 MiB and one CPU
+        run: >-
+          docker run --rm --network none --read-only --cpus=1 --memory=256m --memory-swap=256m
+          --tmpfs /tmp:rw,size=96m zeynal-bot-core:injury-research
+          python -m hybrid_engine.provider_runtime_probe --require-cgroup-limits
       - name: Run bounded isolated hybrid command flow
         run: >-
           docker run --rm --network none --read-only --tmpfs /tmp:rw,size=96m
@@ -58,3 +72,27 @@ jobs:
           docker run --rm --network none --read-only --cpus=1 --memory=256m --memory-swap=256m --tmpfs /tmp:rw,size=96m
           zeynal-bot-core:ci python -m hybrid_engine.runtime_probe --exercise-nba-replay --require-cgroup-limits
           --fixture /app/docs/prospective/euroleague-20261112/index-c87489f84f5efa2c3abfae51f641bc066a6ab875f44c94bc197a0a49588b03d1.json
+
+      - name: Verify forward EuroLeague commands and reports under container resource limits
+        run: >-
+          docker run --rm --network none --read-only --cpus=1 --memory=256m --memory-swap=256m --tmpfs /tmp:rw,size=96m
+          zeynal-bot-core:ci python -m hybrid_engine.runtime_probe --require-cgroup-limits
+          --forward-euroleague-packet /app/docs/evidence/handoff-forward-el-20261115.tar.gz
+          --fixture /app/docs/prospective/euroleague-20261112/index-c87489f84f5efa2c3abfae51f641bc066a6ab875f44c94bc197a0a49588b03d1.json
+
+  europe-source-audit:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[europe-source-audit]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r requirements.txt
+      - name: Inspect anonymous official European injury-source pages
+        run: python -m hybrid_engine.europe_source_probe --output-directory /tmp/europe-source-audit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: europe-source-audit
+          path: /tmp/europe-source-audit

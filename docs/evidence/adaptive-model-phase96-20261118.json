@@ -1,0 +1,100 @@
+{
+  "payload": {
+    "format": "ADAPTIVE_V2_RESEARCH_VALIDATION_V1",
+    "recorded_at_utc": "2026-11-18T11:43:48.047470+00:00",
+    "base_commit": "05137034dbf6ffab2330b0db365b2594ce78e78d",
+    "checks": {
+      "release_full": {
+        "tests": 1494,
+        "seconds": 131.589,
+        "failures": 0,
+        "errors": 0,
+        "log_sha256": "0709a05dd2d7550fabe059b5d53f757a383017d8f2b9c936dc91ddda315d01ef"
+      },
+      "prior_full": {
+        "tests": 1492,
+        "seconds": 130.858,
+        "failures": 0,
+        "errors": 0,
+        "log_sha256": "2a8601cc353e7eb5e67034aa49112e6f71c9c338135a755479b2e3ba53fd027b"
+      },
+      "integration_before_final_link_guard": {
+        "tests": 68,
+        "seconds": 23.996,
+        "failures": 0,
+        "errors": 0,
+        "log_sha256": "dabdf4c8dcf59a78e05e1d16040cb4ce1049bee7c032e8fd90cee810ef6df0d1"
+      },
+      "pre_bundle_clock_fix_full": {
+        "tests": 1493,
+        "seconds": 131.882,
+        "failures": 0,
+        "errors": 0,
+        "log_sha256": "d23f1fcfe15fbdbeacdf7a407d3b53604899c9c45a8c1582b428677a0704e80f"
+      }
+    },
+    "previous_tests_retained": 1463,
+    "new_tests": 31,
+    "preserved_existing_nba_predictor_files": 27,
+    "all_existing_nba_predictor_source_pins_unchanged": true,
+    "preserved_existing_nba_source_hashes": {
+      "challenger_review.py": "0b9f92570e07dd3012c342e4ae0338d298a7593ef7fb196746ca3854c40f2937",
+      "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+      "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+      "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+      "evaluation.py": "c985a9d1fc40e86575dc4bda674eea3fbe714553c34d311aaaad63c08a0dfc87",
+      "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+      "quarter_shadow.py": "5fcc8c52c169ba3e17d3c3dff7d145c50b954749027a6bf218d58789119b08dc",
+      "posterior_refresh.py": "d09d4f8355cb6a5625d2900a7900c17cd343ea07d865bf2873a64f29692a7c9b",
+      "challenger_forward.py": "11d9c21a94909da68c3de2c903f35710e77cd0bd4efdba7457a9aea4f72c310e",
+      "prediction_audit.py": "a88fbaab56378ef385d863ab5751c6a040b0bbbf74238c31072f0a04c52ddc3c",
+      "research_candidates.py": "e492c545e3898c22f2549553c62066b5c34d233cd1de7049f772b6059874e2dd",
+      "statistics.py": "3a8ae0f994da53a1aed6ebb845906f55fdf1f864ad829dc9fe6bbf5a21118df6",
+      "intervals.py": "fb1eaa081f5939f137c92df929cbf7fa6155638273405267291011679907f861",
+      "live_metrics.py": "897e6c8e86c70b080a46792991aa0a5c2f54b477a6d9c53cc55ae95428da88ec",
+      "forecast_error_review.py": "1200301083bc98304658f8bd804f656a7fee6e537fee9928dc11983fba094358",
+      "live_nba.py": "40c347e5b47adbf58e720383da4d6df30aa6046e3cd30249d665b66c768ac6c2",
+      "forward_validation.py": "1e94c2c5b4e75ed32aa2865f8d0a8b862413589b46382f45229939b74fd86021",
+      "forward_nba_results.py": "d979098ace5abbad5694aa0df77de4785d56f3340eb99d123e9a5043720fce4e",
+      "archive_audit.py": "c77eb2f229abd51401bd3710c85eb95de81949cc582d183adbe3dd29e5845bd0",
+      "quality_monitor.py": "5c84282dfdc9d1e30fa97436ca7a05228c131610f967b0f07f0ab7bd6f6d46eb",
+      "availability.py": "33e92959bd3d3a2699d4fa6a7b73bba3aa4db914f144970b13d2cfc2e3551eca",
+      "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+      "markets.py": "56a3a13c97daf4b2403273d0c3ec7169304bc638e8d28f4392d73be5e310ef35",
+      "../ledger_reports.py": "52aabd1bb8c53c4c929b99f92a24a28254bf4f5483d207a9df077f6189346b22",
+      "../live_analysis_ledger.py": "559a37b965f4c9a2ebed64f779b7166ed861240817bd9ef4acdf7a0584ce7964",
+      "../historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+      "../prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2"
+    },
+    "new_code_hashes": {
+      "adaptive_research.py": "cef57d53bc5f703de9ee525fcd00067e2872ddbceb8f3b05e5f2790e385100b8",
+      "adaptive_data.py": "0e480265e340fb3f252fe4ad1b4e75565860908e8f109dbc8394cc69de39e563",
+      "adaptive_worker.py": "9b8f05e1a5c4d91e22e48b42bcdf0e38b8971e7796237b6fc16d34bc83d90309",
+      "adaptive_models.py": "d7907c0532e1ae5d4b6d3da19b302f21dd2970e2d312cfb59e22f7259d16d02a"
+    },
+    "refresh_seconds": 21600,
+    "minimum_native_box_training_games": 30,
+    "minimum_player_prospective_training_games": 100,
+    "minimum_future_matched_games_per_league": 100,
+    "minimum_match_day_clusters": 20,
+    "minimum_primary_coverage": 0.8,
+    "tempo_kind": "BOX_ESTIMATE_NOT_MEASURED_PBP",
+    "player_minutes_kind": "PROSPECTIVELY_ARCHIVED_ROTATION_PRIORS_NOT_CONFIRMED_LINEUP",
+    "player_exposure_variation_required": true,
+    "player_first_forecast_separate_from_early_pace_publication": true,
+    "rate_parameter_uncertainty_integrated": false,
+    "calibration_fit": false,
+    "automatic_promotion": false,
+    "production_changed": false,
+    "main_merged": false,
+    "existing_nba_plan_directory_written": false,
+    "transport": "SYNTHETIC_NATIVE_RECEIPTS_REAL_FITS_AND_SAMPLERS_LOCAL_HTTP_PTB",
+    "actual_provider_authentication_verified": false,
+    "actual_telegram_delivery_verified": false,
+    "userland_archive_inspected": false,
+    "telegram_e2e_status": "BLOCKED_MISSING_DEDICATED_TEST_BOT_CONFIGURATION_IN_CLOUD",
+    "acceptance": "NO_GO_PRODUCTION",
+    "bundle_prepared_at_follows_optional_player_fit": true
+  },
+  "sha256": "f9d4b60d7577cba81b54d568100f15c03e797d1f279baded83aebc08e38f99f8"
+}

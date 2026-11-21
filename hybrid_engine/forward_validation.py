@@ -27,13 +27,13 @@ from season_archive_collect import fetch_document
 from season_archive_inventory import archive_catalog
 
 
-def verified_catalog(receipt):
+def verified_catalog(receipt, *, max_age=300):
     now=int(time.time())
     if (receipt.get('provider')!='EUROLEAGUE_LIVE' or receipt.get('source_url')!=OFFICIAL or
         receipt.get('status')!='DOCUMENT_RECEIVED' or receipt.get('http_status')!=200 or
         digest(receipt['document'])!=receipt['document_sha256'] or
         any(type(receipt.get(k)) is not int for k in ('observed_at_utc','ingested_at_utc')) or
-        not 0<receipt['observed_at_utc']<=receipt['ingested_at_utc']<=now or now-receipt['ingested_at_utc']>300):
+        not 0<receipt['observed_at_utc']<=receipt['ingested_at_utc']<=now or (max_age is not None and now-receipt['ingested_at_utc']>max_age)):
         raise ValueError('FRESH_OFFICIAL_FORWARD_SOURCE_REQUIRED')
     return archive_catalog(receipt['document'],provider='EUROLEAGUE_LIVE',season_start_year=2026,
         observed_at_utc=receipt['observed_at_utc'],ingested_at_utc=receipt['ingested_at_utc'])
@@ -77,11 +77,43 @@ class ForwardRegistry:
             publication=self.publication(slot);p=self.read_asset(publication['forecast'])
             key=digest(dict(fixture=p['fixture']['canonical_id'],version=p['version']))
             if slot.stem!='first-'+key:raise ValueError('FORWARD_FIRST_IDENTITY_PIN')
+            clocks=[p['source_available_max_utc'],p['prediction_generated_at_utc'],p['snapshot_created_at_utc'],publication['first_archived_at_utc'],p['fixture']['start_ts_utc']]
+            if (any(type(v) is not int for v in clocks) or p.get('actual') is not None or
+                not 0<clocks[0]<=clocks[1]<=clocks[2]<=clocks[3] or clocks[2]>=clocks[4] or
+                type(publication['eligible_for_prospective_audit']) is not bool or
+                publication['eligible_for_prospective_audit']!=(clocks[3]<clocks[4]) or
+                publication['classification']!=('PREMATCH' if clocks[3]<clocks[4] else 'LATE_COMMIT_EXCLUDED')):
+                raise ValueError('FORWARD_PUBLICATION_CLOCK_OR_KIND')
             if publication['eligible_for_prospective_audit'] and not p['prediction_generated_at_utc']<=p['snapshot_created_at_utc']<=publication['first_archived_at_utc']<p['fixture']['start_ts_utc']:
                 raise ValueError('FORWARD_PUBLICATION_CLOCK')
             for ref in p['assets']:self.read_asset(ref)
             rows.append(dict(payload=p,publication=publication))
         return rows
+    def outcome(self,payload):
+        fid=payload['fixture']['canonical_id'];found=None
+        for path in sorted(self.root.glob('outcome-'+fid+'-*.json')):
+            wrapper=json.loads(local_path(path).read_text());o=wrapper['payload']
+            if digest(o)!=wrapper['sha256'] or path.stem!='outcome-'+fid+'-'+wrapper['sha256']:
+                raise ValueError('FORWARD_OUTCOME_PIN')
+            if o['forecast_sha256']!=digest(payload):continue
+            receipt=self.read_asset(o['source']);catalog=verified_catalog(receipt,max_age=None)
+            games=[g for g in catalog['payload']['fixtures'] if g['canonical_id']==fid and g['completed'] and g['periods']]
+            if len(games)!=1:raise ValueError('FORWARD_NATIVE_FINAL_REQUIRED')
+            g=games[0]
+            if (any(g[k]!=payload['fixture'][k] for k in ('home_team_id','away_team_id','start_ts_utc','provider_fixture_ids')) or
+                receipt['observed_at_utc']<=g['start_ts_utc'] or o['periods']!=g['periods'] or o['full_final']!=g['final_scores']):
+                raise ValueError('FORWARD_NATIVE_FINAL_CONFLICT')
+            if found is not None and found!=o:raise ValueError('FORWARD_MULTIPLE_FINALS_REQUIRE_REVIEW')
+            found=o
+        return found
+
+    def independent_records(self):
+        # Repeated model builds must not multiply the prospective fixture cohort.
+        first={}
+        for row in sorted(self.records(),key=lambda x:(x['publication']['first_archived_at_utc'],x['payload']['prediction_generated_at_utc'],digest(x['payload']))):
+            first.setdefault(row['payload']['fixture']['canonical_id'],row)
+        return list(first.values())
+
     def settle(self,receipt):
         catalog=verified_catalog(receipt);games={g['canonical_id']:g for g in catalog['payload']['fixtures']};rows=[]
         for item in self.records():
@@ -97,7 +129,8 @@ class ForwardRegistry:
                 if digest(body)!=old['sha256']:raise ValueError('FORWARD_OUTCOME_PIN')
                 self.read_asset(body['source'])
                 if body['periods']!=g['periods'] or body['full_final']!=g['final_scores']:raise ValueError('FORWARD_RESULT_CORRECTION_REQUIRES_REVIEW')
-            if existing:rows.append(dict(fixture_id=fid,status='ALREADY_VERIFIED'));continue
+            if any(json.loads(path.read_text())['payload']['forecast_sha256']==digest(p) for path in existing):
+                rows.append(dict(fixture_id=fid,status='ALREADY_VERIFIED'));continue
             body=dict(fixture_id=fid,forecast_sha256=digest(p),periods=g['periods'],full_final=g['final_scores'],
                 source=self.asset('source',receipt),recorded_at_utc=int(time.time()),
                 eligible=item['publication']['eligible_for_prospective_audit'],
@@ -121,11 +154,11 @@ def frozen_model(archive):
     return model,a
 
 
-def capture(archive,registry,receipt,*,fetcher=fetch_document,maximum=3):
+def capture(archive,registry,receipt,*,fetcher=fetch_document,maximum=3,fixture_id=None):
     catalog=verified_catalog(receipt);now=int(time.time());cohort=historical_rows([(catalog,catalog['sha256'])]);model,artifact=frozen_model(archive)
     # Restrict inputs to what is available NOW, not merely before a future tipoff.
     cohort=[[r for r in versions if available_at(r,STRICT)<=now and r['fixture_start_utc']<now] for versions in cohort]
-    games=sorted([g for g in catalog['payload']['fixtures'] if not g['completed'] and now+1800<g['start_ts_utc']<now+86400],key=lambda g:g['start_ts_utc'])[:maximum]
+    games=sorted([g for g in catalog['payload']['fixtures'] if not g['completed'] and now+1800<g['start_ts_utc']<now+86400 and (fixture_id is None or g['canonical_id']==fixture_id)],key=lambda g:g['start_ts_utc'])[:maximum]
     output=[];source=registry.asset('source',receipt);prepared=registry.asset('prepared',artifact)
     code=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     for g in games:

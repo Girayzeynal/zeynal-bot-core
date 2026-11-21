@@ -1,4 +1,5 @@
 """Bounded, read-only reports of committed live forecasts. No fitting or downloads."""
+import asyncio
 from collections import defaultdict
 from contextlib import closing
 import math
@@ -38,6 +39,7 @@ class LedgerReports:
         g=games[0]
         if (g['home_team_id']!=forecast['home']['provider_id'] or g['away_team_id']!=forecast['away']['provider_id'] or
             not set(g['provider_fixture_ids'])&set(forecast['provider_fixture_ids']) or
+            g['start_ts_utc']!=forecast['fixture_start_utc'] or
             g['final_scores']!=r['final_with_ot'] or g['periods']!=r['periods'] or
             [sum(g['periods'][s][:4]) for s in ('home','away')]!=r['actual']):
             raise ValueError('REPORT_NATIVE_SCORE_CONFLICT')
@@ -77,21 +79,39 @@ class LedgerReports:
                 if receipt!=pin or not p['created_at_utc']<=completed<p.get('record_deadline_utc',p['fixture_start_utc']):
                     raise ValueError('REPORT_COMMIT_PROOF_CONFLICT')
                 if p.get('scope')!='REGULATION_ONLY':raise ValueError('REPORT_FORECAST_SCOPE')
+                if league=='NBA':
+                    ids=p['provider_fixture_ids']
+                    identity=dict(provider='ESPN',league='NBA',season_start_year=int(p['season'].split('/')[0]),
+                        start_ts_utc=p['fixture_start_utc'],home_team_id=p['home']['provider_id'],away_team_id=p['away']['provider_id'])
+                    if digest(identity)!=fixture or not ids or any(not isinstance(v,str) or not v.isascii() or not v.isdigit() for v in ids):
+                        raise ValueError('REPORT_NATIVE_FIXTURE_IDENTITY')
+
+                generated=p.get('prediction_generated_at_utc')
+                if generated is not None and (type(generated) is not int or not 0<generated<=p['created_at_utc']):
+                    raise ValueError('REPORT_GENERATION_AFTER_SNAPSHOT')
                 scores=[p['prediction'][s] for s in ('home','away')]
                 if not all(type(v) in (int,float) and math.isfinite(v) and v>=0 for v in scores):raise ValueError('REPORT_SCORE_REQUIRED')
-                item=dict(fixture_id=fixture,league=league,model_version=p['model_version'],model_digest=model,
-                    prediction=scores,created_utc=p['created_at_utc'],snapshot_sha256=pin,actual=None,
+                item=dict(fixture_id=fixture,league=league,season=p['season'],model_version=p['model_version'],model_digest=model,
+                    provider_fixture_ids=list(p['provider_fixture_ids']),prediction=scores,created_utc=p['created_at_utc'],snapshot_sha256=pin,actual=None,
+                    fixture_start_utc=p['fixture_start_utc'],predicted_quarters=p['prediction'].get('quarters'),
+                    winner=p['prediction'].get('winner'),intervals=p.get('intervals'),
+                    predicted_halves=p['prediction'].get('halves'),
+                    prediction_generated_at_utc=p.get('prediction_generated_at_utc'),
+                    parameter_fit_cutoff_utc=p.get('parameter_fit_cutoff_utc'),first_archived_at_utc=completed,
                     home=p['home'].get('official_name',p['home']['provider_id']),away=p['away'].get('official_name',p['away']['provider_id']))
                 if outcome:
                     result=self._result(outcome,opin,p);item['actual']=result['actual']
+                    item['actual_periods']=result['periods'];item['final_with_ot']=result['final_with_ot'];item['label_available_utc']=result['ingested_at_utc']
                     if result['observed_at_utc']<=p['fixture_start_utc']:raise ValueError('REPORT_FINAL_BEFORE_TIPOFF')
-                    groups[(league,model,p['model_version'])].append(item)
+                    groups[(league,p['season'],model,p['model_version'])].append(item)
                 forecasts.append(item);identities.add((league,fixture))
         metrics=[]
-        for (league,model,version),rows in sorted(groups.items()):
+        for (league,season,model,version),rows in sorted(groups.items()):
             errors=[p-a for r in rows for p,a in zip(r['prediction'],r['actual'])]
             totals=[sum(r['prediction'])-sum(r['actual']) for r in rows]
-            metrics.append(dict(league=league,model_digest=model,model_version=version,n=len(rows),
+            from hybrid_engine.live_metrics import metrics as live_metrics
+            detail=live_metrics(rows)
+            metrics.append(dict(league=league,season=season,model_digest=model,model_version=version,n=len(rows),details=detail,
                 team_mae=sum(map(abs,errors))/len(errors),team_rmse=math.sqrt(sum(e*e for e in errors)/len(errors)),
                 total_mae=sum(map(abs,totals))/len(totals),claim='DESCRIPTIVE_ONLY_NOT_MODEL_SUPERIORITY'))
         return dict(status='VERIFIED_LIVE_REPORT',scope='REGULATION_ONLY',groups=metrics,forecasts=forecasts,
@@ -105,8 +125,30 @@ def render_accuracy(report):
         f"Kayıtlı maç: {report['unique_fixtures']} | Sonucu beklenen tahmin: {report['pending']}"]
     if not report['groups']:lines.append('Doğrulanmış sonuç: 0. Başarı oranı ve kalibrasyon hesaplanamadı.')
     for g in report['groups'][:12]:
-        lines.append(f"{g['league']} | {g['model_version'][:100]} | n={g['n']} | MAE {g['team_mae']:.2f} | RMSE {g['team_rmse']:.2f} | Toplam MAE {g['total_mae']:.2f}")
+        lines.append(f"{g['league']} {g.get('season','')} | {g['model_version'][:100]} | n={g['n']} | MAE {g['team_mae']:.2f} | RMSE {g['team_rmse']:.2f} | Toplam MAE {g['total_mae']:.2f}")
+        d=g['details']
+        if len(report['groups'])>1 and 'winner' in d:
+            w=d['winner'];lines.append(f"Ham olasılıklar: n={w['n']} | Brier {w['brier']:.4f} | Log loss {w['log_loss']:.4f}")
+    if len(report['groups'])==1:
+        d=report['groups'][0]['details']
+        lines.append(f"Bias {d['team_scores']['bias']:+.2f} | Toplam RMSE {d['total']['rmse']:.2f}")
+        if 'winner' in d:
+            w=d['winner'];lines.append(f"Ham olasılık ölçümü: n={w['n']} | Brier {w['brier']:.4f} | Log loss {w['log_loss']:.4f}")
+        for name in ('P25_P75','P05_P95'):
+            c=d['coverage']['markets'].get('TOTAL',{}).get(name)
+            if c:lines.append(f"Toplam {name}: {c['hits']}/{c['n']} | gözlenen kapsama {c['observed_coverage']:.3f} | Wilson95 {c['wilson_95']}")
+        if d['periods']:
+            lines.append('Takım/periyot MAE: '+' | '.join(k+' '+format(v['mae'],'.2f') for k,v in d['periods'].items()))
+        if d.get('period_totals'):
+            lines.append('Çeyrek toplamı MAE: '+' | '.join(k+' '+format(v['mae'],'.2f') for k,v in d['period_totals'].items()))
+        score=d.get('interval_scores',{}).get('TOTAL',{}).get('P05_P95')
+        if score:lines.append(f"Toplam %90 interval skoru {score['mean_interval_score']:.2f} (düşük daha iyi; güven endeksi değil)")
+        lines.append('NOT_CALIBRATED | Kalibrasyon eğitimi yapılmadı; az örnek güven kanıtı değildir.')
     if len(report['groups'])>12:lines.append('İlk 12 model grubu gösterildi; lig filtresi kullanın.')
+    if report.get('forecasts'):
+        from hybrid_engine.forecast_error_review import review,render_summary
+        error_review=review(report['forecasts'],asof_utc=int(time.time()))
+        if any(g['n'] for g in error_review['groups']):lines.append(render_summary(error_review))
     lines.append('Araştırma backtestleri dahil değil. Bu değerler model üstünlüğü veya güven yüzdesi değildir.')
     return '\n'.join(lines)
 
@@ -119,7 +161,10 @@ def render_compare(report):
     for r in rows[:12]:
         text=f"{r['model_version'][:100]} | {r['model_digest'][:12]} | Skor {r['prediction'][0]:.2f} – {r['prediction'][1]:.2f}"
         if r['actual'] is None:text+=' | Sonuç bekleniyor'
-        else:text+=f" | Gerçek {r['actual'][0]} – {r['actual'][1]}"
+        else:
+            text+=f" | Gerçek {r['actual'][0]} – {r['actual'][1]}"
+            text+=f" | Toplam hata {sum(r['prediction'])-sum(r['actual']):+.2f}"
+            if r.get('final_with_ot')!=r['actual']:text+=f" | Uzatma dahil final {r['final_with_ot']} (ölçüme dahil değil)"
         lines.append(text)
     if len(rows)==1:lines.append('Tek kayıtlı model; karşılaştırılacak ikinci doğrulanmış sürüm yok.')
     if len(rows)>12:lines.append('İlk 12 kayıt gösterildi.')
@@ -136,8 +181,25 @@ async def accuracy_command(update,context):
 
 async def compare_command(update,context):
     args=context.args or []
+    if len(args)==1 and args[0].upper()=='NBA':
+        service=context.application.bot_data.get('ledger_reports')
+        if service is None:
+            await update.effective_message.reply_text('Karşılaştırma arşivi kullanılamıyor.');return
+        try:
+            report=await asyncio.to_thread(service.read,'NBA',None)
+            data=report.get('report',report)
+            # Decision wrappers may add another report envelope.
+            while isinstance(data.get('report'),dict):data=data['report']
+            ids={str(r['fixture_id']) for r in data.get('forecasts',data.get('rows',[]))}
+        except (ValueError,KeyError,TypeError,sqlite3.Error,OSError,RuntimeError):
+            await update.effective_message.reply_text('Arşiv doğrulanamadı veya istek geçersiz. Performans sonucu üretilmedi.');return
+        if len(ids)==1:
+            await _reply(update,context,'NBA',next(iter(ids)),render_compare);return
+        if not ids:
+            await update.effective_message.reply_text('Kayıtlı NBA tahmini bulunamadı.');return
+        await update.effective_message.reply_text('Birden fazla maç kayıtlı. Kullanım: /compare NBA maç_kimliği');return
     if len(args)!=2:
-        await update.effective_message.reply_text('Kullanım: /compare NBA maç_kimliği');return
+        await update.effective_message.reply_text('Kullanım: /compare NBA [maç_kimliği]');return
     await _reply(update,context,args[0],args[1],render_compare)
 
 
@@ -149,7 +211,11 @@ async def _reply(update,context,league,fixture,renderer):
         text=getattr(service,renderer.__name__,renderer)(report)
     except (ValueError,KeyError,TypeError,sqlite3.Error,OSError,RuntimeError):
         text='Arşiv doğrulanamadı veya istek geçersiz. Performans sonucu üretilmedi.'
-    await update.effective_message.reply_text(text,disable_web_page_preview=True)
+    # Plain-text reports can contain several model groups. Telegram's limit is
+    # UTF-16 units rather than Python character count; never silently truncate.
+    from hybrid_engine.predictions_command import split_plain
+    for chunk in split_plain(text):
+        await update.effective_message.reply_text(chunk,disable_web_page_preview=True)
 
 
 def production_reports():

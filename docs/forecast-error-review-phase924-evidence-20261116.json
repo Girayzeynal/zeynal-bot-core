@@ -1,0 +1,353 @@
+{
+  "format": "PHASE924_FROZEN_ERROR_REVIEW_EVIDENCE_V1",
+  "start_commit": "33c99f17906a053f073e79ee49b95e141457945f",
+  "full_suite": {
+    "tests": 1091,
+    "failures": 0,
+    "errors": 0,
+    "elapsed_seconds": 75.249,
+    "log_sha256": "9e55f3fbb507d0ebed6b836e1ef0f546bb9f5211635a13fd0137ea8ef1815794",
+    "phase": "BEFORE_TEMP_NOEXEC_LAUNCHER_TEST_FIX_APPLICATION_CODE_UNCHANGED"
+  },
+  "new_tests": 35,
+  "baseline_tests": 1056,
+  "provider_and_telegram_loopback_probe": {
+    "actual_provider_authentication_verified": false,
+    "actual_telegram_delivery_verified": false,
+    "cgroup_cpu_max": "200000 100000",
+    "cgroup_limits_verified": false,
+    "cgroup_memory_max": "8589934592",
+    "cgroup_memory_peak": "914423808",
+    "elapsed_seconds": 5.69611851600348,
+    "errors": 0,
+    "failures": 0,
+    "format": "ISOLATED_PROVIDER_RUNTIME_V1",
+    "peak_rss_mib": 95.75,
+    "production_changed": false,
+    "tests": 122,
+    "transport": "SYNTHETIC_PROVIDER_RESPONSES_AND_LOCAL_HTTP_TELEGRAM"
+  },
+  "protected_sources": [
+    {
+      "file": "main.py",
+      "sha256": "aed941457ef16cafae223fa8f0ae864cf791efce0fdba36efa7aee2bc0737d02",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "hybrid_engine/models.py",
+      "sha256": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "hybrid_engine/distributions.py",
+      "sha256": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "hybrid_engine/data.py",
+      "sha256": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "hybrid_engine/live_nba.py",
+      "sha256": "40c347e5b47adbf58e720383da4d6df30aa6046e3cd30249d665b66c768ac6c2",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "verified_history.py",
+      "sha256": "a67e5268cc8aaca83715b4c983dfd8bb3457e46d2487b258e5e8bfa2ece0f6fa",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "universal_analysis.py",
+      "sha256": "a5f7260970faad35de87b4a492a9aace761f606260b3f39e5ce86f90f772ade2",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "hybrid_engine/decision_layer.py",
+      "sha256": "bfaf6039ff102729d98c19f03b634763021cbc4c6ce741337cb13e74a62e14b2",
+      "unchanged_from_start": true
+    },
+    {
+      "file": "hybrid_engine/calibration_guard.py",
+      "sha256": "571f0995b5c3b312c4b6c3ca613082735d383ac55a5dc5882847ab2695c8ad0c",
+      "unchanged_from_start": true
+    }
+  ],
+  "existing_archives_changed": false,
+  "new_official_final_packet": {
+    "file": "docs/evidence/phase924-append-only-official-nba-finals-20261116.tar.gz",
+    "sha256": "f505be5c72187f5dd1d983147feb9ca31e918a86e5185792d7daae0ce49a85d1",
+    "results": 10
+  },
+  "user_transcript_comparison": {
+    "bias": -5.059,
+    "independent_published_forecast_provenance": "NOT_VERIFIED_FROM_PHONE_LEDGER",
+    "mae": 16.801,
+    "n": 10,
+    "rmse": 21.792269500903295,
+    "superiority_claim": false,
+    "top_three_absolute_error_share": 0.6380572584965181,
+    "top_three_ids": [
+      "401909991",
+      "401909985",
+      "401909990"
+    ],
+    "top_three_squared_error_share": 0.8360813295329503
+  },
+  "native_cloud_philadelphia_report": {
+    "payload": {
+      "asof_utc": 1794834028,
+      "automatic_tuning": false,
+      "calibration_fit": false,
+      "causal_error_attribution": "UNPROVEN;DIAGNOSTIC_ASSOCIATIONS_ONLY",
+      "confidence_index": null,
+      "exclusions": {},
+      "format": "FROZEN_FORECAST_ERROR_REVIEW_V1",
+      "groups": [
+        {
+          "cases": [
+            {
+              "absolute_total_error": 33.21108196198506,
+              "away": "Indiana Pacers",
+              "causal_explanation": "NOT_ESTABLISHED",
+              "cohort_absolute_error_share": 1.0,
+              "cohort_squared_error_share": 1.0,
+              "findings": [
+                "NEW_HISTORY_DOES_NOT_REFIT_FROZEN_TEAM_STRENGTH",
+                "HIGH_CO_MOVEMENT_FROM_DETERMINISTIC_PERIOD_ALLOCATION",
+                "MEASURED_PACE_NOT_A_MODEL_INPUT",
+                "VERIFIED_PLAYER_IMPACT_NOT_A_MODEL_INPUT"
+              ],
+              "fixture_id": "2295e83b287fc5084e916c78226c2f05e06ae299a3299f4fb807495f9e12fabf",
+              "home": "Philadelphia 76ers",
+              "input_profile": {
+                "calibration_fit": false,
+                "causal_explanation": "NOT_IDENTIFIED_FROM_ONE_REALIZED_SCORE",
+                "confidence_index": null,
+                "feature_usage": {
+                  "current_scoring_average_updates_full_game_mean": false,
+                  "full_game_mean": "FROZEN_LEAGUE_HOME_TEAM_ATTACK_OPPONENT_DEFENSE_COEFFICIENTS",
+                  "player_effects": false,
+                  "quarters": "CURRENT_FROZEN_HISTORY_QUARTER_WEIGHTS",
+                  "verified_pace": false
+                },
+                "fit_age_seconds": 215144,
+                "fit_cutoff_utc": 1794526101,
+                "format": "FROZEN_INPUT_USAGE_PROFILE_V1",
+                "generated_at_utc": 1794741245,
+                "history": {
+                  "away": {
+                    "box_rows_present": 0,
+                    "games": 10,
+                    "latest_game_utc": 1794614400,
+                    "measured_pace_used": false,
+                    "new_games_since_fit": 1,
+                    "raw_points_against": 112.2,
+                    "raw_points_for": 108.1,
+                    "recent_ids": [
+                      "04f7224cc1dfd50def8636a26a3c96c5c56c1f96fde95afb3825b9c28617283d",
+                      "a13efebf9158346319adc8c88bfe0f8bd81f2888797aca20be04cec6b5193506",
+                      "724f19797654140c95b15d7eb08d2b0d93dc5ace5188e4cbf31b841da4fa56f7",
+                      "bfe090fa71f38c11762576a16ff6e5f93a5047ed085979598c622233aedb6df1",
+                      "b0ef6e0065fde7203bee2d97ea9cae50fab62f5924385279b18dd28cc888f6cf",
+                      "e74e33d6a8017bd10ed2168c4b5128445d199061b9472e1a998594a7c9c7e2da",
+                      "1e5ce1fa1772899a74251fbda80ed6ca451210ff30f9b6ccddd74347298df8da",
+                      "f4350157907b177908e007ef667036fc0423eea36cd6ae392ea7a0ecaab382f9",
+                      "db07534b9ea567fd6f151cd8484c3240634734ec59ee43e99009cff920a5c8c3",
+                      "cdad176004a6ccb19013c9104a5f8e67a107799cefb694d36aa8b6e9bf8bd6af"
+                    ],
+                    "start_gap_hours_proxy": 42.0,
+                    "verified_rest_used": false
+                  },
+                  "home": {
+                    "box_rows_present": 0,
+                    "games": 10,
+                    "latest_game_utc": 1794528000,
+                    "measured_pace_used": false,
+                    "new_games_since_fit": 1,
+                    "raw_points_against": 110,
+                    "raw_points_for": 109.8,
+                    "recent_ids": [
+                      "3dafdf39635e957e7b4ddd4a2c5ab2266c3043652192957aeade1d5562583555",
+                      "a13efebf9158346319adc8c88bfe0f8bd81f2888797aca20be04cec6b5193506",
+                      "7d1732dae84d460e0e90f20b6aa3b8a36e1d3c00799a54610023e96686a23e8a",
+                      "e461fd1783ea67a55ef98b6f50efe8147a4ffd4df7ff72a2758884797d1aa775",
+                      "31aa87d42fd3f7554445dbc6e8afbf3da680aac07b781e2f220b8562d5651693",
+                      "5f3cb0aacdc92d24587f25875e01f1550b6324633ee4a8b690ee46a4ce155608",
+                      "2c4612658779d7041b0dc3b3ba8f3419606eab9c095c7a07f95b10700c1f57c2",
+                      "06d6885459a3c781a78128ae36ca2bbd524e939e42424614e94ec925e9dd15b8",
+                      "030860bc9e39326ab790de1b3440501ee8df82d6707f828e0b4d2b291049269d",
+                      "0442c0be1880765a14cf154f5a11e117292ef0ce4874a6779fdcf11496787f9e"
+                    ],
+                    "start_gap_hours_proxy": 66.0,
+                    "verified_rest_used": false
+                  }
+                },
+                "latest_training_game_utc": 1794452400,
+                "model_changed": false,
+                "model_digest": "cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982",
+                "predictive_variance": {
+                  "away": {
+                    "parameter_variance": 14.5821764247247,
+                    "raw_predictive_sd": 12.969734003735667,
+                    "residual_variance": 153.6318237029325,
+                    "unseen_team_variance": 0
+                  },
+                  "home": {
+                    "parameter_variance": 14.58289059534253,
+                    "raw_predictive_sd": 12.969761535906319,
+                    "residual_variance": 153.6318237029325,
+                    "unseen_team_variance": 0
+                  }
+                },
+                "prepared_artifact_sha256": "ae4e578f441770883247e648314c1a7a29c86caa76ab4aa6af006fda4b10254e",
+                "quarter_correlation": 0.9879739326540408,
+                "retrospective_baseline": {
+                  "eligible_for_live_performance": false,
+                  "fitted_on_outcome": false,
+                  "name": "PREGAME_LAST_N_FOR_AGAINST_CROSS_MEAN",
+                  "published_forecast": false,
+                  "scope": "REGULATION_ONLY",
+                  "scores": [
+                    111.0,
+                    109.05
+                  ],
+                  "total": 220.05
+                },
+                "score_contributions": {
+                  "away": {
+                    "home_effect": 0.0,
+                    "league_intercept": 112.27200469730137,
+                    "opponent_defense": -1.655215787553855,
+                    "own_attack": -1.3090152023465127
+                  },
+                  "home": {
+                    "home_effect": 1.096256473807781,
+                    "league_intercept": 112.27200469730137,
+                    "opponent_defense": 0.7092385135725507,
+                    "own_attack": -1.5963553540677697
+                  }
+                },
+                "snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343",
+                "training_games": 170
+              },
+              "input_profile_status": "FROZEN_INPUTS_VERIFIED",
+              "overtime_points_excluded": 0,
+              "period_total_errors": [
+                -8.099132247984144,
+                5.172219843027541,
+                -13.865158812436576,
+                -16.41901074459188
+              ],
+              "prediction_total": 221.78891803801494,
+              "provider_fixture_ids": [
+                "401909985"
+              ],
+              "regulation_total": 255,
+              "signed_total_error": -33.21108196198506,
+              "snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343"
+            }
+          ],
+          "cohort": {
+            "league": "NBA",
+            "model_digest": "cd1a7e83d87f68036b8a009d8f2984fd70b0d4cebdcdc0691a223f478fcf7982",
+            "model_version": "ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
+            "season": "2026/2027"
+          },
+          "day_clusters": 1,
+          "findings": {
+            "HIGH_CO_MOVEMENT_FROM_DETERMINISTIC_PERIOD_ALLOCATION": 1,
+            "MEASURED_PACE_NOT_A_MODEL_INPUT": 1,
+            "NEW_HISTORY_DOES_NOT_REFIT_FROZEN_TEAM_STRENGTH": 1,
+            "VERIFIED_PLAYER_IMPACT_NOT_A_MODEL_INPUT": 1
+          },
+          "matched_input_baseline": {
+            "baseline_was_published": false,
+            "comparison_unit": "SAME_FROZEN_PREISSUE_FEATURES_AND_SETTLED_FIXTURES",
+            "metrics": {
+              "frozen_model": {
+                "mae": 33.21108196198506,
+                "n": 1,
+                "rmse": 33.21108196198506
+              },
+              "retrospective_baseline": {
+                "mae": 34.94999999999999,
+                "n": 1,
+                "rmse": 34.94999999999999
+              }
+            },
+            "pairs": [
+              {
+                "fixture_id": "2295e83b287fc5084e916c78226c2f05e06ae299a3299f4fb807495f9e12fabf",
+                "frozen_model_error": -33.21108196198506,
+                "retrospective_baseline_error": -34.94999999999999,
+                "snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343"
+              }
+            ],
+            "superiority_claim": false
+          },
+          "n": 1,
+          "top_three_absolute_error_share": 1.0,
+          "top_three_squared_error_share": 1.0
+        }
+      ],
+      "input_provenance_required": "LEDGER_REPORTS_NATIVE_VERIFIED",
+      "native_final_receipt_file": "summary-401909985-9eb696aff81790f061a5899e741a9dab68a121e4e798b11a301f771dec9f3bdd.json",
+      "native_final_receipt_sha256": "9eb696aff81790f061a5899e741a9dab68a121e4e798b11a301f771dec9f3bdd",
+      "note": "Cloud frozen published snapshot differs in capture time from UserLAnd; not a phone-ledger update.",
+      "production_changed": false,
+      "source_database_changed": false
+    },
+    "sha256": "ac3114cb58e7b386b0fab9c2ff8bec445e2e56d2f69f2160204bb77e7c8b2b55"
+  },
+  "original_cloud_philadelphia_snapshot_sha256": "30e32e06461cc83123fcc99b46a79d9dbaf1be3b0f2c5ebc6448341ed25a5343",
+  "phone_ledger_independently_audited": false,
+  "real_telegram_e2e": "BLOCKED_NO_CLOUD_TEST_BOT_ACCESS_AT_NEW_HEAD",
+  "restricted_network_targeted_attempt": "INTERRUPTED_WITHOUT_TEST_RESULT;rerun_with_loopback_permission_35_PASS",
+  "no_new_prematch_forecasts": true,
+  "automatic_tuning": false,
+  "calibration_fit": false,
+  "confidence_index": null,
+  "production_changed": false,
+  "go_no_go": "NO_GO",
+  "remaining": [
+    "Phone-native Washington and Toronto input/model audits require local --error-review.",
+    "Ten matches and one native input comparison do not prove calibration or model superiority.",
+    "No same-fixture published Faz13 forecast cohort exists for these ten matches.",
+    "Measured pace, verified player impact, OT settlement and period uncertainty remain unverified."
+  ],
+  "initial_docker_resource_run": {
+    "commit": "2c0e9fa228291be6796c2072434278a65df6bd55",
+    "run_id": 43873094107,
+    "job_id": 133319069274,
+    "regression_tests": 1091,
+    "regression_passed": true,
+    "resource_tests": 122,
+    "resource_errors": 1,
+    "failed_test": "OfflineLauncherTests.test_error_review_mode_does_not_bootstrap_git_token_or_polling",
+    "cause": "Test harness tried to execute a temporary mock interpreter on Docker noexec tmpfs; exit 126.",
+    "fix": "Use installed interpreter symlink and read a plain mock module; keep read-only/noexec/256MiB/one CPU constraints unchanged."
+  },
+  "post_fix_targeted_suite": {
+    "tests": 35,
+    "failures": 0,
+    "errors": 0
+  },
+  "post_fix_resource_probe": {
+    "actual_provider_authentication_verified": false,
+    "actual_telegram_delivery_verified": false,
+    "cgroup_cpu_max": "200000 100000",
+    "cgroup_limits_verified": false,
+    "cgroup_memory_max": "8589934592",
+    "cgroup_memory_peak": "914423808",
+    "elapsed_seconds": 5.467543041988392,
+    "errors": 0,
+    "failures": 0,
+    "format": "ISOLATED_PROVIDER_RUNTIME_V1",
+    "peak_rss_mib": 95.4296875,
+    "production_changed": false,
+    "tests": 122,
+    "transport": "SYNTHETIC_PROVIDER_RESPONSES_AND_LOCAL_HTTP_TELEGRAM"
+  }
+}
