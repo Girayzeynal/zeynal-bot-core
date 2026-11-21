@@ -140,3 +140,13 @@ Telegram commands:
     /test integrations
 
 If the worker is installed but hasn't yet executed, status is `RESEARCH_WORKER_INSTALLED_NOT_YET_OBSERVED`; if it has attempted even with abstention, it is `RESEARCH_ACTIVATION_OBSERVED` **not** `PRODUCTION_SCORING_ENABLED`. Main Fly bot still uses its legacy analysis unless separately and safely deployed through the guarded release path, after real model evidence has passed.
+
+## Real device evidence: first V2 job remains RUNNING while player minute query not attempted
+
+User-supplied actual Telegram `/test engines` on isolated SHA `06c46b9cf632c1415f8d854be73a173ead592ca1` showed V2 `RUNNING` sequence=1, 57s, no finished V2 report; `player_minutes.actual_research_collection_attempt=false`, `player_shadow` witness not started, 0 valid pregame minutes, no finished V3/assessment, no numeric player effect in any main forecast. This is **not proof of a deadlock**: the initial network/box acquisition previously ran before player input.
+
+New implementation: `AdaptiveWorker.tick` now attempts the genuinely source-eligible NBA pregame `player_inputs.collect` **before the long native refresh/box download and adaptive fit**. The in-process `AdaptiveWorker.progress` records exact phase + start UTC + fixture ID + source league and immediate player input status, without waiting for full tick report to finish. `/test engines` exposes `modes.adaptive_models.live_phase`, `live_phase_elapsed_seconds`, `live_phase_source_scope` and `modes.player_minutes.last_status`. Only `PROSPECTIVE_MINUTES_ARCHIVED` or `EXISTING_MINUTES_REPLAY` proves a valid minute packet; `RUNNING` is not success.
+
+`ResearchCycle.once` now verifies existing player-shadow witness readiness immediately on entering the cycle, *then* executes V2 source-first, and revalidates after V2 completes. This allows Telegram to report a real BLOCKED or available witness without requiring heavy external API refresh to complete. V2/V3 still serialize actual fits and preserve original first prediction bytes. Synthetic test `tests/test_adaptive_player_first.py` locks the order `minutes → native refresh → attempted fit` with no external network; `test_active_engine_status.py` verifies exact live phases; `tests/test_analysis_revision.py` checks shadow pre-and-post.
+
+Operational restart uses existing isolated `scripts/run_isolated_test_bot.sh` which automatically fetches and merges its *exact branch* via `git fetch` + `git merge --ff-only` before starting poller; do not launch while another test poller holds its lock. After restart request `/test engines` and `/test research`. Report build/test status separately; a GitHub commit and a RUNNING source stage do not prove player effects are in main production.
