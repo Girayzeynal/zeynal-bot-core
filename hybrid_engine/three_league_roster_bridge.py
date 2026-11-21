@@ -166,8 +166,10 @@ def compare(old,new,*,decision_utc):
         newly_registered_player_ids=sorted(after.keys()-before.keys()),
         no_longer_registered_player_ids=sorted(before.keys()-after.keys()),
         continued_player_ids=sorted(before.keys() & after.keys()),
-        classification="OFFICIAL_DIRECTORY_CHANGE_NOT_PROVEN_TRANSFER",
-        can_automatically_update_observed_roster=True,
+        classification="SOURCE_DECLARED_REGISTRATION_CHANGE_NOT_PROVEN_TRANSFER",
+        can_automatically_update_observed_roster=False,
+        can_append_to_isolated_research_registry=True,
+        source_claim_independently_authenticated=False,
         confirms_transfer_contract=False,
         determines_match_eligibility=False,changes_forecast=False)
 
@@ -207,7 +209,7 @@ def fixture_gate(*,fixture,home_roster,away_roster,availability,exposures,fit):
                     model_player_input=None,production_model_changed=False)
     # No field may be silently filled. Require an independently fitted model
     # and fixture-bound *time-eligible* statuses/minutes for both teams.
-    if (fit.get("status")!="VERIFIED_HISTORICAL_PREFIT_EXPOSURE_MODEL" or
+    if (fit.get("status")!="DECLARED_HISTORICAL_PREFIT_EXPOSURE_MODEL" or
         type(fit.get("trained_until_utc")) is not int or
         fit["trained_until_utc"]>decision or
         fit.get("training_includes_target") is not False or
