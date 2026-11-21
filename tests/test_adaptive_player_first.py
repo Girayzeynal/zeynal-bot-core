@@ -29,7 +29,7 @@ class FirstPlayerEvidenceOrderTests(IsolatedAsyncioTestCase):
             raise ValueError("SYNTHETIC_NO_FIT")
         worker.research=SimpleNamespace(
             plan=lambda **kwargs:dict(sha256="b"*64),
-            admit=lambda *args:None,
+            admit=lambda *args:actions.append("admit"),
             fit=no_actual_fit,
             performance=lambda _:dict(groups=[]),
             players="/tmp/synthetic-player-only",
@@ -47,7 +47,9 @@ class FirstPlayerEvidenceOrderTests(IsolatedAsyncioTestCase):
                         reason="SYNTHETIC_CURRENT_LINEUP_NOT_ATTESTED")
         with patch("hybrid_engine.adaptive_worker.collect_player_inputs",side_effect=minutes):
             report=await worker.tick()
-        self.assertEqual(actions,["minutes","refresh","fit"])
+        self.assertEqual(actions,["minutes","admit","refresh","fit"])
+        self.assertEqual(worker.progress["eligible_future_fixtures"],1)
+        self.assertEqual(worker.progress["eligible_nba_fixtures"],1)
         self.assertEqual(report["player_inputs"]["status"],"BLOCKED")
         self.assertEqual(worker.progress["player_input_status"],"BLOCKED")
         self.assertEqual(worker.progress["phase"],"COMPLETED")
