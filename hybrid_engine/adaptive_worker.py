@@ -162,11 +162,16 @@ class AdaptiveWorker:
             # A new adaptive model forecast must NEVER skip original
             # prefixture admission. The source-only minute probe above has
             # no model score to publish and is safe to do first.
-            self._phase('ADMIT_UNSTARTED_ORIGINALS',eligible_future_fixtures=len(cases))
-            for c in cases:
+            self._phase('ADMIT_UNSTARTED_ORIGINALS',eligible_future_fixtures=len(cases),
+                        admission_done=0,admission_skipped_after_cutoff=0,
+                        admission_total=len(cases))
+            for i,c in enumerate(cases):
+                self.progress['admission_position']=i+1
                 if int(time.time())>=c['target']['fixture_start_utc']-900:
+                    self.progress['admission_skipped_after_cutoff']+=1
                     continue  # Past cutoff is NOT a new prefixture admission.
                 await asyncio.to_thread(self.research.admit,c['target'],c['original'])
+                self.progress['admission_done']+=1
             scopes=sorted({(c['code'],c['target']['season']) for c in cases})
             if scopes:
                 code,season=scopes[(self.sequence-1)%len(scopes)]
