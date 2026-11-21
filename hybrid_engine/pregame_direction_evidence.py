@@ -301,6 +301,84 @@ def frozen_qmc_report(rows):
         warning="REPLAY OF ORIGINAL PINNED PREMATCH SAMPLES AFTER RESULT; NOT A PUBLISHED DECISION, NOT A VALIDATED BETTING EDGE.")
 
 
+def original_recent_history_reference(rows):
+    """Compare original QMC and already frozen pre-forecast last-N reference.
+
+    All directions are RECONSTRUCTED after the fact from original pregame
+    features. No new probabilities, candidate model or published tips are made.
+    """
+    from collections import Counter
+    counts=Counter()
+    per_side={"ALT":Counter(),"UST":Counter()}
+    fit_age={}
+    since_fit={}
+    examples=[]
+    for row in rows:
+        q=row.get("frozen_qmc_evidence")
+        if q is None:
+            continue
+        history=row.get("native_pregame_history_reference")
+        if history is None:
+            counts["missing_verified_history_reference"]+=1
+            continue
+        raw=finite(history["preforecast_recent_cross_mean_total"])
+        line=finite(q["line"])
+        realized=q["research_regulation_only_side"]
+        original=q["raw_more_likely_side"]
+        baseline=side(raw,line)
+        if baseline=="ESIT" or realized=="ESIT" or original=="ESIT":
+            counts["undecided_or_push"]+=1
+            continue
+        if any(x not in ("ALT","UST") for x in (original,baseline,realized)):
+            raise ValueError("DIRECTION_REFERENCE_UNKNOWN_SIDE")
+        original_ok=original==realized
+        reference_ok=baseline==realized
+        counts["paired_evaluable"]+=1
+        counts["original_qmc_matched"]+=int(original_ok)
+        counts["recent_history_reference_matched"]+=int(reference_ok)
+        counts["both_matched"]+=int(original_ok and reference_ok)
+        counts["original_only_matched"]+=int(original_ok and not reference_ok)
+        counts["reference_only_matched"]+=int(reference_ok and not original_ok)
+        counts["both_mismatched"]+=int(not original_ok and not reference_ok)
+        per_side[original]["n"]+=1
+        per_side[original]["qmc_matched"]+=int(original_ok)
+        per_side[original]["reference_matched"]+=int(reference_ok)
+        age=finite(history["fit_age_days"])
+        if age<0:raise ValueError("DIRECTION_NEGATIVE_FIT_AGE")
+        age_bucket="0-3d" if age<3 else "3-7d" if age<7 else "7d+"
+        new_games=int(history["new_games_since_fit"])
+        if new_games<0:raise ValueError("DIRECTION_INVALID_NEW_GAMES")
+        new_bucket="0" if new_games==0 else "1-4" if new_games<5 else "5+"
+        for target,key in ((fit_age,age_bucket),(since_fit,new_bucket)):
+            group=target.setdefault(key,dict(n=0,qmc_matched=0,reference_matched=0))
+            group["n"]+=1
+            group["qmc_matched"]+=int(original_ok)
+            group["reference_matched"]+=int(reference_ok)
+        if baseline!=original:
+            examples.append(dict(
+                provider_fixture_ids=row["provider_fixture_ids"],
+                original_qmc_side=original,
+                recent_history_reference_side=baseline,
+                observed_regulation_side=realized,
+                original_qmc_matched=original_ok,
+                reference_matched=reference_ok,
+                original_total=finite(row["saved_score_total"]),
+                preforecast_recent_cross_mean_total=raw,
+                original_bookmaker_line=line,
+                native_new_games_since_model_fit=new_games,
+                original_model_fit_age_days=age))
+    return dict(
+        record_type="POSTHOC_ORIGINAL_INPUT_REFERENCE_NOT_A_PREGAME_PUBLICATION",
+        counts=dict(counts),
+        paired_by_original_qmc_side={k:dict(v) for k,v in per_side.items()},
+        by_frozen_model_age_days=dict(sorted(fit_age.items())),
+        by_new_games_since_fit=dict(sorted(since_fit.items())),
+        examples_where_reference_direction_differs_from_qmc=examples[:12],
+        original_forecasts_modified=False,
+        reference_was_published_forecast=False,
+        candidate_selected=False,
+        warning="The frozen recent-history reference is a post-result COMPARISON of original available inputs, not a tip, a training algorithm or independent forward validation. Gap buckets are not allowed as new decision thresholds.")
+
 def inspect(data, ledger, assets, *, replay_qmc=False):
     if not isinstance(data, dict) or digest(data.get("payload"))!=data.get("sha256"):
         raise ValueError("DIRECTION_QUALITY_REPORT_PIN_REQUIRED")
@@ -316,6 +394,17 @@ def inspect(data, ledger, assets, *, replay_qmc=False):
     if a.get("performance_status")!="READ_ONLY_NATIVE_VERIFIED" or perf.get("status")!="VERIFIED_LIVE_REPORT":
         raise ValueError("DIRECTION_NATIVE_VERIFIED_REPORT_REQUIRED")
     forecasts=perf.get("forecasts") or []
+    error_cases={}
+    if replay_qmc:
+        reviewed=p.get("error_review") or {}
+        if reviewed.get("format")!="FROZEN_FORECAST_ERROR_REVIEW_V1":
+            raise ValueError("DIRECTION_NATIVE_HISTORY_REVIEW_REQUIRED")
+        for group in reviewed["groups"]:
+            for case in group["cases"]:
+                key=(case["fixture_id"],case["snapshot_sha256"])
+                if key in error_cases:
+                    raise ValueError("DIRECTION_DUPLICATE_ERROR_REVIEW_CASE")
+                error_cases[key]=case
     if len(forecasts)>MAX_FIXTURES:
         raise ValueError("DIRECTION_FIXTURE_BUDGET")
     results=[]
@@ -372,6 +461,7 @@ def inspect(data, ledger, assets, *, replay_qmc=False):
             full=[q for q in quotes if q["market"]=="TOTAL"]
             records=[quote_row(q,mean,actual) for q in full]
             qmc_evidence=None
+            history_reference=None
             eligible_quotes=[q for q in records if q["quote_fresh_at_prediction"]]
             if replay_qmc and actual is not None and len(eligible_quotes)==1:
                 quote=eligible_quotes[0]
@@ -401,6 +491,27 @@ def inspect(data, ledger, assets, *, replay_qmc=False):
                 no_push=over+under
                 if no_push<=0:
                     raise ValueError("DIRECTION_NO_SETTLED_QMC_SIDE_MASS")
+                case=error_cases.get((row["fixture_id"],row["snapshot_sha256"]))
+                if case is not None and case.get("input_profile_status")=="FROZEN_INPUTS_VERIFIED":
+                    profile=case["input_profile"]
+                    if (profile["snapshot_sha256"]!=row["snapshot_sha256"] or
+                        profile["model_digest"]!=row["model_digest"] or
+                        profile["generated_at_utc"]!=generated):
+                        raise ValueError("DIRECTION_HISTORY_PROFILE_PIN_OR_CLOCK_CONFLICT")
+                    base=profile["retrospective_baseline"]
+                    if (base["name"]!="PREGAME_LAST_N_FOR_AGAINST_CROSS_MEAN" or
+                        base["published_forecast"] is not False or
+                        base["fitted_on_outcome"] is not False or
+                        base["eligible_for_live_performance"] is not False):
+                        raise ValueError("DIRECTION_HISTORY_REFERENCE_CLASS_CONFLICT")
+                    if profile["feature_usage"]["current_scoring_average_updates_full_game_mean"] is not False:
+                        raise ValueError("DIRECTION_HISTORY_FROZEN_USAGE_CONFLICT")
+                    history_reference=dict(
+                        preforecast_recent_cross_mean_total=finite(base["total"]),
+                        fit_age_days=finite(profile["fit_age_seconds"])/86400,
+                        new_games_since_fit=sum(int(v["new_games_since_fit"])
+                                                for v in profile["history"].values()),
+                        original_profile_snapshot_sha256=profile["snapshot_sha256"])
                 qmc_evidence=dict(
                     line=line,
                     original_mean_side=quote["original_model_mean_relative_to_line"],
@@ -432,7 +543,8 @@ def inspect(data, ledger, assets, *, replay_qmc=False):
                 observed_total_quote_rows=records,
                 actual_native_regulation_result_available=actual is not None,
                 overtime_points_excluded=overtime_points,
-                frozen_qmc_evidence=qmc_evidence))
+                frozen_qmc_evidence=qmc_evidence,
+                native_pregame_history_reference=history_reference))
     coverage=Counter()
     for r in results:
         coverage["fixtures"]+=1
@@ -448,6 +560,8 @@ def inspect(data, ledger, assets, *, replay_qmc=False):
                 counts=dict(coverage),
                 direction_research=research_direction_summary(results),
                 frozen_qmc_direction_replay=(frozen_qmc_report(results) if replay_qmc else None),
+                original_recent_history_reference=(original_recent_history_reference(results)
+                                                   if replay_qmc else None),
                 fixture_quotes=[r for r in results if r["archived_total_quotes_before_prediction"]][:100],
                 no_quote_fixture_count=len(results)-coverage["fixtures_with_total_quote"],
                 actual_original_direction_decision_hit_rate=None,
@@ -504,7 +618,8 @@ def main():
                     original_forecasts_changed=report["original_forecasts_changed"],
                     positive_signed_original_cases_modified=report["positive_signed_original_cases_modified"],
                     production_changed=report["production_changed"],
-                    quality_report_bytes_unchanged=report["quality_report_bytes_unchanged"])
+                    quality_report_bytes_unchanged=report["quality_report_bytes_unchanged"],
+                    original_recent_history_reference=report["original_recent_history_reference"])
     elif args.summary_only:
         report={k:report[k] for k in (
             "format","counts","no_quote_fixture_count","direction_research",
