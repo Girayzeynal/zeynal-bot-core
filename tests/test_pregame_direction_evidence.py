@@ -1,0 +1,328 @@
+"""Synthetic, not basketball accuracy: pregame market-direction evidence gates."""
+from contextlib import redirect_stdout
+import io
+import json
+from pathlib import Path
+import sqlite3
+import tempfile
+from unittest import TestCase
+from unittest.mock import patch
+
+from core.team_identity import digest
+from hybrid_engine.pregame_direction_evidence import quote_row,inspect,inspect_file,research_direction_summary,frozen_qmc_report,original_recent_history_reference
+
+
+def receipt():
+    return dict(bookmaker="Recorded Bookmaker",market="TOTAL",line=230.5,
+                quote_sha256="f"*64,observed_at_utc=100,
+                age_at_prediction_seconds=100,
+                freshness_status="FRESH_AT_PREDICTION",
+                settlement_scope="UNKNOWN",
+                native_observation=dict(payload=dict(
+                    decimal_over_or_home_cover=1.91,
+                    decimal_under_or_away_cover=1.91)))
+
+
+def example():
+    snapshot=dict(league="NBA",season="2026/2027",fixture_id="fixture",
+                  model_digest="model",prediction_generated_at_utc=200,
+                  fixture_start_utc=300,provider_fixture_ids=["1234"],
+                  prediction=dict(total=220.0),
+                  home=dict(official_name="Home"),away=dict(official_name="Away"),
+                  source_assets=[dict(file="source-any.json",sha256="a"*64)])
+    forecast=dict(league="NBA",season="2026/2027",fixture_id="fixture",
+                  model_digest="model",snapshot_sha256=digest(snapshot),
+                  prediction_generated_at_utc=200,prediction=[110.0,110.0],
+                  actual=[120.0,120.0])
+    payload=dict(format="PHASE92_READ_ONLY_QUALITY_REPORT_V1",
+                 archive_audit=dict(performance_status="READ_ONLY_NATIVE_VERIFIED",
+                     performance=dict(status="VERIFIED_LIVE_REPORT",forecasts=[forecast])))
+    return snapshot,dict(payload=payload,sha256=digest(payload))
+
+
+class DirectionEvidenceTests(TestCase):
+    def test_original_barem_yields_research_side_not_a_historical_pick(self):
+        record=quote_row(receipt(),220.0,240.0)
+        self.assertEqual(record["original_model_mean_relative_to_line"],"ALT")
+        self.assertEqual(record["research_regulation_only_side"],"UST")
+        self.assertFalse(record["original_direction_publication_proven"])
+        self.assertIsNone(record["official_bookmaker_direction_result"])
+
+    def test_no_observed_barem_is_not_treated_as_a_direction_success(self):
+        snapshot,report=example()
+        with tempfile.TemporaryDirectory() as folder:
+            ledger=Path(folder)/"ledger.sqlite"
+            assets=Path(folder)/"assets";assets.mkdir()
+            with sqlite3.connect(ledger) as db:
+                db.execute("CREATE TABLE live_analysis_snapshots (league TEXT,fixture_id TEXT,model_digest TEXT,payload TEXT,sha256 TEXT)")
+                db.execute("INSERT INTO live_analysis_snapshots VALUES(?,?,?,?,?)",
+                           ("NBA","fixture","model","{}", "hash"))
+            with patch("hybrid_engine.pregame_direction_evidence.LiveAnalysisLedger._decode",return_value=snapshot),patch(
+                    "hybrid_engine.pregame_direction_evidence.observed_market_evidence",return_value=[]) as quotes:
+                result=inspect(report,ledger,assets)
+            self.assertEqual(result["counts"]["fixtures"],1)
+            self.assertEqual(result["no_quote_fixture_count"],1)
+            self.assertIsNone(result["actual_original_direction_decision_hit_rate"])
+            self.assertEqual(result["market_lines_manufactured"],0)
+            self.assertFalse(result["positive_signed_original_cases_modified"])
+            self.assertTrue(quotes.called)
+
+    def test_pregame_saved_quote_is_counted_without_claiming_win_rate(self):
+        snapshot,report=example()
+        with tempfile.TemporaryDirectory() as folder:
+            ledger=Path(folder)/"ledger.sqlite"
+            assets=Path(folder)/"assets";assets.mkdir()
+            with sqlite3.connect(ledger) as db:
+                db.execute("CREATE TABLE live_analysis_snapshots (league TEXT,fixture_id TEXT,model_digest TEXT,payload TEXT,sha256 TEXT)")
+                db.execute("INSERT INTO live_analysis_snapshots VALUES(?,?,?,?,?)",
+                           ("NBA","fixture","model","{}","hash"))
+            with patch("hybrid_engine.pregame_direction_evidence.LiveAnalysisLedger._decode",return_value=snapshot),patch(
+                    "hybrid_engine.pregame_direction_evidence.observed_market_evidence",return_value=[receipt()]):
+                result=inspect(report,ledger,assets)
+            self.assertEqual(result["counts"]["fixtures_with_total_quote"],1)
+            self.assertEqual(result["counts"]["fixtures_with_fresh_total_quote"],1)
+            self.assertEqual(result["counts"]["fixtures_with_quote_and_result"],1)
+            self.assertIsNone(result["actual_bookmaker_direction_settlement_rate"])
+            self.assertEqual(result["fixture_quotes"][0]["observed_total_quote_rows"][0]["original_model_mean_relative_to_line"],"ALT")
+
+    def test_research_direction_summary_confusion_is_not_published_accuracy(self):
+        quotes=[
+            quote_row(receipt(),220,240),    # frozen mean ALT, actual UST
+            quote_row(receipt(),240,250),    # frozen mean UST, actual UST
+            quote_row(receipt(),240,225),    # frozen mean UST, actual ALT
+            quote_row(receipt(),220,210),    # frozen mean ALT, actual ALT
+        ]
+        fixtures=[
+            dict(fixture_id=str(i),provider_fixture_ids=[str(i)],
+                 home="Home",away="Away",actual_native_regulation_result_available=True,
+                 observed_total_quote_rows=[q])
+            for i,q in enumerate(quotes)
+        ]
+        original=json.dumps(fixtures,sort_keys=True)
+        result=research_direction_summary(fixtures)
+        self.assertEqual(json.dumps(fixtures,sort_keys=True),original)
+        self.assertEqual((result["matched"],result["mismatched"]),(2,2))
+        self.assertEqual(result["confusion_matrix"],
+                         {"ALT_UST":1,"UST_UST":1,"UST_ALT":1,"ALT_ALT":1})
+        self.assertEqual(result["research_side_counts"],
+                         dict(model_ALT=2,model_UST=2,
+                              actual_regulation_ALT=2,actual_regulation_UST=2))
+        self.assertEqual(result["descriptive_constant_side_references"]["always_ALT"],0.5)
+        self.assertEqual(result["descriptive_constant_side_references"]["always_UST"],0.5)
+        self.assertEqual(result["by_score_error_sign"]["PRED_MINUS_ACTUAL_POSITIVE"]["n"],2)
+        self.assertEqual(result["by_score_error_sign"]["PRED_MINUS_ACTUAL_NEGATIVE"]["n"],2)
+        self.assertIsNone(result["published_pregame_direction_accuracy"])
+        self.assertIsNone(result["official_bookmaker_settlement_accuracy"])
+        self.assertTrue(result["no_selection_or_correction_performed"])
+
+    def test_direction_push_and_duplicate_barem_not_counted_as_wins(self):
+        first=quote_row(receipt(),220,240)
+        push=quote_row(receipt(),220,230.5)
+        equal=quote_row(receipt(),230.5,240)
+        records=[
+            dict(fixture_id="multi",provider_fixture_ids=["1"],
+                 actual_native_regulation_result_available=True,
+                 observed_total_quote_rows=[first,first]),
+            dict(fixture_id="push",provider_fixture_ids=["2"],
+                 actual_native_regulation_result_available=True,
+                 observed_total_quote_rows=[push]),
+            dict(fixture_id="equal",provider_fixture_ids=["3"],
+                 actual_native_regulation_result_available=True,
+                 observed_total_quote_rows=[equal]),
+            dict(fixture_id="missing",provider_fixture_ids=["4"],
+                 actual_native_regulation_result_available=True,
+                 observed_total_quote_rows=[]),
+        ]
+        # Exact line equals actual => no decided result, not a failure.
+        records[1]["observed_total_quote_rows"][0]["research_regulation_only_side"]="ESIT"
+        result=research_direction_summary(records)
+        self.assertEqual(result["eligible_unique_fixtures"],0)
+        self.assertIsNone(result["descriptive_regulation_direction_agreement"])
+        self.assertEqual(result["status_counts"]["multiple_fresh_quotes_ambiguous_fixture"],1)
+        self.assertEqual(result["status_counts"]["regulation_push_not_decided"],1)
+        self.assertEqual(result["status_counts"]["model_on_barem_no_direction"],1)
+        self.assertEqual(result["status_counts"]["with_final_but_no_quote"],1)
+
+    def test_research_gap_buckets_are_descriptive_not_tuned(self):
+        quotes=[quote_row(receipt(),231,220),quote_row(receipt(),235,220),
+                quote_row(receipt(),250,220)]
+        records=[dict(fixture_id=str(i),provider_fixture_ids=[str(i)],
+                      actual_native_regulation_result_available=True,
+                      observed_total_quote_rows=[q]) for i,q in enumerate(quotes)]
+        out=research_direction_summary(records)
+        self.assertEqual(out["by_original_mean_line_gap"]["0-3"]["n"],1)
+        self.assertEqual(out["by_original_mean_line_gap"]["3-7"]["n"],1)
+        self.assertEqual(out["by_original_mean_line_gap"]["7+"]["n"],1)
+
+    def test_optional_qmc_replay_is_raw_model_direction_not_published_pick(self):
+        import numpy as np
+        snapshot,report=example()
+        snapshot["intervals"]=dict(scenarios=4,sample_sha256="f"*64)
+        report["payload"]["archive_audit"]["performance"]["forecasts"][0]["snapshot_sha256"]=digest(snapshot)
+        report["sha256"]=digest(report["payload"])
+        with tempfile.TemporaryDirectory() as folder:
+            ledger=Path(folder)/"ledger.sqlite"
+            assets=Path(folder)/"assets";assets.mkdir()
+            with sqlite3.connect(ledger) as db:
+                db.execute("CREATE TABLE live_analysis_snapshots (league TEXT,fixture_id TEXT,model_digest TEXT,payload TEXT,sha256 TEXT)")
+                db.execute("INSERT INTO live_analysis_snapshots VALUES(?,?,?,?,?)",
+                           ("NBA","fixture","model","{}", "hash"))
+            class DummyDistribution:
+                def values(self,period,market):
+                    self_checked=(period=="FULL" and market=="TOTAL")
+                    if not self_checked:
+                        raise AssertionError("WRONG_REPLAY_SCOPE")
+                    return np.array([190,210,218,251])
+            with patch("hybrid_engine.pregame_direction_evidence.LiveAnalysisLedger._decode",return_value=snapshot),patch(
+                    "hybrid_engine.pregame_direction_evidence.observed_market_evidence",return_value=[receipt()]),patch(
+                    "hybrid_engine.decision_audit.replay_snapshot",return_value=(DummyDistribution(),[])) as replay:
+                out=inspect(report,ledger,assets,replay_qmc=True)
+            model=out["frozen_qmc_direction_replay"]
+            self.assertEqual(model["eligible_replays"],1)
+            self.assertEqual(model["matched"],0)
+            self.assertEqual(model["mismatched"],1)
+            self.assertEqual(model["confusion_matrix"],{"ALT_UST":1})
+            self.assertEqual(model["simulated_direction_differs_from_original_mean_count"],0)
+            self.assertFalse(model["published_direction_proven"])
+            self.assertFalse(model["bookmaker_settlement_proven"])
+            self.assertFalse(out["positive_signed_original_cases_modified"])
+            self.assertEqual(replay.call_count,1)
+
+    def test_replayed_probability_side_may_disagree_with_point_mean_side(self):
+        rows=[
+            dict(fixture_id="example",provider_fixture_ids=["1"],
+                 frozen_qmc_evidence=dict(raw_more_likely_side="UST",
+                    research_regulation_only_side="ALT",
+                    original_mean_side="ALT",line=240,
+                    raw_under_probability=.30,raw_over_probability=.70))
+        ]
+        out=frozen_qmc_report(rows)
+        self.assertEqual(out["confusion_matrix"],{"UST_ALT":1})
+        self.assertEqual(out["simulated_direction_differs_from_original_mean_count"],1)
+        self.assertEqual(out["descriptive_regulation_direction_agreement"],0.0)
+        self.assertFalse(out["published_direction_proven"])
+
+    def test_shadow_qmc_and_timestamped_market_probabilities_scored_on_same_side(self):
+        row=dict(fixture_id="example",provider_fixture_ids=["1"],
+                 frozen_qmc_evidence=dict(
+                    raw_more_likely_side="ALT",
+                    research_regulation_only_side="UST",
+                    original_mean_side="ALT",line=230.5,
+                    raw_under_probability=.75,raw_over_probability=.25,
+                    model_conditional_over_probability=.25,
+                    market_no_vig_over_probability=.5))
+        result=frozen_qmc_report([row])
+        scores=result["paired_raw_probability_vs_market_price"]
+        self.assertEqual(scores["n"],1)
+        self.assertAlmostEqual(scores["original_qmc_conditional_on_no_push"]["brier"],.75**2)
+        self.assertAlmostEqual(scores["timestamped_bookmaker_no_vig_reference"]["brier"],.5**2)
+        self.assertEqual(scores["realized_regulation_over_frequency"],1.0)
+        self.assertFalse(result["published_direction_proven"])
+
+    def test_original_qmc_selected_side_splits_false_alt_from_false_ust(self):
+        entries=[
+            dict(fixture_id="false-alt",provider_fixture_ids=["1"],
+                 frozen_qmc_evidence=dict(
+                    raw_more_likely_side="ALT",research_regulation_only_side="UST",
+                    original_mean_side="ALT",line=233.5,
+                    raw_under_probability=.8,raw_over_probability=.2,
+                    model_conditional_over_probability=.2,
+                    market_no_vig_over_probability=.5)),
+            dict(fixture_id="false-ust",provider_fixture_ids=["2"],
+                 frozen_qmc_evidence=dict(
+                    raw_more_likely_side="UST",research_regulation_only_side="ALT",
+                    original_mean_side="UST",line=240.5,
+                    raw_under_probability=.4,raw_over_probability=.6,
+                    model_conditional_over_probability=.6,
+                    market_no_vig_over_probability=.52)),
+            dict(fixture_id="correct-alt",provider_fixture_ids=["3"],
+                 frozen_qmc_evidence=dict(
+                    raw_more_likely_side="ALT",research_regulation_only_side="ALT",
+                    original_mean_side="ALT",line=215.5,
+                    raw_under_probability=.55,raw_over_probability=.45,
+                    model_conditional_over_probability=.45,
+                    market_no_vig_over_probability=.48))]
+        before=json.dumps(entries,sort_keys=True)
+        out=frozen_qmc_report(entries)
+        self.assertEqual(before,json.dumps(entries,sort_keys=True))
+        self.assertEqual(out["by_original_qmc_selected_side"]["ALT"]["n"],2)
+        self.assertEqual(out["by_original_qmc_selected_side"]["ALT"]["mismatched"],1)
+        self.assertEqual(out["by_original_qmc_selected_side"]["UST"]["mismatched"],1)
+        examples=out["strongest_probability_wrong_side_examples"]
+        self.assertEqual([x["fixture_id"] for x in examples],
+                         ["false-alt","false-ust"])
+        self.assertAlmostEqual(examples[0]["original_model_selected_side_probability"],.8)
+        self.assertFalse(out["published_direction_proven"])
+
+    def test_replay_report_rejects_probability_contradicting_selected_side(self):
+        bad=[dict(fixture_id="bad",provider_fixture_ids=["1"],
+                  frozen_qmc_evidence=dict(
+                      raw_more_likely_side="ALT",research_regulation_only_side="UST",
+                      original_mean_side="ALT",line=220.5,
+                      raw_under_probability=.2,raw_over_probability=.8,
+                      model_conditional_over_probability=.8,
+                      market_no_vig_over_probability=.5))]
+        with self.assertRaisesRegex(ValueError,"SIDE_PROBABILITY_CONFLICT"):
+            frozen_qmc_report(bad)
+
+    def test_frozen_native_recent_history_is_paired_only_as_unpublished_reference(self):
+        rows=[
+            dict(fixture_id="a",provider_fixture_ids=["1"],
+                 saved_score_total=220,
+                 frozen_qmc_evidence=dict(line=230.5,raw_more_likely_side="ALT",
+                    research_regulation_only_side="UST"),
+                 native_pregame_history_reference=dict(
+                    preforecast_recent_cross_mean_total=245.0,
+                    fit_age_days=5.0,new_games_since_fit=4)),
+            dict(fixture_id="b",provider_fixture_ids=["2"],
+                 saved_score_total=240,
+                 frozen_qmc_evidence=dict(line=230.5,raw_more_likely_side="UST",
+                    research_regulation_only_side="UST"),
+                 native_pregame_history_reference=dict(
+                    preforecast_recent_cross_mean_total=210.0,
+                    fit_age_days=2.0,new_games_since_fit=0)),
+            dict(fixture_id="c",provider_fixture_ids=["3"],
+                 saved_score_total=210,
+                 frozen_qmc_evidence=dict(line=230.5,raw_more_likely_side="ALT",
+                    research_regulation_only_side="UST"),
+                 native_pregame_history_reference=None),
+        ]
+        before=json.dumps(rows,sort_keys=True)
+        out=original_recent_history_reference(rows)
+        self.assertEqual(json.dumps(rows,sort_keys=True),before)
+        self.assertEqual(out["counts"]["paired_evaluable"],2)
+        self.assertEqual(out["counts"]["missing_verified_history_reference"],1)
+        self.assertEqual(out["counts"]["reference_only_matched"],1)
+        self.assertEqual(out["counts"]["original_only_matched"],1)
+        self.assertEqual(out["by_new_games_since_fit"]["1-4"]["reference_matched"],1)
+        self.assertFalse(out["reference_was_published_forecast"])
+        self.assertFalse(out["candidate_selected"])
+        self.assertFalse(out["original_forecasts_modified"])
+
+    def test_reference_push_is_not_a_direction_success(self):
+        cases=[dict(fixture_id="push",provider_fixture_ids=["1"],
+                    saved_score_total=220,
+                    frozen_qmc_evidence=dict(line=230.5,
+                        raw_more_likely_side="ALT",research_regulation_only_side="UST"),
+                    native_pregame_history_reference=dict(
+                        preforecast_recent_cross_mean_total=230.5,
+                        fit_age_days=1.0,new_games_since_fit=1))]
+        out=original_recent_history_reference(cases)
+        self.assertEqual(out["counts"]["undecided_or_push"],1)
+        self.assertEqual(out["counts"].get("paired_evaluable",0),0)
+
+    def test_quality_pin_and_bad_quote_rejected(self):
+        _, report=example()
+        report["payload"]["archive_audit"]["performance"]["status"]="BAD"
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            with self.assertRaisesRegex(ValueError,"REPORT_PIN"):
+                inspect(report,root,root)
+        wrong=receipt();wrong["line"]=float("nan")
+        with self.assertRaisesRegex(ValueError,"FINITE"):
+            quote_row(wrong,220,240)
+
+
+if __name__=="__main__":
+    import unittest
+    unittest.main()
