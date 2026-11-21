@@ -14,6 +14,15 @@ if [[ "${1:-}" == "--provider-check" ]]; then
 fi
 # Offline PDF replay is read-only and can run WHILE the isolated bot polls.
 # Never refreshes expired medical evidence, never updates git or predictions.
+# Explicit synthetic offline PLAYER_BAYES smoke. Never starts Telegram,
+# contacts providers, touches first forecasts, or uses production artifacts.
+# Can run in a second Android terminal while the Telegram poller is active.
+if [[ "${1:-}" == "--player-effect-smoke" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_PLAYER_SMOKE_ARGS" >&2; exit 2; fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+  exec "${test_python}" -B -m hybrid_engine.player_effect_smoke \
+    --output "${HOME}/zeynal-test-isolated/data/player-effect-smoke.json"
+fi
 if [[ "${1:-}" == "--roster-pdf-audit" ]]; then
   if [[ "$#" -ne 3 ]]; then echo "INVALID_OFFLINE_PDF_AUDIT_ARGS" >&2; exit 2; fi
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
