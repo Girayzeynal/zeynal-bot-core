@@ -73,3 +73,40 @@ Test on the branch after checkout:
 .venv/bin/python -B -m unittest tests.test_pregame_direction_evidence -v
 ```
 Synthetic tests do not establish real market direction accuracy.
+
+
+## Direction-first mismatch breakdown (new in this branch)
+
+The device census previously showed 33 **unique** settled NBA fixtures with a
+fresh original bookmaker TOTAL line. User's original frozen-mean-vs-line
+research comparison on those 33: **14 matches vs 19 mismatches**, 42.42%
+descriptive regulation-only agreement. No publishing record or official
+bookmaker full-game overtime rules were verified; **not live tip/pick ROI**.
+
+The updated census now adds `direction_research` with:
+- `confusion_matrix`: `ALT_ALT`, `ALT_UST`, `UST_ALT`, `UST_UST`,
+  so false-ALT vs false-ÜST problems can be distinguished;
+- `by_original_mean_line_gap`: fixed, descriptive buckets 0–3, 3–7 and
+  7+ score points, **not fitted decision thresholds**;
+- `by_bookmaker` and `by_score_error_sign`: which side and error sign
+  the mismatches occur on; positive score-error originals are **read only**;
+- `by_overtime_status`: original regulation-only result with
+  known additional OT points distinguished from no OT / missing evidence;
+- deterministic mismatch rows sorted by the *original pregame model–line
+  distance*, not selected by outcome, so even large-advantage mistakes are
+  exposed.
+
+The headline counts **one independent settled fixture only if exactly one
+fresh original bookmaker TOTAL quote** is present. Ambiguous multiple
+books/lines, push outcomes, model exactly on the line and missing/stale
+quotes are separately excluded, **not assumed correct**. No market settlement
+profit, calibration, published-pick hit rate or automatic reverse-pick policy
+is computed.
+
+To see only the important fields, repeat the command above with
+`--summary-only` at the end (after the `--assets` argument). In the output,
+start at `direction_research.confusion_matrix`, then
+`direction_research.by_original_mean_line_gap`, and the mismatch examples.
+
+No historical snapshots, positive original forecasts, score parameters or
+market prices are modified by these read-only queries.
