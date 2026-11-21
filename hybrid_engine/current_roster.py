@@ -433,7 +433,7 @@ class CurrentRosterReview:
                     base['index_failure']=dict(stage='INDEX_FETCH',http_status=403)
                     try:
                         index=self._get(NBA_COM_INJURY_INDEX,deadline)
-                    except ValueError:
+                    except (ValueError,KeyError):
                         alternate_failure=self.last_source_failure
                         if (isinstance(alternate_failure,dict) and
                                 alternate_failure.get('url')==NBA_COM_INJURY_INDEX):
