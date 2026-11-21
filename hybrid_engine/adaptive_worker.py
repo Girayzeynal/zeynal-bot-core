@@ -230,6 +230,16 @@ class AdaptiveWorker:
                             ('INDEX_FETCH','INDEX_DISCOVERY','PDF_FETCH','PDF_ARCHIVE','PDF_EXTRACTION','PLAYER_IDENTITIES','FIXTURE_ROWS') else None,
                         official_http_status=status if type(status) is int and 100<=status<=599 else None,
                         latest_report_verified=diag.get('latest_report_verified') is True,
+                        official_parsed_rows=diag.get('official_parsed_rows') if
+                            type(diag.get('official_parsed_rows')) is int else None,
+                        official_expected_matchup=diag.get('official_expected_matchup') if
+                            isinstance(diag.get('official_expected_matchup'),str) and
+                            3<=len(diag['official_expected_matchup'])<=9 else None,
+                        official_report_matchups_seen=[s for s in
+                            (diag.get('official_report_matchups_seen') or [])[:40]
+                            if isinstance(s,str) and 3<=len(s)<=9 and
+                            all(ch in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ@' for ch in s)]
+                            if isinstance(diag.get('official_report_matchups_seen'),list) else [],
                         official_fixture_rows=diag.get('official_fixture_rows') if
                             type(diag.get('official_fixture_rows')) is int else None)
                 report['player_inputs']={k:result.get(k) for k in ('fixture_id','status','reason','projection','new_record')}
