@@ -256,7 +256,7 @@ class CycleTests(IsolatedAsyncioTestCase):
         self.assertIn('DYNAMIC_RECENT_TEAM_HISTORY_REQUIRED',cycle.render())
         self.assertEqual(app.bot_data['last_current_assessment_poll']['status'],'CHECKED')
 
-    async def test_pregame_minutes_stage_always_precedes_player_shadow_witness_review(self):
+    async def test_shadow_blocker_visible_before_v2_and_witness_refreshed_after_v2(self):
         order=[]
         async def v2():order.append("v2");return dict(status="CHECKED")
         def witness(folder):
@@ -269,7 +269,7 @@ class CycleTests(IsolatedAsyncioTestCase):
         cycle=ResearchCycle(worker,None);app=SimpleNamespace(bot_data={})
         with patch("hybrid_engine.player_shadow.readiness",side_effect=witness):
             await cycle.once(app)
-        self.assertEqual(order,["v2","player_shadow"])
+        self.assertEqual(order,["player_shadow","v2","player_shadow"])
         self.assertEqual(cycle.stages["player_shadow"]["status"],"COMPLETED")
         self.assertEqual(app.bot_data["last_player_shadow_poll"]["prospective_minutes_games"],0)
         self.assertNotIn("player_model_published",app.bot_data)
