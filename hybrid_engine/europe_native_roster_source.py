@@ -185,7 +185,7 @@ async def telegram_command(update,context):
             state["last_sourceplayers_native_receipt"]=dict(
                 format="REAL_NATIVE_EURO_SEASON_REGISTRATION_OBSERVATION_V1",
                 league=ctx["league"],season=ctx["season"],
-                captured_at_utc=int(__import__("time").time()),
+                captured_at_utc=int(time.time()),
                 teams=summaries,
                 roster_confirmed_for_game=False,
                 numeric_player_effect_applied=False)
