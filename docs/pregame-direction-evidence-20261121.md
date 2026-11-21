@@ -175,3 +175,47 @@ No arbitrary score correction, no reverse-the-model policy, no P95 widening,
 no outcome-dependent cutoff selection, and no modification of original
 positive signed-error forecasts. To collect actual results on UserLAnd run
 `--summary-only --replay-qmc` with the same pinned report and source paths.
+
+## 2026-11-21: prioritize pre-forecast feature responsiveness, not speculative price corrections
+
+User-device original QMC selected-side results on 33 fixtures:
+- QMC said ALT in 21: mean raw selected ALT probability 56.02%, original
+  result matched 8/21 (38.10%), mismatch 13/21.
+- QMC said ÜST in 12: mean raw selected ÜST probability 56.94%, matched
+  6/12 (50.00%), mismatched 6/12.
+- Market original no-vig selected-side mean near 50% in both groups; this
+  is **not a reliable betting edge** and these probabilities are uncalibrated.
+- Bad-confidence examples include Wizards–Grizzlies (QMC ALT 68.96%,
+  actual regulation ÜST), Pelicans–Warriors (QMC ÜST 67.57%, actual ALT).
+
+**Next read-only candidate diagnostic**: compare the QMC original raw direction
+against the **historical preforecast raw-scoring cross mean** retained in the
+existing frozen input profile. The reference is named
+`PREGAME_LAST_N_FOR_AGAINST_CROSS_MEAN`. The code enforces original exact
+fixture SHA, model digest, generated-at clock and reference fields
+`published_forecast=false`, `fitted_on_outcome=false`,
+`eligible_for_live_performance=false` before use. It was **never published
+as a forecast**, and no new original forecasts are created.
+
+Run the command shown above adding `--history-summary-only` (instead of
+`--prob-summary-only`):
+
+```bash
+git fetch origin feature/pregame-direction-evidence-20261121
+git show FETCH_HEAD:hybrid_engine/pregame_direction_evidence.py |
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B - \
+  --report "$HOME/zeynal-test-isolated/data/quality-phase924/reports/quality-4b2be633584586dd439fcfc3f6414001217ac4d9f8c60a9d8fc68c6e17a7a2f1.json" \
+  --ledger "$HOME/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite" \
+  --assets "$HOME/zeynal-test-isolated/data/live-nba/assets" \
+  --history-summary-only
+```
+
+Report separates exact pair count, QMC-only correct, reference-only correct,
+both correct/both wrong, prefit age bands 0-3/3-7/7+ days and count of fresh
+games after fit 0/1-4/5+, and all missing original input profiles. **This is
+a history-only research reference, not evidence to select a better model
+based on 33 already-known finals.** It does not establish any causal effect
+of model fit age, omitted injury or pace; those effects must be forward tested.
+Positive original signed-score errors are inspected only as immutable
+outcomes on original lines and are never overwritten, refitted, shifted or
+published as revised historical predictions.
