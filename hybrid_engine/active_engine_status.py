@@ -28,6 +28,12 @@ def describe(state, root, *, now=None):
     last_check=report.get("completed_at_utc") or report.get("evaluated_at_utc")
     player_inputs=report.get("player_inputs") if isinstance(report.get("player_inputs"),dict) else {}
     player_capture=report.get("player_capture") if isinstance(report.get("player_capture"),dict) else {}
+    progress=getattr(worker,"progress",{}) if worker is not None else {}
+    if not isinstance(progress,dict):progress={}
+    phase=progress.get("phase","NOT_STARTED")
+    phase_at=progress.get("phase_at_utc")
+    input_status=progress.get("player_input_status") or player_inputs.get("status") or "NO_PREGAME_MINUTES_ATTEMPT_OBSERVED"
+    attempted=input_status not in ("NO_ATTEMPT_OBSERVED","NO_PREGAME_MINUTES_ATTEMPT_OBSERVED","NO_ELIGIBLE_NBA_OR_PRETIPOFF_SNAPSHOT")
     # Read only the already created research store; this is not a source request.
     shadow=dict(status="READINESS_UNAVAILABLE",prospective_minutes_games=None,
                 prepared_artifacts=None,production_enabled=False)
@@ -48,10 +54,10 @@ def describe(state, root, *, now=None):
         format=VERSION,examined_at_utc=now,
         modes=dict(player_minutes=dict(
                        code_loaded=worker is not None,
-                       actual_research_collection_attempt=bool(player_inputs),
-                       last_status=player_inputs.get("status","NO_PREGAME_MINUTES_ATTEMPT_OBSERVED"),
+                       actual_research_collection_attempt=attempted,
+                       last_status=input_status,
                        reason=player_inputs.get("reason"),
-                       valid_prospective_packet_confirmed=player_inputs.get("status") in
+                       valid_prospective_packet_confirmed=input_status in
                         ("PROSPECTIVE_MINUTES_ARCHIVED","EXISTING_MINUTES_REPLAY")),
                    player_shadow=dict(code_importable=True,
                        background_witness_stage=(stages.get("player_shadow") or {}).get("status","NOT_OBSERVED"),
@@ -66,6 +72,11 @@ def describe(state, root, *, now=None):
                        research_cycle_installed=cycle is not None,
                        background_stage=adaptive_status.get("status","NOT_OBSERVED"),
                        job_sequence=getattr(worker,"sequence",None),
+                       live_phase=phase,
+                       live_phase_started_at_utc=phase_at,
+                       live_phase_elapsed_seconds=max(0,now-phase_at) if type(phase_at) is int else None,
+                       live_phase_source_scope=progress.get("source_scope"),
+                       live_fixture_id=progress.get("fixture_id"),
                        latest_status=report.get("status","NO_ADAPTIVE_RESEARCH_REPORT_OBSERVED"),
                        last_check_utc=last_check,
                        competition_groups=teams)),
