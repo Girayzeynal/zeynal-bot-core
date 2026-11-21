@@ -155,6 +155,15 @@ def research_direction_summary(fixtures):
         mismatched=status["research_direction_mismatched"],
         descriptive_regulation_direction_agreement=(status["research_direction_matched"]/n if n else None),
         confusion_matrix=dict(matrix),
+        research_side_counts=dict(
+            model_ALT=matrix["ALT_ALT"]+matrix["ALT_UST"],
+            model_UST=matrix["UST_ALT"]+matrix["UST_UST"],
+            actual_regulation_ALT=matrix["ALT_ALT"]+matrix["UST_ALT"],
+            actual_regulation_UST=matrix["ALT_UST"]+matrix["UST_UST"]),
+        descriptive_constant_side_references=dict(
+            always_ALT=(matrix["ALT_ALT"]+matrix["UST_ALT"])/n if n else None,
+            always_UST=(matrix["ALT_UST"]+matrix["UST_UST"])/n if n else None,
+            reference_class="POSTHOC_BASE_RATES_NOT_PREGAME_PICKS_OR_VALIDATED_STRATEGY"),
         by_bookmaker=dict(sorted(by_book.items())),
         by_original_mean_line_gap=dict(sorted(by_gap.items())),
         by_score_error_sign=dict(sorted(signed_groups.items())),
@@ -290,6 +299,8 @@ def main():
             "actual_bookmaker_direction_settlement_rate",
             "original_forecasts_changed","positive_signed_original_cases_modified",
             "production_changed","quality_report_bytes_unchanged")}
+        report["direction_research"]["mismatches_sorted_by_original_mean_line_distance"]=(
+            report["direction_research"]["mismatches_sorted_by_original_mean_line_distance"][:8])
     print(json.dumps(report,ensure_ascii=False,indent=2,sort_keys=True))
 
 
