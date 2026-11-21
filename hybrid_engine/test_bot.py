@@ -569,6 +569,24 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 progress.get('player_input_status','NO_ATTEMPT_OBSERVED')
                 if isinstance(progress,dict) else 'NOT_OBSERVED')
             record['live_player_model_coefficients_applied']=False
+            # Verify the REAL archived inputs separately from the synthetic
+            # smoke. A roster row or a made-up injury never counts as a
+            # prospective training example.
+            try:
+                from hybrid_engine.player_shadow import readiness as player_readiness
+                actual=await asyncio.wait_for(asyncio.to_thread(
+                    player_readiness,root/'player-shadow'),timeout=5)
+                record['real_player_inputs']=dict(
+                    status=actual['status'],
+                    prospective_minutes_games=actual['prospective_minutes_games'],
+                    rejected_inputs=actual['rejected_inputs'],
+                    prepared_artifacts=actual['prepared_artifacts'],
+                    offline_fit_target_games=actual['minimum_fit_games'],
+                    calibration_status=actual['calibration_status'],
+                    production_enabled=actual['production_enabled'])
+            except (ValueError,KeyError,TypeError,OSError,asyncio.TimeoutError):
+                record['real_player_inputs']=dict(status='READ_UNAVAILABLE_NOT_VERIFIED')
+            record['europe_player_score_models']='NOT_VERIFIED_BY_NBA_SYNTHETIC_SMOKE'
             if not path.is_file() or path.is_symlink() or path.stat().st_size>18000:
                 record['synthetic_demo']='NOT_RUN'
                 record['next_step']='UserLAnd: bash scripts/run_isolated_test_bot.sh --player-effect-smoke'
