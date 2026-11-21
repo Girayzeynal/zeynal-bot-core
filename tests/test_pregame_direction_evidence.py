@@ -219,6 +219,52 @@ class DirectionEvidenceTests(TestCase):
         self.assertEqual(scores["realized_regulation_over_frequency"],1.0)
         self.assertFalse(result["published_direction_proven"])
 
+    def test_original_qmc_selected_side_splits_false_alt_from_false_ust(self):
+        entries=[
+            dict(fixture_id="false-alt",provider_fixture_ids=["1"],
+                 frozen_qmc_evidence=dict(
+                    raw_more_likely_side="ALT",research_regulation_only_side="UST",
+                    original_mean_side="ALT",line=233.5,
+                    raw_under_probability=.8,raw_over_probability=.2,
+                    model_conditional_over_probability=.2,
+                    market_no_vig_over_probability=.5)),
+            dict(fixture_id="false-ust",provider_fixture_ids=["2"],
+                 frozen_qmc_evidence=dict(
+                    raw_more_likely_side="UST",research_regulation_only_side="ALT",
+                    original_mean_side="UST",line=240.5,
+                    raw_under_probability=.4,raw_over_probability=.6,
+                    model_conditional_over_probability=.6,
+                    market_no_vig_over_probability=.52)),
+            dict(fixture_id="correct-alt",provider_fixture_ids=["3"],
+                 frozen_qmc_evidence=dict(
+                    raw_more_likely_side="ALT",research_regulation_only_side="ALT",
+                    original_mean_side="ALT",line=215.5,
+                    raw_under_probability=.55,raw_over_probability=.45,
+                    model_conditional_over_probability=.45,
+                    market_no_vig_over_probability=.48))]
+        before=json.dumps(entries,sort_keys=True)
+        out=frozen_qmc_report(entries)
+        self.assertEqual(before,json.dumps(entries,sort_keys=True))
+        self.assertEqual(out["by_original_qmc_selected_side"]["ALT"]["n"],2)
+        self.assertEqual(out["by_original_qmc_selected_side"]["ALT"]["mismatched"],1)
+        self.assertEqual(out["by_original_qmc_selected_side"]["UST"]["mismatched"],1)
+        examples=out["strongest_probability_wrong_side_examples"]
+        self.assertEqual([x["fixture_id"] for x in examples],
+                         ["false-alt","false-ust"])
+        self.assertAlmostEqual(examples[0]["original_model_selected_side_probability"],.8)
+        self.assertFalse(out["published_direction_proven"])
+
+    def test_replay_report_rejects_probability_contradicting_selected_side(self):
+        bad=[dict(fixture_id="bad",provider_fixture_ids=["1"],
+                  frozen_qmc_evidence=dict(
+                      raw_more_likely_side="ALT",research_regulation_only_side="UST",
+                      original_mean_side="ALT",line=220.5,
+                      raw_under_probability=.2,raw_over_probability=.8,
+                      model_conditional_over_probability=.8,
+                      market_no_vig_over_probability=.5))]
+        with self.assertRaisesRegex(ValueError,"SIDE_PROBABILITY_CONFLICT"):
+            frozen_qmc_report(bad)
+
     def test_quality_pin_and_bad_quote_rejected(self):
         _, report=example()
         report["payload"]["archive_audit"]["performance"]["status"]="BAD"
