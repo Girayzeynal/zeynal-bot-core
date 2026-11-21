@@ -256,6 +256,24 @@ class CycleTests(IsolatedAsyncioTestCase):
         self.assertIn('DYNAMIC_RECENT_TEAM_HISTORY_REQUIRED',cycle.render())
         self.assertEqual(app.bot_data['last_current_assessment_poll']['status'],'CHECKED')
 
+    async def test_pregame_minutes_stage_always_precedes_player_shadow_witness_review(self):
+        order=[]
+        async def v2():order.append("v2");return dict(status="CHECKED")
+        def witness(folder):
+            order.append("player_shadow")
+            self.assertEqual(str(folder),"isolated/player-shadow")
+            return dict(status="BLOCKED_NO_PROSPECTIVE_PLAYER_MINUTES",
+                        prospective_minutes_games=0,prepared_artifacts=0,
+                        production_enabled=False)
+        worker=SimpleNamespace(tick=v2,research=SimpleNamespace(players="isolated/player-shadow"))
+        cycle=ResearchCycle(worker,None);app=SimpleNamespace(bot_data={})
+        with patch("hybrid_engine.player_shadow.readiness",side_effect=witness):
+            await cycle.once(app)
+        self.assertEqual(order,["v2","player_shadow"])
+        self.assertEqual(cycle.stages["player_shadow"]["status"],"COMPLETED")
+        self.assertEqual(app.bot_data["last_player_shadow_poll"]["prospective_minutes_games"],0)
+        self.assertNotIn("player_model_published",app.bot_data)
+
     async def test_running_stage_is_visible_and_cancellation_does_not_start_parallel_fits(self):
         entered=asyncio.Event();gate=asyncio.Event()
         async def v2():entered.set();await gate.wait()
