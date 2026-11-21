@@ -77,6 +77,7 @@ class OfficialNBAComDirectoryTests(TestCase):
         self.assertNotIn(f.PDF_URL,self.calls)
         self.assertFalse(result.get("latest_report_verified",False))
         self.assertEqual(result["index_failure"]["http_status"],403)
+        self.assertEqual(result["alternate_index_failure"]["http_status"],403)
         self.mirror_code=200
         self.html=b'<html><a href="https://evil.invalid/Report.pdf">bad</a></html>'
         result=self.review()
