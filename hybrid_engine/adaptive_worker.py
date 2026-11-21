@@ -146,30 +146,15 @@ class AdaptiveWorker:
             # Prospective player inputs accumulate without a night-time command.
             # A lack of official corroboration stays an explicit block.
             eligible=[c for c in cases if c['code']=='NBA' and self.player_retry.get(c['target']['fixture_id'],0)<=int(time.time())]
+            player_case=None
             if not eligible:
                 self.progress['player_input_status']='NO_ELIGIBLE_NBA_OR_PRETIPOFF_SNAPSHOT'
             if eligible:
-                c=eligible[0];fid=c['target']['fixture_id'];self.player_retry[fid]=int(time.time())+900
+                c=eligible[0];player_case=c;fid=c['target']['fixture_id'];self.player_retry[fid]=int(time.time())+900
                 self._phase('PREGAME_PLAYER_MINUTES_SOURCE',fixture_id=fid,player_input_status='RUNNING')
                 result=await asyncio.to_thread(collect_player_inputs,c['snapshot'],self.nba.assets,self.research.players)
                 self.progress['player_input_status']=result.get('status','UNKNOWN')
                 report['player_inputs']={k:result.get(k) for k in ('fixture_id','status','reason','projection','new_record')}
-                if result['status'] in ('PROSPECTIVE_MINUTES_ARCHIVED','EXISTING_MINUTES_REPLAY'):
-                    def player_capture():
-                        files=list(self.research.models.glob('model-*.json'))
-                        if len(files)>4096:raise ValueError('ADAPTIVE_MODEL_SCAN_BUDGET')
-                        models=[read_wrapper(f) for f in files]
-                        models=[m for m in models if m['payload']['league']=='NBA' and m['payload']['season']==c['target']['season'] and
-                                m['payload']['player_pair'] is not None and 0<=int(time.time())-m['payload']['cutoff_utc']<=21600]
-                        if not models:raise Abstain('ADAPTIVE_PROSPECTIVE_PLAYER_MODEL_NOT_READY')
-                        model=max(models,key=lambda m:m['payload']['prepared_at_utc'])
-                        return self.research.capture_player(c['target'],c['original'],model,self.verify)
-                    self._phase('PLAYER_BAYES_SHADOW_CANDIDATE',fixture_id=fid)
-                    try:
-                        p,new=await asyncio.to_thread(player_capture)
-                        report['player_capture']=dict(status='ARCHIVED' if new else 'REPLAY',forecast_sha256=digest(p),fixture_id=fid)
-                    except (ValueError,KeyError,TypeError,OSError):
-                        report['player_capture']=dict(status='ABSTAIN',reason='ADAPTIVE_PROSPECTIVE_PLAYER_MODEL_OR_FRESH_INPUTS_REQUIRED')
             scopes=sorted({(c['code'],c['target']['season']) for c in cases})
             if scopes:
                 code,season=scopes[(self.sequence-1)%len(scopes)]
@@ -205,6 +190,23 @@ class AdaptiveWorker:
                 except (ValueError,KeyError,TypeError,OSError) as exc:
                     state.update(status='ABSTAIN',reason='ADAPTIVE_NATIVE_BOX_HISTORY_OR_MODEL_INSUFFICIENT',error_type=type(exc).__name__)
                 self.group_reports[code]=dict(state,observed_at_utc=int(time.time()))
+            if player_case is not None and (report.get('player_inputs') or {}).get('status') in ('PROSPECTIVE_MINUTES_ARCHIVED','EXISTING_MINUTES_REPLAY'):
+                c=player_case;fid=c['target']['fixture_id']
+                    def player_capture():
+                        files=list(self.research.models.glob('model-*.json'))
+                        if len(files)>4096:raise ValueError('ADAPTIVE_MODEL_SCAN_BUDGET')
+                        models=[read_wrapper(f) for f in files]
+                        models=[m for m in models if m['payload']['league']=='NBA' and m['payload']['season']==c['target']['season'] and
+                                m['payload']['player_pair'] is not None and 0<=int(time.time())-m['payload']['cutoff_utc']<=21600]
+                        if not models:raise Abstain('ADAPTIVE_PROSPECTIVE_PLAYER_MODEL_NOT_READY')
+                        model=max(models,key=lambda m:m['payload']['prepared_at_utc'])
+                        return self.research.capture_player(c['target'],c['original'],model,self.verify)
+                    self._phase('PLAYER_BAYES_SHADOW_CANDIDATE',fixture_id=fid)
+                    try:
+                        p,new=await asyncio.to_thread(player_capture)
+                        report['player_capture']=dict(status='ARCHIVED' if new else 'REPLAY',forecast_sha256=digest(p),fixture_id=fid)
+                    except (ValueError,KeyError,TypeError,OSError):
+                        report['player_capture']=dict(status='ABSTAIN',reason='ADAPTIVE_PROSPECTIVE_PLAYER_MODEL_OR_FRESH_INPUTS_REQUIRED')
             report['groups']=dict(self.group_reports)
             self._phase('REVIEW_ACTUAL_MODEL_METRICS')
             report['performance']=await asyncio.to_thread(self.research.performance,await asyncio.to_thread(self.labels))
