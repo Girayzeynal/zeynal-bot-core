@@ -209,7 +209,7 @@ class AdaptiveWorker:
                         missing_absence_count=count if type(count) is int and 0<=count<=100 else None,
                         examples=summaries,
                         official_stage=diag.get('official_stage') if diag.get('official_stage') in
-                            ('INDEX_FETCH','INDEX_DISCOVERY','PDF_FETCH','PDF_EXTRACT','ROSTER_IDENTITY','NBA_ROWS') else None,
+                            ('INDEX_FETCH','INDEX_DISCOVERY','PDF_FETCH','PDF_ARCHIVE','PDF_EXTRACTION','PLAYER_IDENTITIES','FIXTURE_ROWS') else None,
                         official_http_status=status if type(status) is int and 100<=status<=599 else None,
                         latest_report_verified=diag.get('latest_report_verified') is True,
                         official_fixture_rows=diag.get('official_fixture_rows') if
