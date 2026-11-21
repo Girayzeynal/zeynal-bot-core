@@ -511,7 +511,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
-        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime','integrations','predictions'):
+        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime','integrations','engines','predictions'):
             await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test integrations, /test predictions, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
@@ -539,6 +539,13 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 lines.append(f'İşçi kuyruğunda bekleme (sn): {max(0,queue):.2f}')
                 lines.append('Arşiv doğrulama süresi (sn): '+
                     ('henüz başlamadı' if started is None else f"{max(0,(read.get('finished_at') or now)-started):.2f}"))
+        if mode=='engines':
+            from hybrid_engine.active_engine_status import describe as engine_status
+            from hybrid_engine.predictions_command import split_plain
+            report=await asyncio.to_thread(engine_status,app.bot_data,root)
+            for part in split_plain(json.dumps(report,ensure_ascii=False,indent=2),limit=3200):
+                await message.reply_text(part,parse_mode=None)
+            raise ApplicationHandlerStop
         if mode=='integrations':
             from hybrid_engine.production_parity import runtime_command
             await runtime_command(update,context)
