@@ -230,7 +230,7 @@ class RosterPureTests(TestCase):
             elif alteration=='wrong_name':
                 identities['away']['name']='Another Franchise'
             else:
-                identities['home']['abbreviation']='SAS'
+                identities['home']['abbreviation']='XX'
             result,_=nba_rows(bad,identities,dirs,ctx,int(when.timestamp())-3600)
             if alteration in ('wrong_date','wrong_time'):
                 self.assertEqual(len(result),1)
