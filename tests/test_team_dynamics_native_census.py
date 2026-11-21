@@ -43,7 +43,7 @@ class NativeReadOnlyIntegrationTests(unittest.TestCase):
         p,r,c=records()
         original=copy.deepcopy(c)
         for side in ('home','away'):
-            tid=c['features'][side]['team_id'] if 'features' in c else ('TEAM-A' if side=='home' else 'TEAM-B')
+            tid=('TEAM-A' if side=='home' else 'TEAM-B')
             if 'features' not in c:
                 c['features']={}
             c['features'][side]=dict(team_id=tid,n_games=3,boxes=[])
@@ -76,6 +76,7 @@ class NativeReadOnlyIntegrationTests(unittest.TestCase):
             historical_player_box_coverage(c)
         c['features']['home']['boxes'][0][1]['players'].pop()
         c['features']['home']['boxes'][0][2]='away'
+        c['features']['home']['boxes'][0][3]='home'
         with self.assertRaisesRegex(ValueError,'BOX_HISTORICAL_IDENTITY'):
             historical_player_box_coverage(c)
 
