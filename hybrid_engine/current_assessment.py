@@ -289,6 +289,9 @@ def install_display(state,assessments):
     base=state['verified_analysis_service']
     class Display:
         ledger=getattr(base,'ledger',None)
+        def __init__(self):
+            # Expose the read-only wrapper chain to /test runtime diagnostics.
+            self.base=base
         async def analyze(self,league,*args):
             import asyncio
             response=await base.analyze(league,*args)
