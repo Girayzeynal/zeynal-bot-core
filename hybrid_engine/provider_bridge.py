@@ -486,12 +486,17 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
     report = bridge.collect(snapshot)
     parts = [render(report)]
     direction_cards=[]
+    # Exact source/model context used to evaluate returned direction cards.
+    # Expose only an authenticated current-assessment snapshot, never the old first-model pin.
+    market_candidate_snapshot=None
     observations = report['providers'].get('THE_ODDS_API', {}).get('observations', [])
     if observations:
         assessment=bridge.assessments.available_market_context(snapshot) if getattr(bridge,'assessments',None) else None
         if getattr(bridge,'assessments',None) and assessment is None:
             parts.append('Güncel değerlendirme yolları hazır/güncel değil; piyasa ilk tahminin dağılımıyla ayrı referans olarak gösteriliyor.')
         evaluation_snapshot,distribution=assessment if assessment else (snapshot,replay_nba(snapshot,service))
+        if assessment is not None:
+            market_candidate_snapshot=evaluation_snapshot
         row=report['providers']['THE_ODDS_API']
         try:
             discovery=bridge.read_receipt(row['discovery_source_pin'])
@@ -518,4 +523,5 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
                     direction_cards.extend(cards(review,distribution.forecast,
                         tipoff_utc=snapshot['fixture_start_utc'],fixture_id=snapshot['fixture_id'],batch=batch))
     full='\n\n'.join(parts)
-    return dict(html=full,cards=direction_cards) if structured else full
+    return (dict(html=full,cards=direction_cards,market_candidate_snapshot=market_candidate_snapshot)
+            if structured else full)
