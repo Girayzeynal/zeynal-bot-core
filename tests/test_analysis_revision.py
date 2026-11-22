@@ -295,7 +295,7 @@ class CycleTests(IsolatedAsyncioTestCase):
         worker=SimpleNamespace(tick=v2);study=SimpleNamespace(tick=v3,last_report=None)
         cycle=ResearchCycle(worker,study,SimpleNamespace(tick=current));app=SimpleNamespace(bot_data={})
         await cycle.once(app)
-        self.assertEqual(order,['v2','v3','current']);self.assertIn('FAILED',cycle.render())
+        self.assertEqual(order,['v2','current','v3']);self.assertIn('FAILED',cycle.render())
         self.assertIn('DYNAMIC_RECENT_TEAM_HISTORY_REQUIRED',cycle.render())
         self.assertEqual(app.bot_data['last_current_assessment_poll']['status'],'CHECKED')
 

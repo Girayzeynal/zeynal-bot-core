@@ -36,7 +36,7 @@ def compact_summary(snapshot,evidence,*,replayed,health=None,market_note=None,di
     lines=[f'🏀 <b>ZEYNAL | {league} ANALİZ</b>',
         '<b>'+esc(str(snapshot['home']['official_name']))+'</b> 🆚 <b>'+esc(str(snapshot['away']['official_name']))+'</b>',
         start+f' TSİ · Normal süre ({minutes} dk)','',
-        '📊 <b>SKOR PROJEKSİYONU</b>',
+        '📊 <b>İLK KAYITLI SKOR PROJEKSİYONU</b>',
         f'Ev <b>{p["home"]:.1f}</b> · Dep <b>{p["away"]:.1f}</b>',
         f'Toplam <b>{p["total"]:.1f}</b> · Ev farkı {p["margin"]:+.1f}','']
     if direction_card is not None and direction_card.get('current'):

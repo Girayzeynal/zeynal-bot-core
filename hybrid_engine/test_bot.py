@@ -514,7 +514,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             from hybrid_engine.research_diagnostics import ObservedResearch
             v3_protocol=namespace(root,'nba-v3',policy=V3_POLICY,source_pins=v3_pins())
             app.bot_data['issue90_research']=ObservedResearch(Research(v3_protocol,app.bot_data['adaptive_v2_worker']))
-        from hybrid_engine.current_assessment import CurrentAssessments,install_display, POLICY as ASSESS_POLICY
+        from hybrid_engine.current_assessment import CurrentAssessments, POLICY as ASSESS_POLICY
         from hybrid_engine.issue90_research import pins as assessment_pins
         from hybrid_engine.research_diagnostics import ResearchCycle
         # The current-assessment implementation is itself part of the
@@ -533,7 +533,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         app.bot_data['research_cycle']=ResearchCycle(app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'),assessments)
         for bridge in (provider_bridge,getattr(app.bot_data.get('europe_data_review'),'bridge',None)):
             if bridge is not None:bridge.assessments=assessments
-        install_display(app.bot_data,assessments)
+        from hybrid_engine.current_assessment_ui import install_dual_clock_display
+        install_dual_clock_display(app.bot_data,assessments)
     async def journal_write(key,event):
         request=app.bot.request
         if isinstance(request,AuditedRequest):return await request.append_journal(journal,key,event)
