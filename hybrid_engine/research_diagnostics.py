@@ -151,8 +151,9 @@ class ResearchCycle:
         # delay the score's pre-tipoff publication until after its deadline.
         if self.assessments:
             preferred=(self.requested_fixtures.pop(0) if self.requested_fixtures else None)
-            await self._stage('current_assessment',
-                lambda:self.assessments.tick(preferred_fixture_id=preferred),app)
+            publish=(self.assessments.tick if preferred is None else
+                     lambda:self.assessments.tick(preferred_fixture_id=preferred))
+            await self._stage('current_assessment',publish,app)
         if self.study:await self._stage('issue90',self.study.tick,app)
 
     async def run(self,app):
