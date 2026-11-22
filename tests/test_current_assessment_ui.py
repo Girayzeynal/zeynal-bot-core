@@ -153,6 +153,40 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         a.latest.assert_not_called()
 
 
+    async def test_long_archived_forecast_cannot_hide_health_card_from_first_audit_page(self):
+        from telegram import InlineKeyboardButton,InlineKeyboardMarkup
+        from hybrid_engine.telegram_premium_ui import page_view
+        token='f'*12
+        ctx=dict(league='NBA',fixture_id='x',season='2026/2027',
+            home=dict(provider_id='1',official_name='Home'),
+            away=dict(provider_id='2',official_name='Away'),
+            fixture_start_utc=NOW+10800,prediction_generated_at_utc=NOW-86400,
+            prediction=dict(home=105.,away=115.,total=220.))
+        original_summary='OLD 220\n'+('ORIGINAL ARCHIVE DETAILS\n'*250)
+        report=dict(status='ANALYSIS_OK',snapshot=ctx,html='OLD 220',
+            html_parts=['OLD 220'],reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton('Model / Kaynak',callback_data='zui:'+token+':audit')]]))
+        original=dict(summary=original_summary,chat_id=17,
+            sections=dict(period='ORIGINAL 1Q 51',ranges='ORIGINAL TOTAL 220',
+                market='ORIGINAL OLD MARKET',audit='🛡 <b>TAHMİN SAĞLIK KARTI</b>\n'
+                'NOT_CALIBRATED\nOriginal source audit'),
+            section_pages=dict(audit=['Old audit before wrapper']))
+        a=SimpleNamespace(latest=Mock(return_value=None),
+            refresh_fixture=Mock(side_effect=AssertionError('MUST NOT FIT')))
+        state=dict(verified_analysis_service=SimpleNamespace(analyze=AsyncMock(return_value=report)),
+            premium_reports={token:original})
+        install_dual_clock_display(state,a)
+        with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
+            await state['verified_analysis_service'].analyze('NBA','day','Home','Away')
+        entry=state['premium_reports'][token]
+        self.assertGreater(len(entry['section_pages']['audit']),1)
+        first,count=page_view(entry,'audit',0,now=NOW)
+        self.assertGreater(count,1)
+        self.assertIn('TAHMİN SAĞLIK KARTI',first)
+        self.assertIn('NOT_CALIBRATED',first)
+        self.assertIn('ORIGINAL OLD MARKET',entry['sections']['audit'])
+        a.refresh_fixture.assert_not_called()
+
     async def test_telegram_cached_buttons_are_rebound_to_same_new_candidate(self):
         from telegram import InlineKeyboardButton,InlineKeyboardMarkup
         context,latest=CurrentPanelsTests().setup_case()
@@ -168,7 +202,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
                 InlineKeyboardButton('Periyotlar',callback_data='zui:'+token+':period')]]))
         original=dict(summary='ORIGINAL SUMMARY 220',chat_id=17,
             sections=dict(period='ORIGINAL 1Q 51',ranges='ORIGINAL P50 220',
-                market='ORIGINAL OLD PRICE',audit='SOURCE AUDIT'),
+                market='ORIGINAL OLD PRICE',audit='🛡 <b>TAHMİN SAĞLIK KARTI</b>\nSOURCE AUDIT'),
             section_pages=dict(audit=['SOURCE AUDIT']))
         a=SimpleNamespace(latest=Mock(return_value=latest),
             refresh_fixture=Mock(return_value=dict(status='READY')))
@@ -185,6 +219,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('ORIGINAL P50 220',entry['sections']['ranges'])
         self.assertIn('ORIGINAL P50 220',entry['sections']['audit'])
         self.assertIn('ORIGINAL OLD PRICE',entry['sections']['audit'])
+        self.assertTrue(entry['section_pages']['audit'][0].startswith('🛡 <b>TAHMİN SAĞLIK KARTI</b>'))
         self.assertIn('EŞLEŞMİŞ PİYASA HESABI YOK',entry['sections']['market'])
         a.latest.assert_called_once_with(context)
 
