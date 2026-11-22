@@ -189,7 +189,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         # stored forecast or introduces uncalibrated player score corrections.
         app.bot_data['auto_nba_player_pipeline']=dict(
             reviewer=app.bot_data['current_roster_review'],
-            assets=nba_service.assets,directory=root/'player-shadow',
+            assets=getattr(nba_service,'assets',None),directory=root/'player-shadow',
             chat_id=chat_id,cooldown_seconds=300)
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');results=ProspectiveResults(archive,root/'official-results')
     frozen=FrozenHybridService(archive)
