@@ -182,6 +182,12 @@ class CurrentAssessments:
             if not any(c['target']['fixture_id']==preferred_fixture_id for c in cases):
                 captures.append(dict(status='ABSTAIN',reason='CURRENT_REQUESTED_FIXTURE_NOT_ELIGIBLE',
                     error_type='Abstain'))
+        targeted='NOT_REQUESTED'
+        if preferred_fixture_id:
+            eligible=any(c['target']['fixture_id']==preferred_fixture_id for c in cases)
+            in_ready=any(c['target']['fixture_id']==preferred_fixture_id for c in ready)
+            targeted=('IN_PROCESSING_BATCH' if in_ready else
+                      'NOT_ELIGIBLE' if not eligible else 'ALREADY_RECORDED_THIS_HOUR')
         for c in ready[:2]:
             try:
                 t=c['target']
@@ -193,8 +199,19 @@ class CurrentAssessments:
                 captures.append(dict(status='ARCHIVED' if new else 'REPLAY',fixture_id=t['fixture_id'],sha256=digest(p)))
             except (ValueError,KeyError,TypeError,OSError,RuntimeError) as exc:
                 captures.append(dict(status='ABSTAIN',reason=reason(exc),error_type=type(exc).__name__))
-        self.last_report=dict(status='PARTIAL_ABSTAIN' if any(r['status']=='ABSTAIN' for r in captures) else 'CHECKED',
+        if preferred_fixture_id and targeted=='IN_PROCESSING_BATCH':
+            matched=[r for r in captures if r.get('fixture_id')==preferred_fixture_id]
+            targeted=('PUBLISHED_OR_REPLAYED' if any(r.get('status') in ('ARCHIVED','REPLAY') for r in matched)
+                      else 'FAILED_OR_ABSTAIN' if any(r.get('status')=='ABSTAIN' for r in captures)
+                      else 'NOT_PROCESSED')
+        published=sum(r.get('status')=='ARCHIVED' for r in captures)
+        # A completed cycle with no publication is not a newly published score.
+        self.last_report=dict(status='PARTIAL_ABSTAIN' if any(r['status']=='ABSTAIN' for r in captures) else
+            'CHECKED_NO_NEW_CANDIDATE' if published==0 else 'CHECKED',
             observed_at_utc=int(time.time()),captures=captures,originals_changed=False,
+            candidate_published_count=published,capture_attempt_count=len(captures),
+            eligible_not_yet_saved_count=len(ready),
+            requested_fixture_id=preferred_fixture_id,requested_fixture_status=targeted,
             performance=self.performance(self.worker.labels()))
         return self.last_report
 
