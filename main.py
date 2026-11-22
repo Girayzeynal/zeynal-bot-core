@@ -142,8 +142,12 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             report=await release_service.analyze(league,date_str,home,away)
         except Exception as exc:
-            logger.error('Analysis service failed: %s',type(exc).__name__)
-            await update.message.reply_text('Analiz hizmeti kullanılamıyor veya süre aşıldı. Arşiv durumu doğrulanamadı.')
+            from hybrid_engine.analysis_exception_diagnostic import summarize,render
+            failure=summarize(exc)
+            context.application.bot_data.setdefault('last_analysis_failure',{})[league.upper()]=failure
+            logger.error('Analysis service failed: code=%s stage=%s',
+                failure['code'],failure['stage'])
+            await update.message.reply_text(render(failure))
             return
         await reply_analysis(update,context,report,release_service)
         return
