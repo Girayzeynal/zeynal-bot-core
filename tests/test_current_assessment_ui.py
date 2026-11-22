@@ -178,7 +178,7 @@ class CurrentPanelsTests(unittest.TestCase):
         context,row=self.setup_case()
         panels=current_panels(context,row,now=NOW)
         self.assertTrue(panels['fresh'])
-        self.assertIn('Toplam 218.00',panels['period'])
+        self.assertIn('<b>Maç toplamı:</b> 218.00',panels['period'])
         self.assertIn('<b>1Q</b> 27.00 – 28.00',panels['period'])
         self.assertIn('P50 218.0',panels['ranges'])
         self.assertNotIn('220.00',panels['period']+panels['ranges'])
