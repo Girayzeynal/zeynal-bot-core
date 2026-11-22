@@ -6,6 +6,28 @@ from datetime import datetime,timezone
 from zoneinfo import ZoneInfo
 from telegram_delivery import tsi
 
+def direction_card_matches_snapshot(snapshot,card):
+    """A newer research market assessment cannot be attributed to first forecast.
+
+    This guards presentation only. Cards may be examined separately with their
+    own model/clock pins, but never attached as a current original-model call.
+    """
+    if not isinstance(snapshot,dict) or not isinstance(card,dict) or card.get('current') is not True:
+        return False
+    try:
+        p=snapshot['prediction']
+        mean=card['mean']
+        return (card['fixture_id']==snapshot['fixture_id'] and
+            card['model_digest']==snapshot['model_digest'] and
+            card['prediction_utc']==snapshot['prediction_generated_at_utc'] and
+            card['tipoff_utc']==snapshot['fixture_start_utc'] and
+            card['period']=='FULL' and card['market']=='TOTAL' and
+            type(mean) in (int,float) and type(p['total']) in (int,float) and
+            abs(mean-p['total'])<=1e-8)
+    except (KeyError,TypeError,ValueError,OverflowError):
+        return False
+
+
 def compact_summary(snapshot,evidence,*,replayed,health=None,market_note=None,direction_card=None,league='NBA'):
     if league not in ('NBA','EUROLEAGUE','EUROCUP'):raise ValueError('SUMMARY_LEAGUE_REQUIRED')
     minutes=48 if league=='NBA' else 40
