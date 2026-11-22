@@ -1,0 +1,42 @@
+name: NBA official CDN fallback and automation guard
+
+on:
+  push:
+    branches:
+      - feature/three-league-roster-integration-20261121
+    paths:
+      - hybrid_engine/current_roster.py
+      - hybrid_engine/test_bot.py
+      - hybrid_engine/auto_nba_evidence.py
+      - tests/test_current_roster_cdn_fallback.py
+      - tests/test_current_roster.py
+      - tests/test_auto_nba_evidence.py
+      - .github/workflows/nba-official-cdn-fallback.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verified-public-cdn:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install runtime and test dependencies
+        run: |
+          python -m pip install -r requirements.txt -r requirements-test.txt
+      - name: Compile safety-limited official source path
+        run: |
+          python -m py_compile hybrid_engine/current_roster.py hybrid_engine/test_bot.py hybrid_engine/auto_nba_evidence.py
+      - name: Verify direct CDN access limits and immutable original forecast
+        run: |
+          python -m pytest -q tests/test_current_roster_cdn_fallback.py tests/test_current_roster.py tests/test_auto_nba_evidence.py
