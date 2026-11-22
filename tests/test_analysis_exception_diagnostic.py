@@ -38,8 +38,27 @@ class AnalysisExceptionDiagnosticTests(TestCase):
         except ValueError as exc:
             record=summarize(exc)
         self.assertEqual(record['stage'],'NBA_LIVE_MODEL')
+        self.assertEqual(record['origin'],{'file':'live_nba.py','line':1})
+        self.assertIn('Kod satırı: live_nba.py:1',render(record))
         self.assertNotIn('/private',str(record)+render(record))
         self.assertNotIn('SECRET_CANNOT_LEAK',str(record)+render(record))
+
+    def test_external_source_file_is_never_disclosed(self):
+        source=compile("raise ValueError('api-key=SENSITIVE')",
+                       '/private/secret/unknown_source.py','exec')
+        try:
+            exec(source,{})
+        except ValueError as exc:
+            record=summarize(exc)
+        self.assertIsNone(record['origin'])
+        self.assertNotIn('/private',str(record)+render(record))
+        self.assertNotIn('SENSITIVE',str(record)+render(record))
+
+    def test_origin_is_a_code_location_not_a_time_based_ttl_verdict(self):
+        record=summarize(ValueError('not the 30-minute PDF gate'))
+        self.assertFalse(record['archive_corruption_verified'])
+        self.assertNotIn('not the 30-minute',str(record)+render(record))
+        self.assertEqual(record['code'],'ANALYZE_VALIDATION_ERROR')
 
     def test_unknown_and_malicious_codes_are_not_reflected(self):
         class SpecialError(Exception): pass
