@@ -1,5 +1,6 @@
 """Read-only real player input collection evidence, separate from synthetic smoke."""
 import json
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -44,6 +45,53 @@ class RealPlayerInputDiagnosticsTests(TestCase):
             self.assertFalse(result['scores_recomputed'])
             self.assertNotIn('PRIVATE_PATIENT_NAME',json.dumps(result))
             self.assertNotIn('PRIVATE_MEDICAL_NOTE',json.dumps(result))
+
+    def test_more_than_512_historical_files_still_returns_latest_real_attempt(self):
+        # Regression from UserLAnd: >512 immutable collection receipts used to
+        # return COLLECTION_DIAGNOSTIC_SCAN_BUDGET and hide every real blocker.
+        with TemporaryDirectory() as temp:
+            root=Path(temp)
+            for index in range(550):
+                old=root/('collection-'+f'{index:064x}'+'.json')
+                old.write_text('{}')
+                os.utime(old,ns=(1_000_000_000,1_000_000_000))
+            body=dict(format='PLAYER_INPUT_COLLECTION_V1',
+                fixture_id='live-fixture',provider_fixture_ids=['401910027'],
+                completed_at_utc=1795305759,status='BLOCKED',
+                reason='ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS',
+                projection=None,roster_diagnostics=dict(
+                    missing_absence_count=4,official_expected_matchup='NOP@SAS',
+                    official_fixture_rows=12))
+            publish_json(root/('collection-'+digest(body)+'.json'),
+                         dict(payload=body,sha256=digest(body)))
+            result=recent_collection_diagnostics(root)
+            self.assertEqual(result['status'],'ARCHIVED_COLLECTION_ATTEMPTS')
+            self.assertEqual(result['collection_files_found'],551)
+            self.assertEqual(result['collection_files_examined'],512)
+            self.assertTrue(result['collection_history_sampled'])
+            self.assertEqual(len(result['items']),1)
+            self.assertEqual(result['items'][0]['reason'],
+                             'ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS')
+            self.assertEqual(result['items'][0]['official_pdf_fixture_rows'],12)
+            self.assertEqual(result['source_calls'],0)
+            self.assertFalse(result['scores_recomputed'])
+
+    def test_tampered_newest_is_ignored_without_spoofing_result(self):
+        with TemporaryDirectory() as temp:
+            root=Path(temp)
+            good=dict(format='PLAYER_INPUT_COLLECTION_V1',
+                fixture_id='authentic',provider_fixture_ids=['401910026'],
+                completed_at_utc=1795305257,status='BLOCKED',
+                reason='ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS')
+            publish_json(root/('collection-'+digest(good)+'.json'),
+                         dict(payload=good,sha256=digest(good)))
+            bad=root/('collection-'+'e'*64+'.json')
+            bad.write_text('{"payload":{"status":"PROSPECTIVE_MINUTES_ARCHIVED"},"sha256":"'+
+                           'e'*64+'"}')
+            result=recent_collection_diagnostics(root)
+            self.assertEqual(len(result['items']),1)
+            self.assertEqual(result['items'][0]['fixture_id'],'authentic')
+            self.assertEqual(result['items'][0]['status'],'BLOCKED')
 
     def test_tampered_collection_is_ignored(self):
         with TemporaryDirectory() as temp:
