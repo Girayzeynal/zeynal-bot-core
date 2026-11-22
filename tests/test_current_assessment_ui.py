@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock,Mock,patch
 
-from hybrid_engine.current_assessment_ui import two_clock_text,install_dual_clock_display,current_panels
+from hybrid_engine.current_assessment_ui import two_clock_text,install_dual_clock_display,current_panels,bound_current_market_cards
 
 NOW=1795339800
 
@@ -240,6 +240,39 @@ class CurrentPanelsTests(unittest.TestCase):
                                   '3Q':band(54),'4Q':band(55),
                                   '1H':band(109),'2H':band(109)})))
         return context,row
+
+    def test_quote_requires_exact_current_candidate_pin_and_live_price(self):
+        from core.team_identity import digest
+        from copy import deepcopy
+        context,assessment=self.setup_case()
+        context.update(league='NBA',fixture_id='x',season='2026/2027',
+            home=dict(provider_id='1'),away=dict(provider_id='2'))
+        snap=dict(fixture_id=context['fixture_id'],fixture_start_utc=context['fixture_start_utc'],
+            prediction_generated_at_utc=assessment['prediction_generated_at_utc'],
+            current_assessment_sha256=digest(assessment),
+            linked_original_snapshot_sha256=digest(context),
+            model_digest='authenticated-market-model')
+        card=dict(current=True,fixture_id=context['fixture_id'],
+            tipoff_utc=context['fixture_start_utc'],period='FULL',market='TOTAL',
+            mean=218.,line=220.5,model_digest=snap['model_digest'],
+            prediction_utc=assessment['prediction_generated_at_utc'],
+            available_at_utc=NOW-30,asof_utc=NOW-20,valid_until_utc=NOW+60,
+            prices=dict(over=1.85,under=1.93))
+        entry=dict(research_market_snapshot=snap,research_market_cards=[card])
+        self.assertEqual(bound_current_market_cards(context,assessment,entry,now=NOW),[card])
+        bad=deepcopy(entry)
+        bad['research_market_snapshot']['current_assessment_sha256']='wrong-model-record'
+        self.assertEqual(bound_current_market_cards(context,assessment,bad,now=NOW),[])
+        bad=deepcopy(entry)
+        bad['research_market_cards'][0]['mean']=225.
+        self.assertEqual(bound_current_market_cards(context,assessment,bad,now=NOW),[])
+        self.assertEqual(bound_current_market_cards(context,assessment,entry,now=NOW+61),[])
+        bad=deepcopy(entry)
+        bad['research_market_cards'][0]['current']=False
+        self.assertEqual(bound_current_market_cards(context,assessment,bad,now=NOW),[])
+        bad=deepcopy(entry)
+        bad['research_market_cards'][0]['prices']={}
+        self.assertEqual(bound_current_market_cards(context,assessment,bad,now=NOW),[])
 
     def test_period_and_range_buttons_use_current_record_not_first_prediction(self):
         context,row=self.setup_case()
