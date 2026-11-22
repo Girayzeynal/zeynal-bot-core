@@ -142,6 +142,33 @@ class CurrentAssessments:
             eligible_for_original_forecast_metrics=False,confidence_index=None,production_enabled=False)
         return self.registry.record(body)
 
+    def refresh_fixture(self,snapshot):
+        """Publish the currently requested NBA fixture, not arbitrary first two.
+
+        Uses only prospective original snapshot and time-valid native data.
+        Does not require a calibration threshold, replace the first ledger
+        record, or introduce postgame player minutes.
+        """
+        if snapshot.get('league')!='NBA':raise Abstain('CURRENT_NBA_ONLY')
+        now=int(time.time())
+        if now>=snapshot['fixture_start_utc']-POLICY['minimum_lead_seconds']:
+            raise Abstain('CURRENT_ASSESSMENT_SAFE_WINDOW_CLOSED')
+        existing=self.latest(snapshot)
+        if existing is not None and (0<=now-existing['prediction_generated_at_utc']<POLICY['refresh_seconds']
+                and 0<=now-existing['parameter_fit_cutoff_utc']<=POLICY['maximum_model_age_seconds']):
+            return dict(status='CURRENT_CANDIDATE_ALREADY_VALID',
+                        fixture_id=snapshot['fixture_id'])
+        pin=digest(snapshot)
+        cases=self.worker.cases()
+        found=[c for c in cases if c['target']['fixture_id']==snapshot['fixture_id']
+               and c['original']==pin and c['target']['league']=='NBA']
+        if len(found)!=1:raise Abstain('CURRENT_FIXTURE_OR_ORIGINAL_NOT_ELIGIBLE')
+        plan=self.plan(create=True)
+        model=self.study.fit(snapshot['season'])[0]
+        p,new=self._capture(found[0],model,plan)
+        return dict(status='CURRENT_CANDIDATE_PUBLISHED' if new else 'CURRENT_CANDIDATE_REPLAY',
+                    fixture_id=p['fixture']['canonical_id'],sha256=digest(p))
+
     def tick(self):
         plan=self.plan(create=True);cases=self.worker.cases();captures=[];now=int(time.time())
         saved={(r['payload']['fixture']['canonical_id'],r['payload']['version']) for r in self.registry.records()}

@@ -971,7 +971,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     'Veri yokluğu tam kadro/NO EDGE anlamına gelmez. İlk tahmin korunuyor. Kod: EUROPE_SOURCE_REVIEW_UNAVAILABLE',
                     reply_markup=keyboard(token))
                 return
-        if section=='roster' and page==0 and entry.get('roster_context'):
+        if section=='roster' and page==0 and entry.get('roster_auto_ready') and (
+                int(time.time())<entry.get('roster_valid_until_utc',0)):
+            # Already collected in the same /analyze request: no duplicate
+            # fetch, no new Telegram message, one in-place paginated card.
+            pass
+        elif section=='roster' and page==0 and entry.get('roster_context'):
             await query.answer('Güncel kaynaklar kontrol ediliyor…')
             answered=True
             reviewer=app.bot_data.get('current_roster_review')

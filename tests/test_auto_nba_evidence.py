@@ -95,19 +95,27 @@ class AutonomousEvidenceTests(IsolatedAsyncioTestCase):
                 self.tasks.append(task)
                 return task
         app=App()
-        report=dict(status='ANALYSIS_OK',snapshot=snap,new_record=True)
+        from types import SimpleNamespace
+        token='abc123abc123'
+        app.bot_data['premium_reports']={token:dict(chat_id=123,
+            summary='ORIGINAL',sections=dict(roster='OLD',audit='ORIGINAL'),
+            section_pages=dict(roster=['OLD'],audit=['ORIGINAL']))}
+        report=dict(status='ANALYSIS_OK',snapshot=snap,new_record=True,
+            reply_markup=SimpleNamespace(inline_keyboard=[[
+                SimpleNamespace(callback_data='zui:'+token+':period')]]))
         self.assertTrue(schedule_auto(app,'NBA',report,123))
         self.assertEqual(app.bot_data['auto_nba_last_attempt']['status'],'SCHEDULED')
         self.assertFalse(schedule_auto(app,'NBA',report,123))
         await asyncio.gather(*app.tasks)
         receipt=app.bot_data['auto_nba_last_attempt']
-        self.assertEqual(receipt['status'],'FOLLOWUP_SENT_NOT_INDEPENDENTLY_VERIFIED')
+        self.assertEqual(receipt['status'],'ROSTER_BUTTON_UPDATED')
         self.assertEqual(receipt['player_input_status'],'NOT_CONFIGURED')
-        self.assertEqual(receipt['forecast_changed'],False)
-        self.assertEqual(receipt['telegram_followup_delivery'],
-                         'SEND_RETURNED_NOT_INDEPENDENTLY_VERIFIED')
+        self.assertFalse(receipt['forecast_changed'])
+        self.assertEqual(receipt['telegram_followup_delivery'],'NOT_SENT_IN_PLACE_BUTTON_ONLY')
         self.assertEqual(reviewer.calls,1)
-        self.assertGreaterEqual(app.bot.send_message.await_count,1)
+        app.bot.send_message.assert_not_awaited()
+        self.assertIn('OTOMATİK NBA OYUNCU',app.bot_data['premium_reports'][token]['sections']['roster'])
+        self.assertTrue(app.bot_data['premium_reports'][token]['roster_auto_ready'])
         self.assertFalse(schedule_auto(app,'EUROLEAGUE',report,123))
         self.assertFalse(schedule_auto(app,'NBA',report,999))
         self.assertFalse(schedule_auto(app,'NBA',dict(status='ABSTAIN'),123))

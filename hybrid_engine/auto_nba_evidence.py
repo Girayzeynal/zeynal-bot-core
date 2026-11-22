@@ -121,7 +121,7 @@ def render_auto(result):
 
 
 def schedule_auto(app,league,report,chat_id,*,clock=time.time):
-    """Schedule one automatic follow-up only after the original reply is sent.
+    """Collect automatically after /analyze, attach data to its roster button.
 
     The 5-minute value is a duplicate-work cooldown, NOT an archive or model
     expiry. Future user commands can still display the stored forecast.
@@ -162,9 +162,33 @@ def schedule_auto(app,league,report,chat_id,*,clock=time.time):
                 player_input_status=result.get('player_input_status'),
                 player_input_reason=result.get('player_input_reason'),
                 forecast_changed=False,model_coefficients_applied=False)
-            await send_auto(app.bot,chat_id,result)
-            receipt['telegram_followup_delivery']='SEND_RETURNED_NOT_INDEPENDENTLY_VERIFIED'
-            receipt['status']='FOLLOWUP_SENT_NOT_INDEPENDENTLY_VERIFIED'
+            # The user wants one analysis card: feed the existing roster
+            # button instead of sending a second standalone Telegram report.
+            markup=report.get('reply_markup')
+            token=None
+            if markup:
+                try:
+                    token=markup.inline_keyboard[0][0].callback_data.split(':')[1]
+                except (AttributeError,IndexError,TypeError,ValueError):
+                    token=None
+            entry=state.get('premium_reports',{}).get(token) if token else None
+            if entry is not None and entry.get('chat_id')==chat_id:
+                from hybrid_engine.telegram_premium_ui import cache_report
+                current=render_auto(result)
+                if result.get('roster_report'):
+                    current+='\n\n'+result['roster_report']
+                new_entry=dict(entry,sections=dict(entry['sections']),
+                    section_pages=dict(entry['section_pages']))
+                new_entry['sections']['roster']=current
+                new_entry['section_pages']['roster']=split_blocks(current.splitlines(),limit=3200)
+                new_entry['roster_review_at_utc']=int(clock())
+                new_entry['roster_valid_until_utc']=int(clock())+300
+                new_entry['roster_auto_ready']=True
+                cache_report(state['premium_reports'],token,new_entry)
+                receipt['status']='ROSTER_BUTTON_UPDATED'
+            else:
+                receipt['status']='ROSTER_EVIDENCE_COLLECTED_NO_BUTTON'
+            receipt['telegram_followup_delivery']='NOT_SENT_IN_PLACE_BUTTON_ONLY'
         except Exception as exc:
             # Never leak source exceptions, tokens or private paths to Telegram.
             import logging
@@ -173,14 +197,8 @@ def schedule_auto(app,league,report,chat_id,*,clock=time.time):
                 telegram_followup_delivery='NOT_VERIFIED')
             logging.getLogger(__name__).warning('Autonomous NBA evidence unavailable: %s',
                                                 type(exc).__name__)
-            try:
-                await app.bot.send_message(chat_id=chat_id,
-                    text=('Otomatik NBA kadro/oyuncu incelemesi tamamlanamadı. '
-                          'Bu durum oyuncuların eksiksiz olduğu anlamına gelmez. '
-                          'İlk skor tahmini değiştirilmedi.'),
-                    disable_web_page_preview=True)
-            except Exception:
-                logging.getLogger(__name__).warning('NBA evidence failure notice could not be sent')
+            # No unsolicited second message. The roster button retries its
+            # source check when opened; failure remains in the runtime receipt.
     app.create_task(work())
     return True
 

@@ -17,7 +17,7 @@ def two_clock_text(context,assessments,*,now=None):
         raise ValueError("DUAL_CLOCK_CONTEXT_REQUIRED")
     original=context.get("prediction")
     initial_time=context.get("prediction_generated_at_utc")
-    base=['🔒 İLK TAHMİN KAYDI KORUNUR']
+    base=['🔒 İLK TAHMİN — SADECE ARŞİV']
     if (isinstance(original,dict) and
             all(type(original.get(k)) in (int,float) for k in ("home","away","total")) and
             type(initial_time) is int):
@@ -25,20 +25,22 @@ def two_clock_text(context,assessments,*,now=None):
         base.append('İlk tahmin üretimi: '+tsi(initial_time))
     latest=assessments.latest(context)
     if latest is None:
-        return '\n'.join(base+[
+        return '\n'.join([
             '⚠️ GÜNCEL MODEL SKORU HENÜZ YAYIMLANMADI',
-            'Yeniden /analyze komutu ilk tahmini değiştirmez; ayrı güncel değerlendirme bekleniyor.',
-            'Piyasa ve kadro gözlemleri tek başlarına güncel skor hesaplandığı anlamına gelmez.'])
+            'Ana skor güncellenmedi; ilk tahmin canlı tahmin olarak kullanılamaz.',
+            'Oyuncu ve piyasa gözlemleri tek başlarına güncel skor hesaplandığı anlamına gelmez.',
+            '']+base)
     candidate=latest['candidate']
     age=when-latest['prediction_generated_at_utc']
     fresh=(0<=age<=3600 and when<context['fixture_start_utc'] and
            0<=when-latest['parameter_fit_cutoff_utc']<=21600)
     if not fresh:
-        return '\n'.join(base+[
+        return '\n'.join([
             '⚠️ SON ARAŞTIRMA SKORU GÜNCEL DEĞİL (ARŞİV)',
             'Son değerlendirme üretimi: '+tsi(latest['prediction_generated_at_utc']),
             'Yeni saatli değerlendirme doğrulanmadan eski skor güncel olarak sunulmaz.',
-            'Oyuncu ve piyasa gözlemleri ilk tahminin matematiğine uygulanmış sayılmaz.'])
+            'Oyuncu ve piyasa gözlemleri ilk tahminin matematiğine uygulanmış sayılmaz.',
+            '']+base)
     lines=['🧪 GÜNCEL AYRI ARAŞTIRMA SKORU — NORMAL SÜRE',
         f"Ev {candidate['home']:.2f} · Dep {candidate['away']:.2f} · Toplam {candidate['total']:.2f}",
         'Yeni hesaplama: '+tsi(latest['prediction_generated_at_utc']),
@@ -73,23 +75,42 @@ def install_dual_clock_display(state,assessments):
                 except (AttributeError,IndexError,TypeError,KeyError):
                     pass
             if context is None:return response
+            # The background cycle is not the user's /analyze freshness
+            # guarantee. Calculate for this exact fixture if no fresh candidate
+            # is available; this does not retrain the immutable first model.
+            if context.get('league')=='NBA' and callable(getattr(assessments,'refresh_fixture',None)):
+                try:
+                    await asyncio.wait_for(
+                        asyncio.to_thread(assessments.refresh_fixture,context),timeout=32)
+                except (ValueError,KeyError,TypeError,OSError,RuntimeError,TimeoutError) as exc:
+                    import logging
+                    logging.getLogger(__name__).warning('Current fixture update unavailable: %s',type(exc).__name__)
             try:
                 content=await asyncio.wait_for(
                     asyncio.to_thread(two_clock_text,context,assessments),timeout=10)
-            except (ValueError,KeyError,TypeError,OSError,TimeoutError) as exc:
-                content=('GÜNCEL ANALİZ: doğrulanmış ayrı skor mevcut değil. '
-                    'İlk kayıtlı tahmin değiştirilmedi.')
+            except (ValueError,KeyError,TypeError,OSError,TimeoutError):
+                content=('⚠️ GÜNCEL TAHMİN DOĞRULANAMADI. İlk kayıt arşivde korundu; '
+                         'oyuncu ve piyasa etkileri uygulanmış sayılmaz.')
             prefix=html.escape(content)+'\n\n'
             result=dict(response);parts=list(response.get('html_parts') or [response['html']])
-            if len((prefix+parts[0]).encode('utf-16-le'))//2<=3500:parts[0]=prefix+parts[0]
+            if entry and context.get('league')=='NBA':
+                # The entire first-score card moves to Model / Kaynak, not
+                # the main headline. Never present replayed V1 as latest.
+                old=entry.get('summary','')
+                from hybrid_engine.elite_render import split_blocks
+                headline=('<b>🏀 ZEYNAL | GÜNCEL NBA TAHMİNİ</b>\n'+
+                    html.escape(str(context['home']['official_name']))+' 🆚 '+
+                    html.escape(str(context['away']['official_name']))+'\n\n'+
+                    prefix)
+                entry['summary']=headline
+                audit=entry['sections'].get('audit','')
+                entry['sections']['audit']=('<b>İLK TAHMİN — DEĞİŞMEZ ARŞİV</b>\n'+
+                    old+'\n\n'+audit)
+                entry['section_pages']['audit']=split_blocks(entry['sections']['audit'].splitlines(),limit=3200)
+                parts=[headline]
+            elif len((prefix+parts[0]).encode('utf-16-le'))//2<=3500:
+                parts[0]=prefix+parts[0]
             else:parts.insert(0,prefix)
             result['html_parts']=parts;result['html']=parts[0]
-            if entry:
-                from hybrid_engine.elite_render import split_blocks
-                old=entry.get('summary','')
-                if len((prefix+old).encode('utf-16-le'))//2<=3500:entry['summary']=prefix+old
-                audit=entry['sections'].get('audit','')
-                entry['sections']['audit']=prefix+audit
-                entry['section_pages']['audit']=split_blocks(entry['sections']['audit'].splitlines(),limit=3200)
             return result
     state['verified_analysis_service']=Display()
