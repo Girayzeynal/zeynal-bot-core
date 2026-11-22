@@ -198,11 +198,12 @@ class CurrentAssessments:
                 p,new=self._capture(c,model,plan)
                 captures.append(dict(status='ARCHIVED' if new else 'REPLAY',fixture_id=t['fixture_id'],sha256=digest(p)))
             except (ValueError,KeyError,TypeError,OSError,RuntimeError) as exc:
-                captures.append(dict(status='ABSTAIN',reason=reason(exc),error_type=type(exc).__name__))
+                captures.append(dict(status='ABSTAIN',fixture_id=c['target']['fixture_id'],
+                    reason=reason(exc),error_type=type(exc).__name__))
         if preferred_fixture_id and targeted=='IN_PROCESSING_BATCH':
             matched=[r for r in captures if r.get('fixture_id')==preferred_fixture_id]
             targeted=('PUBLISHED_OR_REPLAYED' if any(r.get('status') in ('ARCHIVED','REPLAY') for r in matched)
-                      else 'FAILED_OR_ABSTAIN' if any(r.get('status')=='ABSTAIN' for r in captures)
+                      else 'FAILED_OR_ABSTAIN' if any(r.get('status')=='ABSTAIN' for r in matched)
                       else 'NOT_PROCESSED')
         published=sum(r.get('status')=='ARCHIVED' for r in captures)
         # A completed cycle with no publication is not a newly published score.
