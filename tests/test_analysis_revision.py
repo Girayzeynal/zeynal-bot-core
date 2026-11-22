@@ -108,6 +108,49 @@ class AssessmentTests(TestCase):
         self.assertFalse(result['original_metrics_changed']);self.assertFalse(result['superiority_claim'])
         self.assertEqual(self.assess.performance([dict(label,snapshot_sha256='b'*64)])['groups'],[])
 
+    def test_native_paired_first_forecast_vs_first_current_candidate_without_retrofit(self):
+        p,_=self.capture()
+        self.h.now=self.target['fixture_start_utc']+7200
+        published=p['prediction_generated_at_utc']-60
+        original=[p['candidate']['home']+10.,p['candidate']['away']+10.]
+        label=dict(fixture_id=self.target['fixture_id'],snapshot_sha256=digest(self.original),
+            model_digest='a'*64,season=self.target['season'],actual=[100,100],
+            actual_periods=dict(home=[25,25,25,25],away=[25,25,25,25]),
+            fixture_start_utc=self.target['fixture_start_utc'],label_available_utc=self.h.now,
+            prediction=list(original),prediction_generated_at_utc=published-10,
+            first_archived_at_utc=published)
+        output=self.assess.performance([label]);group=output['groups'][0]
+        pair=group['paired']
+        self.assertEqual(group['paired_n'],1)
+        self.assertEqual(pair['status'],'PAIRED_DESCRIPTIVE_ONLY')
+        self.assertAlmostEqual(pair['first_forecast_total_mae'],abs(sum(original)-200))
+        self.assertAlmostEqual(pair['candidate_total_mae'],abs(p['candidate']['total']-200))
+        self.assertAlmostEqual(pair['total_mae_delta'],
+            abs(sum(original)-200)-abs(p['candidate']['total']-200))
+        self.assertFalse(output['original_metrics_changed'])
+        self.assertFalse(output['automatic_promotion'])
+        self.assess.last_report=dict(performance=output)
+        display=self.assess.render_performance()
+        self.assertIn('İlk toplam MAE',display)
+        self.assertIn('Güncel aday toplam MAE',display)
+        self.assertIn('54 maça sonradan tahmin yazılmaz',display)
+
+    def test_missing_or_late_original_publication_never_becomes_paired_evidence(self):
+        p,_=self.capture()
+        self.h.now=self.target['fixture_start_utc']+7200
+        original=dict(fixture_id=self.target['fixture_id'],
+            snapshot_sha256=digest(self.original),model_digest='a'*64,
+            actual=[100,100],actual_periods=dict(home=[25,25,25,25],away=[25,25,25,25]),
+            fixture_start_utc=self.target['fixture_start_utc'],label_available_utc=self.h.now,
+            prediction=[105,105],prediction_generated_at_utc=p['prediction_generated_at_utc']-100,
+            first_archived_at_utc=p['prediction_generated_at_utc']+1)
+        late=self.assess.performance([original])['groups'][0]
+        self.assertEqual(late['metrics']['n'],1)
+        self.assertEqual(late['paired_n'],0)
+        self.assertEqual(late['paired']['status'],'NO_VERIFIED_FIRST_FORECAST_PAIR')
+        missing=dict(original);missing.pop('first_archived_at_utc')
+        self.assertEqual(self.assess.performance([missing])['groups'][0]['paired_n'],0)
+
     def test_tick_archives_candidate_without_hundred_match_calibration_gate(self):
         report=self.assess.tick();self.assertEqual(report['captures'][0]['status'],'ARCHIVED')
         self.assertEqual(len(self.assess.registry.records()),1)
@@ -244,7 +287,7 @@ class RuleBindingTests(TestCase):
 
 
 class CycleTests(IsolatedAsyncioTestCase):
-    async def test_v3_before_v2_and_one_failure_does_not_starve_other_stages(self):
+    async def test_player_input_v2_before_slow_v3_one_failure_does_not_starve_stages(self):
         order=[]
         def v3():order.append('v3');raise ValueError('DYNAMIC_RECENT_TEAM_HISTORY_REQUIRED')
         async def v2():order.append('v2');return dict(status='CHECKED')
@@ -252,9 +295,27 @@ class CycleTests(IsolatedAsyncioTestCase):
         worker=SimpleNamespace(tick=v2);study=SimpleNamespace(tick=v3,last_report=None)
         cycle=ResearchCycle(worker,study,SimpleNamespace(tick=current));app=SimpleNamespace(bot_data={})
         await cycle.once(app)
-        self.assertEqual(order,['v3','v2','current']);self.assertIn('FAILED',cycle.render())
+        self.assertEqual(order,['v2','current','v3']);self.assertIn('FAILED',cycle.render())
         self.assertIn('DYNAMIC_RECENT_TEAM_HISTORY_REQUIRED',cycle.render())
         self.assertEqual(app.bot_data['last_current_assessment_poll']['status'],'CHECKED')
+
+    async def test_shadow_blocker_visible_before_v2_and_witness_refreshed_after_v2(self):
+        order=[]
+        async def v2():order.append("v2");return dict(status="CHECKED")
+        def witness(folder):
+            order.append("player_shadow")
+            self.assertEqual(str(folder),"isolated/player-shadow")
+            return dict(status="BLOCKED_NO_PROSPECTIVE_PLAYER_MINUTES",
+                        prospective_minutes_games=0,prepared_artifacts=0,
+                        production_enabled=False)
+        worker=SimpleNamespace(tick=v2,research=SimpleNamespace(players="isolated/player-shadow"))
+        cycle=ResearchCycle(worker,None);app=SimpleNamespace(bot_data={})
+        with patch("hybrid_engine.player_shadow.readiness",side_effect=witness):
+            await cycle.once(app)
+        self.assertEqual(order,["player_shadow","v2","player_shadow"])
+        self.assertEqual(cycle.stages["player_shadow"]["status"],"COMPLETED")
+        self.assertEqual(app.bot_data["last_player_shadow_poll"]["prospective_minutes_games"],0)
+        self.assertNotIn("player_model_published",app.bot_data)
 
     async def test_running_stage_is_visible_and_cancellation_does_not_start_parallel_fits(self):
         entered=asyncio.Event();gate=asyncio.Event()

@@ -34,6 +34,27 @@ STATUS = {'Out': 'Oynamayacak', 'Questionable': 'Oynaması belirsiz', 'Doubtful'
           'Probable': 'Oynaması muhtemel', 'Available': 'Oynayabilir',
           'Day-To-Day': 'Gün gün izleniyor', 'Suspended': 'Cezalı'}
 
+def status_relationship(entries):
+    """Never equate ESPN's broad day-to-day tracker with a game-day decision.
+
+    The label relationship is descriptive, NOT a playing probability or an
+    authorization to project unverified availability/minutes.
+    """
+    if not entries or any(not isinstance(e,dict) or e.get('status') not in STATUS for e in entries):
+        raise ValueError('PLAYER_STATUS_EVIDENCE_REQUIRED')
+    states={e['status'] for e in entries}
+    if len(states)==1:
+        return 'EXACT_STATUS_MATCH'
+    if ('Day-To-Day' in states and
+            states <= {'Day-To-Day','Probable','Questionable','Doubtful'} and
+            {e.get('source') for e in entries} == {'ESPN','NBA_OFFICIAL_PDF'} and
+            all(e['status']=='Day-To-Day' for e in entries if e['source']=='ESPN') and
+            all(e['status'] in {'Probable','Questionable','Doubtful'}
+                for e in entries if e['source']=='NBA_OFFICIAL_PDF')):
+        return 'BROAD_TRACKER_WITH_UNCERTAIN_OFFICIAL_NOT_CONTRADICTORY'
+    return 'CONFLICTING_STATUS_DESIGNATIONS'
+
+
 
 def utc(text):
     value = datetime.fromisoformat(text.replace('Z', '+00:00'))
@@ -73,6 +94,9 @@ def context_for(snapshot):
     return result
 
 
+NBA_COM_INJURY_INDEX='https://www.nba.com/players/injury-report'
+
+
 def season_index(season):
     match = re.fullmatch(r'(20[0-9]{2})/(20[0-9]{2})', season)
     if match is None or int(match[2]) != int(match[1])+1:
@@ -84,6 +108,8 @@ def allowed_url(url):
     if re.fullmatch(re.escape(PREFIX)+r'(summary\?event=[0-9]{1,15}|teams/[0-9]{1,8}/roster\?season=20[0-9]{2})', url):
         return True
     if re.fullmatch(r'https://official\.nba\.com/nba-injury-report-20[0-9]{2}-[0-9]{2}-season/', url):
+        return True
+    if url==NBA_COM_INJURY_INDEX:
         return True
     return bool(re.fullmatch(r'https://ak-static\.cms\.nba\.com/referee/injury/Injury-Report_20[0-9]{2}-[0-9]{2}-[0-9]{2}_[0-9]{2}_[0-9]{2}(AM|PM)\.pdf', url))
 
@@ -219,9 +245,24 @@ def roster_ids(document, team, season):
     return result
 
 
+def _official_pdf_abbreviation(team):
+    """Use exact ESPN name+code pairs for differing official NBA PDF codes.
+
+    This adapter is only called after the event/team/season identity check in
+    bind_summary. A name or an abbreviation alone must never authorize an
+    alias, and unfamiliar franchises retain their original source code.
+    """
+    known={('newyorkknicks','NY'):'NYK',
+           ('neworleanspelicans','NO'):'NOP',
+           ('sanantoniospurs','SA'):'SAS',
+           ('goldenstatewarriors','GS'):'GSW'}
+    return known.get((team_key(team['name']),team['abbreviation']),
+                     team['abbreviation'])
+
+
 def nba_rows(extraction, teams, directories, context, report_at):
     start = datetime.fromtimestamp(context['fixture_start_utc'], ZoneInfo('America/New_York'))
-    matchup = teams['away']['abbreviation']+'@'+teams['home']['abbreviation']
+    matchup = _official_pdf_abbreviation(teams['away'])+'@'+_official_pdf_abbreviation(teams['home'])
     result = []; rejected = 0
     for row in extraction.get('rows', []):
         if row.get('matchup') != matchup:
@@ -298,11 +339,17 @@ def review_diagnostics(review):
         official_extraction_status=review.get('official_extraction_status'),
         official_parsed_rows=review.get('official_parsed_rows'),
         official_fixture_rows=review.get('official_fixture_rows'),
+        official_expected_matchup=review.get('official_expected_matchup'),
+        official_report_matchups_seen=review.get('official_report_matchups_seen'),
         official_note_scope=review.get('official_note_scope'),
         official_discovery_mode=review.get('official_discovery_mode'),
         latest_report_verified=review.get('latest_report_verified'),
         official_pdf_clock_verified=review.get('official_pdf_clock_verified'),
         index_failure=review.get('index_failure'),
+        alternate_index_failure=review.get('alternate_index_failure'),
+        public_cdn_probe_attempted=review.get('public_cdn_probe_attempted',False),
+        public_cdn_failure_http_status=review.get('public_cdn_failure_http_status'),
+        public_cdn_candidates_maximum=review.get('public_cdn_candidates_maximum'),
         successful_source_urls=[s.get('url') for s in review.get('sources',[])],
         missing_absence_corroboration=missing[:20],missing_absence_count=len(missing),
         diagnostic_only=True,confidence_index=None)
@@ -343,13 +390,48 @@ def official_error_code(exc):
 
 
 class CurrentRosterReview:
-    def __init__(self, directory, *, getter=native_get, extractor=pdf_extract, clock=time.time, report_archive=None):
+    def __init__(self, directory, *, getter=native_get, extractor=pdf_extract, clock=time.time, report_archive=None,
+                 bounded_public_pdf_fallback=False):
         self.directory = local_path(directory); self.directory.mkdir(parents=True, exist_ok=True)
         self.getter = getter; self.extractor = extractor; self.clock = clock
         self.lock = threading.Lock(); self.cache = {}; self.sources = {}; self.cooldowns = {}
         self.last_source_failure=None
         self.report_archive=None if report_archive is None else local_path(report_archive)
+        self.bounded_public_pdf_fallback=bool(bounded_public_pdf_fallback)
         self.failure_codes={}
+
+    def _public_pdf_after_two_403s(self,deadline):
+        """Public CDN fallback, not an index or proof of being the latest report.
+
+        Only the current ET quarter-hour and the immediately preceding one may
+        be tested. Every URL is checked against the strict allowlist and the
+        30-minute clock gate. No auth emulation, redirects, source enumeration,
+        stale/backfilled rows, or hypothetical injury records.
+        """
+        from hybrid_engine.official_report_link import reference
+        now=int(self.clock())
+        slot=now-now%900
+        for timestamp in (slot,slot-900):
+            eastern=datetime.fromtimestamp(timestamp,ZoneInfo('America/New_York'))
+            url=('https://ak-static.cms.nba.com/referee/injury/Injury-Report_'
+                +eastern.strftime('%Y-%m-%d_%I_%M%p')+'.pdf')
+            try:
+                ref=reference(url,now)
+                pdf=self._get(url,deadline)
+                if not pdf['body'].startswith(b'%PDF-'):
+                    raise ValueError('INVALID_OFFICIAL_PDF')
+                return ref,pdf
+            except (ValueError,KeyError,TimeoutError):
+                # 404 means that a scheduled time slot might not exist yet.
+                # Access denied and rate limits are NEVER bypassed by probing
+                # the adjacent slot, even though it is a public host.
+                failure=self.last_source_failure
+                if (isinstance(failure,dict) and
+                        failure.get('http_status') in (401,403,429)):
+                    break
+                if time.monotonic()>=deadline:
+                    break
+        return None,None
 
     def _get(self, url, deadline):
         self.last_source_failure=None
@@ -409,34 +491,85 @@ class CurrentRosterReview:
             stage='INDEX_FETCH'
             try:
                 explicit=None
+                preloaded_pdf=None
+                index=None
+                discovery='LIVE_OFFICIAL_INDEX'
                 try:
-                    index = self._get(season_index(context['season']), deadline)
+                    index=self._get(season_index(context['season']),deadline)
                 except ValueError:
-                    # Optional research fallback, ONLY for a real index 403.
-                    # Never enumerate timestamps, retry denied HTML or assert
-                    # that a user-supplied CDN link is the globally latest PDF.
-                    if self.report_archive is None or not self.last_source_failure or self.last_source_failure['http_status']!=403:
+                    # Public first-party NBA.com index is an official second
+                    # publication path; never enumerate PDF timestamps or
+                    # spoof authentication/redirects. Only original 403 permits
+                    # trying the fixed NBA.com page. Do NOT retry 429/401/404.
+                    denied=self.last_source_failure
+                    if not denied or denied.get('http_status')!=403:
                         raise
-                    from hybrid_engine.official_report_link import select_link,reference,MAX_AGE
-                    selected=select_link(self.report_archive,context['season'],int(self.clock()))
-                    if selected is None: raise
-                    explicit,entry_pin=selected
-                    ref=reference(explicit['url'],int(self.clock()))
-                    base.update(official_discovery_mode='EXPLICIT_OFFICIAL_CDN_LINK',latest_report_verified=False,
-                        explicit_report_entry_sha256=entry_pin,
-                        explicit_report_expires_at_utc=ref['report_timestamp_utc']+MAX_AGE,
-                        index_failure=dict(stage='INDEX_FETCH',http_status=403))
-                    base['warnings'].append('INDEX_403_EXPLICIT_LINK_NOT_ASSERTED_LATEST')
-                else:
-                    base['sources'].append({k: v for k, v in index.items() if k != 'body'})
+                    # Record the original 403 separately from any fallback
+                    # failure. A later 404 cannot erase the real first denial.
+                    primary_failure=deepcopy(denied)
+                    base['index_failure']=dict(stage='INDEX_FETCH',http_status=403)
+                    try:
+                        index=self._get(NBA_COM_INJURY_INDEX,deadline)
+                    except (ValueError,KeyError):
+                        alternate_failure=self.last_source_failure
+                        if (isinstance(alternate_failure,dict) and
+                                alternate_failure.get('url')==NBA_COM_INJURY_INDEX):
+                            http=alternate_failure.get('http_status')
+                            base['alternate_index_failure']=dict(
+                                http_status=http if type(http) is int and 100<=http<=599 else None)
+                        # The first-party page may also be unreachable. Keep
+                        # the *original* 403 as the operative source failure,
+                        # while exposing secondary failure distinctly.
+                        self.last_source_failure=primary_failure
+                        # Prefer a user-imported, content-pinned, fresh
+                        # official report. When none exists, the isolated test
+                        # bot may probe at most two public quarter-hour CDN
+                        # documents; validate title, clock and exact fixture.
+                        from hybrid_engine.official_report_link import select_link,reference,MAX_AGE
+                        selected=(select_link(self.report_archive,context['season'],int(self.clock()))
+                                  if self.report_archive is not None else None)
+                        if selected is not None:
+                            explicit,entry_pin=selected
+                            ref=reference(explicit['url'],int(self.clock()))
+                            base.update(official_discovery_mode='EXPLICIT_OFFICIAL_CDN_LINK',
+                                latest_report_verified=False,
+                                explicit_report_entry_sha256=entry_pin,
+                                explicit_report_expires_at_utc=ref['report_timestamp_utc']+MAX_AGE)
+                            base['warnings'].append('INDEX_403_EXPLICIT_LINK_NOT_ASSERTED_LATEST')
+                        elif (self.bounded_public_pdf_fallback and
+                              isinstance(alternate_failure,dict) and
+                              alternate_failure.get('http_status')==403):
+                            base['public_cdn_probe_attempted']=True
+                            base['public_cdn_candidates_maximum']=2
+                            ref,preloaded_pdf=self._public_pdf_after_two_403s(deadline)
+                            if ref is None:
+                                candidate_failure=self.last_source_failure
+                                if isinstance(candidate_failure,dict):
+                                    status=candidate_failure.get('http_status')
+                                    base['public_cdn_failure_http_status']=(
+                                        status if type(status) is int and 100<=status<=599 else None)
+                                self.last_source_failure=primary_failure
+                                raise ValueError('ROSTER_SOURCE_UNAVAILABLE')
+                            base.update(official_discovery_mode='BOUNDED_PUBLIC_OFFICIAL_CDN',
+                                latest_report_verified=False,
+                                explicit_report_expires_at_utc=ref['report_timestamp_utc']+MAX_AGE,
+                                public_cdn_candidates_maximum=2)
+                            base['warnings'].append('DUAL_INDEX_403_PUBLIC_PDF_NOT_ASSERTED_LATEST')
+                        else:
+                            raise ValueError('ROSTER_SOURCE_UNAVAILABLE')
+                    else:
+                        discovery='LIVE_NBA_COM_OFFICIAL_INDEX'
+                if index is not None:
+                    base['sources'].append({k:v for k,v in index.items() if k!='body'})
                     stage='INDEX_DISCOVERY'
-                    ref = latest_report(index['body'], int(self.clock()), context['season'])
-                    base.update(official_discovery_mode='LIVE_OFFICIAL_INDEX',latest_report_verified=ref is not None)
+                    ref=latest_report(index['body'],int(self.clock()),context['season'])
+                    base.update(official_discovery_mode=discovery,
+                                latest_report_verified=ref is not None)
                 base['official_report'] = ref
                 base.update(official_stage=stage,official_code='NO_RECENT_PUBLISHED_REPORT')
                 if ref:
                     stage='PDF_FETCH'
-                    pdf = self._get(ref['source_url'], deadline)
+                    pdf = preloaded_pdf or self._get(ref['source_url'], deadline)
                     if explicit and pdf['body_sha256']!=explicit['pdf_sha256']:
                         raise ValueError('EXPLICIT_REPORT_BODY_CHANGED')
                     base['sources'].append({k: v for k, v in pdf.items() if k != 'body'})
@@ -452,12 +585,23 @@ class CurrentRosterReview:
                         with os.fdopen(fd, 'wb') as stream: stream.write(pdf['body']); stream.flush(); os.fsync(stream.fileno())
                     stage='PDF_EXTRACTION'
                     extraction = self.extractor(path, deadline=deadline)
-                    if explicit or extraction.get('report_titles'):
+                    if explicit or preloaded_pdf is not None or extraction.get('report_titles'):
                         from hybrid_engine.official_report_link import assert_report_title,reference
-                        if explicit: reference(ref['source_url'],int(self.clock()))
+                        if explicit or preloaded_pdf is not None:
+                            reference(ref['source_url'],int(self.clock()))
                         assert_report_title(extraction,ref)
                         base['official_pdf_clock_verified']=True
                     base['official_extraction_status'] = extraction['status']
+                    # Team-code diagnostics only: no player/medical details,
+                    # and never use these codes to waive exact fixture checks.
+                    expected_pdf_pair=(_official_pdf_abbreviation(teams['away'])+'@'+
+                                       _official_pdf_abbreviation(teams['home']))
+                    pdf_pairs=sorted(set(str(x.get('matchup')) for x in
+                        extraction.get('rows',[]) if isinstance(x,dict) and
+                        re.fullmatch(r'[A-Z]{2,4}@[A-Z]{2,4}',
+                                     str(x.get('matchup')))))[:40]
+                    base['official_expected_matchup']=expected_pdf_pair
+                    base['official_report_matchups_seen']=pdf_pairs
                     base.update(official_stage=stage,official_code=extraction['status'],
                         official_parsed_rows=len(extraction.get('rows',[])),
                         official_parser_rejected_count=extraction.get('rejected_count'),
@@ -528,12 +672,22 @@ def render_review(review):
         key = (row['team_id'], row.get('player_id') or player_key(row['player_name']))
         groups.setdefault(key, []).append(row)
     for entries in groups.values():
-        if len({r['status'] for r in entries}) > 1:
-            lines.append('⚠️ Kaynak durumları uyuşmuyor; taraf seçilmedi.')
+        relation=status_relationship(entries)
+        if relation=='CONFLICTING_STATUS_DESIGNATIONS':
+            lines.append('⚠️ Kaynak durumları uyuşmuyor; katılım veya dakika tahmini yapılamadı.')
+        elif relation=='BROAD_TRACKER_WITH_UNCERTAIN_OFFICIAL_NOT_CONTRADICTORY':
+            lines.append('ℹ️ ESPN gün-gün izleme ile NBA maç bazlı belirsiz katılım sınıfları kesin çelişki değildir. '
+                         'Oyuncunun oynayacağı ve kaç dakika alacağı hâlâ doğrulanmadı.')
+        # Two source rows describe one player, not two absent players.
+        # Show each source's designation and clock without duplicate headings.
+        first=next((r for r in entries if r['source']=='ESPN'),entries[0])
+        lines.extend(['','<b>'+esc(first['team_name'])+' · '+esc(first['player_name'])+'</b>'])
         for row in entries:
-            lines.extend(['', '<b>'+esc(row['team_name'])+' · '+esc(row['player_name'])+'</b>',
-                esc(STATUS[row['status']])+' · '+('NBA resmî rapor metni' if row['source'] == 'NBA_OFFICIAL_PDF' else 'ESPN maç kaydı'),
-                'Kaynak durum zamanı: '+tsi(row['status_updated_at_utc'])])
+            src='NBA resmî rapor metni' if row['source']=='NBA_OFFICIAL_PDF' else 'ESPN maç kaydı'
+            lines.append('• '+esc(src)+' · '+esc(STATUS[row['status']]))
+            if row['player_name']!=first['player_name']:
+                lines.append('Kaynak ad biçimi: '+esc(row['player_name']))
+            lines.append('Kaynak durum zamanı: '+tsi(row['status_updated_at_utc']))
             if row['note']: lines.append('Kaynak notu: '+esc(row['note']))
             if review['observed_at_utc']-row['status_updated_at_utc']>24*3600:
                 lines.append('Durum kaydının tarihi eski; bugünkü oynama durumunun onayı değildir.')
@@ -555,6 +709,11 @@ def render_review(review):
     if review.get('warnings'): lines.append('Bazı kaynaklar veya oyuncu kimlikleri doğrulanamadı.')
     if review.get('official_discovery_mode')=='EXPLICIT_OFFICIAL_CDN_LINK':
         lines.append('NBA dizini 403 verdi; açıkça eklenen taze resmî PDF bağlantısı kullanıldı. En güncel rapor olduğu doğrulanmadı.')
+    elif review.get('official_discovery_mode')=='BOUNDED_PUBLIC_OFFICIAL_CDN':
+        if review.get('official_pdf_clock_verified') is True and review.get('official_stage')=='FIXTURE_ROWS':
+            lines.append('İki resmî rapor dizini 403 verdi; resmî CDN üzerindeki sınırlı otomatik kontrolde PDF başlığı, yayın saati ve maç eşleşmesi doğrulandı. En son yayımlanan rapor olduğu ayrıca doğrulanmadı.')
+        else:
+            lines.append('İki resmî dizin 403 verdi; resmî CDN yedek erişimi denendi ancak rapor içeriğinin güvenilir maç doğrulaması tamamlanmadı.')
     if review.get('official_stage'):
         stages={'INDEX_FETCH':'NBA sayfasına erişim','INDEX_DISCOVERY':'Yayımlanmış rapor seçimi',
             'PDF_FETCH':'PDF indirme','PDF_ARCHIVE':'PDF bütünlüğü ve arşiv',

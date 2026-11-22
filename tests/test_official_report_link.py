@@ -134,7 +134,7 @@ class Explicit403FallbackTests(TestCase):
         self.links=self.root/'official-links'
         self.fake=f.FixtureSources(); self.context=context_for(f.snapshot())
         import_link(URL,self.links,getter=lambda *a,**k:receipt(),extractor=extract,clock=lambda:NOW)
-        self.index_failures=0; self.pdf_override=False
+        self.index_failures=0; self.pdf_override=False; self.alternate_missing=False
 
     def getter(self,url,*,deadline):
         if url==season_index('2026/2027'):
@@ -143,6 +143,11 @@ class Explicit403FallbackTests(TestCase):
         if url==URL:
             if self.pdf_override: return dict(receipt(),body_sha256='0'*64)
             return receipt()
+        if url=='https://www.nba.com/players/injury-report':
+            # Also cover pinned real-world replay packets which predate the
+            # alternate index and cannot contain its response receipt.
+            if self.alternate_missing: raise KeyError('OLDER_PINNED_PACKET_NO_ALT_INDEX')
+            return dict(status='SOURCE_HTTP_ERROR',http_status=404,retry_after=300)
         return self.fake(url,deadline=deadline)
 
     def service(self,http=403,archive=True,extractor=extract):
@@ -157,6 +162,16 @@ class Explicit403FallbackTests(TestCase):
         self.assertEqual(r['official_fixture_rows'],1)
         self.assertIn('En güncel rapor olduğu doğrulanmadı',render_review(r))
         self.assertEqual(review_diagnostics(r)['index_failure']['http_status'],403)
+
+    def test_missing_alternate_index_in_pinned_packet_retains_valid_official_pdf_fallback(self):
+        self.alternate_missing=True
+        r=self.service().review(self.context)
+        self.assertEqual(r['official_discovery_mode'],'EXPLICIT_OFFICIAL_CDN_LINK')
+        self.assertFalse(r['latest_report_verified'])
+        self.assertEqual(r['official_fixture_rows'],1)
+        self.assertEqual(r['index_failure']['http_status'],403)
+        self.assertEqual(len([x for x in r['records'] if x['source']=='NBA_OFFICIAL_PDF']),1)
+        self.assertFalse(r['model_adjustment_applied'])
 
     def test_fallback_is_disabled_without_explicit_registry(self):
         r=self.service(archive=False).review(self.context)
@@ -173,6 +188,9 @@ class Explicit403FallbackTests(TestCase):
         r=self.service().review(self.context)
         self.assertNotIn('official_discovery_mode',r)
         self.assertEqual(r['official_http_status'],403)
+        self.assertEqual(r['index_failure']['http_status'],403)
+        self.assertEqual(r['alternate_index_failure']['http_status'],404)
+        self.assertEqual(review_diagnostics(r)['alternate_index_failure']['http_status'],404)
 
     def test_pdf_body_pin_cannot_be_changed_after_import(self):
         self.pdf_override=True; r=self.service().review(self.context)

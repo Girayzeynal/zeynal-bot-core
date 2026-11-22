@@ -142,10 +142,24 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             report=await release_service.analyze(league,date_str,home,away)
         except Exception as exc:
-            logger.error('Analysis service failed: %s',type(exc).__name__)
-            await update.message.reply_text('Analiz hizmeti kullanılamıyor veya süre aşıldı. Arşiv durumu doğrulanamadı.')
+            from hybrid_engine.analysis_exception_diagnostic import summarize,render
+            failure=summarize(exc)
+            context.application.bot_data.setdefault('last_analysis_failure',{})[league.upper()]=failure
+            logger.error('Analysis service failed: code=%s stage=%s origin=%s',
+                failure['code'],failure['stage'],failure.get('origin'))
+            await update.message.reply_text(render(failure))
             return
         await reply_analysis(update,context,report,release_service)
+        # One /analyze also triggers optional real source/player observation on
+        # the isolated test bot. The immutable score is delivered FIRST.
+        # Failures in the optional workflow cannot undo the forecast reply.
+        if league.upper()=='NBA':
+            try:
+                from hybrid_engine.auto_nba_evidence import schedule_auto
+                schedule_auto(context.application,league,report,update.effective_chat.id)
+            except (ValueError,KeyError,TypeError,AttributeError,RuntimeError) as exc:
+                logger.warning('NBA auto-evidence scheduling unavailable: %s',
+                               type(exc).__name__)
         return
     try:
         league=resolve_league(league).code

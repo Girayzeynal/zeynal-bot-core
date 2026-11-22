@@ -145,6 +145,111 @@ class RosterPureTests(TestCase):
                          [dict(id='22',displayName='Test Player'),dict(id='22',displayName='Other Player')]):
             self.assertEqual(roster_ids(dict(base,athletes=athletes),self.teams['away'],'2026/2027'),{})
 
+    def test_live_nyk_pdf_code_maps_exact_espn_ny_identity_without_fuzzy_matching(self):
+        # Genuine NBA published table labels POR@NYK, but ESPN's verified
+        # New York Knicks summary abbreviates the same franchise as NY.
+        # This is a manufactured fixture, NOT a live roster projection.
+        from zoneinfo import ZoneInfo
+        when=datetime(2026,11,21,19,30,tzinfo=ZoneInfo('America/New_York'))
+        ctx=dict(fixture_start_utc=int(when.timestamp()))
+        teams=dict(home=dict(id='18',name='New York Knicks',abbreviation='NY'),
+                   away=dict(id='22',name='Portland Trail Blazers',abbreviation='POR'))
+        extracted=dict(rows=[
+            dict(game_date='11/21/2026',game_time='07:30 (ET)',
+                 matchup='POR@NYK',team='Portland Trail Blazers',
+                 player_name='Sharpe, Shaedon',status='Out',reason='Injury/Illness'),
+            dict(game_date='11/21/2026',game_time='07:30 (ET)',
+                 matchup='POR@NYK',team='New York Knicks',
+                 player_name='Anunoby, OG',status='Out',reason='Injury/Illness')])
+        dirs={'18':{'oganunoby':'200'},'22':{'shaedonsharpe':'100'}}
+        rows,rejected=nba_rows(extracted,teams,dirs,ctx,int(when.timestamp())-3600)
+        self.assertEqual(rejected,0)
+        self.assertEqual([(r['team_name'],r['player_id']) for r in rows],
+                         [('Portland Trail Blazers','100'),('New York Knicks','200')])
+        self.assertTrue(all(r['identity_status']=='EXACT_ESPN_ROSTER_MATCH' for r in rows))
+        self.assertTrue(all(not r['independent_status_verified'] for r in rows))
+        # Real native pdfplumber extraction emits no spaces in team cells,
+        # and a compact ET clock token; the strict binding must behave
+        # identically for actual archive output, not just synthetic spacing.
+        compact=deepcopy(extracted)
+        for row in compact['rows']:
+            row['team']=row['team'].replace(' ','')
+            row['game_time']='07:30(ET)'
+        real_rows,real_rejected=nba_rows(compact,teams,dirs,ctx,int(when.timestamp())-3600)
+        self.assertEqual(real_rejected,0)
+        self.assertEqual([(r['team_name'],r['player_id']) for r in real_rows],
+                         [(r['team_name'],r['player_id']) for r in rows])
+
+        for change in ('wrong_date','wrong_pair','wrong_team'):
+            with self.subTest(change=change):
+                bad=deepcopy(extracted)
+                altered=deepcopy(teams)
+                if change=='wrong_date':
+                    for row in bad['rows']:row['game_date']='11/22/2026'
+                elif change=='wrong_pair':
+                    for row in bad['rows']:row['matchup']='NYK@POR'
+                else:
+                    altered['home']['name']='Another Franchise'
+                matched,_=nba_rows(bad,altered,dirs,ctx,int(when.timestamp())-3600)
+                self.assertEqual(matched,[])
+
+    def test_live_spurs_pelicans_pdf_alias_requires_exact_espn_team_identity(self):
+        # Regression for ESPN SA/NO vs NBA's published NOP@SAS.
+        # Native PDF observations remain unverified until player IDs are joined.
+        from zoneinfo import ZoneInfo
+        from hybrid_engine.current_roster import _official_pdf_abbreviation
+        when=datetime(2026,11,21,20,0,tzinfo=ZoneInfo('America/New_York'))
+        ctx=dict(fixture_start_utc=int(when.timestamp()))
+        teams=dict(home=dict(id='24',name='San Antonio Spurs',abbreviation='SA'),
+                   away=dict(id='3',name='New Orleans Pelicans',abbreviation='NO'))
+        self.assertEqual(_official_pdf_abbreviation(teams['home']),'SAS')
+        self.assertEqual(_official_pdf_abbreviation(teams['away']),'NOP')
+        extracted=dict(rows=[
+            dict(game_date='11/21/2026',game_time='08:00(ET)',matchup='NOP@SAS',
+                 team='SanAntonioSpurs',player_name='Harper, Dylan',status='Out',
+                 reason='Injury/Illness'),
+            dict(game_date='11/21/2026',game_time='08:00(ET)',matchup='NOP@SAS',
+                 team='NewOrleansPelicans',player_name='Murphy III, Trey',status='Out',
+                 reason='Injury/Illness')])
+        dirs={'24':{'dylanharper':'5037871'},'3':{'treymurphyiii':'4397688'}}
+        rows,rejected=nba_rows(extracted,teams,dirs,ctx,int(when.timestamp())-3600)
+        self.assertEqual(rejected,0)
+        self.assertEqual({(r['team_id'],r['player_id']) for r in rows},
+                         {('24','5037871'),('3','4397688')})
+        self.assertTrue(all(r['source']=='NBA_OFFICIAL_PDF' and
+                            not r['independent_status_verified'] for r in rows))
+        for alteration in ('wrong_date','wrong_pair','wrong_time','wrong_name','wrong_code'):
+            bad=deepcopy(extracted); identities=deepcopy(teams)
+            if alteration=='wrong_date':
+                bad['rows'][0]['game_date']='11/22/2026'
+            elif alteration=='wrong_pair':
+                bad['rows'][0]['matchup']='SAS@NOP'
+                bad['rows'][1]['matchup']='SAS@NOP'
+            elif alteration=='wrong_time':
+                bad['rows'][0]['game_time']='07:30(ET)'
+            elif alteration=='wrong_name':
+                identities['away']['name']='Another Franchise'
+            else:
+                identities['home']['abbreviation']='XX'
+            result,_=nba_rows(bad,identities,dirs,ctx,int(when.timestamp())-3600)
+            if alteration in ('wrong_date','wrong_time'):
+                self.assertEqual(len(result),1)
+            else:
+                self.assertEqual(result,[])
+
+    def test_pdf_aliases_require_name_and_espn_abbreviation_together(self):
+        from hybrid_engine.current_roster import _official_pdf_abbreviation
+        pairs=[
+            ('New York Knicks','NY','NYK'),
+            ('New Orleans Pelicans','NO','NOP'),
+            ('San Antonio Spurs','SA','SAS'),
+            ('Golden State Warriors','GS','GSW')]
+        for name,espn,official in pairs:
+            with self.subTest(team=name):
+                self.assertEqual(_official_pdf_abbreviation(dict(name=name,abbreviation=espn)),official)
+                self.assertEqual(_official_pdf_abbreviation(dict(name='Other Team',abbreviation=espn)),espn)
+                self.assertEqual(_official_pdf_abbreviation(dict(name=name,abbreviation='ZZ')), 'ZZ')
+
     def test_official_pdf_row_matches_date_pair_and_exact_roster_name_but_is_not_medically_verified(self):
         rows,n=nba_rows(extraction(),self.teams,{'2':{'testplayer':'22'}},self.context,NOW-3600)
         self.assertEqual(n,0); self.assertEqual(rows[0]['player_id'],'22')
@@ -254,6 +359,29 @@ class RosterReviewTests(TestCase):
         r['records'][0]['note']='<bad>'
         text=render_review(r); self.assertIn('&lt;script&gt;&amp;',text); self.assertIn('&lt;bad&gt;',text)
         self.assertIn('Kaynak SHA:',text); self.assertIn('Erişim:',text); self.assertIn('İlk tahminin girdisi değildir',text)
+
+    def test_two_identical_player_sources_have_one_heading(self):
+        r=self.service.review(self.context)
+        import copy
+        first=copy.deepcopy(r['records'][0])
+        second=copy.deepcopy(first)
+        second['source']='NBA_OFFICIAL_PDF'
+        second['player_name']='Different, Spelling'
+        r['records']=[first,second]
+        text=render_review(r)
+        expected='<b>'+first['team_name']+' · '+first['player_name']+'</b>'
+        self.assertEqual(text.count(expected),1)
+        self.assertIn('Kaynak ad biçimi: Different, Spelling',text)
+        self.assertIn('ESPN maç kaydı',text)
+        self.assertIn('NBA resmî rapor metni',text)
+
+    def test_expired_market_card_is_not_an_active_price(self):
+        e=dict(summary='s',sections=dict(market='MODEL YÖNÜ: ÜST 230,5'),
+            section_pages=dict(market=['MODEL YÖNÜ: ÜST 230,5']),
+            quote_valid_until_utc=NOW+10,tipoff_utc=START)
+        text,_=page_view(e,'market',0,now=NOW+20)
+        self.assertIn('GÜNCEL ORAN DEĞİL',text)
+        self.assertIn('önceki kontrol',text)
 
     def test_expired_cached_roster_pages_and_post_tipoff_are_explicit_archive_views(self):
         e=dict(summary='s',sections=dict(roster='r'),section_pages=dict(roster=['r']),

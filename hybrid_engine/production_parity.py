@@ -186,12 +186,47 @@ async def injurynews_command(update, context):
 
 
 async def runtime_command(update, context):
-    if [v.lower() for v in (context.args or [])] != ["runtime"]:
-        await _send(update, "Kullanım: /test runtime")
+    args=[v.lower() for v in (context.args or [])]
+    if args not in (["runtime"],["integrations"]):
+        await _send(update, "Kullanım: /test runtime veya /test integrations")
         return
     from hybrid_engine.runtime_identity import describe
-    report = describe(context.application.bot_data)
-    await _send(update, json.dumps(report, ensure_ascii=False, indent=2))
+    state=context.application.bot_data
+    runtime=describe(state)
+    if args==["runtime"]:
+        await _send(update, json.dumps(runtime,ensure_ascii=False,indent=2))
+        return
+    # This intentionally audits ACTIVE process state separately from Git source.
+    # A compiled/installed source adapter is not proof of configured runtime data,
+    # a fresh pregame player status, fitted effects or a Telegram-issued pick.
+    try:
+        from hybrid_engine.three_league_roster_bridge import readiness
+        sources=readiness()
+    except (ValueError,KeyError,TypeError,OSError,ImportError) as exc:
+        await _send(update,"PLAYER_PIPELINE_DIAGNOSTIC_UNAVAILABLE | "+
+                    type(exc).__name__+" | canlı skor ve eski tahminler değiştirilmedi")
+        return
+    report=dict(
+        format="THREE_LEAGUE_REAL_PROCESS_INTEGRATION_DIAGNOSTIC_V1",
+        release_sha=runtime["reported_release_sha"],
+        analysis_service=runtime["identity_status"],
+        analysis_service_chain=runtime["service_chain"],
+        last_analysis=runtime["last_analysis"],
+        data_mount_present=runtime["data_mount_present"],
+        original_archive_reader_configured=state.get("ledger_reports") is not None,
+        last_actual_official_player_directory_query=state.get("last_sourceplayers_native_receipt"),
+        league_counts=sources["membership_inventory"],
+        observed_official_news_pilots=sources["observed_official_club_news_pilots"],
+        unverified_official_news_sites=sources["not_connected_club_news_sites"],
+        native_euro_registration_adapter_implemented=sources["native_euro_season_registration_adapter"],
+        nba_player_minutes_adapter_implemented=sources["nba_existing_player_minutes_bridge_added"],
+        active_current_roster_in_all_82_teams_verified=False,
+        active_confirmed_transfer_news_pipeline=False,
+        independently_verified_player_coach_effects_in_numeric_forecast=False,
+        genuine_telegram_response_delivery_verified=False,
+        production_model_changed_by_diagnostic=False,
+        no_new_forecast_created=True)
+    await _send(update,json.dumps(report,ensure_ascii=False,indent=2))
 
 
 def install(app):

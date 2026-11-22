@@ -2,7 +2,10 @@
 import argparse
 from collections import Counter,defaultdict
 import hashlib
+import heapq
 import json
+import os
+import re
 from pathlib import Path
 import sqlite3
 import time
@@ -28,6 +31,38 @@ def load_snapshot(ledger,fixture_id):
         raw,pin=db.execute('SELECT payload,sha256 FROM live_analysis_snapshots WHERE league=? AND fixture_id=? AND model_digest=?',
             ('NBA',row['fixture_id'],row['model_digest'])).fetchone()
     return LiveAnalysisLedger._decode(raw,pin,expected=('NBA',row['fixture_id'],row['model_digest']))
+
+
+def rotation_coverage_diagnostics(context,review,rosters,boxes,now):
+    """Explain unknown players in the last six boxes; never infer minutes.
+
+    A new roster member can be valid without appearing in this team's six
+    historical boxes. This diagnostic exposes the identity gap without
+    assuming the player will sit or fabricating a transferable minute prior.
+    """
+    result={}
+    for side in ('home','away'):
+        team=context[side]['provider_id']
+        eligible=sorted((box for box in boxes if
+            box.get('league')=='NBA' and box.get('season')==context['season'] and
+            team in (box.get('home_team_id'),box.get('away_team_id')) and
+            box.get('scope')=='FINAL_WITH_OT' and box.get('regulation_eligible') is True and
+            box.get('fixture_start_utc',0)<now),
+            key=lambda box:(box['fixture_start_utc'],box['fixture_id']))[-6:]
+        previously_listed={p['player_id'] for box in eligible for p in box['players']
+                           if p.get('team_id')==team}
+        records={}
+        for row in review.get('records',[]):
+            if row.get('team_id')==team and row.get('player_id'):
+                records.setdefault(row['player_id'],[]).append(row)
+        two_source_out={pid for pid,items in records.items() if
+            {r.get('status') for r in items} <= {'Out','Suspended'} and
+            {'ESPN','NBA_OFFICIAL_PDF'} <= {r.get('source') for r in items}}
+        unknown=sorted(set(rosters[side]['players'])-previously_listed-two_source_out)
+        result[side]=dict(past_regulation_games=len(eligible),
+            missing_history_player_ids=unknown,missing_history_count=len(unknown),
+            actual_minutes_assumed=False,unverified_players_given_zero_minutes=False)
+    return result
 
 
 def collect(snapshot,assets,directory,*,reviewer=None,box_collector=collect_boxes):
@@ -80,7 +115,45 @@ def collect(snapshot,assets,directory,*,reviewer=None,box_collector=collect_boxe
         boxes,failures=collected['games'],collected['failures']
         if failures or len(boxes)!=len(targets): raise Abstain('INCOMPLETE_NATIVE_PAST_PLAYER_BOXES')
         generated=int(time.time())
-        packet=projection(context,review,rosters,boxes,generated_at_utc=generated)
+        try:
+            packet=projection(context,review,rosters,boxes,generated_at_utc=generated)
+        except Abstain as exc:
+            if str(exc)=='CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY':
+                result['rotation_diagnostics']=rotation_coverage_diagnostics(
+                    context,review,rosters,boxes,generated)
+            if str(exc)=='ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS':
+                # A second pass only on the already-captured data. It NEVER
+                # enters MinutesArchive, training, a Telegram score, or production.
+                # Only a fresh, pinned official PDF may be used to explore the
+                # downstream failure reason without making an availability claim.
+                try:
+                    scenario=projection(context,review,rosters,boxes,
+                        generated_at_utc=generated,diagnostic_official_only=True)
+                except Abstain as secondary:
+                    label=str(secondary)
+                    result['official_only_diagnostic']=dict(
+                        status='BLOCKED_NOT_ARCHIVED',
+                        downstream_reason=label,
+                        production_enabled=False,forecast_changed=False,
+                        model_training_eligible=False)
+                    if label=='CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY':
+                        result['rotation_diagnostics']=rotation_coverage_diagnostics(
+                            context,review,rosters,boxes,generated)
+                except (ValueError,KeyError,TypeError):
+                    result['official_only_diagnostic']=dict(
+                        status='UNAVAILABLE_NOT_ARCHIVED',
+                        production_enabled=False,forecast_changed=False,
+                        model_training_eligible=False)
+                else:
+                    p=scenario['payload']
+                    result['official_only_diagnostic']=dict(
+                        status='PROVISIONAL_ROTATION_COMPUTED_NOT_ARCHIVED',
+                        source_evidence='FRESH_NBA_OFFICIAL_PDF_ONLY_NOT_ESPN_CORROBORATED',
+                        official_only_player_ids=p['provisional_official_only_player_ids'],
+                        projection_kind=p['model_input_kind'],
+                        scores_computed=False,production_enabled=False,
+                        forecast_changed=False,model_training_eligible=False)
+            raise
         bundle=dict(format='PLAYER_MINUTES_INPUT_WITNESSES_V1',context=context,review=review,rosters=rosters,
             boxes=boxes,original_cut_sha256=ref['sha256'],projection_sha256=packet['sha256'])
         witness=root/('inputs-'+packet['sha256']+'.json')
@@ -190,7 +263,7 @@ def collect_batch(ledger,assets,directory,*,maximum=4,minimum_lead_seconds=900,
                 if digest(snapshot)!=row['snapshot_sha256']:
                     raise ValueError('PLAYER_BATCH_SNAPSHOT_CHANGED_DURING_READ')
                 one=collect_one(snapshot,assets,root)
-                item={k:one.get(k) for k in ('fixture_id','status','reason','projection','new_record','roster_diagnostics')}
+                item={k:one.get(k) for k in ('fixture_id','status','reason','projection','new_record','roster_diagnostics','rotation_diagnostics','official_only_diagnostic')}
             except (ValueError,KeyError,TypeError,OSError,sqlite3.Error):
                 item=dict(fixture_id=row['fixture_id'],status='BLOCKED',reason='PLAYER_BATCH_ARCHIVE_OR_SOURCE_UNAVAILABLE')
             result['results'].append(item)
@@ -213,6 +286,88 @@ def collect_batch(ledger,assets,directory,*,maximum=4,minimum_lead_seconds=900,
         root.mkdir(parents=True,exist_ok=True)
         publish_json(root/('batch-'+digest(result)+'.json'),dict(payload=result,sha256=digest(result)))
     return result
+
+
+def recent_collection_diagnostics(directory,*,limit=3,maximum_files=512):
+    """Return latest hash-pinned real attempts despite a large historical folder.
+
+    The scan is metadata-only. At most maximum_files newest candidate documents
+    are opened; the immutable archive is never trimmed, changed or retrained.
+    A large count is not an error, nor a reason to hide the newest blockers.
+    """
+    if type(limit) is not int or not 1<=limit<=10 or type(maximum_files) is not int or not 8<=maximum_files<=4096:
+        raise ValueError('COLLECTION_DIAGNOSTIC_BOUNDED_POLICY_REQUIRED')
+    root=local_path(directory)
+    if not root.is_dir():
+        return dict(status='NO_COLLECTION_ATTEMPTS',items=[],read_only=True)
+    candidates=[]; count=0
+    # Previous implementation stopped when there were >512 files; filename
+    # ordering by SHA is not creation ordering. Select by filesystem mtime,
+    # but verify the full SHA pin before trusting any record.
+    with os.scandir(root) as listing:
+        for entry in listing:
+            if not re.fullmatch(r'collection-[0-9a-f]{64}\.json',entry.name):
+                continue
+            if not entry.is_file(follow_symlinks=False):
+                continue
+            stat=entry.stat(follow_symlinks=False)
+            if not 0<stat.st_size<=256*1024:
+                continue
+            count+=1
+            candidate=(stat.st_mtime_ns,entry.name)
+            if len(candidates)<maximum_files:
+                heapq.heappush(candidates,candidate)
+            elif candidate>candidates[0]:
+                heapq.heapreplace(candidates,candidate)
+    files=[root/name for _,name in sorted(candidates,reverse=True)]
+    items=[]
+    for path in files:
+        if path.is_symlink() or path.stat().st_size>256*1024:
+            continue
+        try:
+            wrapped=json.loads(path.read_text())
+            body=wrapped['payload']
+            if (wrapped['sha256']!=digest(body) or path.stem!='collection-'+wrapped['sha256']
+                    or body.get('format')!='PLAYER_INPUT_COLLECTION_V1'
+                    or body.get('status') not in ('BLOCKED','PROSPECTIVE_MINUTES_ARCHIVED',
+                        'EXISTING_MINUTES_REPLAY')):
+                continue
+            diag=body.get('roster_diagnostics')
+            diag=diag if isinstance(diag,dict) else {}
+            rotation=body.get('rotation_diagnostics')
+            rotation=rotation if isinstance(rotation,dict) else {}
+            scenario=body.get('official_only_diagnostic')
+            scenario=scenario if isinstance(scenario,dict) else {}
+            item=dict(fixture_id=body.get('fixture_id'),
+                provider_fixture_ids=body.get('provider_fixture_ids'),
+                completed_at_utc=body.get('completed_at_utc'),
+                status=body['status'],
+                reason=body.get('reason'),
+                missing_absence_corroboration_count=diag.get('missing_absence_count'),
+                official_pdf_fixture_rows=diag.get('official_fixture_rows'),
+                official_expected_matchup=diag.get('official_expected_matchup'),
+                official_only_diagnostic_status=scenario.get('status'),
+                diagnostic_downstream_reason=scenario.get('downstream_reason'),
+                rotation_missing_history_counts={
+                    side:rotation.get(side,{}).get('missing_history_count')
+                    for side in ('home','away') if isinstance(rotation.get(side),dict)},
+                real_projection_sha256=body.get('projection'))
+            if (isinstance(item['fixture_id'],str) and
+                    type(item['completed_at_utc']) is int):
+                items.append(item)
+        except (OSError,ValueError,KeyError,TypeError):
+            continue
+    newest={}
+    for item in items:
+        fid=item['fixture_id']
+        if fid not in newest or (item['completed_at_utc'],str(item.get('real_projection_sha256'))) > (
+                newest[fid]['completed_at_utc'],str(newest[fid].get('real_projection_sha256'))):
+            newest[fid]=item
+    recent=sorted(newest.values(),key=lambda x:(x['completed_at_utc'],x['fixture_id']),reverse=True)[:limit]
+    return dict(status='ARCHIVED_COLLECTION_ATTEMPTS' if recent else 'NO_COLLECTION_ATTEMPTS',
+        items=recent,read_only=True,source_calls=0,scores_recomputed=False,
+        collection_files_found=count,collection_files_examined=len(files),
+        collection_history_sampled=count>maximum_files)
 
 
 def main():

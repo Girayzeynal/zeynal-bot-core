@@ -183,7 +183,16 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
     app.bot_data['market_observation_store']=market_store
     if nba_service is not None:
         from hybrid_engine.current_roster import CurrentRosterReview
-        app.bot_data['current_roster_review']=roster_review or CurrentRosterReview(root/'current-roster',report_archive=root/'official-reports')
+        app.bot_data['current_roster_review']=roster_review or CurrentRosterReview(
+            root/'current-roster',report_archive=root/'official-reports',
+            bounded_public_pdf_fallback=True)
+        # /analyze launches the bounded optional data continuation by itself.
+        # Production-only services have no such opt-in. This never edits a
+        # stored forecast or introduces uncalibrated player score corrections.
+        app.bot_data['auto_nba_player_pipeline']=dict(
+            reviewer=app.bot_data['current_roster_review'],
+            assets=getattr(nba_service,'assets',None),directory=root/'player-shadow',
+            chat_id=chat_id,cooldown_seconds=300)
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');results=ProspectiveResults(archive,root/'official-results')
     frozen=FrozenHybridService(archive)
     if nba_service is not None:
@@ -267,12 +276,27 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     logging.getLogger(__name__).warning('Market source panel unavailable: %s',type(exc).__name__)
                     market_lines.append('Piyasa kaynak/dağılım denetimi tamamlanamadı; skor tahmini korunuyor. Kod: MARKET_PANEL_UNAVAILABLE')
                 response=dict(response)
-                from hybrid_engine.telegram_premium_ui import compact_summary, keyboard, detail_sections
+                from hybrid_engine.telegram_premium_ui import (
+                    compact_summary,keyboard,detail_sections,direction_card_matches_snapshot)
                 import secrets
                 token=secrets.token_hex(6)
                 from hybrid_engine.market_direction_ui import order,pages as direction_pages
                 ranked=order(direction_cards)
-                first_total=next((c for c in ranked if c['current'] and c['period']=='FULL' and c['market']=='TOTAL'),None)
+                # Later research context may have a different model digest or
+                # clock than the immutable first NBA forecast. It is not an
+                # original-model direction and must never break /analyze.
+                current_totals=[c for c in ranked if c['current'] and
+                                c['period']=='FULL' and c['market']=='TOTAL']
+                bound_totals=[c for c in current_totals if
+                              direction_card_matches_snapshot(snapshot,c)]
+                first_total=bound_totals[0] if bound_totals else None
+                if len(bound_totals)!=len(current_totals):
+                    market_lines.append('Piyasa araştırması farklı model kesiti/zamanıyla hesaplandı; '
+                        'ilk skor tahminine güncel model yönü olarak bağlanmadı. '
+                        'Piyasa kartları kendi kanıtlarıyla ayrı görüntülenebilir.')
+                    logging.getLogger(__name__).info(
+                        'NBA current market headline suppressed due to model/clock/mean mismatch: %s',
+                        len(current_totals)-len(bound_totals))
                 summary=compact_summary(snapshot,evidence,replayed=not response['new_record'],health=health,
                     market_note=market_note,direction_card=first_total)
                 from hybrid_engine.telegram_roster_bridge import read_fixture_roster_evidence
@@ -285,12 +309,19 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     away_team_id=str(snapshot['away'].get('team_id') or snapshot['away'].get('official_name')))
                 market_pages=direction_pages(direction_cards)
                 market_html=market_pages[0] if market_pages else '<b>PİYASA</b>\nDoğrulanabilir barem yok; yön veya yüzde üretilmedi.\nSağlayıcı ayrıntıları: Model / Kaynak düğmesi.'
+                if len(bound_totals)!=len(current_totals):
+                    market_html=('⚠️ <b>AYRI ARAŞTIRMA MODELİ</b>\n'
+                        'Bu piyasa kartının model kesiti/saati ilk tahminle eşleşmedi. '
+                        'İlk skor tahminine uygulanmadı; kalibre edilmiş yön değildir.\n\n'
+                        +market_html)
                 sections=detail_sections(response['html_parts'],market_html,
                                          roster_evidence=roster)
                 sections['audit']=render_health(health)+'\n\n'+sections['audit']+'\n\n'+'\n\n'.join(market_lines)
                 from hybrid_engine.elite_render import split_blocks
                 section_pages={k:split_blocks(v.splitlines(),limit=3200) for k,v in sections.items()}
-                if market_pages:section_pages['market']=market_pages
+                if market_pages:
+                    section_pages['market']=([market_html,*market_pages[1:]]
+                        if len(bound_totals)!=len(current_totals) else market_pages)
                 cache=app.bot_data.setdefault('premium_reports',{})
                 from hybrid_engine.telegram_premium_ui import cache_report
                 expiry=[c['valid_until_utc'] for c in ranked if c['current']]
@@ -312,7 +343,14 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 live=league is None or league.upper()=='NBA'
                 return dict(live=live,report=(self.live if live else self.frozen).read('NBA' if live else league,fixture_id))
             def render_accuracy(self,r):
-                return ('İZOLE NBA HİBRİT ARAŞTIRMA — ÜRETİM DEĞİL\n'+render_accuracy(r['report'])) if r['live'] else self.frozen.render_accuracy(r['report'])
+                if not r['live']:return self.frozen.render_accuracy(r['report'])
+                original='İZOLE NBA HİBRİT ARAŞTIRMA — ÜRETİM DEĞİL\n'+render_accuracy(r['report'])
+                # Include the already computed, separate, prospective model
+                # comparison; never refit or call a provider in /accuracy.
+                assessments=app.bot_data.get('current_assessments')
+                if assessments is not None:
+                    original+='\n\n'+assessments.render_performance()
+                return original
             def render_compare(self,r):
                 return ('İZOLE NBA HİBRİT ARAŞTIRMA — ÜRETİM DEĞİL\n'+render_compare(r['report'])) if r['live'] else self.frozen.render_compare(r['report'])
         app.bot_data['verified_analysis_service']=Dispatch();app.bot_data['ledger_reports']=Reports()
@@ -461,25 +499,42 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 root/'nba-overnight',root/'challenger-research'/'protocol')
     if not replay_only and (europe_services or app.bot_data.get('nba_overnight_scheduler')):
         from hybrid_engine.adaptive_worker import AdaptiveWorker
+        from hybrid_engine.research_protocol_namespace import namespace
+        from hybrid_engine.adaptive_research import POLICY as V2_POLICY, source_pins as v2_pins
+        adaptive_protocol=namespace(root,'adaptive-v2',policy=V2_POLICY,source_pins=v2_pins())
         app.bot_data['adaptive_v2_worker']=AdaptiveWorker(root/'adaptive-v2',
             nba=nba_service if app.bot_data.get('nba_overnight_scheduler') else None,europe=europe_services,
-            fetcher=transport or fetch_document)
+            fetcher=transport or fetch_document,research_directory=adaptive_protocol)
         if app.bot_data['adaptive_v2_worker'].nba is not None:
             from hybrid_engine.native_fixture_recheck import NativeFixtureRecheck
             recheck=NativeFixtureRecheck(app.bot_data['adaptive_v2_worker'].transport)
             app.bot_data['adaptive_v2_worker'].verify=recheck.verify
             app.bot_data['native_fixture_recheck']=recheck
-            from hybrid_engine.issue90_research import Research
+            from hybrid_engine.issue90_research import Research, POLICY as V3_POLICY, pins as v3_pins
             from hybrid_engine.research_diagnostics import ObservedResearch
-            app.bot_data['issue90_research']=ObservedResearch(Research(root/'nba-research-v3-integrity-v2',app.bot_data['adaptive_v2_worker']))
-        from hybrid_engine.current_assessment import CurrentAssessments,install_display
+            v3_protocol=namespace(root,'nba-v3',policy=V3_POLICY,source_pins=v3_pins())
+            app.bot_data['issue90_research']=ObservedResearch(Research(v3_protocol,app.bot_data['adaptive_v2_worker']))
+        from hybrid_engine.current_assessment import CurrentAssessments, POLICY as ASSESS_POLICY
+        from hybrid_engine.issue90_research import pins as assessment_pins
         from hybrid_engine.research_diagnostics import ResearchCycle
-        assessments=CurrentAssessments(root/'current-assessments-v1',app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'))
+        # The current-assessment implementation is itself part of the
+        # experiment identity; V3's inherited pins do not cover this module.
+        import hashlib as _protocol_hashlib
+        assessment_source_pins=dict(assessment_pins())
+        assessment_source_pins['current_assessment_module_sha256']=_protocol_hashlib.sha256(
+            (Path(__file__).parent/'current_assessment.py').read_bytes()).hexdigest()
+        assessment_protocol=namespace(root,'current-assessment',policy=ASSESS_POLICY,
+                                      source_pins=assessment_source_pins)
+        assessments=CurrentAssessments(assessment_protocol,app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'))
+        app.bot_data['research_protocol_directories']=dict(
+            adaptive_v2=str(adaptive_protocol),nba_v3=str(v3_protocol) if app.bot_data['adaptive_v2_worker'].nba is not None else None,
+            current_assessment=str(assessment_protocol))
         app.bot_data['current_assessments']=assessments
         app.bot_data['research_cycle']=ResearchCycle(app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'),assessments)
         for bridge in (provider_bridge,getattr(app.bot_data.get('europe_data_review'),'bridge',None)):
             if bridge is not None:bridge.assessments=assessments
-        install_display(app.bot_data,assessments)
+        from hybrid_engine.current_assessment_ui import install_dual_clock_display
+        install_dual_clock_display(app.bot_data,assessments)
     async def journal_write(key,event):
         request=app.bot.request
         if isinstance(request,AuditedRequest):return await request.append_journal(journal,key,event)
@@ -511,8 +566,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
-        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime','predictions'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test predictions, /test all')
+        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime','integrations','engines','predictions','playerimpact'):
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test integrations, /test predictions, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',
@@ -539,6 +594,103 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 lines.append(f'İşçi kuyruğunda bekleme (sn): {max(0,queue):.2f}')
                 lines.append('Arşiv doğrulama süresi (sn): '+
                     ('henüz başlamadı' if started is None else f"{max(0,(read.get('finished_at') or now)-started):.2f}"))
+        if mode=='playerimpact':
+            from hybrid_engine.predictions_command import split_plain
+            path=root/'player-effect-smoke.json'
+            record=dict(format='NBA_PLAYER_IMPACT_TEST_STATUS_V1',
+                mode='SYNTHETIC_AND_LIVE_ARE_SEPARATE',
+                training_in_telegram=False,production_changed=False,
+                original_forecasts_changed=False,
+                live_fixture_player_model_status='BLOCKED_UNLESS_PROSPECTIVE_EVIDENCE_EXISTS')
+            worker=app.bot_data.get('adaptive_v2_worker')
+            progress=getattr(worker,'progress',{}) if worker else {}
+            # Actual /analyze automation is NOT the old adaptive research
+            # worker. Report both independently rather than masking a real
+            # execution with the worker's NO_ATTEMPT_OBSERVED default.
+            automatic=app.bot_data.get('auto_nba_last_attempt')
+            record['automatic_nba_data_collection']=(
+                dict(automatic) if isinstance(automatic,dict)
+                else dict(status='NO_ANALYZE_TRIGGER_OBSERVED_IN_THIS_BOT_PROCESS'))
+            record['live_player_minutes_status']=(
+                automatic.get('player_input_status','NOT_STARTED')
+                if isinstance(automatic,dict) else 'NO_AUTOMATIC_ANALYZE_TRIGGER_OBSERVED')
+            record['legacy_worker_player_input_status']=(
+                progress.get('player_input_status','NO_ATTEMPT_OBSERVED')
+                if isinstance(progress,dict) else 'NOT_OBSERVED')
+            record['live_player_model_coefficients_applied']=False
+            # Verify the REAL archived inputs separately from the synthetic
+            # smoke. A roster row or a made-up injury never counts as a
+            # prospective training example.
+            try:
+                from hybrid_engine.player_shadow import readiness as player_readiness
+                actual=await asyncio.wait_for(asyncio.to_thread(
+                    player_readiness,root/'player-shadow'),timeout=5)
+                record['real_player_inputs']=dict(
+                    status=actual['status'],
+                    prospective_minutes_games=actual['prospective_minutes_games'],
+                    rejected_inputs=actual['rejected_inputs'],
+                    prepared_artifacts=actual['prepared_artifacts'],
+                    offline_fit_target_games=actual['minimum_fit_games'],
+                    calibration_status=actual['calibration_status'],
+                    production_enabled=actual['production_enabled'])
+            except (ValueError,KeyError,TypeError,OSError,asyncio.TimeoutError):
+                record['real_player_inputs']=dict(status='READ_UNAVAILABLE_NOT_VERIFIED')
+            # Source-attempt evidence is kept separate from synthetic smoke and
+            # only names the actual rejected constraints, never player diagnoses.
+            try:
+                from hybrid_engine.player_inputs import recent_collection_diagnostics
+                record['latest_real_collection_attempts']=await asyncio.wait_for(
+                    asyncio.to_thread(recent_collection_diagnostics,root/'player-shadow'),timeout=3)
+            except (ValueError,KeyError,TypeError,OSError,asyncio.TimeoutError):
+                record['latest_real_collection_attempts']=dict(
+                    status='READ_UNAVAILABLE_NOT_VERIFIED',read_only=True)
+            record['europe_player_score_models']='NOT_VERIFIED_BY_NBA_SYNTHETIC_SMOKE'
+            if not path.is_file() or path.is_symlink() or path.stat().st_size>18000:
+                record['synthetic_demo']='NOT_RUN'
+                record['next_step']='UserLAnd: bash scripts/run_isolated_test_bot.sh --player-effect-smoke'
+            else:
+                try:
+                    wrapped=json.loads(path.read_text())
+                    p=wrapped['payload']
+                    if (wrapped['sha256']!=digest(p) or
+                            p['format']!='NBA_SYNTHETIC_PLAYER_EFFECT_SMOKE_V1' or
+                            p['input_classification']!='FULLY_MANUFACTURED_TEST_GAMES_AND_INJURY' or
+                            p['original_forecasts_changed'] is not False or
+                            p['production_enabled'] is not False or
+                            p['network_requests_made']!=0 or
+                            p['evidence_is_real_game'] is not False or
+                            p['player_effect_is_live'] is not False):
+                        raise ValueError('SYNTHETIC_PLAYER_REPORT_PIN_OR_SCOPE')
+                    record.update(synthetic_demo=p['status'],
+                        synthetic_fit_games=p['synthetic_fit_games'],
+                        fake_missing_player=p['simulated_injury'],
+                        minute_conservation=dict(before=p['home_rotation_minutes_before'],
+                            after=p['home_rotation_minutes_after']),
+                        missing_player_minutes=dict(before=p['missing_player_minutes_before'],
+                            after=p['missing_player_minutes_after']),
+                        replacement_minutes=p['replacement_minutes_top4'],
+                        team_control=p['TEAM_BAYES_CONTROL'],
+                        player_bayes_before=p['PLAYER_BAYES_BEFORE'],
+                        player_bayes_after=p['PLAYER_BAYES_AFTER'],
+                        player_bayes_delta=p['PLAYER_BAYES_DELTA'],
+                        score_sensitivity_observed=p['score_sensitivity_observed'],
+                        warning='SENTETIK_TEST; GERCEK_MAC_OYUNCU_ETKISI_DEGIL')
+                except (ValueError,KeyError,TypeError,UnicodeError,OSError):
+                    record['synthetic_demo']='INVALID_OR_UNVERIFIED_TEST_REPORT'
+            for part in split_plain(json.dumps(record,ensure_ascii=False,indent=2),limit=3200):
+                await message.reply_text(part,parse_mode=None)
+            raise ApplicationHandlerStop
+        if mode=='engines':
+            from hybrid_engine.active_engine_status import describe as engine_status
+            from hybrid_engine.predictions_command import split_plain
+            report=await asyncio.to_thread(engine_status,app.bot_data,root)
+            for part in split_plain(json.dumps(report,ensure_ascii=False,indent=2),limit=3200):
+                await message.reply_text(part,parse_mode=None)
+            raise ApplicationHandlerStop
+        if mode=='integrations':
+            from hybrid_engine.production_parity import runtime_command
+            await runtime_command(update,context)
+            raise ApplicationHandlerStop
         if mode=='runtime':
             from hybrid_engine.runtime_identity import describe
             from hybrid_engine.elite_render import split_blocks
@@ -819,7 +971,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     'Veri yokluğu tam kadro/NO EDGE anlamına gelmez. İlk tahmin korunuyor. Kod: EUROPE_SOURCE_REVIEW_UNAVAILABLE',
                     reply_markup=keyboard(token))
                 return
-        if section=='roster' and page==0 and entry.get('roster_context'):
+        if section=='roster' and page==0 and entry.get('roster_auto_ready') and (
+                int(time.time())<entry.get('roster_valid_until_utc',0)):
+            # Already collected in the same /analyze request: no duplicate
+            # fetch, no new Telegram message, one in-place paginated card.
+            pass
+        elif section=='roster' and page==0 and entry.get('roster_context'):
             await query.answer('Güncel kaynaklar kontrol ediliyor…')
             answered=True
             reviewer=app.bot_data.get('current_roster_review')

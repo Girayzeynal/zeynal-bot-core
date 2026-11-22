@@ -6,6 +6,28 @@ from datetime import datetime,timezone
 from zoneinfo import ZoneInfo
 from telegram_delivery import tsi
 
+def direction_card_matches_snapshot(snapshot,card):
+    """A newer research market assessment cannot be attributed to first forecast.
+
+    This guards presentation only. Cards may be examined separately with their
+    own model/clock pins, but never attached as a current original-model call.
+    """
+    if not isinstance(snapshot,dict) or not isinstance(card,dict) or card.get('current') is not True:
+        return False
+    try:
+        p=snapshot['prediction']
+        mean=card['mean']
+        return (card['fixture_id']==snapshot['fixture_id'] and
+            card['model_digest']==snapshot['model_digest'] and
+            card['prediction_utc']==snapshot['prediction_generated_at_utc'] and
+            card['tipoff_utc']==snapshot['fixture_start_utc'] and
+            card['period']=='FULL' and card['market']=='TOTAL' and
+            type(mean) in (int,float) and type(p['total']) in (int,float) and
+            abs(mean-p['total'])<=1e-8)
+    except (KeyError,TypeError,ValueError,OverflowError):
+        return False
+
+
 def compact_summary(snapshot,evidence,*,replayed,health=None,market_note=None,direction_card=None,league='NBA'):
     if league not in ('NBA','EUROLEAGUE','EUROCUP'):raise ValueError('SUMMARY_LEAGUE_REQUIRED')
     minutes=48 if league=='NBA' else 40
@@ -14,7 +36,7 @@ def compact_summary(snapshot,evidence,*,replayed,health=None,market_note=None,di
     lines=[f'🏀 <b>ZEYNAL | {league} ANALİZ</b>',
         '<b>'+esc(str(snapshot['home']['official_name']))+'</b> 🆚 <b>'+esc(str(snapshot['away']['official_name']))+'</b>',
         start+f' TSİ · Normal süre ({minutes} dk)','',
-        '📊 <b>SKOR PROJEKSİYONU</b>',
+        '📊 <b>İLK KAYITLI SKOR PROJEKSİYONU</b>',
         f'Ev <b>{p["home"]:.1f}</b> · Dep <b>{p["away"]:.1f}</b>',
         f'Toplam <b>{p["total"]:.1f}</b> · Ev farkı {p["margin"]:+.1f}','']
     if direction_card is not None and direction_card.get('current'):
@@ -84,7 +106,11 @@ def page_view(entry,section,page,*,now):
         if entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc']:
             text='Maç başladı; yalnız arşiv görünümü.\n\n'+text
         elif entry.get('quote_valid_until_utc') is not None and now>entry['quote_valid_until_utc']:
-            text='Arşiv görünümü; piyasa fiyatları yeniden sorgulanmadı.\n\n'+text
+            text=('⛔ <b>ARŞİV PİYASA GÖZLEMİ — GÜNCEL ORAN DEĞİL</b>\n'
+                  'Arşiv görünümü; piyasa fiyatları yeniden sorgulanmadı.\n'
+                  'Barem, fiyat ve ham model yüzdesi önceki kontrol anına aittir; '
+                  'bu an için doğrulanmış bahis avantajı veya geçerli fiyat değildir. '
+                  'Yeni fiyat kontrolü için yeniden /analyze gerekir.\n\n'+text)
     return text,len(values)
 
 def period_table(section_html):

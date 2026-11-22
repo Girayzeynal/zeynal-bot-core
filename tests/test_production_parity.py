@@ -84,6 +84,29 @@ class ProductionParityTests(unittest.TestCase):
             parity.install(app)
         self.assertEqual(app.handlers, [])
 
+    def test_live_integration_command_is_readonly_and_admits_missing_data(self):
+        update, context, msg = fixture(Reader(), ["integrations"])
+        asyncio.run(parity.runtime_command(update, context))
+        import json
+        report=json.loads("".join(msg.sent))
+        self.assertEqual(report["format"],"THREE_LEAGUE_REAL_PROCESS_INTEGRATION_DIAGNOSTIC_V1")
+        self.assertEqual(report["league_counts"],{"NBA":30,"EUROLEAGUE":20,"EUROCUP":32})
+        self.assertEqual(report["observed_official_news_pilots"],6)
+        self.assertEqual(report["unverified_official_news_sites"],76)
+        self.assertFalse(report["independently_verified_player_coach_effects_in_numeric_forecast"])
+        self.assertFalse(report["genuine_telegram_response_delivery_verified"])
+        self.assertTrue(report["no_new_forecast_created"])
+        self.assertFalse(report["original_archive_reader_configured"] is False)
+
+    def test_test_integrations_never_masquerades_as_runtime_analysis(self):
+        update, context, msg = fixture(args=["integrations"])
+        asyncio.run(parity.runtime_command(update, context))
+        import json
+        report=json.loads("".join(msg.sent))
+        self.assertFalse(report["original_archive_reader_configured"])
+        self.assertEqual(report["analysis_service"],"SERVICE_LOADED_ANALYSIS_NOT_OBSERVED")
+        self.assertFalse(report["active_confirmed_transfer_news_pipeline"])
+
     def test_news_command_reads_sources_without_issued_fixture_or_model(self):
         from unittest.mock import patch
         update,ctx,msg=fixture(args=[

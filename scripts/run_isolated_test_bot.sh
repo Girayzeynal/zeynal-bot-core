@@ -12,6 +12,32 @@ if [[ ! -x "${test_python}" ]]; then echo "ISOLATED_PYTHON_NOT_FOUND" >&2; exit 
 if [[ "${1:-}" == "--provider-check" ]]; then
   exec "${test_python}" -m hybrid_engine.provider_access --check
 fi
+# Offline PDF replay is read-only and can run WHILE the isolated bot polls.
+# Never refreshes expired medical evidence, never updates git or predictions.
+# Explicit synthetic offline PLAYER_BAYES smoke. Never starts Telegram,
+# contacts providers, touches first forecasts, or uses production artifacts.
+# Can run in a second Android terminal while the Telegram poller is active.
+# Read existing native player boxes only. This is a conditional statistical
+# research pilot, NOT an authenticated availability or active score model.
+if [[ "${1:-}" == "--player-box-pilot" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_PLAYER_PILOT_ARGS" >&2; exit 2; fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+  exec "${test_python}" -B -m hybrid_engine.player_box_pilot \
+    --data-directory "${HOME}/zeynal-test-isolated/data"
+fi
+if [[ "${1:-}" == "--player-effect-smoke" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_PLAYER_SMOKE_ARGS" >&2; exit 2; fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+  exec "${test_python}" -B -m hybrid_engine.player_effect_smoke \
+    --output "${HOME}/zeynal-test-isolated/data/player-effect-smoke.json"
+fi
+if [[ "${1:-}" == "--roster-pdf-audit" ]]; then
+  if [[ "$#" -ne 3 ]]; then echo "INVALID_OFFLINE_PDF_AUDIT_ARGS" >&2; exit 2; fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  exec "${test_python}" -B -m hybrid_engine.roster_pdf_audit \
+    --directory "${HOME}/zeynal-test-isolated/data/official-reports" \
+    --matchup "$2" --game-date "$3"
+fi
 if [[ "${1:-}" == "--settle-results" || "${1:-}" == "--results-review" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
@@ -81,7 +107,7 @@ if ! flock -n 9; then
 fi
 branch="$(git branch --show-current)"
 case "$branch" in
-  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118|feature/europe-alias-replay-ui-20261118|feature/model-data-pipeline-audit-20261118|feature/issue90-chronological-engine-audit-20261118|feature/integrated-test-bot-20261119) ;;
+  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118|feature/europe-alias-replay-ui-20261118|feature/model-data-pipeline-audit-20261118|feature/issue90-chronological-engine-audit-20261118|feature/integrated-test-bot-20261119|feature/three-league-roster-integration-20261121) ;;
   *) echo "WRONG_BRANCH: checkout an isolated test branch first" >&2; exit 2 ;;
 esac
 launcher_path="${PWD}/scripts/run_isolated_test_bot.sh"

@@ -5,7 +5,7 @@ import unittest
 
 from core.team_identity import digest
 from hybrid_engine.market_direction_ui import cards,brief,render,direction,reason,projection_mean,pages,order,MAX_CARDS
-from hybrid_engine.telegram_premium_ui import compact_summary,keyboard,page_view,cache_report
+from hybrid_engine.telegram_premium_ui import compact_summary,keyboard,page_view,cache_report,direction_card_matches_snapshot
 from hybrid_engine.intervals import sample_paths
 from tests import test_current_market_review as synthetic
 
@@ -158,6 +158,34 @@ class DirectionCardTests(unittest.TestCase):
         for change in [dict(fixture_id='other'),dict(model_digest='f'*64),dict(prediction_utc=c['prediction_utc']-1),dict(mean=c['mean']+1),dict(period='1Q')]:
             bad=dict(c,**change)
             with self.subTest(change=change),self.assertRaisesRegex(ValueError,'SUMMARY_DIRECTION'):compact_summary(s,[],replayed=True,direction_card=bad)
+
+    def test_later_research_market_card_is_not_attributed_to_first_forecast(self):
+        c=self.make()[0];s=self.snapshot(c)
+        self.assertTrue(direction_card_matches_snapshot(s,c))
+        # Reproduce real Telegram fault at telegram_premium_ui.py:26:
+        # current quotes were evaluated with a newer model context, not with
+        # the immutable first forecast. The safe call-site passes None.
+        for altered in (
+            dict(model_digest='f'*64),
+            dict(prediction_utc=c['prediction_utc']+600),
+            dict(mean=c['mean']+1.0),
+            dict(fixture_id='cross-match'),
+            dict(tipoff_utc=c['tipoff_utc']+60),
+        ):
+            current_research=dict(c,**altered)
+            self.assertTrue(current_research['current'])
+            self.assertFalse(direction_card_matches_snapshot(s,current_research))
+            summary=compact_summary(s,[],replayed=True,
+                direction_card=(current_research if
+                    direction_card_matches_snapshot(s,current_research) else None))
+            self.assertIn('Güncel doğrulanmış barem yok',summary)
+            self.assertNotIn('MODEL YÖNÜ:',summary)
+            self.assertIn('221.0',summary)
+        # Safety invariant is retained: direct accidental card attachment
+        # still fails instead of silently borrowing an unrelated direction.
+        with self.assertRaisesRegex(ValueError,'SUMMARY_DIRECTION'):
+            compact_summary(s,[],replayed=True,
+                direction_card=dict(c,model_digest='f'*64))
 
     def test_stale_card_never_becomes_main_screen_direction(self):
         c=self.make()[0];c['current']=False;s=self.snapshot(c)

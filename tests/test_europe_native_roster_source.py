@@ -160,6 +160,41 @@ class NativeRosterTelegramOutputTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Oyuncu durumu ve sayısal skor etkisi doğrulanmadı", "".join(sent))
         self.assertEqual("".join(sent),render_public(response))
 
+    async def test_native_sourceplayers_receipt_is_visible_not_model_input(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from hybrid_engine.europe_native_roster_source import telegram_command
+        from hybrid_engine.production_parity import runtime_command
+        sent=[]
+        async def reply_text(body,**kwargs):sent.append(body)
+        def row(side):
+            return dict(status="OFFICIAL_SEASON_REGISTRATION_OBSERVED",
+                        mapped_player_ids=16 if side=="home" else 17,
+                        named_players=16 if side=="home" else 17,
+                        observed_at_utc=1790000000,body_sha256="a"*64,
+                        source_url="https://api-live.euroleague.net/official",
+                        registered_players=[dict(name="Athlete "+side,player_id=side)])
+        response=dict(teams={"home":row("home"),"away":row("away")})
+        state={}
+        update=SimpleNamespace(effective_message=SimpleNamespace(reply_text=reply_text))
+        context=SimpleNamespace(args=["EUROLEAGUE","2026/2027","ZAL","PAN"],
+            application=SimpleNamespace(bot_data=state))
+        with patch("hybrid_engine.europe_native_roster_source.pair",return_value=response):
+            await telegram_command(update,context)
+        observed=state["last_sourceplayers_native_receipt"]
+        self.assertEqual(observed["teams"]["home"]["official_player_ids"],16)
+        self.assertEqual(observed["teams"]["away"]["official_player_ids"],17)
+        self.assertFalse(observed["roster_confirmed_for_game"])
+        self.assertFalse(observed["numeric_player_effect_applied"])
+        context.args=["integrations"]
+        sent.clear()
+        await runtime_command(update,context)
+        import json
+        report=json.loads("".join(sent))
+        self.assertEqual(report["last_actual_official_player_directory_query"],observed)
+        self.assertFalse(report["independently_verified_player_coach_effects_in_numeric_forecast"])
+
+
 
 
 if __name__=="__main__":

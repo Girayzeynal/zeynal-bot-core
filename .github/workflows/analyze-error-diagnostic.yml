@@ -1,0 +1,33 @@
+name: Analysis error localization regression
+
+on:
+  push:
+    branches:
+      - feature/three-league-roster-integration-20261121
+    paths:
+      - main.py
+      - hybrid_engine/analysis_exception_diagnostic.py
+      - hybrid_engine/runtime_identity.py
+      - hybrid_engine/current_assessment.py
+      - tests/test_analysis_exception_diagnostic.py
+      - .github/workflows/analyze-error-diagnostic.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  safe-analysis-errors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Syntax-check incident modules
+        run: |
+          python -m py_compile main.py hybrid_engine/analysis_exception_diagnostic.py hybrid_engine/current_assessment.py hybrid_engine/runtime_identity.py
+      - name: Verify exact safe analysis exception location
+        run: |
+          python -m unittest -v tests.test_analysis_exception_diagnostic
