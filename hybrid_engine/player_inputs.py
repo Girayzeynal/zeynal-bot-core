@@ -285,6 +285,66 @@ def collect_batch(ledger,assets,directory,*,maximum=4,minimum_lead_seconds=900,
     return result
 
 
+def recent_collection_diagnostics(directory,*,limit=3,maximum_files=512):
+    """Read pinned, real collector outcomes. No source requests or new forecast.
+
+    A synthetic smoke run cannot create these files. Report exact blockers,
+    while omitting names and medical notes from the Telegram status.
+    """
+    root=local_path(directory)
+    if not root.is_dir():
+        return dict(status='NO_COLLECTION_ATTEMPTS',items=[],read_only=True)
+    files=sorted(root.glob('collection-*.json'))
+    if len(files)>maximum_files:
+        return dict(status='COLLECTION_DIAGNOSTIC_SCAN_BUDGET',items=[],read_only=True)
+    items=[]
+    for path in files:
+        if path.is_symlink() or path.stat().st_size>256*1024:
+            continue
+        try:
+            wrapped=json.loads(path.read_text())
+            body=wrapped['payload']
+            if (wrapped['sha256']!=digest(body) or path.stem!='collection-'+wrapped['sha256']
+                    or body.get('format')!='PLAYER_INPUT_COLLECTION_V1'
+                    or body.get('status') not in ('BLOCKED','PROSPECTIVE_MINUTES_ARCHIVED',
+                        'EXISTING_MINUTES_REPLAY')):
+                continue
+            diag=body.get('roster_diagnostics')
+            diag=diag if isinstance(diag,dict) else {}
+            rotation=body.get('rotation_diagnostics')
+            rotation=rotation if isinstance(rotation,dict) else {}
+            scenario=body.get('official_only_diagnostic')
+            scenario=scenario if isinstance(scenario,dict) else {}
+            item=dict(fixture_id=body.get('fixture_id'),
+                provider_fixture_ids=body.get('provider_fixture_ids'),
+                completed_at_utc=body.get('completed_at_utc'),
+                status=body['status'],
+                reason=body.get('reason'),
+                missing_absence_corroboration_count=diag.get('missing_absence_count'),
+                official_pdf_fixture_rows=diag.get('official_fixture_rows'),
+                official_expected_matchup=diag.get('official_expected_matchup'),
+                official_only_diagnostic_status=scenario.get('status'),
+                diagnostic_downstream_reason=scenario.get('downstream_reason'),
+                rotation_missing_history_counts={
+                    side:rotation.get(side,{}).get('missing_history_count')
+                    for side in ('home','away') if isinstance(rotation.get(side),dict)},
+                real_projection_sha256=body.get('projection'))
+            if (isinstance(item['fixture_id'],str) and
+                    type(item['completed_at_utc']) is int):
+                items.append(item)
+        except (OSError,ValueError,KeyError,TypeError):
+            continue
+    newest={}
+    for item in items:
+        fid=item['fixture_id']
+        if fid not in newest or (item['completed_at_utc'],str(item.get('real_projection_sha256'))) > (
+                newest[fid]['completed_at_utc'],str(newest[fid].get('real_projection_sha256'))):
+            newest[fid]=item
+    recent=sorted(newest.values(),key=lambda x:(x['completed_at_utc'],x['fixture_id']),reverse=True)[:limit]
+    return dict(status='ARCHIVED_COLLECTION_ATTEMPTS' if recent else 'NO_COLLECTION_ATTEMPTS',
+        items=recent,read_only=True,source_calls=0,scores_recomputed=False)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--ledger',required=True); parser.add_argument('--assets-directory',required=True)
