@@ -287,6 +287,28 @@ class RuleBindingTests(TestCase):
 
 
 class CycleTests(IsolatedAsyncioTestCase):
+    async def test_user_fixture_priority_is_processed_after_v2_without_telegram_fit(self):
+        order=[]
+        async def v2():
+            order.append('v2')
+            return dict(status='CHECKED')
+        def tick(*,preferred_fixture_id=None):
+            order.append('current:'+str(preferred_fixture_id))
+            return dict(status='CHECKED')
+        app=SimpleNamespace(bot_data={})
+        cycle=ResearchCycle(SimpleNamespace(tick=v2),None,SimpleNamespace(tick=tick))
+        from unittest.mock import patch as runtime_patch
+        with runtime_patch('hybrid_engine.research_diagnostics.time.time',return_value=NOW):
+            self.assertTrue(cycle.request_fixture(dict(league='NBA',fixture_id='requested-nba-match',
+                fixture_start_utc=NOW+7200)))
+            self.assertTrue(cycle.request_fixture(dict(league='NBA',fixture_id='requested-nba-match',
+                fixture_start_utc=NOW+7200)))
+            self.assertEqual(len(cycle.requested_fixtures),1)
+            await cycle.once(app)
+        self.assertEqual(order,['v2','current:requested-nba-match'])
+        self.assertEqual(cycle.requested_fixtures,[])
+        self.assertEqual(app.bot_data['last_current_assessment_poll']['status'],'CHECKED')
+
     async def test_player_input_v2_before_slow_v3_one_failure_does_not_starve_stages(self):
         order=[]
         def v3():order.append('v3');raise ValueError('DYNAMIC_RECENT_TEAM_HISTORY_REQUIRED')
