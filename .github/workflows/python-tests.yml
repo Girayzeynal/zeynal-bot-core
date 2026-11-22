@@ -12,6 +12,7 @@ on:
       - "feature/model-data-pipeline-audit-20261118"
       - "feature/issue90-chronological-engine-audit-20261118"
       - "feature/integrated-test-bot-20261119"
+      - "fix/telegram-current-panels-20261122"
   pull_request:
     branches:
       - main
@@ -23,6 +24,7 @@ on:
       - "feature/europe-alias-replay-ui-20261118"
       - "feature/model-data-pipeline-audit-20261118"
       - "feature/issue90-chronological-engine-audit-20261118"
+      - "feature/three-league-roster-integration-20261121"
 
 jobs:
   unit-tests:
