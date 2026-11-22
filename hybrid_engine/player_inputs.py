@@ -306,7 +306,7 @@ def recent_collection_diagnostics(directory,*,limit=3,maximum_files=512):
     # but verify the full SHA pin before trusting any record.
     with os.scandir(root) as listing:
         for entry in listing:
-            if not re.fullmatch(r'collection-[0-9a-f]{64}\\.json',entry.name):
+            if not re.fullmatch(r'collection-[0-9a-f]{64}\.json',entry.name):
                 continue
             if not entry.is_file(follow_symlinks=False):
                 continue
