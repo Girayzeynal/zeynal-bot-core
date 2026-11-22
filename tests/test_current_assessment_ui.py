@@ -99,9 +99,10 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
             new_record=False)
         a=SimpleNamespace(latest=Mock(return_value=None),
             refresh_fixture=Mock(side_effect=Abstain('CURRENT_FIXTURE_OR_ORIGINAL_NOT_ELIGIBLE')))
+        queue=SimpleNamespace(request_fixture=Mock(return_value=True))
         state=dict(verified_analysis_service=SimpleNamespace(analyze=AsyncMock(return_value=response)),
             premium_reports={token:dict(summary='ORIGINAL',sections=dict(audit='AUDIT'),
-            section_pages=dict(audit=['AUDIT']))})
+            section_pages=dict(audit=['AUDIT']))},research_cycle=queue)
         install_dual_clock_display(state,a)
         with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
             out=await state['verified_analysis_service'].analyze('NBA','date','Home','Away')
@@ -110,6 +111,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('GÜNCEL NBA TAHMİNİ',out['html'])
         self.assertIn('ORIGINAL',state['premium_reports'][token]['sections']['audit'])
         a.refresh_fixture.assert_not_called()
+        queue.request_fixture.assert_called_once_with(ctx)
 
     async def test_slow_on_demand_retraining_is_never_called_from_analyze(self):
         from telegram import InlineKeyboardButton,InlineKeyboardMarkup
