@@ -398,6 +398,13 @@ class CurrentRosterReview:
                     raise ValueError('INVALID_OFFICIAL_PDF')
                 return ref,pdf
             except (ValueError,KeyError,TimeoutError):
+                # 404 means that a scheduled time slot might not exist yet.
+                # Access denied and rate limits are NEVER bypassed by probing
+                # the adjacent slot, even though it is a public host.
+                failure=self.last_source_failure
+                if (isinstance(failure,dict) and
+                        failure.get('http_status') in (401,403,429)):
+                    break
                 if time.monotonic()>=deadline:
                     break
         return None,None
@@ -509,7 +516,9 @@ class CurrentRosterReview:
                               isinstance(alternate_failure,dict) and
                               alternate_failure.get('http_status')==403):
                             ref,preloaded_pdf=self._public_pdf_after_two_403s(deadline)
-                            if ref is None: raise ValueError('ROSTER_SOURCE_UNAVAILABLE')
+                            if ref is None:
+                                self.last_source_failure=primary_failure
+                                raise ValueError('ROSTER_SOURCE_UNAVAILABLE')
                             base.update(official_discovery_mode='BOUNDED_PUBLIC_OFFICIAL_CDN',
                                 latest_report_verified=False,
                                 explicit_report_expires_at_utc=ref['report_timestamp_utc']+MAX_AGE,
