@@ -415,6 +415,10 @@ class ProviderTelegramTests(unittest.IsolatedAsyncioTestCase):
             archive = FrozenArchive(ROOT/'docs/prospective/euroleague-20261112')
             installed, _ = install_isolated_services(app, archive, root/'isolated', chat_id=17,
                                                      nba_service=service, provider_bridge=bridge)
+            # This integration test verifies market/callback/score invariants.
+            # Suppress the independent async player-source continuation here:
+            # it has separate fake-source tests, and must not hit real URLs.
+            app.bot_data.pop('auto_nba_player_pipeline', None)
             await app.initialize()
             try:
                 command = '/analyze NBA 2026-11-15 Philadelphia 76ers vs Indiana Pacers'
@@ -442,11 +446,11 @@ class ProviderTelegramTests(unittest.IsolatedAsyncioTestCase):
                             message=dict(message_id=101,date=NOW,chat=dict(id=17,type='private'),text=sent[0]))),app.bot)
                         await app.process_update(detail)
                 self.assertEqual(len(fake.calls),calls_before)
-                # The primary score is followed by a separate automatic NBA
-                # player/source audit; the latter must never revise the score.
-                self.assertEqual(len(sent),2)
-                self.assertIn('OTOMATİK NBA OYUNCU / KADRO KONTROLÜ',sent[1])
-                self.assertIn('BU ANALİZDE AKTİF DEĞİL',sent[1])
+                # Synthetic market/Telegram integration is isolated from the
+                # async player worker. One command emits one primary score.
+                # Live async sidecar delivery is tested separately with stubs.
+                self.assertEqual(len(sent),1)
+                self.assertNotIn('OTOMATİK NBA OYUNCU',sent[0])
                 self.assertIn('Yönün güvenilirliği',edits[0])
                 self.assertIn('Henüz yeterince doğrulanmadı',edits[0])
                 body = '\n'.join(sent+edits)
@@ -484,10 +488,10 @@ class ProviderTelegramTests(unittest.IsolatedAsyncioTestCase):
                         text=command,entities=[dict(type='bot_command',offset=0,length=8)])),app.bot)
                     await app.process_update(reanalyze)
                 self.assertGreater(changed[0],0)
-                self.assertEqual(len(sent),3)
-                self.assertIn('ZEYNAL | NBA ANALİZ',sent[2])
-                self.assertIn('Güncel doğrulanmış barem yok',sent[2])
-                self.assertNotIn('ANALYZE_VALIDATION_ERROR',sent[2])
+                self.assertEqual(len(sent),2)
+                self.assertIn('ZEYNAL | NBA ANALİZ',sent[1])
+                self.assertIn('Güncel doğrulanmış barem yok',sent[1])
+                self.assertNotIn('ANALYZE_VALIDATION_ERROR',sent[1])
                 self.assertEqual(digest(snap),before)
             finally:
                 await app.shutdown(); await runner.cleanup()
