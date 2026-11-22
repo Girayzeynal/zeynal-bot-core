@@ -142,6 +142,66 @@ def current_panels(context, assessment, *, now):
                 fresh=True,valid_until=validity)
 
 
+
+def bound_current_market_cards(context, assessment, entry, *, now):
+    """Only previously evaluated, native, not-yet-expired prices for this exact candidate.
+
+    Does not recalculate odds or invent prices; source evaluation and original
+    forecast are independent. Any missing binding fails closed.
+    """
+    import math
+    from core.team_identity import digest
+
+    if not isinstance(assessment,dict) or not isinstance(entry,dict):
+        return []
+    snap=entry.get('research_market_snapshot')
+    cards=entry.get('research_market_cards')
+    if not isinstance(snap,dict) or not isinstance(cards,list):
+        return []
+    if (snap.get('current_assessment_sha256')!=digest(assessment) or
+            snap.get('linked_original_snapshot_sha256')!=digest(context) or
+            snap.get('fixture_id')!=context.get('fixture_id') or
+            snap.get('fixture_start_utc')!=context.get('fixture_start_utc') or
+            snap.get('prediction_generated_at_utc')!=assessment.get('prediction_generated_at_utc') or
+            type(snap.get('model_digest')) is not str or not snap['model_digest']):
+        return []
+    q=assessment.get('candidate') or {}
+    quarters=q.get('quarters')
+    if not isinstance(quarters,(list,tuple)) or len(quarters)!=4:
+        return []
+    def expected(part,kind):
+        if part=='FULL':pairs=quarters
+        elif part=='1H':pairs=quarters[:2]
+        elif part=='2H':pairs=quarters[2:]
+        elif part in ('1Q','2Q','3Q','4Q'):pairs=[quarters[int(part[0])-1]]
+        else:return None
+        h=sum(p[0] for p in pairs)
+        a=sum(p[1] for p in pairs)
+        return {'TOTAL':h+a,'HOME':h,'AWAY':a,
+                'HOME_HANDICAP':h-a,'WINNER':h-a}.get(kind)
+    chosen=[]
+    for card in cards[:128]:
+        if not isinstance(card,dict):continue
+        mean=card.get('mean');expect=expected(card.get('period'),card.get('market'))
+        if (card.get('current') is not True or
+            type(card.get('valid_until_utc')) is not int or
+            now>=card['valid_until_utc'] or
+            type(card.get('asof_utc')) is not int or card['asof_utc']>now or
+            type(card.get('available_at_utc')) is not int or
+            card['available_at_utc']>card['asof_utc'] or
+            card.get('fixture_id')!=context.get('fixture_id') or
+            card.get('tipoff_utc')!=context.get('fixture_start_utc') or
+            card.get('model_digest')!=snap['model_digest'] or
+            card.get('prediction_utc')!=assessment['prediction_generated_at_utc'] or
+            type(mean) not in (int,float) or not math.isfinite(mean) or
+            expect is None or abs(mean-expect)>1e-8 or
+            not isinstance(card.get('prices'),dict) or not card['prices']):
+            continue
+        chosen.append(card)
+    return chosen
+
+
+
 def install_dual_clock_display(state,assessments):
     """Supersede the original display wrapper without changing model source pins."""
     base=state['verified_analysis_service']
@@ -223,14 +283,30 @@ def install_dual_clock_display(state,assessments):
                 for section in ('period','ranges'):
                     entry['sections'][section]=panels[section]
                     entry['section_pages'][section]=split_blocks(panels[section].splitlines(),limit=3200)
-                # Existing market odds were assessed against the first model.
-                # A later candidate must not inherit those prices or its edge.
-                entry['sections']['market']=(
-                    '⛔ <b>GÜNCEL ADAYLA EŞLEŞMİŞ PİYASA HESABI YOK</b>\n'
-                    'İlk tahminin piyasa değerlendirmesi Model / Kaynak arşivine taşındı.\n'
-                    'Yeni adayın dağılımına bağlı güncel fiyat ve edge doğrulanmadı.')
-                entry['section_pages']['market']=[entry['sections']['market']]
-                entry['quote_valid_until_utc']=None  # Old quote is archive-only.
+                # The first-model quotes belong in audit. Show separate
+                # research-model reviews ONLY if their verified model+clock
+                # identity matches this candidate and the native quote is live.
+                matching=(bound_current_market_cards(context,selected,entry,now=int(time.time()))
+                          if panels['fresh'] else [])
+                if matching:
+                    from hybrid_engine.market_direction_ui import render as market_render,order as market_order
+                    ranked=market_order(matching)[:32]
+                    header=('📈 <b>GÜNCEL ARAŞTIRMA ADAYI | DOĞRULANMIŞ FİYATLAR</b>\n'
+                            'Model, maç, zaman ve beklenen skor birebir eşleşti.\n'
+                            'Ham simülasyon olasılığı · NOT_CALIBRATED · Güven endeksi yok.\n'
+                            'İlk tahminin piyasa kayıtları Model / Kaynak arşivindedir.')
+                    market_pages=[header+'\n\n'+market_render(card) for card in ranked]
+                    entry['section_pages']['market']=market_pages
+                    entry['sections']['market']='\n\n'.join(market_pages)
+                    entry['quote_valid_until_utc']=min(card['valid_until_utc'] for card in ranked)
+                else:
+                    entry['sections']['market']=(
+                        '⛔ <b>GÜNCEL ADAYLA EŞLEŞMİŞ PİYASA HESABI YOK</b>\n'
+                        'Aynı aday SHA/model/zaman, doğrulanmış yerel fiyat ve '
+                        'güncel barem birlikte bulunamadı.\n'
+                        'İlk tahminin piyasa değerlendirmesi Model / Kaynak arşivindedir.')
+                    entry['section_pages']['market']=[entry['sections']['market']]
+                    entry['quote_valid_until_utc']=None  # Old quote is archive-only.
                 entry['current_assessment_valid_until_utc']=panels['valid_until']
                 entry['current_assessment_panels']=panels['fresh']
                 parts=[headline]
