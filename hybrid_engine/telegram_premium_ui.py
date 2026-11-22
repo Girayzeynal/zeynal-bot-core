@@ -107,6 +107,7 @@ def page_view(entry,section,page,*,now):
             text='Maç başladı; yalnız arşiv görünümü.\n\n'+text
         elif entry.get('quote_valid_until_utc') is not None and now>entry['quote_valid_until_utc']:
             text=('⛔ <b>ARŞİV PİYASA GÖZLEMİ — GÜNCEL ORAN DEĞİL</b>\n'
+                  'Arşiv görünümü; piyasa fiyatları yeniden sorgulanmadı.\n'
                   'Barem, fiyat ve ham model yüzdesi önceki kontrol anına aittir; '
                   'bu an için doğrulanmış bahis avantajı veya geçerli fiyat değildir. '
                   'Yeni fiyat kontrolü için yeniden /analyze gerekir.\n\n'+text)

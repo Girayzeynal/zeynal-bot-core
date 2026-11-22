@@ -12,7 +12,6 @@ on:
       - "feature/model-data-pipeline-audit-20261118"
       - "feature/issue90-chronological-engine-audit-20261118"
       - "feature/integrated-test-bot-20261119"
-      - "feature/three-league-roster-integration-20261121"
   pull_request:
     branches:
       - main
