@@ -66,7 +66,15 @@ def _official_only_diagnostic_permission(review,records,now):
     if not isinstance(official,dict): return False
     url=official.get('source_url')
     timestamp=official.get('report_timestamp_utc')
-    if (not isinstance(url,str) or type(timestamp) is not int or
+    if not isinstance(url,str) or type(timestamp) is not int:
+        return False
+    from hybrid_engine.nba_injury_source import official_nba_injury_report_reference
+    try:
+        parsed=official_nba_injury_report_reference(
+            url,retrieved_at_utc=now,prediction_utc=now)
+    except ValueError:
+        return False
+    if (parsed['report_timestamp_utc']!=timestamp or
             not 0<=now-timestamp<=1800 or
             not any(s.get('url')==url and type(s.get('observed_at_utc')) is int and
                     timestamp<=s['observed_at_utc']<=now for s in review.get('sources',[]))):
