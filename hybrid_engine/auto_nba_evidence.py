@@ -120,6 +120,47 @@ def render_auto(result):
     return '\n'.join(lines)
 
 
+def schedule_auto(app,league,report,chat_id,*,clock=time.time):
+    """Schedule one automatic follow-up only after the original reply is sent.
+
+    The 5-minute value is a duplicate-work cooldown, NOT an archive or model
+    expiry. Future user commands can still display the stored forecast.
+    """
+    config=app.bot_data.get('auto_nba_player_pipeline')
+    if (league.upper()!='NBA' or not isinstance(config,dict) or
+            chat_id!=config.get('chat_id') or report.get('status')!='ANALYSIS_OK'):
+        return False
+    snapshot=report.get('snapshot')
+    now=int(clock())
+    if admission(snapshot,now)!='FUTURE_FIXTURE_VERIFIED_CONTEXT':
+        return False
+    fid=snapshot['fixture_id']
+    attempts=app.bot_data.setdefault('auto_nba_attempt_clocks',{})
+    previous=attempts.get(fid)
+    cooldown=config.get('cooldown_seconds',300)
+    if previous is not None and 0<=now-previous<cooldown:
+        return False
+    attempts[fid]=now
+
+    async def work():
+        try:
+            result=await collect_auto(snapshot,config['reviewer'],config['assets'],
+                                     config['directory'])
+            await send_auto(app.bot,chat_id,result)
+        except Exception as exc:
+            # Never leak source exceptions, tokens or private paths to Telegram.
+            import logging
+            logging.getLogger(__name__).warning('Autonomous NBA evidence unavailable: %s',
+                                                type(exc).__name__)
+            await app.bot.send_message(chat_id=chat_id,
+                text=('Otomatik NBA kadro/oyuncu incelemesi tamamlanamadı. '
+                      'Bu durum oyuncuların eksiksiz olduğu anlamına gelmez. '
+                      'İlk skor tahmini değiştirilmedi.'),
+                disable_web_page_preview=True)
+    app.create_task(work())
+    return True
+
+
 async def send_auto(bot,chat_id,result,*,limit=3000):
     """Automatic continuation without another command; no fabricated delivery receipt."""
     summary=render_auto(result)
