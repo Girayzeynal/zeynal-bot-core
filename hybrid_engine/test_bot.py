@@ -343,7 +343,14 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 live=league is None or league.upper()=='NBA'
                 return dict(live=live,report=(self.live if live else self.frozen).read('NBA' if live else league,fixture_id))
             def render_accuracy(self,r):
-                return ('İZOLE NBA HİBRİT ARAŞTIRMA — ÜRETİM DEĞİL\n'+render_accuracy(r['report'])) if r['live'] else self.frozen.render_accuracy(r['report'])
+                if not r['live']:return self.frozen.render_accuracy(r['report'])
+                original='İZOLE NBA HİBRİT ARAŞTIRMA — ÜRETİM DEĞİL\n'+render_accuracy(r['report'])
+                # Include the already computed, separate, prospective model
+                # comparison; never refit or call a provider in /accuracy.
+                assessments=app.bot_data.get('current_assessments')
+                if assessments is not None:
+                    original+='\n\n'+assessments.render_performance()
+                return original
             def render_compare(self,r):
                 return ('İZOLE NBA HİBRİT ARAŞTIRMA — ÜRETİM DEĞİL\n'+render_compare(r['report'])) if r['live'] else self.frozen.render_compare(r['report'])
         app.bot_data['verified_analysis_service']=Dispatch();app.bot_data['ledger_reports']=Reports()

@@ -108,6 +108,49 @@ class AssessmentTests(TestCase):
         self.assertFalse(result['original_metrics_changed']);self.assertFalse(result['superiority_claim'])
         self.assertEqual(self.assess.performance([dict(label,snapshot_sha256='b'*64)])['groups'],[])
 
+    def test_native_paired_first_forecast_vs_first_current_candidate_without_retrofit(self):
+        p,_=self.capture()
+        self.h.now=self.target['fixture_start_utc']+7200
+        published=p['prediction_generated_at_utc']-60
+        original=[p['candidate']['home']+10.,p['candidate']['away']+10.]
+        label=dict(fixture_id=self.target['fixture_id'],snapshot_sha256=digest(self.original),
+            model_digest='a'*64,season=self.target['season'],actual=[100,100],
+            actual_periods=dict(home=[25,25,25,25],away=[25,25,25,25]),
+            fixture_start_utc=self.target['fixture_start_utc'],label_available_utc=self.h.now,
+            prediction=list(original),prediction_generated_at_utc=published-10,
+            first_archived_at_utc=published)
+        output=self.assess.performance([label]);group=output['groups'][0]
+        pair=group['paired']
+        self.assertEqual(group['paired_n'],1)
+        self.assertEqual(pair['status'],'PAIRED_DESCRIPTIVE_ONLY')
+        self.assertAlmostEqual(pair['first_forecast_total_mae'],abs(sum(original)-200))
+        self.assertAlmostEqual(pair['candidate_total_mae'],abs(p['candidate']['total']-200))
+        self.assertAlmostEqual(pair['total_mae_delta'],
+            abs(sum(original)-200)-abs(p['candidate']['total']-200))
+        self.assertFalse(output['original_metrics_changed'])
+        self.assertFalse(output['automatic_promotion'])
+        self.assess.last_report=dict(performance=output)
+        display=self.assess.render_performance()
+        self.assertIn('İlk toplam MAE',display)
+        self.assertIn('Güncel aday toplam MAE',display)
+        self.assertIn('54 maça sonradan tahmin yazılmaz',display)
+
+    def test_missing_or_late_original_publication_never_becomes_paired_evidence(self):
+        p,_=self.capture()
+        self.h.now=self.target['fixture_start_utc']+7200
+        original=dict(fixture_id=self.target['fixture_id'],
+            snapshot_sha256=digest(self.original),model_digest='a'*64,
+            actual=[100,100],actual_periods=dict(home=[25,25,25,25],away=[25,25,25,25]),
+            fixture_start_utc=self.target['fixture_start_utc'],label_available_utc=self.h.now,
+            prediction=[105,105],prediction_generated_at_utc=p['prediction_generated_at_utc']-100,
+            first_archived_at_utc=p['prediction_generated_at_utc']+1)
+        late=self.assess.performance([original])['groups'][0]
+        self.assertEqual(late['metrics']['n'],1)
+        self.assertEqual(late['paired_n'],0)
+        self.assertEqual(late['paired']['status'],'NO_VERIFIED_FIRST_FORECAST_PAIR')
+        missing=dict(original);missing.pop('first_archived_at_utc')
+        self.assertEqual(self.assess.performance([missing])['groups'][0]['paired_n'],0)
+
     def test_tick_archives_candidate_without_hundred_match_calibration_gate(self):
         report=self.assess.tick();self.assertEqual(report['captures'][0]['status'],'ARCHIVED')
         self.assertEqual(len(self.assess.registry.records()),1)

@@ -163,6 +163,12 @@ class CurrentAssessments:
         return self.last_report
 
     def performance(self,labels):
+        """Native-labelled prospective candidates, paired only to their first original.
+
+        These are two descriptive views: all eligible current assessments and
+        the stricter, same-fixture original/candidate pairs. No postgame fitting,
+        automatic score correction, or retrospective selection is allowed.
+        """
         from hybrid_engine.live_metrics import metrics
         mapped={}
         for r in labels:
@@ -171,11 +177,16 @@ class CurrentAssessments:
             if key in mapped and any(mapped[key][k]!=r[k] for k in ('actual','actual_periods','fixture_start_utc')):
                 raise ValueError('CURRENT_ASSESSMENT_NATIVE_LABEL_CONFLICT')
             mapped[key]=r
-        groups=defaultdict(list);first={}
+        groups=defaultdict(list);paired=defaultdict(list);first={}
         for entry in self.registry.records():
-            p=entry['payload'];t=p['fixture'];q=p['candidate'];key=(t['league'],t['season'],q['model'],t['fixture_id'])
-            if key not in first or p['prediction_generated_at_utc']<first[key]['prediction_generated_at_utc']:first[key]=p
-        for key,p in first.items():
+            p=entry['payload'];t=p['fixture'];q=p['candidate']
+            key=(t['league'],t['season'],q['model'],t['fixture_id'])
+            # Choose the earliest durable original evaluation, not the latest
+            # refresh or the assessment that happens to fit the actual score.
+            rank=(entry['publication']['first_archived_at_utc'],p['prediction_generated_at_utc'])
+            old=first.get(key)
+            if old is None or rank<old[0]:first[key]=(rank,p)
+        for key,(_,p) in first.items():
             r=mapped.get((p['fixture']['fixture_id'],p['original_snapshot_sha256']))
             if r is None:continue
             self.registry.validate_assets(p)
@@ -183,15 +194,44 @@ class CurrentAssessments:
                     p.get('original_model_digest') and r['model_digest']!=p['original_model_digest']):
                 raise ValueError('CURRENT_ASSESSMENT_NATIVE_LABEL_BINDING')
             q=p['candidate']
-            # Group a declared chronological refresh strategy, not a single fit.
-            groups[key[:3]].append(dict(prediction=[q['home'],q['away']],actual=r['actual'],
+            current=dict(prediction=[q['home'],q['away']],actual=r['actual'],
                 actual_periods=r['actual_periods'],predicted_quarters=q['quarters'],winner=q['winner'],
                 intervals=p['intervals'],fixture_start_utc=r['fixture_start_utc'],
-                prediction_generated_at_utc=p['prediction_generated_at_utc'],label_available_utc=r['label_available_utc']))
-        return dict(groups=[dict(league=k[0],season=k[1],model=k[2],metrics=metrics(v)) for k,v in sorted(groups.items())],
-            unit='FIRST_CURRENT_ASSESSMENT_PER_FIXTURE_AND_STRATEGY',
+                prediction_generated_at_utc=p['prediction_generated_at_utc'],label_available_utc=r['label_available_utc'])
+            group=key[:3]
+            groups[group].append(current)
+            original=r.get('prediction');issued=r.get('prediction_generated_at_utc')
+            archived=r.get('first_archived_at_utc')
+            # A match is paired only when the first score was genuinely issued,
+            # persisted before the current candidate, and independently settled.
+            # Missing publication clocks or original numbers are NOT backfilled.
+            if (type(issued) is int and type(archived) is int and
+                    0<issued<=archived<=p['prediction_generated_at_utc']<r['fixture_start_utc']-900 and
+                    isinstance(original,(list,tuple)) and len(original)==2 and
+                    all(type(v) in (int,float) and np.isfinite(v) and v>=0 for v in original)):
+                baseline=dict(prediction=list(original),actual=r['actual'],
+                    actual_periods=r['actual_periods'],fixture_start_utc=r['fixture_start_utc'],
+                    prediction_generated_at_utc=issued,label_available_utc=r['label_available_utc'])
+                paired[group].append((current,baseline))
+        results=[]
+        for group,values in sorted(groups.items()):
+            pairs=paired[group]
+            candidate_pair=metrics([v[0] for v in pairs]) if pairs else None
+            baseline_pair=metrics([v[1] for v in pairs]) if pairs else None
+            results.append(dict(league=group[0],season=group[1],model=group[2],
+                metrics=metrics(values),paired_n=len(pairs),
+                paired=dict(status='PAIRED_DESCRIPTIVE_ONLY' if pairs else 'NO_VERIFIED_FIRST_FORECAST_PAIR',
+                    first_forecast_total_mae=None if not pairs else baseline_pair['total']['mae'],
+                    candidate_total_mae=None if not pairs else candidate_pair['total']['mae'],
+                    total_mae_delta=None if not pairs else
+                        baseline_pair['total']['mae']-candidate_pair['total']['mae'],
+                    first_forecast_team_mae=None if not pairs else baseline_pair['team_scores']['mae'],
+                    candidate_team_mae=None if not pairs else candidate_pair['team_scores']['mae'],
+                    paired_fixture_count=len(pairs),automatic_promotion=False)))
+        return dict(groups=results,unit='FIRST_CURRENT_ASSESSMENT_PER_FIXTURE_AND_STRATEGY',
+            paired_unit='SAME_NATIVE_SETTLED_FIXTURE_FIRST_ORIGINAL_VS_FIRST_PROSPECTIVE_CANDIDATE',
             cohort='CHRONOLOGICAL_REFRESH_STRATEGY_NOT_SINGLE_FIT',original_metrics_changed=False,
-            superiority_claim=False)
+            superiority_claim=False,automatic_promotion=False)
 
     def render_performance(self):
         lines=['GÜNCEL DEĞERLENDİRMELER | AYRI BETİMSEL PERFORMANS',
@@ -200,8 +240,19 @@ class CurrentAssessments:
             return '\n'.join(lines+['Bu süreçte doğrulanmış rapor henüz hazırlanmadı.'])
         groups=self.last_report['performance']['groups']
         for g in groups:
-            m=g['metrics'];lines.append(g['league']+' '+g['model']+f" · n={m['n']} · Takım MAE {m['team_scores']['mae']:.2f} · Toplam MAE {m['total']['mae']:.2f}")
+            m=g['metrics'];lines.append(g['league']+' '+g['model']+
+                f" · n={m['n']} · Takım MAE {m['team_scores']['mae']:.2f} · Toplam MAE {m['total']['mae']:.2f}")
+            pair=g.get('paired') or {}
+            if pair.get('paired_fixture_count',0)>0:
+                lines.append('Aynı maçların ilk tahmini ile eşleştirme: '+
+                    str(pair['paired_fixture_count'])+' maç · İlk toplam MAE '+
+                    f"{pair['first_forecast_total_mae']:.2f}"+' · Güncel aday toplam MAE '+
+                    f"{pair['candidate_total_mae']:.2f}"+' · Hata azalması (pozitif=aday iyi) '+
+                    f"{pair['total_mae_delta']:+.2f}")
+            else:
+                lines.append('İlk tahminle yayın saati doğrulanmış karşılaştırma: 0 eşleşen maç.')
         if not groups:lines.append('Henüz doğrulanmış sonuçla eşleşme yok.')
+        lines.append('Sonuçlar yalnız kayıtlı ileri tarihli adaylara aittir; eski 54 maça sonradan tahmin yazılmaz.')
         return '\n'.join(lines+['İlk tahmin performansına eklenmez; üstünlük veya kalibrasyon kanıtı değildir.'])
 
     def render_rows(self,rows):
