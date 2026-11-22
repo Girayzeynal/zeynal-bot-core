@@ -145,8 +145,8 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from hybrid_engine.analysis_exception_diagnostic import summarize,render
             failure=summarize(exc)
             context.application.bot_data.setdefault('last_analysis_failure',{})[league.upper()]=failure
-            logger.error('Analysis service failed: code=%s stage=%s',
-                failure['code'],failure['stage'])
+            logger.error('Analysis service failed: code=%s stage=%s origin=%s',
+                failure['code'],failure['stage'],failure.get('origin'))
             await update.message.reply_text(render(failure))
             return
         await reply_analysis(update,context,report,release_service)
