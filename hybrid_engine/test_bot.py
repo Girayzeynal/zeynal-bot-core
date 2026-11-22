@@ -586,6 +586,15 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     production_enabled=actual['production_enabled'])
             except (ValueError,KeyError,TypeError,OSError,asyncio.TimeoutError):
                 record['real_player_inputs']=dict(status='READ_UNAVAILABLE_NOT_VERIFIED')
+            # Source-attempt evidence is kept separate from synthetic smoke and
+            # only names the actual rejected constraints, never player diagnoses.
+            try:
+                from hybrid_engine.player_inputs import recent_collection_diagnostics
+                record['latest_real_collection_attempts']=await asyncio.wait_for(
+                    asyncio.to_thread(recent_collection_diagnostics,root/'player-shadow'),timeout=3)
+            except (ValueError,KeyError,TypeError,OSError,asyncio.TimeoutError):
+                record['latest_real_collection_attempts']=dict(
+                    status='READ_UNAVAILABLE_NOT_VERIFIED',read_only=True)
             record['europe_player_score_models']='NOT_VERIFIED_BY_NBA_SYNTHETIC_SMOKE'
             if not path.is_file() or path.is_symlink() or path.stat().st_size>18000:
                 record['synthetic_demo']='NOT_RUN'
