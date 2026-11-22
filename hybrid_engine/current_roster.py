@@ -326,6 +326,9 @@ def review_diagnostics(review):
         official_pdf_clock_verified=review.get('official_pdf_clock_verified'),
         index_failure=review.get('index_failure'),
         alternate_index_failure=review.get('alternate_index_failure'),
+        public_cdn_probe_attempted=review.get('public_cdn_probe_attempted',False),
+        public_cdn_failure_http_status=review.get('public_cdn_failure_http_status'),
+        public_cdn_candidates_maximum=review.get('public_cdn_candidates_maximum'),
         successful_source_urls=[s.get('url') for s in review.get('sources',[])],
         missing_absence_corroboration=missing[:20],missing_absence_count=len(missing),
         diagnostic_only=True,confidence_index=None)
@@ -515,8 +518,15 @@ class CurrentRosterReview:
                         elif (self.bounded_public_pdf_fallback and
                               isinstance(alternate_failure,dict) and
                               alternate_failure.get('http_status')==403):
+                            base['public_cdn_probe_attempted']=True
+                            base['public_cdn_candidates_maximum']=2
                             ref,preloaded_pdf=self._public_pdf_after_two_403s(deadline)
                             if ref is None:
+                                candidate_failure=self.last_source_failure
+                                if isinstance(candidate_failure,dict):
+                                    status=candidate_failure.get('http_status')
+                                    base['public_cdn_failure_http_status']=(
+                                        status if type(status) is int and 100<=status<=599 else None)
                                 self.last_source_failure=primary_failure
                                 raise ValueError('ROSTER_SOURCE_UNAVAILABLE')
                             base.update(official_discovery_mode='BOUNDED_PUBLIC_OFFICIAL_CDN',
