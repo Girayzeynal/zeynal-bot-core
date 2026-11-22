@@ -89,12 +89,27 @@ def current_panels(context, assessment, *, now):
             not isinstance(halves,(list,tuple)) or len(halves)!=2 or
             not all(pair_valid(p) for p in [*quarters,*halves])):
         return unavailable('CURRENT_PERIOD_PATHS_NOT_VERIFIED')
-    bands=assessment.get('intervals',{}).get('markets',{})
-    quantiles=('p50','p25','p75','p10','p90','p05','p95')
-    if (not isinstance(bands,dict) or not isinstance(bands.get('TOTAL'),dict) or
-            not all(type(bands['TOTAL'].get(k)) in (int,float) and
-                    math.isfinite(bands['TOTAL'][k]) for k in quantiles)):
-        return unavailable('CURRENT_TOTAL_DISTRIBUTION_NOT_VERIFIED')
+    if (not all(type(candidate.get(k)) in (int,float) and math.isfinite(candidate[k])
+                for k in ('home','away','total')) or
+            any(abs(sum(quarters[i][side] for i in range(4))-candidate[name])>1e-4
+                for side,name in ((0,'home'),(1,'away'))) or
+            abs(candidate['home']+candidate['away']-candidate['total'])>1e-4 or
+            any(abs(sum(quarters[i][side] for i in indices)-halves[j][side])>1e-4
+                for j,indices in enumerate(((0,1),(2,3))) for side in (0,1))):
+        return unavailable('CURRENT_PERIOD_SCORE_CONSERVATION_FAILED')
+    intervals=assessment.get('intervals')
+    if not isinstance(intervals,dict) or intervals.get('status')=='UNSUPPORTED':
+        return unavailable('CURRENT_INTERVALS_NOT_VERIFIED')
+    bands=intervals.get('markets',{})
+    quantiles=('p05','p10','p25','p50','p75','p90','p95')
+    required=('TOTAL','HOME','AWAY','MARGIN','1Q','2Q','3Q','4Q','1H','2H')
+    if (not isinstance(bands,dict) or
+            any(not isinstance(bands.get(k),dict) for k in required) or
+            any(not all(type(bands[k].get(key)) in (int,float) and math.isfinite(bands[k][key])
+                        for key in quantiles) or
+                    any(bands[k][quantiles[i]]>bands[k][quantiles[i+1]]
+                        for i in range(len(quantiles)-1)) for k in required)):
+        return unavailable('CURRENT_DISTRIBUTION_NOT_VERIFIED')
     validity=min(stamp+3600,cutoff+21600,tip)
     source=('Hesap: '+tsi(stamp)+' · Model: '+html.escape(str(candidate.get('model','DOĞRULANMADI')))+
             '\nGüncel araştırma adayı · Oyuncu etkisi uygulanmadı · NOT_CALIBRATED')
@@ -178,10 +193,16 @@ def install_dual_clock_display(state,assessments):
                          'oyuncu ve piyasa etkileri uygulanmış sayılmaz.')
             if update_issue and 'GÜNCEL AYRI ARAŞTIRMA SKORU' not in content:
                 content='Güncel model hesap engeli: '+update_issue+'\n'+content
-            # Initial V1 figures must not appear in the current-summary menu.
-            # They remain available under the immutable Model / Kaynak audit.
+            # Publish a headline only when the full score/period/interval set
+            # is from one fresh candidate, rather than mixed first-record rows.
+            panels=None
             if entry and context.get('league')=='NBA':
+                panels=current_panels(context,selected,now=int(time.time()))
                 content=content.partition('\n🔒 İLK TAHMİN — SADECE ARŞİV')[0]
+                if not panels['fresh'] and 'GÜNCEL AYRI ARAŞTIRMA SKORU' in content:
+                    content=('⚠️ GÜNCEL MODEL SAYISAL PAKETİ DOĞRULANMADI. '
+                             'Özet, periyotlar ve aralıklar aynı kayıtla doğrulanmadan '
+                             'güncel skor yayımlanmıyor.\n'+panels['period'])
             prefix=html.escape(content)+'\n\n'
             result=dict(response);parts=list(response.get('html_parts') or [response['html']])
             if entry and context.get('league')=='NBA':
@@ -207,7 +228,6 @@ def install_dual_clock_display(state,assessments):
                     '\n\n<b>ÖNCEKİ PİYASA GÖRÜNÜMÜ — ARŞİV</b>\n'+original_market+
                     '\n\n'+audit)
                 entry['section_pages']['audit']=split_blocks(entry['sections']['audit'].splitlines(),limit=3200)
-                panels=current_panels(context,selected,now=int(time.time()))
                 for section in ('period','ranges'):
                     entry['sections'][section]=panels[section]
                     entry['section_pages'][section]=split_blocks(panels[section].splitlines(),limit=3200)
@@ -218,6 +238,7 @@ def install_dual_clock_display(state,assessments):
                     'İlk tahminin piyasa değerlendirmesi Model / Kaynak arşivine taşındı.\n'
                     'Yeni adayın dağılımına bağlı güncel fiyat ve edge doğrulanmadı.')
                 entry['section_pages']['market']=[entry['sections']['market']]
+                entry['quote_valid_until_utc']=None  # Old quote is archive-only.
                 entry['current_assessment_valid_until_utc']=panels['valid_until']
                 entry['current_assessment_panels']=panels['fresh']
                 parts=[headline]
