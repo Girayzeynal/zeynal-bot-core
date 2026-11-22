@@ -187,6 +187,47 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('ORIGINAL OLD MARKET',entry['sections']['audit'])
         a.refresh_fixture.assert_not_called()
 
+    async def test_live_candidate_price_appears_in_telegram_market_button(self):
+        from core.team_identity import digest
+        from telegram import InlineKeyboardButton,InlineKeyboardMarkup
+        context,current=CurrentPanelsTests().setup_case()
+        context.update(league='NBA',fixture_id='x',season='2026/2027',
+            home=dict(provider_id='1',official_name='Home'),
+            away=dict(provider_id='2',official_name='Away'),
+            prediction_generated_at_utc=NOW-86400,
+            prediction=dict(home=105.,away=115.,total=220.))
+        token='b'*12
+        row=dict(current=True,fixture_id='x',tipoff_utc=context['fixture_start_utc'],
+            period='FULL',market='TOTAL',line=219.5,mean=218.,
+            model_digest='bound-research-model',prediction_utc=current['prediction_generated_at_utc'],
+            available_at_utc=NOW-30,asof_utc=NOW-20,valid_until_utc=NOW+60,
+            prices=dict(over=1.91,under=1.91))
+        market_snapshot=dict(current_assessment_sha256=digest(current),
+            linked_original_snapshot_sha256=digest(context),
+            fixture_id='x',fixture_start_utc=context['fixture_start_utc'],
+            prediction_generated_at_utc=current['prediction_generated_at_utc'],
+            model_digest='bound-research-model')
+        response=dict(status='ANALYSIS_OK',snapshot=context,html='FIRST 220',
+            html_parts=['FIRST 220'],reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton('Piyasa',callback_data='zui:'+token+':market')]]))
+        entry=dict(chat_id=17,summary='FIRST 220',
+            sections=dict(audit='HEALTH CARD',period='FIRST 1Q',ranges='FIRST RANGES',
+                market='FIRST MARKET'),section_pages=dict(audit=['HEALTH CARD']),
+            research_market_snapshot=market_snapshot,research_market_cards=[row])
+        state=dict(verified_analysis_service=SimpleNamespace(analyze=AsyncMock(return_value=response)),
+            premium_reports={token:entry})
+        a=SimpleNamespace(latest=Mock(return_value=current))
+        install_dual_clock_display(state,a)
+        with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW), \
+                patch('hybrid_engine.market_direction_ui.render',return_value='<b>VERIFIED 219.5</b>'), \
+                patch('hybrid_engine.market_direction_ui.order',side_effect=lambda values:values):
+            await state['verified_analysis_service'].analyze('NBA','day','Home','Away')
+        market=state['premium_reports'][token]['sections']['market']
+        self.assertIn('VERIFIED 219.5',market)
+        self.assertNotIn('EŞLEŞMİŞ PİYASA HESABI YOK',market)
+        self.assertIn('FIRST MARKET',state['premium_reports'][token]['sections']['audit'])
+        self.assertEqual(state['premium_reports'][token]['quote_valid_until_utc'],NOW+60)
+
     async def test_telegram_cached_buttons_are_rebound_to_same_new_candidate(self):
         from telegram import InlineKeyboardButton,InlineKeyboardMarkup
         context,latest=CurrentPanelsTests().setup_case()
