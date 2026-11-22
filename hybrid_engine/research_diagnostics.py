@@ -88,6 +88,24 @@ class ResearchCycle:
     """Serial, independently observed stages; V3 need not wait for V2 acquisition."""
     def __init__(self,worker,study,assessments=None):
         self.worker=worker;self.study=study;self.assessments=assessments;self.stages={}
+        self.requested_fixtures=[]
+
+    def request_fixture(self,context):
+        """Prioritize a user's prospective fixture in the next serial research cycle.
+
+        No model fitting, network request, or ledger write in the Telegram handler.
+        """
+        if not isinstance(context,dict) or context.get('league')!='NBA':
+            return False
+        fid=context.get('fixture_id')
+        tip=context.get('fixture_start_utc')
+        if (not isinstance(fid,str) or not 0<len(fid)<=160 or
+                type(tip) is not int or int(time.time())>=tip-900):
+            return False
+        if fid not in self.requested_fixtures:
+            if len(self.requested_fixtures)>=16:self.requested_fixtures.pop(0)
+            self.requested_fixtures.append(fid)
+        return True
 
     async def _stage(self,name,call,app,asynchronous=False):
         state=dict(status='QUEUED',queued_at_utc=int(time.time()))
@@ -131,7 +149,10 @@ class ResearchCycle:
         # First publish a genuinely current score using the prefit/fixed-slot
         # research model. The independent V3 shadow-calibration sweep must not
         # delay the score's pre-tipoff publication until after its deadline.
-        if self.assessments:await self._stage('current_assessment',self.assessments.tick,app)
+        if self.assessments:
+            preferred=(self.requested_fixtures.pop(0) if self.requested_fixtures else None)
+            await self._stage('current_assessment',
+                lambda:self.assessments.tick(preferred_fixture_id=preferred),app)
         if self.study:await self._stage('issue90',self.study.tick,app)
 
     async def run(self,app):
