@@ -11,6 +11,7 @@ from core.team_identity import digest
 from hybrid_engine.boxes import publish_json
 from hybrid_engine.data import Abstain
 from hybrid_engine.player_minutes import projection,validate_minutes,MinutesArchive,historical_minutes,capped_rotation
+from hybrid_engine.current_roster import status_relationship,render_review
 from hybrid_engine.player_inputs import validate_witness
 
 NOW=int(datetime(2026,11,16,16,tzinfo=timezone.utc).timestamp())
@@ -139,6 +140,49 @@ class PlayerMinutesTests(TestCase):
                     source='ESPN',status_updated_at_utc=NOW-10))
             with self.subTest(kind=kind),self.assertRaises(Abstain):
                 projection(**altered,diagnostic_official_only=True)
+
+    def test_espn_day_to_day_and_nba_uncertain_is_not_an_out_available_conflict(self):
+        for official in ('Probable','Questionable','Doubtful'):
+            data=inputs()
+            data['review']['records']=[
+                dict(team_id='1',player_id='100',source='ESPN',status='Day-To-Day',
+                     status_updated_at_utc=NOW-20),
+                dict(team_id='1',player_id='100',source='NBA_OFFICIAL_PDF',status=official,
+                     status_updated_at_utc=NOW-10)]
+            self.assertEqual(status_relationship(data['review']['records']),
+                'BROAD_TRACKER_WITH_UNCERTAIN_OFFICIAL_NOT_CONTRADICTORY')
+            with self.subTest(status=official),self.assertRaisesRegex(
+                    Abstain,'UNCERTAIN_AVAILABILITY_NO_PLAYING_PROBABILITY_GUESS'):
+                projection(**data)
+
+    def test_true_player_status_conflict_still_stops_projection(self):
+        records=[dict(team_id='1',player_id='100',source='ESPN',status='Out',
+                      status_updated_at_utc=NOW-20),
+                 dict(team_id='1',player_id='100',source='NBA_OFFICIAL_PDF',status='Available',
+                      status_updated_at_utc=NOW-10)]
+        self.assertEqual(status_relationship(records),'CONFLICTING_STATUS_DESIGNATIONS')
+        data=inputs();data['review']['records']=records
+        with self.assertRaisesRegex(Abstain,'CONFLICTING_PLAYER_STATUS_NO_MINUTE_GUESS'):
+            projection(**data)
+        records[0]['status']='Day-To-Day'
+        self.assertEqual(status_relationship(records),'CONFLICTING_STATUS_DESIGNATIONS')
+
+    def test_telegram_ambiguous_status_display_is_not_misleading(self):
+        records=[
+            dict(team_id='1',player_id='100',team_name='Test Home',player_name='A B',
+                 source='ESPN',status='Day-To-Day',status_updated_at_utc=NOW-60,
+                 note='',identity_status='SOURCE_PLAYER_ID'),
+            dict(team_id='1',player_id='100',team_name='Test Home',player_name='B,A',
+                 source='NBA_OFFICIAL_PDF',status='Questionable',status_updated_at_utc=NOW-30,
+                 note='',identity_status='EXACT_ESPN_ROSTER_MATCH')]
+        review=dict(status='CURRENT_SOURCE_OBSERVATIONS',observed_at_utc=NOW,
+                    records=records,sources=[],warnings=[])
+        shown=render_review(review)
+        self.assertIn('kesin çelişki değildir',shown)
+        self.assertNotIn('Kaynak durumları uyuşmuyor',shown)
+        records[1]['status']='Out'
+        shown=render_review(review)
+        self.assertIn('Kaynak durumları uyuşmuyor',shown)
 
     def test_conflicting_status_is_not_given_an_invented_playing_probability(self):
         data=inputs(); data['review']['records']=[dict(team_id='1',player_id='100',status=s,

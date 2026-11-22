@@ -34,6 +34,27 @@ STATUS = {'Out': 'Oynamayacak', 'Questionable': 'Oynaması belirsiz', 'Doubtful'
           'Probable': 'Oynaması muhtemel', 'Available': 'Oynayabilir',
           'Day-To-Day': 'Gün gün izleniyor', 'Suspended': 'Cezalı'}
 
+def status_relationship(entries):
+    """Never equate ESPN's broad day-to-day tracker with a game-day decision.
+
+    The label relationship is descriptive, NOT a playing probability or an
+    authorization to project unverified availability/minutes.
+    """
+    if not entries or any(not isinstance(e,dict) or e.get('status') not in STATUS for e in entries):
+        raise ValueError('PLAYER_STATUS_EVIDENCE_REQUIRED')
+    states={e['status'] for e in entries}
+    if len(states)==1:
+        return 'EXACT_STATUS_MATCH'
+    if ('Day-To-Day' in states and
+            states <= {'Day-To-Day','Probable','Questionable','Doubtful'} and
+            {e.get('source') for e in entries} == {'ESPN','NBA_OFFICIAL_PDF'} and
+            all(e['status']=='Day-To-Day' for e in entries if e['source']=='ESPN') and
+            all(e['status'] in {'Probable','Questionable','Doubtful'}
+                for e in entries if e['source']=='NBA_OFFICIAL_PDF')):
+        return 'BROAD_TRACKER_WITH_UNCERTAIN_OFFICIAL_NOT_CONTRADICTORY'
+    return 'CONFLICTING_STATUS_DESIGNATIONS'
+
+
 
 def utc(text):
     value = datetime.fromisoformat(text.replace('Z', '+00:00'))
@@ -651,8 +672,12 @@ def render_review(review):
         key = (row['team_id'], row.get('player_id') or player_key(row['player_name']))
         groups.setdefault(key, []).append(row)
     for entries in groups.values():
-        if len({r['status'] for r in entries}) > 1:
-            lines.append('⚠️ Kaynak durumları uyuşmuyor; taraf seçilmedi.')
+        relation=status_relationship(entries)
+        if relation=='CONFLICTING_STATUS_DESIGNATIONS':
+            lines.append('⚠️ Kaynak durumları uyuşmuyor; katılım veya dakika tahmini yapılamadı.')
+        elif relation=='BROAD_TRACKER_WITH_UNCERTAIN_OFFICIAL_NOT_CONTRADICTORY':
+            lines.append('ℹ️ ESPN gün-gün izleme ile NBA maç bazlı belirsiz katılım sınıfları kesin çelişki değildir. '
+                         'Oyuncunun oynayacağı ve kaç dakika alacağı hâlâ doğrulanmadı.')
         for row in entries:
             lines.extend(['', '<b>'+esc(row['team_name'])+' · '+esc(row['player_name'])+'</b>',
                 esc(STATUS[row['status']])+' · '+('NBA resmî rapor metni' if row['source'] == 'NBA_OFFICIAL_PDF' else 'ESPN maç kaydı'),

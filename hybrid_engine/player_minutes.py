@@ -13,6 +13,7 @@ import numpy as np
 from core.team_identity import digest
 from hybrid_engine.boxes import publish_json
 from hybrid_engine.data import Abstain, local_path
+from hybrid_engine.current_roster import status_relationship
 
 VERSION='NBA_PAST_ROTATION_MINUTES_SHADOW_V1'
 SIDES=('home','away')
@@ -148,9 +149,12 @@ def projection(context,review,rosters,boxes,*,generated_at_utc,diagnostic_offici
             if stamp(record['status_updated_at_utc'])>now: raise ValueError('FUTURE_PLAYER_STATUS')
             notes.setdefault(pid,[]).append(record)
         for pid,records in notes.items():
-            statuses={r['status'] for r in records}
-            if len(statuses)!=1: raise Abstain('CONFLICTING_PLAYER_STATUS_NO_MINUTE_GUESS')
-            state=next(iter(statuses))
+            relation=status_relationship(records)
+            if relation=='CONFLICTING_STATUS_DESIGNATIONS':
+                raise Abstain('CONFLICTING_PLAYER_STATUS_NO_MINUTE_GUESS')
+            if relation=='BROAD_TRACKER_WITH_UNCERTAIN_OFFICIAL_NOT_CONTRADICTORY':
+                raise Abstain('UNCERTAIN_AVAILABILITY_NO_PLAYING_PROBABILITY_GUESS')
+            state=records[0]['status']
             if state not in ('Out','Available','Suspended'):
                 raise Abstain('UNCERTAIN_AVAILABILITY_NO_PLAYING_PROBABILITY_GUESS')
             if state in ('Out','Suspended'):
