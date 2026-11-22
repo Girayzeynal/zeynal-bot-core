@@ -668,6 +668,11 @@ def render_review(review):
     if review.get('warnings'): lines.append('Bazı kaynaklar veya oyuncu kimlikleri doğrulanamadı.')
     if review.get('official_discovery_mode')=='EXPLICIT_OFFICIAL_CDN_LINK':
         lines.append('NBA dizini 403 verdi; açıkça eklenen taze resmî PDF bağlantısı kullanıldı. En güncel rapor olduğu doğrulanmadı.')
+    elif review.get('official_discovery_mode')=='BOUNDED_PUBLIC_OFFICIAL_CDN':
+        if review.get('official_pdf_clock_verified') is True and review.get('official_stage')=='FIXTURE_ROWS':
+            lines.append('İki resmî rapor dizini 403 verdi; resmî CDN üzerindeki sınırlı otomatik kontrolde PDF başlığı, yayın saati ve maç eşleşmesi doğrulandı. En son yayımlanan rapor olduğu ayrıca doğrulanmadı.')
+        else:
+            lines.append('İki resmî dizin 403 verdi; resmî CDN yedek erişimi denendi ancak rapor içeriğinin güvenilir maç doğrulaması tamamlanmadı.')
     if review.get('official_stage'):
         stages={'INDEX_FETCH':'NBA sayfasına erişim','INDEX_DISCOVERY':'Yayımlanmış rapor seçimi',
             'PDF_FETCH':'PDF indirme','PDF_ARCHIVE':'PDF bütünlüğü ve arşiv',
