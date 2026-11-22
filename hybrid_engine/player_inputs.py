@@ -2,7 +2,10 @@
 import argparse
 from collections import Counter,defaultdict
 import hashlib
+import heapq
 import json
+import os
+import re
 from pathlib import Path
 import sqlite3
 import time
@@ -286,17 +289,37 @@ def collect_batch(ledger,assets,directory,*,maximum=4,minimum_lead_seconds=900,
 
 
 def recent_collection_diagnostics(directory,*,limit=3,maximum_files=512):
-    """Read pinned, real collector outcomes. No source requests or new forecast.
+    """Return latest hash-pinned real attempts despite a large historical folder.
 
-    A synthetic smoke run cannot create these files. Report exact blockers,
-    while omitting names and medical notes from the Telegram status.
+    The scan is metadata-only. At most maximum_files newest candidate documents
+    are opened; the immutable archive is never trimmed, changed or retrained.
+    A large count is not an error, nor a reason to hide the newest blockers.
     """
+    if type(limit) is not int or not 1<=limit<=10 or type(maximum_files) is not int or not 8<=maximum_files<=4096:
+        raise ValueError('COLLECTION_DIAGNOSTIC_BOUNDED_POLICY_REQUIRED')
     root=local_path(directory)
     if not root.is_dir():
         return dict(status='NO_COLLECTION_ATTEMPTS',items=[],read_only=True)
-    files=sorted(root.glob('collection-*.json'))
-    if len(files)>maximum_files:
-        return dict(status='COLLECTION_DIAGNOSTIC_SCAN_BUDGET',items=[],read_only=True)
+    candidates=[]; count=0
+    # Previous implementation stopped when there were >512 files; filename
+    # ordering by SHA is not creation ordering. Select by filesystem mtime,
+    # but verify the full SHA pin before trusting any record.
+    with os.scandir(root) as listing:
+        for entry in listing:
+            if not re.fullmatch(r'collection-[0-9a-f]{64}\\.json',entry.name):
+                continue
+            if not entry.is_file(follow_symlinks=False):
+                continue
+            stat=entry.stat(follow_symlinks=False)
+            if not 0<stat.st_size<=256*1024:
+                continue
+            count+=1
+            candidate=(stat.st_mtime_ns,entry.name)
+            if len(candidates)<maximum_files:
+                heapq.heappush(candidates,candidate)
+            elif candidate>candidates[0]:
+                heapq.heapreplace(candidates,candidate)
+    files=[root/name for _,name in sorted(candidates,reverse=True)]
     items=[]
     for path in files:
         if path.is_symlink() or path.stat().st_size>256*1024:
@@ -342,7 +365,9 @@ def recent_collection_diagnostics(directory,*,limit=3,maximum_files=512):
             newest[fid]=item
     recent=sorted(newest.values(),key=lambda x:(x['completed_at_utc'],x['fixture_id']),reverse=True)[:limit]
     return dict(status='ARCHIVED_COLLECTION_ATTEMPTS' if recent else 'NO_COLLECTION_ATTEMPTS',
-        items=recent,read_only=True,source_calls=0,scores_recomputed=False)
+        items=recent,read_only=True,source_calls=0,scores_recomputed=False,
+        collection_files_found=count,collection_files_examined=len(files),
+        collection_history_sampled=count>maximum_files)
 
 
 def main():
