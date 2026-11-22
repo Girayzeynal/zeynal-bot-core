@@ -247,6 +247,14 @@ def install_dual_clock_display(state,assessments):
             panels=None
             if entry and context.get('league')=='NBA':
                 panels=current_panels(context,selected,now=int(time.time()))
+                if not panels['fresh']:
+                    # Queue this fixture for the next serial background cycle.
+                    # No fit/source fetch or unbounded wait inside /analyze.
+                    cycle=state.get('research_cycle')
+                    request=getattr(cycle,'request_fixture',None)
+                    if callable(request):
+                        try:request(context)
+                        except (ValueError,KeyError,TypeError,RuntimeError):pass
                 content=content.partition('\n🔒 İLK TAHMİN — SADECE ARŞİV')[0]
                 if not panels['fresh'] and 'GÜNCEL AYRI ARAŞTIRMA SKORU' in content:
                     content=('⚠️ GÜNCEL MODEL SAYISAL PAKETİ DOĞRULANMADI. '
