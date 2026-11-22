@@ -183,7 +183,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
     app.bot_data['market_observation_store']=market_store
     if nba_service is not None:
         from hybrid_engine.current_roster import CurrentRosterReview
-        app.bot_data['current_roster_review']=roster_review or CurrentRosterReview(root/'current-roster',report_archive=root/'official-reports')
+        app.bot_data['current_roster_review']=roster_review or CurrentRosterReview(
+            root/'current-roster',report_archive=root/'official-reports',
+            bounded_public_pdf_fallback=True)
         # /analyze launches the bounded optional data continuation by itself.
         # Production-only services have no such opt-in. This never edits a
         # stored forecast or introduces uncalibrated player score corrections.
