@@ -39,7 +39,7 @@ jobs:
           python -m py_compile hybrid_engine/player_effect_smoke.py hybrid_engine/player_shadow.py hybrid_engine/player_minutes.py hybrid_engine/test_bot.py
       - name: Fail if the actual fitted player forecast does not respond to a missing player
         run: |
-          python -m pytest -q tests/test_player_effect_smoke.py tests/test_player_shadow.py tests/test_player_minutes.py tests/test_player_inputs.py tests/test_player_input_batch.py tests/test_three_league_roster_bridge.py
+          python -m pytest -q tests/test_player_effect_smoke.py tests/test_player_shadow.py tests/test_player_minutes.py tests/test_player_inputs.py tests/test_player_input_batch.py tests/test_player_input_diagnostics.py tests/test_three_league_roster_bridge.py
       - name: Record numerical before-after synthetic simulation
         run: |
           python -m hybrid_engine.player_effect_smoke --output /tmp/player-effect-smoke.json
