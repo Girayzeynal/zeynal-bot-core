@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock,Mock,patch
 
-from hybrid_engine.current_assessment_ui import two_clock_text,install_dual_clock_display
+from hybrid_engine.current_assessment_ui import two_clock_text,install_dual_clock_display,current_panels
 
 NOW=1795339800
 
@@ -120,3 +120,57 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         out=await state["verified_analysis_service"].analyze("NBA","bad")
         self.assertIs(out,response)
         a.latest.assert_not_called()
+
+
+class CurrentPanelsTests(unittest.TestCase):
+    def setup_case(self):
+        context=dict(fixture_start_utc=NOW+10000)
+        candidate=dict(model='VERIFIED_TEST_CANDIDATE',home=108.,away=110.,total=218.,
+            quarters=[[27.,28.],[27.,27.],[27.,27.],[27.,28.]],
+            halves=[[54.,55.],[54.,55.]])
+        def band(mid):
+            return dict(p50=mid,p25=mid-5,p75=mid+5,p10=mid-10,
+                        p90=mid+10,p05=mid-15,p95=mid+15)
+        row=dict(candidate=candidate,prediction_generated_at_utc=NOW-60,
+            parameter_fit_cutoff_utc=NOW-3600,
+            intervals=dict(markets=dict(TOTAL=band(218),HOME=band(108),
+                AWAY=band(110),**{'1Q':band(55),'2Q':band(54),
+                                  '3Q':band(54),'4Q':band(55),
+                                  '1H':band(109),'2H':band(109)})))
+        return context,row
+
+    def test_period_and_range_buttons_use_current_record_not_first_prediction(self):
+        context,row=self.setup_case()
+        panels=current_panels(context,row,now=NOW)
+        self.assertTrue(panels['fresh'])
+        self.assertIn('Toplam 218.00',panels['period'])
+        self.assertIn('1Q 27.00 – 28.00',panels['period'])
+        self.assertIn('P50 218.0',panels['ranges'])
+        self.assertNotIn('220.00',panels['period']+panels['ranges'])
+        self.assertEqual(panels['valid_until'],NOW+3540)
+
+    def test_stale_or_incomplete_current_record_never_reuses_archive_periods(self):
+        context,row=self.setup_case()
+        self.assertFalse(current_panels(context,row,now=NOW+3601)['fresh'])
+        broken=dict(row,candidate=dict(row['candidate'],quarters=[]))
+        panels=current_panels(context,broken,now=NOW)
+        self.assertFalse(panels['fresh'])
+        self.assertIn('CURRENT_PERIOD_PATHS_NOT_VERIFIED',panels['period'])
+        self.assertNotIn('220.',panels['period'])
+        self.assertIn('Model / Kaynak',panels['ranges'])
+
+    def test_expired_button_view_is_explicitly_archived(self):
+        from hybrid_engine.telegram_premium_ui import page_view
+        context,row=self.setup_case()
+        panels=current_panels(context,row,now=NOW)
+        entry=dict(summary='CURRENT 218',sections=dict(period=panels['period'],
+            ranges=panels['ranges']),section_pages=dict(period=[panels['period']],
+            ranges=[panels['ranges']),current_assessment_panels=True,
+            current_assessment_valid_until_utc=panels['valid_until'],
+            tipoff_utc=context['fixture_start_utc'])
+        active,_=page_view(entry,'period',0,now=NOW)
+        expired,_=page_view(entry,'period',0,now=NOW+3600)
+        self.assertNotIn('ARTIK GÜNCEL DEĞİL',active)
+        self.assertIn('ARTIK GÜNCEL DEĞİL',expired)
+        range_text,_=page_view(entry,'ranges',0,now=NOW+3600)
+        self.assertIn('ARTIK GÜNCEL DEĞİL',range_text)
