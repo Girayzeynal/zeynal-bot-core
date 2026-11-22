@@ -211,11 +211,14 @@ def install_dual_clock_display(state,assessments):
                 original_market=entry['sections'].get('market','')
                 entry['summary']=headline
                 audit=entry['sections'].get('audit','')
-                entry['sections']['audit']=('<b>İLK TAHMİN — DEĞİŞMEZ ARŞİV</b>\n'+
-                    old+'\n\n<b>İLK TAHMİN PERİYOTLARI — ARŞİV</b>\n'+original_period+
+                # Keep source-integrity and health evidence on the FIRST
+                # Model / Kaynak callback page, as required by live-runtime
+                # health-card delivery. The archived first forecasts follow.
+                entry['sections']['audit']=(audit+
+                    '\n\n<b>İLK TAHMİN — DEĞİŞMEZ ARŞİV</b>\n'+old+
+                    '\n\n<b>İLK TAHMİN PERİYOTLARI — ARŞİV</b>\n'+original_period+
                     '\n\n<b>İLK TAHMİN ARALIKLARI — ARŞİV</b>\n'+original_ranges+
-                    '\n\n<b>ÖNCEKİ PİYASA GÖRÜNÜMÜ — ARŞİV</b>\n'+original_market+
-                    '\n\n'+audit)
+                    '\n\n<b>ÖNCEKİ PİYASA GÖRÜNÜMÜ — ARŞİV</b>\n'+original_market)
                 entry['section_pages']['audit']=split_blocks(entry['sections']['audit'].splitlines(),limit=3200)
                 for section in ('period','ranges'):
                     entry['sections'][section]=panels[section]
