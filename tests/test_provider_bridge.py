@@ -442,7 +442,11 @@ class ProviderTelegramTests(unittest.IsolatedAsyncioTestCase):
                             message=dict(message_id=101,date=NOW,chat=dict(id=17,type='private'),text=sent[0]))),app.bot)
                         await app.process_update(detail)
                 self.assertEqual(len(fake.calls),calls_before)
-                self.assertEqual(len(sent),1)
+                # The primary score is followed by a separate automatic NBA
+                # player/source audit; the latter must never revise the score.
+                self.assertEqual(len(sent),2)
+                self.assertIn('OTOMATİK NBA OYUNCU / KADRO KONTROLÜ',sent[1])
+                self.assertIn('BU ANALİZDE AKTİF DEĞİL',sent[1])
                 self.assertIn('Yönün güvenilirliği',edits[0])
                 self.assertIn('Henüz yeterince doğrulanmadı',edits[0])
                 body = '\n'.join(sent+edits)
