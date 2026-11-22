@@ -97,6 +97,14 @@ def page_view(entry,section,page,*,now):
     values=([body] if section=='summary' else entry.get('section_pages',{}).get(section)) or split_blocks(body.splitlines(),limit=3200)
     if type(page) is not int or not 0<=page<len(values):raise ValueError('PREMIUM_PAGE_NOT_FOUND')
     text=values[page]
+    # A current research score is time-scoped even when its Telegram message
+    # stays in cache. Never show an expired quarter/interval as still current.
+    if section in ('summary','period','ranges') and entry.get('current_assessment_panels') is True:
+        expiry=entry.get('current_assessment_valid_until_utc')
+        if type(expiry) is not int or now>=expiry:
+            text=('⚠️ <b>BU ARAŞTIRMA TAHMİNİ ARTIK GÜNCEL DEĞİL</b>\n'
+                  'Aşağıdaki sayılar önceki değerlendirmeye aittir; '
+                  'yeni /analyze ile kaynak ve hesaplama zamanı yeniden denetlenmelidir.\n\n'+text)
     if section=='roster' and entry.get('roster_review_at_utc') is not None:
         if entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc']:
             text='Maç başladı; aşağıdaki kadro bilgisi arşiv gözlemidir.\n\n'+text
