@@ -297,12 +297,12 @@ class CycleTests(IsolatedAsyncioTestCase):
             return dict(status='CHECKED')
         app=SimpleNamespace(bot_data={})
         cycle=ResearchCycle(SimpleNamespace(tick=v2),None,SimpleNamespace(tick=tick))
-        from unittest.mock import patch as runtime_patch
-        with runtime_patch('hybrid_engine.research_diagnostics.time.time',return_value=NOW):
+        requested_at=1795339800
+        with patch('hybrid_engine.research_diagnostics.time.time',return_value=requested_at):
             self.assertTrue(cycle.request_fixture(dict(league='NBA',fixture_id='requested-nba-match',
-                fixture_start_utc=NOW+7200)))
+                fixture_start_utc=requested_at+7200)))
             self.assertTrue(cycle.request_fixture(dict(league='NBA',fixture_id='requested-nba-match',
-                fixture_start_utc=NOW+7200)))
+                fixture_start_utc=requested_at+7200)))
             self.assertEqual(len(cycle.requested_fixtures),1)
             await cycle.once(app)
         self.assertEqual(order,['v2','current:requested-nba-match'])
