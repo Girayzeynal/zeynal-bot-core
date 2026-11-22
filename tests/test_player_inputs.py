@@ -117,6 +117,44 @@ class PlayerInputTests(TestCase):
         self.assertIsNone(result['projection'])
         self.assertEqual(list((self.root/'player-shadow').glob('minutes/minutes-*')),[])
 
+    def official_only_review(self):
+        url='https://ak-static.cms.nba.com/referee/injury/Injury-Report_2026-11-16_10_45AM.pdf'
+        report_at=fixtures.NOW-900
+        self.data['review'].update(official_pdf_clock_verified=True,
+            official_stage='FIXTURE_ROWS',
+            official_code='SOURCE_ROWS_MATCHED_NOT_MEDICALLY_VERIFIED',
+            official_report=dict(source_url=url,report_timestamp_utc=report_at))
+        self.data['review']['sources'].append(dict(url=url,observed_at_utc=fixtures.NOW-10))
+        self.data['review']['records']=[dict(team_id='1',player_id='100',status='Out',
+            source='NBA_OFFICIAL_PDF',identity_status='EXACT_ESPN_ROSTER_MATCH',
+            status_updated_at_utc=report_at)]
+
+    def test_official_only_scenario_identifies_downstream_rotation_gap_without_archive(self):
+        self.official_only_review()
+        self.data['rosters']['home']['players'][1]='999'
+        result=self.run_collect()
+        self.assertEqual(result['reason'],'ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS')
+        self.assertEqual(result['status'],'BLOCKED')
+        self.assertEqual(result['official_only_diagnostic']['status'],'BLOCKED_NOT_ARCHIVED')
+        self.assertEqual(result['official_only_diagnostic']['downstream_reason'],
+                         'CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY')
+        self.assertEqual(result['rotation_diagnostics']['home']['missing_history_player_ids'],['999'])
+        self.assertIsNone(result['projection'])
+        self.assertFalse(result['official_only_diagnostic']['model_training_eligible'])
+        self.assertEqual(list((self.root/'player-shadow').glob('minutes/minutes-*')),[])
+
+    def test_official_only_diagnostic_full_rotation_does_not_publish_any_minutes(self):
+        self.official_only_review()
+        result=self.run_collect()
+        self.assertEqual(result['reason'],'ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS')
+        probe=result['official_only_diagnostic']
+        self.assertEqual(probe['status'],'PROVISIONAL_ROTATION_COMPUTED_NOT_ARCHIVED')
+        self.assertEqual(probe['official_only_player_ids'],['100'])
+        self.assertFalse(probe['scores_computed'])
+        self.assertFalse(probe['model_training_eligible'])
+        self.assertIsNone(result['projection'])
+        self.assertEqual(list((self.root/'player-shadow').glob('minutes/minutes-*')),[])
+
     def test_missing_ledger_does_not_create_database(self):
         path=self.root/'missing.sqlite'
         with self.assertRaises((ValueError,FileNotFoundError)): load_snapshot(path,'401000001')
