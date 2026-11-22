@@ -141,22 +141,46 @@ def schedule_auto(app,league,report,chat_id,*,clock=time.time):
     if previous is not None and 0<=now-previous<cooldown:
         return False
     attempts[fid]=now
+    # Keep a bounded in-memory receipt of actual automation activity, rather
+    # than mistakenly displaying the independent research worker status.
+    state=app.bot_data
+    state['auto_nba_last_attempt']=dict(
+        format='AUTO_NBA_COLLECTION_RUNTIME_V1',fixture_id=fid,
+        scheduled_at_utc=now,status='SCHEDULED',player_input_status='NOT_STARTED',
+        forecast_changed=False,model_coefficients_applied=False,
+        telegram_followup_delivery='NOT_ATTEMPTED')
 
     async def work():
+        receipt=state['auto_nba_last_attempt']
+        receipt['status']='RUNNING'
         try:
             result=await collect_auto(snapshot,config['reviewer'],config['assets'],
                                      config['directory'])
+            receipt.update(status='DATA_COLLECTION_FINISHED',
+                completed_at_utc=int(clock()),
+                roster_status=result.get('roster_status') or result['status'],
+                player_input_status=result.get('player_input_status'),
+                player_input_reason=result.get('player_input_reason'),
+                forecast_changed=False,model_coefficients_applied=False)
             await send_auto(app.bot,chat_id,result)
+            receipt['telegram_followup_delivery']='SEND_RETURNED_NOT_INDEPENDENTLY_VERIFIED'
+            receipt['status']='FOLLOWUP_SENT_NOT_INDEPENDENTLY_VERIFIED'
         except Exception as exc:
             # Never leak source exceptions, tokens or private paths to Telegram.
             import logging
+            receipt.update(status='FAILED',error_class=type(exc).__name__,
+                completed_at_utc=int(clock()),
+                telegram_followup_delivery='NOT_VERIFIED')
             logging.getLogger(__name__).warning('Autonomous NBA evidence unavailable: %s',
                                                 type(exc).__name__)
-            await app.bot.send_message(chat_id=chat_id,
-                text=('Otomatik NBA kadro/oyuncu incelemesi tamamlanamadı. '
-                      'Bu durum oyuncuların eksiksiz olduğu anlamına gelmez. '
-                      'İlk skor tahmini değiştirilmedi.'),
-                disable_web_page_preview=True)
+            try:
+                await app.bot.send_message(chat_id=chat_id,
+                    text=('Otomatik NBA kadro/oyuncu incelemesi tamamlanamadı. '
+                          'Bu durum oyuncuların eksiksiz olduğu anlamına gelmez. '
+                          'İlk skor tahmini değiştirilmedi.'),
+                    disable_web_page_preview=True)
+            except Exception:
+                logging.getLogger(__name__).warning('NBA evidence failure notice could not be sent')
     app.create_task(work())
     return True
 
