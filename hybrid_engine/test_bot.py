@@ -274,12 +274,27 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     logging.getLogger(__name__).warning('Market source panel unavailable: %s',type(exc).__name__)
                     market_lines.append('Piyasa kaynak/dağılım denetimi tamamlanamadı; skor tahmini korunuyor. Kod: MARKET_PANEL_UNAVAILABLE')
                 response=dict(response)
-                from hybrid_engine.telegram_premium_ui import compact_summary, keyboard, detail_sections
+                from hybrid_engine.telegram_premium_ui import (
+                    compact_summary,keyboard,detail_sections,direction_card_matches_snapshot)
                 import secrets
                 token=secrets.token_hex(6)
                 from hybrid_engine.market_direction_ui import order,pages as direction_pages
                 ranked=order(direction_cards)
-                first_total=next((c for c in ranked if c['current'] and c['period']=='FULL' and c['market']=='TOTAL'),None)
+                # Later research context may have a different model digest or
+                # clock than the immutable first NBA forecast. It is not an
+                # original-model direction and must never break /analyze.
+                current_totals=[c for c in ranked if c['current'] and
+                                c['period']=='FULL' and c['market']=='TOTAL']
+                bound_totals=[c for c in current_totals if
+                              direction_card_matches_snapshot(snapshot,c)]
+                first_total=bound_totals[0] if bound_totals else None
+                if len(bound_totals)!=len(current_totals):
+                    market_lines.append('Piyasa araştırması farklı model kesiti/zamanıyla hesaplandı; '
+                        'ilk skor tahminine güncel model yönü olarak bağlanmadı. '
+                        'Piyasa kartları kendi kanıtlarıyla ayrı görüntülenebilir.')
+                    logging.getLogger(__name__).info(
+                        'NBA current market headline suppressed due to model/clock/mean mismatch: %s',
+                        len(current_totals)-len(bound_totals))
                 summary=compact_summary(snapshot,evidence,replayed=not response['new_record'],health=health,
                     market_note=market_note,direction_card=first_total)
                 from hybrid_engine.telegram_roster_bridge import read_fixture_roster_evidence
@@ -292,12 +307,19 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     away_team_id=str(snapshot['away'].get('team_id') or snapshot['away'].get('official_name')))
                 market_pages=direction_pages(direction_cards)
                 market_html=market_pages[0] if market_pages else '<b>PİYASA</b>\nDoğrulanabilir barem yok; yön veya yüzde üretilmedi.\nSağlayıcı ayrıntıları: Model / Kaynak düğmesi.'
+                if len(bound_totals)!=len(current_totals):
+                    market_html=('⚠️ <b>AYRI ARAŞTIRMA MODELİ</b>\n'
+                        'Bu piyasa kartının model kesiti/saati ilk tahminle eşleşmedi. '
+                        'İlk skor tahminine uygulanmadı; kalibre edilmiş yön değildir.\n\n'
+                        +market_html)
                 sections=detail_sections(response['html_parts'],market_html,
                                          roster_evidence=roster)
                 sections['audit']=render_health(health)+'\n\n'+sections['audit']+'\n\n'+'\n\n'.join(market_lines)
                 from hybrid_engine.elite_render import split_blocks
                 section_pages={k:split_blocks(v.splitlines(),limit=3200) for k,v in sections.items()}
-                if market_pages:section_pages['market']=market_pages
+                if market_pages:
+                    section_pages['market']=([market_html,*market_pages[1:]]
+                        if len(bound_totals)!=len(current_totals) else market_pages)
                 cache=app.bot_data.setdefault('premium_reports',{})
                 from hybrid_engine.telegram_premium_ui import cache_report
                 expiry=[c['valid_until_utc'] for c in ranked if c['current']]
