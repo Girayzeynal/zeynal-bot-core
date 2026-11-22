@@ -118,6 +118,38 @@ def collect(snapshot,assets,directory,*,reviewer=None,box_collector=collect_boxe
             if str(exc)=='CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY':
                 result['rotation_diagnostics']=rotation_coverage_diagnostics(
                     context,review,rosters,boxes,generated)
+            if str(exc)=='ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS':
+                # A second pass only on the already-captured data. It NEVER
+                # enters MinutesArchive, training, a Telegram score, or production.
+                # Only a fresh, pinned official PDF may be used to explore the
+                # downstream failure reason without making an availability claim.
+                try:
+                    scenario=projection(context,review,rosters,boxes,
+                        generated_at_utc=generated,diagnostic_official_only=True)
+                except Abstain as secondary:
+                    label=str(secondary)
+                    result['official_only_diagnostic']=dict(
+                        status='BLOCKED_NOT_ARCHIVED',
+                        downstream_reason=label,
+                        production_enabled=False,forecast_changed=False,
+                        model_training_eligible=False)
+                    if label=='CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY':
+                        result['rotation_diagnostics']=rotation_coverage_diagnostics(
+                            context,review,rosters,boxes,generated)
+                except (ValueError,KeyError,TypeError):
+                    result['official_only_diagnostic']=dict(
+                        status='UNAVAILABLE_NOT_ARCHIVED',
+                        production_enabled=False,forecast_changed=False,
+                        model_training_eligible=False)
+                else:
+                    p=scenario['payload']
+                    result['official_only_diagnostic']=dict(
+                        status='PROVISIONAL_ROTATION_COMPUTED_NOT_ARCHIVED',
+                        source_evidence='FRESH_NBA_OFFICIAL_PDF_ONLY_NOT_ESPN_CORROBORATED',
+                        official_only_player_ids=p['provisional_official_only_player_ids'],
+                        projection_kind=p['model_input_kind'],
+                        scores_computed=False,production_enabled=False,
+                        forecast_changed=False,model_training_eligible=False)
             raise
         bundle=dict(format='PLAYER_MINUTES_INPUT_WITNESSES_V1',context=context,review=review,rosters=rosters,
             boxes=boxes,original_cut_sha256=ref['sha256'],projection_sha256=packet['sha256'])
@@ -228,7 +260,7 @@ def collect_batch(ledger,assets,directory,*,maximum=4,minimum_lead_seconds=900,
                 if digest(snapshot)!=row['snapshot_sha256']:
                     raise ValueError('PLAYER_BATCH_SNAPSHOT_CHANGED_DURING_READ')
                 one=collect_one(snapshot,assets,root)
-                item={k:one.get(k) for k in ('fixture_id','status','reason','projection','new_record','roster_diagnostics','rotation_diagnostics')}
+                item={k:one.get(k) for k in ('fixture_id','status','reason','projection','new_record','roster_diagnostics','rotation_diagnostics','official_only_diagnostic')}
             except (ValueError,KeyError,TypeError,OSError,sqlite3.Error):
                 item=dict(fixture_id=row['fixture_id'],status='BLOCKED',reason='PLAYER_BATCH_ARCHIVE_OR_SOURCE_UNAVAILABLE')
             result['results'].append(item)
