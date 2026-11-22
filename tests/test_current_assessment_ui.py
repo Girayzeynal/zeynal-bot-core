@@ -214,7 +214,7 @@ class CurrentPanelsTests(unittest.TestCase):
         panels=current_panels(context,row,now=NOW)
         entry=dict(summary='CURRENT 218',sections=dict(period=panels['period'],
             ranges=panels['ranges']),section_pages=dict(period=[panels['period']],
-            ranges=[panels['ranges']),current_assessment_panels=True,
+            ranges=[panels['ranges']]),current_assessment_panels=True,
             current_assessment_valid_until_utc=panels['valid_until'],
             tipoff_utc=context['fixture_start_utc'])
         active,_=page_view(entry,'period',0,now=NOW)
