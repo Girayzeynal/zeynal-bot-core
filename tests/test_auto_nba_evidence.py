@@ -97,8 +97,15 @@ class AutonomousEvidenceTests(IsolatedAsyncioTestCase):
         app=App()
         report=dict(status='ANALYSIS_OK',snapshot=snap,new_record=True)
         self.assertTrue(schedule_auto(app,'NBA',report,123))
+        self.assertEqual(app.bot_data['auto_nba_last_attempt']['status'],'SCHEDULED')
         self.assertFalse(schedule_auto(app,'NBA',report,123))
         await asyncio.gather(*app.tasks)
+        receipt=app.bot_data['auto_nba_last_attempt']
+        self.assertEqual(receipt['status'],'FOLLOWUP_SENT_NOT_INDEPENDENTLY_VERIFIED')
+        self.assertEqual(receipt['player_input_status'],'NOT_CONFIGURED')
+        self.assertEqual(receipt['forecast_changed'],False)
+        self.assertEqual(receipt['telegram_followup_delivery'],
+                         'SEND_RETURNED_NOT_INDEPENDENTLY_VERIFIED')
         self.assertEqual(reviewer.calls,1)
         self.assertGreaterEqual(app.bot.send_message.await_count,1)
         self.assertFalse(schedule_auto(app,'EUROLEAGUE',report,123))
