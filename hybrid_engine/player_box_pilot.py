@@ -84,8 +84,13 @@ def verified_box_rows(cohort,cutoff_utc):
     return sorted(out,key=lambda r:(r["fixture_start_utc"],r["fixture_id"])),dict(skipped)
 
 
-def fit_box_association(games,cutoff_utc):
-    """Partial-pooling association; actual historical minutes are NOT pregame."""
+def fit_box_association(games,cutoff_utc,*,include_players=True):
+    """Partial-pooling research fit; true prospective scores never backfilled.
+
+    include_players=False is the same-cohort team-only control for time splits.
+    """
+    if type(include_players) is not bool:
+        raise ValueError("PLAYER_PILOT_EXPLICIT_COHORT_CONTROL_REQUIRED")
     if len(games)<MIN_GAMES: return dict(status="INSUFFICIENT_REAL_HISTORICAL_PLAYER_BOXES",
                                        verified_games=len(games),minimum_games=MIN_GAMES)
     if len({(r["league"],r["season"]) for r in games})!=1:
@@ -105,7 +110,7 @@ def fit_box_association(games,cutoff_utc):
     capacity=MAX_PARAMETERS-2-2*len(teams)
     if capacity<0:raise ValueError("PLAYER_PILOT_TEAM_PARAMETER_BUDGET")
     ranked=sorted(appearances,key=lambda p:(-appearances[p],p))
-    players=sorted(ranked[:capacity])
+    players=sorted(ranked[:capacity]) if include_players else []
     n=2+2*len(teams)+len(players)
     team_ix={t:i for i,t in enumerate(teams)}
     player_ix={p:i for i,p in enumerate(players)}
@@ -133,6 +138,9 @@ def fit_box_association(games,cutoff_utc):
         training_sha256=digest([dict(fixture_id=g["fixture_id"],box_sha256=g["source_sha256"],
                                     available_at_utc=g["available_at_utc"]) for g in games]),
         teams=teams,players=players,player_appearance_games=dict(appearances),
+        fit_kind="HISTORICAL_PLAYER_ASSOCIATION" if include_players else "TEAM_ONLY_SAME_BOX_COHORT",
+        score_observations=2*len(games),estimated_parameters=n,
+        underdetermined_player_parameters=n>2*len(games),
         omitted_rare_players=len(ranked)-len(players),coefficients=coef.tolist(),
         confirmed_lineup=False,measured_pbp_pace=False,causal_player_effect=False,
         calibration_status="NOT_CALIBRATED",production_enabled=False,
@@ -217,6 +225,80 @@ def scenario(model,games,fixture,asof_utc):
         first_forecast_unchanged=True,production_enabled=False)
 
 
+def paired_holdout(games,*,now_utc,assumed_availability=False):
+    """Single frozen chronological split, never optimize on the test scores.
+
+    With assumed_availability=True only, historical finalized scores/box minutes
+    are *hypothetically* available the next day. This is NOT verified PIT data:
+    real ingestion times remain unchanged and no forecast is backdated.
+    """
+    if type(assumed_availability) is not bool or type(now_utc) is not int:
+        raise ValueError("PLAYER_HOLDOUT_VALID_POLICY_REQUIRED")
+    ordered=sorted(games,key=lambda g:(g["fixture_start_utc"],g["fixture_id"]))
+    out=dict(status="INSUFFICIENT_DISJOINT_TRAINING_AND_TEST",
+        evidence_class="ASSUMED_HISTORICAL_AVAILABILITY_NOT_PIT" if assumed_availability else
+            "VERIFIED_SOURCE_CLOCKS_RETROSPECTIVE_HOLDOUT",
+        model_selected_after_actuals=True,prospective_accuracy_evidence=False,
+        actual_preforecast_publication_verified=False,calibrated=False,
+        automatic_promotion=False,original_forecasts_unchanged=True,
+        total_games=len(games),train_games=0,matched_test_games=0)
+    if len(ordered)<60:return out
+    split=ordered[int(len(ordered)*.70)]["fixture_start_utc"]
+    cutoff=split-900
+    if cutoff>now_utc:return dict(out,status="FUTURE_HOLDOUT_CUTOFF")
+    # Only the explicitly marked exploratory branch assigns hypothetical
+    # next-day availability; no live-source clock is altered on disk.
+    source=[dict(g,available_at_utc=g["fixture_start_utc"]+86400)
+            if assumed_availability else g for g in ordered]
+    train=[g for g in source if g["fixture_start_utc"]<split and g["available_at_utc"]<=cutoff]
+    out["train_games"]=len(train)
+    out["holdout_start_utc"]=split
+    if len(train)<MIN_GAMES:
+        out["status"]="NO_SUFFICIENT_PRETEST_SOURCE_OBSERVATIONS"
+        return out
+    try:
+        with_player=fit_box_association(train,cutoff,include_players=True)
+        team_only=fit_box_association(train,cutoff,include_players=False)
+    except (ValueError,KeyError,TypeError):
+        out["status"]="MODEL_FIT_ABSTAINED";return out
+    tested=0;errors=dict(player_team=0.,team_team=0.,player_total=0.,team_total=0.)
+    missing=Counter()
+    for target in source:
+        if target["fixture_start_utc"]<split:continue
+        tip=target["fixture_start_utc"];asof=tip-900
+        if asof<cutoff:continue
+        rotations=[rotation(source,target[s+"_team_id"],asof) for s in ("home","away")]
+        if any(r is None for r in rotations):
+            missing["NO_SIX_PREGAME_ROTATIONS"]+=1;continue
+        try:
+            p=projected_pair(with_player,target["home_team_id"],target["away_team_id"],*rotations)
+            b=projected_pair(team_only,target["home_team_id"],target["away_team_id"],*rotations)
+        except (ValueError,KeyError,TypeError):
+            missing["PREDICTION_IDENTITY_UNAVAILABLE"]+=1;continue
+        if any(not math.isfinite(v) or v<=0 or v>=300 for v in p+b):
+            missing["OUT_OF_RANGE_PREDICTION"]+=1;continue
+        y=target["score"]
+        errors["player_team"]+=sum(abs(p[i]-y[i]) for i in range(2))
+        errors["team_team"]+=sum(abs(b[i]-y[i]) for i in range(2))
+        errors["player_total"]+=abs(sum(p)-sum(y))
+        errors["team_total"]+=abs(sum(b)-sum(y))
+        tested+=1
+    out["matched_test_games"]=tested
+    out["excluded_test_fixtures"]=dict(missing)
+    out["player_coefficients"]=len(with_player["players"])
+    if not tested:
+        out["status"]="NO_VALID_MATCHED_PREGAME_ROTATION_TEST";return out
+    out.update(status="ASSUMED_AVAILABILITY_RESEARCH_ONLY" if assumed_availability
+            else "RETROSPECTIVE_PIT_ELIGIBLE_NOT_PROSPECTIVE",
+        candidate_team_mae=round(errors["player_team"]/(2*tested),4),
+        control_team_mae=round(errors["team_team"]/(2*tested),4),
+        candidate_total_mae=round(errors["player_total"]/tested,4),
+        control_total_mae=round(errors["team_total"]/tested,4),
+        total_mae_improvement=round((errors["team_total"]-errors["player_total"])/tested,4),
+        demonstrated_superiority=False)
+    return out
+
+
 def run_readonly(data_directory,*,now_utc=None):
     now=int(time.time()) if now_utc is None else now_utc
     root=local_path(data_directory);storage=root/"adaptive-v2"/"inputs"
@@ -233,11 +315,19 @@ def run_readonly(data_directory,*,now_utc=None):
     report=dict(format=VERSION,status=model["status"],asof_utc=now,
         verified_player_box_games=len(games),excluded=excluded,
         fitted_players=len(model.get("players",[])),
+        score_observations=model.get("score_observations",0),
+        estimated_parameters=model.get("estimated_parameters",0),
+        player_coefficients_not_individually_identified=model.get("underdetermined_player_parameters",False),
         historical_player_training_games=model.get("training_games",0),
         source_calls=0,score_archive_writes=0,original_forecasts_modified=False,
         calibrated=False,live_player_effect_applied=False,production_enabled=False,
         future_scenarios=[])
     if model["status"]!="REAL_HISTORICAL_BOX_MODEL_FITTED_RESEARCH_ONLY":return report
+    # Only a truly pre-match provenance scan may count as point-in-time.
+    # Research-only assumed next-day availability is explicitly separated.
+    report["retrospective_validation"]=dict(
+        strict=paired_holdout(games,now_utc=now),
+        assumed=paired_holdout(games,now_utc=now,assumed_availability=True))
     live=LedgerReports(ledger).read("NBA")
     if live["status"]!="VERIFIED_LIVE_REPORT":
         report["status"]="FROZEN_FORECAST_LEDGER_NOT_VERIFIED";return report

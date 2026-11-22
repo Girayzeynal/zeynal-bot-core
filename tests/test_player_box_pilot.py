@@ -5,7 +5,7 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from core.team_identity import digest
-from hybrid_engine.player_box_pilot import verified_box_rows,fit_box_association,rotation,scenario
+from hybrid_engine.player_box_pilot import verified_box_rows,fit_box_association,rotation,scenario,paired_holdout
 
 BASE=1760000000
 
@@ -71,6 +71,39 @@ class HistoricalBoxPilotTests(TestCase):
         valid,rejected=verified_box_rows(broken,self.cut)
         self.assertEqual(len(valid),39)
         self.assertEqual(rejected["INVALID_PAST_PLAYER_MINUTES"],1)
+    def test_matched_historical_holdout_requires_pregame_clock_and_no_backfilling(self):
+        expanded=[[fixture(i)] for i in range(80)]
+        r,_=verified_box_rows(expanded,self.cut)
+        # The clock at self.cut excludes all future games, so no hidden score
+        # can enter this holdout, whatever the requested exploratory mode.
+        self.assertEqual(len(r),45)
+        self.assertEqual(paired_holdout(r,now_utc=self.cut)["matched_test_games"],0)
+        far=BASE+90*86400
+        with patch("time.time",return_value=far):
+            source,_=verified_box_rows(expanded,far)
+            self.assertEqual(len(source),80)
+            strict=paired_holdout(source,now_utc=far)
+            assumed=paired_holdout(source,now_utc=far,assumed_availability=True)
+            self.assertGreater(assumed["matched_test_games"],0)
+            self.assertEqual(assumed["status"],"ASSUMED_AVAILABILITY_RESEARCH_ONLY")
+            self.assertFalse(assumed["prospective_accuracy_evidence"])
+            self.assertFalse(assumed["automatic_promotion"])
+            self.assertTrue(assumed["model_selected_after_actuals"])
+            self.assertAlmostEqual(assumed["total_mae_improvement"],
+                assumed["control_total_mae"]-assumed["candidate_total_mae"],places=3)
+            self.assertEqual(strict["evidence_class"],"VERIFIED_SOURCE_CLOCKS_RETROSPECTIVE_HOLDOUT")
+            self.assertEqual(strict["total_games"],80)
+            self.assertEqual(strict["matched_test_games"],assumed["matched_test_games"])
+
+    def test_team_only_control_has_no_player_parameters(self):
+        rows,_=verified_box_rows(self.cohort,self.cut)
+        team=fit_box_association(rows,self.cut,include_players=False)
+        self.assertEqual(team["players"],[])
+        self.assertEqual(team["estimated_parameters"],2+2*len(team["teams"]))
+        self.assertEqual(team["fit_kind"],"TEAM_ONLY_SAME_BOX_COHORT")
+        with self.assertRaisesRegex(ValueError,"EXPLICIT_COHORT_CONTROL"):
+            fit_box_association(rows,self.cut,include_players=1)
+
     def test_no_hypothetical_scenario_published_after_tipoff(self):
         rows,_=verified_box_rows(self.cohort,self.cut)
         model=fit_box_association(rows,self.cut)
