@@ -366,13 +366,41 @@ def official_error_code(exc):
 
 
 class CurrentRosterReview:
-    def __init__(self, directory, *, getter=native_get, extractor=pdf_extract, clock=time.time, report_archive=None):
+    def __init__(self, directory, *, getter=native_get, extractor=pdf_extract, clock=time.time, report_archive=None,
+                 bounded_public_pdf_fallback=False):
         self.directory = local_path(directory); self.directory.mkdir(parents=True, exist_ok=True)
         self.getter = getter; self.extractor = extractor; self.clock = clock
         self.lock = threading.Lock(); self.cache = {}; self.sources = {}; self.cooldowns = {}
         self.last_source_failure=None
         self.report_archive=None if report_archive is None else local_path(report_archive)
+        self.bounded_public_pdf_fallback=bool(bounded_public_pdf_fallback)
         self.failure_codes={}
+
+    def _public_pdf_after_two_403s(self,deadline):
+        """Public CDN fallback, not an index or proof of being the latest report.
+
+        Only the current ET quarter-hour and the immediately preceding one may
+        be tested. Every URL is checked against the strict allowlist and the
+        30-minute clock gate. No auth emulation, redirects, source enumeration,
+        stale/backfilled rows, or hypothetical injury records.
+        """
+        from hybrid_engine.official_report_link import reference
+        now=int(self.clock())
+        slot=now-now%900
+        for timestamp in (slot,slot-900):
+            eastern=datetime.fromtimestamp(timestamp,ZoneInfo('America/New_York'))
+            url=('https://ak-static.cms.nba.com/referee/injury/Injury-Report_'
+                +eastern.strftime('%Y-%m-%d_%I_%M%p')+'.pdf')
+            try:
+                ref=reference(url,now)
+                pdf=self._get(url,deadline)
+                if not pdf['body'].startswith(b'%PDF-'):
+                    raise ValueError('INVALID_OFFICIAL_PDF')
+                return ref,pdf
+            except (ValueError,KeyError,TimeoutError):
+                if time.monotonic()>=deadline:
+                    break
+        return None,None
 
     def _get(self, url, deadline):
         self.last_source_failure=None
@@ -432,6 +460,7 @@ class CurrentRosterReview:
             stage='INDEX_FETCH'
             try:
                 explicit=None
+                preloaded_pdf=None
                 index=None
                 discovery='LIVE_OFFICIAL_INDEX'
                 try:
@@ -461,19 +490,33 @@ class CurrentRosterReview:
                         # the *original* 403 as the operative source failure,
                         # while exposing secondary failure distinctly.
                         self.last_source_failure=primary_failure
-                        # Existing explicitly imported fresh, SHA-pinned
-                        # official CDN report, not claimed latest.
-                        if self.report_archive is None: raise
+                        # Prefer a user-imported, content-pinned, fresh
+                        # official report. When none exists, the isolated test
+                        # bot may probe at most two public quarter-hour CDN
+                        # documents; validate title, clock and exact fixture.
                         from hybrid_engine.official_report_link import select_link,reference,MAX_AGE
-                        selected=select_link(self.report_archive,context['season'],int(self.clock()))
-                        if selected is None: raise
-                        explicit,entry_pin=selected
-                        ref=reference(explicit['url'],int(self.clock()))
-                        base.update(official_discovery_mode='EXPLICIT_OFFICIAL_CDN_LINK',
-                            latest_report_verified=False,
-                            explicit_report_entry_sha256=entry_pin,
-                            explicit_report_expires_at_utc=ref['report_timestamp_utc']+MAX_AGE)
-                        base['warnings'].append('INDEX_403_EXPLICIT_LINK_NOT_ASSERTED_LATEST')
+                        selected=(select_link(self.report_archive,context['season'],int(self.clock()))
+                                  if self.report_archive is not None else None)
+                        if selected is not None:
+                            explicit,entry_pin=selected
+                            ref=reference(explicit['url'],int(self.clock()))
+                            base.update(official_discovery_mode='EXPLICIT_OFFICIAL_CDN_LINK',
+                                latest_report_verified=False,
+                                explicit_report_entry_sha256=entry_pin,
+                                explicit_report_expires_at_utc=ref['report_timestamp_utc']+MAX_AGE)
+                            base['warnings'].append('INDEX_403_EXPLICIT_LINK_NOT_ASSERTED_LATEST')
+                        elif (self.bounded_public_pdf_fallback and
+                              isinstance(alternate_failure,dict) and
+                              alternate_failure.get('http_status')==403):
+                            ref,preloaded_pdf=self._public_pdf_after_two_403s(deadline)
+                            if ref is None: raise ValueError('ROSTER_SOURCE_UNAVAILABLE')
+                            base.update(official_discovery_mode='BOUNDED_PUBLIC_OFFICIAL_CDN',
+                                latest_report_verified=False,
+                                explicit_report_expires_at_utc=ref['report_timestamp_utc']+MAX_AGE,
+                                public_cdn_candidates_maximum=2)
+                            base['warnings'].append('DUAL_INDEX_403_PUBLIC_PDF_NOT_ASSERTED_LATEST')
+                        else:
+                            raise ValueError('ROSTER_SOURCE_UNAVAILABLE')
                     else:
                         discovery='LIVE_NBA_COM_OFFICIAL_INDEX'
                 if index is not None:
@@ -486,7 +529,7 @@ class CurrentRosterReview:
                 base.update(official_stage=stage,official_code='NO_RECENT_PUBLISHED_REPORT')
                 if ref:
                     stage='PDF_FETCH'
-                    pdf = self._get(ref['source_url'], deadline)
+                    pdf = preloaded_pdf or self._get(ref['source_url'], deadline)
                     if explicit and pdf['body_sha256']!=explicit['pdf_sha256']:
                         raise ValueError('EXPLICIT_REPORT_BODY_CHANGED')
                     base['sources'].append({k: v for k, v in pdf.items() if k != 'body'})
@@ -502,9 +545,10 @@ class CurrentRosterReview:
                         with os.fdopen(fd, 'wb') as stream: stream.write(pdf['body']); stream.flush(); os.fsync(stream.fileno())
                     stage='PDF_EXTRACTION'
                     extraction = self.extractor(path, deadline=deadline)
-                    if explicit or extraction.get('report_titles'):
+                    if explicit or preloaded_pdf is not None or extraction.get('report_titles'):
                         from hybrid_engine.official_report_link import assert_report_title,reference
-                        if explicit: reference(ref['source_url'],int(self.clock()))
+                        if explicit or preloaded_pdf is not None:
+                            reference(ref['source_url'],int(self.clock()))
                         assert_report_title(extraction,ref)
                         base['official_pdf_clock_verified']=True
                     base['official_extraction_status'] = extraction['status']
