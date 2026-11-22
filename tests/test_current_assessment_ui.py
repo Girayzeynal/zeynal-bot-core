@@ -69,9 +69,8 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         response=dict(status="ANALYSIS_OK",snapshot=ctx,html="ORIGINAL 220",html_parts=["ORIGINAL 220"],
                       new_record=False,reply_markup=markup)
         base=SimpleNamespace(analyze=AsyncMock(return_value=response))
-        current=dict(candidate=dict(home=108.,away=110.,total=218.),
-            prediction_generated_at_utc=NOW-60,source_available_max_utc=NOW-70,
-            parameter_fit_cutoff_utc=NOW-3600)
+        _,current=CurrentPanelsTests().setup_case()
+        current['source_available_max_utc']=NOW-70
         a=SimpleNamespace(latest=Mock(return_value=current),refresh_fixture=Mock(return_value=dict(status="READY")))
         state=dict(verified_analysis_service=base,
             premium_reports={token:dict(chat_id=1,summary="INITIAL V1 220",
@@ -149,7 +148,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         entry=state['premium_reports'][token]
         self.assertIn('Toplam 218.00',result['html'])
         self.assertIn('Toplam 218.00',entry['summary'])
-        self.assertIn('1Q 27.00 – 28.00',entry['sections']['period'])
+        self.assertIn('<b>1Q</b> 27.00 – 28.00',entry['sections']['period'])
         self.assertIn('P50 218.0',entry['sections']['ranges'])
         self.assertNotIn('ORIGINAL P50 220',entry['sections']['ranges'])
         self.assertIn('ORIGINAL P50 220',entry['sections']['audit'])
@@ -180,10 +179,24 @@ class CurrentPanelsTests(unittest.TestCase):
         panels=current_panels(context,row,now=NOW)
         self.assertTrue(panels['fresh'])
         self.assertIn('Toplam 218.00',panels['period'])
-        self.assertIn('1Q 27.00 – 28.00',panels['period'])
+        self.assertIn('<b>1Q</b> 27.00 – 28.00',panels['period'])
         self.assertIn('P50 218.0',panels['ranges'])
         self.assertNotIn('220.00',panels['period']+panels['ranges'])
         self.assertEqual(panels['valid_until'],NOW+3540)
+
+    def test_conflicting_scores_and_nonmonotone_quantiles_are_rejected(self):
+        from copy import deepcopy
+        context,row=self.setup_case()
+        wrong=deepcopy(row)
+        wrong['candidate']['total']=219.
+        blocked=current_panels(context,wrong,now=NOW)
+        self.assertFalse(blocked['fresh'])
+        self.assertIn('SCORE_CONSERVATION_FAILED',blocked['period'])
+        wrong=deepcopy(row)
+        wrong['intervals']['markets']['TOTAL']['p25']=300.
+        blocked=current_panels(context,wrong,now=NOW)
+        self.assertFalse(blocked['fresh'])
+        self.assertIn('CURRENT_DISTRIBUTION_NOT_VERIFIED',blocked['ranges'])
 
     def test_stale_or_incomplete_current_record_never_reuses_archive_periods(self):
         context,row=self.setup_case()
