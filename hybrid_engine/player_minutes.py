@@ -52,7 +52,33 @@ def capped_rotation(weights):
     return out.tolist()
 
 
-def projection(context,review,rosters,boxes,*,generated_at_utc):
+def _official_only_diagnostic_permission(review,records,now):
+    """A source-verified, uncorroborated NBA Out can be examined, NOT published.
+
+    The normal immutable player-minutes archive remains two-source-only.
+    This branch is for finding downstream rotation gaps without extra requests.
+    """
+    if not (review.get('official_pdf_clock_verified') is True and
+            review.get('official_stage')=='FIXTURE_ROWS' and
+            review.get('official_code')=='SOURCE_ROWS_MATCHED_NOT_MEDICALLY_VERIFIED'):
+        return False
+    official=review.get('official_report')
+    if not isinstance(official,dict): return False
+    url=official.get('source_url')
+    timestamp=official.get('report_timestamp_utc')
+    if (not isinstance(url,str) or type(timestamp) is not int or
+            not 0<=now-timestamp<=1800 or
+            not any(s.get('url')==url and type(s.get('observed_at_utc')) is int and
+                    timestamp<=s['observed_at_utc']<=now for s in review.get('sources',[]))):
+        return False
+    return (len(records)==1 and
+        records[0].get('source')=='NBA_OFFICIAL_PDF' and
+        records[0].get('status')=='Out' and
+        records[0].get('identity_status')=='EXACT_ESPN_ROSTER_MATCH' and
+        records[0].get('status_updated_at_utc')==timestamp)
+
+
+def projection(context,review,rosters,boxes,*,generated_at_utc,diagnostic_official_only=False):
     """Accept only actually available sources. No model is trained here."""
     now=stamp(generated_at_utc); start=stamp(context['fixture_start_utc'])
     if (context['league']!='NBA' or now>int(time.time()) or now>=start or
@@ -67,7 +93,9 @@ def projection(context,review,rosters,boxes,*,generated_at_utc):
     if not source_times or max(source_times)>now: raise ValueError('ROSTER_SOURCE_AFTER_PROJECTION')
     if set(rosters['home']['players'])&set(rosters['away']['players']):
         raise ValueError('SAME_PLAYER_ON_BOTH_CURRENT_TEAMS')
-    result={}; history=[]; directory_pins={}
+    if type(diagnostic_official_only) is not bool:
+        raise ValueError('DIAGNOSTIC_MODE_BOOLEAN_REQUIRED')
+    result={}; history=[]; directory_pins={}; provisional_out=[]
     for side in SIDES:
         team=context[side]['provider_id']; directory=rosters[side]
         players=directory['players']; observed=stamp(directory['observed_at_utc'])
@@ -120,14 +148,21 @@ def projection(context,review,rosters,boxes,*,generated_at_utc):
             if state in ('Out','Suspended'):
                 sources={r['source'] for r in records}
                 if not {'ESPN','NBA_OFFICIAL_PDF'}<=sources:
-                    raise Abstain('ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS')
+                    if (diagnostic_official_only and sources=={'NBA_OFFICIAL_PDF'} and
+                            state=='Out' and
+                            _official_only_diagnostic_permission(review,records,now)):
+                        provisional_out.append(pid)
+                    else:
+                        raise Abstain('ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS')
                 excluded.add(pid)
         if set(players)-present-excluded:
             raise Abstain('CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY')
         weights=[0. if p in excluded else sum(values[p])/len(eligible) for p in players]
         minutes=capped_rotation(weights)
-        result[side]=[dict(player_id=p,expected_minutes=m,status='OUT_SOURCE_CORROBORATED' if p in excluded else
-            'PAST_ROTATION_PRIOR_NOT_CONFIRMED_AVAILABLE') for p,m in zip(players,minutes)]
+        result[side]=[dict(player_id=p,expected_minutes=m,
+            status=('OUT_OFFICIAL_ONLY_DIAGNOSTIC_NOT_CORROBORATED' if p in provisional_out else
+                'OUT_SOURCE_CORROBORATED') if p in excluded else
+                'PAST_ROTATION_PRIOR_NOT_CONFIRMED_AVAILABLE') for p,m in zip(players,minutes)]
         directory_pins[side]=directory['source_sha256']
         source_times.append(observed)
     payload=dict(format='PROSPECTIVE_PLAYER_MINUTES_V1',version=VERSION,league='NBA',season=context['season'],
@@ -136,12 +171,18 @@ def projection(context,review,rosters,boxes,*,generated_at_utc):
         original_snapshot_sha256=context['original_snapshot_sha256'],generated_at_utc=now,
         observed_at_utc=now,ingested_at_utc=now,source_available_max_utc=max(source_times+[h['available_at_utc'] for h in history]),
         source_review_sha256=digest(review),directory_pins=directory_pins,history=history,
-        model_input_kind='PREGAME_PROJECTED_MINUTES_NOT_TARGET_ACTUAL',duration_minutes=48,
+        model_input_kind=('UNARCHIVABLE_OFFICIAL_ONLY_DIAGNOSTIC' if diagnostic_official_only else
+            'PREGAME_PROJECTED_MINUTES_NOT_TARGET_ACTUAL'),
+        provisional_official_only_player_ids=sorted(set(provisional_out)),
+        provisional_official_only_diagnostic=diagnostic_official_only,
+        duration_minutes=48,
         assumptions=['UNREPORTED_AVAILABILITY_IS_NOT_CONFIRMED_AVAILABLE',
             'PAST_SIX_REGULATION_GAMES_PROPORTIONAL_PRIOR',
             'SOURCE_CORROBORATION_IS_NOT_INDEPENDENT_MEDICAL_VERIFICATION',
             'HISTORICAL_DISPLAY_MINUTES_ARE_ROUNDED',
-            'NO_LINEUP_OR_MINUTE_UNCERTAINTY_CALIBRATION'],
+            'NO_LINEUP_OR_MINUTE_UNCERTAINTY_CALIBRATION']+
+            (['SINGLE_SOURCE_OFFICIAL_NOT_CORROBORATED_DIAGNOSTIC_UNARCHIVABLE']
+             if diagnostic_official_only else []),
         actual=None,lineup_verified=False,confidence_index=None,**result)
     return dict(payload=payload,sha256=digest(payload))
 
