@@ -184,6 +184,13 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
     if nba_service is not None:
         from hybrid_engine.current_roster import CurrentRosterReview
         app.bot_data['current_roster_review']=roster_review or CurrentRosterReview(root/'current-roster',report_archive=root/'official-reports')
+        # /analyze launches the bounded optional data continuation by itself.
+        # Production-only services have no such opt-in. This never edits a
+        # stored forecast or introduces uncalibrated player score corrections.
+        app.bot_data['auto_nba_player_pipeline']=dict(
+            reviewer=app.bot_data['current_roster_review'],
+            assets=nba_service.assets,directory=root/'player-shadow',
+            chat_id=chat_id,cooldown_seconds=300)
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');results=ProspectiveResults(archive,root/'official-results')
     frozen=FrozenHybridService(archive)
     if nba_service is not None:
