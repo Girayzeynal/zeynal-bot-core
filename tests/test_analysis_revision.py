@@ -151,6 +151,23 @@ class AssessmentTests(TestCase):
         missing=dict(original);missing.pop('first_archived_at_utc')
         self.assertEqual(self.assess.performance([missing])['groups'][0]['paired_n'],0)
 
+    def test_empty_research_cycle_is_not_reported_as_published_score(self):
+        self.worker.cases=lambda:[]
+        report=self.assess.tick()
+        self.assertEqual(report['status'],'CHECKED_NO_NEW_CANDIDATE')
+        self.assertEqual(report['candidate_published_count'],0)
+        self.assertEqual(report['capture_attempt_count'],0)
+        self.assertEqual(report['captures'],[])
+        self.assertEqual(len(self.assess.registry.records()),0)
+
+    def test_requested_fixture_exposes_exact_eligibility_blocker(self):
+        self.worker.cases=lambda:[]
+        report=self.assess.tick(preferred_fixture_id='expected-nba-fixture')
+        self.assertEqual(report['status'],'PARTIAL_ABSTAIN')
+        self.assertEqual(report['requested_fixture_status'],'NOT_ELIGIBLE')
+        self.assertEqual(report['candidate_published_count'],0)
+        self.assertEqual(report['captures'][0]['reason'],'CURRENT_REQUESTED_FIXTURE_NOT_ELIGIBLE')
+
     def test_tick_archives_candidate_without_hundred_match_calibration_gate(self):
         report=self.assess.tick();self.assertEqual(report['captures'][0]['status'],'ARCHIVED')
         self.assertEqual(len(self.assess.registry.records()),1)
