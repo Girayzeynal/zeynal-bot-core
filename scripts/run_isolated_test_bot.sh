@@ -17,6 +17,14 @@ fi
 # Explicit synthetic offline PLAYER_BAYES smoke. Never starts Telegram,
 # contacts providers, touches first forecasts, or uses production artifacts.
 # Can run in a second Android terminal while the Telegram poller is active.
+# Read existing native player boxes only. This is a conditional statistical
+# research pilot, NOT an authenticated availability or active score model.
+if [[ "${1:-}" == "--player-box-pilot" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_PLAYER_PILOT_ARGS" >&2; exit 2; fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+  exec "${test_python}" -B -m hybrid_engine.player_box_pilot \
+    --data-directory "${HOME}/zeynal-test-isolated/data"
+fi
 if [[ "${1:-}" == "--player-effect-smoke" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_PLAYER_SMOKE_ARGS" >&2; exit 2; fi
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
