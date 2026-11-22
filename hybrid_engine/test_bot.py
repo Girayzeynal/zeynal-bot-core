@@ -254,6 +254,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     market_lines=['<b>PİYASA KAYNAĞI</b>',
                         'Tahmin anından önce doğrulanmış piyasa çizgisi yok; barem veya güven endeksi üretilmedi.']
                 direction_cards=[]
+                market_candidate_snapshot=None
+                market_candidate_cards=[]
                 if provider_bridge is not None:
                     try:
                         from hybrid_engine.provider_bridge import nba_provider_panel
@@ -261,6 +263,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                             asyncio.to_thread(nba_provider_panel,snapshot,nba_service,provider_bridge,structured=True),timeout=16)
                         market_lines.append(provider_panel['html'])
                         direction_cards.extend(provider_panel['cards'])
+                        market_candidate_snapshot=provider_panel.get('market_candidate_snapshot')
+                        market_candidate_cards=provider_panel['cards'][:128] if market_candidate_snapshot else []
                     except Exception as exc:
                         logging.getLogger(__name__).warning('Provider review unavailable: %s',type(exc).__name__)
                         market_lines.append('Sağlayıcı denetimi tamamlanamadı: PROVIDER_REVIEW_UNAVAILABLE. Bu durum NO EDGE değildir; skor tahmini korunuyor.')
@@ -326,7 +330,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 from hybrid_engine.telegram_premium_ui import cache_report
                 expiry=[c['valid_until_utc'] for c in ranked if c['current']]
                 entry=dict(summary=summary,sections=sections,section_pages=section_pages,chat_id=chat_id,
-                    tipoff_utc=snapshot['fixture_start_utc'],quote_valid_until_utc=min(expiry) if expiry else None)
+                    tipoff_utc=snapshot['fixture_start_utc'],quote_valid_until_utc=min(expiry) if expiry else None,
+                    research_market_snapshot=market_candidate_snapshot,
+                    research_market_cards=market_candidate_cards)
                 try:
                     from hybrid_engine.current_roster import context_for
                     entry['roster_context']=context_for(snapshot)
