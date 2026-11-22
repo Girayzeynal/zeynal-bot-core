@@ -460,6 +460,35 @@ class ProviderTelegramTests(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(all(len(x.encode('utf-16-le'))//2 <= 4096 for x in sent+edits))
                 self.assertFalse(any(e.get('kind') == 'HANDLER_ERROR' for e in installed.read()))
                 self.assertEqual(digest(snap), before)
+                # Real incident regression (23 Nov Miami-OKC): a second, later
+                # research market model was presented as the first forecast.
+                # It must not turn a valid /analyze into a ValueError at
+                # telegram_premium_ui.py:26. Original score remains unchanged.
+                from hybrid_engine import market_direction_ui as mdi
+                original_cards=mdi.cards
+                changed=[0]
+                def new_assessment_cards(*args,**kwargs):
+                    values=original_cards(*args,**kwargs)
+                    result=[]
+                    for card in values:
+                        if card['period']=='FULL' and card['market']=='TOTAL':
+                            changed[0]+=1
+                            result.append(dict(card,current=True,
+                                valid_until_utc=NOW+300,model_digest='f'*64))
+                        else:result.append(card)
+                    return result
+                with patch.object(mdi,'cards',side_effect=new_assessment_cards):
+                    reanalyze=Update.de_json(dict(update_id=81,message=dict(
+                        message_id=81,date=NOW,chat=dict(id=17,type='private'),
+                        **{'from':dict(id=23,is_bot=False,first_name='Synthetic')},
+                        text=command,entities=[dict(type='bot_command',offset=0,length=8)])),app.bot)
+                    await app.process_update(reanalyze)
+                self.assertGreater(changed[0],0)
+                self.assertEqual(len(sent),3)
+                self.assertIn('ZEYNAL | NBA ANALİZ',sent[2])
+                self.assertIn('Güncel doğrulanmış barem yok',sent[2])
+                self.assertNotIn('ANALYZE_VALIDATION_ERROR',sent[2])
+                self.assertEqual(digest(snap),before)
             finally:
                 await app.shutdown(); await runner.cleanup()
 
