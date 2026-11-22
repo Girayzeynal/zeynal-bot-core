@@ -169,7 +169,7 @@ class CurrentPanelsTests(unittest.TestCase):
         row=dict(candidate=candidate,prediction_generated_at_utc=NOW-60,
             parameter_fit_cutoff_utc=NOW-3600,
             intervals=dict(markets=dict(TOTAL=band(218),HOME=band(108),
-                AWAY=band(110),**{'1Q':band(55),'2Q':band(54),
+                AWAY=band(110),MARGIN=band(-2),**{'1Q':band(55),'2Q':band(54),
                                   '3Q':band(54),'4Q':band(55),
                                   '1H':band(109),'2H':band(109)})))
         return context,row
