@@ -161,37 +161,26 @@ def install_dual_clock_display(state,assessments):
                 except (AttributeError,IndexError,TypeError,KeyError):
                     pass
             if context is None:return response
-            # The background cycle is not the user's /analyze freshness
-            # guarantee. Calculate for this exact fixture if no fresh candidate
-            # is available; this does not retrain the immutable first model.
-            update_issue=None
-            if context.get('league')=='NBA' and callable(getattr(assessments,'refresh_fixture',None)):
-                try:
-                    await asyncio.wait_for(
-                        asyncio.to_thread(assessments.refresh_fixture,context),timeout=32)
-                except (ValueError,KeyError,TypeError,OSError,RuntimeError,TimeoutError) as exc:
-                    import logging
-                    from hybrid_engine.data import Abstain
-                    logging.getLogger(__name__).warning('Current fixture update unavailable: %s',type(exc).__name__)
-                    reason=str(exc)
-                    if (isinstance(exc,Abstain) and reason.startswith('CURRENT_') and
-                            reason.replace('_','').isalnum() and len(reason)<=100):
-                        update_issue=reason
-                    elif isinstance(exc,TimeoutError):
-                        update_issue='CURRENT_UPDATE_TIMEOUT'
-                    else:
-                        update_issue='CURRENT_UPDATE_OR_SOURCE_UNAVAILABLE'
+            # /analyze must not run slow model fits. The serial research
+            # cycle publishes its own verified candidates independently.
+            # A failed/missing read is a visible blocker, never a fallback V1
+            # score represented as current.
             selected=None
+            update_issue=None
             try:
                 selected=await asyncio.wait_for(
-                    asyncio.to_thread(assessments.latest,context),timeout=10)
+                    asyncio.to_thread(assessments.latest,context),timeout=6)
                 from types import SimpleNamespace
                 content=two_clock_text(context,SimpleNamespace(latest=lambda _:selected),
                                        now=int(time.time()))
-            except (ValueError,KeyError,TypeError,OSError,TimeoutError):
-                content=('⚠️ GÜNCEL TAHMİN DOĞRULANAMADI. İlk kayıt arşivde korundu; '
-                         'oyuncu ve piyasa etkileri uygulanmış sayılmaz.')
-            if update_issue and 'GÜNCEL AYRI ARAŞTIRMA SKORU' not in content:
+            except (ValueError,KeyError,TypeError,OSError,TimeoutError) as exc:
+                update_issue=('CURRENT_READ_TIMEOUT' if isinstance(exc,TimeoutError) else
+                              'CURRENT_RESEARCH_RECORD_UNAVAILABLE')
+                content=('⚠️ GÜNCEL TAHMİN DOĞRULANAMADI. '
+                         'Eski kayıt arşivde korundu; güncel skor yayımlanmıyor.')
+            if selected is None and context.get('league')=='NBA':
+                update_issue=update_issue or 'CURRENT_RESEARCH_BACKGROUND_PENDING'
+            if update_issue:
                 content='Güncel model hesap engeli: '+update_issue+'\n'+content
             # Publish a headline only when the full score/period/interval set
             # is from one fresh candidate, rather than mixed first-record rows.
