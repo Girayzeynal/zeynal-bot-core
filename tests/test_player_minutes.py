@@ -86,6 +86,60 @@ class PlayerMinutesTests(TestCase):
             data=inputs(); data['review']['records']=rows
             with self.assertRaises(Abstain): projection(**data)
 
+    def test_pinned_official_only_out_can_explain_rotation_but_cannot_archive(self):
+        # A fully identified real-authority PDF status can diagnose downstream
+        # readiness. It must not silently weaken the archived two-source policy.
+        data=inputs()
+        url='https://ak-static.cms.nba.com/referee/injury/Injury-Report_2026-11-16_10_45AM.pdf'
+        data['review'].update(official_pdf_clock_verified=True,official_stage='FIXTURE_ROWS',
+            official_code='SOURCE_ROWS_MATCHED_NOT_MEDICALLY_VERIFIED',
+            official_report=dict(source_url=url,report_timestamp_utc=NOW-900))
+        data['review']['sources'].append(dict(url=url,observed_at_utc=NOW-10))
+        data['review']['records']=[dict(team_id='1',player_id='100',status='Out',
+            source='NBA_OFFICIAL_PDF',identity_status='EXACT_ESPN_ROSTER_MATCH',
+            status_updated_at_utc=NOW-900)]
+        with self.assertRaisesRegex(Abstain,'ABSENCE_REQUIRES_BOTH'):
+            projection(**data)
+        probe=projection(**data,diagnostic_official_only=True)
+        p=probe['payload']
+        self.assertEqual(p['provisional_official_only_player_ids'],['100'])
+        self.assertEqual(p['model_input_kind'],'UNARCHIVABLE_OFFICIAL_ONLY_DIAGNOSTIC')
+        self.assertEqual(p['home'][0]['expected_minutes'],0)
+        self.assertEqual(p['home'][0]['status'],'OUT_OFFICIAL_ONLY_DIAGNOSTIC_NOT_CORROBORATED')
+        self.assertAlmostEqual(sum(row['expected_minutes'] for row in p['home']),240)
+        with self.assertRaisesRegex(ValueError,'PLAYER_MINUTES_PIT_CLOCK_OR_KIND'):
+            validate_minutes(probe,asof_utc=NOW)
+        with TemporaryDirectory() as tmp,self.assertRaises(ValueError):
+            MinutesArchive(tmp).record(probe)
+
+    def test_official_only_diagnostic_never_trusts_unpinned_or_stale_source(self):
+        data=inputs()
+        url='https://ak-static.cms.nba.com/referee/injury/Injury-Report_2026-11-16_10_45AM.pdf'
+        data['review'].update(official_pdf_clock_verified=True,official_stage='FIXTURE_ROWS',
+            official_code='SOURCE_ROWS_MATCHED_NOT_MEDICALLY_VERIFIED',
+            official_report=dict(source_url=url,report_timestamp_utc=NOW-900))
+        data['review']['sources'].append(dict(url=url,observed_at_utc=NOW-10))
+        data['review']['records']=[dict(team_id='1',player_id='100',status='Out',
+            source='NBA_OFFICIAL_PDF',identity_status='EXACT_ESPN_ROSTER_MATCH',
+            status_updated_at_utc=NOW-900)]
+        for kind in ('unverified','wrong_date','stale','no_receipt','unmatched_identity','wrong_clock','conflict'):
+            altered=deepcopy(data)
+            if kind=='unverified':altered['review']['official_pdf_clock_verified']=False
+            elif kind=='wrong_date':
+                altered['review']['official_report']['source_url']=url.replace('2026-11-16','2026-11-15')
+            elif kind=='stale':
+                altered['review']['official_report']['source_url']=url.replace('10_45AM','10_00AM')
+                altered['review']['official_report']['report_timestamp_utc']=NOW-3600
+                altered['review']['records'][0]['status_updated_at_utc']=NOW-3600
+            elif kind=='no_receipt':altered['review']['sources'].pop()
+            elif kind=='unmatched_identity':altered['review']['records'][0]['identity_status']='PLAYER_ID_NOT_VERIFIED'
+            elif kind=='wrong_clock':altered['review']['records'][0]['status_updated_at_utc']+=60
+            else:
+                altered['review']['records'].append(dict(team_id='1',player_id='100',status='Available',
+                    source='ESPN',status_updated_at_utc=NOW-10))
+            with self.subTest(kind=kind),self.assertRaises(Abstain):
+                projection(**altered,diagnostic_official_only=True)
+
     def test_conflicting_status_is_not_given_an_invented_playing_probability(self):
         data=inputs(); data['review']['records']=[dict(team_id='1',player_id='100',status=s,
             source=source,status_updated_at_utc=NOW-10) for s,source in [('Out','ESPN'),('Available','NBA_OFFICIAL_PDF')]]
