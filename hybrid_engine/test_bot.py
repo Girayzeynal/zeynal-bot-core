@@ -572,7 +572,17 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 live_fixture_player_model_status='BLOCKED_UNLESS_PROSPECTIVE_EVIDENCE_EXISTS')
             worker=app.bot_data.get('adaptive_v2_worker')
             progress=getattr(worker,'progress',{}) if worker else {}
+            # Actual /analyze automation is NOT the old adaptive research
+            # worker. Report both independently rather than masking a real
+            # execution with the worker's NO_ATTEMPT_OBSERVED default.
+            automatic=app.bot_data.get('auto_nba_last_attempt')
+            record['automatic_nba_data_collection']=(
+                dict(automatic) if isinstance(automatic,dict)
+                else dict(status='NO_ANALYZE_TRIGGER_OBSERVED_IN_THIS_BOT_PROCESS'))
             record['live_player_minutes_status']=(
+                automatic.get('player_input_status','NOT_STARTED')
+                if isinstance(automatic,dict) else 'NO_AUTOMATIC_ANALYZE_TRIGGER_OBSERVED')
+            record['legacy_worker_player_input_status']=(
                 progress.get('player_input_status','NO_ATTEMPT_OBSERVED')
                 if isinstance(progress,dict) else 'NOT_OBSERVED')
             record['live_player_model_coefficients_applied']=False
