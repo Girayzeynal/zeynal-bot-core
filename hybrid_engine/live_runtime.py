@@ -99,7 +99,11 @@ async def run(fixture_path,repetitions=20,*,decisions=False):
         if not any('TAHMİN SAĞLIĞI | SALT OKUNUR' in s and 'NOT_CALIBRATED' in s for s in received):raise ValueError('HEALTH_COMMAND_NOT_DELIVERED')
         if not any('TAHMİN SAĞLIK KARTI' in s for s in edited):raise ValueError('HEALTH_CARD_NOT_DELIVERED_IN_DETAIL')
         if not any('Zeynal Bot Core aktif' in s for s in received):raise ValueError('START_COMMAND_NOT_DELIVERED')
-        if sum(('Gerçek maç öncesi tahmin' in s or 'ZEYNAL | NBA ANALİZ' in s) for s in received)!=4+repetitions:raise ValueError('LIVE_RENDER_NOT_DELIVERED')
+        # The updated main card no longer uses the frozen first-score heading.
+        nba_headlines=('Gerçek maç öncesi tahmin','ZEYNAL | NBA ANALİZ',
+            'ZEYNAL | GÜNCEL NBA TAHMİNİ','ZEYNAL | GÜNCEL TAHMİN BEKLENİYOR')
+        if sum(any(label in s for label in nba_headlines) for s in received)!=4+repetitions:
+            raise ValueError('LIVE_RENDER_NOT_DELIVERED')
         decision_records=app.bot_data['decision_journal'].read() if decisions else []
         if decisions:
             if len(decision_records)!=5 or any(e['selected'] for b in decision_records for e in b['evaluations']):raise ValueError('DECISION_DEDUP_OR_SELECTION_GUARD')

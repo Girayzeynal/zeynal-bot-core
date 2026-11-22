@@ -86,6 +86,31 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["html"],"ORIGINAL 220")
         a.refresh_fixture.assert_called_once_with(ctx)
 
+    async def test_missing_current_candidate_identified_as_pending_not_live(self):
+        from telegram import InlineKeyboardButton,InlineKeyboardMarkup
+        from hybrid_engine.data import Abstain
+        token='c'*12
+        ctx=dict(league='NBA',fixture_id='x',season='2026/2027',
+            home=dict(provider_id='1',official_name='Home'),
+            away=dict(provider_id='2',official_name='Away'),
+            fixture_start_utc=NOW+10800,prediction_generated_at_utc=NOW-86400,
+            prediction=dict(home=105.,away=115.,total=220.))
+        response=dict(status='ANALYSIS_OK',snapshot=ctx,html='V1',html_parts=['V1'],
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('Periyot',callback_data='zui:'+token+':period')]]),
+            new_record=False)
+        a=SimpleNamespace(latest=Mock(return_value=None),
+            refresh_fixture=Mock(side_effect=Abstain('CURRENT_FIXTURE_OR_ORIGINAL_NOT_ELIGIBLE')))
+        state=dict(verified_analysis_service=SimpleNamespace(analyze=AsyncMock(return_value=response)),
+            premium_reports={token:dict(summary='ORIGINAL',sections=dict(audit='AUDIT'),
+            section_pages=dict(audit=['AUDIT']))})
+        install_dual_clock_display(state,a)
+        with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
+            out=await state['verified_analysis_service'].analyze('NBA','date','Home','Away')
+        self.assertIn('GÜNCEL TAHMİN BEKLENİYOR',out['html'])
+        self.assertIn('CURRENT_FIXTURE_OR_ORIGINAL_NOT_ELIGIBLE',out['html'])
+        self.assertNotIn('GÜNCEL NBA TAHMİNİ',out['html'])
+        self.assertIn('ORIGINAL',state['premium_reports'][token]['sections']['audit'])
+
     async def test_no_augmentation_of_non_analysis_results(self):
         response=dict(status="ABSTAIN",html="No verified fixture")
         base=SimpleNamespace(analyze=AsyncMock(return_value=response))

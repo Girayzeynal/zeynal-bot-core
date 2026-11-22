@@ -78,19 +78,31 @@ def install_dual_clock_display(state,assessments):
             # The background cycle is not the user's /analyze freshness
             # guarantee. Calculate for this exact fixture if no fresh candidate
             # is available; this does not retrain the immutable first model.
+            update_issue=None
             if context.get('league')=='NBA' and callable(getattr(assessments,'refresh_fixture',None)):
                 try:
                     await asyncio.wait_for(
                         asyncio.to_thread(assessments.refresh_fixture,context),timeout=32)
                 except (ValueError,KeyError,TypeError,OSError,RuntimeError,TimeoutError) as exc:
                     import logging
+                    from hybrid_engine.data import Abstain
                     logging.getLogger(__name__).warning('Current fixture update unavailable: %s',type(exc).__name__)
+                    reason=str(exc)
+                    if (isinstance(exc,Abstain) and reason.startswith('CURRENT_') and
+                            reason.replace('_','').isalnum() and len(reason)<=100):
+                        update_issue=reason
+                    elif isinstance(exc,TimeoutError):
+                        update_issue='CURRENT_UPDATE_TIMEOUT'
+                    else:
+                        update_issue='CURRENT_UPDATE_OR_SOURCE_UNAVAILABLE'
             try:
                 content=await asyncio.wait_for(
                     asyncio.to_thread(two_clock_text,context,assessments),timeout=10)
             except (ValueError,KeyError,TypeError,OSError,TimeoutError):
                 content=('⚠️ GÜNCEL TAHMİN DOĞRULANAMADI. İlk kayıt arşivde korundu; '
                          'oyuncu ve piyasa etkileri uygulanmış sayılmaz.')
+            if update_issue and 'GÜNCEL AYRI ARAŞTIRMA SKORU' not in content:
+                content='Güncel model hesap engeli: '+update_issue+'\n'+content
             prefix=html.escape(content)+'\n\n'
             result=dict(response);parts=list(response.get('html_parts') or [response['html']])
             if entry and context.get('league')=='NBA':
@@ -98,7 +110,10 @@ def install_dual_clock_display(state,assessments):
                 # the main headline. Never present replayed V1 as latest.
                 old=entry.get('summary','')
                 from hybrid_engine.elite_render import split_blocks
-                headline=('<b>🏀 ZEYNAL | GÜNCEL NBA TAHMİNİ</b>\n'+
+                is_current='GÜNCEL AYRI ARAŞTIRMA SKORU' in content
+                heading=('🏀 ZEYNAL | GÜNCEL NBA TAHMİNİ' if is_current else
+                         '🏀 ZEYNAL | GÜNCEL TAHMİN BEKLENİYOR')
+                headline=('<b>'+heading+'</b>\n'+
                     html.escape(str(context['home']['official_name']))+' 🆚 '+
                     html.escape(str(context['away']['official_name']))+'\n\n'+
                     prefix)

@@ -678,10 +678,16 @@ def render_review(review):
         elif relation=='BROAD_TRACKER_WITH_UNCERTAIN_OFFICIAL_NOT_CONTRADICTORY':
             lines.append('ℹ️ ESPN gün-gün izleme ile NBA maç bazlı belirsiz katılım sınıfları kesin çelişki değildir. '
                          'Oyuncunun oynayacağı ve kaç dakika alacağı hâlâ doğrulanmadı.')
+        # Two source rows describe one player, not two absent players.
+        # Show each source's designation and clock without duplicate headings.
+        first=next((r for r in entries if r['source']=='ESPN'),entries[0])
+        lines.extend(['','<b>'+esc(first['team_name'])+' · '+esc(first['player_name'])+'</b>'])
         for row in entries:
-            lines.extend(['', '<b>'+esc(row['team_name'])+' · '+esc(row['player_name'])+'</b>',
-                esc(STATUS[row['status']])+' · '+('NBA resmî rapor metni' if row['source'] == 'NBA_OFFICIAL_PDF' else 'ESPN maç kaydı'),
-                'Kaynak durum zamanı: '+tsi(row['status_updated_at_utc'])])
+            src='NBA resmî rapor metni' if row['source']=='NBA_OFFICIAL_PDF' else 'ESPN maç kaydı'
+            lines.append('• '+esc(src)+' · '+esc(STATUS[row['status']]))
+            if row['player_name']!=first['player_name']:
+                lines.append('Kaynak ad biçimi: '+esc(row['player_name']))
+            lines.append('Kaynak durum zamanı: '+tsi(row['status_updated_at_utc']))
             if row['note']: lines.append('Kaynak notu: '+esc(row['note']))
             if review['observed_at_utc']-row['status_updated_at_utc']>24*3600:
                 lines.append('Durum kaydının tarihi eski; bugünkü oynama durumunun onayı değildir.')

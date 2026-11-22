@@ -360,6 +360,29 @@ class RosterReviewTests(TestCase):
         text=render_review(r); self.assertIn('&lt;script&gt;&amp;',text); self.assertIn('&lt;bad&gt;',text)
         self.assertIn('Kaynak SHA:',text); self.assertIn('Erişim:',text); self.assertIn('İlk tahminin girdisi değildir',text)
 
+    def test_two_identical_player_sources_have_one_heading(self):
+        r=self.service.review(self.context)
+        import copy
+        first=copy.deepcopy(r['records'][0])
+        second=copy.deepcopy(first)
+        second['source']='NBA_OFFICIAL_PDF'
+        second['player_name']='Different, Spelling'
+        r['records']=[first,second]
+        text=render_review(r)
+        expected='<b>'+first['team_name']+' · '+first['player_name']+'</b>'
+        self.assertEqual(text.count(expected),1)
+        self.assertIn('Kaynak ad biçimi: Different, Spelling',text)
+        self.assertIn('ESPN maç kaydı',text)
+        self.assertIn('NBA resmî rapor metni',text)
+
+    def test_expired_market_card_is_not_an_active_price(self):
+        e=dict(summary='s',sections=dict(market='MODEL YÖNÜ: ÜST 230,5'),
+            section_pages=dict(market=['MODEL YÖNÜ: ÜST 230,5']),
+            quote_valid_until_utc=NOW+10,tipoff_utc=START)
+        text,_=page_view(e,'market',0,now=NOW+20)
+        self.assertIn('GÜNCEL ORAN DEĞİL',text)
+        self.assertIn('önceki kontrol',text)
+
     def test_expired_cached_roster_pages_and_post_tipoff_are_explicit_archive_views(self):
         e=dict(summary='s',sections=dict(roster='r'),section_pages=dict(roster=['r']),
                roster_review_at_utc=NOW,tipoff_utc=START)
