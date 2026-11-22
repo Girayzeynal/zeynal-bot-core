@@ -734,6 +734,21 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             if assessments:
                 last=assessments.last_report or {}
                 lines.append('Güncel analiz zinciri: '+last.get('status','İLK TUR BEKLENİYOR'))
+                lines.append('Son turda yeni aday yayınlama: '+str(last.get('candidate_published_count','BİLİNMİYOR'))+
+                    ' · Denenen '+str(last.get('capture_attempt_count','?'))+
+                    ' · Uygun sırada '+str(last.get('eligible_not_yet_saved_count','?')))
+                if last.get('requested_fixture_id'):
+                    lines.append('Talep edilen maç kimliği: '+str(last['requested_fixture_id'])[:100])
+                    lines.append('Talep edilen maçın üretim sonucu: '+
+                        str(last.get('requested_fixture_status','BİLİNMİYOR')))
+                for capture in (last.get('captures') or [])[:3]:
+                    lines.append('Aday kaydı: '+str(capture.get('fixture_id','KİMLİK_YOK'))[:100]+
+                        ' · '+str(capture.get('status','BİLİNMİYOR'))+
+                        (' · Engeli: '+str(capture.get('reason','BELİRTİLMEDİ'))[:90]
+                         if capture.get('status')=='ABSTAIN' else ''))
+                if cycle:
+                    lines.append('Gelecek tur öncelikli maç: '+
+                        (', '.join(cycle.requested_fixtures[:3]) if cycle.requested_fixtures else 'YOK'))
                 lines.extend(assessments.render_performance().splitlines())
             bridge=provider_bridge or getattr(app.bot_data.get('europe_data_review'),'bridge',None)
             if bridge is not None and getattr(bridge,'rule_book',None):
