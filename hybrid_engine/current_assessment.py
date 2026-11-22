@@ -169,10 +169,19 @@ class CurrentAssessments:
         return dict(status='CURRENT_CANDIDATE_PUBLISHED' if new else 'CURRENT_CANDIDATE_REPLAY',
                     fixture_id=p['fixture']['canonical_id'],sha256=digest(p))
 
-    def tick(self):
+    def tick(self,preferred_fixture_id=None):
+        """Publish at most two eligible candidates, prioritizing a requested match."""
+        if preferred_fixture_id is not None and (not isinstance(preferred_fixture_id,str)
+                or not 0<len(preferred_fixture_id)<=160):
+            raise ValueError('CURRENT_PREFERRED_FIXTURE_ID_INVALID')
         plan=self.plan(create=True);cases=self.worker.cases();captures=[];now=int(time.time())
         saved={(r['payload']['fixture']['canonical_id'],r['payload']['version']) for r in self.registry.records()}
         ready=[c for c in cases if (c['target']['fixture_id'],plan['sha256']+':'+str(now//3600)) not in saved]
+        if preferred_fixture_id:
+            ready.sort(key=lambda c:c['target']['fixture_id']!=preferred_fixture_id)
+            if not any(c['target']['fixture_id']==preferred_fixture_id for c in cases):
+                captures.append(dict(status='ABSTAIN',reason='CURRENT_REQUESTED_FIXTURE_NOT_ELIGIBLE',
+                    error_type='Abstain'))
         for c in ready[:2]:
             try:
                 t=c['target']
