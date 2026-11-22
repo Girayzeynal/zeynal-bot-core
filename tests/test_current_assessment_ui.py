@@ -83,7 +83,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("INITIAL V1 220",out["html"])
         self.assertIn("INITIAL V1 220",state["premium_reports"][token]["sections"]["audit"])
         self.assertEqual(response["html"],"ORIGINAL 220")
-        a.refresh_fixture.assert_called_once_with(ctx)
+        a.refresh_fixture.assert_not_called()
 
     async def test_missing_current_candidate_identified_as_pending_not_live(self):
         from telegram import InlineKeyboardButton,InlineKeyboardMarkup
@@ -106,9 +106,41 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
             out=await state['verified_analysis_service'].analyze('NBA','date','Home','Away')
         self.assertIn('GÜNCEL TAHMİN BEKLENİYOR',out['html'])
-        self.assertIn('CURRENT_FIXTURE_OR_ORIGINAL_NOT_ELIGIBLE',out['html'])
+        self.assertIn('CURRENT_RESEARCH_BACKGROUND_PENDING',out['html'])
         self.assertNotIn('GÜNCEL NBA TAHMİNİ',out['html'])
         self.assertIn('ORIGINAL',state['premium_reports'][token]['sections']['audit'])
+        a.refresh_fixture.assert_not_called()
+
+    async def test_slow_on_demand_retraining_is_never_called_from_analyze(self):
+        from telegram import InlineKeyboardButton,InlineKeyboardMarkup
+        token='e'*12
+        ctx=dict(league='NBA',fixture_id='x',season='2026/2027',
+            home=dict(provider_id='1',official_name='Home'),
+            away=dict(provider_id='2',official_name='Away'),
+            fixture_start_utc=NOW+10800,prediction_generated_at_utc=NOW-86400,
+            prediction=dict(home=105.,away=115.,total=220.))
+        response=dict(status='ANALYSIS_OK',snapshot=ctx,html='OLD 220',
+            html_parts=['OLD 220'],reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton('Periyotlar',callback_data='zui:'+token+':period')]]))
+        def prohibit_fit(_):
+            raise AssertionError('ON_DEMAND_MODEL_FIT_FORBIDDEN_IN_TELEGRAM_HANDLER')
+        a=SimpleNamespace(latest=Mock(return_value=None),
+            refresh_fixture=Mock(side_effect=prohibit_fit))
+        state=dict(verified_analysis_service=SimpleNamespace(analyze=AsyncMock(return_value=response)),
+            premium_reports={token:dict(summary='OLD 220',sections=dict(period='OLD 1Q',
+                ranges='OLD BANDS',market='OLD MARKET',audit='OLD AUDIT'),
+                section_pages=dict(audit=['OLD AUDIT']))})
+        install_dual_clock_display(state,a)
+        with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
+            out=await state['verified_analysis_service'].analyze('NBA','date','Home','Away')
+        a.refresh_fixture.assert_not_called()
+        a.latest.assert_called_once_with(ctx)
+        self.assertIn('CURRENT_RESEARCH_BACKGROUND_PENDING',out['html'])
+        self.assertNotIn('GÜNCEL NBA TAHMİNİ',out['html'])
+        entry=state['premium_reports'][token]
+        self.assertIn('CURRENT_ASSESSMENT_NOT_PUBLISHED',entry['sections']['period'])
+        self.assertNotIn('OLD BANDS',entry['sections']['ranges'])
+        self.assertIn('OLD BANDS',entry['sections']['audit'])
 
     async def test_no_augmentation_of_non_analysis_results(self):
         response=dict(status="ABSTAIN",html="No verified fixture")
