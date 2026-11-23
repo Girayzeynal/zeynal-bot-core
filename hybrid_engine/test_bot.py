@@ -958,7 +958,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         cache=app.bot_data.get('premium_reports',{})
         entry=cache.get(token)
         if entry is None or entry['chat_id']!=chat_id:
-            await query.answer('Eski raporun sayfa kaydı bulunamadı. /analyze ile yeni arşivlenmiş rapor açın.',show_alert=True)
+            await query.answer('Bu raporun oturumu sona erdi. /analyze ile tekrar açın.',show_alert=True)
             return
         if section!='summary' and section not in entry['sections']:
             await query.answer('Bölüm bulunamadı.',show_alert=True)
