@@ -202,6 +202,39 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         a.refresh_fixture.assert_not_called()
         queue.request_fixture.assert_called_once_with(ctx)
 
+    async def test_python310_asyncio_timeout_is_bounded_without_false_v3_score(self):
+        """Python 3.10 asyncio.TimeoutError is distinct from built-in TimeoutError.
+
+        Simulate the legacy exception even when CI itself runs on Python 3.11+.
+        """
+        class LegacyAsyncioTimeout(Exception):
+            pass
+
+        ctx=dict(league='NBA',fixture_id='x',season='2026/2027',
+            home=dict(provider_id='1',official_name='Home'),
+            away=dict(provider_id='2',official_name='Away'),
+            fixture_start_utc=NOW+10800,prediction_generated_at_utc=NOW-86400,
+            prediction=dict(home=105.,away=115.,total=220.))
+        response=dict(status='ANALYSIS_OK',snapshot=ctx,html='FIRST V1 220',
+            html_parts=['FIRST V1 220'],new_record=False)
+        a=SimpleNamespace(latest=Mock())
+        state=dict(verified_analysis_service=SimpleNamespace(analyze=AsyncMock(return_value=response)))
+        install_dual_clock_display(state,a)
+
+        async def legacy_timeout(awaitable, *, timeout):
+            awaitable.close()  # Simulated wait_for never scheduled the read.
+            raise LegacyAsyncioTimeout('EXPIRED')
+
+        with patch('hybrid_engine.current_assessment_ui.asyncio.TimeoutError',LegacyAsyncioTimeout), \
+                patch('hybrid_engine.current_assessment_ui.asyncio.wait_for',legacy_timeout), \
+                patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
+            out=await state['verified_analysis_service'].analyze('NBA','day','Home','Away')
+        self.assertIn('CURRENT_READ_TIMEOUT',out['html'])
+        self.assertIn('GÜNCEL TAHMİN DOĞRULANAMADI',out['html'])
+        self.assertNotIn('GÜNCEL AYRI ARAŞTIRMA SKORU',out['html'])
+        self.assertIn('FIRST V1 220',out['html'])
+        a.latest.assert_not_called()
+
     async def test_stuck_v3_archive_reader_returns_bounded_telegram_blocker(self):
         """A slow verified archive cannot consume the entire analyze window.
 
