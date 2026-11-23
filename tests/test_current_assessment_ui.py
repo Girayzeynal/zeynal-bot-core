@@ -599,6 +599,20 @@ class CurrentPanelsTests(unittest.TestCase):
         self.assertNotIn('220.00',panels['period']+panels['ranges'])
         self.assertEqual(panels['valid_until'],NOW+2640)
 
+    def test_45_minute_freshness_boundary_and_24_hour_fit_age(self):
+        context,row=self.setup_case()
+        generated=row['prediction_generated_at_utc']
+        self.assertTrue(current_panels(context,row,now=generated+2700)['fresh'])
+        expired=current_panels(context,row,now=generated+2701)
+        self.assertFalse(expired['fresh'])
+        self.assertIn('STALE_OR_STARTED',expired['period'])
+        aged=deepcopy(row)
+        aged['parameter_fit_cutoff_utc']=NOW-7*3600
+        self.assertTrue(current_panels(context,aged,now=NOW)['fresh'])
+        self.assertIn('6 saatten eski',current_panels(context,aged,now=NOW)['period'])
+        aged['parameter_fit_cutoff_utc']=NOW-24*3600-1
+        self.assertFalse(current_panels(context,aged,now=NOW)['fresh'])
+
     def test_conflicting_scores_and_nonmonotone_quantiles_are_rejected(self):
         from copy import deepcopy
         context,row=self.setup_case()
