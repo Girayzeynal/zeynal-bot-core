@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock,Mock,patch
 
-from hybrid_engine.current_assessment_ui import two_clock_text,install_dual_clock_display,current_panels,bound_current_market_cards
+from hybrid_engine.current_assessment_ui import two_clock_text,install_dual_clock_display,current_panels,bound_current_market_cards,bound_audit_provenance
 
 NOW=1795339800
 
@@ -37,6 +37,39 @@ class DualClockTextTests(unittest.TestCase):
         aged=two_clock_text(self.ctx,a,now=NOW)
         self.assertIn("ARŞİV",aged)
         self.assertNotIn("GÜNCEL AYRI ARAŞTIRMA SKORU",aged)
+
+
+
+class ModelSourceBoundaryTests(unittest.TestCase):
+    def test_current_model_does_not_inherit_original_health_card_metrics(self):
+        from core.team_identity import digest
+        context, candidate=CurrentPanelsTests().setup_case()
+        candidate['candidate']['model']='NEW_RESEARCH_MODEL'
+        candidate['source_available_max_utc']=NOW-30
+        panels=current_panels(context,candidate,now=NOW)
+        original=('🛡 <b>TAHMİN SAĞLIK KARTI</b>\n'
+                  'Durum: LIMITED_RESEARCH\nAynı fit SHA: 54\n'
+                  'Geçmiş toplam MAE: 16.71\n'
+                  '<b>MODEL DENETİMİ</b>\nModel: ORIGINAL_V1')
+        shown=bound_audit_provenance(original,candidate,panels)
+        self.assertTrue(shown.startswith('🛡 <b>TAHMİN SAĞLIK KARTI</b>'))
+        self.assertIn('KAPSAM: İLK KAYITLI V1 TAHMİNİ',shown)
+        self.assertIn('NEW_RESEARCH_MODEL',shown)
+        self.assertIn(digest(candidate)[:16],shown)
+        self.assertIn('İlk V1 sağlık kartı bu adaya taşınmadı',shown)
+        self.assertIn('Model: ORIGINAL_V1',shown)
+        self.assertIn('Geçmiş toplam MAE: 16.71',shown)
+        self.assertLess(shown.index('AYRI GÜNCEL ARAŞTIRMA ADAYI'),shown.index('<b>MODEL DENETİMİ</b>'))
+        self.assertEqual(shown.count('Geçmiş toplam MAE: 16.71'),1)
+
+    def test_missing_candidate_keeps_original_card_but_no_current_model_claim(self):
+        original=('🛡 <b>TAHMİN SAĞLIK KARTI</b>\n'
+                  'NOT_CALIBRATED\n<b>MODEL DENETİMİ</b>\nOriginal V1')
+        shown=bound_audit_provenance(original,None,dict(fresh=False))
+        self.assertIn('GÜNCEL ARAŞTIRMA ADAYI DENETİMİ YOK',shown)
+        self.assertNotIn('Aday kayıt SHA:',shown)
+        self.assertIn('Original V1',shown)
+        self.assertTrue(shown.startswith('🛡 <b>TAHMİN SAĞLIK KARTI</b>'))
 
 
 class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
