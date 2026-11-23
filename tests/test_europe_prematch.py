@@ -139,6 +139,27 @@ class EuropeanAutomaticPrematchTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(r['status'],'ABSTAIN');self.assertEqual(self.services[code].registry.records(),[])
             self.assertIn('WINDOW_CLOSED' if at<START else 'ALREADY_STARTED',r['html'])
 
+    async def test_new_forecast_allowed_at_fourteen_minutes_with_pinned_model_untouched(self):
+        """A T-14-minute native fixture must use the new adapter, not legacy T-15."""
+        before={p.name:p.read_bytes() for p in (self.root/'models').iterdir()}
+        self.now=START-14*60
+        with patch('hybrid_engine.models.HierarchicalStrength.fit',
+                   side_effect=AssertionError('NO_REQUEST_TIME_FIT')):
+            for code in ('EUROCUP','EUROLEAGUE'):
+                result=await self.analyze(code)
+                self.assertEqual(result['status'],'EUROPE_HYBRID_OK',result)
+                self.assertTrue(result['new_record'])
+                self.assertGreater(START-result['timeline']['first_archived_at_utc'],300)
+        self.assertEqual(before,{p.name:p.read_bytes() for p in (self.root/'models').iterdir()})
+
+    async def test_exact_five_minute_boundary_abstains_with_no_archive(self):
+        self.now=START-300
+        for code in ('EUROCUP','EUROLEAGUE'):
+            result=await self.analyze(code)
+            self.assertEqual(result['status'],'ABSTAIN',result)
+            self.assertIn('WINDOW_CLOSED',result['html'])
+            self.assertEqual(self.services[code].registry.records(),[])
+
     async def test_scheduler_captures_2210_catchup_but_never_selects_last_5_minutes(self):
         self.now=START-20*60;r=await self.scheduler.tick()
         self.assertTrue(all(v['window']=='NEXT_36_HOURS' for g in r['leagues'].values() for v in g['results']))
