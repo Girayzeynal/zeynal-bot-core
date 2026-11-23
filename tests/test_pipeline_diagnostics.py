@@ -66,6 +66,26 @@ class EvidenceCapacityTests(TestCase):
         self.assertGreater(status['files'],256)
         self.assertGreater(status['segmented_files'],0)
 
+    def test_sharded_receipt_tampering_fails_closed(self):
+        pin=self.bridge._save({'synthetic_record':'safe'})
+        new=self.root/'segments'/pin[:2]/('provider-'+pin+'.json')
+        self.assertTrue(new.exists())
+        new.write_text('{}')
+        with self.assertRaisesRegex(ValueError,'PROVIDER_RECEIPT_PIN_CONFLICT'):
+            self.bridge.read_receipt(pin)
+
+    def test_pipeline_inventory_includes_new_shards_after_full_legacy_root(self):
+        self.fill()
+        pin=self.bridge._save({'synthetic_record':'next'})
+        report=audit(self.root,verify_archive=False)
+        row=report['local_evidence']['provider-evidence']
+        self.assertEqual(row['status'],'AVAILABLE')
+        self.assertEqual(row['legacy_files'],256)
+        self.assertEqual(row['segmented_files'],1)
+        self.assertEqual(row['files'],257)
+        self.assertEqual(row['storage_layout'],'IMMUTABLE_LEGACY_PLUS_SHA_PREFIX_SEGMENTS')
+        self.assertTrue((self.root/'segments'/pin[:2]/('provider-'+pin+'.json')).is_file())
+
     def test_existing_receipt_tampering_is_refused_instead_of_silently_reused(self):
         pin=self.bridge._save({'synthetic_record':0});path=self.root/('provider-'+pin+'.json')
         path.write_text('{}')
