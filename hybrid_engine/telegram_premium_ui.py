@@ -97,6 +97,10 @@ def page_view(entry,section,page,*,now):
     values=([body] if section=='summary' else entry.get('section_pages',{}).get(section)) or split_blocks(body.splitlines(),limit=3200)
     if type(page) is not int or not 0<=page<len(values):raise ValueError('PREMIUM_PAGE_NOT_FOUND')
     text=values[page]
+    if entry.get('restored_archive_session') is True:
+        text=('🗃 <b>YENİDEN BAŞLATMADAN KORUNMUŞ RAPOR — ARŞİV</b>\n'
+              'Eski rapor sayfası yerel test kaydından yüklendi. '
+              'Güncel skor, oyuncu bilgisi, piyasa fiyatı veya güven değerlendirmesi olarak kullanmayın.\n\n'+text)
     # A current research score is time-scoped even when its Telegram message
     # stays in cache. Never show an expired quarter/interval as still current.
     if section in ('summary','period','ranges') and entry.get('current_assessment_panels') is True:
