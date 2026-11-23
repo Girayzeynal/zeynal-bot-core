@@ -364,7 +364,7 @@ class CycleTests(IsolatedAsyncioTestCase):
                 fixture_start_utc=t+1800)))
             await cycle.once(app)
         self.assertEqual(cycle.requested_fixtures,['expires'])
-        with patch('hybrid_engine.research_diagnostics.time.time',return_value=t+901):
+        with patch('hybrid_engine.research_diagnostics.time.time',return_value=t+1501):
             await cycle.once(app)
         self.assertEqual(called,['expires',None])
         self.assertEqual(cycle.requested_fixtures,[])
