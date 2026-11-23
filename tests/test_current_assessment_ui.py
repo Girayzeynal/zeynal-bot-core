@@ -69,9 +69,11 @@ class IndexedCurrentFixtureTests(unittest.TestCase):
             # An unrelated fixture must never be opened, even if it exists.
             other=reg.root/('first-'+digest(dict(fixture='unrelated',version=protocol+':'+str(slot_now)))+'.json')
             other.write_text('{}')
-            body=dict(fixture=dict(canonical_id='fixture-1'),version=protocol+':'+str(slot_now),
-                prediction_generated_at_utc=NOW-30)
-            with patch.object(reg,'_verified_slot',return_value=dict(payload=body)) as verified:
+            versions={p:protocol+':'+str(h) for p,h in zip(expected,(slot_now-1,slot_now))}
+            def checked(slot):
+                return dict(payload=dict(fixture=dict(canonical_id='fixture-1'),
+                    version=versions[slot],prediction_generated_at_utc=NOW-30))
+            with patch.object(reg,'_verified_slot',side_effect=checked) as verified:
                 out=reg.recent_fixture('fixture-1',protocol,now_utc=NOW)
             self.assertEqual(len(out),2)
             self.assertEqual([call.args[0] for call in verified.call_args_list],expected)
