@@ -61,6 +61,17 @@ class DirectionCardTests(unittest.TestCase):
         c=self.make(v)[0];text=render(c)
         self.assertIn('eşit skor: %2,0',text);self.assertAlmostEqual(c['probability'],.62)
 
+    def test_every_price_card_warns_unknown_overtime_and_settlement_rules(self):
+        for card in self.make():
+            rendered=render(card)
+            self.assertIn('SÖZLEŞME UYUMU DOĞRULANMADI',rendered)
+            self.assertIn('bahis kazanma olasılığı değildir',rendered)
+            self.assertIn('NORMAL SÜRE',rendered)
+        winner=deepcopy(self.view)
+        winner['rows'][0].update(market='WINNER',line=0.)
+        self.assertIn('iki yönlü bahis piyasasındaki uzatma sonucuna otomatik aktarılmaz',
+                      render(self.make(winner)[0]))
+
     def test_winner_uses_regulation_tie_and_does_not_invent_ot_winner(self):
         v=deepcopy(self.view);v['rows'][0].update(market='WINNER',line=0.,conditional_regulation_probabilities=dict(under=.315,push=.02,over=.665))
         c=self.make(v)[0];text=render(c)
@@ -208,6 +219,25 @@ class PaginationAndCacheTests(unittest.TestCase):
     def test_expired_prices_are_explicit_on_cached_display(self):
         text,_=page_view(self.entry(),'market',0,now=501)
         self.assertIn('Arşiv görünümü',text);self.assertIn('yeniden sorgulanmadı',text)
+
+    def test_stale_market_page_loses_current_header_and_current_direction(self):
+        market=('📈 <b>V3 ARAŞTIRMA ADAYI | ZAMAN DAMGALI FİYAT GÖZLEMİ</b>\\n'
+                '🎯 <b>MODEL YÖNÜ: ÜST 221,5</b>\\n'
+                'Fiyata erişim: 23.11.2026 08:40:09 TSİ')
+        e=self.entry()
+        e['sections']['market']=market
+        e['section_pages']['market']=[market]
+        before=e['section_pages']['market'][0]
+        fresh,_=page_view(e,'market',0,now=499)
+        self.assertIn('ZAMAN DAMGALI FİYAT GÖZLEMİ',fresh)
+        self.assertNotIn('ARŞİV PİYASA GÖZLEMİ — GÜNCEL ORAN DEĞİL',fresh)
+        stale,_=page_view(e,'market',0,now=500)
+        self.assertIn('ARŞİV V3 PİYASA GÖZLEMİ',stale)
+        self.assertIn('ARŞİV MODEL YÖNÜ',stale)
+        self.assertNotIn('GÜNCEL ARAŞTIRMA ADAYI | DOĞRULANMIŞ FİYATLAR',stale)
+        self.assertNotIn('🎯 <b>MODEL YÖNÜ:',stale)
+        self.assertIn('GÜNCEL ORAN DEĞİL',stale)
+        self.assertEqual(e['section_pages']['market'][0],before)
 
     def test_cached_post_tipoff_summary_never_looks_like_new_prematch(self):
         text,_=page_view(self.entry(),'summary',0,now=1000)
