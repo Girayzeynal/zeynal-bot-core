@@ -18,6 +18,7 @@ from hybrid_engine.player_inputs import validate_witness
 from hybrid_engine.player_minutes import MinutesArchive
 from hybrid_engine.player_shadow import fit_pair,PreparedPlayerPair,eligible_rows
 from hybrid_engine.statistics import paired_cluster_interval
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 
 FORMAT='SEPARATE_ADAPTIVE_RESEARCH_PROTOCOL_V2'
 POLICY=dict(refresh_seconds=21600,minimum_training_games=30,minimum_box_games_per_target_team=6,
@@ -26,7 +27,7 @@ POLICY=dict(refresh_seconds=21600,minimum_training_games=30,minimum_box_games_pe
     primary='PACE_EFFICIENCY',baseline='TEAM_ON_BOX_COHORT',primary_metric='team_mae',minimum_relative_improvement=.02,
     multiplicity=3,selection='ALL_ELIGIBLE_ORIGINALS_ADMITTED_BEFORE_RESULTS_NO_OUTCOME_SELECTION',
     fit_schedule='FIRST_SUCCESSFUL_FIT_PER_SIX_HOUR_UTC_SLOT_ACTUAL_CLOCK_NEVER_BACKDATED',
-    capture='FIRST_SUCCESSFUL_NEW_V2_PREMATCH_AT_LEAST_15_MINUTES_BEFORE_TIPOFF',
+    capture='FIRST_SUCCESSFUL_NEW_V2_PREMATCH_AT_LEAST_5_MINUTES_BEFORE_TIPOFF',
     player_scope='OWN_TEAM_SCORING_ONLY_SEPARATE_FIRST_PLAYER_PAIR_NO_ADDITIVE_PACE_OFFSET',
     player_exposure_variation_required=True,
     calibration_fit=False,automatic_promotion=False,production_enabled=False)
@@ -94,7 +95,7 @@ class AdaptiveResearch:
 
     def admit(self,target,original_pin):
         plan=self.plan();now=int(time.time())
-        if not now<target['fixture_start_utc']-900:raise Abstain('ADAPTIVE_NO_LATE_ADMISSION')
+        if not now<target['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:raise Abstain('ADAPTIVE_NO_LATE_ADMISSION')
         key=digest(dict(protocol=plan['sha256'],fixture=target['fixture_id'],league=target['league']))
         path=self.root/('admit-'+key+'.json')
         with publication_lock(self.root):
@@ -228,7 +229,7 @@ class AdaptiveResearch:
         for f in files:
             a=read_wrapper(f)['payload'];t=a['target']
             key=digest(dict(protocol=a['protocol_sha256'],fixture=t['fixture_id'],league=t['league']))
-            if f.stem!='admit-'+key or not plan['payload']['registered_at_utc']<=a['admitted_at_utc']<t['fixture_start_utc']-900:
+            if f.stem!='admit-'+key or not plan['payload']['registered_at_utc']<=a['admitted_at_utc']<t['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:
                 raise ValueError('ADAPTIVE_ADMISSION_IDENTITY_OR_CLOCK')
             admissions.append(a)
         groups={};denominators=defaultdict(int);pending=0
@@ -242,7 +243,7 @@ class AdaptiveResearch:
             p=entry['payload'];g=p['fixture'];label=labels.get((g['league'].upper(),g['fixture_id'],p['original_snapshot_sha256']))
             if label is None:continue
             if (label['fixture_start_utc']!=g['start_ts_utc'] or label['label_available_utc']<=g['start_ts_utc'] or
-                    entry['publication']['first_archived_at_utc']>=g['start_ts_utc']-900):raise ValueError('ADAPTIVE_LABEL_OR_PUBLICATION_CLOCK')
+                    entry['publication']['first_archived_at_utc']>=g['start_ts_utc']-PREMATCH_MINIMUM_LEAD_SECONDS):raise ValueError('ADAPTIVE_LABEL_OR_PUBLICATION_CLOCK')
             bucket=groups.setdefault((g['league'],g['season']),defaultdict(list))
             for name,c in p['components'].items():
                 if c['status']!='FORECAST_CREATED':continue
