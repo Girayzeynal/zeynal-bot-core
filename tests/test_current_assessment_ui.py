@@ -202,6 +202,55 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         a.refresh_fixture.assert_not_called()
         queue.request_fixture.assert_called_once_with(ctx)
 
+    async def test_stuck_v3_archive_reader_returns_bounded_telegram_blocker(self):
+        """A slow verified archive cannot consume the entire analyze window.
+
+        Timeout does not return the older V1 figures as current V3 numbers.
+        """
+        from telegram import InlineKeyboardButton,InlineKeyboardMarkup
+        from hybrid_engine.current_assessment_ui import CURRENT_READ_DEADLINE_SECONDS
+
+        release=threading.Event()
+        ctx=dict(league='NBA',fixture_id='x',season='2026/2027',
+            home=dict(provider_id='1',official_name='Home'),
+            away=dict(provider_id='2',official_name='Away'),
+            fixture_start_utc=NOW+10800,prediction_generated_at_utc=NOW-86400,
+            prediction=dict(home=105.,away=115.,total=220.))
+        token='a'*12
+        response=dict(status='ANALYSIS_OK',snapshot=ctx,html='FIRST V1 220',
+            html_parts=['FIRST V1 220'],new_record=False,
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton('Period',callback_data='zui:'+token+':period')]]))
+        def slow_read(_):
+            release.wait(3)
+            return None
+        latest=Mock(side_effect=slow_read)
+        queue=SimpleNamespace(request_fixture=Mock(return_value=True))
+        state=dict(verified_analysis_service=SimpleNamespace(analyze=AsyncMock(return_value=response)),
+            premium_reports={token:dict(summary='FIRST V1 220',
+                sections=dict(audit='V1 AUDIT',period='V1 FIRST Q',ranges='V1 BANDS',market='V1 PRICE'),
+                section_pages=dict(audit=['V1 AUDIT']))},
+            research_cycle=queue)
+        install_dual_clock_display(state,SimpleNamespace(latest=latest))
+        try:
+            with patch('hybrid_engine.current_assessment_ui.CURRENT_READ_DEADLINE_SECONDS',.04), \
+                    patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
+                result=await asyncio.wait_for(
+                    state['verified_analysis_service'].analyze('NBA','day','Home','Away'),
+                    timeout=.7)
+            self.assertIn('CURRENT_READ_TIMEOUT',result['html'])
+            self.assertIn('GÜNCEL TAHMİN BEKLENİYOR',result['html'])
+            self.assertNotIn('GÜNCEL NBA TAHMİNİ',result['html'])
+            entry=state['premium_reports'][token]
+            self.assertIn('V1 FIRST Q',entry['sections']['archive'])
+            self.assertIn('V1 BANDS',entry['sections']['archive'])
+            self.assertIn('CURRENT_ASSESSMENT_NOT_PUBLISHED',entry['sections']['period'])
+            self.assertNotIn('V1 FIRST Q',entry['sections']['period'])
+            queue.request_fixture.assert_called_once_with(ctx)
+            latest.assert_called_once_with(ctx)
+        finally:
+            release.set()
+
     async def test_slow_on_demand_retraining_is_never_called_from_analyze(self):
         from telegram import InlineKeyboardButton,InlineKeyboardMarkup
         token='e'*12
