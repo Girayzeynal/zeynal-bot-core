@@ -86,6 +86,28 @@ class DiskBackedReports(dict):
         finally:
             if temp is not None:temp.unlink(missing_ok=True)
 
+    def __delitem__(self,token):
+        # Explicit deletion means revocation, not an ordinary restart.
+        # Without removing the file, a callback could silently reload the
+        # intentionally deleted report and bypass session-expiry semantics.
+        path=self._path(token)
+        super().__delitem__(token)
+        path.unlink(missing_ok=True)
+
+    def pop(self,token,*args):
+        if len(args)>1:
+            raise TypeError("pop expected at most 2 arguments")
+        if token not in self:
+            if args:return args[0]
+            raise KeyError(token)
+        value=super().__getitem__(token)
+        self.__delitem__(token)
+        return value
+
+    def clear(self):
+        for token in list(self):
+            self.__delitem__(token)
+
     def get(self,token,default=None):
         found=super().get(token)
         if found is not None:return found
