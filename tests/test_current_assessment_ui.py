@@ -124,7 +124,8 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("KAYITLI V3, YENİ HESAP DEĞİL",out["html"])
         self.assertIn("Toplam 218.00",out["html"])
         self.assertNotIn("INITIAL V1 220",out["html"])
-        self.assertIn("INITIAL V1 220",state["premium_reports"][token]["sections"]["audit"])
+        self.assertIn("INITIAL V1 220",state["premium_reports"][token]["sections"]["archive"])
+        self.assertNotIn("INITIAL V1 220",state["premium_reports"][token]["sections"]["audit"])
         self.assertEqual(response["html"],"ORIGINAL 220")
         a.refresh_fixture.assert_not_called()
 
@@ -197,7 +198,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('GÜNCEL TAHMİN BEKLENİYOR',out['html'])
         self.assertIn('CURRENT_RESEARCH_BACKGROUND_PENDING',out['html'])
         self.assertNotIn('GÜNCEL NBA TAHMİNİ',out['html'])
-        self.assertIn('ORIGINAL',state['premium_reports'][token]['sections']['audit'])
+        self.assertIn('ORIGINAL',state['premium_reports'][token]['sections']['archive'])
         a.refresh_fixture.assert_not_called()
         queue.request_fixture.assert_called_once_with(ctx)
 
@@ -230,7 +231,9 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         entry=state['premium_reports'][token]
         self.assertIn('CURRENT_ASSESSMENT_NOT_PUBLISHED',entry['sections']['period'])
         self.assertNotIn('OLD BANDS',entry['sections']['ranges'])
-        self.assertIn('OLD BANDS',entry['sections']['audit'])
+        self.assertIn('OLD BANDS',entry['sections']['archive'])
+        self.assertNotIn('OLD BANDS',entry['sections']['audit'])
+        self.assertIn('V1 İlk Tahmin',entry['sections']['period'])
 
     async def test_no_augmentation_of_non_analysis_results(self):
         response=dict(status="ABSTAIN",html="No verified fixture")
@@ -269,12 +272,16 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
             await state['verified_analysis_service'].analyze('NBA','day','Home','Away')
         entry=state['premium_reports'][token]
-        self.assertGreater(len(entry['section_pages']['audit']),1)
+        self.assertGreater(len(entry['section_pages']['archive']),1)
         first,count=page_view(entry,'audit',0,now=NOW)
-        self.assertGreater(count,1)
+        self.assertEqual(count,len(entry['section_pages']['audit']))
         self.assertIn('TAHMİN SAĞLIK KARTI',first)
         self.assertIn('NOT_CALIBRATED',first)
-        self.assertIn('ORIGINAL OLD MARKET',entry['sections']['audit'])
+        self.assertIn('ORIGINAL OLD MARKET',entry['sections']['archive'])
+        self.assertNotIn('ORIGINAL OLD MARKET',entry['sections']['audit'])
+        first_archived,_=page_view(entry,'archive',0,now=NOW)
+        self.assertIn('V1 İLK TAHMİN',first_archived)
+        self.assertIn('OLD 220',first_archived)
         a.refresh_fixture.assert_not_called()
 
     async def test_live_candidate_price_appears_in_telegram_market_button(self):
@@ -319,7 +326,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('uzatma ve ödeme kuralları doğrulanmadı',market)
         self.assertNotIn('DOĞRULANMIŞ FİYATLAR',market)
         self.assertNotIn('EŞLEŞMİŞ PİYASA HESABI YOK',market)
-        self.assertIn('FIRST MARKET',state['premium_reports'][token]['sections']['audit'])
+        self.assertIn('FIRST MARKET',state['premium_reports'][token]['sections']['archive'])
         self.assertEqual(state['premium_reports'][token]['quote_valid_until_utc'],NOW+60)
 
     async def test_telegram_cached_buttons_are_rebound_to_same_new_candidate(self):
@@ -353,10 +360,21 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('P50 218.0',entry['sections']['ranges'])
         self.assertIn('bu komutta yeni hesap yok',entry['sections']['period'])
         self.assertNotIn('ORIGINAL P50 220',entry['sections']['ranges'])
-        self.assertIn('ORIGINAL P50 220',entry['sections']['audit'])
-        self.assertIn('ORIGINAL OLD PRICE',entry['sections']['audit'])
+        self.assertIn('ORIGINAL P50 220',entry['sections']['archive'])
+        self.assertNotIn('ORIGINAL P50 220',entry['sections']['audit'])
+        self.assertIn('ORIGINAL OLD PRICE',entry['sections']['archive'])
+        self.assertNotIn('ORIGINAL OLD PRICE',entry['sections']['audit'])
         self.assertTrue(entry['section_pages']['audit'][0].startswith('🛡 <b>TAHMİN SAĞLIK KARTI</b>'))
         self.assertIn('EŞLEŞMİŞ PİYASA HESABI YOK',entry['sections']['market'])
+        from hybrid_engine.telegram_premium_ui import page_view
+        callbacks=[b.callback_data for row in result['reply_markup'].inline_keyboard for b in row]
+        self.assertIn('zui:'+token+':archive',callbacks)
+        self.assertIn('zui:'+token+':period',callbacks)
+        self.assertIn('zui:'+token+':audit',callbacks)
+        archived,count=page_view(entry,'archive',1,now=NOW)
+        self.assertGreaterEqual(count,4)
+        self.assertIn('ORIGINAL 1Q 51',archived)
+        self.assertNotIn('P50 218.0',archived)
         a.latest.assert_called_once_with(context)
 
 
