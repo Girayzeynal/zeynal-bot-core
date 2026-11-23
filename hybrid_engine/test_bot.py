@@ -176,6 +176,11 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         from hybrid_engine.nba_replay import NBAReplayArchive
         nba_replay=NBAReplayArchive()
     root=local_path(data_directory);root.mkdir(parents=True,exist_ok=True)
+    # An isolated, render-only cache survives process restarts. Restored pages
+    # are marked archival; no model, quote, or roster fetch is replayed.
+    if 'premium_reports' not in app.bot_data:
+        from hybrid_engine.premium_report_cache import DiskBackedReports
+        app.bot_data['premium_reports']=DiskBackedReports(root/'telegram-premium-pages',chat_id)
     # Shared typed evidence gate for NBA and Europe; an empty dict is not a data provider.
     app.bot_data.setdefault('verified_roster_packets',{})
     from hybrid_engine.market_observations import ObservationStore
@@ -953,7 +958,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         cache=app.bot_data.get('premium_reports',{})
         entry=cache.get(token)
         if entry is None or entry['chat_id']!=chat_id:
-            await query.answer('Bu raporun oturumu sona erdi. /analyze ile tekrar açın.',show_alert=True)
+            await query.answer('Eski raporun sayfa kaydı bulunamadı. /analyze ile yeni arşivlenmiş rapor açın.',show_alert=True)
             return
         if section!='summary' and section not in entry['sections']:
             await query.answer('Bölüm bulunamadı.',show_alert=True)
