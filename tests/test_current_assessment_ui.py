@@ -314,6 +314,10 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
             await state['verified_analysis_service'].analyze('NBA','day','Home','Away')
         market=state['premium_reports'][token]['sections']['market']
         self.assertIn('VERIFIED 219.5',market)
+        self.assertIn('ZAMAN DAMGALI FİYAT GÖZLEMİ',market)
+        self.assertIn('Ham NORMAL SÜRE simülasyonu',market)
+        self.assertIn('uzatma ve ödeme kuralları doğrulanmadı',market)
+        self.assertNotIn('DOĞRULANMIŞ FİYATLAR',market)
         self.assertNotIn('EŞLEŞMİŞ PİYASA HESABI YOK',market)
         self.assertIn('FIRST MARKET',state['premium_reports'][token]['sections']['audit'])
         self.assertEqual(state['premium_reports'][token]['quote_valid_until_utc'],NOW+60)
