@@ -141,8 +141,8 @@ class NBAWindowAndCommitTests(TestCase):
         with TemporaryDirectory() as tmp,patch('time.time',return_value=NOW):
             ledger=PrematchDeadlineLedger(LiveAnalysisLedger(Path(tmp)/'nba.sqlite'))
             p,new=ledger.commit(live_payload(NOW+901));self.assertTrue(new)
-            self.assertEqual(p['record_deadline_utc'],NOW+1)
-            with patch('time.time',return_value=NOW+2):
+            self.assertEqual(p['record_deadline_utc'],NOW+601)
+            with patch('time.time',return_value=NOW+602):
                 with self.assertRaises(ValueError):ledger.commit(live_payload(NOW+901))
                 self.assertEqual(ledger.get(p['league'],p['fixture_id'],p['model_digest']),p)
 
