@@ -8,6 +8,7 @@ import time
 import numpy as np
 
 from core.team_identity import digest
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 from hybrid_engine.data import Abstain
 from hybrid_engine.evaluation import probability_metrics
 
@@ -58,7 +59,7 @@ def apply(candidate, row, *, generated_at_utc):
     p=candidate['payload']
     if digest(p)!=candidate['sha256'] or p['policy']!=POLICY or p['production_enabled'] is not False:raise ValueError('SHADOW_CANDIDATE_PIN')
     if (row['league'],row['season'],row['model_digest'])!=('NBA',p['season'],p['model_digest']):raise Abstain('SHADOW_EXACT_FIT_SCOPE_REQUIRED')
-    if (row['fixture_id'] in p['training_ids'] or not p['label_available_max_utc']<=p['fit_at_utc']<=generated_at_utc<row['fixture_start_utc']-900 or
+    if (row['fixture_id'] in p['training_ids'] or not p['label_available_max_utc']<=p['fit_at_utc']<=generated_at_utc<row['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS or
         generated_at_utc>int(time.time())):raise Abstain('SHADOW_DISJOINT_FUTURE_PUBLICATION_REQUIRED')
     key=_cell(row['winner']);cell=p['bins'].get(key)
     if cell is None or cell['n']<POLICY['minimum_cell']:raise Abstain('SHADOW_PROBABILITY_CELL_INSUFFICIENT')
@@ -100,7 +101,7 @@ def _evaluate_one(publications,labels, *, registered_at_utc):
         key=(item['fixture_id'],item['original_snapshot_sha256'],item['model_digest'],item['season'])
         if key in seen:raise ValueError('SHADOW_DUPLICATE_FUTURE_PUBLICATION')
         seen.add(key)
-        if not registered_at_utc<=item['fit_at_utc']<=item['prediction_generated_at_utc']<=now or item['prediction_generated_at_utc']>=item['fixture_start_utc']-900:
+        if not registered_at_utc<=item['fit_at_utc']<=item['prediction_generated_at_utc']<=now or item['prediction_generated_at_utc']>=item['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:
             raise ValueError('SHADOW_REGISTERED_PREMATCH_PUBLICATION_REQUIRED')
         candidates=[r for r in labels if r.get('league')=='NBA' and (r['fixture_id'],r['snapshot_sha256'],r['model_digest'],r['season'])==key and r['actual'] is not None]
         if not candidates:continue
