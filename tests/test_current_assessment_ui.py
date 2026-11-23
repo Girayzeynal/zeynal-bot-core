@@ -47,6 +47,83 @@ class DualClockTextTests(unittest.TestCase):
 
 
 
+
+class IndexedCurrentFixtureTests(unittest.TestCase):
+    """An interactive NBA read must not reopen all unrelated publications."""
+
+    def test_last_hour_slot_index_avoids_full_archive_scan(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from core.team_identity import digest
+        from hybrid_engine.current_assessment import AssessmentRegistry,POLICY
+        with TemporaryDirectory() as directory:
+            reg=AssessmentRegistry(Path(directory))
+            slot_now=NOW//POLICY['refresh_seconds']
+            protocol='verified-study-sha'
+            expected=[]
+            for hour in (slot_now-1,slot_now):
+                version=protocol+':'+str(hour)
+                p=reg.root/('first-'+digest(dict(fixture='fixture-1',version=version))+'.json')
+                p.write_text('{}')
+                expected.append(p)
+            # An unrelated fixture must never be opened, even if it exists.
+            other=reg.root/('first-'+digest(dict(fixture='unrelated',version=protocol+':'+str(slot_now)))+'.json')
+            other.write_text('{}')
+            body=dict(fixture=dict(canonical_id='fixture-1'),version=protocol+':'+str(slot_now),
+                prediction_generated_at_utc=NOW-30)
+            with patch.object(reg,'_verified_slot',return_value=dict(payload=body)) as verified:
+                out=reg.recent_fixture('fixture-1',protocol,now_utc=NOW)
+            self.assertEqual(len(out),2)
+            self.assertEqual([call.args[0] for call in verified.call_args_list],expected)
+            self.assertNotIn(other,[call.args[0] for call in verified.call_args_list])
+
+    def test_old_slot_not_used_as_current_without_archive_replay(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from core.team_identity import digest
+        from hybrid_engine.current_assessment import AssessmentRegistry,POLICY
+        with TemporaryDirectory() as directory:
+            reg=AssessmentRegistry(Path(directory))
+            prior=NOW//POLICY['refresh_seconds']-3
+            slot=reg.root/('first-'+digest(dict(fixture='fixture-1',version='study:'+str(prior)))+'.json')
+            slot.write_text('{}')
+            with patch.object(reg,'_verified_slot',side_effect=AssertionError('stale read forbidden')):
+                self.assertEqual(reg.recent_fixture('fixture-1','study',now_utc=NOW),[])
+
+    def test_recent_publication_still_checks_original_pin_and_assets(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from core.team_identity import digest
+        from hybrid_engine.current_assessment import CurrentAssessments
+        with TemporaryDirectory() as directory:
+            service=CurrentAssessments(Path(directory),worker=None,study=None)
+            (service.root/'policy.json').write_text('{}')
+            ctx=dict(league='NBA',season='2026/2027',fixture_id='fixture-1',
+                fixture_start_utc=NOW+10800,
+                home=dict(provider_id='home',official_name='Home'),
+                away=dict(provider_id='away',official_name='Away'))
+            item=dict(original_snapshot_sha256=digest(ctx),
+                prediction_generated_at_utc=NOW-30,
+                fixture=dict(canonical_id='fixture-1',league='NBA',season='2026/2027',
+                    fixture_start_utc=ctx['fixture_start_utc'],
+                    home_team_id='home',away_team_id='away'))
+            service.plan=Mock(return_value=dict(sha256='study'))
+            service.registry.recent_fixture=Mock(return_value=[dict(payload=item)])
+            service.registry.records=Mock(side_effect=AssertionError('full archive scan forbidden'))
+            service.registry.validate_assets=Mock()
+            with patch('hybrid_engine.current_assessment.time.time',return_value=NOW):
+                self.assertIs(service.latest_display(ctx),item)
+            service.registry.recent_fixture.assert_called_once_with('fixture-1','study',now_utc=NOW)
+            service.registry.records.assert_not_called()
+            service.registry.validate_assets.assert_called_once_with(item)
+            item['original_snapshot_sha256']='corrupted-original'
+            with self.assertRaisesRegex(ValueError,'CURRENT_ASSESSMENT_ORIGINAL_PIN'):
+                service.latest_display(ctx)
+            service.registry.validate_assets=Mock(side_effect=ValueError('CURRENT_ASSET_PIN'))
+            with self.assertRaisesRegex(ValueError,'CURRENT_ASSET_PIN'):
+                service.latest_display(ctx)
+
+
 class ModelSourceBoundaryTests(unittest.TestCase):
     def test_current_model_does_not_inherit_original_health_card_metrics(self):
         from core.team_identity import digest
