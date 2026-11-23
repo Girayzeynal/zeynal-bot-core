@@ -57,6 +57,8 @@ def two_clock_text(context,assessments,*,now=None):
         'Kaynak kabul zamanı, bütün kadro/haber/piyasa bilgilerinin canlı olarak yenilendiği anlamına gelmez.']
     if isinstance(original,dict) and type(original.get('total')) in (int,float):
         lines.append(f"İlk tahmine göre toplam fark: {candidate['total']-original['total']:+.2f} sayı")
+    if when-latest['parameter_fit_cutoff_utc']>=MODEL_AGE_WARNING_SECONDS:
+        lines.append('⚠️ Model eğitim kesiti 6 saatten eski; yeni kaynak yenilemesi/fit doğrulanmalı.')
     lines.extend([
         'Güncel tempo/verimlilik hesabıdır; doğrulanmış OUT/oyuncu dakikaları,',
         'takım haberleri ve piyasa fiyat hareketleri skor katsayısına DAHİL EDİLMEDİ.',
@@ -122,7 +124,9 @@ def current_panels(context, assessment, *, now):
     validity=min(stamp+POLICY['candidate_freshness_seconds'],cutoff+POLICY['maximum_model_age_seconds'],tip)
     source=('Hesap: '+tsi(stamp)+' · Model: '+html.escape(str(candidate.get('model','DOĞRULANMADI')))+
             '\nÖnceden kaydedilmiş V3 adayının tekrar gösterimi; bu komutta yeni hesap yok.'+
-             '\nOyuncu etkisi uygulanmadı · NOT_CALIBRATED')
+             '\nOyuncu etkisi uygulanmadı · NOT_CALIBRATED'+
+             ('\n⚠️ Model eğitim kesiti 6 saatten eski; yeni kaynak/fit kontrol edilmeli.'
+              if now-cutoff>=MODEL_AGE_WARNING_SECONDS else ''))
     lines=['📊 <b>GÜNCEL ADAY | PERİYOT VE SAYILAR</b>',source,'Ev – Deplasman · Normal süre']
     for label,values in [('1Q',quarters[0]),('2Q',quarters[1]),('1H',halves[0]),
                          ('3Q',quarters[2]),('4Q',quarters[3]),('2H',halves[1])]:
