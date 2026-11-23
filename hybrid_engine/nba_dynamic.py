@@ -12,11 +12,12 @@ from core.team_identity import digest
 from hybrid_engine.adaptive_models import checked_rows,box_rows
 from hybrid_engine.data import STRICT,Abstain,available_at,regulation
 from hybrid_engine.distributions import Forecast
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 
 VERSION='NBA_RECENCY_OPPONENT_RATE_CORRELATED_RQMC_V3'
 POLICY=dict(half_life_days=14.,minimum_games=30,minimum_team_games=6,maximum_team_age_days=14,
     maximum_history_games=3000,scenarios=10000,seed=20261118,coefficient_prior_sd=5.,
-    covariance_shrinkage=.5,minimum_lead_seconds=900,refresh_seconds=21600)
+    covariance_shrinkage=.5,minimum_lead_seconds=PREMATCH_MINIMUM_LEAD_SECONDS,refresh_seconds=21600)
 
 
 def _vector(teams,own,other,home):
@@ -92,7 +93,7 @@ def predict(wrapper,target, *, cutoff_utc,method='RQMC_HALTON_8D',require_all_fe
     if digest(p)!=wrapper['sha256'] or p['format']!=VERSION or p['policy']!=POLICY:raise ValueError('DYNAMIC_MODEL_PIN')
     if p['production_enabled'] is not False:raise ValueError('DYNAMIC_RESEARCH_ONLY')
     if require_all_features:raise Abstain('DYNAMIC_MEASURED_PBP_PLAYER_REST_TRAVEL_NOT_VERIFIED')
-    if not 0<p['cutoff_utc']<=p['prepared_at_utc']<=cutoff_utc<=now<target['fixture_start_utc']-900:
+    if not 0<p['cutoff_utc']<=p['prepared_at_utc']<=cutoff_utc<=now<target['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:
         raise Abstain('DYNAMIC_MODEL_OR_PREMATCH_CLOCK')
     if target['fixture_id'] in p['training_ids'] or (target['league'],target['season'])!=('NBA',p['season']):
         raise ValueError('DYNAMIC_TARGET_TRAINING_OR_COHORT')
