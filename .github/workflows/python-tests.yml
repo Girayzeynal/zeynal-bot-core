@@ -14,6 +14,7 @@ on:
       - "feature/integrated-test-bot-20261119"
       - "fix/telegram-current-panels-20261122"
       - "fix/prematch-five-minute-time-policy-20261123"
+      - "feat/first-forecast-walkforward-20261124"
   pull_request:
     branches:
       - main
