@@ -5,7 +5,7 @@ import threading
 import unittest
 from unittest.mock import AsyncMock,Mock,patch
 
-from hybrid_engine.current_assessment_ui import two_clock_text,install_dual_clock_display,current_panels,bound_current_market_cards,bound_audit_provenance
+from hybrid_engine.current_assessment_ui import two_clock_text,install_dual_clock_display,current_panels,bound_current_market_cards,bound_audit_provenance,missing_current_market_card
 
 NOW=1795339800
 
@@ -124,6 +124,40 @@ class IndexedCurrentFixtureTests(unittest.TestCase):
             service.registry.validate_assets=Mock(side_effect=ValueError('CURRENT_ASSET_PIN'))
             with self.assertRaisesRegex(ValueError,'CURRENT_ASSET_PIN'):
                 service.latest_display(ctx)
+
+
+class MarketMissingPricePanelTests(unittest.TestCase):
+    def test_current_v3_model_reference_with_provider_failure_not_invented_quote(self):
+        context,candidate=CurrentPanelsTests().setup_case()
+        panels=current_panels(context,candidate,now=NOW)
+        self.assertTrue(panels['fresh'])
+        result=missing_current_market_card(candidate,
+            dict(research_market_source_status='KEY_NOT_AVAILABLE_IN_TEST_PROCESS'),panels)
+        self.assertIn('EŞLEŞMİŞ PİYASA HESABI YOK',result)
+        self.assertIn('KEY_NOT_AVAILABLE_IN_TEST_PROCESS',result)
+        self.assertIn('V3 MODEL REFERANSI — BAHİS BAREMİ DEĞİLDİR',result)
+        self.assertIn('Model maç toplamı: 218.00',result)
+        self.assertIn('NOT_CALIBRATED',result)
+        self.assertNotIn('Oranlar:',result)
+        self.assertNotIn('219.5',result)
+        self.assertIn('Model takım toplamları',result)
+        self.assertGreaterEqual(result.count('\\n'),5)
+
+    def test_stale_candidate_never_shows_stale_model_reference_as_current_market(self):
+        context,candidate=CurrentPanelsTests().setup_case()
+        stale=current_panels(context,candidate,now=NOW+2701)
+        self.assertFalse(stale['fresh'])
+        result=missing_current_market_card(candidate,dict(
+            research_market_source_status='PROVIDER_QUOTA_EXHAUSTED'),stale)
+        self.assertIn('PROVIDER_QUOTA_EXHAUSTED',result)
+        self.assertIn('güncel doğrulanmış V3 sayı paketi yok'.casefold(),result.casefold())
+        self.assertNotIn('Model maç toplamı: 218.00',result)
+
+    def test_untrusted_provider_status_is_never_injected_into_html(self):
+        result=missing_current_market_card(None,dict(
+            research_market_source_status='<b>INJECTED</b>'),dict(fresh=False))
+        self.assertIn('PROVIDER_STATUS_UNAVAILABLE',result)
+        self.assertNotIn('INJECTED',result)
 
 
 class ModelSourceBoundaryTests(unittest.TestCase):
