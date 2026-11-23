@@ -97,9 +97,9 @@ class SyntheticCalendarGuardsTests(TestCase):
             home_team_id=g['home_team_id'],away_team_id=g['away_team_id'],provider_fixture_ids=g['provider_fixture_ids'])
         return target,receipt
 
-    def test_scheduled_zero_score_and_last_fifteen_minutes_are_still_required(self):
+    def test_scheduled_zero_score_and_last_five_minutes_are_still_required(self):
         target,receipt=self.fixture();recheck=NativeFixtureRecheck(Mock(return_value=receipt))
-        for offset in (900,899,0,-1):
+        for offset in (300,299,0,-1):
             self.now=target['fixture_start_utc']-offset
             r=deepcopy(receipt);r.update(observed_at_utc=self.now-1,ingested_at_utc=self.now)
             recheck.transport=Mock(return_value=r)

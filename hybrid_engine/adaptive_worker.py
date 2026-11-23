@@ -20,6 +20,7 @@ from hybrid_engine.forward_nba_results import read_confirmed
 from hybrid_engine.player_inputs import collect as collect_player_inputs
 from hybrid_engine.prediction_audit import Assets,audit_snapshot
 from hybrid_engine.source_policy import ControlledTransport
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 from ledger_reports import LedgerReports
 from season_archive_collect import fetch_document
 from universal_analysis import require_fresh_source
@@ -82,7 +83,7 @@ class AdaptiveWorker:
                         if '/summary?event=' in url or '/scoreboard?' in url:
                             self.store.ingest(self.nba.assets/ref['file'],ref['sha256'],'NBA',int(p['season'].split('/')[0]))
                     self.seen.add(pin);harvested+=1
-                if now+900<p['fixture_start_utc']<=now+36*3600:
+                if now+PREMATCH_MINIMUM_LEAD_SECONDS<p['fixture_start_utc']<=now+36*3600:
                     t=dict(league='NBA',season=p['season'],fixture_id=p['fixture_id'],fixture_start_utc=p['fixture_start_utc'],
                         home_team_id=p['home']['provider_id'],away_team_id=p['away']['provider_id'],provider_fixture_ids=p['provider_fixture_ids'])
                     frozen=dict(status='FORECAST_CREATED',prediction=p['prediction'],intervals=p['intervals'])
@@ -104,7 +105,7 @@ class AdaptiveWorker:
                     self._phase('INGEST_EUROPE_FROZEN_SOURCE',source_scope=code)
                     ref=p['fixture_source'];self.store.ingest(service.registry.root/ref['file'],ref['sha256'],code,g['season_start_year'])
                     self.seen.add(pin);harvested+=1
-                if now+900<g['start_ts_utc']<=now+36*3600:
+                if now+PREMATCH_MINIMUM_LEAD_SECONDS<g['start_ts_utc']<=now+36*3600:
                     t=dict(league='EuroLeague' if code=='EUROLEAGUE' else 'EuroCup',season=f"{g['season_start_year']}/{g['season_start_year']+1}",
                         fixture_id=g['canonical_id'],fixture_start_utc=g['start_ts_utc'],home_team_id=g['home_team_id'],away_team_id=g['away_team_id'],
                         provider_fixture_ids=g['provider_fixture_ids'])
@@ -138,7 +139,7 @@ class AdaptiveWorker:
             if state.get('name')!='STATUS_SCHEDULED' or any(float(t.get('score',0))!=0 for t in game['competitors']):
                 raise Abstain('ADAPTIVE_SCHEDULED_ZERO_SCORE_REQUIRED')
         else:assert_unstarted(receipt,g)
-        if int(time.time())>=g['start_ts_utc']-900:raise Abstain('ADAPTIVE_SAFE_WINDOW_CLOSED')
+        if int(time.time())>=g['start_ts_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:raise Abstain('ADAPTIVE_SAFE_WINDOW_CLOSED')
         return receipt
 
     def labels(self):
@@ -251,7 +252,7 @@ class AdaptiveWorker:
                         admission_total=len(cases))
             for i,c in enumerate(cases):
                 self.progress['admission_position']=i+1
-                if int(time.time())>=c['target']['fixture_start_utc']-900:
+                if int(time.time())>=c['target']['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:
                     self.progress['admission_skipped_after_cutoff']+=1
                     continue  # Past cutoff is NOT a new prefixture admission.
                 await asyncio.to_thread(self.research.admit,c['target'],c['original'])

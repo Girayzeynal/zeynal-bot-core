@@ -5,6 +5,7 @@ import asyncio
 import time
 
 from telegram_delivery import tsi
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS, RESEARCH_POLL_SECONDS
 
 
 def code(value):
@@ -100,14 +101,14 @@ class ResearchCycle:
         fid=context.get('fixture_id')
         tip=context.get('fixture_start_utc')
         if (not isinstance(fid,str) or not 0<len(fid)<=160 or
-                type(tip) is not int or int(time.time())>=tip-900):
+                type(tip) is not int or int(time.time())>=tip-PREMATCH_MINIMUM_LEAD_SECONDS):
             return False
         if fid not in self.requested_fixtures:
             if len(self.requested_fixtures)>=16:
                 dropped=self.requested_fixtures.pop(0)
                 self.requested_deadlines.pop(dropped,None)
             self.requested_fixtures.append(fid)
-        self.requested_deadlines[fid]=tip-900
+        self.requested_deadlines[fid]=tip-PREMATCH_MINIMUM_LEAD_SECONDS
         return True
 
     async def _stage(self,name,call,app,asynchronous=False):
@@ -177,7 +178,7 @@ class ResearchCycle:
 
     async def run(self,app):
         while True:
-            await self.once(app);await asyncio.sleep(60)
+            await self.once(app);await asyncio.sleep(RESEARCH_POLL_SECONDS)
 
     def render(self):
         lines=['Araştırma işçisi: oyuncu kanıtı → V2 → oyuncu kanıtı tekrar → güncel skor → ayrı V3 denetimi']

@@ -15,14 +15,15 @@ from hybrid_engine.data import local_path
 from hybrid_engine.europe_prematch import EuropeanPrematchScheduler
 from hybrid_engine.forward_nba_results import read_confirmed
 from hybrid_engine.live_nba import LiveNBAHybridService
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 
 LOG=logging.getLogger(__name__)
 LOOKAHEAD=36*3600
-MINIMUM_LEAD=900
+MINIMUM_LEAD=PREMATCH_MINIMUM_LEAD_SECONDS
 
 
 class PrematchDeadlineLedger:
-    """Apply the final-15-minute boundary only to new NBA commits."""
+    """Apply the final-five-minute boundary only to new NBA commits."""
     def __init__(self,ledger):self.original=ledger
     def __getattr__(self,name):return getattr(self.original,name)
     def commit(self,payload):

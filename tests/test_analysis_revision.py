@@ -73,10 +73,10 @@ class AssessmentTests(TestCase):
         self.assertEqual(p['original_snapshot_sha256'],newer['original_snapshot_sha256'])
         for name,raw in before.items():self.assertEqual((self.root/name).read_bytes(),raw)
 
-    def test_stale_model_last_fifteen_and_fixture_tampering_cannot_publish(self):
-        old=deepcopy(self.model);old['payload']['cutoff_utc']=self.h.now-21601;old['sha256']=digest(old['payload'])
+    def test_stale_model_and_five_minute_window_cannot_publish(self):
+        old=deepcopy(self.model);old['payload']['cutoff_utc']=self.h.now-86401;old['sha256']=digest(old['payload'])
         with self.assertRaisesRegex(Abstain,'MODEL_TOO_OLD'):self.assess._capture(self.case,old,self.plan)
-        self.h.now=self.target['fixture_start_utc']-900
+        self.h.now=self.target['fixture_start_utc']-300
         with self.assertRaises(Abstain):self.capture()
         self.assertEqual(self.assess.registry.records(),[])
 
@@ -190,7 +190,7 @@ class AssessmentTests(TestCase):
         from hybrid_engine.adaptive_research import Registry
         original=Registry.record
         def cross(registry,payload):
-            p,new=original(registry,payload);self.h.now=self.target['fixture_start_utc']-899
+            p,new=original(registry,payload);self.h.now=self.target['fixture_start_utc']-299
             return p,new
         with patch.object(Registry,'record',cross):
             with self.assertRaisesRegex(Abstain,'LATE_COMMIT_EXCLUDED'):self.capture()
@@ -364,7 +364,7 @@ class CycleTests(IsolatedAsyncioTestCase):
                 fixture_start_utc=t+1800)))
             await cycle.once(app)
         self.assertEqual(cycle.requested_fixtures,['expires'])
-        with patch('hybrid_engine.research_diagnostics.time.time',return_value=t+901):
+        with patch('hybrid_engine.research_diagnostics.time.time',return_value=t+1501):
             await cycle.once(app)
         self.assertEqual(called,['expires',None])
         self.assertEqual(cycle.requested_fixtures,[])

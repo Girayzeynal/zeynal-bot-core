@@ -20,6 +20,7 @@ from hybrid_engine.data import Abstain,local_path
 from hybrid_engine.europe_prematch import publication_lock
 from hybrid_engine.intervals import prediction_intervals
 from hybrid_engine.live_metrics import metrics
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 
 POLICY=dict(version='ISSUE90_SEPARATE_NBA_STUDY_V2_INTEGRITY',primary=nba_dynamic.VERSION,
     minimum_future_games=100,minimum_day_clusters=20,minimum_coverage=.8,minimum_relative_gain=.02,
@@ -65,7 +66,7 @@ class Research:
                 p=read_wrapper(path)['payload']
                 if p['target']!=t or p['original_snapshot_sha256']!=case['original']:raise ValueError('ISSUE90_ADMISSION_CONFLICT')
                 return
-            if int(time.time())>=t['fixture_start_utc']-900:raise Abstain('ISSUE90_PREMATCH_WINDOW_CLOSED')
+            if int(time.time())>=t['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:raise Abstain('ISSUE90_PREMATCH_WINDOW_CLOSED')
             p=dict(target=t,original_snapshot_sha256=case['original'],protocol_sha256=plan['sha256'],admitted_at_utc=int(time.time()))
             publish_json(path,dict(payload=p,sha256=digest(p)))
 
@@ -111,7 +112,7 @@ class Research:
                 except (ValueError,KeyError,TypeError,OSError,RuntimeError) as exc:
                     context_status=reason(exc)
             receipt=self.worker.verify(t);stamp=int(time.time())
-            if stamp>=t['fixture_start_utc']-900:raise Abstain('ISSUE90_PREMATCH_WINDOW_CLOSED')
+            if stamp>=t['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:raise Abstain('ISSUE90_PREMATCH_WINDOW_CLOSED')
             shadow=None;shadow_status='ABSTAIN_CALIBRATION_TRAINING_INSUFFICIENT'
             if calibrator is not None:
                 original=case['snapshot'];row=dict(fixture_id=t['fixture_id'],fixture_start_utc=t['fixture_start_utc'],
@@ -167,13 +168,13 @@ class Research:
             p=w['payload'];s=p['shadow']
             if (p['protocol_sha256']!=plan['sha256'] or s['original_snapshot_sha256']!=p['original_snapshot_sha256'] or
                 s['fixture_id']!=p['fixture']['canonical_id'] or
-                not s['prediction_generated_at_utc']<=w['publication']['first_archived_at_utc']<p['fixture']['start_ts_utc']-900):
+                not s['prediction_generated_at_utc']<=w['publication']['first_archived_at_utc']<p['fixture']['start_ts_utc']-PREMATCH_MINIMUM_LEAD_SECONDS):
                 raise ValueError('ISSUE90_SHADOW_PUBLICATION_BINDING')
             shadows.append(s)
         admitted={}
         for item in admissions:
             t=item['target']
-            if item['protocol_sha256']!=plan['sha256'] or not plan['payload']['registered_at_utc']<=item['admitted_at_utc']<t['fixture_start_utc']-900:
+            if item['protocol_sha256']!=plan['sha256'] or not plan['payload']['registered_at_utc']<=item['admitted_at_utc']<t['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:
                 raise ValueError('ISSUE90_ADMISSION_CLOCK_OR_PLAN')
             key=(t['league'],t['season'],t['fixture_id'],item['original_snapshot_sha256'])
             if key in admitted:raise ValueError('ISSUE90_DUPLICATE_ADMISSION')
@@ -181,7 +182,7 @@ class Research:
             if any(r['fixture_id']==t['fixture_id'] and r['snapshot_sha256']==item['original_snapshot_sha256'] for r in labelmap.values()):due+=1
         for w in publications:
             p=w['payload'];t=p['fixture'];stamp=w['publication']['first_archived_at_utc']
-            if p['version']!=POLICY['version'] or p['protocol_sha256']!=plan['sha256'] or not plan['payload']['registered_at_utc']<=p['prediction_generated_at_utc']<=stamp<t['start_ts_utc']-900:
+            if p['version']!=POLICY['version'] or p['protocol_sha256']!=plan['sha256'] or not plan['payload']['registered_at_utc']<=p['prediction_generated_at_utc']<=stamp<t['start_ts_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:
                 raise ValueError('ISSUE90_PUBLICATION_CLOCK_OR_PLAN')
             admission=admitted.get((t['league'],t['season'],t['fixture_id'],p['original_snapshot_sha256']))
             if admission is None or admission['admitted_at_utc']>p['prediction_generated_at_utc']:
