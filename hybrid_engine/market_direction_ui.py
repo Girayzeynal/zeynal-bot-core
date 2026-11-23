@@ -42,8 +42,12 @@ def cards(view,forecast,*,tipoff_utc,fixture_id,batch=None):
         (published is None or 0<=asof-published<=POLICY['quote_max_age_seconds']) and
         (batch is None or batch['payload']['record_class']=='PREGAME_CURRENT_REVIEW'))
     if 'parameter_fit_age_seconds' in view:
+        from hybrid_engine.time_policy import MAXIMUM_V3_MODEL_AGE_SECONDS
         age=view['parameter_fit_age_seconds']
-        current=current and type(age) is int and 0<=age<=21600
+        v3=(view.get('research_record_type')=='CURRENT_RESEARCH_ASSESSMENT_V1' and
+            view.get('model_fit_age_limit_seconds')==MAXIMUM_V3_MODEL_AGE_SECONDS)
+        ceiling=MAXIMUM_V3_MODEL_AGE_SECONDS if v3 else 21600
+        current=current and type(age) is int and 0<=age<=ceiling
     out=[]
     for row in view['rows']:
         p=row['conditional_regulation_probabilities']
