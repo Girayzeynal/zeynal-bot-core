@@ -23,7 +23,7 @@ FORMAT = 'PREREGISTERED_CHALLENGER_PROTOCOL_V1'
 POLICY = dict(primary='UPDATED_BAYES_STOCHASTIC_PERIODS', baseline='FAZ13_REFERENCE',
     primary_metric='team_mae', minimum_future_games=100, minimum_day_clusters=20,
     minimum_relative_improvement=.02, minimum_primary_coverage=.8,
-    maximum_feature_age_seconds=3600, minimum_lead_seconds=900,
+    maximum_feature_age_seconds=3600, minimum_lead_seconds=300,
     candidate_selection='ALL_ELIGIBLE_FIRST_PUBLICATIONS_CHRONOLOGICAL_NO_RESULT_SELECTION',
     development_data='PRE_REGISTRATION_RECORDS_CANNOT_ENTER_CONFIRMATORY_COHORT',
     calibration_fit=False, automatic_promotion=False)
