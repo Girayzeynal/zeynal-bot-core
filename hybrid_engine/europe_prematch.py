@@ -167,7 +167,7 @@ def candidates(service,now):
     for g in sorted(bundle['payload']['fixtures'],key=lambda x:(x['start_ts_utc'],x['canonical_id'])):
         lead=g['start_ts_utc']-now
         reason=('ALREADY_ARCHIVED' if g['canonical_id'] in saved or set(g['provider_fixture_ids'])&saved_ids else 'COMPLETED' if g['completed'] else
-                'STARTED' if lead<=0 else 'LAST_15_MINUTES' if lead<=MINIMUM_LEAD else
+                'STARTED' if lead<=0 else 'LAST_5_MINUTES' if lead<=MINIMUM_LEAD else
                 'OUTSIDE_EARLY_WINDOW' if lead>LOOKAHEAD else None)
         if reason:
             skipped[reason]=skipped.get(reason,0)+1
