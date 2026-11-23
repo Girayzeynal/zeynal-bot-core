@@ -88,7 +88,7 @@ class ResearchCycle:
     """Serial, independently observed stages; V3 need not wait for V2 acquisition."""
     def __init__(self,worker,study,assessments=None):
         self.worker=worker;self.study=study;self.assessments=assessments;self.stages={}
-        self.requested_fixtures=[]
+        self.requested_fixtures=[];self.requested_deadlines={}
 
     def request_fixture(self,context):
         """Prioritize a user's prospective fixture in the next serial research cycle.
@@ -103,8 +103,11 @@ class ResearchCycle:
                 type(tip) is not int or int(time.time())>=tip-900):
             return False
         if fid not in self.requested_fixtures:
-            if len(self.requested_fixtures)>=16:self.requested_fixtures.pop(0)
+            if len(self.requested_fixtures)>=16:
+                dropped=self.requested_fixtures.pop(0)
+                self.requested_deadlines.pop(dropped,None)
             self.requested_fixtures.append(fid)
+        self.requested_deadlines[fid]=tip-900
         return True
 
     async def _stage(self,name,call,app,asynchronous=False):
@@ -150,10 +153,26 @@ class ResearchCycle:
         # research model. The independent V3 shadow-calibration sweep must not
         # delay the score's pre-tipoff publication until after its deadline.
         if self.assessments:
+            # A queued request is acknowledged only by a verified publication
+            # (or an already-published hourly slot), not by a failed attempt.
+            # Retry failed targets on later serial cycles until pre-tipoff cutoff.
+            now=int(time.time())
+            self.requested_fixtures=[fid for fid in self.requested_fixtures
+                                     if now<self.requested_deadlines.get(fid,0)]
+            self.requested_deadlines={fid:self.requested_deadlines[fid]
+                                      for fid in self.requested_fixtures}
             preferred=(self.requested_fixtures.pop(0) if self.requested_fixtures else None)
             publish=(self.assessments.tick if preferred is None else
                      lambda:self.assessments.tick(preferred_fixture_id=preferred))
             await self._stage('current_assessment',publish,app)
+            if preferred is not None:
+                outcome=app.bot_data.get('last_current_assessment_poll') or {}
+                published=outcome.get('requested_fixture_status') in (
+                    'PUBLISHED_OR_REPLAYED','ALREADY_RECORDED_THIS_HOUR')
+                if not published and int(time.time())<self.requested_deadlines.get(preferred,0):
+                    self.requested_fixtures.append(preferred)
+                else:
+                    self.requested_deadlines.pop(preferred,None)
         if self.study:await self._stage('issue90',self.study.tick,app)
 
     async def run(self,app):
