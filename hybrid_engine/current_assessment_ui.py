@@ -369,7 +369,7 @@ def install_dual_clock_display(state,assessments):
                 # page cached by the inner presenter. This is render-only data.
                 try:
                     from hybrid_engine.telegram_premium_ui import cache_report
-                    cache_report(cache,token,entry)
+                    cache_report(state.get('premium_reports',{}),token,entry)
                 except (OSError,ValueError,TypeError):
                     pass  # Telegram must still deliver its in-memory report.
                 parts=[headline]
