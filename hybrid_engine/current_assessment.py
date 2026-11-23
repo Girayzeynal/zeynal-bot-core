@@ -34,33 +34,68 @@ class AssessmentRegistry(Registry):
     Avoid decoding every 10,000-path asset for every unrelated match command.
     No cross-request cache and no asset is used without its archived SHA check.
     """
+    def _verified_slot(self,slot):
+        """Authenticate one publication, its forecast and durable commit receipt."""
+        if slot.stat().st_size>65536:raise ValueError('CURRENT_PUBLICATION_SIZE')
+        publication=self.publication(slot);ref=publication['forecast']
+        if Path(ref['file']).name!=ref['file'] or (self.root/ref['file']).stat().st_size>256*1024:
+            raise ValueError('CURRENT_FORECAST_PATH_OR_SIZE')
+        p=self.read_asset(ref);key=digest(dict(fixture=p['fixture']['canonical_id'],version=p['version']))
+        if slot.stem!='first-'+key or ref['file']!='forecast-'+digest(p)+'.json':
+            raise ValueError('CURRENT_PUBLICATION_PIN')
+        clocks=[p['source_available_max_utc'],p['prediction_generated_at_utc'],p['snapshot_created_at_utc'],
+            publication['first_archived_at_utc'],p['fixture']['start_ts_utc']]
+        if (any(type(v) is not int for v in clocks) or p.get('actual') is not None or
+                not 0<clocks[0]<=clocks[1]<=clocks[2]<=clocks[3]<=int(time.time()) or
+                clocks[3]>=clocks[4] or publication['classification']!='PREMATCH' or
+                publication['eligible_for_prospective_audit'] is not True):
+            raise ValueError('CURRENT_PUBLICATION_CLOCK')
+        receipt_path=self.root/('assessment-commit-'+key+'.json')
+        if not receipt_path.is_file():raise Abstain('CURRENT_ASSESSMENT_COMMIT_UNCONFIRMED')
+        receipt=read_wrapper(receipt_path,maximum=65536)['payload']
+        if (receipt['forecast_sha256']!=ref['sha256'] or receipt['publication_sha256']!=digest(publication) or
+                type(receipt['completed_at_utc']) is not int or
+                not clocks[3]<=receipt['completed_at_utc']<=int(time.time()) or
+                receipt['eligible']!=(receipt['completed_at_utc']<clocks[4]-900)):
+            raise ValueError('CURRENT_ASSESSMENT_COMMIT_BINDING')
+        if not receipt['eligible']:return None
+        return dict(payload=p,publication=publication)
+
     def records(self):
         slots=sorted(self.root.glob('first-*.json'))
         if len(slots)>POLICY['maximum_records']:raise ValueError('CURRENT_ASSESSMENT_SCAN_BUDGET')
         out=[]
         for slot in slots:
-            if slot.stat().st_size>65536:raise ValueError('CURRENT_PUBLICATION_SIZE')
-            publication=self.publication(slot);ref=publication['forecast']
-            if Path(ref['file']).name!=ref['file'] or (self.root/ref['file']).stat().st_size>256*1024:
-                raise ValueError('CURRENT_FORECAST_PATH_OR_SIZE')
-            p=self.read_asset(ref);key=digest(dict(fixture=p['fixture']['canonical_id'],version=p['version']))
-            if slot.stem!='first-'+key or ref['file']!='forecast-'+digest(p)+'.json':raise ValueError('CURRENT_PUBLICATION_PIN')
-            clocks=[p['source_available_max_utc'],p['prediction_generated_at_utc'],p['snapshot_created_at_utc'],
-                publication['first_archived_at_utc'],p['fixture']['start_ts_utc']]
-            if (any(type(v) is not int for v in clocks) or p.get('actual') is not None or
-                    not 0<clocks[0]<=clocks[1]<=clocks[2]<=clocks[3]<=int(time.time()) or
-                    clocks[3]>=clocks[4] or publication['classification']!='PREMATCH' or
-                    publication['eligible_for_prospective_audit'] is not True):
-                raise ValueError('CURRENT_PUBLICATION_CLOCK')
-            receipt_path=self.root/('assessment-commit-'+key+'.json')
-            if not receipt_path.is_file():raise Abstain('CURRENT_ASSESSMENT_COMMIT_UNCONFIRMED')
-            receipt=read_wrapper(receipt_path,maximum=65536)['payload']
-            if (receipt['forecast_sha256']!=ref['sha256'] or receipt['publication_sha256']!=digest(publication) or
-                    type(receipt['completed_at_utc']) is not int or not clocks[3]<=receipt['completed_at_utc']<=int(time.time()) or
-                    receipt['eligible']!=(receipt['completed_at_utc']<clocks[4]-900)):
-                raise ValueError('CURRENT_ASSESSMENT_COMMIT_BINDING')
-            if not receipt['eligible']:continue
-            out.append(dict(payload=p,publication=publication))
+            row=self._verified_slot(slot)
+            if row is not None:out.append(row)
+        return out
+
+    def recent_fixture(self,fixture_id,protocol_sha,*,now_utc):
+        """Lookup only the exact published slots that can still be current.
+
+        Forecast filenames are derived from fixture+study+hour; unrelated
+        fixtures are never opened by the interactive Telegram command.
+        The exact selected publication and commit receive the same validation
+        as a full records() scan. All assets are checked by the caller.
+        """
+        if (type(fixture_id) is not str or not fixture_id or
+                type(protocol_sha) is not str or not protocol_sha or type(now_utc) is not int):
+            raise ValueError('CURRENT_RECENT_INDEX_ARGS')
+        if len(list(self.root.glob('first-*.json')))>POLICY['maximum_records']:
+            raise ValueError('CURRENT_ASSESSMENT_SCAN_BUDGET')
+        out=[]
+        first=(now_utc-POLICY['refresh_seconds'])//POLICY['refresh_seconds']
+        last=now_utc//POLICY['refresh_seconds']
+        for hour in range(first,last+1):
+            version=protocol_sha+':'+str(hour)
+            slot=self.root/('first-'+digest(dict(fixture=fixture_id,version=version))+'.json')
+            if not slot.is_file():continue
+            row=self._verified_slot(slot)
+            if row is None:continue
+            p=row['payload']
+            if p['fixture']['canonical_id']!=fixture_id or p['version']!=version:
+                raise ValueError('CURRENT_RECENT_INDEX_BINDING')
+            out.append(row)
         return out
 
     def record(self,payload):
@@ -324,19 +359,45 @@ class CurrentAssessments:
             rendered.append(self.render(ctx))
         return '\n\n'.join(rendered)
 
-    def latest(self,context):
+    def latest_display(self,context):
+        """Read recent V3 for Telegram without scanning every unrelated game.
+
+        Only the last two hour slots can contain a candidate still within
+        the 3600-second headline freshness contract. Older V3 remains in its
+        durable archive but cannot become a live score.
+        """
         if not (self.root/'policy.json').is_file():return None
-        self.plan();pin=context.get('original_forecast_sha256') or digest(context)
-        fid=context['fixture_id'];rows=[r['payload'] for r in self.registry.records() if r['payload']['fixture']['canonical_id']==fid]
+        plan=self.plan()
+        rows=self.registry.recent_fixture(
+            context['fixture_id'],plan['sha256'],now_utc=int(time.time()))
         if not rows:return None
-        p=max(rows,key=lambda r:r['prediction_generated_at_utc'])
+        p=max((r['payload'] for r in rows),key=lambda r:r['prediction_generated_at_utc'])
         self.registry.validate_assets(p)
-        if p['original_snapshot_sha256']!=pin:raise ValueError('CURRENT_ASSESSMENT_ORIGINAL_PIN')
+        self._verify_context_pin(context,p)
+        return p
+
+    @staticmethod
+    def _verify_context_pin(context,p):
+        pin=context.get('original_forecast_sha256') or digest(context)
+        if p['original_snapshot_sha256']!=pin:
+            raise ValueError('CURRENT_ASSESSMENT_ORIGINAL_PIN')
         t=p['fixture']
-        if (t['league'].upper()!=context['league'].upper() or t['season']!=context['season'] or
+        if (t['league'].upper()!=context['league'].upper() or
+                t['season']!=context['season'] or
                 t['fixture_start_utc']!=context['fixture_start_utc'] or
                 any(t[s+'_team_id']!=context[s]['provider_id'] for s in ('home','away'))):
             raise ValueError('CURRENT_ASSESSMENT_FIXTURE_BINDING')
+
+    def latest(self,context):
+        if not (self.root/'policy.json').is_file():return None
+        self.plan()
+        fid=context['fixture_id']
+        rows=[r['payload'] for r in self.registry.records()
+              if r['payload']['fixture']['canonical_id']==fid]
+        if not rows:return None
+        p=max(rows,key=lambda r:r['prediction_generated_at_utc'])
+        self.registry.validate_assets(p)
+        self._verify_context_pin(context,p)
         return p
 
     def market_context(self,context):
