@@ -283,6 +283,31 @@ class RuleBindingTests(TestCase):
         result=cards(view,self.h.dist.forecast,tipoff_utc=self.h.snap['fixture_start_utc'],fixture_id=self.h.snap['fixture_id'])
         self.assertTrue(result);self.assertFalse(any(c['current'] for c in result))
 
+    def test_current_v3_market_uses_24h_ceiling_but_legacy_stays_6h(self):
+        from hybrid_engine.market_direction_ui import cards
+        from hybrid_engine.time_policy import MAXIMUM_V3_MODEL_AGE_SECONDS
+        asof=market.NOW
+        context=dict(self.h.snap,record_type='CURRENT_RESEARCH_ASSESSMENT_V1',
+                     parameter_fit_cutoff_utc=asof-7*3600)
+        current=evaluate_bound(SimpleNamespace(rule_book=self.book()),self.h.obs,self.h.dist,
+                               context,asof_utc=asof,native_quotes=self.h.quotes)
+        self.assertEqual(current['model_fit_age_limit_seconds'],MAXIMUM_V3_MODEL_AGE_SECONDS)
+        self.assertNotEqual(current['rows'][0]['status'],'MODEL_PARAMETERS_STALE')
+        shown=cards(current,self.h.dist.forecast,tipoff_utc=self.h.snap['fixture_start_utc'],
+                    fixture_id=self.h.snap['fixture_id'])
+        self.assertTrue(shown)
+        self.assertTrue(any(c['current'] for c in shown))
+        legacy=self.evaluate(self.book(),asof-7*3600)
+        self.assertEqual(legacy['model_fit_age_limit_seconds'],21600)
+        self.assertEqual(legacy['rows'][0]['status'],'MODEL_PARAMETERS_STALE')
+        context['parameter_fit_cutoff_utc']=asof-MAXIMUM_V3_MODEL_AGE_SECONDS-1
+        expired=evaluate_bound(SimpleNamespace(rule_book=self.book()),self.h.obs,self.h.dist,
+                               context,asof_utc=asof,native_quotes=self.h.quotes)
+        self.assertEqual(expired['rows'][0]['status'],'MODEL_PARAMETERS_STALE')
+        self.assertFalse(any(c['current'] for c in cards(
+            expired,self.h.dist.forecast,tipoff_utc=self.h.snap['fixture_start_utc'],
+            fixture_id=self.h.snap['fixture_id'])))
+
     def test_tampered_manifest_and_ambiguous_rules_refused(self):
         book=self.book();w=json.loads(book.path.read_text());w['payload']['entries']*=2
         w['sha256']=digest(w['payload']);book.path.write_text(json.dumps(w))
