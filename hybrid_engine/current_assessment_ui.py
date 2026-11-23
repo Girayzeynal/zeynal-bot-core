@@ -41,18 +41,20 @@ def two_clock_text(context,assessments,*,now=None):
             'Yeni saatli değerlendirme doğrulanmadan eski skor güncel olarak sunulmaz.',
             'Oyuncu ve piyasa gözlemleri ilk tahminin matematiğine uygulanmış sayılmaz.',
             '']+base)
-    lines=['🧪 GÜNCEL AYRI ARAŞTIRMA SKORU — NORMAL SÜRE',
+    lines=['🧪 GÜNCEL AYRI ARAŞTIRMA SKORU — NORMAL SÜRE (ÖNCEKİ V3 KAYDINDAN)',
         f"Ev {candidate['home']:.2f} · Dep {candidate['away']:.2f} · Toplam {candidate['total']:.2f}",
-        'Yeni hesaplama: '+tsi(latest['prediction_generated_at_utc']),
-        'Kullanılan veri üst zamanı: '+tsi(latest['source_available_max_utc']),
-        'Model eğitim kesiti: '+tsi(latest['parameter_fit_cutoff_utc'])]
+        'V3 skorunun kaydedilmiş hesap zamanı: '+tsi(latest['prediction_generated_at_utc']),
+        'Kayıttaki en geç kaynak kabul zamanı: '+tsi(latest['source_available_max_utc']),
+        'Model eğitim kesiti: '+tsi(latest['parameter_fit_cutoff_utc']),
+        'Bu /analyze komutunda yeni V3 skor hesaplanmadı; önceden kaydedilmiş aday okundu.',
+        'Kaynak kabul zamanı, bütün kadro/haber/piyasa bilgilerinin canlı olarak yenilendiği anlamına gelmez.']
     if isinstance(original,dict) and type(original.get('total')) in (int,float):
         lines.append(f"İlk tahmine göre toplam fark: {candidate['total']-original['total']:+.2f} sayı")
     lines.extend([
         'Güncel tempo/verimlilik hesabıdır; doğrulanmış OUT/oyuncu dakikaları,',
         'takım haberleri ve piyasa fiyat hareketleri skor katsayısına DAHİL EDİLMEDİ.',
         'NOT_CALIBRATED · Gerçek zamanlı otomatik oyuncu etkisi henüz aktif değil.',
-        '🔒 İlk tahmin arşivi değiştirilmedi.'])
+        '🔒 İlk V1 arşiv kaydı maç kimliği ve karşılaştırma için okundu; değiştirilmedi.'])
     return '\n'.join(lines+['']+base)
 
 
@@ -112,7 +114,8 @@ def current_panels(context, assessment, *, now):
         return unavailable('CURRENT_DISTRIBUTION_NOT_VERIFIED')
     validity=min(stamp+3600,cutoff+21600,tip)
     source=('Hesap: '+tsi(stamp)+' · Model: '+html.escape(str(candidate.get('model','DOĞRULANMADI')))+
-            '\nGüncel araştırma adayı · Oyuncu etkisi uygulanmadı · NOT_CALIBRATED')
+            '\nÖnceden kaydedilmiş V3 adayının tekrar gösterimi; bu komutta yeni hesap yok.'+
+             '\nOyuncu etkisi uygulanmadı · NOT_CALIBRATED')
     lines=['📊 <b>GÜNCEL ADAY | PERİYOT VE SAYILAR</b>',source,'Ev – Deplasman · Normal süre']
     for label,values in [('1Q',quarters[0]),('2Q',quarters[1]),('1H',halves[0]),
                          ('3Q',quarters[2]),('4Q',quarters[3]),('2H',halves[1])]:
@@ -123,7 +126,7 @@ def current_panels(context, assessment, *, now):
                                        for k in ('p25','p75','p05','p95')):
             lines.append(f"P25–P75 {b['p25']:.1f}–{b['p75']:.1f} · P05–P95 {b['p05']:.1f}–{b['p95']:.1f}")
     lines.extend(['','<b>Maç toplamı:</b> '+f"{candidate['total']:.2f}",
-                  'Rakamlar tek bir güncel aday kaydındandır; ilk tahminin periyotları değildir.'])
+                  'Rakamlar tek V3 aday kaydındandır; V1 periyotları kullanılmadı, bu istekte yeniden hesaplanmadı.'])
     labels=[('TOTAL','Maç toplamı'),('HOME','Ev toplamı'),('AWAY','Deplasman toplamı'),
             ('MARGIN','Ev farkı'),('1Q','1. çeyrek'),('2Q','2. çeyrek'),
             ('3Q','3. çeyrek'),('4Q','4. çeyrek'),('1H','İlk yarı'),('2H','İkinci yarı')]
@@ -238,7 +241,11 @@ def bound_audit_provenance(audit, assessment, panels):
                 'Model eğitim kesiti: '+(tsi(cutoff) if type(cutoff) is int else 'BİLİNMİYOR')+'\n'+
                 'NOT_CALIBRATED · Güncel aday için bağımsız doğrulanmış '
                 'güven/MAE veya oyuncu etkisi kanıtı yok.\n'
-                'İlk V1 sağlık kartı bu adaya taşınmadı.')
+                'İlk V1 sağlık kartı bu adaya taşınmadı.\n'
+                'KÖKEN: V3 tahmini kendi doğrulanmış aday arşivinden okundu. '
+                'V1 kaydı maç kimliği/orijinal SHA bağı ve karşılaştırma içindir; '
+                'V1 skor ve periyot değerleri V3 skoru olarak kopyalanmadı.\n'
+                'Bu Telegram isteğinde V3 skoru yeniden hesaplanmadı.')
     else:
         status=('⛔ <b>GÜNCEL ARAŞTIRMA ADAYI DENETİMİ YOK</b>\n'
                 'İlk V1 sağlık kartı güncel adayın hesabı veya güveni değildir.')
@@ -316,7 +323,7 @@ def install_dual_clock_display(state,assessments):
                 old=entry.get('summary','')
                 from hybrid_engine.elite_render import split_blocks
                 is_current='GÜNCEL AYRI ARAŞTIRMA SKORU' in content
-                heading=('🏀 ZEYNAL | GÜNCEL NBA TAHMİNİ' if is_current else
+                heading=('🏀 ZEYNAL | GÜNCEL NBA TAHMİNİ — KAYITLI V3, YENİ HESAP DEĞİL' if is_current else
                          '🏀 ZEYNAL | GÜNCEL TAHMİN BEKLENİYOR')
                 headline=('<b>'+heading+'</b>\n'+
                     html.escape(str(context['home']['official_name']))+' 🆚 '+
