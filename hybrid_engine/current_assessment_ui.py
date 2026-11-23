@@ -69,7 +69,7 @@ def current_panels(context, assessment, *, now):
 
     def unavailable(reason):
         warning=('⛔ <b>GÜNCEL ARAŞTIRMA PROJEKSİYONU YOK</b>\n'+
-                 html.escape(reason)+'\nİlk kaydın değerleri Model / Kaynak arşivindedir.')
+                 html.escape(reason)+'\nİlk V1 tahmininin sayıları ayrı 🗃 V1 İlk Tahmin — Arşiv düğmesindedir.')
         return dict(period=warning, ranges=warning, fresh=False, valid_until=None)
 
     if not isinstance(assessment, dict):
@@ -334,15 +334,23 @@ def install_dual_clock_display(state,assessments):
                 original_market=entry['sections'].get('market','')
                 entry['summary']=headline
                 audit=bound_audit_provenance(entry['sections'].get('audit',''),selected,panels)
-                # Keep source-integrity and health evidence on the FIRST
-                # Model / Kaynak callback page, as required by live-runtime
-                # health-card delivery. The archived first forecasts follow.
+                # Model / Kaynak holds model provenance and V1 health evidence,
+                # not all V1 numeric pages. The numerical first forecast is
+                # explicitly navigable under its own archive button.
                 entry['sections']['audit']=(audit+
-                    '\n\n<b>İLK TAHMİN — DEĞİŞMEZ ARŞİV</b>\n'+old+
-                    '\n\n<b>İLK TAHMİN PERİYOTLARI — ARŞİV</b>\n'+original_period+
-                    '\n\n<b>İLK TAHMİN ARALIKLARI — ARŞİV</b>\n'+original_ranges+
-                    '\n\n<b>ÖNCEKİ PİYASA GÖRÜNÜMÜ — ARŞİV</b>\n'+original_market)
+                    '\n\n🗃 <b>İLK V1 SKORU, PERİYOTLARI VE ARALIKLARI</b>\n'
+                    'Ayrı V1 İlk Tahmin — Arşiv düğmesindedir. '
+                    'Bu V1 değerleri güncel V3 skoru değildir.')
                 entry['section_pages']['audit']=split_blocks(entry['sections']['audit'].splitlines(),limit=3200)
+                archive_blocks=[
+                    '<b>V1 İLK TAHMİN — DEĞİŞMEZ ARŞİV | SKOR</b>\n'+old,
+                    '<b>V1 İLK TAHMİN — DEĞİŞMEZ ARŞİV | PERİYOTLAR</b>\n'+original_period,
+                    '<b>V1 İLK TAHMİN — DEĞİŞMEZ ARŞİV | ARALIKLAR</b>\n'+original_ranges,
+                    '<b>V1 İLK TAHMİN — DEĞİŞMEZ ARŞİV | PİYASA</b>\n'+original_market]
+                entry['sections']['archive']='\n\n'.join(archive_blocks)
+                entry['section_pages']['archive']=[
+                    page for block in archive_blocks
+                    for page in split_blocks(block.splitlines(),limit=3200)]
                 for section in ('period','ranges'):
                     entry['sections'][section]=panels[section]
                     entry['section_pages'][section]=split_blocks(panels[section].splitlines(),limit=3200)
@@ -361,7 +369,7 @@ def install_dual_clock_display(state,assessments):
                             'Bahis şirketinin uzatma ve ödeme kuralları doğrulanmadı; '
                             'ham yüzde bahis kazanma olasılığı veya bahis avantajı değildir.\n'
                             'Sağlayıcı maç başlangıç saati farklıysa saat uyuşmazlığı ayrıca denetlenmelidir.\n'
-                            'İlk tahminin piyasa kayıtları Model / Kaynak arşivindedir.')
+                            'İlk V1 piyasa kayıtları ayrı V1 İlk Tahmin — Arşiv düğmesindedir.')
                     market_pages=[header+'\n\n'+market_render(card) for card in ranked]
                     entry['section_pages']['market']=market_pages
                     entry['sections']['market']='\n\n'.join(market_pages)
@@ -371,7 +379,7 @@ def install_dual_clock_display(state,assessments):
                         '⛔ <b>GÜNCEL ADAYLA EŞLEŞMİŞ PİYASA HESABI YOK</b>\n'
                         'Aynı aday SHA/model/zaman, doğrulanmış yerel fiyat ve '
                         'güncel barem birlikte bulunamadı.\n'
-                        'İlk tahminin piyasa değerlendirmesi Model / Kaynak arşivindedir.')
+                        'İlk V1 piyasa değerlendirmesi ayrı V1 İlk Tahmin — Arşiv düğmesindedir.')
                     entry['section_pages']['market']=[entry['sections']['market']]
                     entry['quote_valid_until_utc']=None  # Old quote is archive-only.
                 entry['current_assessment_valid_until_utc']=panels['valid_until']
@@ -383,6 +391,8 @@ def install_dual_clock_display(state,assessments):
                     cache_report(state.get('premium_reports',{}),token,entry)
                 except (OSError,ValueError,TypeError):
                     pass  # Telegram must still deliver its in-memory report.
+                from hybrid_engine.telegram_premium_ui import keyboard as premium_keyboard
+                result['reply_markup']=premium_keyboard(token,include_archive=True)
                 parts=[headline]
             elif len((prefix+parts[0]).encode('utf-16-le'))//2<=3500:
                 parts[0]=prefix+parts[0]
