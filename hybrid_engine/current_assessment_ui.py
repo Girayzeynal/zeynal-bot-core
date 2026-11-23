@@ -288,8 +288,13 @@ def install_dual_clock_display(state,assessments):
             selected=None
             update_issue=None
             try:
+                # Use the same authenticated SHA+receipt+asset checks, but
+                # only inspect this fixture's two recent hourly publication
+                # slots. Existing test doubles keep the historical interface.
+                read_recent=getattr(assessments,'latest_display',None)
+                lookup=read_recent if callable(read_recent) else assessments.latest
                 selected=await asyncio.wait_for(
-                    asyncio.to_thread(assessments.latest,context),
+                    asyncio.to_thread(lookup,context),
                     timeout=CURRENT_READ_DEADLINE_SECONDS)
                 from types import SimpleNamespace
                 content=two_clock_text(context,SimpleNamespace(latest=lambda _:selected),
