@@ -761,7 +761,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 lines.append('Piyasa ödeme kuralı makbuzları: '+bridge.rule_book.status())
         overnight=app.bot_data.get('nba_overnight_scheduler')
         if mode in ('all','nba') and overnight:
-            lines.append('NBA otomatik PREMATCH: AÇIK · gelecek 36 saat · son 15 dk yeni kayıt yok')
+            lines.append('NBA otomatik PREMATCH: AÇIK · gelecek 36 saat · son 5 dk yeni kayıt yok')
             lines.append('Kabul deneyi kaydı otomatik; gece komut vermek veya botu durdurmak gerekmez.')
             last=app.bot_data.get('last_nba_overnight_poll') or overnight.last_report or {}
             lines.append('Son NBA otomatik kontrol: '+str(last.get('status','HENÜZ_ÇALIŞMADI')))
@@ -786,7 +786,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     lines.append('Son görünüm kontrolü: '+last.get('status','HENÜZ_ÇALIŞMADI')+
                                  (' · '+last['error_type'] if last.get('error_type') else ''))
         if mode in ('all','euroleague','eurocup') and app.bot_data.get('europe_prematch_scheduler'):
-            lines.append('Avrupa otomatik PREMATCH: AÇIK · gelecek 36 saat · son 15 dk yeni kayıt yok')
+            lines.append('Avrupa otomatik PREMATCH: AÇIK · gelecek 36 saat · son 5 dk yeni kayıt yok')
             lines.append('EuroLeague / EuroCup için maç saatinde ek komut gerekmiyor.')
             last=app.bot_data.get('last_europe_prematch_poll',{})
             lines.append('Son otomatik kontrol: '+str(last.get('status','HENÜZ_ÇALIŞMADI')))
