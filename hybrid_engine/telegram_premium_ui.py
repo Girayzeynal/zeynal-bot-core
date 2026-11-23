@@ -117,7 +117,16 @@ def page_view(entry,section,page,*,now):
     if section in ('summary','market'):
         if entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc']:
             text='Maç başladı; yalnız arşiv görünümü.\n\n'+text
-        elif entry.get('quote_valid_until_utc') is not None and now>entry['quote_valid_until_utc']:
+        elif entry.get('quote_valid_until_utc') is not None and now>=entry['quote_valid_until_utc']:
+            if section=='market':
+                # Presentation-only; the stored quote and SHA are unchanged.
+                # A callback at a later time must not preserve a 'current'
+                # headline or 'current' direction claim inside stale pages.
+                text=text.replace('GÜNCEL ARAŞTIRMA ADAYI | DOĞRULANMIŞ FİYATLAR',
+                                  'ARŞİV ARAŞTIRMA ADAYI | ÖNCEKİ FİYAT GÖZLEMİ')
+                text=text.replace('V3 ARAŞTIRMA ADAYI | ZAMAN DAMGALI FİYAT GÖZLEMİ',
+                                  'ARŞİV V3 PİYASA GÖZLEMİ | ÖNCEKİ FİYATLAR')
+                text=text.replace('🎯 <b>MODEL YÖNÜ:', '🎯 <b>ARŞİV MODEL YÖNÜ:')
             text=('⛔ <b>ARŞİV PİYASA GÖZLEMİ — GÜNCEL ORAN DEĞİL</b>\n'
                   'Arşiv görünümü; piyasa fiyatları yeniden sorgulanmadı.\n'
                   'Barem, fiyat ve ham model yüzdesi önceki kontrol anına aittir; '
