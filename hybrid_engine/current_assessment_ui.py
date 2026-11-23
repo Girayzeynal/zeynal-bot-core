@@ -217,6 +217,67 @@ def bound_current_market_cards(context, assessment, entry, *, now):
 
 
 
+def missing_current_market_card(assessment,entry,panels):
+    """Price-free, verified V3 reference on an empty native quote binding.
+
+    Model output is not a bookmaker line, a market quote, an estimated win
+    probability, or a price-derived edge. Never display stale V3 numbers.
+    """
+    import math
+    statuses={
+        'PROVIDER_NOT_CONFIGURED':'Piyasa sağlayıcı adaptörü bu testte bağlı değil.',
+        'KEY_NOT_AVAILABLE_IN_TEST_PROCESS':'The Odds API anahtarı bu test sürecinde yok.',
+        'PROVIDER_REVIEW_PENDING':'Sağlayıcı denetimi henüz sonuçlanmadı.',
+        'PROVIDER_REVIEW_UNAVAILABLE':'Sağlayıcı denetimi zamanında tamamlanamadı.',
+        'PROVIDER_STATUS_UNAVAILABLE':'Sağlayıcı durum raporu alınamadı.',
+        'LOCAL_DAILY_REQUEST_BUDGET':'Yerel günlük sağlayıcı istek bütçesi doldu.',
+        'PROVIDER_QUOTA_EXHAUSTED':'Sağlayıcının istek kotası doldu.',
+        'RATE_LIMITED':'Sağlayıcı istekleri hız sınırına takıldı.',
+        'EXACT_FIXTURE_MATCH_REQUIRED':'Sağlayıcı maçı yerel fikstürle eşleştiremedi.',
+        'LEAGUE_NOT_AVAILABLE_FROM_PROVIDER':'Sağlayıcı bu ligi etkin sunmuyor.',
+        'NO_FRESH_SUPPORTED_PRICES':'Kaynakta geçerli desteklenen barem bulunamadı.',
+        'OBSERVED_RULES_AND_CALIBRATION_PENDING':'Kaynak gözlemi var ama aynı V3 adayıyla fiyat ve ödeme kuralı birlikte doğrulanmadı.',
+        'PROVIDER_REVIEW_ALREADY_RUNNING':'Başka bir sağlayıcı denetimi çalışıyor.',
+        'LOCAL_EVIDENCE_STORAGE_FULL':'Yerel sağlayıcı kanıt alanı dolmuş.',
+        'POST_TIPOFF_NO_CURRENT_API_BACKFILL':'Maç başladı; maç öncesi fiyat sorgulanamaz.',
+    }
+    source=entry.get('research_market_source_status')
+    if not isinstance(source,str) or len(source)>100 or not source.replace('_','').isalnum():
+        source='PROVIDER_STATUS_UNAVAILABLE'
+    lines=[
+        '⛔ <b>GÜNCEL ADAYLA EŞLEŞMİŞ PİYASA HESABI YOK</b>',
+        'Doğrulanmış ve süresi dolmamış bahis şirketi baremi/oranı mevcut V3 adayıyla eşleştirilmedi.',
+        '<b>Sağlayıcı denetimi:</b> '+html.escape(source),
+        html.escape(statuses.get(source,'Sağlayıcı verisi uygunluk koşullarını karşılamadı; ayrıntı Model / Kaynak panelinde.')),
+    ]
+    if panels.get('fresh') is True and isinstance(assessment,dict):
+        q=assessment.get('candidate') or {}
+        quarters=q.get('quarters')
+        values=(q.get('home'),q.get('away'),q.get('total'))
+        if (type(quarters) in (list,tuple) and len(quarters)==4 and
+                all(type(v) in (int,float) and math.isfinite(v) for v in values) and
+                all(type(p) in (list,tuple) and len(p)==2 and
+                    all(type(v) in (int,float) and math.isfinite(v) for v in p) for p in quarters)):
+            home,away,total=values
+            h1=sum(float(p[0])+float(p[1]) for p in quarters[:2])
+            h2=sum(float(p[0])+float(p[1]) for p in quarters[2:])
+            lines.extend([
+                '',
+                '📊 <b>V3 MODEL REFERANSI — BAHİS BAREMİ DEĞİLDİR</b>',
+                f'Model maç toplamı: {total:.2f} sayı',
+                f'Model takım toplamları: Ev {home:.2f} · Deplasman {away:.2f}',
+                f'Model ev farkı: {home-away:+.2f} sayı',
+                f'Model 1H / 2H toplamı: {h1:.2f} / {h2:.2f} sayı',
+                'Bu değerler kaydedilmiş V3 simülasyonunun ortalamalarıdır; oran, bahis çizgisi, üst/alt önerisi veya beklenen getiri değildir.',
+            ])
+    else:
+        lines.extend(['','Güncel doğrulanmış V3 sayı paketi yok; eski V1/V3 skorları piyasa referansı olarak kullanılmadı.'])
+    lines.extend(['','İlk V1 piyasa kayıtları ayrı V1 İlk Tahmin — Arşiv düğmesindedir.',
+                  'NOT_CALIBRATED · Kaynak oranı ve ödeme kapsamı doğrulanmadan bahis avantajı/güven yüzdesi hesaplanmaz.'])
+    return '\n'.join(lines)
+
+
+
 def bound_audit_provenance(audit, assessment, panels):
     """Label original-model evidence separately from a later research candidate.
 
@@ -397,11 +458,7 @@ def install_dual_clock_display(state,assessments):
                     entry['sections']['market']='\n\n'.join(market_pages)
                     entry['quote_valid_until_utc']=min(card['valid_until_utc'] for card in ranked)
                 else:
-                    entry['sections']['market']=(
-                        '⛔ <b>GÜNCEL ADAYLA EŞLEŞMİŞ PİYASA HESABI YOK</b>\n'
-                        'Aynı aday SHA/model/zaman, doğrulanmış yerel fiyat ve '
-                        'güncel barem birlikte bulunamadı.\n'
-                        'İlk V1 piyasa değerlendirmesi ayrı V1 İlk Tahmin — Arşiv düğmesindedir.')
+                    entry['sections']['market']=missing_current_market_card(selected,entry,panels)
                     entry['section_pages']['market']=[entry['sections']['market']]
                     entry['quote_valid_until_utc']=None  # Old quote is archive-only.
                 entry['current_assessment_valid_until_utc']=panels['valid_until']

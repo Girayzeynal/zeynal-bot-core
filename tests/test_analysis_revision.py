@@ -299,6 +299,8 @@ class RuleBindingTests(TestCase):
         with patch('hybrid_engine.market_views.replay_nba',return_value=self.h.dist):
             panel=nba_provider_panel(snapshot,None,bridge,structured=True)
         self.assertIn('Ham model beklenen getirisi',panel['html'])
+        self.assertEqual(panel['market_source_status'],'OBSERVED_RULES_AND_CALIBRATION_PENDING')
+        self.assertGreater(panel['market_native_observations'],0)
         self.assertGreater(len(panel['cards']),0)
         self.assertTrue(all(c['calibration_status']=='NOT_CALIBRATED' for c in panel['cards']))
 

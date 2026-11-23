@@ -523,5 +523,7 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
                     direction_cards.extend(cards(review,distribution.forecast,
                         tipoff_utc=snapshot['fixture_start_utc'],fixture_id=snapshot['fixture_id'],batch=batch))
     full='\n\n'.join(parts)
-    return (dict(html=full,cards=direction_cards,market_candidate_snapshot=market_candidate_snapshot)
+    source_state=(report.get('providers',{}).get('THE_ODDS_API') or {}).get('status') or report.get('status','UNKNOWN')
+    return (dict(html=full,cards=direction_cards,market_candidate_snapshot=market_candidate_snapshot,
+                 market_source_status=source_state,market_native_observations=len(observations))
             if structured else full)

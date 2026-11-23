@@ -262,6 +262,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 direction_cards=[]
                 market_candidate_snapshot=None
                 market_candidate_cards=[]
+                market_source_status='PROVIDER_NOT_CONFIGURED' if provider_bridge is None else 'PROVIDER_REVIEW_PENDING'
                 if provider_bridge is not None:
                     try:
                         from hybrid_engine.provider_bridge import nba_provider_panel
@@ -271,9 +272,11 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                         direction_cards.extend(provider_panel['cards'])
                         market_candidate_snapshot=provider_panel.get('market_candidate_snapshot')
                         market_candidate_cards=provider_panel['cards'][:128] if market_candidate_snapshot else []
+                        market_source_status=provider_panel.get('market_source_status','PROVIDER_STATUS_UNAVAILABLE')
                     except Exception as exc:
                         logging.getLogger(__name__).warning('Provider review unavailable: %s',type(exc).__name__)
                         market_lines.append('Sağlayıcı denetimi tamamlanamadı: PROVIDER_REVIEW_UNAVAILABLE. Bu durum NO EDGE değildir; skor tahmini korunuyor.')
+                        market_source_status='PROVIDER_REVIEW_UNAVAILABLE'
                 market_note=None
                 from hybrid_engine.market_panels import nba_panel
                 try:
@@ -338,7 +341,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 entry=dict(summary=summary,sections=sections,section_pages=section_pages,chat_id=chat_id,
                     tipoff_utc=snapshot['fixture_start_utc'],quote_valid_until_utc=min(expiry) if expiry else None,
                     research_market_snapshot=market_candidate_snapshot,
-                    research_market_cards=market_candidate_cards)
+                    research_market_cards=market_candidate_cards,
+                    research_market_source_status=market_source_status)
                 try:
                     from hybrid_engine.current_roster import context_for
                     entry['roster_context']=context_for(snapshot)
