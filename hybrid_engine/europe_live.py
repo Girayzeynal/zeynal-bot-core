@@ -4,6 +4,7 @@ from dataclasses import asdict,replace
 import html
 import json
 import time
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -147,7 +148,7 @@ class EuropeanService:
                 if self.previous is not None:
                     saved=next((v for v in self.previous.registry.independent_records() if v['payload']['fixture']['canonical_id']==g['canonical_id']),None)
                     if saved:return self.previous._render(saved,self.previous._pair(saved['payload']),new=False)
-                if g['completed'] or g['start_ts_utc']<=now+900:raise Abstain('EUROPE_SAFE_PRETIPOFF_WINDOW_CLOSED')
+                if g['completed'] or g['start_ts_utc']<=now+PREMATCH_MINIMUM_LEAD_SECONDS:raise Abstain('EUROPE_SAFE_PRETIPOFF_WINDOW_CLOSED')
                 prepared=await asyncio.to_thread(PreparedEurope,self.models,self.league,year)
                 receipt=await asyncio.to_thread(self.fetcher,'EUROLEAGUE_LIVE',season_url(self.league,year))
                 b=catalog(receipt,self.league,year);cohort=historical_rows([(b,b['sha256'])]);freeze=int(time.time())
@@ -203,7 +204,7 @@ class EuropeanService:
             if start.date().isoformat()!=day:continue
             h,a=pairs[g['provider_fixture_ids'][0]];state='Tamamlandı' if g['completed'] else 'Başlamadı' if g['start_ts_utc']>now else 'Başladı'
             line=html.escape(f'{start:%H:%M} | {h} – {a} | {state} | '+', '.join(g['provider_fixture_ids']))
-            if not g['completed'] and g['start_ts_utc']>now+900:line+='\n<code>'+html.escape(f'/analyze {self.league} {day} {h} vs {a}')+'</code>'
+            if not g['completed'] and g['start_ts_utc']>now+PREMATCH_MINIMUM_LEAD_SECONDS:line+='\n<code>'+html.escape(f'/analyze {self.league} {day} {h} vs {a}')+'</code>'
             blocks.append(line)
         if len(blocks)==1:blocks.append('Bu Türkiye takvim gününde doğrulanmış maç yok.')
         return split_blocks(blocks)
