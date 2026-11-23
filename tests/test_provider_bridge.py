@@ -294,10 +294,13 @@ class BridgeTests(unittest.TestCase):
         self.assertFalse(b['injuries_verified']); self.assertFalse(b['forecast_inputs_changed'])
         self.assertEqual(digest(snap), before)
         self.assertNotIn(SECRET, json.dumps(report))
-        for path in self.bridge.root.glob('*.json'):
-            wrapper = json.loads(path.read_text())
-            self.assertEqual(wrapper['sha256'], digest(wrapper['payload']))
-            self.assertNotIn(SECRET, path.read_text())
+        receipts=list(self.bridge.root.glob('segments/??/provider-*.json'))
+        self.assertTrue(receipts)
+        for path in receipts:
+            wrapper=json.loads(path.read_text())
+            self.assertEqual(wrapper['sha256'],digest(wrapper['payload']))
+            self.assertEqual(self.bridge.read_receipt(wrapper['sha256']),wrapper['payload'])
+            self.assertNotIn(SECRET,path.read_text())
 
     def test_no_keys_no_network_and_clear_status_not_no_edge(self):
         bridge = ProviderBridge(ProviderAccess({}, getter=self.fake), self.root/'empty', clock=lambda: NOW)

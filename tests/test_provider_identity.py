@@ -135,10 +135,13 @@ class OffsetBridgeTests(unittest.TestCase):
 
     def test_bounded_offset_connects_native_quotes_and_persists_catalog(self):
         access=ProviderAccess({'THE_ODDS_API':SECRET},getter=self.getter,clock=lambda:NOW)
-        r=ProviderBridge(access,self.root/'evidence',clock=lambda:NOW).collect(SNAPSHOT)
+        bridge=ProviderBridge(access,self.root/'evidence',clock=lambda:NOW)
+        r=bridge.collect(SNAPSHOT)
         row=r['providers']['THE_ODDS_API'];self.assertEqual(row['status'],'OBSERVED_RULES_AND_CALIBRATION_PENDING')
         self.assertEqual(row['event_clock_binding']['payload']['delta_seconds'],600)
-        self.assertTrue((self.root/'evidence'/('provider-'+row['discovery_source_pin']+'.json')).exists())
+        pin=row['discovery_source_pin']
+        self.assertTrue((self.root/'evidence'/'segments'/pin[:2]/('provider-'+pin+'.json')).exists())
+        self.assertEqual(bridge.read_receipt(pin)['status'],'DOCUMENT_RECEIVED')
         self.assertIn('600 sn',render(r));self.assertFalse(r['forecast_changed'])
 
     def test_diagnostic_binds_without_requesting_odds(self):
