@@ -597,7 +597,7 @@ class CurrentPanelsTests(unittest.TestCase):
         self.assertIn('<b>1Q</b> 27.00 – 28.00',panels['period'])
         self.assertIn('P50 218.0',panels['ranges'])
         self.assertNotIn('220.00',panels['period']+panels['ranges'])
-        self.assertEqual(panels['valid_until'],NOW+3540)
+        self.assertEqual(panels['valid_until'],NOW+2640)
 
     def test_conflicting_scores_and_nonmonotone_quantiles_are_rejected(self):
         from copy import deepcopy
