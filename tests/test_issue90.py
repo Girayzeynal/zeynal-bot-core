@@ -131,11 +131,11 @@ class DynamicModelTests(TestCase):
         with patch('time.time',return_value=self.now+30*86400),self.assertRaisesRegex(Abstain,'RECENT_TEAM'):
             nba_dynamic.predict(self.artifact,dict(self.target,fixture_start_utc=self.now+31*86400),cutoff_utc=self.now+30*86400)
 
-    def test_mutated_pin_training_target_and_final_fifteen_minutes_fail_closed(self):
+    def test_mutated_pin_training_target_and_final_five_minutes_fail_closed(self):
         changed=deepcopy(self.artifact);changed['payload']['coefficients'][0]+=1
         with self.assertRaisesRegex(ValueError,'PIN'):nba_dynamic.predict(changed,self.target,cutoff_utc=self.now)
         with self.assertRaisesRegex(ValueError,'TARGET_TRAINING'):nba_dynamic.predict(self.artifact,dict(self.target,fixture_id='1'),cutoff_utc=self.now)
-        for offset in (899,0,-60):
+        for offset in (299,0,-60):
             with self.subTest(offset=offset),self.assertRaisesRegex(Abstain,'PREMATCH_CLOCK'):
                 nba_dynamic.predict(self.artifact,dict(self.target,fixture_start_utc=self.now+offset),cutoff_utc=self.now)
 
@@ -334,8 +334,8 @@ class Issue90ForwardTests(TestCase):
         restarted=Research(self.study.root,self.worker);c,new=restarted.capture(self.case,self.model,restarted.plan())
         self.assertFalse(new);self.assertEqual(a,c);self.assertEqual(len(restarted.registry.records()),1)
 
-    def test_verify_crosses_final_fifteen_minutes_no_first_record(self):
-        def cross(target):self.now=target['fixture_start_utc']-899;return dict(ingested_at_utc=self.now)
+    def test_verify_crosses_final_five_minutes_no_first_record(self):
+        def cross(target):self.now=target['fixture_start_utc']-299;return dict(ingested_at_utc=self.now)
         self.worker.verify=cross
         with self.assertRaisesRegex(Abstain,'WINDOW_CLOSED'):self.study.capture(self.case,self.model,self.plan)
         self.assertEqual(self.study.registry.records(),[])
@@ -444,7 +444,7 @@ class ScheduleContextTests(TestCase):
             r['document_sha256']=digest(r['document'])
         c=schedule.capture(self.target,changed)['payload']
         self.assertIsNone(c['values']['home']['venue_geodesic_km'])
-        with patch('time.time',return_value=self.start-899),self.assertRaisesRegex(Abstain,'PREMATCH_WINDOW'):
+        with patch('time.time',return_value=self.start-299),self.assertRaisesRegex(Abstain,'PREMATCH_WINDOW'):
             schedule.capture(self.target,self.receipts)
 
     def test_hash_tampering_and_future_receipt_are_refused(self):

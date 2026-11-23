@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 
 from core.team_identity import digest
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 from hybrid_engine.data import Abstain
 from hybrid_engine.distributions import Forecast
 from hybrid_engine.nba_dynamic import _vector
@@ -42,7 +43,7 @@ def capture(target,receipts,*,asof_utc=None):
     # wall time in the immutable registry and can never be backdated here.
     actual=int(time.time());now=actual if asof_utc is None else asof_utc;expected=urls(target)
     if type(now) is not int or not 0<now<=actual:raise ValueError('SCHEDULE_ACTUAL_OR_EARLIER_DECODE_CLOCK')
-    if target['league']!='NBA' or now>=target['fixture_start_utc']-900:raise Abstain('SCHEDULE_NBA_PREMATCH_WINDOW_REQUIRED')
+    if target['league']!='NBA' or now>=target['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:raise Abstain('SCHEDULE_NBA_PREMATCH_WINDOW_REQUIRED')
     if len(receipts)!=8 or {r.get('source_url') for r in receipts}!=set(expected):raise Abstain('SCHEDULE_EIGHT_NATIVE_CALENDAR_DAYS_REQUIRED')
     games={};venues={};states={}
     for r in receipts:
@@ -112,7 +113,7 @@ def fit(base,contexts):
         if digest(c)!=w['sha256']:raise ValueError('SCHEDULE_CONTEXT_PIN')
         if r is None:continue
         if (c['format']!='PROSPECTIVE_NBA_SCHEDULE_CONTEXT_V1' or t['season']!=p['season'] or
-            not 0<c['source_available_max_utc']<=c['observed_at_utc']<t['fixture_start_utc']-900 or
+            not 0<c['source_available_max_utc']<=c['observed_at_utc']<t['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS or
             t['fixture_start_utc']!=r['start'] or t['home_team_id']!=r['home'] or t['away_team_id']!=r['away']):
             raise ValueError('SCHEDULE_CONTEXT_IDENTITY_OR_PREMATCH_CLOCK')
         selected.append((r,c))
@@ -146,7 +147,7 @@ def predict(base,model,forecast,context):
     if digest(p)!=model['sha256'] or digest(c)!=context['sha256'] or p['base_sha256']!=base['sha256']:
         raise ValueError('SCHEDULE_ABLATION_MODEL_AND_CONTEXT_PIN')
     if (c['target']['fixture_id'] in p['training_ids'] or
-        not max(p['fit_at_utc'],c['observed_at_utc'])<=now<c['target']['fixture_start_utc']-900):
+        not max(p['fit_at_utc'],c['observed_at_utc'])<=now<c['target']['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS):
         raise Abstain('SCHEDULE_ABLATION_FUTURE_PREMATCH_REQUIRED')
     if (c['target']['league'],c['target']['season'])!=('NBA',base['payload']['season']):raise ValueError('SCHEDULE_ABLATION_TARGET_COHORT')
     x=np.asarray([_features(c,s,p['travel_columns_present']) for s in ('home','away')])[:,p['active_columns']]

@@ -158,13 +158,13 @@ class AdaptiveProtocolTests(TestCase):
         self.assertFalse(new);self.assertEqual(q,p)
         self.assertEqual(before,{f.name:f.read_bytes() for f in self.research.registry.root.iterdir() if f.is_file()})
 
-    def test_started_and_final_15_minute_admissions_cannot_be_backfilled(self):
-        self.now=self.target['fixture_start_utc']-900
+    def test_started_and_final_5_minute_admissions_cannot_be_backfilled(self):
+        self.now=self.target['fixture_start_utc']-300
         with self.assertRaisesRegex(Abstain,'LATE_ADMISSION'):self.capture()
         self.assertEqual(self.research.registry.records(),[])
 
     def test_crossing_cutoff_in_native_recheck_cannot_publish(self):
-        def late(t):self.now=t['fixture_start_utc']-899;return dict(ingested_at_utc=self.now)
+        def late(t):self.now=t['fixture_start_utc']-299;return dict(ingested_at_utc=self.now)
         with self.assertRaises(ValueError):self.research.capture(self.target,self.pin,self.artifact,late)
         self.assertEqual(self.research.registry.records(),[])
 
