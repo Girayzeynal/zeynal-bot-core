@@ -266,7 +266,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     try:
                         from hybrid_engine.provider_bridge import nba_provider_panel
                         provider_panel=await asyncio.wait_for(
-                            optional_source_thread(nba_provider_panel,snapshot,nba_service,provider_bridge,structured=True),timeout=10)
+                            optional_source_thread(nba_provider_panel,snapshot,nba_service,provider_bridge,structured=True),timeout=4)
                         market_lines.append(provider_panel['html'])
                         direction_cards.extend(provider_panel['cards'])
                         market_candidate_snapshot=provider_panel.get('market_candidate_snapshot')
