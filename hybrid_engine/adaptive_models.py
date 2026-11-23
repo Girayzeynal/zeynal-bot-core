@@ -17,6 +17,7 @@ from hybrid_engine.distributions import Budget,Forecast,quarter_weights
 from hybrid_engine.models import HierarchicalStrength
 from hybrid_engine.player_shadow import _load_hierarchy
 from hybrid_engine.possession import PossessionLaw,_aggregate,_quarter_rate
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 
 VERSION='SCHEDULED_TEAM_BOX_EFFICIENCY_V2'
 REFRESH_SECONDS=6*3600
@@ -101,7 +102,7 @@ def predict(wrapper,target,*,cutoff_utc):
     p=wrapper['payload']
     if digest(p)!=wrapper['sha256'] or p['format']!=VERSION or p['production_enabled'] is not False:
         raise ValueError('ADAPTIVE_MODEL_PIN')
-    if not p['cutoff_utc']<=p['prepared_at_utc']<=cutoff_utc<=int(time.time())<target['fixture_start_utc']-900:
+    if not p['cutoff_utc']<=p['prepared_at_utc']<=cutoff_utc<=int(time.time())<target['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:
         raise Abstain('ADAPTIVE_MODEL_OR_PREMATCH_CLOCK')
     if target['fixture_id'] in p['training_ids'] or (target['league'],target['season'])!=(p['league'],p['season']):
         raise ValueError('ADAPTIVE_TARGET_TRAINING_OR_COHORT')
