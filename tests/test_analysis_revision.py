@@ -311,7 +311,7 @@ class CycleTests(IsolatedAsyncioTestCase):
             return dict(status='CHECKED')
         def tick(*,preferred_fixture_id=None):
             order.append('current:'+str(preferred_fixture_id))
-            return dict(status='CHECKED')
+            return dict(status='CHECKED',requested_fixture_status='PUBLISHED_OR_REPLAYED')
         app=SimpleNamespace(bot_data={})
         cycle=ResearchCycle(SimpleNamespace(tick=v2),None,SimpleNamespace(tick=tick))
         requested_at=1795339800
@@ -325,6 +325,50 @@ class CycleTests(IsolatedAsyncioTestCase):
         self.assertEqual(order,['v2','current:requested-nba-match'])
         self.assertEqual(cycle.requested_fixtures,[])
         self.assertEqual(app.bot_data['last_current_assessment_poll']['status'],'CHECKED')
+
+    async def test_requested_fixture_retries_after_abstain_then_clears_only_on_publication(self):
+        outcomes=iter(('FAILED_OR_ABSTAIN','PUBLISHED_OR_REPLAYED'))
+        seen=[]
+        async def v2():return dict(status='CHECKED')
+        def current(*,preferred_fixture_id=None):
+            result=next(outcomes)
+            seen.append((preferred_fixture_id,result))
+            return dict(status='PARTIAL_ABSTAIN' if result=='FAILED_OR_ABSTAIN' else 'CHECKED',
+                        requested_fixture_status=result)
+        t=1795339800
+        app=SimpleNamespace(bot_data={})
+        cycle=ResearchCycle(SimpleNamespace(tick=v2),None,SimpleNamespace(tick=current))
+        with patch('hybrid_engine.research_diagnostics.time.time',return_value=t):
+            self.assertTrue(cycle.request_fixture(dict(league='NBA',fixture_id='ind-okc',
+                fixture_start_utc=t+7200)))
+            await cycle.once(app)
+            self.assertEqual(cycle.requested_fixtures,['ind-okc'])
+            self.assertEqual(app.bot_data['last_current_assessment_poll']['requested_fixture_status'],
+                             'FAILED_OR_ABSTAIN')
+            await cycle.once(app)
+        self.assertEqual(seen,[('ind-okc','FAILED_OR_ABSTAIN'),('ind-okc','PUBLISHED_OR_REPLAYED')])
+        self.assertEqual(cycle.requested_fixtures,[])
+        self.assertEqual(cycle.requested_deadlines,{})
+
+    async def test_requested_fixture_expiry_never_retries_after_cutoff(self):
+        called=[]
+        async def v2():return dict(status='CHECKED')
+        def current(*,preferred_fixture_id=None):
+            called.append(preferred_fixture_id)
+            return dict(status='CHECKED',requested_fixture_status='FAILED_OR_ABSTAIN')
+        t=1795339800
+        app=SimpleNamespace(bot_data={})
+        cycle=ResearchCycle(SimpleNamespace(tick=v2),None,SimpleNamespace(tick=current))
+        with patch('hybrid_engine.research_diagnostics.time.time',return_value=t):
+            self.assertTrue(cycle.request_fixture(dict(league='NBA',fixture_id='expires',
+                fixture_start_utc=t+1800)))
+            await cycle.once(app)
+        self.assertEqual(cycle.requested_fixtures,['expires'])
+        with patch('hybrid_engine.research_diagnostics.time.time',return_value=t+901):
+            await cycle.once(app)
+        self.assertEqual(called,['expires',None])
+        self.assertEqual(cycle.requested_fixtures,[])
+        self.assertEqual(cycle.requested_deadlines,{})
 
     async def test_player_input_v2_before_slow_v3_one_failure_does_not_starve_stages(self):
         order=[]
