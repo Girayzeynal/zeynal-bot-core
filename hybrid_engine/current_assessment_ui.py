@@ -354,9 +354,13 @@ def install_dual_clock_display(state,assessments):
                 if matching:
                     from hybrid_engine.market_direction_ui import render as market_render,order as market_order
                     ranked=market_order(matching)[:32]
-                    header=('📈 <b>GÜNCEL ARAŞTIRMA ADAYI | DOĞRULANMIŞ FİYATLAR</b>\n'
-                            'Model, maç, zaman ve beklenen skor birebir eşleşti.\n'
-                            'Ham simülasyon olasılığı · NOT_CALIBRATED · Güven endeksi yok.\n'
+                    header=('📈 <b>V3 ARAŞTIRMA ADAYI | ZAMAN DAMGALI FİYAT GÖZLEMİ</b>\n'
+                            'Aday SHA/model ve yerel piyasa erişim zamanı eşleşti; '
+                            'skor bu fiyatlarla yeniden hesaplanmadı.\n'
+                            'Ham NORMAL SÜRE simülasyonu · NOT_CALIBRATED · Güven endeksi yok.\n'
+                            'Bahis şirketinin uzatma ve ödeme kuralları doğrulanmadı; '
+                            'ham yüzde bahis kazanma olasılığı veya bahis avantajı değildir.\n'
+                            'Sağlayıcı maç başlangıç saati farklıysa saat uyuşmazlığı ayrıca denetlenmelidir.\n'
                             'İlk tahminin piyasa kayıtları Model / Kaynak arşivindedir.')
                     market_pages=[header+'\n\n'+market_render(card) for card in ranked]
                     entry['section_pages']['market']=market_pages
