@@ -34,6 +34,17 @@ class PremiumTelegramUITests(unittest.TestCase):
         self.assertEqual({b.callback_data.split(':')[-1] for b in buttons},
                          {'summary','period','market','ranges','audit','roster'})
 
+    def test_v1_archive_button_is_nba_opt_in_and_never_replaces_model_audit(self):
+        base=keyboard('abcdef123456')
+        self.assertEqual(len([b for row in base.inline_keyboard for b in row]),6)
+        active=keyboard('abcdef123456',include_archive=True)
+        callbacks=[b.callback_data for row in active.inline_keyboard for b in row]
+        self.assertEqual(len(callbacks),7)
+        self.assertIn('zui:abcdef123456:archive',callbacks)
+        self.assertIn('zui:abcdef123456:audit',callbacks)
+        self.assertIn('zui:abcdef123456:period',callbacks)
+        self.assertTrue(all(len(v.encode())<=64 for v in callbacks))
+
     def test_period_commentary_is_derived_only_from_frozen_periods(self):
         from hybrid_engine.telegram_premium_ui import period_table
         parts = ['<b>PERİYOT ANALİZİ</b>']
