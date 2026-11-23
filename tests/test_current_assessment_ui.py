@@ -600,6 +600,7 @@ class CurrentPanelsTests(unittest.TestCase):
         self.assertEqual(panels['valid_until'],NOW+2640)
 
     def test_45_minute_freshness_boundary_and_24_hour_fit_age(self):
+        from copy import deepcopy
         context,row=self.setup_case()
         generated=row['prediction_generated_at_utc']
         self.assertTrue(current_panels(context,row,now=generated+2700)['fresh'])
