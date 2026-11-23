@@ -202,6 +202,54 @@ def bound_current_market_cards(context, assessment, entry, *, now):
 
 
 
+
+def bound_audit_provenance(audit, assessment, panels):
+    """Label original-model evidence separately from a later research candidate.
+
+    Read-only UI annotation: no prediction/ledger/source rewrite and no claim
+    of independent candidate calibration, player model, or verified bookmaker edge.
+    """
+    from core.team_identity import digest
+
+    if not isinstance(audit,str):
+        audit=''
+    first_card='🛡 <b>TAHMİN SAĞLIK KARTI</b>'
+    first_model='<b>MODEL DENETİMİ</b>'
+    if first_card in audit:
+        audit=audit.replace(first_card, first_card+
+            '\n<i>KAPSAM: İLK KAYITLI V1 TAHMİNİ. '
+            'Aşağıdaki 54 sonuç, MAE, simülasyon ve kaynak değerleri '
+            'güncel V3 araştırma adayının performansı değildir.</i>',1)
+    if first_model in audit:
+        audit=audit.replace(first_model,first_model+
+            '\n<i>İLK KAYITLI TAHMİNİN kaynak/model denetimi (V1); '
+            'güncel adayla karıştırılmamalıdır.</i>',1)
+    if panels.get('fresh') and isinstance(assessment,dict):
+        candidate=assessment.get('candidate') or {}
+        stamp=assessment.get('prediction_generated_at_utc')
+        cutoff=assessment.get('parameter_fit_cutoff_utc')
+        source=assessment.get('source_available_max_utc')
+        status=('🧪 <b>AYRI GÜNCEL ARAŞTIRMA ADAYI — '
+                'MODEL/KAYNAK AYRIMI</b>\n'+
+                'Aday model: '+html.escape(str(candidate.get('model','KİMLİK_YOK')))+'\n'+
+                'Aday kayıt SHA: '+digest(assessment)[:16]+'\n'+
+                'Skor üretimi: '+(tsi(stamp) if type(stamp) is int else 'BİLİNMİYOR')+'\n'+
+                'Veri üst zamanı: '+(tsi(source) if type(source) is int else 'BİLİNMİYOR')+'\n'+
+                'Model eğitim kesiti: '+(tsi(cutoff) if type(cutoff) is int else 'BİLİNMİYOR')+'\n'+
+                'NOT_CALIBRATED · Güncel aday için bağımsız doğrulanmış '
+                'güven/MAE veya oyuncu etkisi kanıtı yok.\n'
+                'İlk V1 sağlık kartı bu adaya taşınmadı.')
+    else:
+        status=('⛔ <b>GÜNCEL ARAŞTIRMA ADAYI DENETİMİ YOK</b>\n'
+                'İlk V1 sağlık kartı güncel adayın hesabı veya güveni değildir.')
+    if first_model in audit:
+        audit=audit.replace(first_model,status+'\n\n'+first_model,1)
+    else:
+        audit+='\n\n'+status
+    return audit
+
+
+
 def install_dual_clock_display(state,assessments):
     """Supersede the original display wrapper without changing model source pins."""
     base=state['verified_analysis_service']
@@ -278,7 +326,7 @@ def install_dual_clock_display(state,assessments):
                 original_ranges=entry['sections'].get('ranges','')
                 original_market=entry['sections'].get('market','')
                 entry['summary']=headline
-                audit=entry['sections'].get('audit','')
+                audit=bound_audit_provenance(entry['sections'].get('audit',''),selected,panels)
                 # Keep source-integrity and health evidence on the FIRST
                 # Model / Kaynak callback page, as required by live-runtime
                 # health-card delivery. The archived first forecasts follow.
