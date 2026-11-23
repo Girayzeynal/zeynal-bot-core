@@ -218,8 +218,8 @@ def bound_audit_provenance(audit, assessment, panels):
     if first_card in audit:
         audit=audit.replace(first_card, first_card+
             '\n<i>KAPSAM: İLK KAYITLI V1 TAHMİNİ. '
-            'Aşağıdaki 54 sonuç, MAE, simülasyon ve kaynak değerleri '
-            'güncel V3 araştırma adayının performansı değildir.</i>',1)
+            'Aşağıdaki geçmiş sonuç sayısı, MAE, simülasyon ve kaynak değerleri '
+            'ayrı güncel araştırma adayının performansı değildir.</i>',1)
     if first_model in audit:
         audit=audit.replace(first_model,first_model+
             '\n<i>İLK KAYITLI TAHMİNİN kaynak/model denetimi (V1); '
