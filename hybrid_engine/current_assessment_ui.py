@@ -7,6 +7,11 @@ publication clock; player and bookmaker inputs are NOT represented as applied.
 import asyncio
 import html
 import time
+import logging
+
+# A price-provider timeout must not consume the Telegram command's remaining
+# wall-clock budget on a full authenticated V3 archive scan.
+CURRENT_READ_DEADLINE_SECONDS=2.0
 
 from telegram_delivery import tsi
 
@@ -284,11 +289,15 @@ def install_dual_clock_display(state,assessments):
             update_issue=None
             try:
                 selected=await asyncio.wait_for(
-                    asyncio.to_thread(assessments.latest,context),timeout=6)
+                    asyncio.to_thread(assessments.latest,context),
+                    timeout=CURRENT_READ_DEADLINE_SECONDS)
                 from types import SimpleNamespace
                 content=two_clock_text(context,SimpleNamespace(latest=lambda _:selected),
                                        now=int(time.time()))
             except (ValueError,KeyError,TypeError,OSError,TimeoutError) as exc:
+                logging.getLogger(__name__).warning(
+                    'Current V3 read unavailable after bounded lookup: %s',
+                    type(exc).__name__)
                 update_issue=('CURRENT_READ_TIMEOUT' if isinstance(exc,TimeoutError) else
                               'CURRENT_RESEARCH_RECORD_UNAVAILABLE')
                 content=('⚠️ GÜNCEL TAHMİN DOĞRULANAMADI. '
