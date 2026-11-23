@@ -20,9 +20,10 @@ from hybrid_engine.data import Abstain,local_path
 from hybrid_engine.europe_live import EuropeanService,EuropeanRegistry
 from hybrid_engine.europe_models import catalog,season_url
 from hybrid_engine.live_euroleague import names
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 
 VERSION='EUROPE_AUTO_PREMATCH_V2'
-MINIMUM_LEAD=900
+MINIMUM_LEAD=PREMATCH_MINIMUM_LEAD_SECONDS
 LOOKAHEAD=36*3600
 LOG=logging.getLogger(__name__)
 
