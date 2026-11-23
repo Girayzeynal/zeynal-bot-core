@@ -22,6 +22,7 @@ class PremiumTelegramUITests(unittest.TestCase):
         self.assertNotIn('TOTAL +234.5',output)
         self.assertIn('Güven endeksi: yok',output)
         self.assertIn('Kayıtlı tahmin tekrar gösterildi',output)
+        self.assertIn('V1 ilk tahmin arşivi; ayrı V3 skoru değildir',output)
         self.assertNotIn('Alt 234.5',output)
         self.assertLess(len(output.encode('utf-16-le'))//2,4096)
 
