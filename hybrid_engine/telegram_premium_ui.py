@@ -57,7 +57,7 @@ def compact_summary(snapshot,evidence,*,replayed,health=None,market_note=None,di
             f"P05–P95 {q['p05']:.1f}–{q['p95']:.1f}",
             'Ham model aralıkları; geçmiş kapsama doğrulanmadı.'])
     lines.extend(['','NOT_CALIBRATED · Güven endeksi: yok',
-        '🔒 '+('Kayıtlı tahmin tekrar gösterildi.' if replayed else 'Yeni tahmin arşivlendi.'),
+        '🔒 '+('İlk V1 tahmini arşivden tekrar gösterildi; güncel V3 skoru değildir.' if replayed else 'İlk V1 tahmini yeni arşivlendi; güncel V3 skoru değildir.'),
         'Üretim: '+tsi(snapshot.get('prediction_generated_at_utc')),
         '<i>İzole araştırma · Üretim değil</i>'])
     return '\n'.join(lines)
