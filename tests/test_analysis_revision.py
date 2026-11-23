@@ -304,7 +304,7 @@ class RuleBindingTests(TestCase):
 
 
 class CycleTests(IsolatedAsyncioTestCase):
-    async def test_user_fixture_priority_is_processed_after_v2_without_telegram_fit(self):
+    async def test_user_fixture_priority_runs_before_v2_without_telegram_fit(self):
         order=[]
         async def v2():
             order.append('v2')
@@ -322,7 +322,7 @@ class CycleTests(IsolatedAsyncioTestCase):
                 fixture_start_utc=requested_at+7200)))
             self.assertEqual(len(cycle.requested_fixtures),1)
             await cycle.once(app)
-        self.assertEqual(order,['v2','current:requested-nba-match'])
+        self.assertEqual(order,['current:requested-nba-match','v2'])
         self.assertEqual(cycle.requested_fixtures,[])
         self.assertEqual(app.bot_data['last_current_assessment_poll']['status'],'CHECKED')
 
@@ -370,7 +370,7 @@ class CycleTests(IsolatedAsyncioTestCase):
         self.assertEqual(cycle.requested_fixtures,[])
         self.assertEqual(cycle.requested_deadlines,{})
 
-    async def test_player_input_v2_before_slow_v3_one_failure_does_not_starve_stages(self):
+    async def test_current_score_precedes_v2_and_study_failure_does_not_starve_stages(self):
         order=[]
         def v3():order.append('v3');raise ValueError('DYNAMIC_RECENT_TEAM_HISTORY_REQUIRED')
         async def v2():order.append('v2');return dict(status='CHECKED')
@@ -378,9 +378,32 @@ class CycleTests(IsolatedAsyncioTestCase):
         worker=SimpleNamespace(tick=v2);study=SimpleNamespace(tick=v3,last_report=None)
         cycle=ResearchCycle(worker,study,SimpleNamespace(tick=current));app=SimpleNamespace(bot_data={})
         await cycle.once(app)
-        self.assertEqual(order,['v2','current','v3']);self.assertIn('FAILED',cycle.render())
+        self.assertEqual(order,['current','v2','v3']);self.assertIn('FAILED',cycle.render())
         self.assertIn('DYNAMIC_RECENT_TEAM_HISTORY_REQUIRED',cycle.render())
         self.assertEqual(app.bot_data['last_current_assessment_poll']['status'],'CHECKED')
+
+    async def test_current_publication_runs_before_a_blocked_v2_stage(self):
+        # V2 must not consume the only remaining pre-tipoff publication window.
+        entered=asyncio.Event();blocked=asyncio.Event();order=[]
+        async def v2():
+            order.append('v2-start')
+            entered.set()
+            await blocked.wait()
+        def current(*,preferred_fixture_id=None):
+            order.append('current')
+            return dict(status='CHECKED',requested_fixture_status='PUBLISHED_OR_REPLAYED')
+        cycle=ResearchCycle(SimpleNamespace(tick=v2),None,SimpleNamespace(tick=current))
+        app=SimpleNamespace(bot_data={})
+        task=asyncio.create_task(cycle.once(app))
+        try:
+            await asyncio.wait_for(entered.wait(),timeout=2)
+            self.assertEqual(order[:2],['current','v2-start'])
+            self.assertEqual(app.bot_data['last_current_assessment_poll']['status'],'CHECKED')
+            self.assertEqual(cycle.stages['current_assessment']['status'],'COMPLETED')
+        finally:
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
 
     async def test_shadow_blocker_visible_before_v2_and_witness_refreshed_after_v2(self):
         order=[]
