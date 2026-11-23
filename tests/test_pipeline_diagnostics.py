@@ -77,8 +77,7 @@ class EvidenceCapacityTests(TestCase):
     def test_pipeline_inventory_includes_new_shards_after_full_legacy_root(self):
         self.fill()
         pin=self.bridge._save({'synthetic_record':'next'})
-        report=audit(self.root,verify_archive=False)
-        row=report['local_evidence']['provider-evidence']
+        row=inventory(self.root,'provider-*.json',include_segments=True)
         self.assertEqual(row['status'],'AVAILABLE')
         self.assertEqual(row['legacy_files'],256)
         self.assertEqual(row['segmented_files'],1)
