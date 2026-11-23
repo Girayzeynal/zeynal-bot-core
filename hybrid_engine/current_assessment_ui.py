@@ -14,6 +14,8 @@ import logging
 CURRENT_READ_DEADLINE_SECONDS=2.0
 
 from telegram_delivery import tsi
+from hybrid_engine.current_assessment import POLICY
+from hybrid_engine.time_policy import MODEL_AGE_WARNING_SECONDS
 
 
 def two_clock_text(context,assessments,*,now=None):
@@ -37,8 +39,8 @@ def two_clock_text(context,assessments,*,now=None):
             '']+base)
     candidate=latest['candidate']
     age=when-latest['prediction_generated_at_utc']
-    fresh=(0<=age<=3600 and when<context['fixture_start_utc'] and
-           0<=when-latest['parameter_fit_cutoff_utc']<=21600)
+    fresh=(0<=age<=POLICY['candidate_freshness_seconds'] and when<context['fixture_start_utc'] and
+           0<=when-latest['parameter_fit_cutoff_utc']<=POLICY['maximum_model_age_seconds'])
     if not fresh:
         return '\n'.join([
             '⚠️ SON ARAŞTIRMA SKORU GÜNCEL DEĞİL (ARŞİV)',
@@ -84,7 +86,7 @@ def current_panels(context, assessment, *, now):
     tip=context.get('fixture_start_utc')
     if any(type(v) is not int for v in (stamp, cutoff, tip)):
         return unavailable('CURRENT_ASSESSMENT_CLOCK_UNVERIFIED')
-    if not (0 <= now-stamp <= 3600 and 0 <= now-cutoff <= 21600 and now < tip):
+    if not (0 <= now-stamp <= POLICY['candidate_freshness_seconds'] and 0 <= now-cutoff <= POLICY['maximum_model_age_seconds'] and now < tip):
         return unavailable('CURRENT_ASSESSMENT_STALE_OR_STARTED')
     candidate=assessment.get('candidate') or {}
     quarters=candidate.get('quarters')
@@ -117,7 +119,7 @@ def current_panels(context, assessment, *, now):
                     any(bands[k][quantiles[i]]>bands[k][quantiles[i+1]]
                         for i in range(len(quantiles)-1)) for k in required)):
         return unavailable('CURRENT_DISTRIBUTION_NOT_VERIFIED')
-    validity=min(stamp+3600,cutoff+21600,tip)
+    validity=min(stamp+POLICY['candidate_freshness_seconds'],cutoff+POLICY['maximum_model_age_seconds'],tip)
     source=('Hesap: '+tsi(stamp)+' · Model: '+html.escape(str(candidate.get('model','DOĞRULANMADI')))+
             '\nÖnceden kaydedilmiş V3 adayının tekrar gösterimi; bu komutta yeni hesap yok.'+
              '\nOyuncu etkisi uygulanmadı · NOT_CALIBRATED')
