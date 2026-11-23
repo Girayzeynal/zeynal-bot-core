@@ -18,6 +18,7 @@ from core.league_identity import normalize_name
 from hybrid_engine.boxes import publish_json
 from hybrid_engine.data import Abstain,local_path
 from hybrid_engine.europe_live import EuropeanService,EuropeanRegistry
+from hybrid_engine.europe_five_minute import analyze as five_minute_analyze
 from hybrid_engine.europe_models import catalog,season_url
 from hybrid_engine.live_euroleague import names
 from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
@@ -147,7 +148,7 @@ class AutomaticEuropeanService(EuropeanService):
                         return dict(status='ABSTAIN',reason='EUROPE_PREMATCH_INFERENCE_BUSY',
                             html='Maç öncesi hazırlama sürüyor. Biraz sonra tekrar deneyin. Eski kayıtlar korundu.')
                     await asyncio.sleep(.05)
-            return await super().analyze(league,day,home,away)
+            return await five_minute_analyze(self,league,day,home,away)
         finally:os.close(fd)
 
 
