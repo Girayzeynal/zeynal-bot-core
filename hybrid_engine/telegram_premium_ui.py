@@ -97,6 +97,15 @@ def page_view(entry,section,page,*,now):
     values=([body] if section=='summary' else entry.get('section_pages',{}).get(section)) or split_blocks(body.splitlines(),limit=3200)
     if type(page) is not int or not 0<=page<len(values):raise ValueError('PREMIUM_PAGE_NOT_FOUND')
     text=values[page]
+    tipoff_expired=(entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc'])
+    quote_expired=(entry.get('quote_valid_until_utc') is not None and now>=entry['quote_valid_until_utc'])
+    if section=='market' and (tipoff_expired or quote_expired):
+        # Re-label text only; do not alter immutable quote/decision records.
+        text=text.replace('GÜNCEL ARAŞTIRMA ADAYI | DOĞRULANMIŞ FİYATLAR',
+                          'ARŞİV ARAŞTIRMA ADAYI | ÖNCEKİ FİYAT GÖZLEMİ')
+        text=text.replace('V3 ARAŞTIRMA ADAYI | ZAMAN DAMGALI FİYAT GÖZLEMİ',
+                          'ARŞİV V3 PİYASA GÖZLEMİ | ÖNCEKİ FİYATLAR')
+        text=text.replace('🎯 <b>MODEL YÖNÜ:', '🎯 <b>ARŞİV MODEL YÖNÜ:')
     if entry.get('restored_archive_session') is True:
         text=('🗃 <b>YENİDEN BAŞLATMADAN KORUNMUŞ RAPOR — ARŞİV</b>\n'
               'Eski rapor sayfası yerel test kaydından yüklendi. '
@@ -118,15 +127,6 @@ def page_view(entry,section,page,*,now):
         if entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc']:
             text='Maç başladı; yalnız arşiv görünümü.\n\n'+text
         elif entry.get('quote_valid_until_utc') is not None and now>=entry['quote_valid_until_utc']:
-            if section=='market':
-                # Presentation-only; the stored quote and SHA are unchanged.
-                # A callback at a later time must not preserve a 'current'
-                # headline or 'current' direction claim inside stale pages.
-                text=text.replace('GÜNCEL ARAŞTIRMA ADAYI | DOĞRULANMIŞ FİYATLAR',
-                                  'ARŞİV ARAŞTIRMA ADAYI | ÖNCEKİ FİYAT GÖZLEMİ')
-                text=text.replace('V3 ARAŞTIRMA ADAYI | ZAMAN DAMGALI FİYAT GÖZLEMİ',
-                                  'ARŞİV V3 PİYASA GÖZLEMİ | ÖNCEKİ FİYATLAR')
-                text=text.replace('🎯 <b>MODEL YÖNÜ:', '🎯 <b>ARŞİV MODEL YÖNÜ:')
             text=('⛔ <b>ARŞİV PİYASA GÖZLEMİ — GÜNCEL ORAN DEĞİL</b>\n'
                   'Arşiv görünümü; piyasa fiyatları yeniden sorgulanmadı.\n'
                   'Barem, fiyat ve ham model yüzdesi önceki kontrol anına aittir; '
