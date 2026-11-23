@@ -58,6 +58,22 @@ class DiskBackedPremiumReportsTests(unittest.TestCase):
         self.assertIn("GÜNCEL 1Q 56.98",recovered["sections"]["period"])
         self.assertNotIn("28.06 - 28.92",recovered["sections"]["period"])
 
+    def test_explicit_deletion_revokes_saved_session_but_restart_recovers_intact_one(self):
+        cache_report(self.cache,self.TOKEN,self.report())
+        self.assertIsNotNone(DiskBackedReports(self.root,42).get(self.TOKEN))
+        del self.cache[self.TOKEN]
+        self.assertFalse((self.root/(self.TOKEN+".json")).exists())
+        self.assertIsNone(DiskBackedReports(self.root,42).get(self.TOKEN))
+
+    def test_cache_eviction_removes_saved_page_not_just_ram_entry(self):
+        other="b"*12
+        cache_report(self.cache,self.TOKEN,self.report(),max_count=1)
+        cache_report(self.cache,other,self.report(),max_count=1)
+        self.assertIsNone(DiskBackedReports(self.root,42).get(self.TOKEN))
+        self.assertIsNotNone(DiskBackedReports(self.root,42).get(other))
+        self.cache.clear()
+        self.assertIsNone(DiskBackedReports(self.root,42).get(other))
+
     def test_different_authorized_chat_cannot_recover_rendered_session(self):
         cache_report(self.cache,self.TOKEN,self.report())
         self.assertIsNone(DiskBackedReports(self.root,43).get(self.TOKEN))
