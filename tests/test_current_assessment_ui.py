@@ -141,7 +141,7 @@ class MarketMissingPricePanelTests(unittest.TestCase):
         self.assertNotIn('Oranlar:',result)
         self.assertNotIn('219.5',result)
         self.assertIn('Model takım toplamları',result)
-        self.assertGreaterEqual(result.count('\\n'),5)
+        self.assertGreaterEqual(result.count('\n'),5)
 
     def test_stale_candidate_never_shows_stale_model_reference_as_current_market(self):
         context,candidate=CurrentPanelsTests().setup_case()
