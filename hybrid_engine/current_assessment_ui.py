@@ -274,7 +274,7 @@ def missing_current_market_card(assessment,entry,panels):
         lines.extend(['','Güncel doğrulanmış V3 sayı paketi yok; eski V1/V3 skorları piyasa referansı olarak kullanılmadı.'])
     lines.extend(['','İlk V1 piyasa kayıtları ayrı V1 İlk Tahmin — Arşiv düğmesindedir.',
                   'NOT_CALIBRATED · Kaynak oranı ve ödeme kapsamı doğrulanmadan bahis avantajı/güven yüzdesi hesaplanmaz.'])
-    return '\\n'.join(lines)
+    return '\n'.join(lines)
 
 
 
