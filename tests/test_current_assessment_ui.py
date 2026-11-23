@@ -460,7 +460,7 @@ class CurrentPanelsTests(unittest.TestCase):
         self.assertFalse(panels['fresh'])
         self.assertIn('CURRENT_PERIOD_PATHS_NOT_VERIFIED',panels['period'])
         self.assertNotIn('220.',panels['period'])
-        self.assertIn('Model / Kaynak',panels['ranges'])
+        self.assertIn('V1 İlk Tahmin',panels['ranges'])
 
     def test_expired_button_view_is_explicitly_archived(self):
         from hybrid_engine.telegram_premium_ui import page_view
