@@ -18,6 +18,7 @@ on:
     branches:
       - main
       - "fix/telegram-current-panels-20261122"
+      - "fix/v3-request-retry-audit-20261123"
       - "dev/**"
       - "feature/hybrid-telegram-optin-20261114"
       - "feature/hybrid-market-roster-evidence-20261114"
