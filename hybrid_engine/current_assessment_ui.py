@@ -365,6 +365,13 @@ def install_dual_clock_display(state,assessments):
                     entry['quote_valid_until_utc']=None  # Old quote is archive-only.
                 entry['current_assessment_valid_until_utc']=panels['valid_until']
                 entry['current_assessment_panels']=panels['fresh']
+                # Persist the FINAL bound render, not the earlier first-model
+                # page cached by the inner presenter. This is render-only data.
+                try:
+                    from hybrid_engine.telegram_premium_ui import cache_report
+                    cache_report(cache,token,entry)
+                except (OSError,ValueError,TypeError):
+                    pass  # Telegram must still deliver its in-memory report.
                 parts=[headline]
             elif len((prefix+parts[0]).encode('utf-16-le'))//2<=3500:
                 parts[0]=prefix+parts[0]
