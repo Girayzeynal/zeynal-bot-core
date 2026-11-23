@@ -134,16 +134,16 @@ class EuropeanAutomaticPrematchTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(before,self.frozen_bytes())
 
     async def test_missing_early_record_at_2216_or_2231_abstains_instead_of_backfilling(self):
-        for code,at in (('EUROCUP',START-14*60),('EUROLEAGUE',START+60)):
+        for code,at in (('EUROCUP',START-4*60),('EUROLEAGUE',START+60)):
             self.now=at;r=await self.analyze(code)
             self.assertEqual(r['status'],'ABSTAIN');self.assertEqual(self.services[code].registry.records(),[])
             self.assertIn('WINDOW_CLOSED' if at<START else 'ALREADY_STARTED',r['html'])
 
-    async def test_scheduler_captures_2210_catchup_but_never_selects_last_15_minutes(self):
+    async def test_scheduler_captures_2210_catchup_but_never_selects_last_5_minutes(self):
         self.now=START-20*60;r=await self.scheduler.tick()
         self.assertTrue(all(v['window']=='NEXT_36_HOURS' for g in r['leagues'].values() for v in g['results']))
         self.assertEqual(sum(len(g['results']) for g in r['leagues'].values()),4)
-        self.now=START-14*60
+        self.now=START-4*60
         with patch('hybrid_engine.models.HierarchicalStrength.predict',side_effect=AssertionError('NO LATE CAPTURE')):
             await EuropeanPrematchScheduler(self.services,self.root/'restart',clock=lambda:self.now).tick()
         self.assertEqual(sum(len(s.registry.records()) for s in self.services.values()),4)
@@ -220,7 +220,7 @@ class EuropeanAutomaticPrematchTests(unittest.IsolatedAsyncioTestCase):
         from hybrid_engine.models import HierarchicalStrength
         original=HierarchicalStrength.predict
         def crossing(model,*args,**kwargs):
-            result=original(model,*args,**kwargs);self.now=START-14*60;return result
+            result=original(model,*args,**kwargs);self.now=START-4*60;return result
         with patch.object(HierarchicalStrength,'predict',crossing):r=await self.analyze()
         self.assertEqual(r['status'],'ABSTAIN');self.assertEqual(self.services['EUROCUP'].registry.records(),[])
 
@@ -232,7 +232,7 @@ class EuropeanAutomaticPrematchTests(unittest.IsolatedAsyncioTestCase):
         original=ForwardRegistry.asset
         def slow(owner,prefix,p):
             result=original(owner,prefix,p)
-            if prefix=='forecast':self.now=START-14*60
+            if prefix=='forecast':self.now=START-4*60
             return result
         with patch.object(ForwardRegistry,'asset',slow),self.assertRaisesRegex(ValueError,'WINDOW_CLOSED'):
             registry.record(payload)
@@ -305,12 +305,12 @@ class EuropeanAutomaticPrematchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(service.registry.records()),1)
 
 class EuropeanPrematchBoundaryTests(unittest.TestCase):
-    def test_exact_15_minute_boundary_and_invalid_generation_clocks(self):
-        with patch('time.time',return_value=START-900):
-            for generated in (START-1000,START-900,START-899,True):
+    def test_exact_5_minute_boundary_and_invalid_generation_clocks(self):
+        with patch('time.time',return_value=START-300):
+            for generated in (START-400,START-300,START-299,True):
                 with self.subTest(generated=generated),self.assertRaises(ValueError):
                     safe_lead(dict(fixture=dict(start_ts_utc=START),prediction_generated_at_utc=generated))
-        with patch('time.time',return_value=START-901):safe_lead(dict(fixture=dict(start_ts_utc=START),prediction_generated_at_utc=START-902))
+        with patch('time.time',return_value=START-301):safe_lead(dict(fixture=dict(start_ts_utc=START),prediction_generated_at_utc=START-302))
 
     def test_nba_and_unbounded_scheduler_parameters_refused(self):
         with TemporaryDirectory() as root:
