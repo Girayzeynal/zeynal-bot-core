@@ -52,12 +52,20 @@ def for_bridge(bridge,asof_utc):
 
 def evaluate_bound(bridge,observation,distribution,context,*,asof_utc,native_quotes):
     from hybrid_engine.current_market_review import evaluate
+    from hybrid_engine.time_policy import MAXIMUM_V3_MODEL_AGE_SECONDS
+    # Legacy first-forecast review retains its historical six-hour policy.
+    # Only a verified current-research assessment uses the new 24-hour ceiling.
+    current_v3=context.get('record_type')=='CURRENT_RESEARCH_ASSESSMENT_V1'
+    model_age_limit=MAXIMUM_V3_MODEL_AGE_SECONDS if current_v3 else 21600
     cutoff=context.get('parameter_fit_cutoff_utc')
     age=asof_utc-cutoff if type(cutoff) is int else None
-    issue='MODEL_FIT_CUTOFF_UNKNOWN' if age is None else 'MODEL_PARAMETERS_STALE' if not 0<=age<=21600 else None
+    issue=('MODEL_FIT_CUTOFF_UNKNOWN' if age is None else
+           'MODEL_PARAMETERS_STALE' if not 0<=age<=model_age_limit else None)
     rules=for_bridge(bridge,asof_utc)
     result=evaluate(observation,distribution,asof_utc=asof_utc,native_quotes=native_quotes,rules=rules if not issue else {})
     result['parameter_fit_age_seconds']=age
+    result['model_fit_age_limit_seconds']=model_age_limit
+    result['research_record_type']='CURRENT_RESEARCH_ASSESSMENT_V1' if current_v3 else 'FIRST_OR_LEGACY_REVIEW'
     if issue:
         for row in result['rows']:
             row['reasons'].insert(0,issue);row['status']=issue
