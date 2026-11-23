@@ -104,6 +104,12 @@ def render(card):
     lines.extend([mean_label+': '+number(card['mean']),
         f"Ham normal süre: {under} %{number(100*p['under'])} · {over} %{number(100*p['over'])}"])
     if p['push']>0:lines.append(('Normal süre eşitliği' if kind=='WINNER' else 'Baremle eşit skor')+': %'+number(100*p['push']))
+    lines.append('⚠️ SÖZLEŞME UYUMU DOĞRULANMADI: Model NORMAL SÜRE (48 dk) hesaplar; '
+                 'bahis şirketinin uzatma dahil olma ve ödeme kuralları bu model yüzdelerine '
+                 'eşlenmedi. Yüzde, doğrulanmış bahis kazanma olasılığı değildir.')
+    if kind=='WINNER':
+        lines.append('Maç sonucu: Normal süre beraberliği modelde ayrı tutulur; '
+                     'iki yönlü bahis piyasasındaki uzatma sonucuna otomatik aktarılmaz.')
     if card['prices']:lines.append('Oranlar: '+', '.join((under if side=='under' else over)+' '+line_number(price) for side,price in card['prices'].items()))
     if card['method']=='MANUAL_SCREENSHOT':lines.append('MANUEL EKRAN AKTARIMI · Alanlar bağımsız doğrulanmadı')
     if card['post_tipoff']:lines.append('Maç başladı; yalnız arşiv incelemesi.')
