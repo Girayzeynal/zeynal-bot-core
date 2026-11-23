@@ -540,7 +540,8 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         original=dict(summary='ORIGINAL SUMMARY 220',chat_id=17,
             sections=dict(period='ORIGINAL 1Q 51',ranges='ORIGINAL P50 220',
                 market='ORIGINAL OLD PRICE',audit='🛡 <b>TAHMİN SAĞLIK KARTI</b>\nSOURCE AUDIT'),
-            section_pages=dict(audit=['SOURCE AUDIT']))
+            section_pages=dict(audit=['SOURCE AUDIT']),
+            research_market_source_status='KEY_NOT_AVAILABLE_IN_TEST_PROCESS')
         a=SimpleNamespace(latest=Mock(return_value=latest),
             refresh_fixture=Mock(return_value=dict(status='READY')))
         state=dict(verified_analysis_service=SimpleNamespace(analyze=AsyncMock(return_value=report)),
@@ -561,6 +562,9 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('ORIGINAL OLD PRICE',entry['sections']['audit'])
         self.assertTrue(entry['section_pages']['audit'][0].startswith('🛡 <b>TAHMİN SAĞLIK KARTI</b>'))
         self.assertIn('EŞLEŞMİŞ PİYASA HESABI YOK',entry['sections']['market'])
+        self.assertIn('KEY_NOT_AVAILABLE_IN_TEST_PROCESS',entry['sections']['market'])
+        self.assertIn('V3 MODEL REFERANSI',entry['sections']['market'])
+        self.assertIn('Model maç toplamı: 218.00',entry['sections']['market'])
         from hybrid_engine.telegram_premium_ui import page_view
         callbacks=[b.callback_data for row in result['reply_markup'].inline_keyboard for b in row]
         self.assertIn('zui:'+token+':archive',callbacks)
