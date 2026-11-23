@@ -1,5 +1,7 @@
 """Two-clock user display: original and published current score remain distinct."""
 from types import SimpleNamespace
+import asyncio
+import threading
 import unittest
 from unittest.mock import AsyncMock,Mock,patch
 
@@ -117,6 +119,51 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("INITIAL V1 220",state["premium_reports"][token]["sections"]["audit"])
         self.assertEqual(response["html"],"ORIGINAL 220")
         a.refresh_fixture.assert_not_called()
+
+    async def test_slow_optional_sources_do_not_prevent_current_candidate_display(self):
+        """Reproduces provider/panel TimeoutError before candidate lookup."""
+        from telegram import InlineKeyboardButton,InlineKeyboardMarkup
+        from hybrid_engine.isolated_execution import IsolatedExecutor,optional_source_thread
+
+        asyncio.get_running_loop().set_default_executor(IsolatedExecutor())
+        release=threading.Event()
+        ctx=dict(league='NBA',fixture_id='x',season='2026/2027',
+            home=dict(provider_id='1',official_name='Home'),
+            away=dict(provider_id='2',official_name='Away'),
+            fixture_start_utc=NOW+10800,prediction_generated_at_utc=NOW-86400,
+            prediction=dict(home=105.,away=115.,total=220.))
+        token='b'*12
+        report=dict(status='ANALYSIS_OK',snapshot=ctx,html='OLD 220',
+            html_parts=['OLD 220'],reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton('Periyotlar',callback_data='zui:'+token+':period')]]))
+        async def base_analyze(*args):
+            for _ in range(2):
+                try:
+                    await asyncio.wait_for(
+                        optional_source_thread(lambda:release.wait(3)),timeout=.04)
+                except TimeoutError:
+                    pass
+            return report
+        _,current=CurrentPanelsTests().setup_case()
+        current['source_available_max_utc']=NOW-70
+        assessments=SimpleNamespace(latest=Mock(return_value=current))
+        state=dict(verified_analysis_service=SimpleNamespace(analyze=base_analyze),
+            premium_reports={token:dict(chat_id=1,summary='OLD 220',
+                sections=dict(audit='AUDIT',period='OLD Q',ranges='OLD BAND',
+                    market='OLD MARKET'),
+                section_pages=dict(audit=['AUDIT']))})
+        install_dual_clock_display(state,assessments)
+        try:
+            with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
+                out=await asyncio.wait_for(
+                    state['verified_analysis_service'].analyze('NBA','day','Home','Away'),
+                    timeout=1.5)
+            self.assertIn('GÜNCEL NBA TAHMİNİ',out['html'])
+            self.assertIn('Toplam 218.00',out['html'])
+            self.assertIn('P50 218.0',state['premium_reports'][token]['sections']['ranges'])
+            assessments.latest.assert_called_once_with(ctx)
+        finally:
+            release.set()
 
     async def test_missing_current_candidate_identified_as_pending_not_live(self):
         from telegram import InlineKeyboardButton,InlineKeyboardMarkup
