@@ -13,9 +13,11 @@ on:
       - "feature/issue90-chronological-engine-audit-20261118"
       - "feature/integrated-test-bot-20261119"
       - "fix/telegram-current-panels-20261122"
+      - "fix/prematch-five-minute-time-policy-20261123"
   pull_request:
     branches:
       - main
+      - "fix/telegram-current-panels-20261122"
       - "dev/**"
       - "feature/hybrid-telegram-optin-20261114"
       - "feature/hybrid-market-roster-evidence-20261114"
