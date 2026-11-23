@@ -1,7 +1,7 @@
 """Fresh research assessments with stored joint paths; originals are never rewritten.
 
 No fitting in Telegram. No player, news, itinerary or OT effect is invented.
-These hourly assessments have their own clock and descriptive result cohort.
+These periodically refreshed assessments have their own clock and descriptive result cohort.
 """
 from collections import defaultdict
 from copy import deepcopy
@@ -20,11 +20,15 @@ from hybrid_engine.distributions import Forecast
 from hybrid_engine.europe_prematch import publication_lock
 from hybrid_engine.intervals import prediction_intervals
 from hybrid_engine.issue90_research import pins,reason
+from hybrid_engine.time_policy import (PREMATCH_MINIMUM_LEAD_SECONDS, V3_REFRESH_SECONDS,
+    V3_FRESHNESS_SECONDS, MAXIMUM_V3_MODEL_AGE_SECONDS)
 from telegram_delivery import tsi
 
 VERSION='CURRENT_RESEARCH_ASSESSMENT_V1'
-POLICY=dict(version=VERSION,refresh_seconds=3600,maximum_model_age_seconds=21600,
-    minimum_lead_seconds=900,maximum_records=512,maximum_bytes=256*1024*1024,
+POLICY=dict(version=VERSION,refresh_seconds=V3_REFRESH_SECONDS,
+    candidate_freshness_seconds=V3_FRESHNESS_SECONDS,
+    maximum_model_age_seconds=MAXIMUM_V3_MODEL_AGE_SECONDS,
+    minimum_lead_seconds=PREMATCH_MINIMUM_LEAD_SECONDS,maximum_records=512,maximum_bytes=256*1024*1024,
     automatic_promotion=False,original_performance_eligible=False)
 
 
@@ -56,7 +60,7 @@ class AssessmentRegistry(Registry):
         if (receipt['forecast_sha256']!=ref['sha256'] or receipt['publication_sha256']!=digest(publication) or
                 type(receipt['completed_at_utc']) is not int or
                 not clocks[3]<=receipt['completed_at_utc']<=int(time.time()) or
-                receipt['eligible']!=(receipt['completed_at_utc']<clocks[4]-900)):
+                receipt['eligible']!=(receipt['completed_at_utc']<clocks[4]-POLICY['minimum_lead_seconds'])):
             raise ValueError('CURRENT_ASSESSMENT_COMMIT_BINDING')
         if not receipt['eligible']:return None
         return dict(payload=p,publication=publication)
@@ -84,7 +88,7 @@ class AssessmentRegistry(Registry):
         if len(list(self.root.glob('first-*.json')))>POLICY['maximum_records']:
             raise ValueError('CURRENT_ASSESSMENT_SCAN_BUDGET')
         out=[]
-        first=(now_utc-POLICY['refresh_seconds'])//POLICY['refresh_seconds']
+        first=(now_utc-POLICY['candidate_freshness_seconds'])//POLICY['refresh_seconds']
         last=now_utc//POLICY['refresh_seconds']
         for hour in range(first,last+1):
             version=protocol_sha+':'+str(hour)
@@ -104,7 +108,7 @@ class AssessmentRegistry(Registry):
             key=digest(dict(fixture=p['fixture']['canonical_id'],version=p['version']))
             publication=self.publication(self.root/('first-'+key+'.json'));completed=int(time.time())
             receipt=dict(forecast_sha256=publication['forecast']['sha256'],publication_sha256=digest(publication),
-                completed_at_utc=completed,eligible=completed<p['fixture']['start_ts_utc']-900)
+                completed_at_utc=completed,eligible=completed<p['fixture']['start_ts_utc']-POLICY['minimum_lead_seconds'])
             publish_json(self.root/('assessment-commit-'+key+'.json'),dict(payload=receipt,sha256=digest(receipt)))
             if not receipt['eligible']:raise Abstain('CURRENT_ASSESSMENT_LATE_COMMIT_EXCLUDED')
         return p,new
@@ -144,14 +148,14 @@ class CurrentAssessments:
             self.registry.validate_assets(old);return old,False
         cutoff=model['payload']['cutoff_utc']
         if not 0<=now-cutoff<=POLICY['maximum_model_age_seconds']:raise Abstain('CURRENT_MODEL_TOO_OLD')
-        if now>=target['fixture_start_utc']-900:raise Abstain('CURRENT_ASSESSMENT_SAFE_WINDOW_CLOSED')
+        if now>=target['fixture_start_utc']-POLICY['minimum_lead_seconds']:raise Abstain('CURRENT_ASSESSMENT_SAFE_WINDOW_CLOSED')
         first=self.worker.verify(target)
         if target['league']=='NBA':forecast=nba_dynamic.predict(model,target,cutoff_utc=now)
         else:
             forecasts,_,_=adaptive_models.predict(model,target,cutoff_utc=now)
             forecast=forecasts['PACE_EFFICIENCY']
         final=self.worker.verify(target);generated=int(time.time())
-        if generated>=target['fixture_start_utc']-900:raise Abstain('CURRENT_ASSESSMENT_SAFE_WINDOW_CLOSED')
+        if generated>=target['fixture_start_utc']-POLICY['minimum_lead_seconds']:raise Abstain('CURRENT_ASSESSMENT_SAFE_WINDOW_CLOSED')
         files=[f for f in self.registry.root.iterdir() if f.is_file()]
         if len(self.registry.records())>=POLICY['maximum_records'] or sum(f.stat().st_size for f in files)>POLICY['maximum_bytes']-4*1024*1024:
             raise Abstain('CURRENT_ASSESSMENT_STORAGE_BUDGET')
@@ -211,7 +215,7 @@ class CurrentAssessments:
             raise ValueError('CURRENT_PREFERRED_FIXTURE_ID_INVALID')
         plan=self.plan(create=True);cases=self.worker.cases();captures=[];now=int(time.time())
         saved={(r['payload']['fixture']['canonical_id'],r['payload']['version']) for r in self.registry.records()}
-        ready=[c for c in cases if (c['target']['fixture_id'],plan['sha256']+':'+str(now//3600)) not in saved]
+        ready=[c for c in cases if (c['target']['fixture_id'],plan['sha256']+':'+str(now//POLICY['refresh_seconds'])) not in saved]
         if preferred_fixture_id:
             ready.sort(key=lambda c:c['target']['fixture_id']!=preferred_fixture_id)
             if not any(c['target']['fixture_id']==preferred_fixture_id for c in cases):
@@ -295,7 +299,7 @@ class CurrentAssessments:
             # persisted before the current candidate, and independently settled.
             # Missing publication clocks or original numbers are NOT backfilled.
             if (type(issued) is int and type(archived) is int and
-                    0<issued<=archived<=p['prediction_generated_at_utc']<r['fixture_start_utc']-900 and
+                    0<issued<=archived<=p['prediction_generated_at_utc']<r['fixture_start_utc']-POLICY['minimum_lead_seconds'] and
                     isinstance(original,(list,tuple)) and len(original)==2 and
                     all(type(v) in (int,float) and np.isfinite(v) and v>=0 for v in original)):
                 baseline=dict(prediction=list(original),actual=r['actual'],
@@ -363,7 +367,7 @@ class CurrentAssessments:
         """Read recent V3 for Telegram without scanning every unrelated game.
 
         Only the last two hour slots can contain a candidate still within
-        the 3600-second headline freshness contract. Older V3 remains in its
+        the configured headline freshness contract. Older V3 remains in its
         durable archive but cannot become a live score.
         """
         if not (self.root/'policy.json').is_file():return None
@@ -404,8 +408,8 @@ class CurrentAssessments:
         p=self.latest(context)
         if p is None:return None
         now=int(time.time());age=now-p['prediction_generated_at_utc']
-        if not 0<=age<=3600 or now>=p['fixture']['fixture_start_utc']:raise Abstain('CURRENT_ASSESSMENT_STALE_OR_STARTED')
-        if now-p['parameter_fit_cutoff_utc']>21600:raise Abstain('CURRENT_MODEL_TOO_OLD')
+        if not 0<=age<=POLICY['candidate_freshness_seconds'] or now>=p['fixture']['fixture_start_utc']:raise Abstain('CURRENT_ASSESSMENT_STALE_OR_STARTED')
+        if now-p['parameter_fit_cutoff_utc']>POLICY['maximum_model_age_seconds']:raise Abstain('CURRENT_MODEL_TOO_OLD')
         ref=next(r for r in p['assets'] if r['file'].startswith('joint-paths-'))
         asset=self.registry.read_asset(ref);q=p['candidate']
         samples=np.asarray(asset['samples'])
@@ -440,7 +444,7 @@ class CurrentAssessments:
             age='bilinmiyor' if type(cutoff) is not int else str(max(0,int(time.time())-cutoff)//3600)+' saat'
             return 'Güncel araştırma değerlendirmesi: kayıt henüz yok; ilk tahmin gösteriliyor.\nİlk modelin parametre yaşı: '+age
         q=p['candidate'];now=int(time.time())
-        fresh=0<=now-p['prediction_generated_at_utc']<=3600 and now<context['fixture_start_utc'] and now-p['parameter_fit_cutoff_utc']<=21600
+        fresh=0<=now-p['prediction_generated_at_utc']<=POLICY['candidate_freshness_seconds'] and now<context['fixture_start_utc'] and now-p['parameter_fit_cutoff_utc']<=POLICY['maximum_model_age_seconds']
         return '\n'.join(['🧪 '+('GÜNCEL' if fresh else 'ARŞİV')+' ARAŞTIRMA DEĞERLENDİRMESİ',
             q['model'],f"Ev {q['home']:.2f} · Dep {q['away']:.2f} · Toplam {q['total']:.2f}",
             'Hesap: '+tsi(p['prediction_generated_at_utc'])+' · Model kesiti: '+tsi(p['parameter_fit_cutoff_utc']),
