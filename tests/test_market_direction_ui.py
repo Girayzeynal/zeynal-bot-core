@@ -239,6 +239,19 @@ class PaginationAndCacheTests(unittest.TestCase):
         self.assertIn('GÜNCEL ORAN DEĞİL',stale)
         self.assertEqual(e['section_pages']['market'][0],before)
 
+    def test_post_tipoff_market_also_relabels_direction_as_archival(self):
+        e=self.entry()
+        page=('📈 <b>V3 ARAŞTIRMA ADAYI | ZAMAN DAMGALI FİYAT GÖZLEMİ</b> '
+              '🎯 <b>MODEL YÖNÜ: EV KARŞILAR</b>')
+        e['sections']['market']=page
+        e['section_pages']['market']=[page]
+        e['quote_valid_until_utc']=1200
+        after,_=page_view(e,'market',0,now=1000)
+        self.assertIn('Maç başladı; yalnız arşiv görünümü.',after)
+        self.assertIn('ARŞİV V3 PİYASA GÖZLEMİ',after)
+        self.assertIn('ARŞİV MODEL YÖNÜ',after)
+        self.assertNotIn('🎯 <b>MODEL YÖNÜ:',after)
+
     def test_cached_post_tipoff_summary_never_looks_like_new_prematch(self):
         text,_=page_view(self.entry(),'summary',0,now=1000)
         self.assertIn('Maç başladı',text);self.assertIn('SUMMARY',text)
