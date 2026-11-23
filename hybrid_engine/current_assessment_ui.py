@@ -294,11 +294,13 @@ def install_dual_clock_display(state,assessments):
                 from types import SimpleNamespace
                 content=two_clock_text(context,SimpleNamespace(latest=lambda _:selected),
                                        now=int(time.time()))
-            except (ValueError,KeyError,TypeError,OSError,TimeoutError) as exc:
+            # Before Python 3.11 asyncio.TimeoutError is NOT the built-in
+            # TimeoutError. UserLAnd can run Python 3.10; catch both explicitly.
+            except (ValueError,KeyError,TypeError,OSError,asyncio.TimeoutError,TimeoutError) as exc:
                 logging.getLogger(__name__).warning(
                     'Current V3 read unavailable after bounded lookup: %s',
                     type(exc).__name__)
-                update_issue=('CURRENT_READ_TIMEOUT' if isinstance(exc,TimeoutError) else
+                update_issue=('CURRENT_READ_TIMEOUT' if isinstance(exc,(asyncio.TimeoutError,TimeoutError)) else
                               'CURRENT_RESEARCH_RECORD_UNAVAILABLE')
                 content=('⚠️ GÜNCEL TAHMİN DOĞRULANAMADI. '
                          'Eski kayıt arşivde korundu; güncel skor yayımlanmıyor.')
