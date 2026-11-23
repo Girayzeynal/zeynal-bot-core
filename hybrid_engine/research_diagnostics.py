@@ -135,20 +135,14 @@ class ResearchCycle:
             elif self.assessments:self.assessments.last_report=value
 
     async def once(self,app):
-        # V2 already collects native boxes and attempts the genuine NBA
-        # player_minutes input packet. Start this source gate FIRST, not
-        # after V3's potentially expensive independent calibration work.
-        # Keep stages SERIAL: concurrent fits can corrupt source snapshots
-        # or consume overlapping source quotas.
-        # Read the player witness directory BEFORE the potentially slow
-        # V2 network acquisition, so users immediately see a real blocker.
-        # Refresh after V2, which may have appended a genuine new minute packet.
+        # Keep stages serial so fitted source snapshots and provider budgets
+        # cannot overlap. A slow V2 acquisition must not delay a requested
+        # current V3 score beyond the five-minute pre-tipoff cutoff.
+        # Existing V2 player inputs can be incorporated on the next cycle;
+        # this current score is explicitly NOT a player-impact forecast.
         players=getattr(getattr(self.worker,'research',None),'players',None)
         if players is not None:
             from hybrid_engine.player_shadow import readiness
-            await self._stage('player_shadow',lambda:readiness(players),app)
-        await self._stage('adaptive_v2',self.worker.tick,app,asynchronous=True)
-        if players is not None:
             await self._stage('player_shadow',lambda:readiness(players),app)
         # First publish a genuinely current score using the prefit/fixed-slot
         # research model. The independent V3 shadow-calibration sweep must not
@@ -174,6 +168,10 @@ class ResearchCycle:
                     self.requested_fixtures.append(preferred)
                 else:
                     self.requested_deadlines.pop(preferred,None)
+        # Collect native player inputs after the time-sensitive current score.
+        await self._stage('adaptive_v2',self.worker.tick,app,asynchronous=True)
+        if players is not None:
+            await self._stage('player_shadow',lambda:readiness(players),app)
         if self.study:await self._stage('issue90',self.study.tick,app)
 
     async def run(self,app):
