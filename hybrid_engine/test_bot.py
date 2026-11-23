@@ -198,6 +198,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             reviewer=app.bot_data['current_roster_review'],
             assets=getattr(nba_service,'assets',None),directory=root/'player-shadow',
             chat_id=chat_id,cooldown_seconds=300)
+    from hybrid_engine.isolated_execution import optional_source_thread
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');results=ProspectiveResults(archive,root/'official-results')
     frozen=FrozenHybridService(archive)
     if nba_service is not None:
@@ -227,7 +228,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     report=LedgerReports(nba_service.ledger.path).read('NBA')
                     return monitor(report['forecasts'],asof_utc=response['snapshot']['prediction_generated_at_utc'])
                 try:
-                    prior=await asyncio.wait_for(asyncio.to_thread(prior_quality),timeout=3)
+                    prior=await asyncio.wait_for(optional_source_thread(prior_quality),timeout=2)
                 except Exception as exc:
                     logging.getLogger(__name__).warning('Prior quality read unavailable: %s',type(exc).__name__)
                     prior=None
@@ -265,7 +266,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     try:
                         from hybrid_engine.provider_bridge import nba_provider_panel
                         provider_panel=await asyncio.wait_for(
-                            asyncio.to_thread(nba_provider_panel,snapshot,nba_service,provider_bridge,structured=True),timeout=16)
+                            optional_source_thread(nba_provider_panel,snapshot,nba_service,provider_bridge,structured=True),timeout=10)
                         market_lines.append(provider_panel['html'])
                         direction_cards.extend(provider_panel['cards'])
                         market_candidate_snapshot=provider_panel.get('market_candidate_snapshot')
@@ -276,7 +277,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 market_note=None
                 from hybrid_engine.market_panels import nba_panel
                 try:
-                    panel=await asyncio.wait_for(asyncio.to_thread(nba_panel,snapshot,nba_service,evidence,market_store),timeout=5)
+                    panel=await asyncio.wait_for(optional_source_thread(nba_panel,snapshot,nba_service,evidence,market_store),timeout=3)
                     market_lines.append(panel['html'])
                     direction_cards.extend(panel.get('cards',[]))
                     if panel['observations']:
