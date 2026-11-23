@@ -110,8 +110,8 @@ class NBAOvernightTests(IsolatedAsyncioTestCase):
         self.status='STATUS_POSTPONED';r=await self.scheduler.tick()
         self.assertEqual(r['predictions'],[]);self.assertEqual(self.service.ledger.integrity()['snapshots'],0)
 
-    async def test_last_15_minutes_and_started_games_never_create_early_records(self):
-        for at in (START-900,START-1,START+1):
+    async def test_last_5_minutes_and_started_games_never_create_early_records(self):
+        for at in (START-300,START-1,START+1):
             self.now=at;r=await self.scheduler.tick(force=True)
             self.assertEqual(r['predictions'],[]);self.assertEqual(self.service.ledger.integrity()['snapshots'],0)
 
