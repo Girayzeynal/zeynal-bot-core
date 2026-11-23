@@ -32,22 +32,39 @@ class EvidenceCapacityTests(TestCase):
         self.bridge=ProviderBridge(access,self.root,clock=lambda:PROVIDER_NOW)
 
     def fill(self):
-        return [self.bridge._save({'synthetic_record':i}) for i in range(256)]
+        # Reproduce the actual 256-file *legacy root* capacity of the device.
+        pins=[]
+        for i in range(256):
+            payload={'synthetic_record':i}
+            pin=digest(payload)
+            publish_json(self.root/('provider-'+pin+'.json'),dict(payload=payload,sha256=pin))
+            pins.append(pin)
+        return pins
 
     def test_identical_receipt_can_be_reused_at_full_capacity(self):
         pins=self.fill();before={p:p.read_bytes() for p in self.root.glob('*.json')}
         self.assertEqual(self.bridge._save({'synthetic_record':0}),pins[0])
         self.assertEqual(before,{p:p.read_bytes() for p in self.root.glob('*.json')})
 
-    def test_full_store_is_local_failure_not_provider_error_or_callback_exception(self):
-        self.fill();before={p:p.read_bytes() for p in self.root.glob('*.json')}
+    def test_full_legacy_store_does_not_block_new_sharded_provider_evidence(self):
+        self.fill()
+        before={p:p.read_bytes() for p in self.root.glob('*.json')}
+        status=self.bridge.storage_status()
+        self.assertEqual(status['legacy_files'],256)
+        self.assertTrue(status['legacy_at_capacity'])
+        self.assertEqual(status['status'],'AVAILABLE')
         report=self.bridge.collect(deepcopy(SNAPSHOT))
-        self.assertEqual(report['status'],'LOCAL_EVIDENCE_STORAGE_FULL')
-        self.assertEqual(report['providers']['THE_ODDS_API']['status'],'LOCAL_EVIDENCE_STORAGE_FULL')
-        self.assertIn('yerel',render(report).lower())
-        self.assertIsNone(report['source_pin']);self.assertFalse(report['forecast_changed'])
-        self.assertEqual(self.fake.calls,[])
+        self.assertNotEqual(report['status'],'LOCAL_EVIDENCE_STORAGE_FULL')
+        self.assertEqual(report['providers']['THE_ODDS_API']['status'],
+                         'OBSERVED_RULES_AND_CALIBRATION_PENDING')
+        self.assertTrue(self.fake.calls)
+        self.assertTrue(report['source_pin'])
+        self.assertEqual(self.bridge.read_receipt(report['source_pin'])['fixture_id'],SNAPSHOT['fixture_id'])
+        self.assertTrue(list(self.root.glob('segments/??/provider-*.json')))
         self.assertEqual(before,{p:p.read_bytes() for p in self.root.glob('*.json')})
+        status=self.bridge.storage_status()
+        self.assertGreater(status['files'],256)
+        self.assertGreater(status['segmented_files'],0)
 
     def test_existing_receipt_tampering_is_refused_instead_of_silently_reused(self):
         pin=self.bridge._save({'synthetic_record':0});path=self.root/('provider-'+pin+'.json')
