@@ -1,7 +1,7 @@
 """Current official European identity evidence for native provider names.
 
 No fuzzy match, guessed club membership, changed event clock or forecast edit.
-The one legal-name exception is explicit, season-scoped Beşiktaş J.K./BJK.
+Legal-name exception: Beşiktaş J.K./BJK; exact historic Partizan NIS label only for E2026 PAR.
 """
 from functools import lru_cache
 import json
@@ -50,8 +50,21 @@ def resolve_provider_name(value,snapshot,registry,now):
     try:return registry.resolve(snapshot['league'],snapshot['season'],value,asof_utc=now)
     except IdentityRefusal as exc:
         if str(exc)!='TEAM_ALIAS_NOT_REGISTERED':raise
+    # A documented historical sponsor name, limited to official E2026 PAR.
+    # https://partizan.basketball/vesti/aktuelno/3286?lang=en
+    # https://www.aba-liga.com/team/22/20/1/0/partizan-nis/
+    if normalize_name(value)=='kkpartizannis' and snapshot['league']=='EUROLEAGUE' and snapshot['season']=='2026/2027':
+        targets=[side for side in ('home','away') if
+                 str(snapshot[side]['provider_id'])=='PAR' and
+                 normalize_name(snapshot[side]['official_name'])=='partizanmozzartbetbelgrade']
+        if len(targets)!=1:raise IdentityRefusal('HISTORIC_PARTIZAN_TARGET_NOT_VERIFIED')
+        team=registry.resolve(snapshot['league'],snapshot['season'],
+                              snapshot[targets[0]]['official_name'],asof_utc=now)
+        if team.provider_ids!=(('EUROLEAGUE_LIVE','PAR'),):
+            raise IdentityRefusal('HISTORIC_PARTIZAN_OFFICIAL_ID_CONFLICT')
+        return team
     # A narrowly documented legal-name form, not arbitrary suffix stripping.
-    stem=re.sub(r'\s+J\.?\s*K\.?$','',value,flags=re.I)
+    stem=re.sub(r'\s+J\.?\s*K\.?\Z','',value,flags=re.I)
     if stem==value or normalize_name(stem)!='besiktas':raise IdentityRefusal('TEAM_ALIAS_NOT_REGISTERED')
     team=registry.resolve(snapshot['league'],snapshot['season'],stem,asof_utc=now)
     if (team.provider_ids!=(('EUROLEAGUE_LIVE','BES'),) or

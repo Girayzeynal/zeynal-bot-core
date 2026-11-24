@@ -57,12 +57,12 @@ def compact_summary(snapshot,evidence,*,replayed,health=None,market_note=None,di
             f"P05–P95 {q['p05']:.1f}–{q['p95']:.1f}",
             'Ham model aralıkları; geçmiş kapsama doğrulanmadı.'])
     lines.extend(['','NOT_CALIBRATED · Güven endeksi: yok',
-        '🔒 '+('Kayıtlı tahmin tekrar gösterildi.' if replayed else 'Yeni tahmin arşivlendi.'),
+        '🔒 '+(('Kayıtlı tahmin tekrar gösterildi (V1 ilk tahmin arşivi; ayrı V3 skoru değildir).' if replayed else 'Yeni tahmin arşivlendi (V1 ilk tahmin arşivi; ayrı V3 skoru değildir).') if league=='NBA' else ('Kayıtlı tahmin tekrar gösterildi.' if replayed else 'Yeni tahmin arşivlendi.')),
         'Üretim: '+tsi(snapshot.get('prediction_generated_at_utc')),
         '<i>İzole araştırma · Üretim değil</i>'])
     return '\n'.join(lines)
 
-def keyboard(token,*,section=None,page=0,pages=1):
+def keyboard(token,*,section=None,page=0,pages=1,include_archive=False):
     from telegram import InlineKeyboardButton,InlineKeyboardMarkup
     rows=[
         [InlineKeyboardButton('📊 Periyotlar',callback_data='zui:'+token+':period'),
@@ -71,6 +71,8 @@ def keyboard(token,*,section=None,page=0,pages=1):
          InlineKeyboardButton('🛡 Model / Kaynak',callback_data='zui:'+token+':audit')],
         [InlineKeyboardButton('🏥 Kadro / Sakatlık',callback_data='zui:'+token+':roster')],
         [InlineKeyboardButton('🏠 Özet',callback_data='zui:'+token+':summary')]]
+    if include_archive:
+        rows.insert(-1,[InlineKeyboardButton('🗃 V1 İlk Tahmin — Arşiv',callback_data='zui:'+token+':archive')])
     if pages>1 and section is not None:
         nav=[]
         if page>0:nav.append(InlineKeyboardButton('‹ Önceki',callback_data=f'zui:{token}:{section}:{page-1}'))
@@ -97,6 +99,27 @@ def page_view(entry,section,page,*,now):
     values=([body] if section=='summary' else entry.get('section_pages',{}).get(section)) or split_blocks(body.splitlines(),limit=3200)
     if type(page) is not int or not 0<=page<len(values):raise ValueError('PREMIUM_PAGE_NOT_FOUND')
     text=values[page]
+    tipoff_expired=(entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc'])
+    quote_expired=(entry.get('quote_valid_until_utc') is not None and now>=entry['quote_valid_until_utc'])
+    if section=='market' and (tipoff_expired or quote_expired):
+        # Re-label text only; do not alter immutable quote/decision records.
+        text=text.replace('GÜNCEL ARAŞTIRMA ADAYI | DOĞRULANMIŞ FİYATLAR',
+                          'ARŞİV ARAŞTIRMA ADAYI | ÖNCEKİ FİYAT GÖZLEMİ')
+        text=text.replace('V3 ARAŞTIRMA ADAYI | ZAMAN DAMGALI FİYAT GÖZLEMİ',
+                          'ARŞİV V3 PİYASA GÖZLEMİ | ÖNCEKİ FİYATLAR')
+        text=text.replace('🎯 <b>MODEL YÖNÜ:', '🎯 <b>ARŞİV MODEL YÖNÜ:')
+    if entry.get('restored_archive_session') is True:
+        text=('🗃 <b>YENİDEN BAŞLATMADAN KORUNMUŞ RAPOR — ARŞİV</b>\n'
+              'Eski rapor sayfası yerel test kaydından yüklendi. '
+              'Güncel skor, oyuncu bilgisi, piyasa fiyatı veya güven değerlendirmesi olarak kullanmayın.\n\n'+text)
+    # A current research score is time-scoped even when its Telegram message
+    # stays in cache. Never show an expired quarter/interval as still current.
+    if section in ('summary','period','ranges') and entry.get('current_assessment_panels') is True:
+        expiry=entry.get('current_assessment_valid_until_utc')
+        if type(expiry) is not int or now>=expiry:
+            text=('⚠️ <b>BU ARAŞTIRMA TAHMİNİ ARTIK GÜNCEL DEĞİL</b>\n'
+                  'Aşağıdaki sayılar önceki değerlendirmeye aittir; '
+                  'yeni /analyze ile kaynak ve hesaplama zamanı yeniden denetlenmelidir.\n\n'+text)
     if section=='roster' and entry.get('roster_review_at_utc') is not None:
         if entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc']:
             text='Maç başladı; aşağıdaki kadro bilgisi arşiv gözlemidir.\n\n'+text
@@ -105,7 +128,7 @@ def page_view(entry,section,page,*,now):
     if section in ('summary','market'):
         if entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc']:
             text='Maç başladı; yalnız arşiv görünümü.\n\n'+text
-        elif entry.get('quote_valid_until_utc') is not None and now>entry['quote_valid_until_utc']:
+        elif entry.get('quote_valid_until_utc') is not None and now>=entry['quote_valid_until_utc']:
             text=('⛔ <b>ARŞİV PİYASA GÖZLEMİ — GÜNCEL ORAN DEĞİL</b>\n'
                   'Arşiv görünümü; piyasa fiyatları yeniden sorgulanmadı.\n'
                   'Barem, fiyat ve ham model yüzdesi önceki kontrol anına aittir; '

@@ -1,7 +1,7 @@
 """Fresh research assessments with stored joint paths; originals are never rewritten.
 
 No fitting in Telegram. No player, news, itinerary or OT effect is invented.
-These hourly assessments have their own clock and descriptive result cohort.
+These periodically refreshed assessments have their own clock and descriptive result cohort.
 """
 from collections import defaultdict
 from copy import deepcopy
@@ -20,11 +20,15 @@ from hybrid_engine.distributions import Forecast
 from hybrid_engine.europe_prematch import publication_lock
 from hybrid_engine.intervals import prediction_intervals
 from hybrid_engine.issue90_research import pins,reason
+from hybrid_engine.time_policy import (PREMATCH_MINIMUM_LEAD_SECONDS, V3_REFRESH_SECONDS,
+    V3_FRESHNESS_SECONDS, MAXIMUM_V3_MODEL_AGE_SECONDS)
 from telegram_delivery import tsi
 
 VERSION='CURRENT_RESEARCH_ASSESSMENT_V1'
-POLICY=dict(version=VERSION,refresh_seconds=3600,maximum_model_age_seconds=21600,
-    minimum_lead_seconds=900,maximum_records=512,maximum_bytes=256*1024*1024,
+POLICY=dict(version=VERSION,refresh_seconds=V3_REFRESH_SECONDS,
+    candidate_freshness_seconds=V3_FRESHNESS_SECONDS,
+    maximum_model_age_seconds=MAXIMUM_V3_MODEL_AGE_SECONDS,
+    minimum_lead_seconds=PREMATCH_MINIMUM_LEAD_SECONDS,maximum_records=512,maximum_bytes=256*1024*1024,
     automatic_promotion=False,original_performance_eligible=False)
 
 
@@ -34,33 +38,68 @@ class AssessmentRegistry(Registry):
     Avoid decoding every 10,000-path asset for every unrelated match command.
     No cross-request cache and no asset is used without its archived SHA check.
     """
+    def _verified_slot(self,slot):
+        """Authenticate one publication, its forecast and durable commit receipt."""
+        if slot.stat().st_size>65536:raise ValueError('CURRENT_PUBLICATION_SIZE')
+        publication=self.publication(slot);ref=publication['forecast']
+        if Path(ref['file']).name!=ref['file'] or (self.root/ref['file']).stat().st_size>256*1024:
+            raise ValueError('CURRENT_FORECAST_PATH_OR_SIZE')
+        p=self.read_asset(ref);key=digest(dict(fixture=p['fixture']['canonical_id'],version=p['version']))
+        if slot.stem!='first-'+key or ref['file']!='forecast-'+digest(p)+'.json':
+            raise ValueError('CURRENT_PUBLICATION_PIN')
+        clocks=[p['source_available_max_utc'],p['prediction_generated_at_utc'],p['snapshot_created_at_utc'],
+            publication['first_archived_at_utc'],p['fixture']['start_ts_utc']]
+        if (any(type(v) is not int for v in clocks) or p.get('actual') is not None or
+                not 0<clocks[0]<=clocks[1]<=clocks[2]<=clocks[3]<=int(time.time()) or
+                clocks[3]>=clocks[4] or publication['classification']!='PREMATCH' or
+                publication['eligible_for_prospective_audit'] is not True):
+            raise ValueError('CURRENT_PUBLICATION_CLOCK')
+        receipt_path=self.root/('assessment-commit-'+key+'.json')
+        if not receipt_path.is_file():raise Abstain('CURRENT_ASSESSMENT_COMMIT_UNCONFIRMED')
+        receipt=read_wrapper(receipt_path,maximum=65536)['payload']
+        if (receipt['forecast_sha256']!=ref['sha256'] or receipt['publication_sha256']!=digest(publication) or
+                type(receipt['completed_at_utc']) is not int or
+                not clocks[3]<=receipt['completed_at_utc']<=int(time.time()) or
+                receipt['eligible']!=(receipt['completed_at_utc']<clocks[4]-POLICY['minimum_lead_seconds'])):
+            raise ValueError('CURRENT_ASSESSMENT_COMMIT_BINDING')
+        if not receipt['eligible']:return None
+        return dict(payload=p,publication=publication)
+
     def records(self):
         slots=sorted(self.root.glob('first-*.json'))
         if len(slots)>POLICY['maximum_records']:raise ValueError('CURRENT_ASSESSMENT_SCAN_BUDGET')
         out=[]
         for slot in slots:
-            if slot.stat().st_size>65536:raise ValueError('CURRENT_PUBLICATION_SIZE')
-            publication=self.publication(slot);ref=publication['forecast']
-            if Path(ref['file']).name!=ref['file'] or (self.root/ref['file']).stat().st_size>256*1024:
-                raise ValueError('CURRENT_FORECAST_PATH_OR_SIZE')
-            p=self.read_asset(ref);key=digest(dict(fixture=p['fixture']['canonical_id'],version=p['version']))
-            if slot.stem!='first-'+key or ref['file']!='forecast-'+digest(p)+'.json':raise ValueError('CURRENT_PUBLICATION_PIN')
-            clocks=[p['source_available_max_utc'],p['prediction_generated_at_utc'],p['snapshot_created_at_utc'],
-                publication['first_archived_at_utc'],p['fixture']['start_ts_utc']]
-            if (any(type(v) is not int for v in clocks) or p.get('actual') is not None or
-                    not 0<clocks[0]<=clocks[1]<=clocks[2]<=clocks[3]<=int(time.time()) or
-                    clocks[3]>=clocks[4] or publication['classification']!='PREMATCH' or
-                    publication['eligible_for_prospective_audit'] is not True):
-                raise ValueError('CURRENT_PUBLICATION_CLOCK')
-            receipt_path=self.root/('assessment-commit-'+key+'.json')
-            if not receipt_path.is_file():raise Abstain('CURRENT_ASSESSMENT_COMMIT_UNCONFIRMED')
-            receipt=read_wrapper(receipt_path,maximum=65536)['payload']
-            if (receipt['forecast_sha256']!=ref['sha256'] or receipt['publication_sha256']!=digest(publication) or
-                    type(receipt['completed_at_utc']) is not int or not clocks[3]<=receipt['completed_at_utc']<=int(time.time()) or
-                    receipt['eligible']!=(receipt['completed_at_utc']<clocks[4]-900)):
-                raise ValueError('CURRENT_ASSESSMENT_COMMIT_BINDING')
-            if not receipt['eligible']:continue
-            out.append(dict(payload=p,publication=publication))
+            row=self._verified_slot(slot)
+            if row is not None:out.append(row)
+        return out
+
+    def recent_fixture(self,fixture_id,protocol_sha,*,now_utc):
+        """Lookup only the exact published slots that can still be current.
+
+        Forecast filenames are derived from fixture+study+hour; unrelated
+        fixtures are never opened by the interactive Telegram command.
+        The exact selected publication and commit receive the same validation
+        as a full records() scan. All assets are checked by the caller.
+        """
+        if (type(fixture_id) is not str or not fixture_id or
+                type(protocol_sha) is not str or not protocol_sha or type(now_utc) is not int):
+            raise ValueError('CURRENT_RECENT_INDEX_ARGS')
+        if len(list(self.root.glob('first-*.json')))>POLICY['maximum_records']:
+            raise ValueError('CURRENT_ASSESSMENT_SCAN_BUDGET')
+        out=[]
+        first=(now_utc-POLICY['candidate_freshness_seconds'])//POLICY['refresh_seconds']
+        last=now_utc//POLICY['refresh_seconds']
+        for hour in range(first,last+1):
+            version=protocol_sha+':'+str(hour)
+            slot=self.root/('first-'+digest(dict(fixture=fixture_id,version=version))+'.json')
+            if not slot.is_file():continue
+            row=self._verified_slot(slot)
+            if row is None:continue
+            p=row['payload']
+            if p['fixture']['canonical_id']!=fixture_id or p['version']!=version:
+                raise ValueError('CURRENT_RECENT_INDEX_BINDING')
+            out.append(row)
         return out
 
     def record(self,payload):
@@ -69,7 +108,7 @@ class AssessmentRegistry(Registry):
             key=digest(dict(fixture=p['fixture']['canonical_id'],version=p['version']))
             publication=self.publication(self.root/('first-'+key+'.json'));completed=int(time.time())
             receipt=dict(forecast_sha256=publication['forecast']['sha256'],publication_sha256=digest(publication),
-                completed_at_utc=completed,eligible=completed<p['fixture']['start_ts_utc']-900)
+                completed_at_utc=completed,eligible=completed<p['fixture']['start_ts_utc']-POLICY['minimum_lead_seconds'])
             publish_json(self.root/('assessment-commit-'+key+'.json'),dict(payload=receipt,sha256=digest(receipt)))
             if not receipt['eligible']:raise Abstain('CURRENT_ASSESSMENT_LATE_COMMIT_EXCLUDED')
         return p,new
@@ -109,14 +148,14 @@ class CurrentAssessments:
             self.registry.validate_assets(old);return old,False
         cutoff=model['payload']['cutoff_utc']
         if not 0<=now-cutoff<=POLICY['maximum_model_age_seconds']:raise Abstain('CURRENT_MODEL_TOO_OLD')
-        if now>=target['fixture_start_utc']-900:raise Abstain('CURRENT_ASSESSMENT_SAFE_WINDOW_CLOSED')
+        if now>=target['fixture_start_utc']-POLICY['minimum_lead_seconds']:raise Abstain('CURRENT_ASSESSMENT_SAFE_WINDOW_CLOSED')
         first=self.worker.verify(target)
         if target['league']=='NBA':forecast=nba_dynamic.predict(model,target,cutoff_utc=now)
         else:
             forecasts,_,_=adaptive_models.predict(model,target,cutoff_utc=now)
             forecast=forecasts['PACE_EFFICIENCY']
         final=self.worker.verify(target);generated=int(time.time())
-        if generated>=target['fixture_start_utc']-900:raise Abstain('CURRENT_ASSESSMENT_SAFE_WINDOW_CLOSED')
+        if generated>=target['fixture_start_utc']-POLICY['minimum_lead_seconds']:raise Abstain('CURRENT_ASSESSMENT_SAFE_WINDOW_CLOSED')
         files=[f for f in self.registry.root.iterdir() if f.is_file()]
         if len(self.registry.records())>=POLICY['maximum_records'] or sum(f.stat().st_size for f in files)>POLICY['maximum_bytes']-4*1024*1024:
             raise Abstain('CURRENT_ASSESSMENT_STORAGE_BUDGET')
@@ -169,10 +208,25 @@ class CurrentAssessments:
         return dict(status='CURRENT_CANDIDATE_PUBLISHED' if new else 'CURRENT_CANDIDATE_REPLAY',
                     fixture_id=p['fixture']['canonical_id'],sha256=digest(p))
 
-    def tick(self):
+    def tick(self,preferred_fixture_id=None):
+        """Publish at most two eligible candidates, prioritizing a requested match."""
+        if preferred_fixture_id is not None and (not isinstance(preferred_fixture_id,str)
+                or not 0<len(preferred_fixture_id)<=160):
+            raise ValueError('CURRENT_PREFERRED_FIXTURE_ID_INVALID')
         plan=self.plan(create=True);cases=self.worker.cases();captures=[];now=int(time.time())
         saved={(r['payload']['fixture']['canonical_id'],r['payload']['version']) for r in self.registry.records()}
-        ready=[c for c in cases if (c['target']['fixture_id'],plan['sha256']+':'+str(now//3600)) not in saved]
+        ready=[c for c in cases if (c['target']['fixture_id'],plan['sha256']+':'+str(now//POLICY['refresh_seconds'])) not in saved]
+        if preferred_fixture_id:
+            ready.sort(key=lambda c:c['target']['fixture_id']!=preferred_fixture_id)
+            if not any(c['target']['fixture_id']==preferred_fixture_id for c in cases):
+                captures.append(dict(status='ABSTAIN',reason='CURRENT_REQUESTED_FIXTURE_NOT_ELIGIBLE',
+                    error_type='Abstain'))
+        targeted='NOT_REQUESTED'
+        if preferred_fixture_id:
+            eligible=any(c['target']['fixture_id']==preferred_fixture_id for c in cases)
+            in_ready=any(c['target']['fixture_id']==preferred_fixture_id for c in ready)
+            targeted=('IN_PROCESSING_BATCH' if in_ready else
+                      'NOT_ELIGIBLE' if not eligible else 'ALREADY_RECORDED_THIS_HOUR')
         for c in ready[:2]:
             try:
                 t=c['target']
@@ -183,9 +237,21 @@ class CurrentAssessments:
                 p,new=self._capture(c,model,plan)
                 captures.append(dict(status='ARCHIVED' if new else 'REPLAY',fixture_id=t['fixture_id'],sha256=digest(p)))
             except (ValueError,KeyError,TypeError,OSError,RuntimeError) as exc:
-                captures.append(dict(status='ABSTAIN',reason=reason(exc),error_type=type(exc).__name__))
-        self.last_report=dict(status='PARTIAL_ABSTAIN' if any(r['status']=='ABSTAIN' for r in captures) else 'CHECKED',
+                captures.append(dict(status='ABSTAIN',fixture_id=c['target']['fixture_id'],
+                    reason=reason(exc),error_type=type(exc).__name__))
+        if preferred_fixture_id and targeted=='IN_PROCESSING_BATCH':
+            matched=[r for r in captures if r.get('fixture_id')==preferred_fixture_id]
+            targeted=('PUBLISHED_OR_REPLAYED' if any(r.get('status') in ('ARCHIVED','REPLAY') for r in matched)
+                      else 'FAILED_OR_ABSTAIN' if any(r.get('status')=='ABSTAIN' for r in matched)
+                      else 'NOT_PROCESSED')
+        published=sum(r.get('status')=='ARCHIVED' for r in captures)
+        # A completed cycle with no publication is not a newly published score.
+        self.last_report=dict(status='PARTIAL_ABSTAIN' if any(r['status']=='ABSTAIN' for r in captures) else
+            'CHECKED_NO_NEW_CANDIDATE' if published==0 else 'CHECKED',
             observed_at_utc=int(time.time()),captures=captures,originals_changed=False,
+            candidate_published_count=published,capture_attempt_count=len(captures),
+            eligible_not_yet_saved_count=len(ready),
+            requested_fixture_id=preferred_fixture_id,requested_fixture_status=targeted,
             performance=self.performance(self.worker.labels()))
         return self.last_report
 
@@ -233,7 +299,7 @@ class CurrentAssessments:
             # persisted before the current candidate, and independently settled.
             # Missing publication clocks or original numbers are NOT backfilled.
             if (type(issued) is int and type(archived) is int and
-                    0<issued<=archived<=p['prediction_generated_at_utc']<r['fixture_start_utc']-900 and
+                    0<issued<=archived<=p['prediction_generated_at_utc']<r['fixture_start_utc']-POLICY['minimum_lead_seconds'] and
                     isinstance(original,(list,tuple)) and len(original)==2 and
                     all(type(v) in (int,float) and np.isfinite(v) and v>=0 for v in original)):
                 baseline=dict(prediction=list(original),actual=r['actual'],
@@ -297,27 +363,53 @@ class CurrentAssessments:
             rendered.append(self.render(ctx))
         return '\n\n'.join(rendered)
 
-    def latest(self,context):
+    def latest_display(self,context):
+        """Read recent V3 for Telegram without scanning every unrelated game.
+
+        Only the last two hour slots can contain a candidate still within
+        the configured headline freshness contract. Older V3 remains in its
+        durable archive but cannot become a live score.
+        """
         if not (self.root/'policy.json').is_file():return None
-        self.plan();pin=context.get('original_forecast_sha256') or digest(context)
-        fid=context['fixture_id'];rows=[r['payload'] for r in self.registry.records() if r['payload']['fixture']['canonical_id']==fid]
+        plan=self.plan()
+        rows=self.registry.recent_fixture(
+            context['fixture_id'],plan['sha256'],now_utc=int(time.time()))
         if not rows:return None
-        p=max(rows,key=lambda r:r['prediction_generated_at_utc'])
+        p=max((r['payload'] for r in rows),key=lambda r:r['prediction_generated_at_utc'])
         self.registry.validate_assets(p)
-        if p['original_snapshot_sha256']!=pin:raise ValueError('CURRENT_ASSESSMENT_ORIGINAL_PIN')
+        self._verify_context_pin(context,p)
+        return p
+
+    @staticmethod
+    def _verify_context_pin(context,p):
+        pin=context.get('original_forecast_sha256') or digest(context)
+        if p['original_snapshot_sha256']!=pin:
+            raise ValueError('CURRENT_ASSESSMENT_ORIGINAL_PIN')
         t=p['fixture']
-        if (t['league'].upper()!=context['league'].upper() or t['season']!=context['season'] or
+        if (t['league'].upper()!=context['league'].upper() or
+                t['season']!=context['season'] or
                 t['fixture_start_utc']!=context['fixture_start_utc'] or
                 any(t[s+'_team_id']!=context[s]['provider_id'] for s in ('home','away'))):
             raise ValueError('CURRENT_ASSESSMENT_FIXTURE_BINDING')
+
+    def latest(self,context):
+        if not (self.root/'policy.json').is_file():return None
+        self.plan()
+        fid=context['fixture_id']
+        rows=[r['payload'] for r in self.registry.records()
+              if r['payload']['fixture']['canonical_id']==fid]
+        if not rows:return None
+        p=max(rows,key=lambda r:r['prediction_generated_at_utc'])
+        self.registry.validate_assets(p)
+        self._verify_context_pin(context,p)
         return p
 
     def market_context(self,context):
         p=self.latest(context)
         if p is None:return None
         now=int(time.time());age=now-p['prediction_generated_at_utc']
-        if not 0<=age<=3600 or now>=p['fixture']['fixture_start_utc']:raise Abstain('CURRENT_ASSESSMENT_STALE_OR_STARTED')
-        if now-p['parameter_fit_cutoff_utc']>21600:raise Abstain('CURRENT_MODEL_TOO_OLD')
+        if not 0<=age<=POLICY['candidate_freshness_seconds'] or now>=p['fixture']['fixture_start_utc']:raise Abstain('CURRENT_ASSESSMENT_STALE_OR_STARTED')
+        if now-p['parameter_fit_cutoff_utc']>POLICY['maximum_model_age_seconds']:raise Abstain('CURRENT_MODEL_TOO_OLD')
         ref=next(r for r in p['assets'] if r['file'].startswith('joint-paths-'))
         asset=self.registry.read_asset(ref);q=p['candidate']
         samples=np.asarray(asset['samples'])
@@ -352,7 +444,7 @@ class CurrentAssessments:
             age='bilinmiyor' if type(cutoff) is not int else str(max(0,int(time.time())-cutoff)//3600)+' saat'
             return 'Güncel araştırma değerlendirmesi: kayıt henüz yok; ilk tahmin gösteriliyor.\nİlk modelin parametre yaşı: '+age
         q=p['candidate'];now=int(time.time())
-        fresh=0<=now-p['prediction_generated_at_utc']<=3600 and now<context['fixture_start_utc'] and now-p['parameter_fit_cutoff_utc']<=21600
+        fresh=0<=now-p['prediction_generated_at_utc']<=POLICY['candidate_freshness_seconds'] and now<context['fixture_start_utc'] and now-p['parameter_fit_cutoff_utc']<=POLICY['maximum_model_age_seconds']
         return '\n'.join(['🧪 '+('GÜNCEL' if fresh else 'ARŞİV')+' ARAŞTIRMA DEĞERLENDİRMESİ',
             q['model'],f"Ev {q['home']:.2f} · Dep {q['away']:.2f} · Toplam {q['total']:.2f}",
             'Hesap: '+tsi(p['prediction_generated_at_utc'])+' · Model kesiti: '+tsi(p['parameter_fit_cutoff_utc']),

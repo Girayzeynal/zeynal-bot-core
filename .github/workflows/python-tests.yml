@@ -12,9 +12,13 @@ on:
       - "feature/model-data-pipeline-audit-20261118"
       - "feature/issue90-chronological-engine-audit-20261118"
       - "feature/integrated-test-bot-20261119"
+      - "fix/telegram-current-panels-20261122"
+      - "fix/prematch-five-minute-time-policy-20261123"
   pull_request:
     branches:
       - main
+      - "fix/telegram-current-panels-20261122"
+      - "fix/v3-request-retry-audit-20261123"
       - "dev/**"
       - "feature/hybrid-telegram-optin-20261114"
       - "feature/hybrid-market-roster-evidence-20261114"
@@ -23,6 +27,7 @@ on:
       - "feature/europe-alias-replay-ui-20261118"
       - "feature/model-data-pipeline-audit-20261118"
       - "feature/issue90-chronological-engine-audit-20261118"
+      - "feature/three-league-roster-integration-20261121"
 
 jobs:
   unit-tests:

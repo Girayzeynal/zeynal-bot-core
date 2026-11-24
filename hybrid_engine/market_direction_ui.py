@@ -42,8 +42,12 @@ def cards(view,forecast,*,tipoff_utc,fixture_id,batch=None):
         (published is None or 0<=asof-published<=POLICY['quote_max_age_seconds']) and
         (batch is None or batch['payload']['record_class']=='PREGAME_CURRENT_REVIEW'))
     if 'parameter_fit_age_seconds' in view:
+        from hybrid_engine.time_policy import MAXIMUM_V3_MODEL_AGE_SECONDS
         age=view['parameter_fit_age_seconds']
-        current=current and type(age) is int and 0<=age<=21600
+        v3=(view.get('research_record_type')=='CURRENT_RESEARCH_ASSESSMENT_V1' and
+            view.get('model_fit_age_limit_seconds')==MAXIMUM_V3_MODEL_AGE_SECONDS)
+        ceiling=MAXIMUM_V3_MODEL_AGE_SECONDS if v3 else 21600
+        current=current and type(age) is int and 0<=age<=ceiling
     out=[]
     for row in view['rows']:
         p=row['conditional_regulation_probabilities']
@@ -104,6 +108,12 @@ def render(card):
     lines.extend([mean_label+': '+number(card['mean']),
         f"Ham normal süre: {under} %{number(100*p['under'])} · {over} %{number(100*p['over'])}"])
     if p['push']>0:lines.append(('Normal süre eşitliği' if kind=='WINNER' else 'Baremle eşit skor')+': %'+number(100*p['push']))
+    lines.append('⚠️ SÖZLEŞME UYUMU DOĞRULANMADI: Model NORMAL SÜRE (48 dk) hesaplar; '
+                 'bahis şirketinin uzatma dahil olma ve ödeme kuralları bu model yüzdelerine '
+                 'eşlenmedi. Yüzde, doğrulanmış bahis kazanma olasılığı değildir.')
+    if kind=='WINNER':
+        lines.append('Maç sonucu: Normal süre beraberliği modelde ayrı tutulur; '
+                     'iki yönlü bahis piyasasındaki uzatma sonucuna otomatik aktarılmaz.')
     if card['prices']:lines.append('Oranlar: '+', '.join((under if side=='under' else over)+' '+line_number(price) for side,price in card['prices'].items()))
     if card['method']=='MANUAL_SCREENSHOT':lines.append('MANUEL EKRAN AKTARIMI · Alanlar bağımsız doğrulanmadı')
     if card['post_tipoff']:lines.append('Maç başladı; yalnız arşiv incelemesi.')

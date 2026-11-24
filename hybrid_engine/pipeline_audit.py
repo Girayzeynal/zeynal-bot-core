@@ -25,15 +25,23 @@ def code(value):
     return value if value in KNOWN else 'UNRECOGNIZED_STATUS_NOT_EXPORTED'
 
 
-def inventory(directory,pattern,*,maximum_files=None,maximum_bytes=None):
+def inventory(directory,pattern,*,maximum_files=None,maximum_bytes=None,include_segments=False):
     directory=local_path(directory)
-    files=list(islice(directory.glob(pattern),4097)) if directory.exists() else []
-    if len(files)>4096:return dict(status='SCAN_LIMIT_REACHED')
+    limit=65793 if include_segments else 4096
+    legacy=list(islice(directory.glob(pattern),limit+1)) if directory.exists() else []
+    segmented=(list(islice(directory.glob('segments/??/'+pattern),max(0,limit+1-len(legacy))))
+               if include_segments and directory.exists() else [])
+    files=legacy+segmented
+    if len(files)>limit:return dict(status='SCAN_LIMIT_REACHED')
     size=sum(local_path(p).stat().st_size for p in files)
     full=(maximum_files is not None and len(files)>=maximum_files or
           maximum_bytes is not None and size>=maximum_bytes)
     result=dict(status='CAPACITY_REACHED' if full else 'AVAILABLE' if files else 'NO_RECORDS',
                 files=len(files),bytes=size,maximum_files=maximum_files,maximum_bytes=maximum_bytes)
+    if include_segments:
+        result.update(legacy_files=len(legacy),segmented_files=len(segmented),
+                      storage_layout='IMMUTABLE_LEGACY_PLUS_SHA_PREFIX_SEGMENTS',
+                      legacy_at_capacity=len(legacy)>=256)
     records=[]
     # Bounded recent sample, not a complete source history or an active check.
     for path in sorted(files,key=lambda p:p.stat().st_mtime,reverse=True)[:24]:
@@ -97,11 +105,12 @@ def audit(directory,*,model_path=None,model_sha256=None,verify_archive=True):
         api_requests_made=0,predictions_recomputed=False,online_training=False,
         records_deleted=0,records_overwritten=0,production_changed=False,
         running_process_verified=False,actual_telegram_delivery_verified=False)
-    configs=[('provider-evidence','provider-*.json',256,32*1024*1024),
+    configs=[('provider-evidence','provider-*.json',None,None),
              ('europe-provider-evidence','provider-*.json',256,32*1024*1024),
              ('europe-data/sources','source-*.json',64,16*1024*1024),
              ('europe-data/reviews','review-*.json',256,16*1024*1024)]
-    result['local_evidence']={name:inventory(root/name,pattern,maximum_files=files,maximum_bytes=size)
+    result['local_evidence']={name:inventory(root/name,pattern,maximum_files=files,maximum_bytes=size,
+                                            include_segments=name=='provider-evidence')
                               for name,pattern,files,size in configs}
     result['europe_archives']={c:audit_europe(root/'europe'/c.lower(),c) for c in ('EUROLEAGUE','EUROCUP')}
     ledger=root/'live-nba/nba-hybrid.sqlite'

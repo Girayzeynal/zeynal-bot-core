@@ -85,7 +85,7 @@ def render_timeline(text,times):
     if times is None:return text
     text=text.replace('\nKayıt: ','\nİlk snapshot kaydı: ',1)
     lines=[text]
-    if times.get('reused_forecast'):lines.append('Mevcut tahmin yeniden gösteriliyor; yeniden üretilmedi.')
+    if times.get('reused_forecast'):lines.append('İlk kayıtlı tahmin arşivden tekrar okundu; bu komutta yeniden üretilmedi. Ayrı bir araştırma adayı varsa hesap zamanı kendi kartında gösterilir.')
     lines.extend(['Üretim: '+tsi(times.get('prediction_generated_at_utc')),
         'İlk kalıcı arşiv: '+tsi(times.get('first_archived_at_utc')),
         'Yanıt hazırlandı: '+tsi(times['response_prepared_at_utc'])])

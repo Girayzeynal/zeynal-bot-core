@@ -57,6 +57,33 @@ def source_pair(s,*,offset=0,at=NOW):
     return discovery,receipt(e,base+'/'+e['id']+'/odds',at)
 
 
+def dubai_partizan_snapshot():
+    official=[
+        dict(code='DUB',name='Dubai Basketball',abbreviatedName='Dubai Basketball',
+             editorialName='Dubai Basketball',clubPermanentName='Dubai Basketball',
+             city='DUBAI',tvCode='DUB',isVirtual=False),
+        dict(code='PAR',name='Partizan Mozzart Bet Belgrade',abbreviatedName='Partizan',
+             editorialName='Partizan',clubPermanentName='Partizan Mozzart Bet Belgrade',
+             city='BELGRADE',tvCode='PAR',isVirtual=False)]
+    s=snapshot(clubs=official)
+    s['home']=dict(provider_id='DUB',official_name='Dubai Basketball')
+    s['away']=dict(provider_id='PAR',official_name='Partizan Mozzart Bet Belgrade')
+    return s
+
+
+def dubai_partizan_receipts(s,*,home='Dubai Basketball',away='KK Partizan NIS',offset=0):
+    iso=lambda t:datetime.fromtimestamp(t,timezone.utc).isoformat()
+    base='https://api.the-odds-api.com/v4/sports/basketball_euroleague/events'
+    e=dict(id='SYNTHETIC_DUBAI_PAR_ONLY',sport_key='basketball_euroleague',
+           home_team=home,away_team=away,commence_time=iso(s['fixture_start_utc']+offset))
+    discovery=receipt([deepcopy(e)],base)
+    e['bookmakers']=[dict(key='synthetic',title='SYNTHETIC ONLY',
+       last_update=iso(NOW-1),markets=[dict(key='totals',last_update=iso(NOW-1),
+       outcomes=[dict(name='Over',point=158.5,price=1.91),
+                 dict(name='Under',point=158.5,price=1.91)])])]
+    return discovery,receipt(e,base+'/'+e['id']+'/odds')
+
+
 class EuropeanProviderIdentityTests(TestCase):
     def setUp(self):
         timer=patch('time.time',return_value=NOW);timer.start();self.addCleanup(timer.stop)
@@ -76,6 +103,52 @@ class EuropeanProviderIdentityTests(TestCase):
         self.assertEqual({o['payload']['quotes'][0]['market'] for o in observations},{'WINNER','HOME_HANDICAP','TOTAL','HOME'})
         self.assertTrue(all(o['payload']['calibration_status']=='NOT_CALIBRATED' for o in observations))
         self.assertEqual(q,before)
+
+    def test_exact_2026_dubai_partizan_nis_alias_accepts_native_event_and_quotes(self):
+        s=dubai_partizan_snapshot()
+        original=deepcopy(s)
+        discovery,detail=dubai_partizan_receipts(s)
+        self.assertTrue(matches(discovery['document'][0],s))
+        self.assertEqual(side_for('KK Partizan NIS',s),'away')
+        event,binding=bind(discovery,s)
+        self.assertEqual(event['away_team'],'KK Partizan NIS')
+        self.assertEqual(binding['payload']['rule'],'EUROPE_EXACT_HISTORIC_PARTIZAN_NIS_PAR_V2')
+        self.assertEqual(binding['payload']['delta_seconds'],0)
+        self.assertEqual(binding['payload']['team_identity']['historic_label_target'],'EUROLEAGUE_LIVE:PAR')
+        self.assertEqual(verify_detail(discovery,detail,s),binding)
+        observations,rejected=odds_observations(detail,s,discovery=discovery)
+        self.assertEqual(rejected,0)
+        self.assertEqual(len(observations),1)
+        self.assertEqual(s,original)
+        self.assertEqual(observations[0]['payload']['calibration_status'],'NOT_CALIBRATED')
+
+    def test_partizan_historic_alias_refuses_other_spelling_team_id_season_and_clock(self):
+        s=dubai_partizan_snapshot()
+        for label in ('Partizan NIS','KK Partizan 2026','KK Partizan Mozzart NIS'):
+            with self.subTest(label=label):
+                d,_=dubai_partizan_receipts(s,away=label)
+                self.assertFalse(matches(d['document'][0],s))
+        bad=deepcopy(s);bad['away']['provider_id']='BES'
+        self.assertFalse(matches(dubai_partizan_receipts(bad)[0]['document'][0],bad))
+        old=deepcopy(s);old['season']='2025/2026'
+        self.assertFalse(matches(dubai_partizan_receipts(old)[0]['document'][0],old))
+        for offset in (1,600,-600):
+            d,_=dubai_partizan_receipts(s,offset=offset)
+            with self.subTest(offset=offset),self.assertRaises(ValueError):bind(d,s)
+        d,_=dubai_partizan_receipts(s,home='KK Partizan NIS',away='Dubai Basketball')
+        self.assertFalse(matches(d['document'][0],s))
+        d,_=dubai_partizan_receipts(s)
+        d['document'].append(deepcopy(d['document'][0]))
+        d['document_sha256']=digest(d['document'])
+        with self.assertRaisesRegex(ValueError,'AMBIGUOUS'):bind(d,s)
+
+    def test_existing_official_partizan_name_retains_v1_binding(self):
+        s=dubai_partizan_snapshot()
+        d,q=dubai_partizan_receipts(s,away='Partizan Mozzart Bet Belgrade')
+        e,b=bind(d,s)
+        self.assertEqual(b['payload']['rule'],RULE)
+        self.assertNotIn('historic_label',b['payload']['team_identity'])
+        self.assertEqual(verify_detail(d,q,s),b)
 
     def test_source_aliases_work_without_general_fuzzy_or_sponsor_guessing(self):
         s=snapshot()

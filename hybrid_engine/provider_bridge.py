@@ -182,33 +182,60 @@ class ProviderBridge:
         self.rule_book=rule_book if rule_book is not None else RuleBook.configured()
         self.assessments=None
 
+    def _receipt_paths(self, pin):
+        """Keep legacy root pins readable; new evidence is SHA-prefix sharded.
+
+        Never relocate or rewrite old native receipts; no destructive rotation.
+        Exact canonical filenames and local_path reject traversal and symlinks.
+        """
+        filename='provider-'+pin+'.json'
+        return (local_path(self.root/filename),
+                local_path(self.root/'segments'/pin[:2]/filename))
+
     def storage_status(self):
-        files=list(self.root.glob('provider-*.json')) if self.root.exists() else []
+        legacy=list(self.root.glob('provider-*.json')) if self.root.exists() else []
+        segmented=list(self.root.glob('segments/??/provider-*.json')) if self.root.exists() else []
+        files=legacy+segmented
         size=sum(local_path(p).stat().st_size for p in files)
-        return dict(files=len(files),bytes=size,maximum_files=256,maximum_bytes=32*1024*1024,
-                    status='LOCAL_EVIDENCE_STORAGE_FULL' if len(files)>=256 or size>=32*1024*1024 else 'AVAILABLE')
+        # Legacy root is immutable; its full 256-file limit no longer blocks
+        # new evidence. An individual segment still fails closed if full.
+        segment_sizes={}
+        for p in segmented:
+            name=p.parent.name
+            n,b=segment_sizes.get(name,(0,0))
+            segment_sizes[name]=(n+1,b+local_path(p).stat().st_size)
+        saturated=sum(n>=256 or b>=32*1024*1024 for n,b in segment_sizes.values())
+        return dict(files=len(files),bytes=size,legacy_files=len(legacy),
+                    segmented_files=len(segmented),segments=len(segment_sizes),
+                    legacy_at_capacity=len(legacy)>=256,
+                    segment_maximum_files=256,segment_maximum_bytes=32*1024*1024,
+                    status=('LOCAL_EVIDENCE_STORAGE_FULL' if saturated==256 else 'AVAILABLE'))
 
     def _save(self, payload):
-        root = self.root
-        pin=digest(payload);target=root/('provider-'+pin+'.json')
-        if target.exists():
-            self.read_receipt(pin)  # existing evidence must still authenticate
+        pin=digest(payload)
+        legacy,target=self._receipt_paths(pin)
+        if legacy.exists() or target.exists():
+            self.read_receipt(pin)  # authenticate either historic or sharded receipt
             return pin
-        wrapper = dict(payload=payload, sha256=pin)
-        body_bytes = len((json.dumps(wrapper, sort_keys=True, allow_nan=False)+'\n').encode())
-        if root.exists():
-            files = list(root.glob('provider-*.json'))
-            if len(files) >= 256 or sum(p.stat().st_size for p in files)+body_bytes > 32*1024*1024:
+        wrapper=dict(payload=payload,sha256=pin)
+        body_bytes=len((json.dumps(wrapper,sort_keys=True,allow_nan=False)+'\n').encode())
+        if body_bytes>3*1024*1024:
+            raise EvidenceCapacityError('PROVIDER_RECEIPT_SIZE_LIMIT')
+        if target.parent.exists():
+            files=list(target.parent.glob('provider-*.json'))
+            if (len(files)>=256 or
+                sum(local_path(p).stat().st_size for p in files)+body_bytes>32*1024*1024):
                 raise EvidenceCapacityError('PROVIDER_EVIDENCE_FILE_OR_STORAGE_BUDGET')
-        root.mkdir(parents=True, exist_ok=True)
-        publish_json(root/('provider-'+wrapper['sha256']+'.json'), wrapper)
-        return wrapper['sha256']
+        target.parent.mkdir(parents=True,exist_ok=True)
+        publish_json(target,wrapper)
+        return pin
 
     def read_receipt(self, pin):
-        """Read only our bounded, content-addressed native evidence, never a DB."""
+        """Authenticate immutable legacy or SHA-prefix segment native evidence."""
         if not isinstance(pin,str) or re.fullmatch('[0-9a-f]{64}',pin) is None:
             raise ValueError('PROVIDER_RECEIPT_PIN_REQUIRED')
-        path=local_path(self.root/('provider-'+pin+'.json'))
+        legacy,target=self._receipt_paths(pin)
+        path=legacy if legacy.exists() or legacy.is_symlink() else target
         if path.stat().st_size>3*1024*1024:raise ValueError('PROVIDER_RECEIPT_SIZE_LIMIT')
         body=json.loads(path.read_text())
         if not isinstance(body,dict) or body.get('sha256')!=pin or 'payload' not in body or digest(body['payload'])!=pin:
@@ -486,12 +513,17 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
     report = bridge.collect(snapshot)
     parts = [render(report)]
     direction_cards=[]
+    # Exact source/model context used to evaluate returned direction cards.
+    # Expose only an authenticated current-assessment snapshot, never the old first-model pin.
+    market_candidate_snapshot=None
     observations = report['providers'].get('THE_ODDS_API', {}).get('observations', [])
     if observations:
         assessment=bridge.assessments.available_market_context(snapshot) if getattr(bridge,'assessments',None) else None
         if getattr(bridge,'assessments',None) and assessment is None:
             parts.append('Güncel değerlendirme yolları hazır/güncel değil; piyasa ilk tahminin dağılımıyla ayrı referans olarak gösteriliyor.')
         evaluation_snapshot,distribution=assessment if assessment else (snapshot,replay_nba(snapshot,service))
+        if assessment is not None:
+            market_candidate_snapshot=evaluation_snapshot
         row=report['providers']['THE_ODDS_API']
         try:
             discovery=bridge.read_receipt(row['discovery_source_pin'])
@@ -518,4 +550,7 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
                     direction_cards.extend(cards(review,distribution.forecast,
                         tipoff_utc=snapshot['fixture_start_utc'],fixture_id=snapshot['fixture_id'],batch=batch))
     full='\n\n'.join(parts)
-    return dict(html=full,cards=direction_cards) if structured else full
+    source_state=(report.get('providers',{}).get('THE_ODDS_API') or {}).get('status') or report.get('status','UNKNOWN')
+    return (dict(html=full,cards=direction_cards,market_candidate_snapshot=market_candidate_snapshot,
+                 market_source_status=source_state,market_native_observations=len(observations))
+            if structured else full)

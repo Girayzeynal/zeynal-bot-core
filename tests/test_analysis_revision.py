@@ -73,10 +73,10 @@ class AssessmentTests(TestCase):
         self.assertEqual(p['original_snapshot_sha256'],newer['original_snapshot_sha256'])
         for name,raw in before.items():self.assertEqual((self.root/name).read_bytes(),raw)
 
-    def test_stale_model_last_fifteen_and_fixture_tampering_cannot_publish(self):
-        old=deepcopy(self.model);old['payload']['cutoff_utc']=self.h.now-21601;old['sha256']=digest(old['payload'])
+    def test_stale_model_and_five_minute_window_cannot_publish(self):
+        old=deepcopy(self.model);old['payload']['cutoff_utc']=self.h.now-86401;old['sha256']=digest(old['payload'])
         with self.assertRaisesRegex(Abstain,'MODEL_TOO_OLD'):self.assess._capture(self.case,old,self.plan)
-        self.h.now=self.target['fixture_start_utc']-900
+        self.h.now=self.target['fixture_start_utc']-300
         with self.assertRaises(Abstain):self.capture()
         self.assertEqual(self.assess.registry.records(),[])
 
@@ -151,6 +151,23 @@ class AssessmentTests(TestCase):
         missing=dict(original);missing.pop('first_archived_at_utc')
         self.assertEqual(self.assess.performance([missing])['groups'][0]['paired_n'],0)
 
+    def test_empty_research_cycle_is_not_reported_as_published_score(self):
+        self.worker.cases=lambda:[]
+        report=self.assess.tick()
+        self.assertEqual(report['status'],'CHECKED_NO_NEW_CANDIDATE')
+        self.assertEqual(report['candidate_published_count'],0)
+        self.assertEqual(report['capture_attempt_count'],0)
+        self.assertEqual(report['captures'],[])
+        self.assertEqual(len(self.assess.registry.records()),0)
+
+    def test_requested_fixture_exposes_exact_eligibility_blocker(self):
+        self.worker.cases=lambda:[]
+        report=self.assess.tick(preferred_fixture_id='expected-nba-fixture')
+        self.assertEqual(report['status'],'PARTIAL_ABSTAIN')
+        self.assertEqual(report['requested_fixture_status'],'NOT_ELIGIBLE')
+        self.assertEqual(report['candidate_published_count'],0)
+        self.assertEqual(report['captures'][0]['reason'],'CURRENT_REQUESTED_FIXTURE_NOT_ELIGIBLE')
+
     def test_tick_archives_candidate_without_hundred_match_calibration_gate(self):
         report=self.assess.tick();self.assertEqual(report['captures'][0]['status'],'ARCHIVED')
         self.assertEqual(len(self.assess.registry.records()),1)
@@ -173,7 +190,7 @@ class AssessmentTests(TestCase):
         from hybrid_engine.adaptive_research import Registry
         original=Registry.record
         def cross(registry,payload):
-            p,new=original(registry,payload);self.h.now=self.target['fixture_start_utc']-899
+            p,new=original(registry,payload);self.h.now=self.target['fixture_start_utc']-299
             return p,new
         with patch.object(Registry,'record',cross):
             with self.assertRaisesRegex(Abstain,'LATE_COMMIT_EXCLUDED'):self.capture()
@@ -266,6 +283,31 @@ class RuleBindingTests(TestCase):
         result=cards(view,self.h.dist.forecast,tipoff_utc=self.h.snap['fixture_start_utc'],fixture_id=self.h.snap['fixture_id'])
         self.assertTrue(result);self.assertFalse(any(c['current'] for c in result))
 
+    def test_current_v3_market_uses_24h_ceiling_but_legacy_stays_6h(self):
+        from hybrid_engine.market_direction_ui import cards
+        from hybrid_engine.time_policy import MAXIMUM_V3_MODEL_AGE_SECONDS
+        asof=market.NOW
+        context=dict(self.h.snap,record_type='CURRENT_RESEARCH_ASSESSMENT_V1',
+                     parameter_fit_cutoff_utc=asof-7*3600)
+        current=evaluate_bound(SimpleNamespace(rule_book=self.book()),self.h.obs,self.h.dist,
+                               context,asof_utc=asof,native_quotes=self.h.quotes)
+        self.assertEqual(current['model_fit_age_limit_seconds'],MAXIMUM_V3_MODEL_AGE_SECONDS)
+        self.assertNotEqual(current['rows'][0]['status'],'MODEL_PARAMETERS_STALE')
+        shown=cards(current,self.h.dist.forecast,tipoff_utc=self.h.snap['fixture_start_utc'],
+                    fixture_id=self.h.snap['fixture_id'])
+        self.assertTrue(shown)
+        self.assertTrue(any(c['current'] for c in shown))
+        legacy=self.evaluate(self.book(),asof-7*3600)
+        self.assertEqual(legacy['model_fit_age_limit_seconds'],21600)
+        self.assertEqual(legacy['rows'][0]['status'],'MODEL_PARAMETERS_STALE')
+        context['parameter_fit_cutoff_utc']=asof-MAXIMUM_V3_MODEL_AGE_SECONDS-1
+        expired=evaluate_bound(SimpleNamespace(rule_book=self.book()),self.h.obs,self.h.dist,
+                               context,asof_utc=asof,native_quotes=self.h.quotes)
+        self.assertEqual(expired['rows'][0]['status'],'MODEL_PARAMETERS_STALE')
+        self.assertFalse(any(c['current'] for c in cards(
+            expired,self.h.dist.forecast,tipoff_utc=self.h.snap['fixture_start_utc'],
+            fixture_id=self.h.snap['fixture_id'])))
+
     def test_tampered_manifest_and_ambiguous_rules_refused(self):
         book=self.book();w=json.loads(book.path.read_text());w['payload']['entries']*=2
         w['sha256']=digest(w['payload']);book.path.write_text(json.dumps(w))
@@ -282,11 +324,79 @@ class RuleBindingTests(TestCase):
         with patch('hybrid_engine.market_views.replay_nba',return_value=self.h.dist):
             panel=nba_provider_panel(snapshot,None,bridge,structured=True)
         self.assertIn('Ham model beklenen getirisi',panel['html'])
+        self.assertEqual(panel['market_source_status'],'OBSERVED_RULES_AND_CALIBRATION_PENDING')
+        self.assertGreater(panel['market_native_observations'],0)
         self.assertGreater(len(panel['cards']),0)
         self.assertTrue(all(c['calibration_status']=='NOT_CALIBRATED' for c in panel['cards']))
 
 
 class CycleTests(IsolatedAsyncioTestCase):
+    async def test_user_fixture_priority_is_processed_after_v2_without_telegram_fit(self):
+        order=[]
+        async def v2():
+            order.append('v2')
+            return dict(status='CHECKED')
+        def tick(*,preferred_fixture_id=None):
+            order.append('current:'+str(preferred_fixture_id))
+            return dict(status='CHECKED',requested_fixture_status='PUBLISHED_OR_REPLAYED')
+        app=SimpleNamespace(bot_data={})
+        cycle=ResearchCycle(SimpleNamespace(tick=v2),None,SimpleNamespace(tick=tick))
+        requested_at=1795339800
+        with patch('hybrid_engine.research_diagnostics.time.time',return_value=requested_at):
+            self.assertTrue(cycle.request_fixture(dict(league='NBA',fixture_id='requested-nba-match',
+                fixture_start_utc=requested_at+7200)))
+            self.assertTrue(cycle.request_fixture(dict(league='NBA',fixture_id='requested-nba-match',
+                fixture_start_utc=requested_at+7200)))
+            self.assertEqual(len(cycle.requested_fixtures),1)
+            await cycle.once(app)
+        self.assertEqual(order,['v2','current:requested-nba-match'])
+        self.assertEqual(cycle.requested_fixtures,[])
+        self.assertEqual(app.bot_data['last_current_assessment_poll']['status'],'CHECKED')
+
+    async def test_requested_fixture_retries_after_abstain_then_clears_only_on_publication(self):
+        outcomes=iter(('FAILED_OR_ABSTAIN','PUBLISHED_OR_REPLAYED'))
+        seen=[]
+        async def v2():return dict(status='CHECKED')
+        def current(*,preferred_fixture_id=None):
+            result=next(outcomes)
+            seen.append((preferred_fixture_id,result))
+            return dict(status='PARTIAL_ABSTAIN' if result=='FAILED_OR_ABSTAIN' else 'CHECKED',
+                        requested_fixture_status=result)
+        t=1795339800
+        app=SimpleNamespace(bot_data={})
+        cycle=ResearchCycle(SimpleNamespace(tick=v2),None,SimpleNamespace(tick=current))
+        with patch('hybrid_engine.research_diagnostics.time.time',return_value=t):
+            self.assertTrue(cycle.request_fixture(dict(league='NBA',fixture_id='ind-okc',
+                fixture_start_utc=t+7200)))
+            await cycle.once(app)
+            self.assertEqual(cycle.requested_fixtures,['ind-okc'])
+            self.assertEqual(app.bot_data['last_current_assessment_poll']['requested_fixture_status'],
+                             'FAILED_OR_ABSTAIN')
+            await cycle.once(app)
+        self.assertEqual(seen,[('ind-okc','FAILED_OR_ABSTAIN'),('ind-okc','PUBLISHED_OR_REPLAYED')])
+        self.assertEqual(cycle.requested_fixtures,[])
+        self.assertEqual(cycle.requested_deadlines,{})
+
+    async def test_requested_fixture_expiry_never_retries_after_cutoff(self):
+        called=[]
+        async def v2():return dict(status='CHECKED')
+        def current(*,preferred_fixture_id=None):
+            called.append(preferred_fixture_id)
+            return dict(status='CHECKED',requested_fixture_status='FAILED_OR_ABSTAIN')
+        t=1795339800
+        app=SimpleNamespace(bot_data={})
+        cycle=ResearchCycle(SimpleNamespace(tick=v2),None,SimpleNamespace(tick=current))
+        with patch('hybrid_engine.research_diagnostics.time.time',return_value=t):
+            self.assertTrue(cycle.request_fixture(dict(league='NBA',fixture_id='expires',
+                fixture_start_utc=t+1800)))
+            await cycle.once(app)
+        self.assertEqual(cycle.requested_fixtures,['expires'])
+        with patch('hybrid_engine.research_diagnostics.time.time',return_value=t+1501):
+            await cycle.once(app)
+        self.assertEqual(called,['expires',None])
+        self.assertEqual(cycle.requested_fixtures,[])
+        self.assertEqual(cycle.requested_deadlines,{})
+
     async def test_player_input_v2_before_slow_v3_one_failure_does_not_starve_stages(self):
         order=[]
         def v3():order.append('v3');raise ValueError('DYNAMIC_RECENT_TEAM_HISTORY_REQUIRED')
