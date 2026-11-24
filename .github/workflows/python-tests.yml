@@ -30,6 +30,7 @@ on:
       - "feature/model-data-pipeline-audit-20261118"
       - "feature/issue90-chronological-engine-audit-20261118"
       - "feature/three-league-roster-integration-20261121"
+      - "feat/first-forecast-walkforward-20261124"
 
 jobs:
   unit-tests:
