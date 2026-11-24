@@ -1,6 +1,6 @@
 # ZEYNAL — üç başlıkta otonom tamamlama çalışma kaydı
 
-Bu dosya oturum devam noktasıdır. Durum: **DENETİM / GELİŞTİRME SÜRÜYOR**.
+Bu dosya oturum devam noktasıdır. Durum: **2255 PYTHON TESTİ GEÇTİ / DOCKER VE CANLI KABUL AYRI İZLENİYOR**.
 Sistemin veya canlı kabulün tamamlandığı iddiası değildir.
 
 ## Senkronizasyon ve koruma
@@ -303,3 +303,109 @@ bekler; bu başarısız run başarılı gösterilmeyecek.
   testinde legacy ön-fit uyarıları görüldü; yeni adayın doğrulaması fit önüne
   taşındı, uyarı bastırılmadı. Ağ kısıtlı sandbox asyncio yerel socket'i
   beklettiğinden o koşu durduruldu; loopback izinli yeniden koşu tamamlandı.
+
+## Güncel kapsam matrisi — başlangıç listesinin karşılığı
+
+Başlangıç tabloları ilk inceleme durumudur. Aşağıdaki matris bu çalışmanın
+son kod kapsamını ve açık sınırlarını bildirir. `DOĞRULANDI` yalnız belirtilen
+test/kaynak gözlemidir; gerçek Telegram kabulü anlamına gelmez.
+
+### Veri sağlayıcıları / piyasalar
+
+| Kapsam | Durum ve doğrulama | Açık sınır |
+| --- | --- | --- |
+| ESPN, resmî Avrupa fikstürü, sezon/maç/UTC/TSİ | DOĞRULANDI: native 200 makbuzları; exact kimlik ve sezon/yerel takvim regresyonları | UserLAnd çalışan süreç ve cihaz arşivi burada yok |
+| NBA resmî kadro/PDF | DOĞRULANDI: gerçek 301→sabit 200 index, PDF ve DET@ORL eşleşmesi; canonical düzeltme | Kaynak probe'u ilk tahmin veya doğrulanmış dakika değildir |
+| The Odds API / API-Basketball | KODLANDI_CANLI_DEĞİL: partial/duplicate, bütçe, timeout, fallback, kredi/UTC-gün reset, provider kimliği ve tarih testleri | Cloud'da iki anahtar da yok; abonelik ve tüm lig fiyat kapsamı NOT_VERIFIED |
+| Nesine | DIŞ_ENGEL: anonim resmî katalog isteği timeout/read bütçesi içinde alınamadı | Bu entegrasyonda doğrulanmış native Nesine fiyat/ödeme adaptörü yok; başka book fiyatı Nesine sayılmaz |
+| Basketball Sphere / Eurohoops / Basketlogy | KISMİ: ilk ikisinde index adayı, Basketlogy robots engeli | Haber indexi oyuncu durumu/ceza/maç kadrosu doğrulaması değildir |
+| 82 kulüp | DOĞRULANDI: 82/82 denendi, 75 index gözlemi, 7 erişim engeli | Injury feed doğrulaması 0; robots/403/redirect kısıtları aşılmadı |
+| 403 / 429 / 503 / bağlantı / timeout / bozuk schema | KODLANDI_CANLI_DEĞİL: bounded retry, public origin cooldown, HTTP-date Retry-After, coalescing; native 301 kök nedeni düzeltildi | Bir başarısız provider verisi diğer provider'a aitmiş gibi etiketlenmez |
+| Önbellek ve API optimizasyonu | KODLANDI_CANLI_DEĞİL: açık 30 sn public reuse, gerçek source saatleri korunur, aynı URL in-flight tekleşir | Cache yeni kaynak yayını değildir; platform kredisi gerçek erişimde ayrıca ölçülmeli |
+| ML / toplam / handikap / takım toplamı | DENETLENDİ: `provider_bridge` core/extended parser + current market/rule sözleşmeleri | Parser desteği canlı sunum veya ödeme doğrulaması değildir |
+| 1Q–4Q / 1H–2H, alternatif toplam/handikap/takım toplamı | DENETLENDİ: `EXTRA_MARKETS` ve exact dönem eşleştirme; kapsam requested/returned/admitted ayrı | Ücretli extended sorgu açık opt-in ve kredi bütçesine bağlı |
+| Oyuncu sayı/ribaund/asist/üçlük/PRA/PR/PA/RA | KISMİ: NBA paired fiyat label parser mevcut, partial kardeşler korunur | Resmî oyuncu kimliği, dakika, dağılım ve ödeme kanıtı olmadan bahis olasılığı yok; Avrupa prop admission yok |
+| Fiyat hareketi / açılış / kapanış | KISMİ: `native_market_history` native saatli yerel fiyat serisi | İlk/son yerel gözlem gerçek piyasa açılışı/kapanışı diye sunulmaz |
+| Platform/dönem/market bazlı normal süre ve OT | DENETLENDİ: pinned `RuleBook`, başka book/gelecek/eksik kural ve OT yolu blokajı | Nesine veya başka platform için elde olmayan kural uydurulmaz; yeni OT adayından otomatik admission yok |
+
+### Modeller / oyuncu / ortak simülasyon
+
+| Kapsam | Durum ve doğrulama | Açık sınır |
+| --- | --- | --- |
+| V1/V2/V3 ve Avrupa referans koruması | DOĞRULANDI: başlangıç SHA'ya göre V1 27, V2 13, V3 9, Avrupa 6, NBA sampler 6 pinned dosyada **0 değişiklik** | V1 frozen araştırma referansıdır; güncel model diye sunulmaz |
+| Güncel skor ve model yaşı | DENETLENDİ: current aday 30 dk yenileme / 45 dk güncellik / 24 saat parametre tavanı; 6 saat uyarı | Aday eksikse ilk arşiv canlı güncel tahmin olmaz; V1'in dondurulmuş katsayıları sessizce refit edilmedi |
+| Oyuncu kimliği / kadro / katılım / ceza / ilk beş | KISMİ: üç lig source bridge, exact native ID, haber ile availability ayrımı korunur | Tam takımın maç öncesi onaylı availability/ilk beşi her maçta yok |
+| Dakika / yerine geçen rotasyon / oyuncu hücum etkisi | KODLANDI_CANLI_DEĞİL: tarihsel association + ayrı rank-bounded dakika-kontrast adayı; 240 dakika bütçesi; ayrı conditional senaryo | Geçmiş gerçek dakika gelecek dakika tahmini değildir; senaryo doğrulanmış sakatlık/yerine geçecek oyuncu demek değildir |
+| Oyuncu savunması / tempo / PBP | KISMİ: mevcut modeller bunu uygulanmış saymaz | Native possession sınırları, bağımsız savunma ve tempo etki fit'i doğrulanmadı |
+| Rakip / form / ev-dep | DENETLENDİ: mevcut V3 dinamik rank/rate ve current değerlendirme yolu; same-cohort testler | Bağımsız ileriye dönük üstünlük henüz kanıtlanmadı |
+| Dinlenme / B2B / seyahat | KISMİ: `nba_schedule_features` ayrı native takvim/gap ve venue-distance ablation | Gerçek yolculuk/uyku/dinlenme ölçümü yok; 30 prospective context etiketi olmadan katsayı yok; current ana skora uygulanmış sayılmaz |
+| V1 mekanik çeyrek / korelasyon / varyans | KISMİ: V1 referans korundu; mevcut stochastic V3 ve üç eksenli quarter adayı ayrı | Eski ilk tahmin çeyrekleri yeniden yazılmaz; paired gerçek quarter üstünlüğü yoksa terfi yok |
+| MC/RQMC ve ortak Q/H/team/full toplamları | DENETLENDİ: ortak path / sample hash / 48–40 dakika; compressed ve legacy byte eşitliği | Ham olasılık güven endeksi değildir; gerçek PBP/rotasyon uyumu ayrıca gerekir |
+| OT | KODLANDI_CANLI_DEĞİL: NBA/EuroLeague native completed-OT block fit; MC ve Halton; normal süre yolları korunur | EuroCup sparse ABSTAIN; strict n=0; live piyasa admission yok |
+| V3–V2 sıra bağımlılığı ve retry | KODLANDI_CANLI_DEĞİL: current önce; bağımsız aşama hata izolasyonu; aç kalan maç fairness testi | Veri bağımlılığı ve tek serial fit korunur; opsiyonel player geçmiş işi yakın yayında ertelenir |
+
+### Hata / kalibrasyon / otomasyon ve kabul
+
+| Kapsam | Durum ve doğrulama | Açık sınır |
+| --- | --- | --- |
+| İlk kayıttan hata, MAE/RMSE/bias/home/away/total/margin/Q/H | DENETLENDİ: mevcut first-forecast/three-axis; oyuncu holdout'a aynı eşleşmiş point metrikleri eklendi | Eksik quarter veya doğrulanmamış eski yayın ayrı dışlanır; 100 beklenmez |
+| ML Brier/log-loss, reliability, interval coverage | DENETLENDİ: ham 3 sınıf normal süre ve doğru paydalar | Point-only oyuncu adayı için bu olasılık metrikleri UNSUPPORTED; olasılık uydurulmaz |
+| Walk-forward / V1–V2–V3 aynı kohort / kalibrasyon | KISMİ: mevcut ayrık kaynak saati testleri ve kabul red guard'ları korundu | Bağımsız görülmemiş maç/kalibrasyon verisi eksik; çalışma sırasında görülen replay kabul verisi değildir |
+| Prematch / otomatik kaynak / öncelik / son 5 dk | DENETLENDİ: T−301/T−300/T−299 ve durable commit saati, replay/restart/lock testleri | Gerçek cihaz saati/süreç yetkili test botunda tekrar doğrulanmalı |
+| Kilit / timeout / hata toparlanma | KODLANDI_CANLI_DEĞİL: exact yayın okuma, failed-stage ayrımı, kaynak ve araştırma cache/retry | Son Docker cgroup ve cihaz kabulü ayrı kanıt gerektirir |
+| Kayıpsız sıkıştırma / arşiv | KODLANDI_CANLI_DEĞİL: dtype/endianness/sample SHA ve native hash korunur, legacy okuyucu var | **512 current kayıt / 256 MiB** güvenli durma tavanı korunur; sınırsız büyüme veya eski namespace birleşimi yok |
+| Dinamik `/analyze` ve düğmeler | DENETLENDİ: dinamik takım/date/lig ayrıştırıcı, tek komut kuralı, Avrupa altı callback ve current/first ayrımı | Bir Telegram mesajına çok komut verilmesi desteklenmez; sabit yeni takım adı eklenmedi |
+| Gerçek Telegram `/analyze`, `/accuracy`, `/compare` | DIŞ_ENGEL / NOT_VERIFIED: Cloud test kimliği yok | PTB local HTTP + sentetik provider E2E gerçek Telegram teslimi değildir |
+| Android / Docker / güvenlik | DENETLENDİ: bash syntax; mevcut UserLAnd launcher, secrets/fallback contract testleri | Telefon çalışması ve Fly mount/restart bu görevde erişilebilir değil; deploy yapılmadı |
+
+## Koruma ve devam kaydı
+
+- V1/V2/V3/Avrupa/NBA sampler pin kanıtı:
+  `docs/evidence/completion-scientific-pins-20261124.json`.
+- Eklenen/değişen 35 dosyada bilinen GitHub/AWS/Telegram credential pattern
+  taraması: **0 şüpheli dosya**. Bu sınırlı örüntü taraması tam güvenlik
+  denetimi diye sunulmaz. Yeni ücretli servis/anahtar/Fly erişimi kullanılmadı.
+- Eski branch `712f2fb`, ilk kayıtlar ve deney protokolleri silinmedi.
+  Yerel cihaz/üretim diskine erişilmediğinden o diskin native hash ölçümü
+  **NOT_VERIFIED**; "üretim verisi kayıpsız doğrulandı" iddiası yok.
+- Son kod commit'i `0a2b23e7595f4711edb62c344960b8c3553d45fb`.
+  Uzak entegrasyon tek yönde güncellendi; force/main merge/Fly deploy yok.
+  Bu kod için full Python ve GitHub Docker/cgroup sonucu aşağıya eklenecek.
+- Kalan bağımsız kabul işleri: yetkili test cihazında gerçek üç lig Telegram
+  akışları ve çalışan sürüm/namespace kontrolü; gerçek sağlayıcı kapsamı ve
+  Nesine fiyat+ödeme delili; prospective dakika/rotasyon ve bağımsız karşılaştırma.
+  Bunlar kod/birim test başarısıyla tamamlanmış sayılmaz. Kapasite tavanına
+  yaklaşılırsa arşivleri silmeden yeni bounded segment tasarımı ayrıca gerekir.
+
+### Son kod regresyonu
+
+`0a2b23e` koduyla Python 3.12 / tek BLAS thread, tam komut:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+  python -B -m pytest -q
+bash -n scripts/run_isolated_test_bot.sh
+git diff --check
+```
+
+Sonuç: **2255 passed in 203.32s**, uyarı/skip/xfail yok; exit 0.
+Ham log: `docs/evidence/completion-python-regression-20261124.log.gz`.
+GitHub Python 3.11 push run `45505150157`, unit job `138838322072`
+başarılı; Docker job `138838321644` bu kayıt yazılırken sürüyordu.
+PR #162'nin check kayıtları ve açıklaması son exact head sonuçlarıyla ayrıca
+güncellenir. Önceki `7de28e3` **5 failed** CI kaydı yukarıda açıkça korunur.
+Gerçek Telegram ve yetkili fiyat API testi bu 2255 testin içinde yapılmış
+sayılmaz. Üç lig handler/callback testleri local HTTP/sentetik native yanıt
+üzerinden çalışır. Main merge, Fly deploy ve otomatik model terfisi yapılmadı.
+
+### Başlık bazında teslim durumu
+
+| Başlık | Tamamlanan ve testle doğrulanan | Kodlandı / canlı doğrulanmadı | Kısmi / başarısız / dış engel | Kalan |
+| --- | --- | --- | --- | --- |
+| Sağlayıcı / piyasa | Partial JSON, duplicate çatışması, retry/cooldown, exact NBA canonical yönü; üç native fikstür; 82 site denetimi | Public cache/coalescing; authenticated bridge fallback testleri | 7 kulüp erişim engeli, Nesine timeout, ücretli anahtar yok; gerçek opening/closing ve platform kuralları eksik | Yetkili cihazda fiyat/ödeme ve tüm market kapsamı kabulü |
+| Oyuncu / model / simülasyon | Eski bilimsel pinler korundu; dakika-kontrast rank/bütçe testi; native 70 maç boyut denetimi; ortak-path kayıpsızlık | Yeni ayrı kontrast ve OT araştırma adayları; history görünümü | Kontrast tek geliştirme maçında kontrolü geçmedi; strict player/OT n=0; prospective dakika/defans/PBP yok | Bağımsız veride model ve oyuncu etkisi testi; uygun veriyle Avrupa OT fit |
+| Hata / kalibrasyon / otomasyon | n=1 hata hattı korundu; paired point metrikleri; fairness; ilk tahmin/late commit koruması; 2255 Python | Sıkıştırılmış arşiv, background history ve kaynak optimizasyonu | Önceki CI girinti regresyonu düzeltildi; son Docker burada bekliyor; Telegram/telefon/Fly runtime NOT_VERIFIED | Exact-head cgroup check; gerçek staging kabulü; prospective kalibrasyon ve veri kaybetmeden ileri kapasite segmentleri |
+
+Bu teslim sistemin tamamlandığı veya modelin üstün olduğu onayı değildir.
+Erişim gerektirmeyen yeni düzeltmeler kaydedildi; yukarıdaki canlı ve bilimsel
+kanıt eksikleri PR kabulünden ve üretim kararından ayrı tutulur.

@@ -1,0 +1,102 @@
+{
+  "payload": {
+    "format": "COMPLETION_SCIENTIFIC_REFERENCE_PIN_AUDIT_V1",
+    "base_sha": "78d2aa7948abc1447c2f381dc66f85a6ffd7119e",
+    "groups": {
+      "V1": {
+        "files": 27,
+        "changed": [],
+        "pins": {
+          "challenger_review.py": "0b9f92570e07dd3012c342e4ae0338d298a7593ef7fb196746ca3854c40f2937",
+          "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+          "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+          "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+          "evaluation.py": "c985a9d1fc40e86575dc4bda674eea3fbe714553c34d311aaaad63c08a0dfc87",
+          "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+          "quarter_shadow.py": "5fcc8c52c169ba3e17d3c3dff7d145c50b954749027a6bf218d58789119b08dc",
+          "posterior_refresh.py": "d09d4f8355cb6a5625d2900a7900c17cd343ea07d865bf2873a64f29692a7c9b",
+          "challenger_forward.py": "11d9c21a94909da68c3de2c903f35710e77cd0bd4efdba7457a9aea4f72c310e",
+          "prediction_audit.py": "a88fbaab56378ef385d863ab5751c6a040b0bbbf74238c31072f0a04c52ddc3c",
+          "research_candidates.py": "e492c545e3898c22f2549553c62066b5c34d233cd1de7049f772b6059874e2dd",
+          "statistics.py": "3a8ae0f994da53a1aed6ebb845906f55fdf1f864ad829dc9fe6bbf5a21118df6",
+          "intervals.py": "fb1eaa081f5939f137c92df929cbf7fa6155638273405267291011679907f861",
+          "live_metrics.py": "897e6c8e86c70b080a46792991aa0a5c2f54b477a6d9c53cc55ae95428da88ec",
+          "forecast_error_review.py": "1200301083bc98304658f8bd804f656a7fee6e537fee9928dc11983fba094358",
+          "live_nba.py": "40c347e5b47adbf58e720383da4d6df30aa6046e3cd30249d665b66c768ac6c2",
+          "forward_validation.py": "1e94c2c5b4e75ed32aa2865f8d0a8b862413589b46382f45229939b74fd86021",
+          "forward_nba_results.py": "d979098ace5abbad5694aa0df77de4785d56f3340eb99d123e9a5043720fce4e",
+          "archive_audit.py": "c77eb2f229abd51401bd3710c85eb95de81949cc582d183adbe3dd29e5845bd0",
+          "quality_monitor.py": "5c84282dfdc9d1e30fa97436ca7a05228c131610f967b0f07f0ab7bd6f6d46eb",
+          "availability.py": "33e92959bd3d3a2699d4fa6a7b73bba3aa4db914f144970b13d2cfc2e3551eca",
+          "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+          "markets.py": "56a3a13c97daf4b2403273d0c3ec7169304bc638e8d28f4392d73be5e310ef35",
+          "../ledger_reports.py": "52aabd1bb8c53c4c929b99f92a24a28254bf4f5483d207a9df077f6189346b22",
+          "../live_analysis_ledger.py": "559a37b965f4c9a2ebed64f779b7166ed861240817bd9ef4acdf7a0584ce7964",
+          "../historical_research.py": "310489b676d11ea750fb8177ac04d4ffa93fc9a6d769b242878003956938fa4e",
+          "../prematch_monte_carlo.py": "c852e73171184be1903c7e49392db243a349ff4f4999538fd6288d0c4eb3ede2"
+        }
+      },
+      "V2": {
+        "files": 13,
+        "changed": [],
+        "pins": {
+          "adaptive_models.py": "9dcc18361cd913d44af697ec023b9edd17aa30d49075ae9559625e00a598b243",
+          "adaptive_data.py": "0e480265e340fb3f252fe4ad1b4e75565860908e8f109dbc8394cc69de39e563",
+          "adaptive_research.py": "2653ba74c84e668fdc19601ca04a644070f8513d52152f42e0cb02738d283d0f",
+          "adaptive_worker.py": "0e4ea2a90253bfb9b865ff56e4eac74bb87b4be3a99beb60fcf9c9e8cbe0e275",
+          "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+          "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+          "boxes.py": "c0041e4c33fe7568828c56d76518efe531c391b4b7d0abf305d5fae12bd27575",
+          "possession.py": "f629ef9a148244614dbb168c363d098f194a21c08dea0d1187e237ee6c23e9f4",
+          "player_shadow.py": "51398901bd56349e97e9ad4977dc345e5d97f48b68798d86ac6a11ede5ceb3f4",
+          "player_inputs.py": "8eac3c784392593280090879cf90d790a2ac813d566c72073d5953ce09ea1fec",
+          "player_minutes.py": "7aebd930616e625216b104fcd094c539911b6f4facda1a4cba1546cd85cce159",
+          "statistics.py": "3a8ae0f994da53a1aed6ebb845906f55fdf1f864ad829dc9fe6bbf5a21118df6",
+          "intervals.py": "fb1eaa081f5939f137c92df929cbf7fa6155638273405267291011679907f861"
+        }
+      },
+      "V3": {
+        "files": 9,
+        "changed": [],
+        "pins": {
+          "nba_dynamic.py": "6a2b8982953668e8ce409a4018fc74a75baa52d470647d27852861c09b2532f5",
+          "shadow_learning.py": "1b29da7bdb99760e804135d7f712b868a1a4cab819a2e0db9d3df41266373c33",
+          "issue90_research.py": "ab490c99a4ced13dfa518e5828d6bd94ff53b6f0287c276fd134a42c3b4a175e",
+          "joint_market_audit.py": "c0e229063ac0599b5c74a034521747488225bf3d5f86764d4c81cf98db78d9bc",
+          "nba_schedule_features.py": "ac24b7e90738e9576fb9626838564106e29083736ba52226888c9189198dfbc4",
+          "nba_ledger_settlement.py": "24629eba1261f910ec952f21ab14f3bd23610aef569893c7ab5c5ab96d70f5c8",
+          "confirmed_nba.py": "21f53631c3b0ce660ab82f078160038f99e46c15157bb905a150df6a9f280e9f",
+          "decision_layer.py": "32b8ad304a9de6d4edf45403ba5982d190eae9393d3bc1e19007dd238884f5d6",
+          "../season_archive_inventory.py": "f5dab3a2f3605d1f1591d9b3b0a74ad96797a3db8f1bfb38c6bcd0a70b1c9e6f"
+        }
+      },
+      "EUROPE": {
+        "files": 6,
+        "changed": [],
+        "pins": {
+          "europe_models.py": "b13058da002ae56f21c4799e35e7c70272002f42085d3e503e578fa70aab1e86",
+          "europe_live.py": "b08be3bf8fc4628ce39d3d7d15751a8e03405fa719c0094020b046f4eda1361d",
+          "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+          "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+          "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+          "intervals.py": "fb1eaa081f5939f137c92df929cbf7fa6155638273405267291011679907f861"
+        }
+      },
+      "NBA_SAMPLER": {
+        "files": 6,
+        "changed": [],
+        "pins": {
+          "models.py": "6794dc1556eecce44092dd44447e95a84be9fe12a3b4611500711edb70325891",
+          "distributions.py": "01047fa78258cb44da6d75ac2c496511b50bc40f360f974de40d51eb0bee856d",
+          "data.py": "189ac5b531da1dc13883d5e00cda55c947602893b35e0224e0a8f1d68d68a3a0",
+          "live_nba.py": "40c347e5b47adbf58e720383da4d6df30aa6046e3cd30249d665b66c768ac6c2",
+          "../verified_history.py": "a67e5268cc8aaca83715b4c983dfd8bb3457e46d2487b258e5e8bfa2ece0f6fa",
+          "../universal_analysis.py": "a5f7260970faad35de87b4a492a9aace761f606260b3f39e5ce86f90f772ade2"
+        }
+      }
+    },
+    "sealed_study_files_changed": false,
+    "production_changed": false
+  },
+  "sha256": "f685de21df346304d0b0ae64eef8f3a8394ca041de2adc33f91107a6a88246a6"
+}
