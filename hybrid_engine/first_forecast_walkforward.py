@@ -84,8 +84,14 @@ def review(verified_report, *, asof_utc):
             row.get(k) for k in ("prediction_generated_at_utc", "created_utc",
                                  "first_archived_at_utc", "fixture_start_utc"))
         pin = row.get("snapshot_sha256")
-        if (not all(_stamp(t) for t in (generated, created, archived, tipoff))
-                or not generated <= created <= archived < tipoff
+        # Older authenticated live snapshots may lack a separate generation
+        # timestamp. Their created/commit clocks prove PREMATCH publication for
+        # descriptive error metrics, but not a point-in-time shadow target.
+        # Never silently substitute a later timestamp as if it were generated.
+        if (not all(_stamp(t) for t in (created, archived, tipoff))
+                or not created <= archived < tipoff
+                or (generated is not None
+                    and (not _stamp(generated) or generated > created))
                 or not isinstance(pin, str) or len(pin) != 64
                 or any(c not in "0123456789abcdef" for c in pin)
                 or not _score_pair(row.get("prediction"))):
@@ -116,11 +122,14 @@ def review(verified_report, *, asof_utc):
             if previous is not None and previous != observed:
                 raise ValueError("FIRST_FORECAST_CONFLICTING_NATIVE_FINAL")
             observations[key] = observed
+        candidate = dict(row)
+        candidate["_explicit_generation_clock"] = generated is not None
+        candidate["_prematch_clock_utc"] = generated if generated is not None else created
         old = first.get(key)
-        if old is None or (archived, generated, pin) < (
-                old["first_archived_at_utc"], old["prediction_generated_at_utc"],
+        if old is None or (archived, candidate["_prematch_clock_utc"], pin) < (
+                old["first_archived_at_utc"], old["_prematch_clock_utc"],
                 old["snapshot_sha256"]):
-            first[key] = row
+            first[key] = candidate
             conflicts.discard(key)
         if old is not None and archived == old["first_archived_at_utc"] and (
                 old["snapshot_sha256"] != pin):
@@ -131,7 +140,7 @@ def review(verified_report, *, asof_utc):
             excluded["AMBIGUOUS_SIMULTANEOUS_FIRST_FORECAST"] += 1
         else:
             chosen.append(row)
-    chosen.sort(key=lambda r: (r["prediction_generated_at_utc"],
+    chosen.sort(key=lambda r: (r["_prematch_clock_utc"],
                                r["first_archived_at_utc"], r["fixture_id"]))
     settled, pending = [], 0
     for r in chosen:
@@ -151,9 +160,13 @@ def review(verified_report, *, asof_utc):
         # Forecast ordering, NOT eventual result ordering, controls admissions.
         # An older game's late-settled result is excluded from a later forecast
         # until that native final is actually available.
-        cohort.sort(key=lambda r: (r["prediction_generated_at_utc"], r["fixture_id"]))
+        cohort.sort(key=lambda r: (r["_prematch_clock_utc"], r["fixture_id"]))
+        # An original without explicit generation time is still part of the
+        # historical error census and may supply a later AVAILABLE label.
+        # It cannot be retrospectively "predicted again" at an invented clock.
+        targets = [r for r in cohort if r["_explicit_generation_clock"]]
         shadow = []
-        for r in cohort:
+        for r in targets:
             prior = [p for p in cohort
                      if p["fixture_id"] != r["fixture_id"]
                      and p["label_available_utc"] < r["prediction_generated_at_utc"]]
@@ -178,17 +191,25 @@ def review(verified_report, *, asof_utc):
             league=strategy[0], season=strategy[1], model_version=strategy[2],
             exact_fit_versions=len({r["model_digest"] for r in cohort}),
             strategy_kind="CHRONOLOGICAL_MODEL_VERSION_NOT_SINGLE_FIT",
-            original=_summarize(cohort), exploratory_shadow=_summarize(shadow),
+            original=_summarize(targets), exploratory_shadow=_summarize(shadow),
+            descriptive_all_first_forecasts=_summarize(cohort),
+            excluded_shadow_targets_missing_generation=len(cohort)-len(targets),
             prior_strength=PRIOR_STRENGTH,
             predictions_with_prior=sum(s["prior_available_labels"] > 0 for s in shadow),
             trace=shadow,
-            comparison_status="DESCRIPTIVE_SHADOW_NOT_PROSPECTIVE_SUPERIORITY",
+            comparison_status=("DESCRIPTIVE_SHADOW_NOT_PROSPECTIVE_SUPERIORITY"
+                               if targets else "SHADOW_NOT_RUN_NO_VERIFIED_GENERATION_CLOCK"),
         ))
     return dict(
         format=VERSION, asof_utc=asof_utc,
         source="LEDGER_REPORTS_NATIVE_AUTHENTICATED_FIRST_COMMIT",
-        first_forecasts=len(chosen), first_prediction_utc=(
-            min((r["prediction_generated_at_utc"] for r in chosen), default=None)),
+        first_forecasts=len(chosen),
+        first_proven_snapshot_utc=min((r["created_utc"] for r in chosen), default=None),
+        first_prediction_utc=min(
+            (r["prediction_generated_at_utc"] for r in chosen
+             if r["_explicit_generation_clock"]), default=None),
+        first_forecasts_missing_generation_utc=sum(
+            not r["_explicit_generation_clock"] for r in chosen),
         matched_verified_finals=len(settled), pending=pending,
         exclusions=dict(sorted(excluded.items())),
         league_season_descriptives=[
@@ -214,12 +235,20 @@ def render(report):
              f"İlk arşiv: {report['first_forecasts']} · Doğrulanmış sonuç: "
              f"{report['matched_verified_finals']} · Bekleyen: {report['pending']}",
              "100 maç şartı yok; önceki tahminler değiştirilmedi."]
+    from datetime import datetime, timezone
+    from zoneinfo import ZoneInfo
+    def tsi(value):
+        return datetime.fromtimestamp(value, timezone.utc).astimezone(
+            ZoneInfo("Europe/Istanbul")).strftime("%Y-%m-%d %H:%M:%S TSİ")
+    if report["first_proven_snapshot_utc"] is not None:
+        lines.append("İlk kanıtlı snapshot zamanı: " +
+                     tsi(report["first_proven_snapshot_utc"]))
     if report["first_prediction_utc"] is not None:
-        from datetime import datetime, timezone
-        from zoneinfo import ZoneInfo
-        dt = datetime.fromtimestamp(report["first_prediction_utc"], timezone.utc)
-        lines.append("İlk kayıt zaman damgası: " +
-                     dt.astimezone(ZoneInfo("Europe/Istanbul")).strftime("%Y-%m-%d %H:%M:%S TSİ"))
+        lines.append("İlk açık üretim zamanı: " + tsi(report["first_prediction_utc"]))
+    if report["first_forecasts_missing_generation_utc"]:
+        lines.append("Ayrı üretim zamanı bulunmayan ilk kayıt: " +
+                     str(report["first_forecasts_missing_generation_utc"]) +
+                     " (hata ölçümünde var, shadow hedefinden çıkarıldı).")
     for group in report["league_season_descriptives"]:
         m = group["metrics"]
         lines.append(f"{group['league']} · {group['season']} · n={m['n']} · "
@@ -227,9 +256,14 @@ def render(report):
                      f"Toplam bias {m['signed_total_bias']:+.2f}")
     for g in report["walk_forward_shadow"]:
         a, b = g["original"], g["exploratory_shadow"]
-        lines.append(f"Deneysel {g['league']} {g['model_version'][:48]} · n={a['n']} · "
-                     f"Geçmiş sonucu mevcut {g['predictions_with_prior']} · "
-                     f"ilk MAE {a['total_mae']:.2f} / shadow MAE {b['total_mae']:.2f}")
+        if not b["n"]:
+            lines.append(f"Deneysel {g['league']} {g['model_version'][:48]}: "
+                         "SHADOW YOK — ayrı üretim zaman damgası doğrulanmadı; "
+                         f"ilk tahminli gerçek maç={g['descriptive_all_first_forecasts']['n']}.")
+        else:
+            lines.append(f"Deneysel {g['league']} {g['model_version'][:48]} · n={a['n']} · "
+                         f"Geçmiş sonucu mevcut {g['predictions_with_prior']} · "
+                         f"ilk MAE {a['total_mae']:.2f} / shadow MAE {b['total_mae']:.2f}")
     if report["exclusions"]:
         lines.append("Dışlananlar: " + ", ".join(
             f"{k}={n}" for k,n in report["exclusions"].items()))
@@ -240,7 +274,7 @@ def render(report):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ledger", required=True, help="Existing verified SQLite ledger, read-only")
-    parser.add_argument("--league", choices=("NBA", "EUROLEAGUE", "EUROCUP"), default="NBA")
+    parser.add_argument("--league", choices=("NBA",), default="NBA")
     parser.add_argument("--asof-utc", type=int, default=None)
     parser.add_argument("--json", action="store_true", help="Full trace instead of concise Turkish text")
     args = parser.parse_args(argv)
