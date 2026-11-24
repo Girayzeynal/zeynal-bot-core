@@ -522,3 +522,23 @@ class ProviderTelegramTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class ExpandedObservationScopeTests(unittest.TestCase):
+    def test_late_period_scope_not_starved_by_first_twelve_native_observations(self):
+        doc=priced_event()
+        doc['bookmakers']=[
+            dict(key='book'+str(i),title='Book '+str(i),last_update=iso(NOW-5),
+                 markets=[market('totals'),market('totals_h1',110.5),market('totals_h2',111.5)])
+            for i in range(4)]
+        doc['bookmakers'].append(dict(key='late',title='Late',last_update=iso(NOW-5),
+            markets=[market('totals_q4',52.5),market('totals_q1',53.5)]))
+        old,_=odds_observations(receipt(doc),SNAPSHOT)
+        self.assertEqual(len(old),12)
+        expanded,_=odds_observations(receipt(doc,url='https://api.the-odds-api.com/v4/sports/basketball_nba/events/synthetic-event/odds?markets=totals,totals_h1,totals_h2,totals_q1,totals_q4'),SNAPSHOT)
+        # Receipt hashes differ because the request URL is distinct; native
+        # quote contents and historic enumeration remain identical.
+        self.assertEqual([r['payload']['quotes'] for r in expanded[:12]],
+                         [r['payload']['quotes'] for r in old])
+        scopes={(q['period'],q['market']) for r in expanded for q in r['payload']['quotes']}
+        self.assertTrue({('1Q','TOTAL'),('4Q','TOTAL')}<=scopes)
+        self.assertEqual(len(expanded),14)

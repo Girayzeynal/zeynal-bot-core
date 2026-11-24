@@ -11,6 +11,7 @@ import math
 import re
 import threading
 import time
+from urllib.parse import parse_qs,urlsplit
 
 from core.league_identity import normalize_name
 from core.team_identity import digest
@@ -25,6 +26,33 @@ CORE_MARKETS = ('h2h', 'spreads', 'totals')
 EXTRA_MARKETS = ('alternate_spreads', 'alternate_totals', 'team_totals',
                  'totals_h1', 'totals_h2', 'totals_q1', 'totals_q2', 'totals_q3', 'totals_q4')
 ALIASES = {'losangelesclippers': 'laclippers'}
+# Keep core receipts' historic parser behavior. Expanded native requests
+# can retain more distinct scopes, within a fixed report/storage budget.
+CORE_OBSERVATION_LIMIT=12
+EXPANDED_OBSERVATION_LIMIT=32
+EXPANDED_QUOTE_LIMIT=128
+
+def expanded_request(receipt):
+    requested=parse_qs(urlsplit(receipt.get('source_url','')).query).get('markets',[])
+    return len(requested)==1 and bool(set(requested[0].split(',')) & set(EXTRA_MARKETS))
+
+def bounded_expanded_observations(rows):
+    # Retain the exact previous first 12 for receipt replay compatibility.
+    # Then cover previously unseen period/team market scopes before repeats.
+    kept=list(rows[:CORE_OBSERVATION_LIMIT])
+    remaining=list(rows[CORE_OBSERVATION_LIMIT:])
+    def scopes(row):
+        return {(q['period'],q['market']) for q in row['payload']['quotes']}
+    seen=set().union(*(scopes(r) for r in kept))
+    count=sum(len(r['payload']['quotes']) for r in kept)
+    while remaining and len(kept)<EXPANDED_OBSERVATION_LIMIT:
+        eligible=[(i,r) for i,r in enumerate(remaining)
+                  if count+len(r['payload']['quotes'])<=EXPANDED_QUOTE_LIMIT]
+        if not eligible:break
+        i,r=max(eligible,key=lambda p:(len(scopes(p[1])-seen),-p[0]))
+        kept.append(remaining.pop(i));seen.update(scopes(r))
+        count+=len(r['payload']['quotes'])
+    return kept
 
 
 class EvidenceCapacityError(ValueError):
@@ -89,6 +117,7 @@ def odds_observations(receipt, snapshot, *, discovery=None):
     fixture = fixture_for(snapshot)
     result = []
     rejected = 0
+    expanded=expanded_request(receipt)
     for book in event.get('bookmakers', [])[:6]:
         if not isinstance(book.get('key'), str) or not isinstance(book.get('title'), str):
             rejected += 1
@@ -162,10 +191,11 @@ def odds_observations(receipt, snapshot, *, discovery=None):
                     validate(payload)
                     if binding is not None:payload['source']['event_clock_binding']=binding
                     result.append(dict(payload=payload, sha256=digest(payload)))
-                    if len(result) >= 12:
+                    if not expanded and len(result) >= CORE_OBSERVATION_LIMIT:
                         return result, rejected
             except (KeyError, TypeError, ValueError):
                 rejected += 1
+    if expanded:result=bounded_expanded_observations(result)
     return result, rejected
 
 
@@ -502,6 +532,9 @@ def render(report):
             observed=sorted({q['period']+'/'+q['market'] for o in row.get('observations',[])
                              for q in o['payload']['quotes']})
             lines.append('Kabul edilen piyasa türleri: '+html.escape(', '.join(observed) if observed else 'yok'))
+            if set(requested)!=set(CORE_MARKETS):
+                lines.append('Geniş kapsam: sağlayıcı kapsamı ve yerel gözlem sınırı nedeniyle eksik türler olabilir; '
+                             'sorgulanmış olması fiyat alındığını kanıtlamaz.')
         if row.get('quota'):
             lines.append('Kota (sağlayıcı yanıtı): '+html.escape(str(row['quota'])))
         for stat in row.get('statistics', []):
