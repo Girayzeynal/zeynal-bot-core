@@ -170,8 +170,9 @@ class ResearchCycle:
                 published=outcome.get('requested_fixture_status') in (
                     'PUBLISHED_OR_REPLAYED','ALREADY_RECORDED_THIS_HOUR')
                 if not published and int(time.time())<self.requested_deadlines.get(preferred,0):
-                    self.requested_fixtures.append(preferred)
+                    if preferred not in self.requested_fixtures:self.requested_fixtures.append(preferred)
                 else:
+                    self.requested_fixtures=[fid for fid in self.requested_fixtures if fid!=preferred]
                     self.requested_deadlines.pop(preferred,None)
         # Collect native player inputs after the time-sensitive current score.
         await self._stage('adaptive_v2',self.worker.tick,app,asynchronous=True)
