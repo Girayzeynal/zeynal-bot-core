@@ -435,8 +435,19 @@ def install_dual_clock_display(state,assessments):
                     page for block in archive_blocks
                     for page in split_blocks(block.splitlines(),limit=3200)]
                 for section in ('period','ranges'):
-                    entry['sections'][section]=panels[section]
-                    entry['section_pages'][section]=split_blocks(panels[section].splitlines(),limit=3200)
+                    body=panels[section]
+                    if not panels['fresh']:
+                        # Keep V3 absence explicit, but restore the readable
+                        # first-record figures as a clearly labelled V1 ARCHIVE.
+                        # This is NOT a fresh V3 score or an inferred update.
+                        original={'period':original_period,'ranges':original_ranges}[section]
+                        if isinstance(original,str) and original.strip():
+                            body+=('\n\n🗃 <b>İLK V1 TAHMİNİ — ARŞİV, GÜNCEL DEĞİL</b>\n'
+                                   'Aşağıdaki ilk tahmin rakamları yalnız geçmiş kayıt içindir. '
+                                   'Güncel V3 skoru, oyuncu katkısı veya yeni bahis değerlendirmesi değildir.\n\n'
+                                   +original)
+                    entry['sections'][section]=body
+                    entry['section_pages'][section]=split_blocks(body.splitlines(),limit=3200)
                 # The first-model quotes belong in audit. Show separate
                 # research-model reviews ONLY if their verified model+clock
                 # identity matches this candidate and the native quote is live.
