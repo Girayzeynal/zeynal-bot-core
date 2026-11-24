@@ -97,9 +97,13 @@ tamamlanmış sayılmaz. Her düzeltme neden ve regresyon testiyle kaydedilir.
 - Düzeltme: `assessment_storage.py` kayıpsız byte-order/dtype koruyan gzip
   codec; eski JSON yolları ve düz native makbuzları aynı okuyucuda desteklenir.
   Yeni native makbuzlar hash ile açılıp doğrulanır. Açılmış boyut sınırı vardır.
-  İlk kayıt, sürüm, plan SHA, 30 dk yenileme, 45 dk güncellik, 24 saat model
+  Eski ilk kayıt/sürüm/plan dosyaları, 30 dk yenileme, 45 dk güncellik, 24 saat model
   yaşı, **T−300 yayın sınırı** ve mevcut 512 / 256 MiB kapasite politikası
-  değiştirilmedi. Önceki veri taşınmaz/silinmez ve deney sıfırlanmaz.
+  değiştirilmedi. Önceki veri taşınmaz/silinmez. Başlatıcının zaten var olan
+  implementation-SHA namespace kuralı yeni **current-assessment** dizini seçer;
+  eski current dizinleri ve sayaçları korunur, otomatik birleştirilmez.
+  V1/V2/V3 kapalı deney kaynakları/sayaçları değişmedi. Yeni current kohortu
+  eskisiyle karıştırılarak başarı veya kalibrasyon iddiası üretilmez.
 - Maç/sürüm doğrudan anahtarından okuma; aynı mevcut durable writer ve ayrı
   post-commit makbuzu korunur. T−299'da biten kayıt diskte kalır ama dışlanır.
   Bekleyen maçlar son deneme sırasına göre ilerler; açık kullanıcı önceliği kalır.
@@ -207,3 +211,52 @@ geçerli bağımsız kanıtı koru; kısmi veriyi tam kapsam diye sunma.
 - Native metadata/probe kanıtları: `completion-nba-canonical-20261124.json.gz`
   ve `completion-nba-roster-source-20261124.json.gz`. Bunlar gerçek Telegram
   teslimi, hazır oyuncu posterioru veya prospective başarı kanıtı değildir.
+
+### CI geri bildirimi — düzeltilen kendi regresyonum
+
+`7de28e3` push CI `45500200779`: **5 failed, 2230 passed**; Docker da aynı
+regresyonda durdu. SyntaxWarning düzeltmesindeki girinti hatası, `origin=None`
+iken hata mesajı renderer'ında UnboundLocalError yarattı. Beş test silinmedi
+veya gevşetilmedi; koşul tekrar doğru origin bloğuna alındı. Diagnostic/cache/
+eski source-policy sözleşme testi **41 passed in 2.18s**. Son head tam CI
+bekler; bu başarısız run başarılı gösterilmeyecek.
+
+### Aşama 5 — gereksiz ve eşzamanlı public kaynak sorguları
+
+- Eski ControlledTransport başarılı cevabı saklıyor, fakat sağlıklı kaynakta
+  aynı adrese her çağrıda yeniden gidiyordu. Yeni `reuse_seconds` varsayılanı
+  **0** ile eski revalidation davranışı korunur; izole gerçek launcher açıkça
+  **30 sn** reuse seçer. Cache hit'in belge/hash/gözlem/ingestion saatleri
+  değişmez; kaynağın yeni kontrol edildiği iddia edilmez.
+- Eşzamanlı aynı URL istekleri bir native çağrıda birleşir; diğer çağrı en
+  fazla 1 sn bekler. Cache ve in-flight yapısı lock ile korunur; ilgisiz
+  URL'lerin network işi global lock altında çalışmaz.
+- 429 ve 5xx/outage beklemesi aynı public origin ile paylaşılır; 403 yalnız
+  reddedilen endpoint'i durdurur. Public Retry-After en fazla bir gün, ücretli
+  erişim client'ının mevcut sınırı bir saat olarak korunur. Invalid native
+  response veya istisna dışarı sızmaz; farklı URL cache'i kullanılamaz.
+- Cache/phase842/market-contract/engine/autoprematch testleri:
+  **91 passed, 1 PTB lifecycle warning in 23.74s**. Uyarı test uygulaması
+  çalışmıyorken create_task çağrısıdır; bastırılmadı. Son full koşu bekler.
+
+### Aşama 6 — mevcut oyuncu pilotunun kullanılabilir durumunu bağlama
+
+- Yeni veri sorgusu yapmadan mevcut native korpusta **70** tam geçmiş
+  oyuncu-box maçı doğrulandı; mevcut `fit_box_association` gerçekten fit edildi.
+  Bunun 100 prospective dakika kaydıyla aynı şey olmadığı gösterildi.
+  Strict disjoint holdout: `NO_SUFFICIENT_PRETEST_SOURCE_OBSERVATIONS`.
+  Kaynak saatleri geriye alınmadı ve canlı oyuncu etkisi iddia edilmedi.
+- `HistoricalPlayerReview` mevcut read-only pilotu serial background işinin
+  sonunda en fazla altı saatte bir çalıştırır. Bilinen yayına 15 dk veya daha
+  az varsa opsiyonel araştırma ertelenir; **operasyonel yayın sınırı 5 dk kalır**.
+  Eksik kaynakta tekrar 5 dk sonradır. Komut handler'ında fit/network yoktur.
+- `/test research` ve `/test playerimpact` cached historical fit ile canlı
+  prospective dakika/etki kanıtını ayrı gösterir. Henüz okunmayan arşiv 0
+  sayılmaz. Sıradan gecikme/okuma hatası diğer güncel model metriklerini
+  silmez; `_stage`'in yanlış genel else ataması düzeltildi.
+- Oyuncu pilotunda **aynı eşleşmiş test maçları** için home/away/team/total/
+  margin MAE/RMSE/bias eklendi. Point-only modelden Brier/log-loss veya güven
+  uydurulmaz. Fit ve tahmin formülü değişmedi, terfi yok.
+- History/cache/diagnostic/player-pilot bileşenleri: **30 passed in 0.62s**;
+  history/research/current-display/old-player-smoke/feature akışı:
+  **87 passed in 12.61s**. Gerçek Telegram teslimi halen NOT_VERIFIED.
