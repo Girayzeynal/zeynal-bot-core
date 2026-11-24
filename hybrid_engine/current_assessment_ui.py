@@ -337,7 +337,7 @@ def install_dual_clock_display(state,assessments):
         def __init__(self):self.base=base
         async def analyze(self,league,*args):
             response=await base.analyze(league,*args)
-            if response.get('status')!='ANALYSIS_OK':return response
+            if response.get('status') not in ('ANALYSIS_OK','EUROPE_HYBRID_OK','FORWARD_EUROLEAGUE_OK','FROZEN_REPLAY_OK'):return response
             context=response.get('snapshot');entry=None
             keyboard=response.get('reply_markup')
             if keyboard:
@@ -348,6 +348,8 @@ def install_dual_clock_display(state,assessments):
                 except (AttributeError,IndexError,TypeError,KeyError):
                     pass
             if context is None:return response
+            if entry and entry.get('europe_context'):
+                context=entry['europe_context']
             # /analyze must not run slow model fits. The serial research
             # cycle publishes its own verified candidates independently.
             # A failed/missing read is a visible blocker, never a fallback V1
@@ -514,6 +516,36 @@ def install_dual_clock_display(state,assessments):
                 from hybrid_engine.telegram_premium_ui import keyboard as premium_keyboard
                 result['reply_markup']=premium_keyboard(token,include_archive=True)
                 parts=[headline]
+            elif entry and context.get('league') in ('EUROLEAGUE','EUROCUP'):
+                from hybrid_engine.elite_render import split_blocks
+                panels=current_panels(context,selected,now=int(time.time()))
+                if panels['fresh']:
+                    q=selected['candidate']
+                    extra=('🧪 <b>AVRUPA GÜNCEL TEMPO / VERİMLİLİK ADAYI</b>\n'
+                           +html.escape(str(q.get('model','')))+'\n'
+                           +f"Ev {q['home']:.2f} · Dep {q['away']:.2f} · Toplam {q['total']:.2f}\n"
+                           +'Hesap: '+tsi(selected['prediction_generated_at_utc'])+'\n'
+                           +'NBA V3 değildir; oyuncu etkisi ve kalibrasyon doğrulanmadı.\n'
+                           +'İlk kayıtlı Bayes tahmini aşağıdadır.\n\n')
+                    for section in ('period','ranges'):
+                        value=panels[section].replace('V3 aday','Avrupa aday')
+                        entry['section_pages'][section].extend(split_blocks(value.splitlines(),limit=3200))
+                        entry['sections'][section]+='\n\n'+value
+                    entry['current_assessment_panels']=True
+                    entry['current_assessment_valid_until_utc']=panels['valid_until']
+                else:
+                    extra=('⚠️ <b>AVRUPA GÜNCEL ARAŞTIRMA ADAYI YAYIMLANMADI</b>\n'
+                           'İlk kayıtlı Bayes tahmini korunuyor. NBA V3 bu ligin modeli değildir.\n\n')
+                    cycle=state.get('research_cycle')
+                    request=getattr(cycle,'request_fixture',None)
+                    if callable(request):
+                        try:request(context)
+                        except (ValueError,KeyError,TypeError,RuntimeError):pass
+                if len((extra+parts[0]).encode('utf-16-le'))//2<=3500:
+                    parts[0]=extra+parts[0];entry['summary']=parts[0]
+                else:parts.insert(0,extra)
+                entry['sections']['audit']+='\n\n'+extra
+                entry['section_pages']['audit']=split_blocks(entry['sections']['audit'].splitlines(),limit=3200)
             elif len((prefix+parts[0]).encode('utf-16-le'))//2<=3500:
                 parts[0]=prefix+parts[0]
             else:parts.insert(0,prefix)

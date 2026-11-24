@@ -96,7 +96,7 @@ class ResearchCycle:
 
         No model fitting, network request, or ledger write in the Telegram handler.
         """
-        if not isinstance(context,dict) or context.get('league')!='NBA':
+        if not isinstance(context,dict) or context.get('league') not in ('NBA','EUROLEAGUE','EUROCUP'):
             return False
         fid=context.get('fixture_id')
         tip=context.get('fixture_start_utc')

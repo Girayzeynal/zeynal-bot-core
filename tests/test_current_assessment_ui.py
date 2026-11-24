@@ -698,3 +698,25 @@ class CurrentPanelsTests(unittest.TestCase):
         self.assertIn('ARTIK GÜNCEL DEĞİL',expired)
         range_text,_=page_view(entry,'ranges',0,now=NOW+3600)
         self.assertIn('ARTIK GÜNCEL DEĞİL',range_text)
+
+class EuropeCurrentDisplayTests(unittest.IsolatedAsyncioTestCase):
+    async def test_success_status_no_longer_skips_europe_candidate_and_preserves_original(self):
+        from telegram import InlineKeyboardMarkup,InlineKeyboardButton
+        token='c'*12
+        context=dict(league='EUROLEAGUE',fixture_id='e',fixture_start_utc=NOW+10000)
+        response=dict(status='EUROPE_HYBRID_OK',html='ORIGINAL BAYES',html_parts=['ORIGINAL BAYES'],
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('Piyasa',callback_data='zui:'+token+':market')]]))
+        entry=dict(europe_context=context,summary='ORIGINAL BAYES',
+            sections=dict(period='OLD Q',ranges='OLD RANGE',market='OLD PRICE',audit='OLD AUDIT'),
+            section_pages=dict(period=['OLD Q'],ranges=['OLD RANGE'],market=['OLD PRICE'],audit=['OLD AUDIT']))
+        queue=SimpleNamespace(request_fixture=Mock(return_value=True))
+        state=dict(verified_analysis_service=SimpleNamespace(analyze=AsyncMock(return_value=response)),
+                   premium_reports={token:entry},research_cycle=queue)
+        a=SimpleNamespace(latest=Mock(return_value=None))
+        install_dual_clock_display(state,a)
+        with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
+            out=await state['verified_analysis_service'].analyze('EUROLEAGUE','day','h','a')
+        self.assertIn('AVRUPA GÜNCEL ARAŞTIRMA ADAYI YAYIMLANMADI',out['html'])
+        self.assertIn('ORIGINAL BAYES',out['html'])
+        self.assertEqual(entry['sections']['market'],'OLD PRICE')
+        queue.request_fixture.assert_called_once_with(context)
