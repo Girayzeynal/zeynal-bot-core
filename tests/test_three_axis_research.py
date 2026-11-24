@@ -7,7 +7,8 @@ import numpy as np
 
 from hybrid_engine.distributions import periods_for_scores
 from hybrid_engine.three_axis_research import (
-    stochastic_quarters_from_frozen_scores,conditional_bias_comparison,player_input_gate)
+    stochastic_quarters_from_frozen_scores,conditional_bias_comparison,player_input_gate,
+    quarter_comparison,_point_metrics)
 
 
 def verified_ledger(n=10,*,future_label_at=None):
@@ -143,3 +144,38 @@ class NBATriAxisResearchTests(TestCase):
         with self.assertRaises(ValueError):
             player_input_gate({"payload":{},"sha256":"not-a-proof"},
                               asof_utc=int(time.time()),fixture={"fixture_id":"A"})
+
+    def test_paired_quarter_audit_is_readonly_and_target_result_not_used_as_input(self):
+        ledger,now=verified_ledger(10)
+        immutable=deepcopy(ledger)
+        result=quarter_comparison(ledger,asof_utc=now,scenarios=1024)
+        self.assertEqual(ledger,immutable)
+        self.assertEqual(result["verified_finals"],10)
+        self.assertEqual(result["paired_n"],4)
+        self.assertEqual(result["excluded"]["SIX_VERIFIED_PAST_QUARTER_GAMES_PER_SIDE_REQUIRED"],6)
+        self.assertEqual(set(result["cohorts"][0]["metrics"]),{"1Q","2Q","3Q","4Q","1H","2H"})
+        self.assertFalse(result["actual_target_scores_used_as_inputs"])
+        self.assertFalse(result["production_enabled"])
+        for item in result["trace"]:
+            self.assertEqual(item["fixed_predicted_scores"],[110,110])
+            for m in item["markets"].values():
+                self.assertGreaterEqual(m["candidate_crps"],0.)
+        last=result["trace"][-1]
+        altered=deepcopy(ledger)
+        altered["forecasts"][-1]["actual"]=[120,110]
+        altered["forecasts"][-1]["actual_periods"]["home"]=[30,30,30,30]
+        replay=quarter_comparison(altered,asof_utc=now,scenarios=1024)["trace"][-1]
+        self.assertEqual(last["history"],replay["history"])
+        self.assertEqual(last["fixed_predicted_scores"],replay["fixed_predicted_scores"])
+        self.assertNotEqual(last["markets"],replay["markets"])
+
+    def test_score_components_do_not_hide_team_and_margin_errors(self):
+        rows=[dict(forecast_before=[120,90],forecast_candidate=[110,100],
+                   regulation_actual=[100,110])]
+        m=_point_metrics(rows)
+        self.assertEqual(m["total"]["original_mae"],0.)
+        self.assertEqual(m["margin"]["original_mae"],40.)
+        self.assertEqual(m["margin"]["candidate_mae"],20.)
+        self.assertEqual(m["home"]["original_bias"],20.)
+        self.assertEqual(m["away"]["original_bias"],-20.)
+        self.assertIsNone(_point_metrics([]))
