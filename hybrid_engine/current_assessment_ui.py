@@ -374,8 +374,12 @@ def install_dual_clock_display(state,assessments):
                     type(exc).__name__)
                 update_issue=('CURRENT_READ_TIMEOUT' if isinstance(exc,(asyncio.TimeoutError,TimeoutError)) else
                               'CURRENT_RESEARCH_RECORD_UNAVAILABLE')
+                # The verified V3 read failed; show only the unmodified first
+                # forecast as an explicitly historical reference, never live V3.
                 content=('⚠️ GÜNCEL TAHMİN DOĞRULANAMADI. '
-                         'Eski kayıt arşivde korundu; güncel skor yayımlanmıyor.')
+                         'Eski kayıt arşivde korundu; güncel skor yayımlanmıyor.\n'
+                         +two_clock_text(context,SimpleNamespace(latest=lambda _:None),
+                                         now=int(time.time())))
             if selected is None and context.get('league')=='NBA':
                 update_issue=update_issue or 'CURRENT_RESEARCH_BACKGROUND_PENDING'
             if update_issue:
