@@ -98,7 +98,7 @@ class AssessmentTests(TestCase):
         changed=dict(self.original,model_digest='b'*64)
         with self.assertRaisesRegex(ValueError,'ORIGINAL_PIN'):self.assess.market_context(changed)
         ref=next(r for r in p['assets'] if r['file'].startswith('joint-paths-'))
-        f=self.assess.registry.root/ref['file'];obj=json.loads(f.read_text());obj['samples'][0][0][0]+=1
+        f=self.assess.registry.root/ref['file'];obj=json.loads(f.read_text());obj['samples_b64']='changed'
         f.write_text(json.dumps(obj))
         with self.assertRaisesRegex(ValueError,'ASSET_PIN'):self.assess.market_context(self.original)
 
@@ -198,12 +198,12 @@ class AssessmentTests(TestCase):
     def test_cutoff_crossed_during_commit_is_retained_but_excluded(self):
         # The actual durable-publication receipt is sampled after the base
         # registry has completed, never inferred from an earlier issue clock.
-        from hybrid_engine.adaptive_research import Registry
-        original=Registry.record
+        from hybrid_engine.forward_validation import ForwardRegistry
+        original=ForwardRegistry.record
         def cross(registry,payload):
             p,new=original(registry,payload);self.h.now=self.target['fixture_start_utc']-299
             return p,new
-        with patch.object(Registry,'record',cross):
+        with patch.object(ForwardRegistry,'record',cross):
             with self.assertRaisesRegex(Abstain,'LATE_COMMIT_EXCLUDED'):self.capture()
         self.assertEqual(self.assess.registry.records(),[])
 

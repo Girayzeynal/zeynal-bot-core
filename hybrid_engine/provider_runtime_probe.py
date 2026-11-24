@@ -68,6 +68,7 @@ def main():
         unittest.defaultTestLoader.loadTestsFromName('tests.test_issue90'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_native_fixture_recheck'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_analysis_revision'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_assessment_storage'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_critical_integrity'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_seasons')])
     result=unittest.TextTestRunner(verbosity=1).run(suite)

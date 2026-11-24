@@ -88,3 +88,32 @@ tamamlanmış sayılmaz. Her düzeltme neden ve regresyon testiyle kaydedilir.
    veri sağlayıcı hata sözleşmeleri ve kaynak/oyuncu/kalibrasyon denetimleri.
 4. Nihai sonuçlar, commit SHA'ları, exact CI run/job kimlikleri ve kalan dış
    engeller burada güncellenecek. Aşamalar erken `tamamlandı` işaretlenmez.
+
+### Aşama 1 — eski tamamlanmamış depolama düzeltmesinin seçici uyarlaması
+
+- Neden: 10.000×4×2 yollar `tolist()` ile yazılıyor; `_capture` ve base
+  `Registry.record` ilgisiz bütün yayınları tekrar tarıyordu. İlk iki ABSTAIN
+  maç, otomatik turda diğer maçları sürekli aç bırakabiliyordu.
+- Düzeltme: `assessment_storage.py` kayıpsız byte-order/dtype koruyan gzip
+  codec; eski JSON yolları ve düz native makbuzları aynı okuyucuda desteklenir.
+  Yeni native makbuzlar hash ile açılıp doğrulanır. Açılmış boyut sınırı vardır.
+  İlk kayıt, sürüm, plan SHA, 30 dk yenileme, 45 dk güncellik, 24 saat model
+  yaşı, **T−300 yayın sınırı** ve mevcut 512 / 256 MiB kapasite politikası
+  değiştirilmedi. Önceki veri taşınmaz/silinmez ve deney sıfırlanmaz.
+- Maç/sürüm doğrudan anahtarından okuma; aynı mevcut durable writer ve ayrı
+  post-commit makbuzu korunur. T−299'da biten kayıt diskte kalır ama dışlanır.
+  Bekleyen maçlar son deneme sırasına göre ilerler; açık kullanıcı önceliği kalır.
+- Birim + gerçek model/registry + Telegram görünümü regresyonu:
+  **69 passed in 11.95s**. İlk denemede eski base-class spy testinin yeni
+  durable writer'a bağlanması gerektiği görüldü; T−299 dışlama beklentisi
+  değiştirilmeden test o yazma noktasına bağlandı ve geçti.
+- Durum: **KODLANDI_CANLI_DEĞİL**. Tam regresyon/cgroup ve cihaz kabulü bekler.
+  512 kayıt sınırında durma mevcut güvenli davranıştır; sınırsız arşiv denmez.
+
+### Aşama 2 — yeni yeniden üretilmiş kaynak sözleşmesi hataları
+
+`test_provider_partial_contracts.py` düzeltme öncesi: **4 failed, 1 passed**.
+Geçerli fiyatın yanındaki null bookmaker/bet tüm cevabı AttributeError ile
+düşürebiliyor; hatalı failure payload/cooldown değeri beklemeyi bozuyor;
+HTTP-date biçimindeki Retry-After yok sayılıyor. Sırada: asıl nedeni gider,
+geçerli bağımsız kanıtı koru; kısmi veriyi tam kapsam diye sunma.

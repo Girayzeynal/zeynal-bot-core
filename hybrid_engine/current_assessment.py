@@ -14,10 +14,12 @@ import numpy as np
 from core.team_identity import digest
 from hybrid_engine import adaptive_models,nba_dynamic
 from hybrid_engine.adaptive_research import Registry,read_wrapper
+from hybrid_engine.assessment_storage import encode_paths,decode_paths,native_asset,restore_native
 from hybrid_engine.boxes import publish_json
 from hybrid_engine.data import Abstain,local_path
 from hybrid_engine.distributions import Forecast
 from hybrid_engine.europe_prematch import publication_lock
+from hybrid_engine.forward_validation import ForwardRegistry
 from hybrid_engine.intervals import prediction_intervals
 from hybrid_engine.issue90_research import pins,reason
 from hybrid_engine.time_policy import (PREMATCH_MINIMUM_LEAD_SECONDS, V3_REFRESH_SECONDS,
@@ -103,8 +105,19 @@ class AssessmentRegistry(Registry):
         return out
 
     def record(self,payload):
-        p,new=super().record(payload)
-        if new:
+        # Per-fixture lookup keeps a slow/corrupt unrelated path asset out of
+        # the publication's critical section. The inherited durable writer is
+        # retained, with the current five-minute guard on both commit clocks.
+        from hybrid_engine.europe_prematch import safe_lead
+        with publication_lock(self.root):
+            old=self.for_version(payload['fixture']['canonical_id'],payload['version'])
+            if old:
+                self.validate_assets(old['payload']);return old['payload'],False
+            if len(list(self.root.glob('first-*.json')))>=POLICY['maximum_records']:
+                raise Abstain('CURRENT_ASSESSMENT_STORAGE_BUDGET')
+            safe_lead(payload)
+            p,new=ForwardRegistry.record(self,payload)
+            if not new:raise Abstain('CURRENT_ASSESSMENT_COMMIT_UNCONFIRMED')
             key=digest(dict(fixture=p['fixture']['canonical_id'],version=p['version']))
             publication=self.publication(self.root/('first-'+key+'.json'));completed=int(time.time())
             receipt=dict(forecast_sha256=publication['forecast']['sha256'],publication_sha256=digest(publication),
@@ -113,17 +126,21 @@ class AssessmentRegistry(Registry):
             if not receipt['eligible']:raise Abstain('CURRENT_ASSESSMENT_LATE_COMMIT_EXCLUDED')
         return p,new
 
+    def for_version(self,fid,version):
+        slot=self.root/('first-'+digest(dict(fixture=fid,version=version))+'.json')
+        return self._verified_slot(slot) if slot.is_file() else None
+
     def validate_assets(self,p):
         for ref in p['assets']:
             if Path(ref['file']).name!=ref['file'] or (self.root/ref['file']).stat().st_size>16*1024*1024:
                 raise ValueError('CURRENT_ASSET_PATH_OR_SIZE')
-            self.read_asset(ref)
+            restore_native(self.read_asset(ref))
 
 
 class CurrentAssessments:
     def __init__(self,directory,worker,study):
         self.root=local_path(directory);self.registry=AssessmentRegistry(self.root/'records')
-        self.worker=worker;self.study=study;self.last_report=None
+        self.worker=worker;self.study=study;self.last_report=None;self.attempted={}
 
     def plan(self,create=False):
         path=self.root/'policy.json'
@@ -141,8 +158,8 @@ class CurrentAssessments:
     def _capture(self,case,model,plan):
         target=case['target'];now=int(time.time());slot=now//POLICY['refresh_seconds']
         version=plan['sha256']+':'+str(slot)
-        old=next((r['payload'] for r in self.registry.records() if r['payload']['version']==version and
-                  r['payload']['fixture']['canonical_id']==target['fixture_id']),None)
+        entry=self.registry.for_version(target['fixture_id'],version)
+        old=None if entry is None else entry['payload']
         if old:
             if old['original_snapshot_sha256']!=case['original']:raise Abstain('CURRENT_ASSESSMENT_ORIGINAL_CONFLICT')
             self.registry.validate_assets(old);return old,False
@@ -157,13 +174,13 @@ class CurrentAssessments:
         final=self.worker.verify(target);generated=int(time.time())
         if generated>=target['fixture_start_utc']-POLICY['minimum_lead_seconds']:raise Abstain('CURRENT_ASSESSMENT_SAFE_WINDOW_CLOSED')
         files=[f for f in self.registry.root.iterdir() if f.is_file()]
-        if len(self.registry.records())>=POLICY['maximum_records'] or sum(f.stat().st_size for f in files)>POLICY['maximum_bytes']-4*1024*1024:
+        if len(list(self.registry.root.glob('first-*.json')))>=POLICY['maximum_records'] or sum(f.stat().st_size for f in files)>POLICY['maximum_bytes']-4*1024*1024:
             raise Abstain('CURRENT_ASSESSMENT_STORAGE_BUDGET')
         bands=prediction_intervals(forecast);q=forecast.summary()
-        paths=dict(format='INTEGER_JOINT_REGULATION_PATHS_V1',samples=forecast.samples.tolist(),
-            dtype=forecast.samples.dtype.str,summary=q,intervals=bands,model_artifact_sha256=model['sha256'],feature_cutoff_utc=now)
-        refs=[self.registry.asset('model',model),self.registry.asset('native-before',first),
-              self.registry.asset('native-after',final),self.registry.asset('joint-paths',paths)]
+        paths=dict(encode_paths(forecast.samples),summary=q,intervals=bands,
+            model_artifact_sha256=model['sha256'],feature_cutoff_utc=now)
+        refs=[self.registry.asset('model',model),self.registry.asset('native-source',native_asset(first)),
+              self.registry.asset('native-source',native_asset(final)),self.registry.asset('joint-paths',paths)]
         m=q['metadata'];features=dict(team_efficiency='APPLIED',
             box_pace='APPLIED_BOX_ESTIMATE_NOT_MEASURED_PBP',
             opponent_form='APPLIED' if m.get('opponent_adjusted') else 'TEAM_MODEL_ONLY',
@@ -214,8 +231,10 @@ class CurrentAssessments:
                 or not 0<len(preferred_fixture_id)<=160):
             raise ValueError('CURRENT_PREFERRED_FIXTURE_ID_INVALID')
         plan=self.plan(create=True);cases=self.worker.cases();captures=[];now=int(time.time())
-        saved={(r['payload']['fixture']['canonical_id'],r['payload']['version']) for r in self.registry.records()}
-        ready=[c for c in cases if (c['target']['fixture_id'],plan['sha256']+':'+str(now//POLICY['refresh_seconds'])) not in saved]
+        ready=[c for c in cases if self.registry.for_version(c['target']['fixture_id'],plan['sha256']+':'+str(now//POLICY['refresh_seconds'])) is None]
+        active={c['target']['fixture_id'] for c in cases}
+        self.attempted={k:v for k,v in self.attempted.items() if k in active}
+        ready.sort(key=lambda c:(self.attempted.get(c['target']['fixture_id'],0),c['target']['fixture_start_utc'],c['target']['fixture_id']))
         if preferred_fixture_id:
             ready.sort(key=lambda c:c['target']['fixture_id']!=preferred_fixture_id)
             if not any(c['target']['fixture_id']==preferred_fixture_id for c in cases):
@@ -228,6 +247,7 @@ class CurrentAssessments:
             targeted=('IN_PROCESSING_BATCH' if in_ready else
                       'NOT_ELIGIBLE' if not eligible else 'ALREADY_RECORDED_THIS_HOUR')
         for c in ready[:2]:
+            self.attempted[c['target']['fixture_id']]=now
             try:
                 t=c['target']
                 if t['league']=='NBA':model=self.study.fit(t['season'])[0]
@@ -412,11 +432,7 @@ class CurrentAssessments:
         if now-p['parameter_fit_cutoff_utc']>POLICY['maximum_model_age_seconds']:raise Abstain('CURRENT_MODEL_TOO_OLD')
         ref=next(r for r in p['assets'] if r['file'].startswith('joint-paths-'))
         asset=self.registry.read_asset(ref);q=p['candidate']
-        samples=np.asarray(asset['samples'])
-        if samples.shape!=(10000,4,2) or not np.issubdtype(samples.dtype,np.integer):raise ValueError('CURRENT_JOINT_PATH_SHAPE')
-        if asset['dtype'] not in ('<i4','>i4','<i8','>i8') or np.any(samples<0) or np.any(samples>1000):
-            raise ValueError('CURRENT_JOINT_PATH_DTYPE_OR_RANGE')
-        samples=samples.astype(asset['dtype'])
+        samples=decode_paths(asset)
         forecast=Forecast(q['model'],np.asarray(q['quarters']),samples=samples,metadata=q['metadata'])
         if asset['summary']!=q or prediction_intervals(forecast)!=p['intervals']:
             raise ValueError('CURRENT_JOINT_PATH_PIN')
