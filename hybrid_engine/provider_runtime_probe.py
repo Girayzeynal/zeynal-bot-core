@@ -35,6 +35,7 @@ def main():
         unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_partial_contracts'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_public_source_cache'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_player_history_review'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_player_contrast_research'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_identity'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_current_market_review'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_forecast_error_review'),

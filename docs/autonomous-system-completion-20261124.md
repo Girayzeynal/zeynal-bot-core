@@ -280,3 +280,26 @@ bekler; bu başarısız run başarılı gösterilmeyecek.
   bağımsız kabul veya prospective üstünlük diye gösterilemez. Yeni görülmemiş
   maçlar gerekir. NBA katsayısı Avrupa'ya taşınmaz. Savunma/pace/PBP, tam
   güncel availability ve ceza/ilk beş doğrulanmış gibi etiketlenmez.
+
+#### Aşama 7 uygulama ve gerçek veri sonucu
+
+- `player_contrast_research.py`: sabit exposure-only politika uygulandı.
+  Geçersiz/sonsuz skor ve dakika, gelecek kaynak saati, diğer lig ve değişen
+  model hash'i reddedilir. Statik dakikalar oyuncu bilgisi sayılmaz: ABSTAIN.
+  Bütün testler gerçek kaynak erişiminden bağımsızdır; canlı model admission
+  eklenmedi. Eski referans `fit_box_association` katsayıları değişmedi.
+- Native **70 maç / 140 skor**: **30 seçilmiş oyuncu / 92 parametre**;
+  base rank **60**, genişletilmiş rank **90**. Takım/intercept nuisance
+  parametrelerinde iki bilinen doğrusal bağımlılık ridge ile tanımlanır;
+  oyuncu kontrastlarının rank artışı tam 30'dur. Bu, nedensel veya tekil
+  savunma/tempo etkisi tanımlandığı anlamına gelmez.
+- Strict test yine **n=0**. Daha önce görülmüş, varsayımsal availability
+  geliştirme karşılaştırması **n=1**: aday toplam MAE **16.8044**, takım
+  kontrolü **16.7649**. Aday kontrolü geçmedi; **terfi edilmedi**. Eski pilotun
+  17.3272 değeriyle kıyaslamak bağımsız test sayılmaz.
+- Kanıt `completion-native-player-contrast-20261124.json.gz`, payload SHA
+  `ab4331fca48fb0957d428103df9d60eaf476f51ee78769806484b679899e1cac`.
+- Yeni/legacy/history testleri **20 passed in 0.55s**. İlk bozuk sonsuz skor
+  testinde legacy ön-fit uyarıları görüldü; yeni adayın doğrulaması fit önüne
+  taşındı, uyarı bastırılmadı. Ağ kısıtlı sandbox asyncio yerel socket'i
+  beklettiğinden o koşu durduruldu; loopback izinli yeniden koşu tamamlandı.

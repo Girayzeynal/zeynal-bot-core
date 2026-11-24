@@ -60,6 +60,12 @@ class HistoricalPlayerReview:
         if strict:lines.append('Zamanı doğrulanmış ayrık test: '+str(strict.get('matched_test_games',0))+' · '+strict['status'])
         if p.get('player_coefficients_not_individually_identified'):
             lines.append('Oyuncu katsayıları tek tek ayırt edilemedi; düzenlileştirilmiş ilişki modeli.')
+        contrast=p.get('contrast_candidate')
+        if contrast:
+            lines.append('Ayrı dakika-kontrast adayı: '+contrast['status'])
+            if contrast.get('players') is not None:
+                lines.append('Seçilen oyuncu terimi '+str(contrast['players'])+' · Parametre '+str(contrast['parameters'])+
+                    ' / Gözlem '+str(contrast['score_observations'])+' · Canlı terfi yok')
         lines.extend(['Geçmiş gerçek dakika eğitimi ile güncel maç öncesi dakika kanıtı farklıdır.',
             'Bu denetim kadro/sakatlık etkisini aktif skora uygulamaz; güven endeksi yok.'])
         return '\n'.join(lines)
