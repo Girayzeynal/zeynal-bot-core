@@ -339,11 +339,14 @@ def probe(spec,*,requester=request,now=None,read_article=False):
     # Only an actual truncated HTML receipt allows one larger bounded read.
     # Never retry an access denial, 429, robots refusal or network timeout.
     limit=MAX_BYTES
-    if response.get("status")=="RECEIVED_PARTIAL":
+    prefix=response.get("body")
+    if (response.get("status")=="RECEIVED_PARTIAL" and
+            type(prefix) is bytes and len(prefix)==MAX_BYTES):
         wider=requester(url,mime="text/html",limit=MAX_INDEX_BYTES)
         if (wider.get("status") in ("RECEIVED","RECEIVED_PARTIAL")
                 and type(wider.get("body")) is bytes and len(wider["body"])<=MAX_INDEX_BYTES
-                and len(wider["body"])>=len(response.get("body",b""))):
+                and (len(wider["body"])>len(prefix) or
+                     (wider["status"]=="RECEIVED" and len(wider["body"])==len(prefix)))):
             response=wider;limit=MAX_INDEX_BYTES
     if response.get("status") not in ("RECEIVED","RECEIVED_PARTIAL"):
         return dict(result,status=response.get("status","SOURCE_UNREACHABLE"),
@@ -487,8 +490,13 @@ def render(report):
         if r.get("title"):
             lines.append("Sayfa başlığı: "+r["title"])
         if r.get("incomplete_html"):
-            lines.append("UYARI: Sayfanın yalnız ilk "+str(r.get("index_byte_limit",MAX_BYTES)//1024)+
-                         " KB bölümü okundu; eksik bilgiler sağlıklı/uygun kadro kanıtı DEĞİLDİR.")
+            limit=r.get("index_byte_limit",MAX_BYTES)
+            captured=r.get("captured_bytes")
+            amount=(str(captured)+" bayt" if type(captured) is int and 0<=captured<=limit
+                    else "miktarı doğrulanmadı")
+            lines.append("UYARI: Kısmi HTML; okunan içerik: "+amount+
+                         " (okuma üst sınırı "+str(limit//1024)+
+                         " KB). Eksik bilgiler sağlıklı/uygun kadro kanıtı DEĞİLDİR.")
         # Only short, explicitly UNVERIFIED secondary player hints. Never
         # attribute these to the requested fixture or infer healthy status.
         candidates=r.get("unverified_player_candidates",[])

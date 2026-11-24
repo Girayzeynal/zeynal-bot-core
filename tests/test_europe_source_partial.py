@@ -51,7 +51,46 @@ class PartialHtmlTests(unittest.TestCase):
         self.assertTrue(row["incomplete_html"])
         self.assertFalse(row["player_status_verified"])
         self.assertFalse(row["model_input"])
-        self.assertIn("yalnız ilk 256 KB",render(dict(sources=[row])))
+        self.assertEqual(row["index_byte_limit"],256*1024)
+        self.assertEqual(row["captured_bytes"],len(b"<html><head><title>Injury report</title></head><body>"))
+        rendered=render(dict(sources=[row]))
+        self.assertIn("Kısmi HTML",rendered)
+        self.assertIn(str(row["captured_bytes"])+" bayt",rendered)
+        self.assertIn("okuma üst sınırı 256 KB",rendered)
+        self.assertNotIn("1024 KB",rendered)
+
+    def test_no_extra_bytes_keeps_original_capture_and_limit(self):
+        from hybrid_engine.europe_injury_public_sources import MAX_BYTES,MAX_INDEX_BYTES
+        calls=[]
+        def source(url,*,mime,limit):
+            calls.append(limit)
+            if url.endswith("/robots.txt"):
+                return dict(status="RECEIVED",body=b"User-agent: *\nAllow: /\n")
+            return dict(status="RECEIVED_PARTIAL",body=b" "*MAX_BYTES)
+        spec=dict(name="EUROHOOPS",url="https://www.eurohoops.net/en/euroleague/",
+                  kind="SECONDARY_EDITORIAL")
+        row=probe(spec,requester=source,now=1795179600)
+        self.assertEqual(calls[1:],[MAX_BYTES,MAX_INDEX_BYTES])
+        self.assertEqual(row["captured_bytes"],MAX_BYTES)
+        self.assertEqual(row["index_byte_limit"],MAX_BYTES)
+        self.assertTrue(row["incomplete_html"])
+        self.assertFalse(row["model_input"])
+
+    def test_wider_partial_reports_actual_bytes_and_never_claims_full_content(self):
+        from hybrid_engine.europe_injury_public_sources import MAX_BYTES,MAX_INDEX_BYTES
+        def source(url,*,mime,limit):
+            if url.endswith("/robots.txt"):
+                return dict(status="RECEIVED",body=b"User-agent: *\nAllow: /\n")
+            return dict(status="RECEIVED_PARTIAL",body=b" "*(MAX_BYTES if limit==MAX_BYTES else MAX_BYTES+123))
+        spec=dict(name="EUROHOOPS",url="https://www.eurohoops.net/en/euroleague/",
+                  kind="SECONDARY_EDITORIAL")
+        row=probe(spec,requester=source,now=1795179600)
+        self.assertEqual(row["captured_bytes"],MAX_BYTES+123)
+        self.assertEqual(row["index_byte_limit"],MAX_INDEX_BYTES)
+        self.assertTrue(row["incomplete_html"])
+        self.assertFalse(row["player_status_verified"])
+        self.assertFalse(row["model_input"])
+        self.assertIn(str(MAX_BYTES+123)+" bayt",render(dict(sources=[row])))
 
     def test_incomplete_article_can_only_produce_text_candidates(self):
         def source(url,*,mime,limit):
