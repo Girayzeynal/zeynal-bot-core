@@ -306,3 +306,13 @@ class EuropeanExpiryLabelTests(unittest.TestCase):
         self.assertIn('ARŞİV PİYASA DEĞERLENDİRMESİ',stale)
         self.assertIn('ARŞİV MODEL YÖNÜ',stale)
         self.assertEqual(entry['sections']['market'],body)
+
+class EuropeSummaryPriceExpiryTests(unittest.TestCase):
+    def test_expired_price_does_not_relabel_independent_current_score(self):
+        note='Güncel piyasa kaynak gözlemleri Piyasa düğmesinde; kapsam ve kalibrasyon durumuna bakın.'
+        e=dict(summary='CURRENT SCORE\n'+note,sections={},section_pages={},europe_context={'league':'EUROLEAGUE'},
+               quote_valid_until_utc=120,tipoff_utc=1000,current_assessment_panels=True,current_assessment_valid_until_utc=500)
+        body,_=page_view(e,'summary',0,now=121)
+        self.assertIn('CURRENT SCORE',body)
+        self.assertIn('Piyasa gözlemi eskidi',body)
+        self.assertNotIn('ARŞİV PİYASA GÖZLEMİ',body)

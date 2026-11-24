@@ -132,6 +132,12 @@ def page_view(entry,section,page,*,now):
         if entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc']:
             text='Maç başladı; yalnız arşiv görünümü.\n\n'+text
         elif entry.get('quote_valid_until_utc') is not None and now>=entry['quote_valid_until_utc']:
+            if section=='summary' and entry.get('europe_context'):
+                # Europe summary has no numerical direction from the quote.
+                # Only relabel the price note, not the independent score.
+                text=text.replace('Güncel piyasa kaynak gözlemleri Piyasa düğmesinde; kapsam ve kalibrasyon durumuna bakın.',
+                    'Piyasa gözlemi eskidi; Piyasa düğmesiyle yeniden kontrol edin.')
+                return text,len(values)
             text=('⛔ <b>ARŞİV PİYASA GÖZLEMİ — GÜNCEL ORAN DEĞİL</b>\n'
                   'Arşiv görünümü; piyasa fiyatları yeniden sorgulanmadı.\n'
                   'Barem, fiyat ve ham model yüzdesi önceki kontrol anına aittir; '

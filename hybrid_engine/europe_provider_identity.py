@@ -17,6 +17,9 @@ RULE='EUROPE_OFFICIAL_ALIASES_EXACT_START_V1'
 OBSERVED_LABELS={
     'kkcrvenazvezda':('RED','crvenazvezdameridianbetbelgrade'),
     'virtussegafredobologna':('VIR','virtusbologna'),
+    # User's real E2026_133 roster and event discovery, exact club IDs.
+    'fcbarcelonabasquet':('BAR','fcbarcelona'),
+    'fenerbahcesk':('ULK','fenerbahcetarfinistanbul'),
 }
 
 

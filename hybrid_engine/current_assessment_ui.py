@@ -527,10 +527,19 @@ def install_dual_clock_display(state,assessments):
                            +'Hesap: '+tsi(selected['prediction_generated_at_utc'])+'\n'
                            +'NBA V3 değildir; oyuncu etkisi ve kalibrasyon doğrulanmadı.\n'
                            +'İlk kayıtlı Bayes tahmini aşağıdadır.\n\n')
+                    old_summary=entry.get('summary','')
+                    archive_blocks=['<b>İLK KAYITLI BAYES — ARŞİV</b>\n'+old_summary]
                     for section in ('period','ranges'):
-                        value=panels[section].replace('V3 aday','Avrupa aday')
-                        entry['section_pages'][section].extend(split_blocks(value.splitlines(),limit=3200))
-                        entry['sections'][section]+='\n\n'+value
+                        prior=entry['sections'][section]
+                        archive_blocks.append('<b>İLK KAYITLI BAYES — ARŞİV</b>\n'+prior)
+                        value=panels[section].replace('V3 aday','Avrupa aday').replace('Model / Kaynak arşivindedir','İlk Tahmin — Arşiv düğmesindedir')
+                        entry['section_pages'][section]=split_blocks(value.splitlines(),limit=3200)
+                        entry['sections'][section]=value
+                    entry['sections']['archive']='\n\n'.join(archive_blocks)
+                    entry['section_pages']['archive']=[page for block in archive_blocks
+                        for page in split_blocks(block.splitlines(),limit=3200)]
+                    from hybrid_engine.telegram_premium_ui import keyboard as premium_keyboard
+                    result['reply_markup']=premium_keyboard(token,include_archive=True)
                     entry['current_assessment_panels']=True
                     entry['current_assessment_valid_until_utc']=panels['valid_until']
                 else:
@@ -546,6 +555,11 @@ def install_dual_clock_display(state,assessments):
                 else:parts.insert(0,extra)
                 entry['sections']['audit']+='\n\n'+extra
                 entry['section_pages']['audit']=split_blocks(entry['sections']['audit'].splitlines(),limit=3200)
+                try:
+                    from hybrid_engine.telegram_premium_ui import cache_report
+                    cache_report(state.get('premium_reports',{}),token,entry)
+                except (OSError,ValueError,TypeError):
+                    pass
             elif len((prefix+parts[0]).encode('utf-16-le'))//2<=3500:
                 parts[0]=prefix+parts[0]
             else:parts.insert(0,prefix)

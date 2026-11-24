@@ -248,3 +248,26 @@ class ObservedRedVirLabelTests(TestCase):
             for off in (1,600):
                 d2,_=dubai_partizan_receipts(s,home='KK Crvena zvezda',away='Virtus Segafredo Bologna',offset=off)
                 with self.assertRaises(ValueError):bind(d2,s)
+
+class ObservedBarUlkLabelTests(TestCase):
+    def test_barcelona_fenerbahce_exact_live_labels(self):
+        with patch('time.time',return_value=NOW):
+            clubs=[dict(code='BAR',name='FC Barcelona',abbreviatedName='Barcelona',
+                       editorialName='Barcelona',clubPermanentName='FC Barcelona',city='Barcelona',isVirtual=False),
+                   dict(code='ULK',name='Fenerbahce Tarfin Istanbul',abbreviatedName='Fenerbahce',
+                       editorialName='Fenerbahce',clubPermanentName='Fenerbahce Istanbul',city='Istanbul',isVirtual=False)]
+            s=snapshot(clubs=clubs)
+            s['home']=dict(provider_id='BAR',official_name=clubs[0]['name'])
+            s['away']=dict(provider_id='ULK',official_name=clubs[1]['name'])
+            d,q=dubai_partizan_receipts(s,home='FC Barcelona Bàsquet',away='Fenerbahce SK')
+            self.assertTrue(matches(d['document'][0],s))
+            _,b=bind(d,s)
+            self.assertEqual(b['payload']['team_identity']['observed_exact_provider_aliases'],
+                             {'fcbarcelonabasquet':'BAR','fenerbahcesk':'ULK'})
+            self.assertEqual(verify_detail(d,q,s),b)
+            self.assertEqual(len(odds_observations(q,s,discovery=d)[0]),1)
+            wrong=deepcopy(s);wrong['away']['provider_id']='BAR'
+            self.assertFalse(matches(d['document'][0],wrong))
+            for off in (1,600):
+                d2,_=dubai_partizan_receipts(s,home='FC Barcelona Bàsquet',away='Fenerbahce SK',offset=off)
+                with self.assertRaises(ValueError):bind(d2,s)

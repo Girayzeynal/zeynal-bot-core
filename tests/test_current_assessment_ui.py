@@ -720,3 +720,26 @@ class EuropeCurrentDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('ORIGINAL BAYES',out['html'])
         self.assertEqual(entry['sections']['market'],'OLD PRICE')
         queue.request_fixture.assert_called_once_with(context)
+
+    async def test_fresh_europe_candidate_owns_numeric_buttons_first_bayes_in_archive(self):
+        from telegram import InlineKeyboardMarkup,InlineKeyboardButton
+        token='d'*12
+        context,row=CurrentPanelsTests().setup_case()
+        context=dict(context,league='EUROLEAGUE')
+        response=dict(status='EUROPE_HYBRID_OK',html='ORIGINAL BAYES',html_parts=['ORIGINAL BAYES'],
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('Piyasa',callback_data='zui:'+token+':market')]]))
+        entry=dict(europe_context=context,summary='ORIGINAL BAYES',
+            sections=dict(period='OLD Q',ranges='OLD RANGE',market='OLD PRICE',audit='OLD AUDIT'),
+            section_pages=dict(period=['OLD Q'],ranges=['OLD RANGE'],market=['OLD PRICE'],audit=['OLD AUDIT']))
+        state=dict(verified_analysis_service=SimpleNamespace(analyze=AsyncMock(return_value=response)),
+                   premium_reports={token:entry})
+        install_dual_clock_display(state,SimpleNamespace(latest=Mock(return_value=row)))
+        with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
+            out=await state['verified_analysis_service'].analyze('EUROLEAGUE','day','h','a')
+        self.assertIn('AVRUPA GÜNCEL TEMPO',out['html'])
+        self.assertIn('218.00',entry['sections']['period'])
+        self.assertNotIn('OLD Q',entry['sections']['period'])
+        self.assertNotIn('OLD RANGE',entry['sections']['ranges'])
+        self.assertIn('OLD Q',entry['sections']['archive'])
+        self.assertIn('OLD RANGE',entry['sections']['archive'])
+        self.assertEqual(entry['sections']['market'],'OLD PRICE')
