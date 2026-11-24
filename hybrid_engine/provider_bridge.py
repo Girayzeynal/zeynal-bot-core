@@ -333,6 +333,13 @@ class ProviderBridge:
         if not isinstance(events['document'], list):
             return dict(status='INVALID_PROVIDER_SCHEMA', observations=[])
         from hybrid_engine.provider_identity import bind
+        slate={}
+        if snapshot.get('european_team_catalog') is not None and snapshot['league'] in ('EUROLEAGUE','EUROCUP'):
+            try:
+                from hybrid_engine.europe_provider_identity import audit_slate
+                slate={'slate_identity_audit':audit_slate(events,snapshot)}
+            except (ValueError,KeyError,TypeError):
+                slate={'slate_identity_audit':{'status':'SLATE_IDENTITY_AUDIT_REFUSED'}}
         try:
             event,binding=bind(events,snapshot,asof_utc=int(self.clock()))
         except (ValueError,KeyError,TypeError) as exc:
@@ -347,7 +354,7 @@ class ProviderBridge:
                         matching_events=sum(matches(e,snapshot) for e in events['document']),
                         error_codes=[code if code in codes else 'NATIVE_EVENT_BINDING_REFUSED'],
                         operation='EVENT_DISCOVERY',fixture_diagnostic=fixture_diagnostic(events['document'],snapshot),
-                        source_pin=self._save(events))
+                        source_pin=self._save(events),**slate)
         event_id = event.get('id')
         if not isinstance(event_id, str) or not re.fullmatch('[a-zA-Z0-9_-]{1,80}', event_id):
             return dict(status='PROVIDER_EVENT_ID_INVALID', observations=[])
@@ -355,7 +362,7 @@ class ProviderBridge:
         if self.diagnostic_only:
             return dict(status='EXACT_FIXTURE_MATCH_CONFIRMED' if binding['payload']['delta_seconds']==0 else 'NBA_PROVIDER_OFFSET_BOUND',
                         observations=[],provider_fixture_id=event_id,event_clock_binding=binding,
-                        odds_requests_made=0,source_pin=discovery_pin)
+                        odds_requests_made=0,source_pin=discovery_pin,**slate)
         markets = (*CORE_MARKETS, *EXTRA_MARKETS) if self.extended else CORE_MARKETS
         # Query only the explicitly opted-in regions. Budget is checked against
         # the worst-case cost, never inferred from an earlier match.
@@ -410,7 +417,7 @@ class ProviderBridge:
                     requested_regions=list(self.regions),extended_reduced_for_credit_budget=scope_reduced,
                     quota=props.get('quota',r.get('quota', {})), source_pin=detail_pin,
                     provider_fixture_id=event_id, event_clock_binding=binding,
-                    discovery_source_pin=discovery_pin,forecast_inputs_changed=False)
+                    discovery_source_pin=discovery_pin,forecast_inputs_changed=False,**slate)
 
     def _basketball(self, snapshot, deadline, *, backup_prices=False):
         access = self.access
@@ -628,6 +635,16 @@ def render(report):
             for candidate in detail['candidates'][:3]:
                 lines.append(html.escape(candidate['home']+' – '+candidate['away']+' | '+candidate['start_utc']+
                                          ' | Saat farkı (sn): '+str(candidate['delta_seconds'])))
+        slate=row.get('slate_identity_audit')
+        if slate:
+            if slate.get('status')=='OBSERVED_SLATE_IDENTITY_AUDIT_ONLY':
+                lines.append('Lig listesi kimlik denetimi: '+str(slate['resolved_label_count'])+'/'+
+                             str(slate['observed_label_count'])+' sağlayıcı etiketi; '+str(len(slate['observed_official_ids']))+
+                             '/'+str(slate['official_participant_count'])+' resmî kulüp gözlendi.')
+                for item in slate['unresolved'][:12]:
+                    lines.append('Eşleşmeyen etiket: '+html.escape(item['label']+' · '+item['reason']))
+                lines.append('Bu maç listesinin kapsamıdır; bütün sezon veya bütün baremler doğrulandı anlamına gelmez.')
+            else:lines.append('Lig listesi kimlik denetimi doğrulanamadı.')
         if row.get('requested_regions'):
             lines.append('Sorgu bölgeleri: '+html.escape(', '.join(row['requested_regions'])))
         if row.get('extended_reduced_for_credit_budget'):

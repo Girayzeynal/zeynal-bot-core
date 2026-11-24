@@ -83,12 +83,29 @@ def bind(receipt,snapshot,*,asof_utc=None):
         # Version only this newly authorized native event alias; preserve all
         # historic V1 bindings, immutable receipts and original forecasts.
         from core.league_identity import normalize_name
-        from hybrid_engine.europe_provider_identity import OBSERVED_LABELS
+        from hybrid_engine.europe_provider_identity import (OBSERVED_LABELS,CATALOG_OBSERVED_LABELS,
+            official_registry,observed_catalog_anchor)
         used={normalize_name(event[k]):OBSERVED_LABELS[normalize_name(event[k])][0]
               for k in ('home_team','away_team') if normalize_name(event[k]) in OBSERVED_LABELS}
         if used and snapshot['league']=='EUROLEAGUE' and snapshot['season']=='2026/2027':
             payload['rule']='EUROPE_OBSERVED_PROVIDER_LABELS_E2026_V3'
             payload['team_identity']['observed_exact_provider_aliases']=used
+        # Only a newly used fallback changes the binding format; direct
+        # official aliases and earlier accepted bindings retain their pins.
+        if snapshot['league']=='EUROLEAGUE' and snapshot['season']=='2026/2027':
+            from core.team_identity import IdentityRefusal
+            registry,_,at=official_registry(snapshot);extra={}
+            for side in ('home_team','away_team'):
+                label=event[side];key=normalize_name(label)
+                if key not in CATALOG_OBSERVED_LABELS:continue
+                try:registry.resolve(snapshot['league'],snapshot['season'],label,asof_utc=at)
+                except IdentityRefusal as exc:
+                    if str(exc)!='TEAM_ALIAS_NOT_REGISTERED':raise
+                    team=observed_catalog_anchor(label,snapshot,registry,at)
+                    extra[key]=team.provider_ids[0][1]
+            if extra:
+                payload['rule']='EUROPE_OBSERVED_CATALOG_ANCHORS_E2026_V4'
+                payload['team_identity']['observed_catalog_anchor_aliases']=extra
         if (snapshot['league']=='EUROLEAGUE' and
                 snapshot['season']=='2026/2027' and
                 (normalize_name(event['home_team'])=='kkpartizannis' or
