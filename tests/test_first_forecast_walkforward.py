@@ -271,6 +271,66 @@ class FirstForecastWalkForwardTests(unittest.TestCase):
         self.assertIn("TIPOFF_PASSED_NATIVE_FINAL_NOT_VERIFIED",render(out))
         self.assertIn("ONE_SELECTED_EXISTING_SQLITE_LEDGER",out["report_scope"])
 
+    def test_native_period_errors_cover_all_quarters_halves_and_teams(self):
+        case = self.row("periods", prediction=(110, 110), actual=(100, 100))
+        case["predicted_quarters"] = [[27.5,27.5] for _ in range(4)]
+        case["predicted_halves"] = [[55,55],[55,55]]
+        result = review(self.report([case]), asof_utc=self.now)
+        comp = result["league_season_descriptives"][0]["components"]
+        self.assertEqual(comp["original_fixtures"], 1)
+        self.assertEqual(comp["fixtures_with_verified_quarter_projections"], 1)
+        self.assertEqual(comp["full_game"]["home"]["mae"], 10)
+        self.assertEqual(comp["full_game"]["away"]["mae"], 10)
+        self.assertEqual(comp["full_game"]["model_margin"]["mae"], 0)
+        for q in ("1Q","2Q","3Q","4Q"):
+            self.assertEqual(comp["periods"][q]["total"]["mae"], 5)
+            self.assertEqual(comp["periods"][q]["home"]["mae"], 2.5)
+            self.assertEqual(comp["periods"][q]["away"]["mae"], 2.5)
+        for h in ("1H","2H"):
+            self.assertEqual(comp["periods"][h]["total"]["mae"], 10)
+            self.assertEqual(comp["periods"][h]["total"]["n"], 1)
+        self.assertEqual(comp["bookmaker_spread_or_ou_result"],
+                         "NOT_COMPUTED_WITHOUT_POINT_IN_TIME_MARKET_LINES")
+        output=render(result)
+        self.assertIn("1H · n=1 · toplam MAE 10.00",output)
+        self.assertIn("Model farkı MAE 0.00 (bahis handikabı değil)",output)
+
+    def test_missing_quarter_projection_reduces_only_period_coverage(self):
+        case=self.row("with",index=0)
+        case["predicted_quarters"]=[[27.5,27.5]]*4
+        missing=self.row("without",index=1)
+        result=review(self.report([case,missing]),asof_utc=self.now)
+        m=result["league_season_descriptives"][0]["components"]
+        self.assertEqual(m["original_fixtures"],2)
+        self.assertEqual(m["fixtures_with_verified_quarter_projections"],1)
+        self.assertEqual(m["fixtures_without_quarter_projections"],1)
+        self.assertEqual(m["full_game"]["total"]["n"],2)
+        self.assertEqual(m["periods"]["1Q"]["total"]["n"],1)
+        other=review(self.report([missing]),asof_utc=self.now)
+        p=other["league_season_descriptives"][0]["components"]["periods"]["1H"]["total"]
+        self.assertEqual(p["n"],0)
+        self.assertIsNone(p["mae"])
+
+    def test_invalid_quarter_or_half_is_rejected_without_fabrication(self):
+        invalid=self.row("bad")
+        invalid["predicted_quarters"]=[[27.5,27.5]]*3
+        with self.assertRaisesRegex(ValueError,"FIRST_FORECAST_QUARTER_PROJECTION_CONFLICT"):
+            review(self.report([invalid]),asof_utc=self.now)
+        invalid["predicted_quarters"]=[[27.5,27.5]]*4
+        invalid["predicted_halves"]=[[55,55],[57,55]]
+        with self.assertRaisesRegex(ValueError,"FIRST_FORECAST_HALF_PROJECTION_CONFLICT"):
+            review(self.report([invalid]),asof_utc=self.now)
+
+    def test_degrading_shadow_is_rejected_from_research_admission(self):
+        prior=self.row("prior",index=0,prediction=(90,90))
+        target=self.row("target",index=1,prediction=(100,100))
+        result=review(self.report([prior,target]),asof_utc=self.now)
+        self.assertEqual(result["walk_forward_shadow"][0]["research_decision"],
+                         "REJECT_WORSE_PAIRED_MAE")
+        self.assertIn("REJECT_WORSE_PAIRED_MAE",render(result))
+        self.assertFalse(result["automatic_promotion"])
+        self.assertFalse(result["calibration_applied_to_production"])
+
     def test_real_sqlite_commit_result_end_to_end_is_read_only(self):
         """Use actual native-authenticated SQLite fixture, not a trusted dict."""
         import hashlib
