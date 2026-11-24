@@ -14,6 +14,7 @@ on:
       - "feature/integrated-test-bot-20261119"
       - "fix/telegram-current-panels-20261122"
       - "fix/prematch-five-minute-time-policy-20261123"
+      - "integration/nba-v3-calibration-20261124"
   pull_request:
     branches:
       - main
@@ -46,6 +47,8 @@ jobs:
           python -m pip install -r requirements-test.txt
       - name: Compile all Python modules
         run: python -m compileall -q .
+      - name: Validate Android isolated launcher syntax
+        run: bash -n scripts/run_isolated_test_bot.sh
       - name: Run regression tests
         run: python -m pytest -q
 
