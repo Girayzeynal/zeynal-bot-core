@@ -12,6 +12,12 @@ if [[ ! -x "${test_python}" ]]; then echo "ISOLATED_PYTHON_NOT_FOUND" >&2; exit 
 if [[ "${1:-}" == "--provider-check" ]]; then
   exec "${test_python}" -m hybrid_engine.provider_access --check
 fi
+# Read-only history of locally captured prices; never claims opening/closing lines.
+if [[ "${1:-}" == "--market-history" ]]; then
+  if [[ "$#" -ne 3 ]]; then echo "USAGE: --market-history LEAGUE FIXTURE_ID" >&2; exit 2; fi
+  exec "${test_python}" -B -m hybrid_engine.native_market_history \
+    --data-directory "${HOME}/zeynal-test-isolated/data" --league "$2" --fixture-id "$3"
+fi
 # Explicit source inventory, no secrets or network by default.
 if [[ "${1:-}" == "--source-inventory" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_SOURCE_INVENTORY_ARGS" >&2; exit 2; fi
