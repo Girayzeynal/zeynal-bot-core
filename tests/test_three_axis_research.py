@@ -8,7 +8,7 @@ import numpy as np
 from hybrid_engine.distributions import periods_for_scores
 from hybrid_engine.three_axis_research import (
     stochastic_quarters_from_frozen_scores,conditional_bias_comparison,player_input_gate,
-    quarter_comparison,_point_metrics)
+    quarter_comparison,_point_metrics,margin_preserving_comparison,_history_from_cut)
 
 
 def verified_ledger(n=10,*,future_label_at=None):
@@ -179,3 +179,43 @@ class NBATriAxisResearchTests(TestCase):
         self.assertEqual(m["home"]["original_bias"],20.)
         self.assertEqual(m["away"]["original_bias"],-20.)
         self.assertIsNone(_point_metrics([]))
+
+    def test_common_mode_candidate_does_not_worsen_margin_by_changing_it(self):
+        row=dict(forecast_before=[120.,90.],forecast_candidate=[112.,91.],
+                 adjustment=[-8.,1.],regulation_actual=[100.,110.])
+        result=margin_preserving_comparison([row])
+        self.assertTrue(result["margin_preserved"])
+        self.assertEqual(result["score_components"]["margin"]["original_mae"],
+                         result["score_components"]["margin"]["candidate_mae"])
+        self.assertFalse(result["production_enabled"])
+
+    def test_original_feature_history_removes_dependency_on_forecast_count(self):
+        from unittest.mock import patch
+        from hybrid_engine.data import STRICT
+        ledger,now=verified_ledger(1)
+        target=ledger["forecasts"][0]
+        clock=target["prediction_generated_at_utc"]
+        history=[]
+        for i in range(8):
+            ts=clock-(i+1)*86400
+            history.append(dict(fixture_id="native-"+str(i),league="NBA",season=target["season"],
+                home_team_id="1",away_team_id="2",fixture_start_utc=ts-9000,
+                observed_at_utc=ts-1,ingested_at_utc=ts,
+                periods={"home":[24,25,26,25],"away":[25,26,27,26]}))
+        cut=dict(target=dict(fixture_id=target["fixture_id"],league="NBA",season=target["season"],
+            fixture_start_utc=target["fixture_start_utc"],home_team_id="1",away_team_id="2"),
+            cutoff_utc=clock-1,evaluation_class=STRICT,history=history,
+            features={side:{"recent_game_ids":[r["fixture_id"] for r in history]}
+                      for side in ("home","away")})
+        with patch("hybrid_engine.data.available_at",side_effect=lambda r,mode:r["ingested_at_utc"]):
+            report=quarter_comparison(ledger,asof_utc=now,scenarios=1024,cut_loader=lambda r:cut)
+            self.assertEqual(report["paired_n"],1)
+            self.assertEqual(report["history_source"],"ORIGINAL_FROZEN_FEATURE_CUT")
+            self.assertEqual(report["trace"][0]["history"]["home"]["past_games"],8)
+            tainted=deepcopy(cut)
+            tainted["history"][0]["ingested_at_utc"]=clock+1
+            with self.assertRaisesRegex(ValueError,"QUARTER_FROZEN_HISTORY_CLOCK"):
+                _history_from_cut(tainted,target,"home")
+            denied=quarter_comparison(ledger,asof_utc=now,scenarios=1024,cut_loader=lambda r:tainted)
+            self.assertEqual(denied["paired_n"],0)
+            self.assertEqual(sum(denied["excluded"].values()),1)
