@@ -61,8 +61,17 @@ def evaluate_bound(bridge,observation,distribution,context,*,asof_utc,native_quo
     age=asof_utc-cutoff if type(cutoff) is int else None
     issue=('MODEL_FIT_CUTOFF_UNKNOWN' if age is None else
            'MODEL_PARAMETERS_STALE' if not 0<=age<=model_age_limit else None)
-    rules=for_bridge(bridge,asof_utc)
+    rules_issue=None
+    try:
+        rules=for_bridge(bridge,asof_utc)
+    except (ValueError,KeyError,TypeError,OSError):
+        # A broken optional contract registry cannot invalidate independent
+        # native quote evidence or normal-time paths. Never infer a rule.
+        rules={};rules_issue='CONFIGURED_SETTLEMENT_RULES_INVALID'
     result=evaluate(observation,distribution,asof_utc=asof_utc,native_quotes=native_quotes,rules=rules if not issue else {})
+    if rules_issue:
+        for row in result['rows']:
+            row['reasons'].append(rules_issue)
     result['parameter_fit_age_seconds']=age
     result['model_fit_age_limit_seconds']=model_age_limit
     result['research_record_type']='CURRENT_RESEARCH_ASSESSMENT_V1' if current_v3 else 'FIRST_OR_LEGACY_REVIEW'

@@ -141,6 +141,12 @@ def evaluate(observation,distribution,*,asof_utc,native_quotes=(),rules=None):
     return result
 
 
+def fixture_journal_directory(root,league,fixture_id):
+    # The exact canonical identity determines a bounded rollover directory.
+    # Never use caller-controlled fixture strings as path components.
+    return local_path(root/'fixtures'/digest(dict(league=league,fixture_id=fixture_id)))
+
+
 class CurrentReviewJournal:
     """Separate immutable files; no SQL, prediction table or model edits."""
     def __init__(self,directory):self.root=local_path(directory)
@@ -171,7 +177,13 @@ class CurrentReviewJournal:
             manifest.update(forecast_record_type=snapshot['record_type'],
                 linked_original_snapshot_sha256=snapshot['linked_original_snapshot_sha256'],
                 current_assessment_sha256=snapshot['current_assessment_sha256'])
-        key=digest(manifest);path=local_path(self.root/('review-'+key+'.json'))
+        key=digest(manifest);filename='review-'+key+'.json'
+        legacy=local_path(self.root/filename)
+        segment=fixture_journal_directory(self.root,snapshot['league'],snapshot['fixture_id'])
+        rollover=local_path(segment/filename)
+        if legacy.exists() and rollover.exists():
+            raise ValueError('CURRENT_REVIEW_DUPLICATE_ARCHIVE_LOCATION')
+        path=legacy if legacy.exists() else rollover if rollover.exists() else legacy
         if path.exists():
             if path.stat().st_size>2*1024*1024:raise ValueError('CURRENT_REVIEW_RECORD_SIZE')
             old=json.loads(path.read_text())
@@ -188,10 +200,15 @@ class CurrentReviewJournal:
                      record_class='PREGAME_CURRENT_REVIEW' if archived<cutoff else 'POST_TIPOFF_REVIEW_ONLY',
                      eligible_for_current_prematch_metrics=False)
         body=dict(payload=payload,sha256=digest(payload),manifest_sha256=key)
-        if len(json.dumps(body).encode())>2*1024*1024:raise ValueError('CURRENT_REVIEW_RECORD_SIZE')
-        if self.root.exists():
-            files=list(self.root.glob('review-*.json'))
-            if len(files)>=256 or sum(f.stat().st_size for f in files)+len(json.dumps(body).encode())>16*1024*1024:
-                raise ValueError('CURRENT_REVIEW_STORAGE_BUDGET')
-        self.root.mkdir(parents=True,exist_ok=True);publish_json(path,body)
+        size=len((json.dumps(body,sort_keys=True,allow_nan=False)+'\n').encode())
+        if size>2*1024*1024:raise ValueError('CURRENT_REVIEW_RECORD_SIZE')
+        def full(directory):
+            files=list(directory.glob('review-*.json')) if directory.exists() else []
+            return len(files)>=256 or sum(local_path(f).stat().st_size for f in files)+size>16*1024*1024
+        # Do not delete, relocate or rewrite existing root files. Once a
+        # fixture rolls over, keep new records in its own bounded directory.
+        if segment.exists() or full(self.root):
+            path=rollover
+            if full(segment):raise ValueError('CURRENT_REVIEW_STORAGE_BUDGET')
+        path.parent.mkdir(parents=True,exist_ok=True);publish_json(path,body)
         return body

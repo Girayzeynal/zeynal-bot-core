@@ -182,9 +182,10 @@ class EuropeanDataReview:
         if observations:
             from hybrid_engine.current_market_review import admit_odds,evaluate,CurrentReviewJournal
             from hybrid_engine.current_market_render import render_batch
-            row=report['providers']['THE_ODDS_API'];discovery=self.bridge.read_receipt(row['discovery_source_pin'])
-            detail=self.bridge.read_receipt(row['source_pin'])
+            row=report['providers']['THE_ODDS_API']
             try:
+                discovery=self.bridge.read_receipt(row['discovery_source_pin'])
+                detail=self.bridge.read_receipt(row['source_pin'])
                 assessment=None
                 if getattr(self.bridge,'assessments',None):
                     try:assessment=self.bridge.assessments.available_market_context(ctx)

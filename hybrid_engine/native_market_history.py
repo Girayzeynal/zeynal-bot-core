@@ -9,7 +9,7 @@ import re
 from core.team_identity import digest
 from hybrid_engine.data import local_path
 
-MAX_FILES=512
+MAX_FILES=1024
 MAX_BYTES=2*1024*1024
 LEAGUES=('NBA','EUROLEAGUE','EUROCUP')
 
@@ -17,8 +17,12 @@ def inspect(root,league,fixture_id):
     if league not in LEAGUES or not re.fullmatch(r'[A-Za-z0-9_-]{1,160}',fixture_id):
         raise ValueError('MARKET_HISTORY_EXACT_FIXTURE_REQUIRED')
     root=local_path(root)
+    from hybrid_engine.current_market_review import fixture_journal_directory
     folders=[root/'current-market-reviews',root/'europe-data'/'market']
-    files=[p for folder in folders for p in folder.glob('review-*.json')]
+    # Legacy global journal plus the exact fixture's rollover, never a scan
+    # of all other fixture directories. Keep local journal evidence distinct.
+    folders += [fixture_journal_directory(folder,league,fixture_id) for folder in folders]
+    files=[p for folder in folders for p in local_path(folder).glob('review-*.json')]
     if len(files)>MAX_FILES:raise ValueError('MARKET_HISTORY_FILE_BUDGET_EXCEEDED')
     series=defaultdict(dict);conflicts=set();rejected=0
     for path in sorted(files):

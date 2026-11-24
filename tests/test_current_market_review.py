@@ -209,12 +209,37 @@ class CurrentReviewTests(unittest.TestCase):
             with self.assertRaises(OSError):self.batch()
         self.assertFalse(list((self.root/'decisions').glob('review-*.json')))
 
-    def test_journal_storage_budget_refuses_without_deleting_old_records(self):
+    def test_journal_rolls_over_full_legacy_without_deleting_old_records(self):
+        from hybrid_engine.current_market_review import fixture_journal_directory
         directory=self.root/'decisions';directory.mkdir()
         for i in range(256):(directory/f'review-{i:064x}.json').write_text('{}')
+        before={p:p.read_bytes() for p in directory.glob('review-*.json')}
+        first=self.batch()
+        segment=fixture_journal_directory(directory,self.snap['league'],self.snap['fixture_id'])
+        self.assertEqual(len(list(segment.glob('review-*.json'))),1)
+        self.assertEqual(before,{p:p.read_bytes() for p in directory.glob('review-*.json')})
+        self.assertEqual(first,self.batch())
+
+    def test_full_fixture_segment_refuses_without_deleting(self):
+        from hybrid_engine.current_market_review import fixture_journal_directory
+        segment=fixture_journal_directory(self.root/'decisions',self.snap['league'],self.snap['fixture_id'])
+        segment.mkdir(parents=True)
+        for i in range(256):(segment/f'review-{i:064x}.json').write_text('{}')
         with self.assertRaisesRegex(ValueError,'STORAGE_BUDGET'):self.batch()
-        self.assertEqual(len(list(directory.iterdir())),256)
-        self.assertTrue(all(p.read_text()=='{}' for p in directory.iterdir()))
+        self.assertEqual(len(list(segment.glob('review-*.json'))),256)
+
+    def test_invalid_optional_rule_manifest_preserves_raw_native_review(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from hybrid_engine.settlement_rules import evaluate_bound
+        bridge=SimpleNamespace(rule_book=SimpleNamespace(rules=Mock(side_effect=ValueError('RULE_PIN'))))
+        r=evaluate_bound(bridge,self.obs,self.dist,self.snap,asof_utc=NOW,native_quotes=self.quotes)
+        q=r['rows'][0]
+        self.assertIn('CONFIGURED_SETTLEMENT_RULES_INVALID',q['reasons'])
+        self.assertAlmostEqual(sum(q['conditional_regulation_probabilities'].values()),1.)
+        self.assertIsNone(q['expected_value'])
+        self.assertIsNone(q['confidence_index'])
+        self.assertFalse(r['selection_enabled'])
 
     def test_journal_does_not_write_sqlite_or_other_existing_files(self):
         existing=self.root/'research.sqlite';existing.write_bytes(b'SYNTHETIC_SENTINEL_NOT_A_DATABASE')
