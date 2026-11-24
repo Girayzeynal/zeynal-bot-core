@@ -518,7 +518,16 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
     market_candidate_snapshot=None
     observations = report['providers'].get('THE_ODDS_API', {}).get('observations', [])
     if observations:
-        assessment=bridge.assessments.available_market_context(snapshot) if getattr(bridge,'assessments',None) else None
+        assessment=None
+        # A broken/missing V3 context must not take the existing, independently
+        # verified V1 price review down with it. The fallback uses only V1 paths
+        # and its own original model/clock, never a relabelled V3 direction.
+        if getattr(bridge,'assessments',None):
+            try:
+                assessment=bridge.assessments.available_market_context(snapshot)
+            except (OSError,ValueError,KeyError,TypeError,TimeoutError):
+                parts.append('V3 fiyat bağlamı doğrulanamadı: V3_MARKET_CONTEXT_UNAVAILABLE. '
+                             'İlk modelin bağımsız fiyat incelemesi korunuyor.')
         if getattr(bridge,'assessments',None) and assessment is None:
             parts.append('Güncel değerlendirme yolları hazır/güncel değil; piyasa ilk tahminin dağılımıyla ayrı referans olarak gösteriliyor.')
         evaluation_snapshot,distribution=assessment if assessment else (snapshot,replay_nba(snapshot,service))

@@ -404,8 +404,8 @@ class CurrentAssessments:
         self._verify_context_pin(context,p)
         return p
 
-    def market_context(self,context):
-        p=self.latest(context)
+    def market_context(self,context,*,recent_only=False):
+        p=self.latest_display(context) if recent_only else self.latest(context)
         if p is None:return None
         now=int(time.time());age=now-p['prediction_generated_at_utc']
         if not 0<=age<=POLICY['candidate_freshness_seconds'] or now>=p['fixture']['fixture_start_utc']:raise Abstain('CURRENT_ASSESSMENT_STALE_OR_STARTED')
@@ -432,7 +432,7 @@ class CurrentAssessments:
         return snap,DecisionDistribution(forecast,trace_for(snap))
 
     def available_market_context(self,context):
-        try:return self.market_context(context)
+        try:return self.market_context(context,recent_only=True)
         except Abstain as exc:
             if str(exc) not in ('CURRENT_ASSESSMENT_STALE_OR_STARTED','CURRENT_MODEL_TOO_OLD'):raise
             return None  # A stale assessment is never presented as current.

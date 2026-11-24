@@ -312,6 +312,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('CURRENT_RESEARCH_BACKGROUND_PENDING',out['html'])
         self.assertNotIn('GÜNCEL NBA TAHMİNİ',out['html'])
         self.assertIn('ORIGINAL',state['premium_reports'][token]['sections']['archive'])
+        self.assertIn('İLK KAYITLI V1 REFERANSI — V3 DEĞİL',out['html'])
         a.refresh_fixture.assert_not_called()
         queue.request_fixture.assert_called_once_with(ctx)
 
@@ -391,7 +392,8 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('V1 FIRST Q',entry['sections']['archive'])
             self.assertIn('V1 BANDS',entry['sections']['archive'])
             self.assertIn('CURRENT_ASSESSMENT_NOT_PUBLISHED',entry['sections']['period'])
-            self.assertNotIn('V1 FIRST Q',entry['sections']['period'])
+            self.assertIn('İLK V1 REFERANSI — GÜNCEL V3 DEĞİL',entry['sections']['period'])
+            self.assertIn('V1 FIRST Q',entry['sections']['period'])
             queue.request_fixture.assert_called_once_with(ctx)
             latest.assert_called_once_with(ctx)
         finally:
@@ -425,7 +427,8 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('GÜNCEL NBA TAHMİNİ',out['html'])
         entry=state['premium_reports'][token]
         self.assertIn('CURRENT_ASSESSMENT_NOT_PUBLISHED',entry['sections']['period'])
-        self.assertNotIn('OLD BANDS',entry['sections']['ranges'])
+        self.assertIn('İLK V1 REFERANSI — GÜNCEL V3 DEĞİL',entry['sections']['ranges'])
+        self.assertIn('OLD BANDS',entry['sections']['ranges'])
         self.assertIn('OLD BANDS',entry['sections']['archive'])
         self.assertNotIn('OLD BANDS',entry['sections']['audit'])
         self.assertIn('V1 İlk Tahmin',entry['sections']['period'])
@@ -522,6 +525,8 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('DOĞRULANMIŞ FİYATLAR',market)
         self.assertNotIn('EŞLEŞMİŞ PİYASA HESABI YOK',market)
         self.assertIn('FIRST MARKET',state['premium_reports'][token]['sections']['archive'])
+        self.assertIn('FIRST MARKET',market)
+        self.assertIn('BAĞIMSIZ ÖNCEKİ MODEL / PİYASA İNCELEMESİ',market)
         self.assertEqual(state['premium_reports'][token]['quote_valid_until_utc'],NOW+60)
 
     async def test_telegram_cached_buttons_are_rebound_to_same_new_candidate(self):
@@ -560,6 +565,8 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('ORIGINAL P50 220',entry['sections']['audit'])
         self.assertIn('ORIGINAL OLD PRICE',entry['sections']['archive'])
         self.assertNotIn('ORIGINAL OLD PRICE',entry['sections']['audit'])
+        self.assertIn('BAĞIMSIZ ÖNCEKİ MODEL / PİYASA İNCELEMESİ',entry['sections']['market'])
+        self.assertIn('ORIGINAL OLD PRICE',entry['sections']['market'])
         self.assertTrue(entry['section_pages']['audit'][0].startswith('🛡 <b>TAHMİN SAĞLIK KARTI</b>'))
         self.assertIn('EŞLEŞMİŞ PİYASA HESABI YOK',entry['sections']['market'])
         self.assertIn('KEY_NOT_AVAILABLE_IN_TEST_PROCESS',entry['sections']['market'])

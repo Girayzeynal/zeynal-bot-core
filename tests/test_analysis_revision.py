@@ -64,6 +64,13 @@ class AssessmentTests(TestCase):
         self.assertIn('GÜNCEL',text);self.assertIn('oyuncu, haber ve seyahat etkisi uygulanmadı',text)
         self.assertEqual(before,self.files());self.assertFalse(p['eligible_for_original_forecast_metrics'])
 
+    def test_live_market_context_uses_same_index_as_display_not_full_scan(self):
+        self.capture()
+        with patch.object(self.assess.registry,'records',side_effect=AssertionError('FULL_SCAN_FORBIDDEN')):
+            snap,dist=self.assess.available_market_context(self.original)
+        self.assertEqual(snap['linked_original_snapshot_sha256'],digest(self.original))
+        self.assertEqual(dist.paths.shape,(10000,4,2))
+
     def test_retry_and_hourly_refresh_preserve_first_record_and_original(self):
         p,new=self.capture();before=self.files();self.h.now+=1
         q,new=self.capture();self.assertFalse(new);self.assertEqual(p,q);self.assertEqual(before,self.files())
@@ -328,6 +335,21 @@ class RuleBindingTests(TestCase):
         self.assertGreater(panel['market_native_observations'],0)
         self.assertGreater(len(panel['cards']),0)
         self.assertTrue(all(c['calibration_status']=='NOT_CALIBRATED' for c in panel['cards']))
+
+    def test_corrupt_v3_context_does_not_remove_independent_original_market(self):
+        from hybrid_engine.provider_bridge import ProviderBridge,nba_provider_panel
+        from hybrid_engine.provider_access import ProviderAccess
+        from tests.test_provider_bridge import FakeProvider,SECRET,NOW
+        bridge=ProviderBridge(ProviderAccess({'THE_ODDS_API':SECRET},getter=FakeProvider(),clock=lambda:NOW),
+            self.h.root/'provider-fallback',clock=lambda:NOW,rule_book=self.book())
+        bridge.assessments=SimpleNamespace(available_market_context=Mock(side_effect=ValueError('CURRENT_ASSET_PIN')))
+        snapshot=dict(self.h.snap,parameter_fit_cutoff_utc=NOW-60)
+        with patch('hybrid_engine.market_views.replay_nba',return_value=self.h.dist):
+            panel=nba_provider_panel(snapshot,None,bridge,structured=True)
+        self.assertIn('V3_MARKET_CONTEXT_UNAVAILABLE',panel['html'])
+        self.assertIsNone(panel['market_candidate_snapshot'])
+        self.assertGreater(len(panel['cards']),0)
+        self.assertTrue(all(c['model_digest']==snapshot['model_digest'] for c in panel['cards']))
 
 
 class CycleTests(IsolatedAsyncioTestCase):

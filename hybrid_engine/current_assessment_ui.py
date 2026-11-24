@@ -415,6 +415,15 @@ def install_dual_clock_display(state,assessments):
                 original_period=entry['sections'].get('period','')
                 original_ranges=entry['sections'].get('ranges','')
                 original_market=entry['sections'].get('market','')
+                original_market_pages=list(entry['section_pages'].get('market') or
+                    split_blocks(original_market.splitlines(),limit=3000))
+                original_quote_expiry=entry.get('quote_valid_until_utc')
+                # Preserve the usable prior presentation when V3 is pending.
+                # Never advertise its immutable score as a freshly calculated V3.
+                if not panels['fresh'] and old:
+                    fallback=('📊 <b>İLK KAYITLI V1 REFERANSI — V3 DEĞİL</b>\n'+old)
+                    if len((headline+fallback).encode('utf-16-le'))//2<=3500:
+                        headline+=fallback
                 entry['summary']=headline
                 audit=bound_audit_provenance(entry['sections'].get('audit',''),selected,panels)
                 # Model / Kaynak holds model provenance and V1 health evidence,
@@ -437,9 +446,15 @@ def install_dual_clock_display(state,assessments):
                 for section in ('period','ranges'):
                     entry['sections'][section]=panels[section]
                     entry['section_pages'][section]=split_blocks(panels[section].splitlines(),limit=3200)
-                # The first-model quotes belong in audit. Show separate
-                # research-model reviews ONLY if their verified model+clock
-                # identity matches this candidate and the native quote is live.
+                    if not panels['fresh']:
+                        prior=original_period if section=='period' else original_ranges
+                        if prior:
+                            fallback=('📊 <b>İLK V1 REFERANSI — GÜNCEL V3 DEĞİL</b>\n'+prior)
+                            entry['sections'][section]+='\n\n'+fallback
+                            entry['section_pages'][section].extend(
+                                split_blocks(fallback.splitlines(),limit=3200))
+                # Keep independently labelled prior price cards accessible.
+                # Only a matching model/clock can be a V3 price comparison.
                 matching=(bound_current_market_cards(context,selected,entry,now=int(time.time()))
                           if panels['fresh'] else [])
                 if matching:
@@ -457,10 +472,36 @@ def install_dual_clock_display(state,assessments):
                     entry['section_pages']['market']=market_pages
                     entry['sections']['market']='\n\n'.join(market_pages)
                     entry['quote_valid_until_utc']=min(card['valid_until_utc'] for card in ranked)
+                    # Restore the concise direction on the score headline only
+                    # for a FULL TOTAL card bound to this exact V3 model.
+                    total=next((c for c in ranked if c['period']=='FULL' and c['market']=='TOTAL'),None)
+                    if total is not None:
+                        try:
+                            from hybrid_engine.market_direction_ui import brief
+                            direction=('\n📈 <b>V3 — AYNI MODEL PİYASA KARŞILAŞTIRMASI</b>\n'+
+                                       brief(total)+'\nHam simülasyon; kalibre güven endeksi değildir.\n')
+                            if len((headline+direction).encode('utf-16-le'))//2<=3500:
+                                headline+=direction
+                        except (KeyError,TypeError,ValueError):
+                            pass
                 else:
                     entry['sections']['market']=missing_current_market_card(selected,entry,panels)
                     entry['section_pages']['market']=[entry['sections']['market']]
-                    entry['quote_valid_until_utc']=None  # Old quote is archive-only.
+                    entry['quote_valid_until_utc']=None
+                # Retain the original independent review pages, with their
+                # own model/date labels. They are never V3-bound by proximity.
+                if original_market_pages:
+                    legacy_header=('📈 <b>BAĞIMSIZ ÖNCEKİ MODEL / PİYASA İNCELEMESİ</b>\n'
+                        'Bu kart V3 ile eşleştirilmiş sayılmaz. Kendi model ve fiyat zamanını esas alın.\n\n')
+                    legacy_pages=[page for old_page in original_market_pages
+                        for page in split_blocks((legacy_header+old_page).splitlines(),limit=3200)]
+                    entry['section_pages']['market'].extend(legacy_pages)
+                    entry['sections']['market']='\n\n'.join(entry['section_pages']['market'])
+                    expiries=[x for x in (entry.get('quote_valid_until_utc'),original_quote_expiry)
+                              if type(x) is int]
+                    # Earliest expiry is conservative for mixed pages.
+                    entry['quote_valid_until_utc']=min(expiries) if expiries else None
+                entry['summary']=headline
                 entry['current_assessment_valid_until_utc']=panels['valid_until']
                 entry['current_assessment_panels']=panels['fresh']
                 # Persist the FINAL bound render, not the earlier first-model
