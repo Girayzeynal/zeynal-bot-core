@@ -421,6 +421,9 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
             out=await state['verified_analysis_service'].analyze('NBA','2026-11-24','Home','Away')
         self.assertIn('GÜNCEL TAHMİN BEKLENİYOR',out['html'])
+        self.assertIn('İLK TAHMİN — SADECE ARŞİV',out['html'])
+        self.assertIn('İlk skor: 105.00 – 115.00',out['html'])
+        self.assertNotIn('GÜNCEL NBA TAHMİNİ — KAYITLI V3',out['html'])
         for section,expected in [('period','1Q 25–27'),('ranges','P25–P75 206–234')]:
             shown,pages=page_view(entry,section,0,now=NOW)
             self.assertIn('CURRENT_ASSESSMENT_NOT_PUBLISHED',shown)
