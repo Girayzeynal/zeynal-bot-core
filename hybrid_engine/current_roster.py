@@ -23,6 +23,7 @@ from core.league_identity import normalize_name
 from core.team_identity import digest
 from hybrid_engine.boxes import publish_json
 from hybrid_engine.data import local_path
+from hybrid_engine.provider_access import retry_delay
 from hybrid_engine.nba_injury_source import official_nba_injury_report_reference
 from telegram_delivery import tsi
 
@@ -128,8 +129,12 @@ def native_get(url, *, deadline):
                           stream=True, allow_redirects=False) as response:
             if response.status_code != 200:
                 retry = response.headers.get('Retry-After', '')
-                return dict(url=url, status='SOURCE_HTTP_ERROR', http_status=response.status_code,
-                            retry_after=min(3600, int(retry)) if retry.isascii() and retry.isdigit() else 300)
+                result=dict(url=url, status='SOURCE_HTTP_ERROR', http_status=response.status_code,
+                            retry_after=retry_delay(retry,now=int(time.time())))
+                if (response.status_code in (301,308) and url.startswith('https://official.nba.com/')
+                        and response.headers.get('Location')==NBA_COM_INJURY_INDEX):
+                    result['canonical_index_redirect_url']=NBA_COM_INJURY_INDEX
+                return result
             chunks = bytearray()
             for block in response.iter_content(65536):
                 chunks.extend(block)
@@ -444,10 +449,14 @@ class CurrentRosterReview:
             self.last_source_failure=self.failure_codes.get(url)
             raise ValueError('ROSTER_SOURCE_COOLDOWN')
         r = self.getter(url, deadline=deadline)
+        if not isinstance(r,dict):r=dict(status='SOURCE_UNAVAILABLE')
         if r.get('status') != 'RECEIVED':
-            self.cooldowns[url] = now + min(3600, max(30, r.get('retry_after', 300)))
+            self.cooldowns[url] = now+max(30,retry_delay(r.get('retry_after'),now=now))
             status=r.get('http_status')
             self.last_source_failure=dict(url=url,http_status=status if type(status) is int and 100<=status<=599 else None)
+            if (url.startswith('https://official.nba.com/') and status in (301,308)
+                    and r.get('canonical_index_redirect_url')==NBA_COM_INJURY_INDEX):
+                self.last_source_failure['canonical_index_redirect_url']=NBA_COM_INJURY_INDEX
             self.failure_codes[url]=deepcopy(self.last_source_failure)
             raise ValueError('ROSTER_SOURCE_UNAVAILABLE')
         now = int(self.clock()); body = r['body']
@@ -499,15 +508,19 @@ class CurrentRosterReview:
                 except ValueError:
                     # Public first-party NBA.com index is an official second
                     # publication path; never enumerate PDF timestamps or
-                    # spoof authentication/redirects. Only original 403 permits
-                    # trying the fixed NBA.com page. Do NOT retry 429/401/404.
+                    # spoof authentication/redirects. A permanent redirect is
+                    # accepted ONLY when the native response names the exact
+                    # already-allowlisted NBA.com index. No generic redirects.
                     denied=self.last_source_failure
-                    if not denied or denied.get('http_status')!=403:
+                    canonical=(isinstance(denied,dict) and denied.get('http_status') in (301,308)
+                        and denied.get('canonical_index_redirect_url')==NBA_COM_INJURY_INDEX)
+                    if not denied or not (denied.get('http_status')==403 or canonical):
                         raise
                     # Record the original 403 separately from any fallback
                     # failure. A later 404 cannot erase the real first denial.
                     primary_failure=deepcopy(denied)
-                    base['index_failure']=dict(stage='INDEX_FETCH',http_status=403)
+                    base['index_failure']=dict(stage='INDEX_FETCH',http_status=denied['http_status'])
+                    if canonical:base['canonical_index_redirect_url']=NBA_COM_INJURY_INDEX
                     try:
                         index=self._get(NBA_COM_INJURY_INDEX,deadline)
                     except (ValueError,KeyError):
@@ -535,8 +548,10 @@ class CurrentRosterReview:
                                 latest_report_verified=False,
                                 explicit_report_entry_sha256=entry_pin,
                                 explicit_report_expires_at_utc=ref['report_timestamp_utc']+MAX_AGE)
-                            base['warnings'].append('INDEX_403_EXPLICIT_LINK_NOT_ASSERTED_LATEST')
+                            base['warnings'].append('INDEX_403_EXPLICIT_LINK_NOT_ASSERTED_LATEST' if not canonical
+                                else 'CANONICAL_INDEX_EXPLICIT_LINK_NOT_ASSERTED_LATEST')
                         elif (self.bounded_public_pdf_fallback and
+                              primary_failure.get('http_status')==403 and
                               isinstance(alternate_failure,dict) and
                               alternate_failure.get('http_status')==403):
                             base['public_cdn_probe_attempted']=True

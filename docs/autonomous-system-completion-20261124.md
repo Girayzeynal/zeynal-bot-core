@@ -176,3 +176,34 @@ geçerli bağımsız kanıtı koru; kısmi veriyi tam kapsam diye sunma.
   yerel hash bütünlüğü bağımsız sağlayıcı imzası veya ilk tahmin kanıtı değildir.
   Kaynak capture özetinde CLI `preflight()` dönüş değeri None olduğu için
   yalnız özet metadata düzeltildi; native ağ istekleri tekrar edilmedi.
+
+### Aşama 4 — canlı NBA resmî kaynak taşınması (yeni kök neden)
+
+- Resmî sezon indexinin 301 `Location` başlığı **tam olarak** zaten
+  allowlist'teki `https://www.nba.com/players/injury-report` adresini gösteriyor.
+  Kod yalnız 403 için ikinci kaynağı denediğinden bu gerçek taşınma kadro
+  hattını gereksiz durduruyordu.
+- Native transport yalnız bu tam hedefe 301/308 kanıtını taşır; requests
+  `allow_redirects=False` kalır. Bilinmeyen host, query, 302/307 ve 429
+  otomatik takip edilmez. 301→403 iki 403 gibi gösterilip CDN probe izni
+  sayılmaz. Önceki 403 ve explicit-report kuralları korunur.
+- Canlı GET: eski index 301 → sabit NBA.com index **200** → gerçek
+  `Injury-Report_2026-11-24_05_00PM.pdf` bağlantısı. URL/rapor saati doğrulandı.
+- Cloud'da opsiyonel pdfplumber eksikti; üretim veya mevcut venv değiştirilmeden
+  yalnız `/tmp/zeynal-injury-deps-20261124` hedefine opsiyonel research
+  requirements kuruldu. İlk yakalanmış PDF ve kaynak saatleri yeniden kullanıldı;
+  yalnız iki eksik ESPN roster kaynağı ayrıca okundu.
+- Gerçek **401909314 / DET@ORL** kaynak probe'u: PDF **51** satır ayrıştırdı,
+  **12** maç satırı eşleşti, toplam **21** ESPN+PDF gözlemi. Native dizin,
+  rapor başlığı/saati ve maç eşleşmesi doğrulandı. İki absence için ESPN
+  corroboration yok; kaynak gözlemi oyuncu modeli/ilk beş demek değildir.
+- Record class `SOURCE_ACCESS_PROBE_NOT_FORECAST_LINKED`; yeni tahmin veya
+  eski maç öncesi kanıt oluşturulmadı, skor/oyuncu etkisi değiştirilmedi.
+- Regresyon: **89 passed in 0.87s** (canonical routing, eski 403/CDN,
+  roster, player input/minute sözleşmeleri). Ham regex SyntaxWarning da
+  davranış değiştirmeden düzeltildi.
+- Aşama 1–3 tam Python koşusu: **2231 passed, 1 warning in 212.64s**;
+  o uyarı yukarıdaki regex'ti. Aşama 4 sonrası exact-head tam CI bekler.
+- Native metadata/probe kanıtları: `completion-nba-canonical-20261124.json.gz`
+  ve `completion-nba-roster-source-20261124.json.gz`. Bunlar gerçek Telegram
+  teslimi, hazır oyuncu posterioru veya prospective başarı kanıtı değildir.

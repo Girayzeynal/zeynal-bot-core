@@ -107,7 +107,7 @@ def render(record):
     if isinstance(origin,dict):
         file=origin.get('file')
         line=origin.get('line')
-        if (isinstance(file,str) and re.fullmatch('[a-z][a-z0-9_]{1,63}\.py',file)
+    if (isinstance(file,str) and re.fullmatch(r'[a-z][a-z0-9_]{1,63}\.py',file)
                 and type(line) is int and 1<=line<=100000):
             location=' | Kod satırı: '+file+':'+str(line)
     return ('Analiz servisi beklenmeyen bir hata verdi. '
