@@ -80,6 +80,17 @@ def bind(receipt,snapshot,*,asof_utc=None):
         payload['team_identity']=binding_evidence(snapshot)
         payload['rule']=EUROPE_RULE
         payload['mode']='OFFICIAL_TEAM_ALIASES_EXACT_START'
+        # Version only this newly authorized native event alias; preserve all
+        # historic V1 bindings, immutable receipts and original forecasts.
+        from core.league_identity import normalize_name
+        if (snapshot['league']=='EUROLEAGUE' and
+                snapshot['season']=='2026/2027' and
+                (normalize_name(event['home_team'])=='kkpartizannis' or
+                 normalize_name(event['away_team'])=='kkpartizannis')):
+            payload['rule']='EUROPE_EXACT_HISTORIC_PARTIZAN_NIS_PAR_V2'
+            payload['team_identity']['historic_label']='KK_PARTIZAN_NIS'
+            payload['team_identity']['historic_label_target']='EUROLEAGUE_LIVE:PAR'
+            payload['team_identity']['historic_label_scope']='E2026_EXACT_MATCH_ONLY'
     return event,dict(payload=payload,sha256=digest(payload))
 
 
