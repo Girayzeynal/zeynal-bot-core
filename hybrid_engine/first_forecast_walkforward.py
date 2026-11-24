@@ -88,6 +88,91 @@ def _paired_shadow_diagnostics(original_rows, shadow):
     )
 
 
+def _error_stats(errors):
+    if not errors:
+        return dict(n=0, mae=None, rmse=None, bias=None)
+    n = len(errors)
+    return dict(n=n, mae=sum(abs(x) for x in errors) / n,
+                rmse=math.sqrt(sum(x * x for x in errors) / n),
+                bias=sum(errors) / n)
+
+
+def _components(rows):
+    """Point-error decomposition of identical first native-verified fixtures.
+
+    Missing quarter projections produce n=0, never fabricated values. Signed
+    margin errors are NOT bookmaker handicaps, and no O/U lines are inferred.
+    """
+    errors = {key: [] for key in ("home", "away", "total", "model_margin")}
+    for name in ("1Q", "2Q", "3Q", "4Q", "1H", "2H"):
+        for field in ("home", "away", "total"):
+            errors[name + "_" + field] = []
+    count_quarters = 0
+    for r in rows:
+        pred, actual = r["prediction"], r["actual"]
+        if not _score_pair(pred) or not _score_pair(actual):
+            raise ValueError("FIRST_FORECAST_COMPONENT_TEAM_SCORES")
+        home = float(pred[0] - actual[0])
+        away = float(pred[1] - actual[1])
+        errors["home"].append(home)
+        errors["away"].append(away)
+        errors["total"].append(home + away)
+        errors["model_margin"].append(home - away)
+        quarters = r.get("predicted_quarters")
+        if quarters is None:
+            continue
+        if (not isinstance(quarters, (list, tuple)) or len(quarters) != 4
+                or any(not _score_pair(q) for q in quarters)
+                or any(abs(sum(q[s] for q in quarters) - pred[s]) > .025
+                       for s in (0, 1))):
+            raise ValueError("FIRST_FORECAST_QUARTER_PROJECTION_CONFLICT")
+        raw = r.get("actual_periods")
+        if (not isinstance(raw, dict) or set(raw) != {"home", "away"}
+                or any(not isinstance(raw[side], list) or len(raw[side]) < 4
+                       or any(type(x) is not int or x < 0 for x in raw[side])
+                       for side in ("home", "away"))
+                or sum(raw["home"][:4]) != actual[0]
+                or sum(raw["away"][:4]) != actual[1]):
+            raise ValueError("FIRST_FORECAST_QUARTER_NATIVE_FINAL_CONFLICT")
+        halves = r.get("predicted_halves")
+        if halves is not None and (
+            not isinstance(halves, (list, tuple)) or len(halves) != 2
+            or any(not _score_pair(h) for h in halves)
+            or any(abs(halves[h][s] -
+                       sum(quarters[q][s] for q in (2*h, 2*h+1))) > .015
+                   for h in (0, 1) for s in (0, 1))):
+            raise ValueError("FIRST_FORECAST_HALF_PROJECTION_CONFLICT")
+        count_quarters += 1
+        for q in range(4):
+            name = str(q+1) + "Q"
+            h_err = quarters[q][0] - raw["home"][q]
+            a_err = quarters[q][1] - raw["away"][q]
+            errors[name + "_home"].append(h_err)
+            errors[name + "_away"].append(a_err)
+            errors[name + "_total"].append(h_err + a_err)
+        for h in range(2):
+            name = str(h+1) + "H"
+            indexes = (2*h, 2*h+1)
+            h_err = sum(quarters[q][0] - raw["home"][q] for q in indexes)
+            a_err = sum(quarters[q][1] - raw["away"][q] for q in indexes)
+            errors[name + "_home"].append(h_err)
+            errors[name + "_away"].append(a_err)
+            errors[name + "_total"].append(h_err + a_err)
+    return dict(
+        original_fixtures=len(rows),
+        fixtures_with_verified_quarter_projections=count_quarters,
+        fixtures_without_quarter_projections=len(rows)-count_quarters,
+        full_game={key: _error_stats(errors[key]) for key in
+                   ("home", "away", "total", "model_margin")},
+        periods={name: {field: _error_stats(errors[name+"_"+field])
+                        for field in ("home", "away", "total")}
+                 for name in ("1Q", "2Q", "3Q", "4Q", "1H", "2H")},
+        scope="NORMAL_TIME_NATIVE_VERIFIED_FIRST_FORECAST",
+        bookmaker_spread_or_ou_result="NOT_COMPUTED_WITHOUT_POINT_IN_TIME_MARKET_LINES",
+        fitted_model_superiority=False,
+    )
+
+
 def review(verified_report, *, asof_utc):
     """Chronologically review every *first* archived fixture, n>=1.
 
@@ -252,6 +337,11 @@ def review(verified_report, *, asof_utc):
             prior_strength=PRIOR_STRENGTH,
             predictions_with_prior=sum(s["prior_available_labels"] > 0 for s in shadow),
             paired_shadow_diagnostics=_paired_shadow_diagnostics(targets, shadow),
+            research_decision=(
+                "REJECT_WORSE_PAIRED_MAE" if shadow and
+                _paired_shadow_diagnostics(targets, shadow)["average_delta"] > 1e-9
+                else "NO_PROMOTION_INDEPENDENT_FORWARD_VALIDATION_REQUIRED"
+            ),
             trace=shadow,
             comparison_status=("DESCRIPTIVE_SHADOW_NOT_PROSPECTIVE_SUPERIORITY"
                                if targets else "SHADOW_NOT_RUN_NO_VERIFIED_GENERATION_CLOCK"),
@@ -272,6 +362,7 @@ def review(verified_report, *, asof_utc):
         exclusions=dict(sorted(excluded.items())),
         league_season_descriptives=[
             dict(league=k[0], season=k[1], metrics=_summarize(v),
+                 components=_components(v),
                  note="CROSS_FIT_DESCRIPTIVE_ONLY_NOT_ONE_FITTED_MODEL")
             for k, v in sorted(by_league.items())],
         exact_fit_descriptives=[
@@ -312,6 +403,19 @@ def render(report):
         lines.append(f"{group['league']} · {group['season']} · n={m['n']} · "
                      f"Toplam MAE {m['total_mae']:.2f} · "
                      f"Toplam bias {m['signed_total_bias']:+.2f}")
+        components = group["components"]
+        full = components["full_game"]
+        lines.append(f"Ev MAE {full['home']['mae']:.2f} · "
+                     f"Deplasman MAE {full['away']['mae']:.2f} · "
+                     f"Model farkı MAE {full['model_margin']['mae']:.2f} (bahis handikabı değil)")
+        lines.append(f"Çeyrek/yarı projeksiyon kapsamı: "
+                     f"{components['fixtures_with_verified_quarter_projections']}/{m['n']} maç")
+        for name, fields in components["periods"].items():
+            if fields["total"]["n"]:
+                lines.append(f"{name} · n={fields['total']['n']} · "
+                             f"toplam MAE {fields['total']['mae']:.2f} · "
+                             f"ev MAE {fields['home']['mae']:.2f} · "
+                             f"dep MAE {fields['away']['mae']:.2f}")
     for g in report["walk_forward_shadow"]:
         a, b = g["original"], g["exploratory_shadow"]
         if not b["n"]:
@@ -326,6 +430,7 @@ def render(report):
             lines.append(f"Eş maç karşılaştırması: iyileşen {paired['improved']} · "
                          f"kötüleşen {paired['worsened']} · eşit {paired['unchanged']} · "
                          f"MAE farkı (shadow − ilk) {paired['average_delta']:+.2f}")
+            lines.append(f"Shadow kabul kararı: {g['research_decision']}")
     for item in report["pending_fixtures"][:20]:
         lines.append(f"Bekleyen: {item['home']} vs {item['away']} · "
                      f"{tsi(item['fixture_start_utc'])} · {item['reason']} · "
