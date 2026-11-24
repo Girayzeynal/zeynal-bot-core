@@ -131,3 +131,48 @@ geçerli bağımsız kanıtı koru; kısmi veriyi tam kapsam diye sunma.
   bozuk/çelişkili kardeş satır testleri dahil: **7 passed in 0.41s**.
 - Durum: **KODLANDI_CANLI_DEĞİL**; authenticated fixture/price kapsamı bu
   sentetik testlerden çıkarsanmaz. Canlı ücretsiz kaynak denetimi ayrı başladı.
+
+### Aşama 3 — ayrı, lig/sezon sınırlı uzatma araştırması
+
+- `overtime_research.py`: Normal süre eşitliği koşulunda geçmişte gerçekten
+  tamamlanmış bütün OT dizisini örnekler; her OT sonunda eşitlik olmadıkça
+  sonraki OT olamaz. Normal süre/çeyrek/yarı yolları değişmez. 48/40 dakikalık
+  ligler ayrı hazırlanır; NBA örnek/katsayısı Avrupa'ya taşınmaz.
+- MC ve ayrı base-23 boyutlu randomized Halton; ham ampirik araştırma
+  baseline'ıdır. Rakip/oyuncu/tempo düzeltmesi veya kalibrasyon iddiası yoktur.
+  Altı native OT maçı sayısal alt sınırdır, doğrulama/üstünlük eşiği değildir.
+  Beş dakika ve 24 saat parametre sınırı uygulanır; hedef eğitimde olamaz.
+- Native kaynak gözlemi sonrası fit: NBA 210 maçlık korpusta **12 OT**;
+  EuroLeague 134 maçlık korpusta **9 OT**. EuroCup 128 maçlık korpusta
+  yeterli OT yok: `OVERTIME_SIX_NATIVE_OT_GAMES_REQUIRED`.
+- Strict walk-forward: NBA **n=0**, EuroLeague **n=0**. Kaynakların yakalama
+  zamanı tarihsel origin'lerden sonra; saatler değiştirilmedi. Modelin
+  native sayılarla fit edilmesi geçmişe maç öncesi yayın veya prospective
+  iyileşme sayılmaz. Otomatik RuleBook/piyasa admission **kapalı kalır**.
+- Test: **6 passed in 0.43s**. Tam diziler, çoklu OT, ortak full/half yolları,
+  diğer lig reddi, gelecek etiket dışlaması, T−301/T−300/T−299 ve n=6 disjoint
+  sentetik walk-forward denetlendi. Tam regresyon/cgroup bekler.
+
+### Canlı ücretsiz kaynak gözlemi — 24 Kasım
+
+- ESPN günlük scoreboard **200**; EuroLeague E2026 games **200**;
+  EuroCup U2026 games **200**. Native JSON ve gerçek gözlem saatleri saklandı.
+- Basketball Sphere / Eurohoops: yalnız haber index adayı gözlendi.
+  Basketlogy: `SOURCE_ROBOTS_UNAVAILABLE`. Bütün haberler observation-only.
+- NBA resmî sezon indexi **301**, otomatik redirect takip edilmedi.
+  Nesine native katalog isteği timeout/read bütçesinde tamamlanamadı.
+  Bunlar veri yok/oyuncu yok veya NO EDGE anlamına gelmez.
+- Ücretli API anahtarları Cloud sürecinde **yok**; authenticated fiyat/
+  abonelik testi ve gerçek Telegram teslimi **NOT_VERIFIED**. Değer okunup
+  loglanmadı; yapılandırma yalnız enum olarak kontrol edildi.
+- 82 kulüp: **142 HTTP**, **75 index gözlemi**, **7 engel**, **0 atlanmış**.
+  NBA 29/30, EuroLeague 17/20, EuroCup 29/32. Doğrulanmış injury feed **0**.
+  Engeller: Dallas redirect; ASVEL/Paris robots 403; Balkan robots kullanılamaz;
+  Panathinaikos, Derthona ve Le Mans news 403. 403/robots kısıtı aşılmadı.
+- ESPN'in 30 günlük tek range query denemesi **400** döndürdü; tekrar
+  denenmedi. NBA OT fitinde mevcut pinned 18 Kasım native korpusu yeniden
+  kullanıldı; gereksiz 30 ayrı günlük sorgu üretilmedi.
+- Kanıtlar `docs/evidence/completion-*-20261124.json.gz` içine konur;
+  yerel hash bütünlüğü bağımsız sağlayıcı imzası veya ilk tahmin kanıtı değildir.
+  Kaynak capture özetinde CLI `preflight()` dönüş değeri None olduğu için
+  yalnız özet metadata düzeltildi; native ağ istekleri tekrar edilmedi.
