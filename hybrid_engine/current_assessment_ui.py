@@ -352,6 +352,7 @@ def install_dual_clock_display(state,assessments):
             # cycle publishes its own verified candidates independently.
             # A failed/missing read is a visible blocker, never a fallback V1
             # score represented as current.
+            from types import SimpleNamespace
             selected=None
             update_issue=None
             try:
@@ -363,7 +364,6 @@ def install_dual_clock_display(state,assessments):
                 selected=await asyncio.wait_for(
                     asyncio.to_thread(lookup,context),
                     timeout=CURRENT_READ_DEADLINE_SECONDS)
-                from types import SimpleNamespace
                 content=two_clock_text(context,SimpleNamespace(latest=lambda _:selected),
                                        now=int(time.time()))
             # Before Python 3.11 asyncio.TimeoutError is NOT the built-in
@@ -374,8 +374,12 @@ def install_dual_clock_display(state,assessments):
                     type(exc).__name__)
                 update_issue=('CURRENT_READ_TIMEOUT' if isinstance(exc,(asyncio.TimeoutError,TimeoutError)) else
                               'CURRENT_RESEARCH_RECORD_UNAVAILABLE')
+                # The verified V3 read failed; show only the unmodified first
+                # forecast as an explicitly historical reference, never live V3.
                 content=('⚠️ GÜNCEL TAHMİN DOĞRULANAMADI. '
-                         'Eski kayıt arşivde korundu; güncel skor yayımlanmıyor.')
+                         'Eski kayıt arşivde korundu; güncel skor yayımlanmıyor.\n'
+                         +two_clock_text(context,SimpleNamespace(latest=lambda _:None),
+                                         now=int(time.time())))
             if selected is None and context.get('league')=='NBA':
                 update_issue=update_issue or 'CURRENT_RESEARCH_BACKGROUND_PENDING'
             if update_issue:
@@ -393,11 +397,16 @@ def install_dual_clock_display(state,assessments):
                     if callable(request):
                         try:request(context)
                         except (ValueError,KeyError,TypeError,RuntimeError):pass
-                content=content.partition('\n🔒 İLK TAHMİN — SADECE ARŞİV')[0]
+                # A missing V3 must not also erase the explicitly archived V1
+                # score from the headline; only fresh V3 uses a clean V3 header.
+                if panels['fresh']:
+                    content=content.partition('\n🔒 İLK TAHMİN — SADECE ARŞİV')[0]
                 if not panels['fresh'] and 'GÜNCEL AYRI ARAŞTIRMA SKORU' in content:
                     content=('⚠️ GÜNCEL MODEL SAYISAL PAKETİ DOĞRULANMADI. '
                              'Özet, periyotlar ve aralıklar aynı kayıtla doğrulanmadan '
-                             'güncel skor yayımlanmıyor.\n'+panels['period'])
+                             'güncel skor yayımlanmıyor.\n'+panels['period']+'\n\n'+
+                             two_clock_text(context,SimpleNamespace(latest=lambda _:None),
+                                            now=int(time.time())))
             prefix=html.escape(content)+'\n\n'
             result=dict(response);parts=list(response.get('html_parts') or [response['html']])
             if entry and context.get('league')=='NBA':
@@ -435,8 +444,19 @@ def install_dual_clock_display(state,assessments):
                     page for block in archive_blocks
                     for page in split_blocks(block.splitlines(),limit=3200)]
                 for section in ('period','ranges'):
-                    entry['sections'][section]=panels[section]
-                    entry['section_pages'][section]=split_blocks(panels[section].splitlines(),limit=3200)
+                    body=panels[section]
+                    if not panels['fresh']:
+                        # Keep V3 absence explicit, but restore the readable
+                        # first-record figures as a clearly labelled V1 ARCHIVE.
+                        # This is NOT a fresh V3 score or an inferred update.
+                        original={'period':original_period,'ranges':original_ranges}[section]
+                        if isinstance(original,str) and original.strip():
+                            body+=('\n\n🗃 <b>İLK V1 TAHMİNİ — ARŞİV, GÜNCEL DEĞİL</b>\n'
+                                   'Aşağıdaki ilk tahmin rakamları yalnız geçmiş kayıt içindir. '
+                                   'Güncel V3 skoru, oyuncu katkısı veya yeni bahis değerlendirmesi değildir.\n\n'
+                                   +original)
+                    entry['sections'][section]=body
+                    entry['section_pages'][section]=split_blocks(body.splitlines(),limit=3200)
                 # The first-model quotes belong in audit. Show separate
                 # research-model reviews ONLY if their verified model+clock
                 # identity matches this candidate and the native quote is live.
