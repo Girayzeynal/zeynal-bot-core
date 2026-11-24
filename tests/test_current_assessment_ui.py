@@ -287,6 +287,38 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         finally:
             release.set()
 
+    async def test_incomplete_v3_paths_revert_to_explicit_v1_archive_not_fake_current(self):
+        from telegram import InlineKeyboardButton,InlineKeyboardMarkup
+        token='p'*12
+        ctx=dict(league='NBA',fixture_id='x',season='2026/2027',
+                 home=dict(provider_id='1',official_name='Home'),
+                 away=dict(provider_id='2',official_name='Away'),
+                 fixture_start_utc=NOW+10800,
+                 prediction_generated_at_utc=NOW-86400,
+                 prediction=dict(home=105.,away=115.,total=220.))
+        report=dict(status='ANALYSIS_OK',snapshot=ctx,html='ORIGINAL V1',
+                    html_parts=['ORIGINAL V1'],new_record=False,
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton('Periyotlar',callback_data='zui:'+token+':period')]]))
+        _, candidate=CurrentPanelsTests().setup_case()
+        candidate['candidate']['quarters']=[]  # Individually fresh, invalid joint score.
+        candidate['source_available_max_utc']=NOW-70
+        entry=dict(chat_id=1,summary='ORIGINAL V1',
+                   sections=dict(period='V1 Q',ranges='V1 BANDS',
+                                 market='V1 MARKET',audit='V1 AUDIT'),
+                   section_pages=dict(audit=['V1 AUDIT']))
+        state=dict(verified_analysis_service=SimpleNamespace(analyze=AsyncMock(return_value=report)),
+                   premium_reports={token:entry})
+        install_dual_clock_display(state,SimpleNamespace(latest=Mock(return_value=candidate)))
+        with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
+            result=await state['verified_analysis_service'].analyze('NBA','day','Home','Away')
+        self.assertIn('CURRENT_PERIOD_PATHS_NOT_VERIFIED',result['html'])
+        self.assertIn('İLK TAHMİN — SADECE ARŞİV',result['html'])
+        self.assertIn('İlk skor: 105.00 – 115.00',result['html'])
+        self.assertIn('V1 Q',entry['sections']['period'])
+        self.assertIn('V1 BANDS',entry['sections']['ranges'])
+        self.assertNotIn('GÜNCEL NBA TAHMİNİ — KAYITLI V3',result['html'])
+
     async def test_missing_current_candidate_identified_as_pending_not_live(self):
         from telegram import InlineKeyboardButton,InlineKeyboardMarkup
         from hybrid_engine.data import Abstain
