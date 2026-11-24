@@ -5,6 +5,7 @@ No request-time fitting, Telegram broadcasts, NBA access or archive replacement.
 import argparse
 import asyncio
 from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime
 import fcntl
 import json
@@ -27,6 +28,9 @@ VERSION='EUROPE_AUTO_PREMATCH_V2'
 MINIMUM_LEAD=PREMATCH_MINIMUM_LEAD_SECONDS
 LOOKAHEAD=36*3600
 LOG=logging.getLogger(__name__)
+_AUTO_INFERENCE=ContextVar('europe_auto_inference',default=False)
+MANUAL_LOCK_WAIT_SECONDS=12
+AUTO_LOCK_WAIT_SECONDS=0.2
 
 
 def open_lock(root,name):
@@ -104,6 +108,7 @@ class AutomaticEuropeanService(EuropeanService):
     """Preserve europe_live.py/model pins; serialize its existing inference flow."""
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
+        self.manual_waiters=0
         self.registry=SinglePrematchRegistry(self.registry.root,self.league,
             prior_registries=(self.previous.registry,) if self.previous is not None else (),legacy_archive=self.archive)
 
@@ -131,23 +136,43 @@ class AutomaticEuropeanService(EuropeanService):
         return found[0] if found else None
 
     async def analyze(self,league,day,home,away):
+        automatic=_AUTO_INFERENCE.get()
+        if automatic and self.manual_waiters:
+            return dict(status='ABSTAIN',reason='EUROPE_MANUAL_PRIORITY',
+                        html='Otomatik hazırlama manuel analiz için ertelendi.')
+        if not automatic:self.manual_waiters+=1
+        try:
+            return await self._locked_analyze(league,day,home,away,automatic=automatic)
+        finally:
+            if not automatic:self.manual_waiters-=1
+
+    async def _locked_analyze(self,league,day,home,away,*,automatic):
         try:fd=open_lock(self.registry.root,'.prematch-inference.lock')
         except (ValueError,OSError):
             return dict(status='ABSTAIN',reason='EUROPE_PREMATCH_LOCK_UNAVAILABLE',
                         html='Maç öncesi arşiv kilidi açılamadı. Yeni tahmin oluşturulmadı; eski kayıtlar korundu.')
-        acquired=False
         try:
-            # Never block the event loop waiting for another process's simulation.
-            until=time.monotonic()+2
-            while not acquired:
-                try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB);acquired=True
+            until=time.monotonic()+(AUTO_LOCK_WAIT_SECONDS if automatic else MANUAL_LOCK_WAIT_SECONDS)
+            replay_checked=False
+            while True:
+                if automatic and self.manual_waiters:
+                    return dict(status='ABSTAIN',reason='EUROPE_MANUAL_PRIORITY',
+                                html='Otomatik hazırlama manuel analiz için ertelendi.')
+                try:
+                    fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                    break
                 except BlockingIOError:
-                    old=await asyncio.to_thread(self.existing,day,home,away)
-                    if old:return self.render(old)
+                    # Read the existing archive once, not every 50 ms. Never
+                    # queue repeated complete archive scans on the command lane.
+                    if not automatic and not replay_checked:
+                        replay_checked=True
+                        old=await asyncio.to_thread(self.existing,day,home,away)
+                        if old:return self.render(old)
                     if time.monotonic()>=until:
                         return dict(status='ABSTAIN',reason='EUROPE_PREMATCH_INFERENCE_BUSY',
-                            html='Maç öncesi hazırlama sürüyor. Biraz sonra tekrar deneyin. Eski kayıtlar korundu.')
-                    await asyncio.sleep(.05)
+                            html='EUROPE_PREMATCH_INFERENCE_BUSY — lig işlem kilidi dolu. '
+                                 'Bu komutta yeni tahmin yok; eski kayıtlar korundu.')
+                    await asyncio.sleep(.1)
             return await five_minute_analyze(self,league,day,home,away)
         finally:os.close(fd)
 
@@ -220,10 +245,15 @@ class EuropeanPrematchScheduler:
                         remaining-=1
                         if int(self.clock())>=target['fixture_start_utc']-MINIMUM_LEAD:
                             rows.append(dict(**target,status='ABSTAIN',reason='EUROPE_SAFE_PRETIPOFF_WINDOW_CLOSED',new_record=False));continue
+                        if getattr(service,'manual_waiters',0)>0:
+                            self.next_scan[code]=int(self.clock())+60
+                            break
+                        token=_AUTO_INFERENCE.set(True)
                         try:result=await asyncio.wait_for(service.analyze(code,target['day'],target['home'],target['away']),timeout=45)
-                        except (ValueError,KeyError,TypeError,OSError,TimeoutError):
+                        except (ValueError,KeyError,TypeError,OSError,TimeoutError,asyncio.TimeoutError):
                             self.retry_after[(code,target['fixture_id'])]=int(self.clock())+300
                             rows.append(dict(**target,status='ABSTAIN',reason='EUROPE_AUTO_INFERENCE_OR_TIMEOUT',new_record=False,forecast_sha256=None));continue
+                        finally:_AUTO_INFERENCE.reset(token)
                         reason=result.get('reason') or result.get('preflight',{}).get('reason')
                         if result['status']=='ABSTAIN' and reason is None:
                             # Existing service formats safe failure codes in its first line.

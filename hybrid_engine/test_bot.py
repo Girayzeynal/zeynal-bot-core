@@ -1109,7 +1109,9 @@ def main():
         hook=await app.bot.get_webhook_info()
         if hook.url:raise ValueError('TEST_BOT_HAS_WEBHOOK_POLLING_NOT_STARTED')
         scheduler=app.bot_data.get('europe_prematch_scheduler')
-        if scheduler and not args.replay_only:tasks.append(background_task(scheduler.run(app)))
+        auto_europe=os.getenv('ZEYNAL_TEST_EUROPE_AUTO_ENABLED','1')=='1'
+        app.bot_data['europe_auto_scheduler_enabled']=bool(scheduler and not args.replay_only and auto_europe)
+        if app.bot_data['europe_auto_scheduler_enabled']:tasks.append(background_task(scheduler.run(app)))
         overnight=app.bot_data.get('nba_overnight_scheduler')
         if overnight and not args.replay_only:tasks.append(background_task(overnight.run(app)))
         adaptive=app.bot_data.get('adaptive_v2_worker')

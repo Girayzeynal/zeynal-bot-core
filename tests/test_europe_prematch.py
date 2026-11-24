@@ -413,3 +413,38 @@ class EuropeanAutomaticTelegramTests(unittest.IsolatedAsyncioTestCase):
                         self.assertTrue(all(len(p.encode('utf-16-le'))//2<=4096 for p in sent))
                     finally:await app.shutdown()
             finally:await runner.cleanup()
+
+class EuropeManualPriorityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_manual_waits_for_lock_release_without_repeated_archive_scans(self):
+        import fcntl
+        from hybrid_engine.europe_prematch import open_lock
+        with TemporaryDirectory() as tmp:
+            root=Path(tmp);service=AutomaticEuropeanService.__new__(AutomaticEuropeanService)
+            service.registry=SimpleNamespace(root=root);service.manual_waiters=0
+            service.existing=Mock(return_value=None)
+            fd=open_lock(root,'.prematch-inference.lock')
+            fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            expected=dict(status='EUROPE_HYBRID_OK',new_record=False)
+            try:
+                with patch('hybrid_engine.europe_prematch.five_minute_analyze',
+                           new_callable=__import__('unittest.mock',fromlist=['AsyncMock']).AsyncMock,
+                           return_value=expected):
+                    task=asyncio.create_task(service.analyze('EUROLEAGUE','2026-11-24','H','A'))
+                    await asyncio.sleep(.25)
+                    self.assertEqual(service.manual_waiters,1)
+                    fcntl.flock(fd,fcntl.LOCK_UN)
+                    self.assertEqual(await asyncio.wait_for(task,2),expected)
+                    service.existing.assert_called_once_with('2026-11-24','H','A')
+                    self.assertEqual(service.manual_waiters,0)
+            finally:os.close(fd)
+
+    async def test_automatic_does_not_enter_when_manual_waiter_exists(self):
+        from hybrid_engine.europe_prematch import _AUTO_INFERENCE
+        service=AutomaticEuropeanService.__new__(AutomaticEuropeanService)
+        service.manual_waiters=1
+        token=_AUTO_INFERENCE.set(True)
+        try:
+            r=await service.analyze('EUROLEAGUE','2026-11-24','H','A')
+            self.assertEqual(r['reason'],'EUROPE_MANUAL_PRIORITY')
+            self.assertEqual(service.manual_waiters,1)
+        finally:_AUTO_INFERENCE.reset(token)
