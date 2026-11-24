@@ -5,7 +5,7 @@ All paths are exploratory; no calibration or superiority is asserted here.
 """
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 import math
 import time
 
@@ -48,7 +48,8 @@ def _team_correction(prior, name, cutoff):
         return 0.,len(eligible)
     eligible.sort(key=lambda p:p[0])
     eligible=eligible[-16:]
-    weights=np.array([2**(-(cutoff-ts)/(86400*BIAS_HALF_LIFE_DAYS)) for ts,_ in eligible])
+    latest=eligible[-1][0]
+    weights=np.array([2**(-(latest-ts)/(86400*BIAS_HALF_LIFE_DAYS)) for ts,_ in eligible])
     errors=np.clip(np.array([e for _,e in eligible]),-BIAS_OBSERVATION_CLIP,BIAS_OBSERVATION_CLIP)
     # A fixed shrinkage design; no labels from the target may tune this.
     effective_n=float(weights.sum()**2 / (weights@weights))
@@ -125,7 +126,7 @@ def stochastic_quarters_from_frozen_scores(
     """Research-only Dirichlet quarter paths, with native-ledger past-label embargo.
 
     The integer team-score scenario totals are supplied independently and held
-    unchanged. Quarter mean weights come ONLY from the pinned original forecast.
+    unchanged. Quarter means blend the pinned original forecast with native past shares.
     Native histories/timestamps come from the verified ledger, not caller shares.
     """
     if (not isinstance(verified_ledger,dict) or
@@ -192,7 +193,10 @@ def stochastic_quarters_from_frozen_scores(
         if len(history)<MIN_QUARTER_HISTORY:
             raise Abstain("SIX_VERIFIED_PAST_QUARTER_GAMES_PER_SIDE_REQUIRED")
         arr=np.asarray([h[2] for h in history],dtype=float)
-        w=weights[:,j]/weights[:,j].sum()
+        frozen=weights[:,j]/weights[:,j].sum()
+        # Fixed prior strength: adjust the mean as well as the uncertainty.
+        # Only native past quarter shares enter this estimate.
+        w=(8.*frozen+arr.sum(axis=0))/(8.+len(arr))
         if concentration is None:
             variance=arr.var(axis=0,ddof=1)
             guesses=w*(1-w)/np.maximum(variance,1e-7)-1.
@@ -213,7 +217,8 @@ def stochastic_quarters_from_frozen_scores(
         concentrations.append(c)
         trace[side]=dict(past_games=len(history),
             native_fixture_ids=[h[0] for h in history],
-            latest_label_available_utc=history[-1][1])
+            latest_label_available_utc=history[-1][1],
+            original_weights=frozen.tolist(),research_weights=w.tolist())
     if not np.array_equal(out.sum(axis=1),scores):
         raise ValueError("STOCHASTIC_QUARTERS_TEAM_SCORE_CONSERVATION")
     return out,dict(format="RESEARCH_DIRICHLET_CONDITIONAL_QUARTERS_V1",
@@ -261,6 +266,85 @@ def player_input_gate(publication,*,asof_utc,fixture,archive_directory=None):
         confidence_index=None)
 
 
+def _point_metrics(rows):
+    if not rows:
+        return None
+    pred=np.asarray([r["forecast_before"] for r in rows],dtype=float)
+    cand=np.asarray([r["forecast_candidate"] for r in rows],dtype=float)
+    actual=np.asarray([r["regulation_actual"] for r in rows],dtype=float)
+    result={}
+    for name, weights in (("home",[1,0]),("away",[0,1]),("total",[1,1]),("margin",[1,-1])):
+        old=(pred-actual)@weights
+        new=(cand-actual)@weights
+        result[name]=dict(original_mae=float(np.abs(old).mean()),
+            candidate_mae=float(np.abs(new).mean()),original_bias=float(old.mean()),
+            candidate_bias=float(new.mean()),original_rmse=float(np.sqrt(np.mean(old**2))),
+            candidate_rmse=float(np.sqrt(np.mean(new**2))))
+    return result
+
+
+def quarter_comparison(ledger, *, asof_utc, scenarios=4096):
+    """Paired conditional allocation audit on original forecasts, no final score input.
+
+    Fixed rounded predicted team totals isolate allocation quality; interval
+    scores are NOT full predictive uncertainty or calibrated market odds.
+    """
+    from hybrid_engine.distributions import periods_for_scores
+    if type(scenarios) is not int or not 1024<=scenarios<=10000:
+        raise ValueError("QUARTER_AUDIT_SCENARIO_BUDGET")
+    base=first_forecast_review(ledger,asof_utc=asof_utc)
+    by_sha={r["snapshot_sha256"]:r for r in ledger["forecasts"]}
+    if len(by_sha)!=len(ledger["forecasts"]):
+        raise ValueError("QUARTER_AMBIGUOUS_SNAPSHOT")
+    trace=[]; reasons=Counter()
+    for group in base["walk_forward_shadow"]:
+        for entry in group["trace"]:
+            row=by_sha[entry["original_snapshot_sha256"]]
+            if row["league"]!="NBA":
+                continue
+            if row.get("predicted_quarters") is None:
+                reasons["MISSING_ORIGINAL_QUARTERS"]+=1
+                continue
+            scores=np.tile(np.rint(row["prediction"]).astype(np.int32),(scenarios,1))
+            try:
+                candidate,meta=stochastic_quarters_from_frozen_scores(
+                    scores,ledger,target_sha256=row["snapshot_sha256"])
+            except Abstain as exc:
+                reasons[str(exc)]+=1
+                continue
+            old=periods_for_scores(scores,np.asarray(row["predicted_quarters"],dtype=float))
+            actual=np.asarray([row["actual_periods"][s][:4] for s in ("home","away")]).T
+            markets={}
+            for name, sl in (("1Q",slice(0,1)),("2Q",slice(1,2)),("3Q",slice(2,3)),
+                             ("4Q",slice(3,4)),("1H",slice(0,2)),("2H",slice(2,4))):
+                y=float(actual[sl].sum())
+                a=old[:,sl,:].sum(axis=(1,2)); b=candidate[:,sl,:].sum(axis=(1,2))
+                def crps(samples):
+                    ordered=np.sort(samples.astype(float))
+                    n=len(ordered)
+                    return float(np.abs(ordered-y).mean() -
+                        np.dot(2*np.arange(n)-n+1,ordered)/(n*n))
+                markets[name]=dict(original_abs_error=abs(float(a.mean())-y),
+                    candidate_abs_error=abs(float(b.mean())-y),
+                    original_crps=crps(a),candidate_crps=crps(b))
+            trace.append(dict(fixture_id=row["fixture_id"],snapshot_sha256=row["snapshot_sha256"],
+                season=row["season"],model_version=row["model_version"],
+                forecast_generated_at_utc=row["prediction_generated_at_utc"],
+                fixed_predicted_scores=scores[0].tolist(),markets=markets,history=meta["history"]))
+    cohorts=[]
+    for season,version in sorted({(r["season"],r["model_version"]) for r in trace}):
+        rows=[r for r in trace if (r["season"],r["model_version"])==(season,version)]
+        metrics={}
+        for name in ("1Q","2Q","3Q","4Q","1H","2H"):
+            items=[r["markets"][name] for r in rows]
+            metrics[name]={k:float(np.mean([i[k] for i in items])) for k in items[0]}
+        cohorts.append(dict(season=season,model_version=version,n=len(rows),metrics=metrics))
+    return dict(status="CONDITIONAL_ALLOCATION_ONLY_NOT_FULL_FORECAST_CALIBRATION",
+        verified_finals=base["matched_verified_finals"],paired_n=len(trace),
+        excluded=dict(reasons),scenarios=scenarios,cohorts=cohorts,trace=trace,
+        actual_target_scores_used_as_inputs=False,production_enabled=False,automatic_promotion=False)
+
+
 def main(argv=None):
     import argparse
     import json
@@ -269,10 +353,26 @@ def main(argv=None):
     parser.add_argument("--ledger",required=True)
     parser.add_argument("--asof-utc",type=int,default=None)
     parser.add_argument("--summary-only",action="store_true")
+    parser.add_argument("--player-directory",default=None,help="Existing native player evidence directory; read only")
     args=parser.parse_args(argv)
     asof=int(time.time()) if args.asof_utc is None else args.asof_utc
-    result=conditional_bias_comparison(LedgerReports(args.ledger).read("NBA"),asof_utc=asof)
+    ledger=LedgerReports(args.ledger).read("NBA")
+    result=conditional_bias_comparison(ledger,asof_utc=asof)
+    for g in result["cohorts"]:
+        g["score_components"]=_point_metrics(g["trace"])
+        g["adjusted_n"]=sum(any(x!=0 for x in r["adjustment"]) for r in g["trace"])
+    result["quarter_audit"]=quarter_comparison(ledger,asof_utc=asof)
+    result["player_audit"]={"status":"NOT_CHECKED_NO_PLAYER_DIRECTORY","player_effect_applied":False}
+    if args.player_directory is not None:
+        from pathlib import Path
+        from hybrid_engine.player_shadow import readiness,performance
+        if not Path(args.player_directory).is_dir():
+            raise ValueError("EXISTING_PLAYER_DIRECTORY_REQUIRED")
+        result["player_audit"]={"readiness":readiness(args.player_directory),
+            "performance":performance(args.player_directory,args.ledger,asof_utc=asof),
+            "player_effect_applied":False}
     if args.summary_only:
+        result["quarter_audit"].pop("trace",None)
         result["cohorts"]=[{k:v for k,v in g.items() if k!="trace"} for g in result["cohorts"]]
     print(json.dumps(result,ensure_ascii=False,indent=2,allow_nan=False))
 
