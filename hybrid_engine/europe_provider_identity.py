@@ -68,7 +68,7 @@ def resolve_provider_name(value,snapshot,registry,now):
             raise IdentityRefusal('HISTORIC_PARTIZAN_OFFICIAL_ID_CONFLICT')
         return team
     # A narrowly documented legal-name form, not arbitrary suffix stripping.
-    stem=re.sub(r'\s+J\.?\s*K\.?
+    stem=re.sub(r'\s+J\.?\s*K\.?\Z','',value,flags=re.I)
     if stem==value or normalize_name(stem)!='besiktas':raise IdentityRefusal('TEAM_ALIAS_NOT_REGISTERED')
     team=registry.resolve(snapshot['league'],snapshot['season'],stem,asof_utc=now)
     if (team.provider_ids!=(('EUROLEAGUE_LIVE','BES'),) or
