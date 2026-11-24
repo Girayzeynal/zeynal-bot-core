@@ -393,7 +393,10 @@ def install_dual_clock_display(state,assessments):
                     if callable(request):
                         try:request(context)
                         except (ValueError,KeyError,TypeError,RuntimeError):pass
-                content=content.partition('\n🔒 İLK TAHMİN — SADECE ARŞİV')[0]
+                # A missing V3 must not also erase the explicitly archived V1
+                # score from the headline; only fresh V3 uses a clean V3 header.
+                if panels['fresh']:
+                    content=content.partition('\n🔒 İLK TAHMİN — SADECE ARŞİV')[0]
                 if not panels['fresh'] and 'GÜNCEL AYRI ARAŞTIRMA SKORU' in content:
                     content=('⚠️ GÜNCEL MODEL SAYISAL PAKETİ DOĞRULANMADI. '
                              'Özet, periyotlar ve aralıklar aynı kayıtla doğrulanmadan '
