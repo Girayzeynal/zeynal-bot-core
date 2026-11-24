@@ -229,6 +229,48 @@ class FirstForecastWalkForwardTests(unittest.TestCase):
             self.assertIn("FIRST_FORECAST_ARCHIVE_NOT_FOUND",out.stderr)
             self.assertFalse((home/"zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite").exists())
 
+    def test_paired_shadow_diagnostics_are_fixture_matched(self):
+        old=self.row("old",index=0,prediction=(110,110))
+        newer=self.row("new",index=1,prediction=(110,110))
+        out=review(self.report([newer,old]),asof_utc=self.now)
+        diag=out["walk_forward_shadow"][0]["paired_shadow_diagnostics"]
+        self.assertTrue(diag["paired_on_same_fixtures"])
+        self.assertEqual(diag["n"],2)
+        self.assertEqual((diag["improved"],diag["worsened"],diag["unchanged"]),(1,0,1))
+        self.assertAlmostEqual(diag["average_delta"],-10/9)
+        self.assertEqual(diag["best_improvements"][0]["fixture_id"],"new")
+        self.assertIn("Eş maç karşılaştırması",render(out))
+        self.assertFalse(diag["predictive_superiority_confirmed"])
+
+    def test_shadow_can_worsen_even_with_correct_past_labels(self):
+        old=self.row("old",index=0,prediction=(90,90))
+        perfect=self.row("perfect",index=1,prediction=(100,100))
+        report=review(self.report([old,perfect]),asof_utc=self.now)
+        paired=report["walk_forward_shadow"][0]["paired_shadow_diagnostics"]
+        self.assertEqual(paired["worsened"],1)
+        self.assertEqual(paired["improved"],0)
+        self.assertEqual(paired["unchanged"],1)
+        self.assertEqual(paired["worst_regressions"][0]["fixture_id"],"perfect")
+        self.assertGreater(paired["average_delta"],0)
+        self.assertFalse(report["automatic_promotion"])
+
+    def test_pending_fixtures_distinguish_not_started_missing_and_late_label(self):
+        completed=self.row("missing-final",index=0,actual=None)
+        future=self.row("future",index=3,generated=self.now-100,actual=None)
+        late=self.row("late-label",index=4,label_available=self.now+400)
+        out=review(self.report([completed,future,late]),asof_utc=self.now)
+        self.assertEqual(out["first_forecasts"],3)
+        self.assertEqual(out["pending"],3)
+        self.assertEqual(out["matched_verified_finals"],0)
+        reasons={f["fixture_id"]:f["reason"] for f in out["pending_fixtures"]}
+        self.assertEqual(reasons,{
+            "missing-final":"TIPOFF_PASSED_NATIVE_FINAL_NOT_VERIFIED",
+            "future":"FIXTURE_NOT_STARTED_AT_ASOF",
+            "late-label":"NATIVE_FINAL_LABEL_AFTER_ASOF",
+        })
+        self.assertIn("TIPOFF_PASSED_NATIVE_FINAL_NOT_VERIFIED",render(out))
+        self.assertIn("ONE_SELECTED_EXISTING_SQLITE_LEDGER",out["report_scope"])
+
     def test_real_sqlite_commit_result_end_to_end_is_read_only(self):
         """Use actual native-authenticated SQLite fixture, not a trusted dict."""
         import hashlib

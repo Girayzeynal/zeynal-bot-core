@@ -15,6 +15,7 @@ on:
       - "fix/telegram-current-panels-20261122"
       - "fix/prematch-five-minute-time-policy-20261123"
       - "integration/nba-v3-calibration-20261124"
+      - "feat/first-forecast-paired-diagnostics-20261124"
   pull_request:
     branches:
       - main
