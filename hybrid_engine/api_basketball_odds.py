@@ -27,6 +27,9 @@ def _receipt(r,path,now):
 def _text(v,limit):
     return isinstance(v,str) and 0<len(v.strip())<=limit and len(v)<=limit and all(ord(c)>=32 for c in v)
 
+def _objects(values,limit):
+    return [v for v in values[:limit] if isinstance(v,dict)] if isinstance(values,list) else []
+
 def inspect_receipt(fixture,price,snapshot,*,league_id,season,game_id,now):
     from hybrid_engine.provider_bridge import matches
     if type(now) is not int or now>=snapshot['fixture_start_utc']:
@@ -61,11 +64,11 @@ def inspect_receipt(fixture,price,snapshot,*,league_id,season,game_id,now):
         or str(event['league']['season'])!=season):
         raise ValueError('BACKUP_PRICE_IDENTITY')
     groups={};conflicts=set()
-    for book in event['bookmakers'][:32]:
+    for book in _objects(event.get('bookmakers'),32):
         if type(book.get('id')) is not int or not _text(book.get('name'),120):continue
-        for bet in book.get('bets',[])[:64]:
+        for bet in _objects(book.get('bets'),64):
             if type(bet.get('id')) is not int or not _text(bet.get('name'),120):continue
-            for v in bet.get('values',[])[:128]:
+            for v in _objects(bet.get('values'),128):
                 if not _text(v.get('value'),120):continue
                 raw=v.get('odd')
                 if not isinstance(raw,str) or not re.fullmatch(r'[0-9]+(?:\.[0-9]+)?',raw):continue

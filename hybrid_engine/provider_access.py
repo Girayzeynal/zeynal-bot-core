@@ -5,6 +5,7 @@ Fly secrets, production .env files, or Telegram credentials. Provider documents
 are additional observations, never edits to an issued forecast.
 """
 from copy import deepcopy
+from email.utils import parsedate_to_datetime
 import argparse
 import json
 import os
@@ -77,6 +78,18 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
+def retry_delay(value,*,now,default=300):
+    """RFC Retry-After delta/date, bounded without trusting malformed hints."""
+    if type(value) is int:return min(3600,max(0,value))
+    if type(value) is str:
+        if value.isdigit() and len(value)<=10:return min(3600,int(value))
+        try:
+            date=parsedate_to_datetime(value)
+            if date.tzinfo is not None:return min(3600,max(0,int(date.timestamp()-now)))
+        except (ValueError,TypeError,OverflowError):pass
+    return default
+
+
 def get_document(provider, url, key, *, timeout):
     """No secret in URLs, logs, exception strings or returned HTTP bodies."""
     if provider not in ORIGINS or not url.startswith(ORIGINS[provider]+'/'):
@@ -116,7 +129,7 @@ def get_document(provider, url, key, *, timeout):
         retry = exc.headers.get('Retry-After', '')
         exc.close()
         return dict(status=status, http_status=exc.code,
-                    retry_after_seconds=min(3600, int(retry)) if retry.isdigit() else 300)
+                    retry_after_seconds=retry_delay(retry,now=int(time.time())))
     except Exception:
         return dict(status='PROVIDER_NETWORK_OR_RESPONSE_ERROR')
 
@@ -207,6 +220,8 @@ class ProviderAccess:
                 result = self.getter(provider, url, self._keys[provider], timeout=timeout)
             except Exception:
                 result = dict(status='PROVIDER_NETWORK_OR_RESPONSE_ERROR')
+            if not isinstance(result,dict) or not isinstance(result.get('status'),str):
+                result=dict(status='PROVIDER_NETWORK_OR_RESPONSE_ERROR')
             if result.get('status') == 'DOCUMENT_RECEIVED':
                 if (result.get('source_url') != url or result.get('provider') != provider or
                         result.get('document_sha256') != digest(result.get('document')) or
@@ -214,8 +229,10 @@ class ProviderAccess:
                         type(result.get('ingested_at_utc')) is not int or
                         not 0 < result['observed_at_utc'] <= result['ingested_at_utc'] <= int(self.clock())):
                     return dict(status='PROVIDER_RECEIPT_INVALID')
+                quota=result.get('quota')
+                quota=quota if isinstance(quota,dict) else {}
                 for name in ('x-requests-remaining','x-ratelimit-requests-remaining'):
-                    remaining=result.get('quota',{}).get(name)
+                    remaining=quota.get(name)
                     if type(remaining) is int and remaining>=0:
                         self.remaining[provider]=remaining
                         self.remaining_day[provider]=int(self.clock())//86400
@@ -227,7 +244,7 @@ class ProviderAccess:
                     self.cache.pop(next(iter(self.cache)))
                 self.cache[url] = deepcopy(result)
             else:
-                self.cooldown[provider] = now+min(3600, max(30, result.get('retry_after_seconds', 60)))
+                self.cooldown[provider] = int(self.clock())+max(30,retry_delay(result.get('retry_after_seconds'),now=int(self.clock()),default=60))
             return result
         finally:
             self.lock.release()

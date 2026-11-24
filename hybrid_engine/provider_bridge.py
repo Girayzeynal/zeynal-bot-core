@@ -72,8 +72,11 @@ def bounded_expanded_observations(rows):
 
 def native_market_coverage(document,requested,observations):
     """Distinct requested, returned and admitted scopes; no inferred prices."""
-    returned={m['key'] for b in document.get('bookmakers',[]) if isinstance(b,dict)
-              for m in b.get('markets',[]) if isinstance(m,dict) and isinstance(m.get('key'),str)}
+    books=document.get('bookmakers',[])
+    if not isinstance(books,list):books=[]
+    returned={m['key'] for b in books if isinstance(b,dict)
+              for m in (b['markets'] if isinstance(b.get('markets'),list) else [])
+              if isinstance(m,dict) and isinstance(m.get('key'),str)}
     scopes={}
     for o in observations:
         for q in o['payload']['quotes']:
@@ -133,6 +136,21 @@ def fixture_for(snapshot):
                              ('league', 'season', 'fixture_id', 'home_team_id', 'away_team_id', 'tipoff_utc')})
 
 
+def native_objects(values,*,limit):
+    """Isolate malformed/ambiguous siblings; never pick one conflicting price."""
+    if not isinstance(values,list):raise ValueError('NATIVE_PRICE_COLLECTION_SCHEMA')
+    unique={};conflicts=set();rejected=0
+    for item in values[:limit]:
+        if not isinstance(item,dict) or not isinstance(item.get('key'),str) or not item['key']:
+            rejected+=1;continue
+        key=item['key']
+        if key in unique:
+            rejected+=1
+            if unique[key]!=item:conflicts.add(key)
+        else:unique[key]=item
+    return [v for k,v in unique.items() if k not in conflicts],rejected
+
+
 def odds_observations(receipt, snapshot, *, discovery=None):
     """Match exact teams+tipoff; keep actual books, alternative lines and periods."""
     if digest(receipt['document']) != receipt['document_sha256']:
@@ -150,11 +168,15 @@ def odds_observations(receipt, snapshot, *, discovery=None):
     expanded=expanded_request(receipt)
     requested=requested_market_keys(receipt)
     full_scope=bool(requested-set(CORE_MARKETS)-set(LEGACY_EXTRA_MARKETS))
-    for book in event.get('bookmakers', [])[:6]:
+    books,bad=native_objects(event.get('bookmakers',[]),limit=6);rejected+=bad
+    for book in books:
         if not isinstance(book.get('key'), str) or not isinstance(book.get('title'), str):
             rejected += 1
             continue
-        for market in book.get('markets', [])[:64 if full_scope else 32]:
+        try:markets,bad=native_objects(book.get('markets',[]),limit=64 if full_scope else 32)
+        except ValueError:rejected+=1;continue
+        rejected+=bad
+        for market in markets:
             try:
                 updated = utc(market.get('last_update') or book.get('last_update'))
                 if not 0 <= receipt['observed_at_utc']-updated <= 300:
@@ -173,7 +195,9 @@ def odds_observations(receipt, snapshot, *, discovery=None):
                 if key not in ('totals', 'spreads', 'h2h', 'team_totals'):
                     continue
                 grouped = {}
-                for outcome in market.get('outcomes', [])[:128]:
+                outcomes=market.get('outcomes',[])
+                if not isinstance(outcomes,list):raise ValueError('NATIVE_OUTCOME_COLLECTION_SCHEMA')
+                for outcome in outcomes[:128]:
                     price = outcome['price']
                     if type(price) not in (int, float) or not math.isfinite(price) or not 1 < price <= 1001:
                         raise ValueError('DECIMAL_PRICE_REQUIRED')

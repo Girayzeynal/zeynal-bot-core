@@ -22,12 +22,16 @@ def parse(discovery,receipt,snapshot):
         raise ValueError('PLAYER_PROP_REQUEST_SCOPE')
     allowed=set(requested[0].split(','))
     groups={};conflicts=set();rejected=0;returned=set()
-    for book in receipt['document'].get('bookmakers',[])[:12]:
+    books=receipt['document'].get('bookmakers',[])
+    if not isinstance(books,list):raise ValueError('PLAYER_PROP_BOOKMAKER_COLLECTION_SCHEMA')
+    for book in books[:12]:
         if not isinstance(book,dict) or not isinstance(book.get('key'),str) or not isinstance(book.get('title'),str):
             rejected+=1;continue
         if not re.fullmatch(r'[A-Za-z0-9_-]{1,80}',book['key']) or not 0<len(book['title'])<=120:
             rejected+=1;continue
-        for market in book.get('markets',[])[:32]:
+        markets=book.get('markets',[])
+        if not isinstance(markets,list):rejected+=1;continue
+        for market in markets[:32]:
             if not isinstance(market,dict) or market.get('key') not in allowed:continue
             stat=market['key'];returned.add(stat)
             try:

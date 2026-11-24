@@ -117,3 +117,17 @@ Geçerli fiyatın yanındaki null bookmaker/bet tüm cevabı AttributeError ile
 düşürebiliyor; hatalı failure payload/cooldown değeri beklemeyi bozuyor;
 HTTP-date biçimindeki Retry-After yok sayılıyor. Sırada: asıl nedeni gider,
 geçerli bağımsız kanıtı koru; kısmi veriyi tam kapsam diye sunma.
+
+- Düzeltildi: bozuk bağımsız bookmaker/market/bet/value girdileri kapsam
+  sınırları içinde ayrı reddedilir. Çelişkili aynı book/market kopyaları
+  reddedilir; avantajlı olan seçilmez. Geçerli diğer fiyat ve native makbuz
+  korunur. Coverage görünümü de kısmi schema ile çökmemeli.
+- Failure payload dict/status sözleşmesi normalize edilir; bozuk bekleme
+  değeri en az 30 sn cooldown'ı atlatmaz. HTTP-date / delta Retry-After
+  en fazla 3600 sn olarak işlenir. Kota olmayan/bozuk metadata fiyatın
+  geçerli kısmını düşürmez; anahtarlar hiçbir sonuca eklenmez.
+- Düzeltme sonrası sağlayıcı/kimlik/oyuncu fiyat/yedek/sezon/Avrupa testleri:
+  **105 passed in 3.74s**. Son eklenen actual bridge+coverage+journal ve
+  bozuk/çelişkili kardeş satır testleri dahil: **7 passed in 0.41s**.
+- Durum: **KODLANDI_CANLI_DEĞİL**; authenticated fixture/price kapsamı bu
+  sentetik testlerden çıkarsanmaz. Canlı ücretsiz kaynak denetimi ayrı başladı.

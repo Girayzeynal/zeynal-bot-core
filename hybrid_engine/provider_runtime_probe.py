@@ -32,6 +32,7 @@ def main():
         unittest.defaultTestLoader.loadTestsFromName('tests.test_integrated_features'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_integrated_launcher'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_bridge'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_partial_contracts'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_provider_identity'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_current_market_review'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_forecast_error_review'),
