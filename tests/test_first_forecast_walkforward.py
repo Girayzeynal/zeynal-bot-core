@@ -141,6 +141,48 @@ class FirstForecastWalkForwardTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"VERIFIED_READONLY"):
             review(self.report([row]),asof_utc=self.now+86400)
 
+    def test_real_sqlite_commit_result_end_to_end_is_read_only(self):
+        """Use actual native-authenticated SQLite fixture, not a trusted dict."""
+        import hashlib
+        import io
+        import json
+        from contextlib import redirect_stdout
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from ledger_reports import LedgerReports
+        from tests.test_ledger_reports import fixture as build_ledger
+        from hybrid_engine.first_forecast_walkforward import main
+        with TemporaryDirectory() as tmp:
+            db=Path(tmp)/"test.sqlite"
+            build_ledger(db,settled=True,models=2)
+            original=hashlib.sha256(db.read_bytes()).hexdigest()
+            native=LedgerReports(db).read("NBA")
+            report=review(native,asof_utc=self.now)
+            self.assertEqual(report["first_forecasts"],1)
+            self.assertEqual(report["matched_verified_finals"],1)
+            self.assertEqual(len(report["exact_fit_descriptives"]),1)
+            self.assertEqual(report["walk_forward_shadow"][0]["predictions_with_prior"],0)
+            self.assertEqual(len(native["forecasts"]),2)
+            output=io.StringIO()
+            with redirect_stdout(output):
+                main(["--ledger",str(db),"--league","NBA","--json"])
+            cli=json.loads(output.getvalue())
+            self.assertEqual(cli["first_forecasts"],1)
+            self.assertEqual(cli["matched_verified_finals"],1)
+            self.assertEqual(cli["source"],"LEDGER_REPORTS_NATIVE_AUTHENTICATED_FIRST_COMMIT")
+            self.assertEqual(hashlib.sha256(db.read_bytes()).hexdigest(),original)
+
+    def test_missing_sqlite_does_not_create_file(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from ledger_reports import LedgerReports
+        with TemporaryDirectory() as tmp:
+            path=Path(tmp)/"absent.sqlite"
+            result=LedgerReports(path).read("NBA")
+            with self.assertRaisesRegex(ValueError,"VERIFIED_READONLY"):
+                review(result,asof_utc=self.now)
+            self.assertFalse(path.exists())
+
     def test_conflicting_real_result_for_same_fixture_is_rejected(self):
         a=self.row()
         b=copy.deepcopy(a);b["actual"]=[101,100]
