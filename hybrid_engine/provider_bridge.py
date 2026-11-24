@@ -410,7 +410,7 @@ class ProviderBridge:
                     provider_fixture_id=event_id, event_clock_binding=binding,
                     discovery_source_pin=discovery_pin,forecast_inputs_changed=False)
 
-    def _basketball(self, snapshot, deadline):
+    def _basketball(self, snapshot, deadline, *, backup_prices=False):
         access = self.access
         coverage_key=(snapshot['league'],snapshot['season'])
         old=self.coverage_blocks.get(coverage_key)
@@ -469,6 +469,25 @@ class ProviderBridge:
         if self.diagnostic_only:
             return dict(status='PREMATCH_FIXTURE_CROSSCHECKED',provider_fixture_id=g['id'],
                         statistics_requests_made=0,source_pin=self._save(r),**season_info)
+        fixture_pin=self._save(r)
+        backup=dict(status='NOT_REQUESTED_PRIMARY_PRICES_PRESENT',rows=[],current_prices_verified=False)
+        if backup_prices:
+            if str(g.get('league',{}).get('season'))!=season:
+                backup=dict(status='BACKUP_FIXTURE_SEASON_NOT_VERIFIED',rows=[],current_prices_verified=False)
+            elif int(self.clock())>=snapshot['fixture_start_utc'] or self.clock()>=deadline:
+                backup=dict(status='BACKUP_PRICE_DEADLINE_REACHED',rows=[],current_prices_verified=False)
+            else:
+                try:
+                    from hybrid_engine.api_basketball_odds import inspect_receipt
+                    pr=access.get('API_BASKETBALL','/odds',dict(game=g['id']),deadline=deadline,ttl=120)
+                    backup=dict(status=pr['status'],rows=[],current_prices_verified=False)
+                    if pr['status']=='DOCUMENT_RECEIVED':
+                        backup=inspect_receipt(r,pr,snapshot,league_id=lid,season=season,game_id=g['id'],now=int(self.clock()))
+                        backup['source_pin']=self._save(pr)
+                    if pr.get('quota'):backup['quota']=pr['quota']
+                    backup['fixture_source_pin']=fixture_pin
+                except (ValueError,KeyError,TypeError,OSError,TimeoutError):
+                    backup=dict(status='BACKUP_PRICE_EVIDENCE_REFUSED',rows=[],current_prices_verified=False)
         stats = []
         # A current season aggregate is an additional observation, not a PIT
         # training row and not proof of measured pace or a confirmed lineup.
@@ -499,7 +518,7 @@ class ProviderBridge:
         else:
             stats.append(dict(status='STATISTICS_SEASON_NOT_VERIFIED'))
         return dict(status='PREMATCH_FIXTURE_CROSSCHECKED', provider_fixture_id=g['id'],
-                    source_pin=self._save(r), observed_at_utc=r['observed_at_utc'],
+                    source_pin=fixture_pin, observed_at_utc=r['observed_at_utc'],backup_prices=backup,
                     # Fixture data cannot certify injuries, lineup or efficiency.
                     injuries_verified=False, lineups_verified=False, pace_verified=False,
                     forecast_inputs_changed=False, statistics=stats,**season_info)
@@ -532,7 +551,12 @@ class ProviderBridge:
                     report['providers'][provider] = dict(status=config[provider])
                     continue
                 try:
-                    report['providers'][provider] = method(snapshot, deadline)
+                    if provider=='API_BASKETBALL':
+                        primary=report['providers'].get('THE_ODDS_API',{})
+                        report['providers'][provider]=method(snapshot,deadline,
+                            backup_prices=not self.diagnostic_only and not primary.get('observations'))
+                    else:
+                        report['providers'][provider] = method(snapshot, deadline)
                 except EvidenceCapacityError:
                     report['providers'][provider] = dict(status='LOCAL_EVIDENCE_STORAGE_FULL',observations=[])
                 except Exception:
@@ -624,6 +648,10 @@ def render(report):
             lines.append('Oyuncu performans baremleri bu adaptörde sorgulanmadı.')
         if row.get('quota'):
             lines.append('Kota (sağlayıcı yanıtı): '+html.escape(str(row['quota'])))
+        backup=row.get('backup_prices')
+        if backup and backup['status']!='NOT_REQUESTED_PRIMARY_PRICES_PRESENT':
+            from hybrid_engine.api_basketball_odds import render as render_backup
+            lines.append(render_backup(backup))
         for stat in row.get('statistics', []):
             side={'home':'ev sahibi','away':'deplasman'}.get(stat.get('side'),'takım')
             lines.append(html.escape('İstatistik '+side+': '+message(stat['status'])))
