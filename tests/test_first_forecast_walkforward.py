@@ -165,6 +165,70 @@ class FirstForecastWalkForwardTests(unittest.TestCase):
         self.assertEqual(result["first_forecasts"],0)
         self.assertEqual(result["exclusions"]["INVALID_FIRST_PREMATCH_SNAPSHOT"],1)
 
+    def test_ninety_nine_verified_games_do_not_wait_for_hundred(self):
+        rows=[self.row("real-%03d" % i,generated=self.base+i*5000)
+              for i in range(99)]
+        report=review(self.report(rows),asof_utc=self.now)
+        self.assertEqual(report["first_forecasts"],99)
+        self.assertEqual(report["matched_verified_finals"],99)
+        self.assertEqual(report["league_season_descriptives"][0]["metrics"]["n"],99)
+        self.assertEqual(report["league_season_descriptives"][0]["metrics"]["total_mae"],20)
+        self.assertEqual(report["walk_forward_shadow"][0]["exploratory_shadow"]["n"],99)
+        self.assertFalse(report["historical_100_game_gate_required"])
+        self.assertFalse(report["calibration_applied_to_production"])
+
+    def test_android_isolated_launcher_invokes_readonly_audit_without_bot_or_git(self):
+        import hashlib
+        import json
+        import os
+        from pathlib import Path
+        import subprocess
+        import sys
+        from tempfile import TemporaryDirectory
+        from tests.test_ledger_reports import fixture as build_ledger
+        launcher=Path(__file__).resolve().parents[1]/"scripts/run_isolated_test_bot.sh"
+        with TemporaryDirectory() as tmp:
+            home=Path(tmp)
+            python_dir=home/"zeynal-hybrid-844/.venv/bin"
+            python_dir.mkdir(parents=True)
+            (python_dir/"python").symlink_to(sys.executable)
+            db=home/"zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite"
+            db.parent.mkdir(parents=True)
+            build_ledger(db,settled=True,models=2)
+            original=hashlib.sha256(db.read_bytes()).hexdigest()
+            env=dict(os.environ,HOME=str(home))
+            for mode in ("--first-forecast-audit","--first-forecast-audit-json"):
+                outcome=subprocess.run(["bash",str(launcher),mode],env=env,
+                                       capture_output=True,text=True,timeout=30)
+                self.assertEqual(outcome.returncode,0,outcome.stderr)
+                if mode.endswith("-json"):
+                    payload=json.loads(outcome.stdout)
+                    self.assertEqual(payload["first_forecasts"],1)
+                    self.assertEqual(payload["matched_verified_finals"],1)
+                else:
+                    self.assertIn("Doğrulanmış sonuç: 1",outcome.stdout)
+                    self.assertIn("SHADOW YOK",outcome.stdout)
+            self.assertEqual(hashlib.sha256(db.read_bytes()).hexdigest(),original)
+
+    def test_android_launcher_missing_archive_fails_clean_without_creation(self):
+        import os
+        from pathlib import Path
+        import subprocess
+        import sys
+        from tempfile import TemporaryDirectory
+        launcher=Path(__file__).resolve().parents[1]/"scripts/run_isolated_test_bot.sh"
+        with TemporaryDirectory() as tmp:
+            home=Path(tmp)
+            python_dir=home/"zeynal-hybrid-844/.venv/bin"
+            python_dir.mkdir(parents=True)
+            (python_dir/"python").symlink_to(sys.executable)
+            env=dict(os.environ,HOME=str(home))
+            out=subprocess.run(["bash",str(launcher),"--first-forecast-audit"],
+                               env=env,capture_output=True,text=True,timeout=15)
+            self.assertEqual(out.returncode,2)
+            self.assertIn("FIRST_FORECAST_ARCHIVE_NOT_FOUND",out.stderr)
+            self.assertFalse((home/"zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite").exists())
+
     def test_real_sqlite_commit_result_end_to_end_is_read_only(self):
         """Use actual native-authenticated SQLite fixture, not a trusted dict."""
         import hashlib
