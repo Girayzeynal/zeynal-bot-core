@@ -78,14 +78,14 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def retry_delay(value,*,now,default=300):
+def retry_delay(value,*,now,default=300,maximum=3600):
     """RFC Retry-After delta/date, bounded without trusting malformed hints."""
-    if type(value) is int:return min(3600,max(0,value))
+    if type(value) is int:return min(maximum,max(0,value))
     if type(value) is str:
-        if value.isdigit() and len(value)<=10:return min(3600,int(value))
+        if value.isdigit() and len(value)<=10:return min(maximum,int(value))
         try:
             date=parsedate_to_datetime(value)
-            if date.tzinfo is not None:return min(3600,max(0,int(date.timestamp()-now)))
+            if date.tzinfo is not None:return min(maximum,max(0,int(date.timestamp()-now)))
         except (ValueError,TypeError,OverflowError):pass
     return default
 
