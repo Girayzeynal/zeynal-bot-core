@@ -141,6 +141,30 @@ class FirstForecastWalkForwardTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"VERIFIED_READONLY"):
             review(self.report([row]),asof_utc=self.now+86400)
 
+    def test_legacy_verified_pregame_commit_is_descriptive_only_but_prior_for_future(self):
+        legacy=self.row("old",index=0)
+        legacy["prediction_generated_at_utc"]=None
+        future=self.row("future",index=2)
+        report=review(self.report([future,legacy]),asof_utc=self.now)
+        self.assertEqual(report["first_forecasts"],2)
+        self.assertEqual(report["matched_verified_finals"],2)
+        self.assertEqual(report["first_forecasts_missing_generation_utc"],1)
+        walk=report["walk_forward_shadow"][0]
+        self.assertEqual(walk["descriptive_all_first_forecasts"]["n"],2)
+        self.assertEqual(walk["original"]["n"],1)
+        self.assertEqual(walk["exploratory_shadow"]["n"],1)
+        self.assertEqual(walk["trace"][0]["fixture_id"],"future")
+        self.assertEqual(walk["trace"][0]["prior_available_labels"],1)
+        self.assertEqual(walk["excluded_shadow_targets_missing_generation"],1)
+        self.assertFalse(report["calibration_applied_to_production"])
+
+    def test_invalid_explicit_generation_clock_is_not_hidden_by_legacy_fallback(self):
+        invalid=self.row("bad")
+        invalid["prediction_generated_at_utc"]="not-a-time"
+        result=review(self.report([invalid]),asof_utc=self.now)
+        self.assertEqual(result["first_forecasts"],0)
+        self.assertEqual(result["exclusions"]["INVALID_FIRST_PREMATCH_SNAPSHOT"],1)
+
     def test_real_sqlite_commit_result_end_to_end_is_read_only(self):
         """Use actual native-authenticated SQLite fixture, not a trusted dict."""
         import hashlib
@@ -160,8 +184,15 @@ class FirstForecastWalkForwardTests(unittest.TestCase):
             report=review(native,asof_utc=self.now)
             self.assertEqual(report["first_forecasts"],1)
             self.assertEqual(report["matched_verified_finals"],1)
+            self.assertEqual(report["first_forecasts_missing_generation_utc"],1)
+            self.assertIsNone(report["first_prediction_utc"])
+            self.assertIsNotNone(report["first_proven_snapshot_utc"])
             self.assertEqual(len(report["exact_fit_descriptives"]),1)
             self.assertEqual(report["walk_forward_shadow"][0]["predictions_with_prior"],0)
+            self.assertEqual(report["walk_forward_shadow"][0]["exploratory_shadow"]["n"],0)
+            self.assertEqual(report["walk_forward_shadow"][0]["comparison_status"],
+                             "SHADOW_NOT_RUN_NO_VERIFIED_GENERATION_CLOCK")
+            self.assertIn("SHADOW YOK", render(report))
             self.assertEqual(len(native["forecasts"]),2)
             output=io.StringIO()
             with redirect_stdout(output):
