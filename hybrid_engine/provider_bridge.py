@@ -23,8 +23,24 @@ from hybrid_engine.provider_access import ProviderAccess
 SPORTS = {'NBA': 'basketball_nba', 'EUROLEAGUE': 'basketball_euroleague', 'EUROCUP': 'basketball_eurocup'}
 # Requests beyond the three featured markets require explicit local opt-in.
 CORE_MARKETS = ('h2h', 'spreads', 'totals')
-EXTRA_MARKETS = ('alternate_spreads', 'alternate_totals', 'team_totals',
+LEGACY_EXTRA_MARKETS = ('alternate_spreads', 'alternate_totals', 'team_totals',
                  'totals_h1', 'totals_h2', 'totals_q1', 'totals_q2', 'totals_q3', 'totals_q4')
+# Documented native keys, not an assertion of league/book coverage.
+PARTS=('h1','h2','q1','q2','q3','q4')
+EXTRA_MARKETS=(*LEGACY_EXTRA_MARKETS,'alternate_team_totals',
+    *(kind+'_'+part for kind in ('spreads','h2h','team_totals','alternate_totals',
+                                 'alternate_spreads','alternate_team_totals') for part in PARTS))
+ALLOWED_REGIONS={'us','us2','eu','uk','au'}
+
+def odds_regions(value):
+    regions=tuple(value.split(','))
+    if not 1<=len(regions)<=2 or len(set(regions))!=len(regions) or not set(regions)<=ALLOWED_REGIONS:
+        raise ValueError('ODDS_REGIONS_EXPLICIT_ONE_OR_TWO_SUPPORTED')
+    return regions
+
+def requested_market_keys(receipt):
+    values=parse_qs(urlsplit(receipt.get('source_url','')).query).get('markets',[])
+    return set(values[0].split(',')) if len(values)==1 else set()
 ALIASES = {'losangelesclippers': 'laclippers'}
 # Keep core receipts' historic parser behavior. Expanded native requests
 # can retain more distinct scopes, within a fixed report/storage budget.
@@ -33,8 +49,7 @@ EXPANDED_OBSERVATION_LIMIT=32
 EXPANDED_QUOTE_LIMIT=128
 
 def expanded_request(receipt):
-    requested=parse_qs(urlsplit(receipt.get('source_url','')).query).get('markets',[])
-    return len(requested)==1 and bool(set(requested[0].split(',')) & set(EXTRA_MARKETS))
+    return bool(requested_market_keys(receipt) & set(EXTRA_MARKETS))
 
 def bounded_expanded_observations(rows):
     # Retain the exact previous first 12 for receipt replay compatibility.
@@ -133,17 +148,23 @@ def odds_observations(receipt, snapshot, *, discovery=None):
     result = []
     rejected = 0
     expanded=expanded_request(receipt)
+    requested=requested_market_keys(receipt)
+    full_scope=bool(requested-set(CORE_MARKETS)-set(LEGACY_EXTRA_MARKETS))
     for book in event.get('bookmakers', [])[:6]:
         if not isinstance(book.get('key'), str) or not isinstance(book.get('title'), str):
             rejected += 1
             continue
-        for market in book.get('markets', [])[:32]:
+        for market in book.get('markets', [])[:64 if full_scope else 32]:
             try:
                 updated = utc(market.get('last_update') or book.get('last_update'))
                 if not 0 <= receipt['observed_at_utc']-updated <= 300:
                     raise ValueError('STALE_OR_FUTURE_NATIVE_ODDS')
                 key = market['key']
                 period = 'FULL'
+                # Decode newly requested alternate period keys, without changing
+                # historical receipt replay for previously unrequested keys.
+                if key.startswith('alternate_') and key in requested:
+                    key=key.removeprefix('alternate_')
                 match = re.fullmatch(r'(totals|spreads|h2h|team_totals)_(q[1-4]|h[12])', key)
                 if match:
                     key, part = match.groups()
@@ -215,10 +236,11 @@ def odds_observations(receipt, snapshot, *, discovery=None):
 
 
 class ProviderBridge:
-    def __init__(self, access, directory, *, extended=False, clock=time.time, diagnostic_only=False, rule_book=None):
+    def __init__(self, access, directory, *, extended=False, clock=time.time, diagnostic_only=False, rule_book=None,regions='us'):
         self.access = access
         self.root = local_path(directory)
         self.extended = extended
+        self.regions=odds_regions(regions)
         self.diagnostic_only = diagnostic_only
         self.clock = clock
         self.lock = threading.Lock()
@@ -334,10 +356,21 @@ class ProviderBridge:
                         observations=[],provider_fixture_id=event_id,event_clock_binding=binding,
                         odds_requests_made=0,source_pin=discovery_pin)
         markets = (*CORE_MARKETS, *EXTRA_MARKETS) if self.extended else CORE_MARKETS
+        # Query only the explicitly opted-in regions. Budget is checked against
+        # the worst-case cost, never inferred from an earlier match.
+        regions=','.join(self.regions)
         r = access.get('THE_ODDS_API', f'/v4/sports/{sport}/events/{event_id}/odds',
-                       dict(regions='us', markets=','.join(markets), oddsFormat='decimal'), deadline=deadline)
+                       dict(regions=regions, markets=','.join(markets), oddsFormat='decimal'), deadline=deadline)
+        # A conservative budget refusal may fall back to basic markets only.
+        # It has spent no credits and is distinct from HTTP/provider failure.
+        scope_reduced=False
+        if r['status']=='ODDS_ESTIMATED_CREDIT_BUDGET' and self.extended:
+            markets=CORE_MARKETS;scope_reduced=True
+            r=access.get('THE_ODDS_API', f'/v4/sports/{sport}/events/{event_id}/odds',
+                         dict(regions=regions,markets=','.join(markets),oddsFormat='decimal'),deadline=deadline)
         if r['status'] != 'DOCUMENT_RECEIVED':
-            return dict(status=r['status'], observations=[])
+            return dict(status=r['status'], observations=[],requested_markets=list(markets),requested_regions=list(self.regions),
+                        extended_reduced_for_credit_budget=scope_reduced)
         try:
             observations, rejected = odds_observations(r, snapshot,discovery=events)
         except (ValueError,KeyError,TypeError) as exc:
@@ -351,6 +384,7 @@ class ProviderBridge:
         return dict(status='OBSERVED_RULES_AND_CALIBRATION_PENDING' if observations else 'NO_FRESH_SUPPORTED_PRICES',
                     observations=observations, rejected_markets=rejected, requested_markets=list(markets),
                     market_coverage=native_market_coverage(r['document'],markets,observations),
+                    requested_regions=list(self.regions),extended_reduced_for_credit_budget=scope_reduced,
                     quota=r.get('quota', {}), source_pin=self._save(r),
                     provider_fixture_id=event_id, event_clock_binding=binding,
                     discovery_source_pin=discovery_pin,forecast_inputs_changed=False)
@@ -540,6 +574,10 @@ def render(report):
             for candidate in detail['candidates'][:3]:
                 lines.append(html.escape(candidate['home']+' – '+candidate['away']+' | '+candidate['start_utc']+
                                          ' | Saat farkı (sn): '+str(candidate['delta_seconds'])))
+        if row.get('requested_regions'):
+            lines.append('Sorgu bölgeleri: '+html.escape(', '.join(row['requested_regions'])))
+        if row.get('extended_reduced_for_credit_budget'):
+            lines.append('Kredi koruması: geniş kapsam yerine yalnız temel piyasa sorgulandı.')
         if provider=='THE_ODDS_API' and row.get('requested_markets'):
             requested=row['requested_markets']
             lines.append('Sorgu kapsamı: '+html.escape(', '.join(requested)))

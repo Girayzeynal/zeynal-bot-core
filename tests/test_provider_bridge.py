@@ -542,3 +542,31 @@ class ExpandedObservationScopeTests(unittest.TestCase):
         scopes={(q['period'],q['market']) for r in expanded for q in r['payload']['quotes']}
         self.assertTrue({('1Q','TOTAL'),('4Q','TOTAL')}<=scopes)
         self.assertEqual(len(expanded),14)
+
+class FullMarketCoverageTests(unittest.TestCase):
+    def test_alternate_period_team_total_is_scoped_not_full_game(self):
+        with patch('time.time',return_value=NOW):
+            e=priced_event();m=market('alternate_team_totals_q2',22.5)
+            for o in m['outcomes']:o['description']=SNAPSHOT['home']['official_name']
+            e['bookmakers'][0]['markets']=[m]
+            r=receipt(e,url='https://api.the-odds-api.com/v4/synthetic?markets=alternate_team_totals_q2')
+            rows,_=odds_observations(r,SNAPSHOT)
+            q=rows[0]['payload']['quotes'][0]
+            self.assertEqual((q['period'],q['market'],q['line']),('2Q','HOME',22.5))
+            self.assertFalse(odds_observations(receipt(e),SNAPSHOT)[0])
+
+    def test_known_credit_budget_refuses_expensive_request_without_network(self):
+        fake=Mock(side_effect=AssertionError('NO_UNBUDGETED_NETWORK'))
+        access=ProviderAccess({'THE_ODDS_API':SECRET},getter=fake,clock=lambda:NOW)
+        access.remaining['THE_ODDS_API']=2
+        r=access.get('THE_ODDS_API','/v4/sports/basketball_nba/events/e/odds',
+            dict(regions='us,eu',markets='h2h,totals'))
+        self.assertEqual(r['status'],'ODDS_ESTIMATED_CREDIT_BUDGET')
+        self.assertEqual(r['estimated_maximum_credits'],4)
+        fake.assert_not_called()
+
+    def test_regions_are_explicit_bounded(self):
+        from hybrid_engine.provider_bridge import odds_regions
+        self.assertEqual(odds_regions('us,eu'),('us','eu'))
+        for v in ('us,us','us,eu,uk','unknown',''):
+            with self.assertRaises(ValueError):odds_regions(v)

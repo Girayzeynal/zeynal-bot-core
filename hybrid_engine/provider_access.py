@@ -180,6 +180,12 @@ class ProviderAccess:
                 return dict(status='PROVIDER_COOLDOWN', retry_after_seconds=self.cooldown[provider]-now)
             if self.remaining.get(provider, 1) <= 0:
                 return dict(status='PROVIDER_QUOTA_EXHAUSTED')
+            if (provider=='THE_ODDS_API' and path.endswith('/odds') and
+                    provider in self.remaining and params and 'markets' in params and 'regions' in params):
+                cost=len(set(params['markets'].split(',')))*len(set(params['regions'].split(',')))
+                if cost>self.remaining[provider]:
+                    return dict(status='ODDS_ESTIMATED_CREDIT_BUDGET',estimated_maximum_credits=cost,
+                                provider_reported_remaining=self.remaining[provider])
             budget_key = (provider, now//86400)
             if self.calls.get(budget_key, 0) >= self.max_calls:
                 return dict(status='LOCAL_DAILY_REQUEST_BUDGET')
