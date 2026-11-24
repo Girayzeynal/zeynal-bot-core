@@ -993,8 +993,10 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 entry['sections'][section]=review['html']+'\n\n<b>İLK TAHMİN / ARŞİV KANITI</b>\n'+original
                 entry['section_pages'][section]=split_blocks(entry['sections'][section].splitlines(),limit=3200)
                 if section=='market':
-                    entry['quote_valid_until_utc']=review['valid_until_utc']
-                    if review.get('details',{}).get('admitted_observations'):
+                    details=review.get('details',{})
+                    # 120-second review cache TTL is not the native price expiry.
+                    entry['quote_valid_until_utc']=details.get('quote_valid_until_utc',review['valid_until_utc'])
+                    if details.get('admitted_observations'):
                         entry['summary']=entry['summary'].replace('Güncel doğrulanmış barem yok; piyasa ayrıntıları butonda.',
                             'Güncel piyasa kaynak gözlemleri Piyasa düğmesinde; kapsam ve kalibrasyon durumuna bakın.')
                 if section=='roster':

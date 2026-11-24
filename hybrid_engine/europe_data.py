@@ -178,7 +178,7 @@ class EuropeanDataReview:
 
     def market(self,ctx,owner,p):
         report=self.bridge.collect(ctx);parts=[render_provider(report)];observations=report['providers'].get('THE_ODDS_API',{}).get('observations',[])
-        accepted=0
+        accepted=0;quote_expiry=None
         if observations:
             from hybrid_engine.current_market_review import admit_odds,evaluate,CurrentReviewJournal
             from hybrid_engine.current_market_render import render_batch
@@ -207,11 +207,24 @@ class EuropeanDataReview:
                 parts.append('<b>'+label+' | PİYASA KARŞILAŞTIRMASI</b>\n'
                              'Ham normal süre model yönü; kalibre güven endeksi değildir.')
                 parts.extend(render(card) for card in ranked[:12])
+                if len(ranked)>12:
+                    parts.append('Özet kart sınırı: 12 / '+str(len(ranked))+
+                                 ' satır; kabul edilen diğer satırlar ayrıntılı değerlendirmede.')
+                expiries=[card['valid_until_utc'] for card in ranked
+                          if card['current'] and type(card['valid_until_utc']) is int]
+                quote_expiry=min(expiries) if expiries else now
+                if assessment:
+                    from hybrid_engine.time_policy import V3_FRESHNESS_SECONDS,MAXIMUM_V3_MODEL_AGE_SECONDS
+                    quote_expiry=min(quote_expiry,
+                        evaluation_context['prediction_generated_at_utc']+V3_FRESHNESS_SECONDS,
+                        evaluation_context['parameter_fit_cutoff_utc']+MAXIMUM_V3_MODEL_AGE_SECONDS)
+                parts.append('Ortak fiyat/model görünümü son geçerlilik: '+tsi(quote_expiry))
                 parts.append(render_batch(batch));accepted=len(observations)
             except (ValueError,KeyError,TypeError,OSError):
                 parts.append('Kaynak fiyatı veya arşiv dağılımı doğrulanamadı; yüzde/edge üretilmedi. Kod: EUROPE_MARKET_REPLAY_OR_ADMISSION_BLOCKED')
         if not accepted:parts.append('Doğrulanmış ve eşleşmiş piyasa değerlendirmesi yok; barem veya olasılık uydurulmadı.')
-        return '\n\n'.join(parts),dict(provider_report=report,admitted_observations=accepted)
+        return '\n\n'.join(parts),dict(provider_report=report,admitted_observations=accepted,
+            quote_valid_until_utc=quote_expiry)
 
     def roster(self,ctx):
         # Telegram's European roster callback has a 20s ceiling. Reserve

@@ -494,6 +494,14 @@ def render(report):
             for candidate in detail['candidates'][:3]:
                 lines.append(html.escape(candidate['home']+' – '+candidate['away']+' | '+candidate['start_utc']+
                                          ' | Saat farkı (sn): '+str(candidate['delta_seconds'])))
+        if provider=='THE_ODDS_API' and row.get('requested_markets'):
+            requested=row['requested_markets']
+            lines.append('Sorgu kapsamı: '+html.escape(', '.join(requested)))
+            if set(requested)==set(CORE_MARKETS):
+                lines.append('Temel sorgu: periyot, yarı ve takım toplamı baremleri bu istekte sorgulanmadı.')
+            observed=sorted({q['period']+'/'+q['market'] for o in row.get('observations',[])
+                             for q in o['payload']['quotes']})
+            lines.append('Kabul edilen piyasa türleri: '+html.escape(', '.join(observed) if observed else 'yok'))
         if row.get('quota'):
             lines.append('Kota (sağlayıcı yanıtı): '+html.escape(str(row['quota'])))
         for stat in row.get('statistics', []):

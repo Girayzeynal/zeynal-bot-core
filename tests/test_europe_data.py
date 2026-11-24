@@ -94,6 +94,10 @@ class EuropeanSourceTests(IsolatedAsyncioTestCase):
     async def test_current_price_clock_is_separate_and_repeat_is_cached(self):
         ctx=self.contexts['EUROLEAGUE'];r=self.reviewer.review(ctx,'market');n=len(self.calls)
         self.assertGreater(r['observed_at_utc'],ctx['prediction_generated_at_utc'])
+        self.assertEqual(r['details']['quote_valid_until_utc'],min(self.now-1+300,ctx['fixture_start_utc']))
+        self.assertGreater(r['details']['quote_valid_until_utc'],r['valid_until_utc'])
+        self.assertIn('Temel sorgu: periyot',r['html'])
+        self.assertIn('FULL/TOTAL',r['html'])
         self.assertEqual(self.reviewer.review(ctx,'market'),r);self.assertEqual(len(self.calls),n)
 
     async def test_current_official_aliases_reach_native_quote_admission_without_forecast_changes(self):

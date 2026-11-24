@@ -526,8 +526,11 @@ def install_dual_clock_display(state,assessments):
                            +f"Ev {q['home']:.2f} · Dep {q['away']:.2f} · Toplam {q['total']:.2f}\n"
                            +'Hesap: '+tsi(selected['prediction_generated_at_utc'])+'\n'
                            +'NBA V3 değildir; oyuncu etkisi ve kalibrasyon doğrulanmadı.\n'
-                           +'İlk kayıtlı Bayes tahmini aşağıdadır.\n\n')
+                           +f"Güncel toplam P25–P75: {selected['intervals']['markets']['TOTAL']['p25']:.1f}–{selected['intervals']['markets']['TOTAL']['p75']:.1f}\n"
+                           +f"Güncel toplam P05–P95: {selected['intervals']['markets']['TOTAL']['p05']:.1f}–{selected['intervals']['markets']['TOTAL']['p95']:.1f}\n"
+                           +'İlk kayıtlı Bayes tahmini aşağıda ayrı referanstır.\n\n')
                     old_summary=entry.get('summary','')
+                    parts[0]=parts[0].replace('TOPLAM SAYI ARALIKLARI','İLK BAYES TOPLAM SAYI ARALIKLARI')
                     archive_blocks=['<b>İLK KAYITLI BAYES — ARŞİV</b>\n'+old_summary]
                     for section in ('period','ranges'):
                         prior=entry['sections'][section]
