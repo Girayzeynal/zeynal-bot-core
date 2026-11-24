@@ -253,6 +253,18 @@ class PlayerMinutesTests(TestCase):
             self.assertFalse(new); self.assertEqual(p,again)
             self.assertEqual(files,{f:f.read_bytes() for f in Path(tmp).glob('*')})
 
+    def test_new_minutes_publication_respects_five_minute_cutoff(self):
+        for lead in (301,300,299):
+            w=projection(**inputs(start=NOW+lead))
+            with TemporaryDirectory() as tmp:
+                a=MinutesArchive(tmp)
+                if lead==301:
+                    self.assertTrue(a.record(w)[1])
+                else:
+                    with self.assertRaisesRegex(ValueError,'AFTER_PREMATCH_CUTOFF'):
+                        a.record(w)
+                    self.assertFalse(list(Path(tmp).glob('minutes-*')))
+
     def test_after_tipoff_first_archive_and_invalid_publication_hash_are_rejected(self):
         w=projection(**inputs())
         with TemporaryDirectory() as tmp:

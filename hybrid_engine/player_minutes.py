@@ -14,6 +14,7 @@ from core.team_identity import digest
 from hybrid_engine.boxes import publish_json
 from hybrid_engine.data import Abstain, local_path
 from hybrid_engine.current_roster import status_relationship
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 
 VERSION='NBA_PAST_ROTATION_MINUTES_SHADOW_V1'
 SIDES=('home','away')
@@ -238,6 +239,10 @@ class MinutesArchive:
             prior=self.read(path)
             if prior['projection']!=wrapped: raise ValueError('PLAYER_MINUTES_PUBLICATION_CONFLICT')
             return prior,False
+        # Existing immutable observations remain readable; only new records
+        # are subject to the current prospective five-minute policy.
+        if int(time.time()) >= p['fixture_start_utc'] - PREMATCH_MINIMUM_LEAD_SECONDS:
+            raise ValueError('PLAYER_MINUTES_CAPTURE_AFTER_PREMATCH_CUTOFF')
         publish_json(path,dict(payload=publication,sha256=digest(publication)))
         return publication,True
 

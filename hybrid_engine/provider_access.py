@@ -131,6 +131,7 @@ class ProviderAccess:
         self.cache = {}
         self.cooldown = {}
         self.remaining = {}
+        self.remaining_day = {}
         self.calls = {}
         self.lock = threading.Lock()
 
@@ -141,10 +142,20 @@ class ProviderAccess:
         return {p: ('CONFIGURED_NOT_TESTED' if self._keys.get(p) else 'KEY_NOT_AVAILABLE_IN_TEST_PROCESS')
                 for p in KEYS}
 
+    def _refresh_daily_quota(self, now):
+        # API-Sports resets its daily quota at 00:00 UTC. Odds API quota
+        # is subscription-period based: never assume it resets daily.
+        p = 'API_BASKETBALL'
+        day = self.remaining_day.get(p)
+        if day is not None and now//86400 > day:
+            self.remaining.pop(p, None)
+            self.remaining_day.pop(p, None)
+
     def runtime_status(self):
         """Credential-free diagnostics; never probes a provider or raises quota."""
         now=int(self.clock())
         with self.lock:
+            self._refresh_daily_quota(now)
             return {p:dict(configuration=state,local_calls_today=self.calls.get((p,now//86400),0),
                 local_daily_limit=self.max_calls,local_counter_resets_at_utc=(now//86400+1)*86400,
                 provider_reported_remaining=self.remaining.get(p),cooldown_until_utc=self.cooldown.get(p))
@@ -160,6 +171,7 @@ class ProviderAccess:
         url = ORIGINS[provider]+path+('?' + urlencode(params) if params else '')
         now = int(self.clock())
         with self.lock:
+            self._refresh_daily_quota(now)
             old = self.cache.get(url)
             if old and 0 <= now-old['observed_at_utc'] <= ttl:
                 # A cache hit must not alter the source receipt or its hash.
@@ -190,6 +202,7 @@ class ProviderAccess:
                 for name in ('x-requests-remaining','x-ratelimit-requests-remaining'):
                     if name in result.get('quota', {}):
                         self.remaining[provider] = result['quota'][name]
+                        self.remaining_day[provider] = int(self.clock())//86400
                 if len(self.cache) >= 12:
                     self.cache.pop(next(iter(self.cache)))
                 self.cache[url] = deepcopy(result)

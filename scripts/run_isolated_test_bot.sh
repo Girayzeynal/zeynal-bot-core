@@ -12,6 +12,16 @@ if [[ ! -x "${test_python}" ]]; then echo "ISOLATED_PYTHON_NOT_FOUND" >&2; exit 
 if [[ "${1:-}" == "--provider-check" ]]; then
   exec "${test_python}" -m hybrid_engine.provider_access --check
 fi
+# Explicit source inventory, no secrets or network by default.
+if [[ "${1:-}" == "--source-inventory" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_SOURCE_INVENTORY_ARGS" >&2; exit 2; fi
+  exec "${test_python}" -B -m hybrid_engine.source_inventory
+fi
+# Explicit robots-gated club entry audit, never player status or model input.
+if [[ "${1:-}" == "--club-source-check" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_CLUB_SOURCE_CHECK_ARGS" >&2; exit 2; fi
+  exec "${test_python}" -B -m hybrid_engine.official_all_82_club_batch --live --summary
+fi
 # Offline PDF replay is read-only and can run WHILE the isolated bot polls.
 # Never refreshes expired medical evidence, never updates git or predictions.
 # Explicit synthetic offline PLAYER_BAYES smoke. Never starts Telegram,
@@ -122,7 +132,7 @@ if ! flock -n 9; then
 fi
 branch="$(git branch --show-current)"
 case "$branch" in
-  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118|feature/europe-alias-replay-ui-20261118|feature/model-data-pipeline-audit-20261118|feature/issue90-chronological-engine-audit-20261118|feature/integrated-test-bot-20261119|feature/three-league-roster-integration-20261121|fix/telegram-current-panels-20261122|fix/v3-before-slow-v2-20261124|feat/first-forecast-walkforward-20261124|integration/nba-v3-calibration-20261124) ;;
+  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118|feature/europe-alias-replay-ui-20261118|feature/model-data-pipeline-audit-20261118|feature/issue90-chronological-engine-audit-20261118|feature/integrated-test-bot-20261119|feature/three-league-roster-integration-20261121|fix/telegram-current-panels-20261122|fix/v3-before-slow-v2-20261124|feat/first-forecast-walkforward-20261124|integration/nba-v3-calibration-20261124|feat/first-forecast-paired-diagnostics-20261124|feat/first-forecast-period-errors-20261124|integration/nba-three-axis-release-candidate-20261124) ;;
   *) echo "WRONG_BRANCH: checkout an isolated test branch first" >&2; exit 2 ;;
 esac
 launcher_path="${PWD}/scripts/run_isolated_test_bot.sh"

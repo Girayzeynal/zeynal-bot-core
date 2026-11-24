@@ -154,6 +154,26 @@ class AccessTests(unittest.TestCase):
         access.get('THE_ODDS_API', '/one')
         self.assertEqual(access.get('THE_ODDS_API', '/two')['status'], 'PROVIDER_QUOTA_EXHAUSTED')
 
+    def test_api_sports_daily_exhaustion_recovers_after_utc_midnight_only(self):
+        now = [NOW]
+        seen = []
+        def getter(p, u, k, **kw):
+            seen.append(p)
+            r = receipt([], p, u)
+            r.update(observed_at_utc=now[0], ingested_at_utc=now[0],
+                     quota={'x-ratelimit-requests-remaining': 0 if len(seen) <= 2 else 99})
+            return r
+        access = ProviderAccess({'API_BASKETBALL': SECRET,'THE_ODDS_API': SECRET},
+                                getter=getter,clock=lambda:now[0])
+        access.get('API_BASKETBALL','/one')
+        access.get('THE_ODDS_API','/one')
+        self.assertEqual(access.get('API_BASKETBALL','/two')['status'],'PROVIDER_QUOTA_EXHAUSTED')
+        now[0]=(NOW//86400+1)*86400
+        self.assertIsNone(access.runtime_status()['API_BASKETBALL']['provider_reported_remaining'])
+        self.assertEqual(access.get('API_BASKETBALL','/two')['status'],'DOCUMENT_RECEIVED')
+        self.assertEqual(access.get('THE_ODDS_API','/two')['status'],'PROVIDER_QUOTA_EXHAUSTED')
+        self.assertEqual(len(seen),3)
+
     def test_bad_receipt_or_secret_query_refused(self):
         self.assertEqual(self.access.get('THE_ODDS_API', '/one', dict(apiKey=SECRET))['status'], 'CREDENTIAL_QUERY_FORBIDDEN')
         self.access.getter = lambda *a, **kw: dict(receipt([]), source_url='https://other.invalid')
