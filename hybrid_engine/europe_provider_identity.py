@@ -114,3 +114,49 @@ def binding_evidence(snapshot):
                 home_team_id=snapshot['home']['provider_id'],away_team_id=snapshot['away']['provider_id'],
                 identity_scope='CURRENT_SOURCE_ASSOCIATION_NOT_ORIGINAL_FORECAST_INPUT',
                 legal_alias_policy='BESIKTAS_JK_ONLY_WITH_OFFICIAL_BES_AND_BJK',fuzzy_matching=False)
+,'',value,flags=re.I)
+    if stem==value or normalize_name(stem)!='besiktas':raise IdentityRefusal('TEAM_ALIAS_NOT_REGISTERED')
+    team=registry.resolve(snapshot['league'],snapshot['season'],stem,asof_utc=now)
+    if (team.provider_ids!=(('EUROLEAGUE_LIVE','BES'),) or
+        not any(normalize_name(a[0])=='bjk' for a in team.aliases)):
+        raise IdentityRefusal('EUROPE_LEGAL_ALIAS_SOURCE_NOT_CONFIRMED')
+    return team
+
+
+def side_for(value,snapshot):
+    registry,catalog,now=official_registry(snapshot)
+    team=resolve_provider_name(value,snapshot,registry,now)
+    sides=[side for side in ('home','away') if team.provider_ids[0][1]==str(snapshot[side]['provider_id'])]
+    return sides[0] if len(sides)==1 else None
+
+
+def binding_evidence(snapshot):
+    _,catalog,_=official_registry(snapshot)
+    return dict(rule=RULE,catalog_sha256=snapshot['european_team_catalog']['sha256'],
+                participant_snapshot_sha256=catalog['sha256'],league=snapshot['league'],season=snapshot['season'],
+                home_team_id=snapshot['home']['provider_id'],away_team_id=snapshot['away']['provider_id'],
+                identity_scope='CURRENT_SOURCE_ASSOCIATION_NOT_ORIGINAL_FORECAST_INPUT',
+                legal_alias_policy='BESIKTAS_JK_ONLY_WITH_OFFICIAL_BES_AND_BJK',fuzzy_matching=False)
+,'',value,flags=re.I)
+    if stem==value or normalize_name(stem)!='besiktas':raise IdentityRefusal('TEAM_ALIAS_NOT_REGISTERED')
+    team=registry.resolve(snapshot['league'],snapshot['season'],stem,asof_utc=now)
+    if (team.provider_ids!=(('EUROLEAGUE_LIVE','BES'),) or
+        not any(normalize_name(a[0])=='bjk' for a in team.aliases)):
+        raise IdentityRefusal('EUROPE_LEGAL_ALIAS_SOURCE_NOT_CONFIRMED')
+    return team
+
+
+def side_for(value,snapshot):
+    registry,catalog,now=official_registry(snapshot)
+    team=resolve_provider_name(value,snapshot,registry,now)
+    sides=[side for side in ('home','away') if team.provider_ids[0][1]==str(snapshot[side]['provider_id'])]
+    return sides[0] if len(sides)==1 else None
+
+
+def binding_evidence(snapshot):
+    _,catalog,_=official_registry(snapshot)
+    return dict(rule=RULE,catalog_sha256=snapshot['european_team_catalog']['sha256'],
+                participant_snapshot_sha256=catalog['sha256'],league=snapshot['league'],season=snapshot['season'],
+                home_team_id=snapshot['home']['provider_id'],away_team_id=snapshot['away']['provider_id'],
+                identity_scope='CURRENT_SOURCE_ASSOCIATION_NOT_ORIGINAL_FORECAST_INPUT',
+                legal_alias_policy='BESIKTAS_JK_ONLY_WITH_OFFICIAL_BES_AND_BJK',fuzzy_matching=False)
