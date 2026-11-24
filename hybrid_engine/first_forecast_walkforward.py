@@ -48,6 +48,46 @@ def _summarize(rows):
     )
 
 
+def _paired_shadow_diagnostics(original_rows, shadow):
+    """Paired prequential total errors; never fit or tune coefficients."""
+    by_fixture = {r["fixture_id"]: r for r in original_rows}
+    matched = []
+    for item in shadow:
+        r = by_fixture.get(item["fixture_id"])
+        if r is None or r["snapshot_sha256"] != item["original_snapshot_sha256"]:
+            raise ValueError("FIRST_FORECAST_PAIRED_SOURCE_MISMATCH")
+        true_total = sum(r["actual"])
+        baseline_error = abs(sum(r["prediction"]) - true_total)
+        adjusted_error = abs(sum(item["prediction"]) - true_total)
+        delta = adjusted_error - baseline_error
+        matched.append(dict(
+            fixture_id=r["fixture_id"], home=r.get("home"), away=r.get("away"),
+            fixture_start_utc=r["fixture_start_utc"],
+            original_total_absolute_error=baseline_error,
+            shadow_total_absolute_error=adjusted_error,
+            shadow_minus_original_absolute_error=delta,
+            original_snapshot_sha256=r["snapshot_sha256"],
+        ))
+    if not matched:
+        return dict(n=0, improved=0, worsened=0, unchanged=0,
+                    average_delta=None, worst_regressions=[], best_improvements=[],
+                    paired_on_same_fixtures=True, predictive_superiority_confirmed=False)
+    tolerance = 1e-9
+    ranked = sorted(matched, key=lambda r: (r["shadow_minus_original_absolute_error"],
+                                             r["fixture_id"]))
+    return dict(
+        n=len(matched),
+        improved=sum(r["shadow_minus_original_absolute_error"] < -tolerance for r in matched),
+        worsened=sum(r["shadow_minus_original_absolute_error"] > tolerance for r in matched),
+        unchanged=sum(abs(r["shadow_minus_original_absolute_error"]) <= tolerance for r in matched),
+        average_delta=sum(r["shadow_minus_original_absolute_error"] for r in matched) / len(matched),
+        best_improvements=ranked[:min(5, len(ranked))],
+        worst_regressions=list(reversed(ranked[-min(5, len(ranked)):])),
+        paired_on_same_fixtures=True, predictive_superiority_confirmed=False,
+        significance="NOT_ESTABLISHED_NO_INDEPENDENT_FUTURE_SAMPLE",
+    )
+
+
 def review(verified_report, *, asof_utc):
     """Chronologically review every *first* archived fixture, n>=1.
 
@@ -143,11 +183,26 @@ def review(verified_report, *, asof_utc):
     chosen.sort(key=lambda r: (r["_prematch_clock_utc"],
                                r["first_archived_at_utc"], r["fixture_id"]))
     settled, pending = [], 0
+    pending_fixtures = []
     for r in chosen:
         if r.get("actual") is None or r["label_available_utc"] > asof_utc:
             pending += 1
+            if r.get("actual") is not None:
+                reason = "NATIVE_FINAL_LABEL_AFTER_ASOF"
+            elif r["fixture_start_utc"] > asof_utc:
+                reason = "FIXTURE_NOT_STARTED_AT_ASOF"
+            else:
+                reason = "TIPOFF_PASSED_NATIVE_FINAL_NOT_VERIFIED"
+            pending_fixtures.append(dict(
+                fixture_id=r["fixture_id"], home=r.get("home"), away=r.get("away"),
+                provider_fixture_ids=r.get("provider_fixture_ids", []),
+                fixture_start_utc=r["fixture_start_utc"],
+                first_archived_at_utc=r["first_archived_at_utc"],
+                reason=reason, first_snapshot_sha256=r["snapshot_sha256"],
+            ))
         else:
             settled.append(r)
+    pending_fixtures.sort(key=lambda r: (r["fixture_start_utc"], r["fixture_id"]))
     by_fit, by_strategy, by_league = defaultdict(list), defaultdict(list), defaultdict(list)
     for r in settled:
         fit = (r["league"], r["season"], r["model_version"], r["model_digest"])
@@ -196,6 +251,7 @@ def review(verified_report, *, asof_utc):
             excluded_shadow_targets_missing_generation=len(cohort)-len(targets),
             prior_strength=PRIOR_STRENGTH,
             predictions_with_prior=sum(s["prior_available_labels"] > 0 for s in shadow),
+            paired_shadow_diagnostics=_paired_shadow_diagnostics(targets, shadow),
             trace=shadow,
             comparison_status=("DESCRIPTIVE_SHADOW_NOT_PROSPECTIVE_SUPERIORITY"
                                if targets else "SHADOW_NOT_RUN_NO_VERIFIED_GENERATION_CLOCK"),
@@ -211,6 +267,8 @@ def review(verified_report, *, asof_utc):
         first_forecasts_missing_generation_utc=sum(
             not r["_explicit_generation_clock"] for r in chosen),
         matched_verified_finals=len(settled), pending=pending,
+        pending_fixtures=pending_fixtures,
+        report_scope="ONE_SELECTED_EXISTING_SQLITE_LEDGER_NOT_ALL_HISTORICAL_STORES",
         exclusions=dict(sorted(excluded.items())),
         league_season_descriptives=[
             dict(league=k[0], season=k[1], metrics=_summarize(v),
@@ -264,6 +322,17 @@ def render(report):
             lines.append(f"Deneysel {g['league']} {g['model_version'][:48]} · n={a['n']} · "
                          f"Geçmiş sonucu mevcut {g['predictions_with_prior']} · "
                          f"ilk MAE {a['total_mae']:.2f} / shadow MAE {b['total_mae']:.2f}")
+            paired = g["paired_shadow_diagnostics"]
+            lines.append(f"Eş maç karşılaştırması: iyileşen {paired['improved']} · "
+                         f"kötüleşen {paired['worsened']} · eşit {paired['unchanged']} · "
+                         f"MAE farkı (shadow − ilk) {paired['average_delta']:+.2f}")
+    for item in report["pending_fixtures"][:20]:
+        lines.append(f"Bekleyen: {item['home']} vs {item['away']} · "
+                     f"{tsi(item['fixture_start_utc'])} · {item['reason']} · "
+                     f"ESPN kimliği {','.join(item['provider_fixture_ids'])}")
+    if len(report["pending_fixtures"]) > 20:
+        lines.append(f"Bekleyenler listesi ilk 20 maçla sınırlandı, toplam "
+                     f"{len(report['pending_fixtures'])}.")
     if report["exclusions"]:
         lines.append("Dışlananlar: " + ", ".join(
             f"{k}={n}" for k,n in report["exclusions"].items()))
