@@ -15,7 +15,7 @@ from hybrid_engine.data import Abstain
 from hybrid_engine.first_forecast_walkforward import review as first_forecast_review
 from hybrid_engine.player_minutes import validate_minutes
 
-VERSION="NBA_THREE_AXIS_RESEARCH_V1"
+VERSION="NBA_THREE_AXIS_RESEARCH_V2"
 BIAS_PRIOR_GAMES=8.
 BIAS_MAX_ABS_POINTS=8.
 BIAS_OBSERVATION_CLIP=30.
@@ -121,13 +121,66 @@ def conditional_bias_comparison(ledger,*,asof_utc):
         confidence_index=None,calibration_status="NOT_CALIBRATED",cohorts=cohorts)
 
 
+def _history_from_cut(cut, target, side):
+    """Validate the original, pre-forecast feature cut; no current-data backfill."""
+    from hybrid_engine.data import STRICT, available_at
+    t=cut["target"]
+    cutoff=cut["cutoff_utc"]
+    if (cut["evaluation_class"]!=STRICT or t["fixture_id"]!=target["fixture_id"]
+            or t["league"]!=target["league"] or t["season"]!=target["season"]
+            or t["fixture_start_utc"]!=target["fixture_start_utc"]
+            or not 0<cutoff<=target["prediction_generated_at_utc"]):
+        raise ValueError("QUARTER_FROZEN_CUT_IDENTITY_OR_CLOCK")
+    tid=t[side+"_team_id"]
+    history=[]
+    for r in cut["history"]:
+        if (r["fixture_id"]==t["fixture_id"] or r["league"]!=t["league"] or
+                r["season"]!=t["season"]):
+            raise ValueError("QUARTER_FROZEN_HISTORY_IDENTITY")
+        ts=max(r["observed_at_utc"],r["ingested_at_utc"],available_at(r,STRICT))
+        if not r["fixture_start_utc"]<ts<=cutoff:
+            raise ValueError("QUARTER_FROZEN_HISTORY_CLOCK")
+        own="home" if r["home_team_id"]==tid else "away" if r["away_team_id"]==tid else None
+        if own is None: continue
+        q=np.asarray(r["periods"][own][:4],dtype=float)
+        if q.shape!=(4,) or not np.isfinite(q).all() or np.any(q<0) or q.sum()<=0:
+            raise ValueError("QUARTER_FROZEN_HISTORY_PERIODS")
+        history.append((r["fixture_id"],ts,q/q.sum()))
+    return history
+
+
+def frozen_cut_loader(ledger_path, assets_directory):
+    """Read the exact original snapshot and replay its pinned input provenance."""
+    import sqlite3
+    from contextlib import closing
+    from hybrid_engine.data import local_path
+    from hybrid_engine.prediction_audit import Assets,audit_snapshot
+    from live_analysis_ledger import LiveAnalysisLedger
+    path=local_path(ledger_path)
+    assets=Assets(assets_directory)
+    def load(row):
+        with closing(sqlite3.connect(path.as_uri()+"?mode=ro",uri=True,timeout=.2)) as db:
+            db.execute("PRAGMA query_only=ON")
+            found=db.execute("""SELECT s.payload,s.sha256,r.snapshot_sha256,r.completed_utc
+                FROM live_analysis_snapshots s JOIN live_analysis_commit_receipts r
+                USING(league,fixture_id,model_digest)
+                WHERE s.league=? AND s.fixture_id=? AND s.model_digest=?""",
+                (row["league"],row["fixture_id"],row["model_digest"])).fetchone()
+        if not found or found[1]!=row["snapshot_sha256"] or found[2]!=found[1] or found[3]!=row["first_archived_at_utc"]:
+            raise ValueError("QUARTER_EXACT_ARCHIVED_RECEIPT_REQUIRED")
+        snapshot=LiveAnalysisLedger._decode(found[0],found[1],expected=(row["league"],row["fixture_id"],row["model_digest"]))
+        audit_snapshot(snapshot,assets.root)
+        return assets.read(snapshot["input_asset"])
+    return load
+
+
 def stochastic_quarters_from_frozen_scores(
-        scores,verified_ledger,*,target_sha256,seed=20261124,concentration=None):
+        scores,verified_ledger,*,target_sha256,seed=20261124,concentration=None,frozen_cut=None):
     """Research-only Dirichlet quarter paths, with native-ledger past-label embargo.
 
     The integer team-score scenario totals are supplied independently and held
     unchanged. Quarter means blend the pinned original forecast with native past shares.
-    Native histories/timestamps come from the verified ledger, not caller shares.
+    Native histories come from the verified ledger or the original audited feature cut.
     """
     if (not isinstance(verified_ledger,dict) or
             verified_ledger.get("status")!="VERIFIED_LIVE_REPORT" or
@@ -168,7 +221,7 @@ def stochastic_quarters_from_frozen_scores(
     for j,side in enumerate(("home","away")):
         team=target[side]
         history=[]
-        for r in rows:
+        for r in ([] if frozen_cut is not None else rows):
             if (r["fixture_id"]==target["fixture_id"] or
                     r["league"]!="NBA" or r["season"]!=target["season"] or
                     r["actual"] is None or
@@ -187,9 +240,15 @@ def stochastic_quarters_from_frozen_scores(
                     q.sum()!=r["actual"][0 if own=="home" else 1]):
                 raise ValueError("QUARTER_VERIFIED_PERIODS_NOT_RECONCILED")
             history.append((r["fixture_id"],r["label_available_utc"],q/q.sum()))
+        if frozen_cut is not None:
+            history=_history_from_cut(frozen_cut,target,side)
         if len({x[0] for x in history})!=len(history):
             raise ValueError("QUARTER_DUPLICATE_NATIVE_HISTORY_FIXTURE")
         history.sort(key=lambda a:(a[1],a[0]))
+        if frozen_cut is not None:
+            # Match the original model recent-team window by fixture IDs.
+            recent=set(frozen_cut["features"][side]["recent_game_ids"])
+            history=[h for h in history if h[0] in recent]
         if len(history)<MIN_QUARTER_HISTORY:
             raise Abstain("SIX_VERIFIED_PAST_QUARTER_GAMES_PER_SIDE_REQUIRED")
         arr=np.asarray([h[2] for h in history],dtype=float)
@@ -225,6 +284,7 @@ def stochastic_quarters_from_frozen_scores(
         seed=seed,concentration=concentrations,history=trace,
         target_original_snapshot_sha256=target_sha256,
         target_generated_at_utc=cutoff,
+        history_source="ORIGINAL_FROZEN_FEATURE_CUT" if frozen_cut is not None else "FIRST_FORECAST_LEDGER_ONLY",
         total_scores_unchanged=True,uncertainty_calibrated=False,
         source_history_cutoff_verified=True,production_enabled=False)
 
@@ -283,7 +343,7 @@ def _point_metrics(rows):
     return result
 
 
-def quarter_comparison(ledger, *, asof_utc, scenarios=4096):
+def quarter_comparison(ledger, *, asof_utc, scenarios=4096, cut_loader=None):
     """Paired conditional allocation audit on original forecasts, no final score input.
 
     Fixed rounded predicted team totals isolate allocation quality; interval
@@ -307,10 +367,15 @@ def quarter_comparison(ledger, *, asof_utc, scenarios=4096):
                 continue
             scores=np.tile(np.rint(row["prediction"]).astype(np.int32),(scenarios,1))
             try:
+                cut=cut_loader(row) if cut_loader is not None else None
                 candidate,meta=stochastic_quarters_from_frozen_scores(
-                    scores,ledger,target_sha256=row["snapshot_sha256"])
+                    scores,ledger,target_sha256=row["snapshot_sha256"],frozen_cut=cut)
             except Abstain as exc:
                 reasons[str(exc)]+=1
+                continue
+            except (OSError,ValueError,KeyError,TypeError) as exc:
+                if cut_loader is None: raise
+                reasons["FROZEN_SOURCE_REJECTED:"+type(exc).__name__+":"+str(exc)[:140]]+=1
                 continue
             old=periods_for_scores(scores,np.asarray(row["predicted_quarters"],dtype=float))
             actual=np.asarray([row["actual_periods"][s][:4] for s in ("home","away")]).T
@@ -341,8 +406,26 @@ def quarter_comparison(ledger, *, asof_utc, scenarios=4096):
         cohorts.append(dict(season=season,model_version=version,n=len(rows),metrics=metrics))
     return dict(status="CONDITIONAL_ALLOCATION_ONLY_NOT_FULL_FORECAST_CALIBRATION",
         verified_finals=base["matched_verified_finals"],paired_n=len(trace),
+        history_source="ORIGINAL_FROZEN_FEATURE_CUT" if cut_loader is not None else "FIRST_FORECAST_LEDGER_ONLY",
         excluded=dict(reasons),scenarios=scenarios,cohorts=cohorts,trace=trace,
         actual_target_scores_used_as_inputs=False,production_enabled=False,automatic_promotion=False)
+
+
+def margin_preserving_comparison(rows):
+    """Common-mode correction: retain the original margin, isolate total error."""
+    pairs=[]
+    for r in rows:
+        old=r["forecast_before"]
+        shift=sum(r["adjustment"])/2.
+        shift=max(shift,-min(old))
+        candidate=[v+shift for v in old]
+        if not math.isclose(candidate[0]-candidate[1],old[0]-old[1],abs_tol=1e-9,rel_tol=0):
+            raise ValueError("COMMON_MODE_MARGIN_INVARIANT")
+        pairs.append(dict(r,forecast_candidate=candidate))
+    return dict(status="EXPLORATORY_COMMON_MODE_NOT_PRODUCTION",n=len(pairs),
+        score_components=_point_metrics(pairs),margin_preserved=True,
+        adjusted_n=sum(r["forecast_before"]!=r["forecast_candidate"] for r in pairs),
+        production_enabled=False)
 
 
 def main(argv=None):
@@ -353,6 +436,7 @@ def main(argv=None):
     parser.add_argument("--ledger",required=True)
     parser.add_argument("--asof-utc",type=int,default=None)
     parser.add_argument("--summary-only",action="store_true")
+    parser.add_argument("--assets-directory",default=None,help="Original frozen forecast assets; read only")
     parser.add_argument("--player-directory",default=None,help="Existing native player evidence directory; read only")
     args=parser.parse_args(argv)
     asof=int(time.time()) if args.asof_utc is None else args.asof_utc
@@ -360,16 +444,20 @@ def main(argv=None):
     result=conditional_bias_comparison(ledger,asof_utc=asof)
     for g in result["cohorts"]:
         g["score_components"]=_point_metrics(g["trace"])
+        g["margin_preserving_candidate"]=margin_preserving_comparison(g["trace"])
         g["adjusted_n"]=sum(any(x!=0 for x in r["adjustment"]) for r in g["trace"])
-    result["quarter_audit"]=quarter_comparison(ledger,asof_utc=asof)
+    loader=frozen_cut_loader(args.ledger,args.assets_directory) if args.assets_directory else None
+    result["quarter_audit"]=quarter_comparison(ledger,asof_utc=asof,cut_loader=loader)
     result["player_audit"]={"status":"NOT_CHECKED_NO_PLAYER_DIRECTORY","player_effect_applied":False}
     if args.player_directory is not None:
         from pathlib import Path
         from hybrid_engine.player_shadow import readiness,performance
+        from hybrid_engine.player_inputs import recent_collection_diagnostics
         if not Path(args.player_directory).is_dir():
             raise ValueError("EXISTING_PLAYER_DIRECTORY_REQUIRED")
         result["player_audit"]={"readiness":readiness(args.player_directory),
             "performance":performance(args.player_directory,args.ledger,asof_utc=asof),
+            "collection_diagnostics":recent_collection_diagnostics(args.player_directory,limit=5),
             "player_effect_applied":False}
     if args.summary_only:
         result["quarter_audit"].pop("trace",None)
