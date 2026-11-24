@@ -12,7 +12,6 @@ import time
 import numpy as np
 
 from hybrid_engine.data import Abstain
-from hybrid_engine.distributions import Forecast, periods_for_scores
 from hybrid_engine.first_forecast_walkforward import review as first_forecast_review
 from hybrid_engine.player_minutes import validate_minutes
 
@@ -122,32 +121,72 @@ def conditional_bias_comparison(ledger,*,asof_utc):
 
 
 def stochastic_quarters_from_frozen_scores(
-        scores,weights,past_shares,*,seed=20261124,concentration=None):
-    """Research-only: Dirichlet quarter paths; team totals remain exactly frozen.
+        scores,weights,verified_ledger,*,target_sha256,seed=20261124,concentration=None):
+    """Research-only Dirichlet quarter paths, with native-ledger past-label embargo.
 
-    Requires six verified, *past-only* shares per team; caller must provide
-    historical evidence with labels older than the forecast cut.
-    No fitted concentration is claimed to be empirically calibrated.
+    The base 2-team integer scenario totals are supplied independently and held
+    unchanged. Native quarter histories and native timestamps are recovered from
+    the verified ledger, never from a caller-supplied unverified shares array.
     """
+    if (not isinstance(verified_ledger,dict) or
+            verified_ledger.get("status")!="VERIFIED_LIVE_REPORT" or
+            verified_ledger.get("scope")!="REGULATION_ONLY" or
+            verified_ledger.get("query_read_only") is not True or
+            verified_ledger.get("research_backtests_included") is not False):
+        raise ValueError("QUARTER_NATIVE_VERIFIED_LEDGER_REQUIRED")
+    rows=verified_ledger["forecasts"]
+    targets=[r for r in rows if r["snapshot_sha256"]==target_sha256]
+    if len(targets)!=1:
+        raise ValueError("QUARTER_EXACT_TARGET_SNAPSHOT_REQUIRED")
+    target=targets[0]
+    cutoff=target.get("prediction_generated_at_utc")
+    if (type(cutoff) is not int or not 0<cutoff<=int(time.time()) or
+            cutoff>=target["fixture_start_utc"]):
+        raise Abstain("QUARTER_VERIFIED_PREFORECAST_CLOCK_REQUIRED")
+    if target["league"]!="NBA":
+        raise ValueError("QUARTER_NBA_TARGET_REQUIRED")
     scores=np.asarray(scores)
     weights=np.asarray(weights,dtype=float)
     if (scores.ndim!=2 or scores.shape[1]!=2 or
             not np.issubdtype(scores.dtype,np.integer) or
             np.any(scores<0) or weights.shape!=(4,2) or
-            not np.isfinite(weights).all() or np.any(weights<=0)):
+            not np.isfinite(weights).all() or np.any(weights<=0) or
+            len(scores)<1 or len(scores)>32768 or
+            np.any(scores>400)):
         raise ValueError("RESEARCH_QUARTER_VALID_NONNEGATIVE_COUNTS_AND_WEIGHTS")
     if type(seed) is not int or seed<0:
         raise ValueError("RESEARCH_QUARTER_NONNEGATIVE_SEED")
     out=np.empty((len(scores),4,2),dtype=np.int32)
-    concentrations=[]
+    concentrations=[];trace={}
     rng=np.random.default_rng(seed)
     for j,side in enumerate(("home","away")):
-        arr=np.asarray(past_shares[side],dtype=float)
-        if (arr.ndim!=2 or arr.shape[1]!=4 or len(arr)<MIN_QUARTER_HISTORY or
-                not np.isfinite(arr).all() or np.any(arr<0) or
-                np.any(arr.sum(axis=1)<=0)):
+        team=target[side]
+        history=[]
+        for r in rows:
+            if (r["fixture_id"]==target["fixture_id"] or
+                    r["league"]!="NBA" or r["season"]!=target["season"] or
+                    r["actual"] is None or
+                    r["label_available_utc"]>=cutoff):
+                continue
+            own=("home" if r["home"]==team else
+                 "away" if r["away"]==team else None)
+            if own is None:continue
+            if (r["fixture_start_utc"]>=r["label_available_utc"] or
+                    r["first_archived_at_utc"]>=r["fixture_start_utc"] or
+                    r["first_archived_at_utc"]>=cutoff):
+                raise ValueError("QUARTER_SOURCE_CLOCK_CONFLICT")
+            q=np.asarray(r["actual_periods"][own][:4],dtype=float)
+            if (q.shape!=(4,) or not np.isfinite(q).all() or
+                    np.any(q<0) or q.sum()<=0 or
+                    q.sum()!=r["actual"][0 if own=="home" else 1]):
+                raise ValueError("QUARTER_VERIFIED_PERIODS_NOT_RECONCILED")
+            history.append((r["fixture_id"],r["label_available_utc"],q/q.sum()))
+        if len({x[0] for x in history})!=len(history):
+            raise ValueError("QUARTER_DUPLICATE_NATIVE_HISTORY_FIXTURE")
+        history.sort(key=lambda a:(a[1],a[0]))
+        if len(history)<MIN_QUARTER_HISTORY:
             raise Abstain("SIX_VERIFIED_PAST_QUARTER_GAMES_PER_SIDE_REQUIRED")
-        arr=arr/arr.sum(axis=1,keepdims=True)
+        arr=np.asarray([h[2] for h in history],dtype=float)
         w=weights[:,j]/weights[:,j].sum()
         if concentration is None:
             variance=arr.var(axis=0,ddof=1)
@@ -167,13 +206,17 @@ def stochastic_quarters_from_frozen_scores(
             base[idx,ranks[:,k]]+=(remaining>k)
         out[:,:,j]=base
         concentrations.append(c)
+        trace[side]=dict(past_games=len(history),
+            native_fixture_ids=[h[0] for h in history],
+            latest_label_available_utc=history[-1][1])
     if not np.array_equal(out.sum(axis=1),scores):
         raise ValueError("STOCHASTIC_QUARTERS_TEAM_SCORE_CONSERVATION")
     return out,dict(format="RESEARCH_DIRICHLET_CONDITIONAL_QUARTERS_V1",
-        seed=seed,concentration=concentrations,
-        training_games=[len(past_shares[x]) for x in ("home","away")],
+        seed=seed,concentration=concentrations,history=trace,
+        target_original_snapshot_sha256=target_sha256,
+        target_generated_at_utc=cutoff,
         total_scores_unchanged=True,uncertainty_calibrated=False,
-        source_history_cutoff_verified_by_caller=True,production_enabled=False)
+        source_history_cutoff_verified=True,production_enabled=False)
 
 
 def player_input_gate(wrapped,*,asof_utc,fixture):
