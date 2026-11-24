@@ -391,11 +391,46 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('V1 FIRST Q',entry['sections']['archive'])
             self.assertIn('V1 BANDS',entry['sections']['archive'])
             self.assertIn('CURRENT_ASSESSMENT_NOT_PUBLISHED',entry['sections']['period'])
-            self.assertNotIn('V1 FIRST Q',entry['sections']['period'])
+            self.assertIn('V1 FIRST Q',entry['sections']['period'])
+            self.assertIn('ARŞİV, GÜNCEL DEĞİL',entry['sections']['period'])
+            self.assertIn('CURRENT_ASSESSMENT_NOT_PUBLISHED',entry['sections']['period'])
             queue.request_fixture.assert_called_once_with(ctx)
             latest.assert_called_once_with(ctx)
         finally:
             release.set()
+
+    async def test_missing_v3_still_opens_period_and_range_callbacks_as_v1_archive(self):
+        from telegram import InlineKeyboardButton,InlineKeyboardMarkup
+        from hybrid_engine.telegram_premium_ui import page_view
+        token='z'*12
+        ctx=dict(league='NBA',fixture_id='x',season='2026/2027',
+            home=dict(provider_id='1',official_name='Home'),
+            away=dict(provider_id='2',official_name='Away'),
+            fixture_start_utc=NOW+10800,prediction_generated_at_utc=NOW-86400,
+            prediction=dict(home=105.,away=115.,total=220.))
+        report=dict(status='ANALYSIS_OK',snapshot=ctx,html='V1 ORIGINAL',
+            html_parts=['V1 ORIGINAL'],reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton('Period',callback_data='zui:'+token+':period')]]))
+        entry=dict(chat_id=1,summary='V1 ORIGINAL',
+            sections=dict(audit='V1 SOURCE',period='1Q 25–27 | Toplam 52',
+                          ranges='P25–P75 206–234',market='V1 UNVERIFIED ODDS'),
+            section_pages=dict(audit=['V1 SOURCE']))
+        state=dict(verified_analysis_service=SimpleNamespace(analyze=AsyncMock(return_value=report)),
+                   premium_reports={token:entry})
+        install_dual_clock_display(state,SimpleNamespace(latest=Mock(return_value=None)))
+        with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
+            out=await state['verified_analysis_service'].analyze('NBA','2026-11-24','Home','Away')
+        self.assertIn('GÜNCEL TAHMİN BEKLENİYOR',out['html'])
+        for section,expected in [('period','1Q 25–27'),('ranges','P25–P75 206–234')]:
+            shown,pages=page_view(entry,section,0,now=NOW)
+            self.assertIn('CURRENT_ASSESSMENT_NOT_PUBLISHED',shown)
+            self.assertIn('ARŞİV, GÜNCEL DEĞİL',shown)
+            self.assertIn(expected,shown)
+            self.assertNotIn('GÜNCEL ADAY |',shown)
+            self.assertGreaterEqual(pages,1)
+        self.assertEqual(entry['sections']['archive'].count('V1 ORIGINAL'),1)
+        self.assertIn('V1 UNVERIFIED ODDS',entry['sections']['archive'])
+        self.assertNotIn('V1 UNVERIFIED ODDS',entry['sections']['market'])
 
     async def test_slow_on_demand_retraining_is_never_called_from_analyze(self):
         from telegram import InlineKeyboardButton,InlineKeyboardMarkup
@@ -425,7 +460,9 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('GÜNCEL NBA TAHMİNİ',out['html'])
         entry=state['premium_reports'][token]
         self.assertIn('CURRENT_ASSESSMENT_NOT_PUBLISHED',entry['sections']['period'])
-        self.assertNotIn('OLD BANDS',entry['sections']['ranges'])
+        self.assertIn('OLD BANDS',entry['sections']['ranges'])
+        self.assertIn('ARŞİV, GÜNCEL DEĞİL',entry['sections']['ranges'])
+        self.assertNotIn('GÜNCEL ADAY | SAYI ARALIKLARI',entry['sections']['ranges'])
         self.assertIn('OLD BANDS',entry['sections']['archive'])
         self.assertNotIn('OLD BANDS',entry['sections']['audit'])
         self.assertIn('V1 İlk Tahmin',entry['sections']['period'])
