@@ -221,7 +221,7 @@ class EuropeanPrematchScheduler:
                         if int(self.clock())>=target['fixture_start_utc']-MINIMUM_LEAD:
                             rows.append(dict(**target,status='ABSTAIN',reason='EUROPE_SAFE_PRETIPOFF_WINDOW_CLOSED',new_record=False));continue
                         try:result=await asyncio.wait_for(service.analyze(code,target['day'],target['home'],target['away']),timeout=45)
-                        except (ValueError,KeyError,TypeError,OSError,TimeoutError):
+                        except (ValueError,KeyError,TypeError,OSError,asyncio.TimeoutError,TimeoutError):
                             self.retry_after[(code,target['fixture_id'])]=int(self.clock())+300
                             rows.append(dict(**target,status='ABSTAIN',reason='EUROPE_AUTO_INFERENCE_OR_TIMEOUT',new_record=False,forecast_sha256=None));continue
                         reason=result.get('reason') or result.get('preflight',{}).get('reason')
@@ -237,7 +237,7 @@ class EuropeanPrematchScheduler:
                     if not ready and scan['selected']:
                         self.next_scan[code]=min(self.next_scan[code],min(self.retry_after[(code,t['fixture_id'])] for t in scan['selected']))
                     while len(self.retry_after)>512:self.retry_after.pop(next(iter(self.retry_after)))
-                except (ValueError,KeyError,TypeError,OSError,TimeoutError):
+                except (ValueError,KeyError,TypeError,OSError,asyncio.TimeoutError,TimeoutError):
                     report['leagues'][code]=dict(status='ABSTAIN',reason='OFFICIAL_FIXTURE_MODEL_OR_ARCHIVE_UNAVAILABLE')
                     self.next_scan[code]=int(self.clock())+300
                     LOG.warning('European automatic prematch blocked: league=%s reason=OFFICIAL_FIXTURE_MODEL_OR_ARCHIVE_UNAVAILABLE',code)

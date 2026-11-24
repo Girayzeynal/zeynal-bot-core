@@ -11,7 +11,7 @@ import time
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch,Mock
+from unittest.mock import patch,Mock,AsyncMock
 
 from core.team_identity import digest
 from hybrid_engine.europe_models import prepare,season_url
@@ -324,6 +324,53 @@ class EuropeanAutomaticPrematchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(b['leagues']['EUROCUP']['retry_deferred'],1)
         self.assertTrue(b['leagues']['EUROCUP']['results'][0]['new_record'])
         self.assertEqual(len(service.registry.records()),1)
+
+class LegacyAsyncTimeoutHandlingTests(unittest.IsolatedAsyncioTestCase):
+    """Python 3.10 can expose a distinct asyncio.TimeoutError class."""
+
+    async def test_inference_timeout_is_per_fixture_abstain_and_retries(self):
+        class LegacyAsyncTimeout(Exception):
+            pass
+        now=1795490000
+        target=dict(fixture_id='fixture-1',fixture_start_utc=now+3600,
+            provider_fixture_ids=['E2026_137'],day='2026-11-24',
+            home='Dubai Basketball',away='Partizan Mozzart Bet Belgrade',
+            window='NEXT_36_HOURS')
+        scan=dict(selected=[target],skipped={},source_sha256='a'*64,
+                  next_scan_utc=now+300)
+        service=SimpleNamespace(analyze=AsyncMock(side_effect=LegacyAsyncTimeout('EXPIRED')))
+        with TemporaryDirectory() as directory:
+            scheduler=EuropeanPrematchScheduler({'EUROLEAGUE':service},
+                Path(directory),clock=lambda:now)
+            with patch('hybrid_engine.europe_prematch.candidates',return_value=scan),\
+                 patch('hybrid_engine.europe_prematch.asyncio.TimeoutError',LegacyAsyncTimeout):
+                report=await scheduler.tick(force=True)
+            self.assertEqual(report['status'],'PARTIAL_ABSTAIN')
+            row=report['leagues']['EUROLEAGUE']['results'][0]
+            self.assertEqual(row['reason'],'EUROPE_AUTO_INFERENCE_OR_TIMEOUT')
+            self.assertEqual(row['status'],'ABSTAIN')
+            self.assertFalse(row['new_record'])
+            self.assertEqual(scheduler.retry_after[('EUROLEAGUE','fixture-1')],now+300)
+            service.analyze.assert_awaited_once()
+
+    async def test_fixture_preflight_timeout_is_scoped_to_league(self):
+        class LegacyAsyncTimeout(Exception):
+            pass
+        now=1795490000
+        service=SimpleNamespace(analyze=AsyncMock())
+        with TemporaryDirectory() as directory:
+            scheduler=EuropeanPrematchScheduler({'EUROLEAGUE':service},
+                Path(directory),clock=lambda:now)
+            with patch('hybrid_engine.europe_prematch.candidates',
+                       side_effect=LegacyAsyncTimeout('EXPIRED')),\
+                 patch('hybrid_engine.europe_prematch.asyncio.TimeoutError',LegacyAsyncTimeout):
+                report=await scheduler.tick(force=True)
+            self.assertEqual(report['status'],'PARTIAL_ABSTAIN')
+            self.assertEqual(report['leagues']['EUROLEAGUE']['reason'],
+                             'OFFICIAL_FIXTURE_MODEL_OR_ARCHIVE_UNAVAILABLE')
+            self.assertEqual(scheduler.next_scan['EUROLEAGUE'],now+300)
+            service.analyze.assert_not_awaited()
+
 
 class EuropeanPrematchBoundaryTests(unittest.TestCase):
     def test_exact_5_minute_boundary_and_invalid_generation_clocks(self):
