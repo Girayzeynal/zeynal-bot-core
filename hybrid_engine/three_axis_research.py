@@ -121,12 +121,12 @@ def conditional_bias_comparison(ledger,*,asof_utc):
 
 
 def stochastic_quarters_from_frozen_scores(
-        scores,weights,verified_ledger,*,target_sha256,seed=20261124,concentration=None):
+        scores,verified_ledger,*,target_sha256,seed=20261124,concentration=None):
     """Research-only Dirichlet quarter paths, with native-ledger past-label embargo.
 
-    The base 2-team integer scenario totals are supplied independently and held
-    unchanged. Native quarter histories and native timestamps are recovered from
-    the verified ledger, never from a caller-supplied unverified shares array.
+    The integer team-score scenario totals are supplied independently and held
+    unchanged. Quarter mean weights come ONLY from the pinned original forecast.
+    Native histories/timestamps come from the verified ledger, not caller shares.
     """
     if (not isinstance(verified_ledger,dict) or
             verified_ledger.get("status")!="VERIFIED_LIVE_REPORT" or
@@ -146,7 +146,12 @@ def stochastic_quarters_from_frozen_scores(
     if target["league"]!="NBA":
         raise ValueError("QUARTER_NBA_TARGET_REQUIRED")
     scores=np.asarray(scores)
-    weights=np.asarray(weights,dtype=float)
+    weights=np.asarray(target.get('predicted_quarters'),dtype=float)
+    frozen_means=np.asarray(target.get('prediction'),dtype=float)
+    if (weights.shape!=(4,2) or frozen_means.shape!=(2,) or
+            not np.isfinite(weights).all() or not np.isfinite(frozen_means).all() or
+            not np.allclose(weights.sum(axis=0),frozen_means,rtol=0,atol=1e-6)):
+        raise ValueError('QUARTER_ORIGINAL_SNAPSHOT_MEANS_REQUIRED')
     if (scores.ndim!=2 or scores.shape[1]!=2 or
             not np.issubdtype(scores.dtype,np.integer) or
             np.any(scores<0) or weights.shape!=(4,2) or
