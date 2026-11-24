@@ -220,3 +220,61 @@ def test_nba_news_must_stay_under_that_teams_nba_directory():
         path.write_text(json.dumps(doc))
         with pytest.raises(ValueError,match="ALL_82_NBA_NEWS_TEAM_PATH_MISMATCH"):
             bulk.load_all_82(path)
+
+def test_real_absent_robots_is_distinct_from_forbidden_or_malformed():
+    calls=[]
+    def fetch(url,*,limit,expected_mime):
+        calls.append(url)
+        if url=="https://zalgiris.lt/robots.txt":
+            return dict(status="SOURCE_HTTP_ERROR",http_status=404)
+        if url=="https://parisbasketball.com/robots.txt":
+            return dict(status="SOURCE_ACCESS_REFUSED",http_status=403)
+        return _all_allowed(url,limit=limit,expected_mime=expected_mime)
+    result=bulk.batch_probe(live=True,requester=fetch)
+    rows={r["club_key"]:r for r in result["results"]}
+    z=rows["euroleague_zalgiris"]
+    assert z["robots_policy_status"]=="ROBOTS_FILE_ABSENT_404_OR_410"
+    assert z["status"]=="NEWS_ENTRY_HTTP_OBSERVED_NOT_INJURY_VERIFIED"
+    assert rows["euroleague_paris_basketball"]["status"]=="ROBOTS_UNAVAILABLE_OR_REFUSED_NO_NEWS_FETCH"
+    assert "https://parisbasketball.com/actualites/" not in calls
+
+
+def test_one_same_host_redirect_and_size_retry_are_bounded_and_visible():
+    calls=[]
+    def fetch(url,*,limit,expected_mime):
+        calls.append((url,limit))
+        if url=="https://www.nba.com/mavericks/":
+            return dict(status="SOURCE_REDIRECT_REFUSED",http_status=301,
+                        redirect_url="https://www.nba.com/mavericks/news")
+        if url=="https://www.nba.com/timberwolves/" and limit==bulk.MAX_BODY:
+            return dict(status="SOURCE_SIZE_LIMIT",http_status=200,content_type="text/html")
+        if url=="https://www.nba.com/celtics/news":
+            return dict(status="SOURCE_REDIRECT_REFUSED",http_status=302,
+                        redirect_url="https://www.nba.com/lakers/private")
+        return _all_allowed(url,limit=limit,expected_mime=expected_mime)
+    report=bulk.batch_probe(live=True,requester=fetch)
+    rows={r["club_key"]:r for r in bulk.compact_summary(report)["results"]}
+    assert rows["nba_dallas_mavericks"]["effective_source_url"]=="https://www.nba.com/mavericks/news"
+    assert rows["nba_minnesota_timberwolves"]["size_retry_attempted"] is True
+    assert rows["nba_boston_celtics"]["redirect_status"]=="REDIRECT_TARGET_UNVERIFIED_OR_DISALLOWED"
+    assert not any(url.endswith("/lakers/private") for url,limit in calls)
+    assert report["source_http_requests"]==len(calls)
+    assert report["source_http_requests"]<=bulk.MAX_REQUESTS
+    assert report["player_injury_feed_connected_count"]==0
+
+
+def test_redirect_target_robots_disallowed_never_fetched():
+    calls=[]
+    def fetch(url,*,limit,expected_mime):
+        calls.append(url)
+        if url=="https://www.nba.com/robots.txt":
+            return dict(status="DOCUMENT_RECEIVED",http_status=200,
+                        body=b"User-agent: *\nDisallow: /mavericks/private\n")
+        if url=="https://www.nba.com/mavericks/":
+            return dict(status="SOURCE_REDIRECT_REFUSED",http_status=301,
+                        redirect_url="https://www.nba.com/mavericks/private")
+        return _all_allowed(url,limit=limit,expected_mime=expected_mime)
+    report=bulk.batch_probe(live=True,requester=fetch)
+    assert "https://www.nba.com/mavericks/private" not in calls
+    assert report["source_blocked_or_unavailable_count"]==1
+    assert report["league_access_counts"]["NBA"]==dict(observed=29,blocked=1,unattempted=0)

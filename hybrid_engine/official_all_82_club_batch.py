@@ -3,8 +3,8 @@
 2026/27 NBA 30 + EuroLeague 20 + EuroCup 32. This is one COMPLETE
 season-scoped entry-point registry, not 82 confirmed team medical feeds.
 No hidden background job, write, prediction, archive, roster or model
-change. Live probes are explicit opt-in, robots gated, no redirects,
-one index/home URL per club, bounded and grouped by source host.
+change. Live probes are explicit opt-in, robots gated, at most one validated
+same-host news redirect and bounded size retry per club, grouped by host.
 """
 import argparse
 from collections import Counter,defaultdict
@@ -23,6 +23,7 @@ RESULT_FORMAT="ZEYNAL_OFFICIAL_ALL_82_BATCH_PROBE_V1"
 MANIFEST=Path(__file__).with_name("official_all_82_club_urls_2026_27.json")
 EXPECTED={"NBA":30,"EUROLEAGUE":20,"EUROCUP":32}
 MAX_REQUESTS=164
+MAX_RETRY_BODY=2*1024*1024
 MAX_SECONDS=900
 _SPECIAL_NEWS_HOSTS={
     "euroleague_fc_bayern_munich":("fcbayern.com","app.fcbayern.com"),
@@ -171,6 +172,12 @@ def batch_probe(*,live=False,requester=_request,monotonic=time.monotonic,
                        len(robots["body"])<=MAX_ROBOTS)
         policy=(robots["body"].decode("utf-8","replace")
                 if is_robots_ok else None)
+        # RFC 9309 2.3.1.3: genuinely absent robots.txt is not a denial.
+        # Narrower than RFC: never treat 401/403/429 or malformed 200 as allow.
+        absent=(type(robots) is dict and robots.get("status")=="SOURCE_HTTP_ERROR"
+                and robots.get("http_status") in (404,410))
+        if absent:
+            policy=""
         for i in indices:
             row=reports[i]
             if monotonic()-began>=deadline_seconds or (
@@ -178,11 +185,13 @@ def batch_probe(*,live=False,requester=_request,monotonic=time.monotonic,
                 output["scan_capped"]=True
                 row["status"]="NOT_ATTEMPTED_BATCH_BUDGET"
                 continue
-            if not is_robots_ok:
+            row["robots_transport_status"]=_transport_state(robots)
+            row["robots_http_status"]=(robots.get("http_status")
+                                       if type(robots) is dict else None)
+            row["robots_policy_status"]=("PARSED" if is_robots_ok else
+                "ROBOTS_FILE_ABSENT_404_OR_410" if absent else "UNAVAILABLE_OR_REFUSED")
+            if not (is_robots_ok or absent):
                 row["status"]="ROBOTS_UNAVAILABLE_OR_REFUSED_NO_NEWS_FETCH"
-                row["robots_transport_status"]=_transport_state(robots)
-                row["robots_http_status"]=(robots.get("http_status")
-                                           if type(robots) is dict else None)
                 continue
             url=row["official_news_entry_url"]
             try: allowed=allowed_by_robots(policy,url)
@@ -192,6 +201,49 @@ def batch_probe(*,live=False,requester=_request,monotonic=time.monotonic,
                 continue
             response=requester(url,limit=MAX_BODY,expected_mime="text/html")
             output["source_http_requests"]+=1
+            def budget_left():
+                return (output["source_http_requests"]<MAX_REQUESTS and
+                        monotonic()-began<deadline_seconds)
+            # Follow only one same-host public redirect, with the SAME
+            # robots rules checked against its target and NBA team path pinned.
+            if type(response) is dict and response.get("status")=="SOURCE_REDIRECT_REFUSED":
+                target=response.get("redirect_url")
+                row["initial_page_http_status"]=response.get("http_status")
+                try:
+                    target_parsed=_bounded_https(target,host)
+                    if ("%" in target_parsed.path or target==url or
+                        any(ord(c)<33 for c in target)):
+                        raise ValueError("REDIRECT_PATH_REFUSED")
+                    if row["league"]=="NBA":
+                        prefix=urlsplit(row["official_site_url"]).path.rstrip("/")
+                        if not (target_parsed.path==prefix or target_parsed.path.startswith(prefix+"/")):
+                            raise ValueError("REDIRECT_TEAM_PATH_REFUSED")
+                    if not allowed_by_robots(policy,target):
+                        raise ValueError("REDIRECT_ROBOTS_DISALLOW")
+                except (ValueError,TypeError):
+                    row["redirect_status"]="REDIRECT_TARGET_UNVERIFIED_OR_DISALLOWED"
+                else:
+                    if budget_left():
+                        row["redirect_status"]="ONE_SAME_HOST_ROBOTS_ALLOWED_REDIRECT"
+                        row["effective_source_url"]=target
+                        url=target
+                        response=requester(url,limit=MAX_BODY,expected_mime="text/html")
+                        output["source_http_requests"]+=1
+                    else:
+                        row["redirect_status"]="REDIRECT_RETRY_BUDGET_EXHAUSTED"
+            # A 200 with an actual body-size error is not an access denial.
+            # One bounded retry in this opt-in CLI only; never retry 403/429.
+            if (type(response) is dict and response.get("status")=="SOURCE_SIZE_LIMIT"
+                    and response.get("http_status")==200):
+                row["initial_page_transport_status"]="SOURCE_SIZE_LIMIT"
+                if budget_left():
+                    response=requester(url,limit=MAX_RETRY_BODY,expected_mime="text/html")
+                    output["source_http_requests"]+=1
+                    row["size_retry_attempted"]=True
+            row["page_transport_status"]=_transport_state(response)
+            if type(response) is dict:
+                row["source_http_status"]=response.get("http_status")
+                row["source_content_type"]=response.get("content_type")
             if (type(response) is not dict or
                 response.get("status")!="DOCUMENT_RECEIVED"):
                 row["status"]="NEWS_INDEX_HTTP_OR_MIME_REFUSED"
@@ -201,7 +253,7 @@ def batch_probe(*,live=False,requester=_request,monotonic=time.monotonic,
                 continue
             body=response.get("body")
             observed=response.get("observed_at_utc")
-            if (type(body) is not bytes or not 0<len(body)<=MAX_BODY or
+            if (type(body) is not bytes or not 0<len(body)<=(MAX_RETRY_BODY if row.get("size_retry_attempted") else MAX_BODY) or
                 type(observed) is not int or observed<=0):
                 row["status"]="NEWS_INDEX_INVALID_SOURCE_RECEIPT"
                 continue
@@ -228,7 +280,22 @@ def batch_probe(*,live=False,requester=_request,monotonic=time.monotonic,
             unattempted+=1
         else:
             blocked+=1
-    output.update(source_observed_count=observed,
+    by_league={league:dict(observed=0,blocked=0,unattempted=0) for league in EXPECTED}
+    reasons=Counter()
+    for row in reports:
+        state=row["status"]
+        if state=="NEWS_ENTRY_HTTP_OBSERVED_NOT_INJURY_VERIFIED":
+            by_league[row["league"]]["observed"]+=1
+        elif state=="NOT_ATTEMPTED_BATCH_BUDGET":
+            by_league[row["league"]]["unattempted"]+=1
+        else:
+            by_league[row["league"]]["blocked"]+=1
+            reason=(row.get("robots_transport_status") if state.startswith("ROBOTS_UNAVAILABLE")
+                else row.get("page_transport_status") if state=="NEWS_INDEX_HTTP_OR_MIME_REFUSED"
+                else state)
+            reasons[reason or state]+=1
+    output.update(league_access_counts=by_league,blocked_reason_counts=dict(reasons),
+        source_observed_count=observed,
         source_blocked_or_unavailable_count=blocked,
         unattempted_count=unattempted,
         scan_complete=(unattempted==0),
@@ -244,7 +311,15 @@ def compact_summary(report):
                       source_url=r["official_news_entry_url"],
                       status=r["status"],
                       source_http_status=r.get("source_http_status"),
-                      robots_http_status=r.get("robots_http_status"))
+                      robots_http_status=r.get("robots_http_status"),
+                      robots_policy_status=r.get("robots_policy_status"),
+                      robots_transport_status=r.get("robots_transport_status"),
+                      page_transport_status=r.get("page_transport_status"),
+                      source_content_type=r.get("source_content_type"),
+                      redirect_status=r.get("redirect_status"),
+                      effective_source_url=r.get("effective_source_url"),
+                      initial_page_http_status=r.get("initial_page_http_status"),
+                      size_retry_attempted=r.get("size_retry_attempted",False))
                  for r in report["results"]])
 
 def run(argv=None):
@@ -252,10 +327,16 @@ def run(argv=None):
     parser.add_argument("--live",action="store_true",
                         help="Opt in to ONE bounded, robots-gated pass across ALL 82 news entry pages")
     parser.add_argument("--summary",action="store_true")
+    parser.add_argument("--problems-only",action="store_true",
+                        help="Show only non-observed rows; counts still cover full registry")
     args=parser.parse_args(argv)
     report=batch_probe(live=args.live)
-    if args.summary:
+    if args.summary or args.problems_only:
         report=compact_summary(report)
+    if args.problems_only:
+        report["results"]=[r for r in report["results"]
+            if r["status"]!="NEWS_ENTRY_HTTP_OBSERVED_NOT_INJURY_VERIFIED"]
+        report["results_filtered_to_problems"]=True
     print(json.dumps(report,sort_keys=True,ensure_ascii=False))
     return 0
 

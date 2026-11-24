@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 import re
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urljoin
 from urllib.request import Request, HTTPRedirectHandler, build_opener
 from urllib.robotparser import RobotFileParser
 from email.utils import parsedate_to_datetime
@@ -173,16 +173,32 @@ def _request(url, *, limit, expected_mime):
             content_type=response.headers.get_content_type()
             raw=response.read(limit+1)
             if len(raw)>limit:
-                return dict(status="SOURCE_SIZE_LIMIT",http_status=status)
+                return dict(status="SOURCE_SIZE_LIMIT",http_status=status,content_type=content_type)
             if status!=200 or content_type not in expected_mime.split(","):
-                return dict(status="SOURCE_HTTP_OR_MIME_REFUSED",http_status=status)
+                return dict(status="SOURCE_HTTP_OR_MIME_REFUSED",http_status=status,content_type=content_type)
             return dict(status="DOCUMENT_RECEIVED",body=raw,http_status=status,
                         observed_at_utc=int(datetime.now(timezone.utc).timestamp()))
     except HTTPError as exc:
-        return dict(status=("SOURCE_RATE_LIMITED" if exc.code==429 else
+        result=dict(status=("SOURCE_RATE_LIMITED" if exc.code==429 else
                             "SOURCE_ACCESS_REFUSED" if exc.code in (401,403) else
                             "SOURCE_REDIRECT_REFUSED" if exc.code in (301,302,303,307,308) else
                             "SOURCE_HTTP_ERROR"),http_status=exc.code)
+        if exc.code in (301,302,303,307,308):
+            # Only expose a strictly bounded same-host public URL; this
+            # transport still never automatically follows any redirect.
+            try:
+                location=exc.headers.get("Location","")
+                if not isinstance(location,str) or not location or len(location)>1024:
+                    raise ValueError("INVALID_LOCATION")
+                target=urljoin(url,location)
+                _bounded_https(target,urlsplit(url).hostname)
+                if "%" in urlsplit(target).path or any(ord(c)<33 for c in target):
+                    raise ValueError("INVALID_LOCATION")
+                result["redirect_url"]=target
+            except (ValueError,TypeError,AttributeError):
+                pass
+        exc.close()
+        return result
     except (URLError,TimeoutError,OSError):
         return dict(status="SOURCE_NETWORK_ERROR")
 

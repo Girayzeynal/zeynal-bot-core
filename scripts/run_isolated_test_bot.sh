@@ -19,8 +19,9 @@ if [[ "${1:-}" == "--source-inventory" ]]; then
 fi
 # Explicit robots-gated club entry audit, never player status or model input.
 if [[ "${1:-}" == "--club-source-check" ]]; then
-  if [[ "$#" -ne 1 ]]; then echo "INVALID_CLUB_SOURCE_CHECK_ARGS" >&2; exit 2; fi
-  exec "${test_python}" -B -m hybrid_engine.official_all_82_club_batch --live --summary
+  shift
+  if [[ "$#" -gt 1 || ( "$#" -eq 1 && "$1" != "--problems-only" ) ]]; then echo "INVALID_CLUB_SOURCE_CHECK_ARGS" >&2; exit 2; fi
+  exec "${test_python}" -B -m hybrid_engine.official_all_82_club_batch --live --summary "$@"
 fi
 # Offline PDF replay is read-only and can run WHILE the isolated bot polls.
 # Never refreshes expired medical evidence, never updates git or predictions.
