@@ -18,7 +18,7 @@ def player_market():
 class PlayerNativeTests(TestCase):
     def test_exact_event_and_paired_prices_not_player_model(self):
         with patch('time.time',return_value=NOW):
-            d=detail();d['source_url']+='&markets=player_points' if '?' in d['source_url'] else '?markets=player_points'
+            d=detail();d['source_url']=d['source_url'].replace('markets=totals','markets=player_points')
             d['document']['bookmakers'][0]['markets']=[player_market()]
             d['document_sha256']=digest(d['document'])
             p=parse(discovery(),d,SNAPSHOT)
@@ -30,6 +30,18 @@ class PlayerNativeTests(TestCase):
             d['document']['bookmakers'][0]['markets'][0]['outcomes'][1]['description']='Another Player'
             d['document_sha256']=digest(d['document'])
             self.assertEqual(parse(discovery(),d,SNAPSHOT)['rows'],[])
+
+    def test_stale_and_duplicate_outcomes_cannot_be_paired(self):
+        with patch('time.time',return_value=NOW):
+            d=detail();d['source_url']=d['source_url'].replace('markets=totals','markets=player_points')
+            m=player_market();m['last_update']=iso(NOW-301)
+            d['document']['bookmakers'][0]['markets']=[m]
+            d['document_sha256']=digest(d['document'])
+            self.assertFalse(parse(discovery(),d,SNAPSHOT)['rows'])
+            m['last_update']=iso(NOW-1);m['outcomes'].append(deepcopy(m['outcomes'][0]))
+            d['document_sha256']=digest(d['document'])
+            p=parse(discovery(),d,SNAPSHOT)
+            self.assertFalse(p['rows']);self.assertEqual(p['conflicting_rows'],1)
 
     def test_opt_in_player_failure_does_not_remove_primary_team_prices(self):
         class Provider(FakeProvider):
