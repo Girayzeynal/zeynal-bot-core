@@ -169,8 +169,17 @@ class ProviderAccess:
         if params and any(n.lower() in ('apikey','api_key','key','token') for n in params):
             return dict(status='CREDENTIAL_QUERY_FORBIDDEN')
         url = ORIGINS[provider]+path+('?' + urlencode(params) if params else '')
-        now = int(self.clock())
-        with self.lock:
+        # A queued caller must not inherit the clock from before lock wait.
+        # Even callers without an explicit deadline have a bounded lock wait.
+        wait=3. if deadline is None else min(3.,deadline-self.clock())
+        if wait<=.05:
+            return dict(status='PROVIDER_TIME_BUDGET')
+        if not self.lock.acquire(timeout=wait):
+            return dict(status='PROVIDER_ACCESS_LOCK_BUSY')
+        try:
+            if deadline is not None and deadline-self.clock()<=.05:
+                return dict(status='PROVIDER_TIME_BUDGET')
+            now=int(self.clock())
             self._refresh_daily_quota(now)
             old = self.cache.get(url)
             if old and 0 <= now-old['observed_at_utc'] <= ttl:
@@ -206,15 +215,22 @@ class ProviderAccess:
                         not 0 < result['observed_at_utc'] <= result['ingested_at_utc'] <= int(self.clock())):
                     return dict(status='PROVIDER_RECEIPT_INVALID')
                 for name in ('x-requests-remaining','x-ratelimit-requests-remaining'):
-                    if name in result.get('quota', {}):
-                        self.remaining[provider] = result['quota'][name]
-                        self.remaining_day[provider] = int(self.clock())//86400
+                    remaining=result.get('quota',{}).get(name)
+                    if type(remaining) is int and remaining>=0:
+                        self.remaining[provider]=remaining
+                        self.remaining_day[provider]=int(self.clock())//86400
+                # A completed late read may have spent provider credits, but
+                # cannot be admitted as an in-budget result or cached as such.
+                if deadline is not None and self.clock()>=deadline:
+                    return dict(status='PROVIDER_RESPONSE_AFTER_DEADLINE')
                 if len(self.cache) >= 12:
                     self.cache.pop(next(iter(self.cache)))
                 self.cache[url] = deepcopy(result)
             else:
                 self.cooldown[provider] = now+min(3600, max(30, result.get('retry_after_seconds', 60)))
             return result
+        finally:
+            self.lock.release()
 
 
 def preflight(*, check=False):

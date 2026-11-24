@@ -183,6 +183,34 @@ class AccessTests(unittest.TestCase):
         self.assertEqual(self.access.get('THE_ODDS_API', '/one', deadline=NOW)['status'], 'PROVIDER_TIME_BUDGET')
         self.assertFalse(self.fake.calls)
 
+    def test_busy_access_lock_respects_deadline_without_network(self):
+        self.access.lock.acquire()
+        try:
+            r=self.access.get('THE_ODDS_API','/one',deadline=NOW+.06)
+            self.assertEqual(r['status'],'PROVIDER_ACCESS_LOCK_BUSY')
+            self.assertFalse(self.fake.calls)
+        finally:self.access.lock.release()
+
+    def test_late_native_receipt_updates_credit_but_is_not_cached_or_admitted(self):
+        clock=[NOW]
+        def get(provider,url,key,*,timeout):
+            r=receipt([],provider,url);clock[0]+=4
+            r['ingested_at_utc']=clock[0]
+            r['quota']={'x-requests-remaining':7}
+            return r
+        access=ProviderAccess({'THE_ODDS_API':SECRET},getter=get,clock=lambda:clock[0])
+        r=access.get('THE_ODDS_API','/one',deadline=NOW+3)
+        self.assertEqual(r['status'],'PROVIDER_RESPONSE_AFTER_DEADLINE')
+        self.assertEqual(access.remaining['THE_ODDS_API'],7)
+        self.assertFalse(access.cache)
+        self.assertFalse(access.lock.locked())
+
+    def test_expired_deadline_does_not_return_cached_receipt(self):
+        self.access.get('THE_ODDS_API','/v4/sports/')
+        r=self.access.get('THE_ODDS_API','/v4/sports/',deadline=NOW)
+        self.assertEqual(r['status'],'PROVIDER_TIME_BUDGET')
+        self.assertEqual(len(self.fake.calls),1)
+
     def test_transport_headers_and_no_secret_url(self):
         response = Mock(); response.read.return_value = b'[]'; response.status = 200; response.headers = {}
         context = Mock(); context.__enter__ = Mock(return_value=response); context.__exit__ = Mock(return_value=False)
@@ -321,6 +349,14 @@ class BridgeTests(unittest.TestCase):
             self.assertEqual(wrapper['sha256'],digest(wrapper['payload']))
             self.assertEqual(self.bridge.read_receipt(wrapper['sha256']),wrapper['payload'])
             self.assertNotIn(SECRET,path.read_text())
+
+    def test_primary_time_budget_leaves_backup_reserve(self):
+        from unittest.mock import Mock
+        self.bridge._odds=Mock(return_value=dict(status='RATE_LIMITED',observations=[]))
+        self.bridge._basketball=Mock(return_value=dict(status='BACKUP_DIAGNOSTIC'))
+        self.bridge.collect(SNAPSHOT)
+        self.bridge._odds.assert_called_once_with(SNAPSHOT,NOW+9)
+        self.bridge._basketball.assert_called_once_with(SNAPSHOT,NOW+12,backup_prices=True)
 
     def test_no_keys_no_network_and_clear_status_not_no_edge(self):
         bridge = ProviderBridge(ProviderAccess({}, getter=self.fake), self.root/'empty', clock=lambda: NOW)

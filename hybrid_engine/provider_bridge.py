@@ -388,6 +388,8 @@ class ProviderBridge:
         if self.player_props:
             if snapshot['league']!='NBA':
                 props['status']='LEAGUE_PLAYER_PROP_COVERAGE_NOT_ATTESTED'
+            elif not observations and access.configuration()['API_BASKETBALL']!='KEY_NOT_AVAILABLE_IN_TEST_PROCESS':
+                props['status']='PLAYER_PROP_DEFERRED_FOR_BACKUP_SOURCE'
             elif self.clock()>=deadline or int(self.clock())>=binding['payload']['prematch_deadline_utc']:
                 props['status']='PLAYER_PROP_DEADLINE_REACHED'
             else:
@@ -545,7 +547,14 @@ class ProviderBridge:
                 report['providers']={p:dict(status='LOCAL_EVIDENCE_STORAGE_FULL' if
                     state!='KEY_NOT_AVAILABLE_IN_TEST_PROCESS' else state,observations=[]) for p,state in config.items()}
                 return report
-            deadline = self.clock()+12
+            started=self.clock()
+            deadline=started+12
+            # Reserve up to three seconds for the other configured provider.
+            # No promise that a cold three-endpoint backup fits this budget.
+            # Never shorten the primary solely because an unconfigured key exists.
+            primary_deadline=(started+9 if
+                config['API_BASKETBALL']!='KEY_NOT_AVAILABLE_IN_TEST_PROCESS' and not self.diagnostic_only
+                else deadline)
             for provider, method in [('THE_ODDS_API', self._odds), ('API_BASKETBALL', self._basketball)]:
                 if config[provider] == 'KEY_NOT_AVAILABLE_IN_TEST_PROCESS':
                     report['providers'][provider] = dict(status=config[provider])
@@ -556,7 +565,7 @@ class ProviderBridge:
                         report['providers'][provider]=method(snapshot,deadline,
                             backup_prices=not self.diagnostic_only and not primary.get('observations'))
                     else:
-                        report['providers'][provider] = method(snapshot, deadline)
+                        report['providers'][provider] = method(snapshot, primary_deadline)
                 except EvidenceCapacityError:
                     report['providers'][provider] = dict(status='LOCAL_EVIDENCE_STORAGE_FULL',observations=[])
                 except Exception:
