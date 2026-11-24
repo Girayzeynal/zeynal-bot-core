@@ -83,6 +83,12 @@ def bind(receipt,snapshot,*,asof_utc=None):
         # Version only this newly authorized native event alias; preserve all
         # historic V1 bindings, immutable receipts and original forecasts.
         from core.league_identity import normalize_name
+        from hybrid_engine.europe_provider_identity import OBSERVED_LABELS
+        used={normalize_name(event[k]):OBSERVED_LABELS[normalize_name(event[k])][0]
+              for k in ('home_team','away_team') if normalize_name(event[k]) in OBSERVED_LABELS}
+        if used and snapshot['league']=='EUROLEAGUE' and snapshot['season']=='2026/2027':
+            payload['rule']='EUROPE_OBSERVED_PROVIDER_LABELS_E2026_V3'
+            payload['team_identity']['observed_exact_provider_aliases']=used
         if (snapshot['league']=='EUROLEAGUE' and
                 snapshot['season']=='2026/2027' and
                 (normalize_name(event['home_team'])=='kkpartizannis' or

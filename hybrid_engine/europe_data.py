@@ -185,7 +185,12 @@ class EuropeanDataReview:
             row=report['providers']['THE_ODDS_API'];discovery=self.bridge.read_receipt(row['discovery_source_pin'])
             detail=self.bridge.read_receipt(row['source_pin'])
             try:
-                assessment=self.bridge.assessments.available_market_context(ctx) if getattr(self.bridge,'assessments',None) else None
+                assessment=None
+                if getattr(self.bridge,'assessments',None):
+                    try:assessment=self.bridge.assessments.available_market_context(ctx)
+                    except (ValueError,KeyError,TypeError,OSError,TimeoutError):
+                        parts.append('Güncel aday bağlamı doğrulanamadı: EUROPE_CURRENT_MODEL_CONTEXT_UNAVAILABLE. '
+                                     'Bağımsız ilk model fiyat karşılaştırması korunuyor.')
                 if getattr(self.bridge,'assessments',None) and assessment is None:
                     parts.append('Güncel değerlendirme yolları hazır/güncel değil; ilk tahminin dağılımı ayrı referans olarak kullanıldı.')
                 evaluation_context,distribution=assessment if assessment else (ctx,self.distribution(owner,p,ctx))
@@ -195,6 +200,13 @@ class EuropeanDataReview:
                     native_quotes=admit_odds(o,ctx,discovery,detail)) for o in observations]
                 if int(self.clock())>=ctx['fixture_start_utc']:raise ValueError('TIPOFF_DURING_PROVIDER_REVIEW')
                 batch=CurrentReviewJournal(self.root/'market').record(evaluation_context,distribution,reviews,decision_utc=now)
+                from hybrid_engine.market_direction_ui import cards,order,render
+                ranked=order([card for review in reviews for card in cards(review,distribution.forecast,
+                    tipoff_utc=ctx['fixture_start_utc'],fixture_id=ctx['fixture_id'],batch=batch)])
+                label=('GÜNCEL AVRUPA TEMPO/VERİMLİLİK ADAYI' if assessment else 'İLK KAYITLI AVRUPA BAYES MODELİ')
+                parts.append('<b>'+label+' | PİYASA KARŞILAŞTIRMASI</b>\n'
+                             'Ham normal süre model yönü; kalibre güven endeksi değildir.')
+                parts.extend(render(card) for card in ranked[:12])
                 parts.append(render_batch(batch));accepted=len(observations)
             except (ValueError,KeyError,TypeError,OSError):
                 parts.append('Kaynak fiyatı veya arşiv dağılımı doğrulanamadı; yüzde/edge üretilmedi. Kod: EUROPE_MARKET_REPLAY_OR_ADMISSION_BLOCKED')

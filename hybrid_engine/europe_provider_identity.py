@@ -13,6 +13,11 @@ from core.team_identity import TeamIdentityRegistry,IdentityRefusal,digest
 from providers.season_participants import parse_participants
 
 RULE='EUROPE_OFFICIAL_ALIASES_EXACT_START_V1'
+# Exact names observed in the 24 Nov Telegram provider event list.
+OBSERVED_LABELS={
+    'kkcrvenazvezda':('RED','crvenazvezdameridianbetbelgrade'),
+    'virtussegafredobologna':('VIR','virtusbologna'),
+}
 
 
 @lru_cache(maxsize=8)
@@ -50,6 +55,18 @@ def resolve_provider_name(value,snapshot,registry,now):
     try:return registry.resolve(snapshot['league'],snapshot['season'],value,asof_utc=now)
     except IdentityRefusal as exc:
         if str(exc)!='TEAM_ALIAS_NOT_REGISTERED':raise
+    key=normalize_name(value)
+    if key in OBSERVED_LABELS and snapshot['league']=='EUROLEAGUE' and snapshot['season']=='2026/2027':
+        pid,anchor=OBSERVED_LABELS[key]
+        targets=[side for side in ('home','away') if
+            str(snapshot[side]['provider_id'])==pid and
+            normalize_name(snapshot[side]['official_name'])==anchor]
+        if len(targets)!=1:raise IdentityRefusal('OBSERVED_PROVIDER_ALIAS_TARGET_NOT_VERIFIED')
+        team=registry.resolve(snapshot['league'],snapshot['season'],
+                              snapshot[targets[0]]['official_name'],asof_utc=now)
+        if team.provider_ids!=(('EUROLEAGUE_LIVE',pid),):
+            raise IdentityRefusal('OBSERVED_PROVIDER_ALIAS_OFFICIAL_ID_CONFLICT')
+        return team
     # A documented historical sponsor name, limited to official E2026 PAR.
     # https://partizan.basketball/vesti/aktuelno/3286?lang=en
     # https://www.aba-liga.com/team/22/20/1/0/partizan-nis/

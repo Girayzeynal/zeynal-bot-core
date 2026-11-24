@@ -223,3 +223,28 @@ class EuropeanProviderIdentityTests(TestCase):
             self.assertEqual(side_for('Beşiktaş J.K.',s),'home')
             self.assertEqual(side_for('Real Madrid',s),'away')
             self.assertEqual(binding_evidence(s)['catalog_sha256'],p['catalog_sha256'])
+
+class ObservedRedVirLabelTests(TestCase):
+    def test_exact_live_observed_labels_bind_official_ids_and_time(self):
+        with patch('time.time',return_value=NOW):
+            clubs=[dict(code='RED',name='Crvena Zvezda Meridianbet Belgrade',abbreviatedName='Crvena Zvezda',
+                       editorialName='Crvena Zvezda',clubPermanentName='Crvena Zvezda Belgrade',city='Belgrade',isVirtual=False),
+                   dict(code='VIR',name='Virtus Bologna',abbreviatedName='Virtus Bologna',
+                       editorialName='Virtus Bologna',clubPermanentName='Virtus Bologna',city='Bologna',isVirtual=False)]
+            s=snapshot(clubs=clubs)
+            s['home']=dict(provider_id='RED',official_name=clubs[0]['name'])
+            s['away']=dict(provider_id='VIR',official_name=clubs[1]['name'])
+            d,q=dubai_partizan_receipts(s,home='KK Crvena zvezda',away='Virtus Segafredo Bologna')
+            self.assertTrue(matches(d['document'][0],s))
+            _,b=bind(d,s)
+            self.assertEqual(b['payload']['rule'],'EUROPE_OBSERVED_PROVIDER_LABELS_E2026_V3')
+            self.assertEqual(b['payload']['delta_seconds'],0)
+            self.assertEqual(verify_detail(d,q,s),b)
+            self.assertEqual(len(odds_observations(q,s,discovery=d)[0]),1)
+            for label in ('KK Crvena zvezda Youth','Virtus Segafredo Roma'):
+                with self.assertRaises(ValueError):side_for(label,s)
+            wrong=deepcopy(s);wrong['away']['provider_id']='RED'
+            self.assertFalse(matches(d['document'][0],wrong))
+            for off in (1,600):
+                d2,_=dubai_partizan_receipts(s,home='KK Crvena zvezda',away='Virtus Segafredo Bologna',offset=off)
+                with self.assertRaises(ValueError):bind(d2,s)
