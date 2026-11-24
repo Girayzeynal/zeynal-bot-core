@@ -94,6 +94,13 @@ class HistoricalBoxPilotTests(TestCase):
             self.assertEqual(strict["evidence_class"],"VERIFIED_SOURCE_CLOCKS_RETROSPECTIVE_HOLDOUT")
             self.assertEqual(strict["total_games"],80)
             self.assertEqual(strict["matched_test_games"],assumed["matched_test_games"])
+            for name in ('candidate','control'):
+                cells=assumed['paired_score_metrics'][name]
+                self.assertEqual(cells['n'],assumed['matched_test_games'])
+                for component in ('team_scores','home','away','total','margin'):
+                    self.assertGreaterEqual(cells[component]['rmse']+1e-9,cells[component]['mae'])
+                    self.assertLessEqual(abs(cells[component]['bias']),cells[component]['mae']+1e-9)
+            self.assertIn('NO_RAW_PROBABILITIES',assumed['probability_metrics_status'])
 
     def test_team_only_control_has_no_player_parameters(self):
         rows,_=verified_box_rows(self.cohort,self.cut)

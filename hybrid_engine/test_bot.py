@@ -546,7 +546,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             adaptive_v2=str(adaptive_protocol),nba_v3=str(v3_protocol) if app.bot_data['adaptive_v2_worker'].nba is not None else None,
             current_assessment=str(assessment_protocol))
         app.bot_data['current_assessments']=assessments
-        app.bot_data['research_cycle']=ResearchCycle(app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'),assessments)
+        history=None
+        if app.bot_data['adaptive_v2_worker'].nba is not None:
+            from hybrid_engine.player_history_review import HistoricalPlayerReview
+            history=HistoricalPlayerReview(root)
+            app.bot_data['historical_player_review']=history
+        app.bot_data['research_cycle']=ResearchCycle(app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'),assessments,history)
         # A presentation-only reader shares the already registered protocol.
         # Do not edit/hash-bump the scientific current_assessment module for
         # an indexed price read; that would create an empty new namespace.
@@ -639,6 +644,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 progress.get('player_input_status','NO_ATTEMPT_OBSERVED')
                 if isinstance(progress,dict) else 'NOT_OBSERVED')
             record['live_player_model_coefficients_applied']=False
+            history=app.bot_data.get('historical_player_review')
+            record['historical_player_box_diagnostic']=(history.snapshot() if history else
+                dict(status='NOT_LOADED_NO_LIVE_EFFECT_CLAIM'))
             # Verify the REAL archived inputs separately from the synthetic
             # smoke. A roster row or a made-up injury never counts as a
             # prospective training example.
@@ -745,6 +753,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             if study:lines.extend(study.render().splitlines())
             cycle=app.bot_data.get('research_cycle')
             if cycle:lines.extend(cycle.render().splitlines())
+            history=app.bot_data.get('historical_player_review')
+            if history:lines.extend(history.render().splitlines())
             assessments=app.bot_data.get('current_assessments')
             if assessments:
                 last=assessments.last_report or {}
@@ -1101,7 +1111,7 @@ def main():
     os.chdir(root)
     import main as application
     application.TELEGRAM_BOT_TOKEN=os.environ['ZEYNAL_TEST_BOT_TOKEN']
-    journal=DeliveryJournal(root/'telegram-delivery.sqlite');transport=ControlledTransport(fetch_document)
+    journal=DeliveryJournal(root/'telegram-delivery.sqlite');transport=ControlledTransport(fetch_document,reuse_seconds=30)
     original=application.Application
     tasks=[]
     from hybrid_engine.isolated_execution import IsolatedExecutor,background_task

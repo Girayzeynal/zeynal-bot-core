@@ -87,8 +87,9 @@ class ObservedResearch:
 
 class ResearchCycle:
     """Serial, independently observed stages; V3 need not wait for V2 acquisition."""
-    def __init__(self,worker,study,assessments=None):
+    def __init__(self,worker,study,assessments=None,player_history=None):
         self.worker=worker;self.study=study;self.assessments=assessments;self.stages={}
+        self.player_history=player_history
         self.requested_fixtures=[];self.requested_deadlines={}
 
     def request_fixture(self,context):
@@ -136,7 +137,7 @@ class ResearchCycle:
             app.bot_data['last_'+name+'_poll']=value
             if name=='issue90':self.study.last_report=value
             elif name=='adaptive_v2':self.worker.last_report=value
-            elif self.assessments:self.assessments.last_report=value
+            elif name=='current_assessment' and self.assessments:self.assessments.last_report=value
 
     async def once(self,app):
         # Keep stages serial so fitted source snapshots and provider budgets
@@ -179,6 +180,11 @@ class ResearchCycle:
         if players is not None:
             await self._stage('player_shadow',lambda:readiness(players),app)
         if self.study:await self._stage('issue90',self.study.tick,app)
+        if self.player_history:
+            # Late in the serial cycle; never fit in a command or delay a
+            # known imminent publication for this optional research diagnostic.
+            def history():return self.player_history.tick(case_loader=self.worker.cases)
+            await self._stage('player_history',history,app)
 
     async def run(self,app):
         while True:
@@ -186,7 +192,7 @@ class ResearchCycle:
 
     def render(self):
         lines=['Araştırma işçisi: oyuncu hazırlık denetimi → güncel skor (en erken maç öncelikli) → V2 → oyuncu denetimi → ayrı V3 denetimi']
-        for name in ('adaptive_v2','player_shadow','issue90','current_assessment'):
+        for name in ('adaptive_v2','player_shadow','issue90','current_assessment','player_history'):
             s=self.stages.get(name)
             if not s:lines.append(name+': İLK TUR BEKLENİYOR');continue
             elapsed=max(0,int(time.time())-s.get('started_at_utc',s['queued_at_utc']))

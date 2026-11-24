@@ -19,6 +19,7 @@ from hybrid_engine.availability import effective_box_time
 from hybrid_engine.data import STRICT,available_at,regulation,local_path
 from hybrid_engine.player_minutes import historical_minutes,capped_rotation
 from hybrid_engine.boxes import checked_stats
+from hybrid_engine.evaluation import point_metrics
 from ledger_reports import LedgerReports
 
 VERSION="HISTORICAL_NBA_PLAYER_BOX_ASSOCIATION_PILOT_V1"
@@ -241,7 +242,8 @@ def paired_holdout(games,*,now_utc,assumed_availability=False):
         model_selected_after_actuals=True,prospective_accuracy_evidence=False,
         actual_preforecast_publication_verified=False,calibrated=False,
         automatic_promotion=False,original_forecasts_unchanged=True,
-        total_games=len(games),train_games=0,matched_test_games=0)
+        total_games=len(games),train_games=0,matched_test_games=0,paired_score_metrics=None,
+        probability_metrics_status='UNSUPPORTED_POINT_MODEL_NO_RAW_PROBABILITIES')
     if len(ordered)<60:return out
     split=ordered[int(len(ordered)*.70)]["fixture_start_utc"]
     cutoff=split-900
@@ -262,6 +264,7 @@ def paired_holdout(games,*,now_utc,assumed_availability=False):
     except (ValueError,KeyError,TypeError):
         out["status"]="MODEL_FIT_ABSTAINED";return out
     tested=0;errors=dict(player_team=0.,team_team=0.,player_total=0.,team_total=0.)
+    paired_errors={'candidate':[],'control':[]}
     missing=Counter()
     for target in source:
         if target["fixture_start_utc"]<split:continue
@@ -278,6 +281,8 @@ def paired_holdout(games,*,now_utc,assumed_availability=False):
         if any(not math.isfinite(v) or v<=0 or v>=300 for v in p+b):
             missing["OUT_OF_RANGE_PREDICTION"]+=1;continue
         y=target["score"]
+        paired_errors['candidate'].append([p[i]-y[i] for i in range(2)])
+        paired_errors['control'].append([b[i]-y[i] for i in range(2)])
         errors["player_team"]+=sum(abs(p[i]-y[i]) for i in range(2))
         errors["team_team"]+=sum(abs(b[i]-y[i]) for i in range(2))
         errors["player_total"]+=abs(sum(p)-sum(y))
@@ -288,6 +293,12 @@ def paired_holdout(games,*,now_utc,assumed_availability=False):
     out["player_coefficients"]=len(with_player["players"])
     if not tested:
         out["status"]="NO_VALID_MATCHED_PREGAME_ROTATION_TEST";return out
+    out['paired_score_metrics']={}
+    for name,values in paired_errors.items():
+        e=np.asarray(values)
+        out['paired_score_metrics'][name]=dict(n=tested,team_scores=point_metrics(e),
+            home=point_metrics(e[:,0]),away=point_metrics(e[:,1]),
+            total=point_metrics(e.sum(axis=1)),margin=point_metrics(e[:,0]-e[:,1]))
     out.update(status="ASSUMED_AVAILABILITY_RESEARCH_ONLY" if assumed_availability
             else "RETROSPECTIVE_PIT_ELIGIBLE_NOT_PROSPECTIVE",
         candidate_team_mae=round(errors["player_team"]/(2*tested),4),
