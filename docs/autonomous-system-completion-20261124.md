@@ -260,3 +260,23 @@ bekler; bu başarısız run başarılı gösterilmeyecek.
 - History/cache/diagnostic/player-pilot bileşenleri: **30 passed in 0.62s**;
   history/research/current-display/old-player-smoke/feature akışı:
   **87 passed in 12.61s**. Gerçek Telegram teslimi halen NOT_VERIFIED.
+
+### Aşama 7 — oyuncu boyutlandırma açığı ve sonuçtan bağımsız aday planı
+
+- Gerçek native fit: **70 maç / 140 skor gözlemi / 419 oyuncu / 481 parametre**.
+  Ridge prior çözüm verse de tekil oyuncu etkisi veriyle ayrı ayırt edilmiş
+  sayılmaz. Mevcut V1 oyuncu pilotu referans olarak korunacak.
+- Gerçek source-clock strict test **n=0**. Açıkça varsayımsal next-day
+  availability replay **n=1**; eski oyuncu pilotu toplam MAE **17.3272**,
+  aynı kohort takım kontrolü **16.7649**. İyileşme/terfi kanıtı yoktur.
+  Kanıt: `completion-native-player-audit-20261124.json.gz`, payload
+  `5990f0f9a1109b0342e6d060a701a0ecdf419d8be091f28eaaf876cb8b3c6092`.
+- Sonraki ayrı V2 geliştirme adayı için **kod öncesi sabit seçim**: en az
+  altı eğitim maçında pozitif dakika; takım/rakip/home nuisance tasarımına
+  göre artık dakika RMS en az 1 dakika; outcome kullanmadan pivot/ortogonal
+  kontrast seçimi; en çok 64 oyuncu ve `floor((2*n-rank(base)-10)/2)` sınırı.
+  Seçim yalnız eğitim exposure özelliklerine bakar, test skorlarına bakmaz.
+- Önceki n=1 replay görüldüğü için yeni aynı replay **geliştirme** verisidir;
+  bağımsız kabul veya prospective üstünlük diye gösterilemez. Yeni görülmemiş
+  maçlar gerekir. NBA katsayısı Avrupa'ya taşınmaz. Savunma/pace/PBP, tam
+  güncel availability ve ceza/ilk beş doğrulanmış gibi etiketlenmez.
