@@ -76,37 +76,59 @@ class NBATriAxisResearchTests(TestCase):
         with self.assertRaises(ValueError):
             conditional_bias_comparison(ledger,asof_utc=now+3600)
 
-    def test_dirichlet_changes_conditional_quarter_dependence_not_full_scores(self):
+    def test_dirichlet_uses_native_preforecast_labels_and_preserves_full_scores(self):
         rng=np.random.default_rng(9823)
         scores=np.stack((rng.integers(91,131,2000),rng.integers(87,133,2000)),axis=1).astype(np.int32)
         weights=np.array([[.26,.24],[.25,.26],[.26,.24],[.23,.26]])
-        past=dict(home=np.tile([.26,.25,.26,.23],(8,1))+rng.normal(0,.045,(8,4)),
-                  away=np.tile([.24,.26,.24,.26],(8,1))+rng.normal(0,.045,(8,4)))
+        ledger,_=verified_ledger(10)
+        for i,r in enumerate(ledger["forecasts"]):
+            k=(i%5-2)*5
+            r["actual_periods"]["home"]=[25+k,25-k,25,25]
+            r["actual_periods"]["away"]=[28+k,27-k,28,27]
+        target=ledger["forecasts"][-1]["snapshot_sha256"]
         original=periods_for_scores(scores,weights)
-        candidate,meta=stochastic_quarters_from_frozen_scores(scores,weights,past,seed=901)
-        again,_=stochastic_quarters_from_frozen_scores(scores,weights,past,seed=901)
+        candidate,meta=stochastic_quarters_from_frozen_scores(
+            scores,weights,ledger,target_sha256=target,seed=901)
+        again,_=stochastic_quarters_from_frozen_scores(
+            scores,weights,ledger,target_sha256=target,seed=901)
         self.assertTrue(np.array_equal(candidate,again))
         self.assertTrue(np.array_equal(candidate.sum(axis=1),scores))
         self.assertTrue(np.array_equal(original.sum(axis=1),scores))
-        self.assertEqual(meta["training_games"],[8,8])
-        # Over a large, fixed synthetic set, quarter-specific random factors
-        # reduce the near-perfect same-side dependence of deterministic shares.
+        self.assertEqual(meta["history"]["home"]["past_games"],9)
+        self.assertEqual(meta["history"]["away"]["past_games"],9)
+        self.assertTrue(meta["source_history_cutoff_verified"])
+        self.assertNotIn("fixture-09",meta["history"]["home"]["native_fixture_ids"])
+        self.assertLess(meta["history"]["home"]["latest_label_available_utc"],
+                        ledger["forecasts"][-1]["prediction_generated_at_utc"])
+        # Large controlled synthetic case demonstrates that per-quarter random
+        # factors reduce the dependence built into deterministic apportionment.
         corr0=float(np.corrcoef(original[:,:,0].T)[0,1])
         corr1=float(np.corrcoef(candidate[:,:,0].T)[0,1])
         self.assertLess(corr1,corr0-.15)
         self.assertFalse(meta["uncertainty_calibrated"])
         self.assertFalse(meta["production_enabled"])
 
-    def test_insufficient_quarter_history_abstains(self):
+    def test_insufficient_or_future_quarter_evidence_abstains(self):
         from hybrid_engine.data import Abstain
         scores=np.full((30,2),100,dtype=np.int32)
         weights=np.ones((4,2))
+        ledger,_=verified_ledger(10)
         with self.assertRaises(Abstain):
-            stochastic_quarters_from_frozen_scores(scores,weights,
-                dict(home=np.ones((5,4)),away=np.ones((6,4))))
+            stochastic_quarters_from_frozen_scores(scores,weights,ledger,
+                target_sha256=ledger["forecasts"][4]["snapshot_sha256"])
         with self.assertRaises(ValueError):
-            stochastic_quarters_from_frozen_scores(scores,weights,
-                dict(home=np.ones((6,4)),away=np.ones((6,4))),concentration=0)
+            stochastic_quarters_from_frozen_scores(scores,weights,ledger,
+                target_sha256=ledger["forecasts"][-1]["snapshot_sha256"],
+                concentration=0)
+        ledger["forecasts"][0]["label_available_utc"]=int(time.time())-10
+        _,meta=stochastic_quarters_from_frozen_scores(scores,weights,ledger,
+            target_sha256=ledger["forecasts"][-1]["snapshot_sha256"])
+        self.assertNotIn("fixture-00",meta["history"]["home"]["native_fixture_ids"])
+        ledger["forecasts"][0]["label_available_utc"]=ledger["forecasts"][0]["fixture_start_utc"]+5400
+        ledger["forecasts"][0]["first_archived_at_utc"]=ledger["forecasts"][0]["fixture_start_utc"]+1
+        with self.assertRaises(ValueError):
+            stochastic_quarters_from_frozen_scores(scores,weights,ledger,
+                target_sha256=ledger["forecasts"][-1]["snapshot_sha256"])
 
     def test_player_gate_does_not_invent_minutes_or_score_effect(self):
         output=player_input_gate(None,asof_utc=int(time.time()),fixture={"fixture_id":"A"})
