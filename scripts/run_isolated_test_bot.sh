@@ -93,6 +93,21 @@ if [[ "${1:-}" == "--europe-prematch-status" || "${1:-}" == "--nba-overnight-sta
   exec "${test_python}" -B -m hybrid_engine.europe_prematch \
     --directory "${HOME}/zeynal-test-isolated/data/${status_directory}"
 fi
+# Read-only first-forecast audit: safe alongside the running test poller.
+# No Git fetch, no bot token, no lock, no new forecast, no SQLite write.
+if [[ "${1:-}" == "--first-forecast-audit" || "${1:-}" == "--first-forecast-audit-json" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_FIRST_FORECAST_AUDIT_ARGS" >&2; exit 2; fi
+  ledger_path="${HOME}/zeynal-test-isolated/data/live-nba/nba-hybrid.sqlite"
+  if [[ ! -f "${ledger_path}" ]]; then
+    echo "FIRST_FORECAST_ARCHIVE_NOT_FOUND: ${ledger_path}" >&2
+    exit 2
+  fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+  report_args=()
+  if [[ "$1" == "--first-forecast-audit-json" ]]; then report_args=(--json); fi
+  exec "${test_python}" -B -m hybrid_engine.first_forecast_walkforward \
+    --ledger "${ledger_path}" --league NBA "${report_args[@]}"
+fi
 # One isolated poller per local installation; prevent Telegram getUpdates conflicts.
 lock_dir="${HOME}/zeynal-test-isolated"
 mkdir -p "${lock_dir}"
@@ -107,7 +122,7 @@ if ! flock -n 9; then
 fi
 branch="$(git branch --show-current)"
 case "$branch" in
-  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118|feature/europe-alias-replay-ui-20261118|feature/model-data-pipeline-audit-20261118|feature/issue90-chronological-engine-audit-20261118|feature/integrated-test-bot-20261119|feature/three-league-roster-integration-20261121|fix/telegram-current-panels-20261122) ;;
+  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118|feature/europe-alias-replay-ui-20261118|feature/model-data-pipeline-audit-20261118|feature/issue90-chronological-engine-audit-20261118|feature/integrated-test-bot-20261119|feature/three-league-roster-integration-20261121|fix/telegram-current-panels-20261122|fix/v3-before-slow-v2-20261124|feat/first-forecast-walkforward-20261124) ;;
   *) echo "WRONG_BRANCH: checkout an isolated test branch first" >&2; exit 2 ;;
 esac
 launcher_path="${PWD}/scripts/run_isolated_test_bot.sh"
