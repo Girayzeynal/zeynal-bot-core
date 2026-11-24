@@ -315,6 +315,9 @@ class EuropeanDataReview:
                 public_news=dict(status='PUBLIC_NEWS_SOURCE_UNAVAILABLE',sources=[],
                                  player_status_verified=False,model_input=False)
             lines.extend(['',html.escape(render_public_news(public_news))])
+        from hybrid_engine.europe_player_identity_audit import match_candidates,render_matches
+        player_identity_audit=match_candidates(ctx,native_report,public_news)
+        lines.extend(['',html.escape(render_matches(player_identity_audit))])
         if verified_records:
             lines.extend(['',evidence_view,
                           'Bu paket ilk tahmin kesitinden önce yayımlanmış kanıtı gösterir; dakika/rotasyon/model etkisi değildir.'])
@@ -329,6 +332,7 @@ class EuropeanDataReview:
             native_season_player_directory=native_report,
             secondary_current_injury_advisory=advisory,
             public_news_candidate_review=public_news,
+            public_news_player_identity_audit=player_identity_audit,
             public_news_model_input=False,
             secondary_injury_adapter_attached=(league=='EUROLEAGUE' and self.injury_advisory_getter is not None),
             secondary_injury_last_status=advisory['status'] if advisory else 'NOT_QUERIED',

@@ -55,6 +55,21 @@ def bounded_expanded_observations(rows):
     return kept
 
 
+def native_market_coverage(document,requested,observations):
+    """Distinct requested, returned and admitted scopes; no inferred prices."""
+    returned={m['key'] for b in document.get('bookmakers',[]) if isinstance(b,dict)
+              for m in b.get('markets',[]) if isinstance(m,dict) and isinstance(m.get('key'),str)}
+    scopes={}
+    for o in observations:
+        for q in o['payload']['quotes']:
+            key=q['period']+'/'+q['market']
+            scopes[key]=scopes.get(key,0)+1
+    return dict(requested=list(requested),returned=sorted(returned),
+                not_returned=sorted(set(requested)-returned),
+                admitted_quote_counts=scopes,
+                player_props_requested=False,coverage_is_not_guaranteed=True)
+
+
 class EvidenceCapacityError(ValueError):
     pass
 
@@ -335,6 +350,7 @@ class ProviderBridge:
                         event_clock_binding=binding,source_pin=self._save(r),discovery_source_pin=discovery_pin)
         return dict(status='OBSERVED_RULES_AND_CALIBRATION_PENDING' if observations else 'NO_FRESH_SUPPORTED_PRICES',
                     observations=observations, rejected_markets=rejected, requested_markets=list(markets),
+                    market_coverage=native_market_coverage(r['document'],markets,observations),
                     quota=r.get('quota', {}), source_pin=self._save(r),
                     provider_fixture_id=event_id, event_clock_binding=binding,
                     discovery_source_pin=discovery_pin,forecast_inputs_changed=False)
@@ -535,6 +551,13 @@ def render(report):
             if set(requested)!=set(CORE_MARKETS):
                 lines.append('Geniş kapsam: sağlayıcı kapsamı ve yerel gözlem sınırı nedeniyle eksik türler olabilir; '
                              'sorgulanmış olması fiyat alındığını kanıtlamaz.')
+        coverage=row.get('market_coverage')
+        if coverage:
+            lines.append('Sağlayıcının döndürdüğü türler: '+html.escape(', '.join(coverage['returned']) or 'yok'))
+            lines.append('Sorgulandığı halde dönmeyen türler: '+html.escape(', '.join(coverage['not_returned']) or 'yok'))
+            lines.append('Kabul edilen satır sayıları: '+html.escape(', '.join(
+                k+' '+str(v) for k,v in sorted(coverage['admitted_quote_counts'].items())) or 'yok'))
+            lines.append('Oyuncu performans baremleri bu adaptörde sorgulanmadı.')
         if row.get('quota'):
             lines.append('Kota (sağlayıcı yanıtı): '+html.escape(str(row['quota'])))
         for stat in row.get('statistics', []):

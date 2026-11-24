@@ -5,7 +5,8 @@ cannot turn old observations into confirmatory future OOS calibration results.
 """
 from collections import Counter, defaultdict
 
-from hybrid_engine.calibration_guard import PLAN_DEFAULTS, review_checkpoints, shadow_walk_forward
+from hybrid_engine.calibration_guard import PLAN_DEFAULTS, review_checkpoints, shadow_walk_forward,eligible_records
+from hybrid_engine.evaluation import probability_metrics
 from hybrid_engine.quality_monitor import identity, monitor
 
 
@@ -44,6 +45,12 @@ def review(audit, *, plan=None):
         # Keep immutable fit digest / season isolation before invoking the
         # original guard, whose legacy cohort key is coarser.
         item = dict(zip(('league','season','model_version','model_digest'),key), raw_records=len(rows))
+        # Descriptive measurement starts at the first verified outcome.
+        # It does not grant calibration eligibility or alter the sealed plan.
+        checked=eligible_records(rows,asof_utc=asof)
+        item['observed_raw_metrics']=probability_metrics(
+            [r['probabilities'] for r in checked],[r['outcome'] for r in checked])
+        item['observed_raw_metrics_scope']='DESCRIPTIVE_ONLY_NOT_CALIBRATION'
         if plan is not None:
             item['checkpoints'] = review_checkpoints(rows,asof_utc=asof,plan=plan)
             item['shadow'] = shadow_walk_forward(rows,plan,asof_utc=asof)

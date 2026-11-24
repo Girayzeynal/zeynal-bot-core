@@ -103,13 +103,17 @@ class ResearchCycle:
         if (not isinstance(fid,str) or not 0<len(fid)<=160 or
                 type(tip) is not int or int(time.time())>=tip-PREMATCH_MINIMUM_LEAD_SECONDS):
             return False
-        if fid not in self.requested_fixtures:
-            if len(self.requested_fixtures)>=16:
-                dropped=self.requested_fixtures.pop(0)
-                self.requested_deadlines.pop(dropped,None)
-            self.requested_fixtures.append(fid)
+        now=int(time.time())
+        self.requested_fixtures=[x for x in self.requested_fixtures
+                                 if now<self.requested_deadlines.get(x,0)]
+        self.requested_deadlines={x:self.requested_deadlines[x] for x in self.requested_fixtures}
+        if fid not in self.requested_fixtures:self.requested_fixtures.append(fid)
         self.requested_deadlines[fid]=tip-PREMATCH_MINIMUM_LEAD_SECONDS
-        return True
+        self.requested_fixtures.sort(key=lambda x:(self.requested_deadlines[x],x))
+        if len(self.requested_fixtures)>16:
+            dropped=self.requested_fixtures.pop()
+            self.requested_deadlines.pop(dropped,None)
+        return fid in self.requested_deadlines
 
     async def _stage(self,name,call,app,asynchronous=False):
         state=dict(status='QUEUED',queued_at_utc=int(time.time()))
@@ -156,6 +160,7 @@ class ResearchCycle:
                                      if now<self.requested_deadlines.get(fid,0)]
             self.requested_deadlines={fid:self.requested_deadlines[fid]
                                       for fid in self.requested_fixtures}
+            self.requested_fixtures.sort(key=lambda x:(self.requested_deadlines[x],x))
             preferred=(self.requested_fixtures.pop(0) if self.requested_fixtures else None)
             publish=(self.assessments.tick if preferred is None else
                      lambda:self.assessments.tick(preferred_fixture_id=preferred))
@@ -179,7 +184,7 @@ class ResearchCycle:
             await self.once(app);await asyncio.sleep(RESEARCH_POLL_SECONDS)
 
     def render(self):
-        lines=['Araştırma işçisi: oyuncu kanıtı → V2 → oyuncu kanıtı tekrar → güncel skor → ayrı V3 denetimi']
+        lines=['Araştırma işçisi: oyuncu hazırlık denetimi → güncel skor (en erken maç öncelikli) → V2 → oyuncu denetimi → ayrı V3 denetimi']
         for name in ('adaptive_v2','player_shadow','issue90','current_assessment'):
             s=self.stages.get(name)
             if not s:lines.append(name+': İLK TUR BEKLENİYOR');continue
