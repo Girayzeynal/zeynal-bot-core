@@ -404,7 +404,9 @@ def install_dual_clock_display(state,assessments):
                 if not panels['fresh'] and 'GÜNCEL AYRI ARAŞTIRMA SKORU' in content:
                     content=('⚠️ GÜNCEL MODEL SAYISAL PAKETİ DOĞRULANMADI. '
                              'Özet, periyotlar ve aralıklar aynı kayıtla doğrulanmadan '
-                             'güncel skor yayımlanmıyor.\n'+panels['period'])
+                             'güncel skor yayımlanmıyor.\n'+panels['period']+'\n\n'+
+                             two_clock_text(context,SimpleNamespace(latest=lambda _:None),
+                                            now=int(time.time())))
             prefix=html.escape(content)+'\n\n'
             result=dict(response);parts=list(response.get('html_parts') or [response['html']])
             if entry and context.get('league')=='NBA':
