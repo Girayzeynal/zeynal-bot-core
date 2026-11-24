@@ -66,8 +66,12 @@ class AssessmentTests(TestCase):
 
     def test_live_market_context_uses_same_index_as_display_not_full_scan(self):
         self.capture()
+        from hybrid_engine.current_market_lookup import IndexedMarketReader
+        reader=IndexedMarketReader(self.assess)
+        self.assertIs(reader.registry,self.assess.registry)
+        self.assertEqual(reader.root,self.assess.root)
         with patch.object(self.assess.registry,'records',side_effect=AssertionError('FULL_SCAN_FORBIDDEN')):
-            snap,dist=self.assess.available_market_context(self.original)
+            snap,dist=reader.available_market_context(self.original)
         self.assertEqual(snap['linked_original_snapshot_sha256'],digest(self.original))
         self.assertEqual(dist.paths.shape,(10000,4,2))
 

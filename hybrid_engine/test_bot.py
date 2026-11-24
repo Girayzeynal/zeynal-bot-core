@@ -547,8 +547,13 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             current_assessment=str(assessment_protocol))
         app.bot_data['current_assessments']=assessments
         app.bot_data['research_cycle']=ResearchCycle(app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'),assessments)
+        # A presentation-only reader shares the already registered protocol.
+        # Do not edit/hash-bump the scientific current_assessment module for
+        # an indexed price read; that would create an empty new namespace.
+        from hybrid_engine.current_market_lookup import IndexedMarketReader
+        market_reader=IndexedMarketReader(assessments)
         for bridge in (provider_bridge,getattr(app.bot_data.get('europe_data_review'),'bridge',None)):
-            if bridge is not None:bridge.assessments=assessments
+            if bridge is not None:bridge.assessments=market_reader
         from hybrid_engine.current_assessment_ui import install_dual_clock_display
         install_dual_clock_display(app.bot_data,assessments)
     async def journal_write(key,event):
