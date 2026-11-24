@@ -344,6 +344,8 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
             out=await state['verified_analysis_service'].analyze('NBA','day','Home','Away')
         self.assertIn('CURRENT_READ_TIMEOUT',out['html'])
         self.assertIn('GÜNCEL TAHMİN DOĞRULANAMADI',out['html'])
+        self.assertIn('İLK TAHMİN — SADECE ARŞİV',out['html'])
+        self.assertIn('İlk skor: 105.00 – 115.00',out['html'])
         self.assertNotIn('GÜNCEL AYRI ARAŞTIRMA SKORU',out['html'])
         self.assertIn('FIRST V1 220',out['html'])
         a.latest.assert_not_called()
@@ -386,6 +388,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
                     timeout=.7)
             self.assertIn('CURRENT_READ_TIMEOUT',result['html'])
             self.assertIn('GÜNCEL TAHMİN BEKLENİYOR',result['html'])
+            self.assertIn('İLK TAHMİN — SADECE ARŞİV',result['html'])
             self.assertNotIn('GÜNCEL NBA TAHMİNİ',result['html'])
             entry=state['premium_reports'][token]
             self.assertIn('V1 FIRST Q',entry['sections']['archive'])
