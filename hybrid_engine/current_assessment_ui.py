@@ -352,6 +352,7 @@ def install_dual_clock_display(state,assessments):
             # cycle publishes its own verified candidates independently.
             # A failed/missing read is a visible blocker, never a fallback V1
             # score represented as current.
+            from types import SimpleNamespace
             selected=None
             update_issue=None
             try:
@@ -363,7 +364,6 @@ def install_dual_clock_display(state,assessments):
                 selected=await asyncio.wait_for(
                     asyncio.to_thread(lookup,context),
                     timeout=CURRENT_READ_DEADLINE_SECONDS)
-                from types import SimpleNamespace
                 content=two_clock_text(context,SimpleNamespace(latest=lambda _:selected),
                                        now=int(time.time()))
             # Before Python 3.11 asyncio.TimeoutError is NOT the built-in
