@@ -1,7 +1,8 @@
 """Current official European identity evidence for native provider names.
 
 No fuzzy match, guessed club membership, changed event clock or forecast edit.
-The one legal-name exception is explicit, season-scoped Beşiktaş J.K./BJK.
+Legal-name exception: season-scoped Beşiktaş J.K./BJK.
+Historic sponsor-name exception: exact KK Partizan NIS for official PAR in E2026 only.
 """
 from functools import lru_cache
 import json
@@ -50,8 +51,47 @@ def resolve_provider_name(value,snapshot,registry,now):
     try:return registry.resolve(snapshot['league'],snapshot['season'],value,asof_utc=now)
     except IdentityRefusal as exc:
         if str(exc)!='TEAM_ALIAS_NOT_REGISTERED':raise
+    # Historical club sponsor naming observed in an actual Odds API event.
+    # Public club/ABA evidence:
+    # https://partizan.basketball/vesti/aktuelno/3286?lang=en
+    # https://www.aba-liga.com/team/22/20/1/0/partizan-nis/
+    # This is NOT a fuzzy/sponsor-prefix rule: only one literal historic name,
+    # 2026/27 EuroLeague and the current official PAR identity are eligible.
+    if normalize_name(value)=='kkpartizannis' and snapshot['league']=='EUROLEAGUE' and snapshot['season']=='2026/2027':
+        targets=[side for side in ('home','away') if
+                 str(snapshot[side]['provider_id'])=='PAR' and
+                 normalize_name(snapshot[side]['official_name'])=='partizanmozzartbetbelgrade']
+        if len(targets)!=1:raise IdentityRefusal('HISTORIC_PARTIZAN_TARGET_NOT_VERIFIED')
+        team=registry.resolve(snapshot['league'],snapshot['season'],
+                              snapshot[targets[0]]['official_name'],asof_utc=now)
+        if team.provider_ids!=(('EUROLEAGUE_LIVE','PAR'),):
+            raise IdentityRefusal('HISTORIC_PARTIZAN_OFFICIAL_ID_CONFLICT')
+        return team
     # A narrowly documented legal-name form, not arbitrary suffix stripping.
-    stem=re.sub(r'\s+J\.?\s*K\.?$','',value,flags=re.I)
+    stem=re.sub(r'\s+J\.?\s*K\.?
+    if stem==value or normalize_name(stem)!='besiktas':raise IdentityRefusal('TEAM_ALIAS_NOT_REGISTERED')
+    team=registry.resolve(snapshot['league'],snapshot['season'],stem,asof_utc=now)
+    if (team.provider_ids!=(('EUROLEAGUE_LIVE','BES'),) or
+        not any(normalize_name(a[0])=='bjk' for a in team.aliases)):
+        raise IdentityRefusal('EUROPE_LEGAL_ALIAS_SOURCE_NOT_CONFIRMED')
+    return team
+
+
+def side_for(value,snapshot):
+    registry,catalog,now=official_registry(snapshot)
+    team=resolve_provider_name(value,snapshot,registry,now)
+    sides=[side for side in ('home','away') if team.provider_ids[0][1]==str(snapshot[side]['provider_id'])]
+    return sides[0] if len(sides)==1 else None
+
+
+def binding_evidence(snapshot):
+    _,catalog,_=official_registry(snapshot)
+    return dict(rule=RULE,catalog_sha256=snapshot['european_team_catalog']['sha256'],
+                participant_snapshot_sha256=catalog['sha256'],league=snapshot['league'],season=snapshot['season'],
+                home_team_id=snapshot['home']['provider_id'],away_team_id=snapshot['away']['provider_id'],
+                identity_scope='CURRENT_SOURCE_ASSOCIATION_NOT_ORIGINAL_FORECAST_INPUT',
+                legal_alias_policy='BESIKTAS_JK_ONLY_WITH_OFFICIAL_BES_AND_BJK',fuzzy_matching=False)
+,'',value,flags=re.I)
     if stem==value or normalize_name(stem)!='besiktas':raise IdentityRefusal('TEAM_ALIAS_NOT_REGISTERED')
     team=registry.resolve(snapshot['league'],snapshot['season'],stem,asof_utc=now)
     if (team.provider_ids!=(('EUROLEAGUE_LIVE','BES'),) or
