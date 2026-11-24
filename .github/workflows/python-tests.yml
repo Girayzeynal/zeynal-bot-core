@@ -17,6 +17,7 @@ on:
       - "integration/nba-v3-calibration-20261124"
       - "feat/first-forecast-paired-diagnostics-20261124"
       - "feat/first-forecast-period-errors-20261124"
+      - "integration/nba-three-axis-release-candidate-20261124"
   pull_request:
     branches:
       - main
@@ -31,6 +32,7 @@ on:
       - "feature/model-data-pipeline-audit-20261118"
       - "feature/issue90-chronological-engine-audit-20261118"
       - "feature/three-league-roster-integration-20261121"
+      - "feat/first-forecast-period-errors-20261124"
 
 jobs:
   unit-tests:
