@@ -276,3 +276,33 @@ class PaginationAndCacheTests(unittest.TestCase):
         with self.assertRaises(ValueError):cache_report({},'one',e,max_bytes=30)
 
 if __name__=='__main__':unittest.main()
+
+class LeagueDurationPresentationTests(unittest.TestCase):
+    def setUp(self):
+        self.h=synthetic.CurrentReviewTests('runTest');self.h.setUp();self.addCleanup(self.h.doCleanups)
+        self.view=self.h.review()
+    def make(self,view):
+        return cards(view,self.h.dist.forecast,tipoff_utc=self.h.snap['fixture_start_utc'],fixture_id=self.h.snap['fixture_id'])
+    def test_league_duration_comes_from_market_fixture_not_nba_default(self):
+        for league,minutes in [('NBA',48),('EUROLEAGUE',40),('EUROCUP',40)]:
+            view=deepcopy(self.view)
+            view['fixture']=dict(view.get('fixture',{}),league=league)
+            card=self.make(view)[0]
+            self.assertEqual(card['regulation_minutes'],minutes)
+            self.assertIn(f'NORMAL SÜRE ({minutes} dk)',render(card))
+            self.assertNotIn(f'NORMAL SÜRE ({40 if minutes==48 else 48} dk)',render(card))
+            self.assertEqual(card['probabilities'],self.view['rows'][0]['conditional_regulation_probabilities'])
+
+class EuropeanExpiryLabelTests(unittest.TestCase):
+    def test_expired_european_headers_and_direction_are_archival_without_mutating_cache(self):
+        body=('GÜNCEL AVRUPA TEMPO/VERİMLİLİK ADAYI | PİYASA KARŞILAŞTIRMASI\n'
+              '🎯 <b>MODEL YÖNÜ: ALT 173,5</b>\nGÜNCEL PİYASA DEĞERLENDİRMESİ')
+        entry=dict(summary='summary',sections=dict(market=body),section_pages=dict(market=[body]),
+                   quote_valid_until_utc=120,tipoff_utc=1000)
+        fresh,_=page_view(entry,'market',0,now=119)
+        stale,_=page_view(entry,'market',0,now=120)
+        self.assertEqual(fresh,body)
+        self.assertIn('ARŞİV AVRUPA TEMPO/VERİMLİLİK ADAYI',stale)
+        self.assertIn('ARŞİV PİYASA DEĞERLENDİRMESİ',stale)
+        self.assertIn('ARŞİV MODEL YÖNÜ',stale)
+        self.assertEqual(entry['sections']['market'],body)

@@ -107,6 +107,9 @@ def page_view(entry,section,page,*,now):
                           'ARŞİV ARAŞTIRMA ADAYI | ÖNCEKİ FİYAT GÖZLEMİ')
         text=text.replace('V3 ARAŞTIRMA ADAYI | ZAMAN DAMGALI FİYAT GÖZLEMİ',
                           'ARŞİV V3 PİYASA GÖZLEMİ | ÖNCEKİ FİYATLAR')
+        text=text.replace('GÜNCEL AVRUPA TEMPO/VERİMLİLİK ADAYI | PİYASA KARŞILAŞTIRMASI',
+                          'ARŞİV AVRUPA TEMPO/VERİMLİLİK ADAYI | ÖNCEKİ FİYATLAR')
+        text=text.replace('GÜNCEL PİYASA DEĞERLENDİRMESİ','ARŞİV PİYASA DEĞERLENDİRMESİ')
         text=text.replace('🎯 <b>MODEL YÖNÜ:', '🎯 <b>ARŞİV MODEL YÖNÜ:')
     if entry.get('restored_archive_session') is True:
         text=('🗃 <b>YENİDEN BAŞLATMADAN KORUNMUŞ RAPOR — ARŞİV</b>\n'
