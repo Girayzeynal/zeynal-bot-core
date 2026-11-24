@@ -26,6 +26,7 @@ def verified_ledger(n=10,*,future_label_at=None):
             model_version="ELITE_HYBRID_NBA_BAYES_QMC_RESEARCH_V1",
             model_digest="d"*64,snapshot_sha256=("%064x"%(i+1)),
             prediction=[110.,110.],actual=actual,
+            predicted_quarters=[[28.6,26.4],[27.5,28.6],[28.6,26.4],[25.3,28.6]],
             actual_periods=dict(home=[25,25,25,25],away=[28,27,28,27]),
             home="Home A",away="Away B",
             created_utc=generated+5,first_archived_at_utc=generated+8,
@@ -88,9 +89,9 @@ class NBATriAxisResearchTests(TestCase):
         target=ledger["forecasts"][-1]["snapshot_sha256"]
         original=periods_for_scores(scores,weights)
         candidate,meta=stochastic_quarters_from_frozen_scores(
-            scores,weights,ledger,target_sha256=target,seed=901)
+            scores,ledger,target_sha256=target,seed=901)
         again,_=stochastic_quarters_from_frozen_scores(
-            scores,weights,ledger,target_sha256=target,seed=901)
+            scores,ledger,target_sha256=target,seed=901)
         self.assertTrue(np.array_equal(candidate,again))
         self.assertTrue(np.array_equal(candidate.sum(axis=1),scores))
         self.assertTrue(np.array_equal(original.sum(axis=1),scores))
@@ -107,6 +108,11 @@ class NBATriAxisResearchTests(TestCase):
         self.assertLess(corr1,corr0-.15)
         self.assertFalse(meta["uncertainty_calibrated"])
         self.assertFalse(meta["production_enabled"])
+        tainted=deepcopy(ledger)
+        tainted['forecasts'][-1]['predicted_quarters'][0][0]+=2
+        with self.assertRaisesRegex(ValueError,'ORIGINAL_SNAPSHOT_MEANS'):
+            stochastic_quarters_from_frozen_scores(scores,tainted,
+                target_sha256=target)
 
     def test_insufficient_or_future_quarter_evidence_abstains(self):
         from hybrid_engine.data import Abstain
@@ -114,20 +120,20 @@ class NBATriAxisResearchTests(TestCase):
         weights=np.ones((4,2))
         ledger,_=verified_ledger(10)
         with self.assertRaises(Abstain):
-            stochastic_quarters_from_frozen_scores(scores,weights,ledger,
+            stochastic_quarters_from_frozen_scores(scores,ledger,
                 target_sha256=ledger["forecasts"][4]["snapshot_sha256"])
         with self.assertRaises(ValueError):
-            stochastic_quarters_from_frozen_scores(scores,weights,ledger,
+            stochastic_quarters_from_frozen_scores(scores,ledger,
                 target_sha256=ledger["forecasts"][-1]["snapshot_sha256"],
                 concentration=0)
         ledger["forecasts"][0]["label_available_utc"]=int(time.time())-10
-        _,meta=stochastic_quarters_from_frozen_scores(scores,weights,ledger,
+        _,meta=stochastic_quarters_from_frozen_scores(scores,ledger,
             target_sha256=ledger["forecasts"][-1]["snapshot_sha256"])
         self.assertNotIn("fixture-00",meta["history"]["home"]["native_fixture_ids"])
         ledger["forecasts"][0]["label_available_utc"]=ledger["forecasts"][0]["fixture_start_utc"]+5400
         ledger["forecasts"][0]["first_archived_at_utc"]=ledger["forecasts"][0]["fixture_start_utc"]+1
         with self.assertRaises(ValueError):
-            stochastic_quarters_from_frozen_scores(scores,weights,ledger,
+            stochastic_quarters_from_frozen_scores(scores,ledger,
                 target_sha256=ledger["forecasts"][-1]["snapshot_sha256"])
 
     def test_player_gate_does_not_invent_minutes_or_score_effect(self):
