@@ -236,10 +236,11 @@ def odds_observations(receipt, snapshot, *, discovery=None):
 
 
 class ProviderBridge:
-    def __init__(self, access, directory, *, extended=False, clock=time.time, diagnostic_only=False, rule_book=None,regions='us'):
+    def __init__(self, access, directory, *, extended=False, clock=time.time, diagnostic_only=False, rule_book=None,regions='us',player_props=False):
         self.access = access
         self.root = local_path(directory)
         self.extended = extended
+        self.player_props=bool(player_props)
         self.regions=odds_regions(regions)
         self.diagnostic_only = diagnostic_only
         self.clock = clock
@@ -381,11 +382,31 @@ class ProviderBridge:
             return dict(status='ODDS_DETAIL_REJECTED',operation='ODDS_DETAIL_PARSING',observations=[],
                         error_codes=[code if code in codes else 'NATIVE_ODDS_DETAIL_VALIDATION_FAILED'],
                         event_clock_binding=binding,source_pin=self._save(r),discovery_source_pin=discovery_pin)
+        # Persist the independently useful team prices before optional props.
+        detail_pin=self._save(r)
+        props=dict(status='NOT_REQUESTED',rows=[],model_input=False)
+        if self.player_props:
+            if snapshot['league']!='NBA':
+                props['status']='LEAGUE_PLAYER_PROP_COVERAGE_NOT_ATTESTED'
+            elif self.clock()>=deadline or int(self.clock())>=binding['payload']['prematch_deadline_utc']:
+                props['status']='PLAYER_PROP_DEADLINE_REACHED'
+            else:
+                try:
+                    from hybrid_engine.native_player_props import MARKETS,parse
+                    pr=access.get('THE_ODDS_API',f'/v4/sports/{sport}/events/{event_id}/odds',
+                        dict(regions=regions,markets=','.join(MARKETS),oddsFormat='decimal'),deadline=deadline)
+                    props=dict(status=pr['status'],rows=[],model_input=False,requested_markets=list(MARKETS))
+                    if pr['status']=='DOCUMENT_RECEIVED':
+                        props=parse(events,pr,snapshot)
+                        props['source_pin']=self._save(pr)
+                    if pr.get('quota'):props['quota']=pr['quota']
+                except (ValueError,KeyError,TypeError,OSError,TimeoutError):
+                    props=dict(status='PLAYER_PROP_SOURCE_OR_IDENTITY_REFUSED',rows=[],model_input=False)
         return dict(status='OBSERVED_RULES_AND_CALIBRATION_PENDING' if observations else 'NO_FRESH_SUPPORTED_PRICES',
-                    observations=observations, rejected_markets=rejected, requested_markets=list(markets),
+                    player_props=props,observations=observations, rejected_markets=rejected, requested_markets=list(markets),
                     market_coverage=native_market_coverage(r['document'],markets,observations),
                     requested_regions=list(self.regions),extended_reduced_for_credit_budget=scope_reduced,
-                    quota=r.get('quota', {}), source_pin=self._save(r),
+                    quota=props.get('quota',r.get('quota', {})), source_pin=detail_pin,
                     provider_fixture_id=event_id, event_clock_binding=binding,
                     discovery_source_pin=discovery_pin,forecast_inputs_changed=False)
 
@@ -595,6 +616,11 @@ def render(report):
             lines.append('Sorgulandığı halde dönmeyen türler: '+html.escape(', '.join(coverage['not_returned']) or 'yok'))
             lines.append('Kabul edilen satır sayıları: '+html.escape(', '.join(
                 k+' '+str(v) for k,v in sorted(coverage['admitted_quote_counts'].items())) or 'yok'))
+        props=row.get('player_props')
+        if props and props['status']!='NOT_REQUESTED':
+            from hybrid_engine.native_player_props import render as render_props
+            lines.append(render_props(props))
+        elif coverage:
             lines.append('Oyuncu performans baremleri bu adaptörde sorgulanmadı.')
         if row.get('quota'):
             lines.append('Kota (sağlayıcı yanıtı): '+html.escape(str(row['quota'])))

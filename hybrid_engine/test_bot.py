@@ -1162,7 +1162,8 @@ def main():
         from hybrid_engine.provider_bridge import ProviderBridge
         provider_bridge=ProviderBridge(data_access,root/'provider-evidence',
             extended=os.getenv('ZEYNAL_TEST_ODDS_EXTENDED','0')=='1',
-            regions=os.getenv('ZEYNAL_TEST_ODDS_REGIONS','us'))
+            regions=os.getenv('ZEYNAL_TEST_ODDS_REGIONS','us'),
+            player_props=os.getenv('ZEYNAL_TEST_ODDS_PLAYER_PROPS','0')=='1')
     _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport,nba_service=nba_service,
         decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only,forward_el=forward_el,provider_bridge=provider_bridge,
         europe_directory=None if args.replay_only else local_path(args.europe_directory) if args.europe_directory else root/'europe')
