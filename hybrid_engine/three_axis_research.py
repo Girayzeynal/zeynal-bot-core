@@ -219,24 +219,38 @@ def stochastic_quarters_from_frozen_scores(
         source_history_cutoff_verified=True,production_enabled=False)
 
 
-def player_input_gate(wrapped,*,asof_utc,fixture):
-    """A genuine archived preforecast minutes package is a prerequisite.
+def player_input_gate(publication,*,asof_utc,fixture,archive_directory=None):
+    """Require archived prospective minutes AND replayable native source witnesses.
 
-    This checks the proof, not minutes accuracy or effect coefficients.
-    Never equates a player missing from reports with AVAILABLE.
+    A standalone self-hashed projected minutes dict is NOT sufficient: its
+    hash establishes consistency, not authority. Old injury observations are
+    never silently treated as confirmed player availability.
     """
-    if wrapped is None:
+    if publication is None:
         return dict(status="BLOCKED_NO_VERIFIED_PREMATCH_MINUTES",
             player_effect_applied=False,production_enabled=False)
-    if not isinstance(wrapped,dict) or not isinstance(fixture,dict):
-        raise ValueError("PLAYER_PROOF_AND_NATIVE_FIXTURE_REQUIRED")
-    p=validate_minutes(wrapped,asof_utc=asof_utc,fixture=fixture)
-    if p["generated_at_utc"]>asof_utc or p["source_available_max_utc"]>p["generated_at_utc"]:
+    if (not isinstance(publication,dict) or not isinstance(fixture,dict) or
+            not isinstance(publication.get("projection"),dict) or
+            type(publication.get("first_archived_at_utc")) is not int):
+        raise ValueError("PLAYER_ARCHIVED_PUBLICATION_AND_FIXTURE_REQUIRED")
+    if archive_directory is None:
+        return dict(status="BLOCKED_NO_REPLAYABLE_NATIVE_PLAYER_WITNESS",
+            player_effect_applied=False,production_enabled=False)
+    if (publication.get("classification")!="PREMATCH" or
+            publication.get("eligible_for_fit") is not True or
+            not 0<publication["first_archived_at_utc"]<=asof_utc<
+                fixture["fixture_start_utc"]):
+        raise ValueError("PLAYER_ARCHIVED_PREMATCH_CLOCK_OR_CLASSIFICATION")
+    p=validate_minutes(publication["projection"],asof_utc=asof_utc,fixture=fixture)
+    from hybrid_engine.player_inputs import validate_witness
+    replay=validate_witness(publication,archive_directory)
+    if replay!=p:
+        raise ValueError("PLAYER_NATIVE_SOURCE_WITNESS_REPLAY_MISMATCH")
+    if (p["generated_at_utc"]>publication["first_archived_at_utc"] or
+            p["source_available_max_utc"]>p["generated_at_utc"]):
         raise ValueError("PLAYER_SOURCE_AFTER_PREDICTION")
-    if p["fixture_start_utc"]<=asof_utc:
-        raise Abstain("PLAYER_INPUT_AFTER_TIPOFF_NOT_PREMATCH_RESEARCH")
-    return dict(status="EVIDENCE_VALID_NOT_AN_EFFECT_MODEL",
-        minute_input_sha256=wrapped["sha256"],
+    return dict(status="REPLAYED_EVIDENCE_ELIGIBLE_FOR_OFFLINE_PAIRED_TEST_ONLY",
+        minute_input_sha256=publication["projection"]["sha256"],
         lineup_verified=p["lineup_verified"],
         player_effect_applied=False,production_enabled=False,
         confidence_index=None)
