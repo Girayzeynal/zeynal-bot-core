@@ -161,7 +161,7 @@ fi
 case "${1:-}" in
   "")
     if [[ "$#" -ne 0 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
-  --player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup|--challenger-review|--challenger-summary|--challenger-plan|--challenger-capture|--challenger-results|--prepare-europe)
+  --staging|--player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup|--challenger-review|--challenger-summary|--challenger-plan|--challenger-capture|--challenger-results|--prepare-europe)
     if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
   --europe-data-check)
     if [[ "$#" -ne 3 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
@@ -270,10 +270,15 @@ export ZEYNAL_RELEASE_SHA="$(git rev-parse --verify HEAD)"
 # Bounded public-source index probes, each behind robots.txt; override with 0.
 export ZEYNAL_PUBLIC_EURO_NEWS_ENABLED="${ZEYNAL_PUBLIC_EURO_NEWS_ENABLED:-1}"
 export PYTHONPATH="$PWD"
-exec "${test_python}" -m hybrid_engine.test_bot \
+candidate_args=(
   --archive-directory "${HOME}/zeynal-test-isolated/archive" \
   --data-directory "${HOME}/zeynal-test-isolated/data" \
   --nba-model "${model}" \
   --nba-model-sha ae4e578f441770883247e648314c1a7a29c86caa76ab4aa6af006fda4b10254e \
   --europe-directory "${HOME}/zeynal-test-isolated/data/europe" \
   --result-poll-seconds 300
+)
+if [[ "${1:-}" == "--staging" ]]; then
+  exec "${test_python}" -B main.py --staging "${candidate_args[@]}"
+fi
+exec "${test_python}" -m hybrid_engine.test_bot "${candidate_args[@]}"

@@ -28,7 +28,8 @@ SAFE_FAILURE_CODES=frozenset(('TEST_BOT_SERVER_IDENTITY_MISMATCH','TEST_BOT_HAS_
     'DEDICATED_TEST_BOT_IDENTITY_REQUIRED','EXPLICIT_TEST_IDENTITY_REQUIRED','ISOLATED_DIRECTORIES_REQUIRED',
     'REPLAY_ONLY_FORBIDS_LIVE_MODELS_AND_RESULT_COLLECTION','BOUNDED_RESULT_POLL_INTERVAL_REQUIRED',
     'NBA_REPLAY_PACKET_REQUIRED_OR_TOO_LARGE','NBA_REPLAY_PACKET_SHA256','NBA_REPLAY_CAPTURE_PIN_OR_COUNT',
-    'NBA_REPLAY_NATIVE_FIXTURE_IDENTITY'))
+    'STAGING_REQUIRES_DEDICATED_BOT_AND_PINNED_NBA_MODEL','EXPLICIT_NBA_MODEL_AND_TRUSTED_PIN_REQUIRED',
+    'ISOLATED_LOCAL_RESEARCH_PATH_REQUIRED','PREPARED_ARTIFACT_TRUSTED_PIN','NBA_REPLAY_NATIVE_FIXTURE_IDENTITY'))
 
 
 def failure_report(exc):
@@ -1074,7 +1075,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
     return journal,results
 
 
-def main():
+def candidate_args(argv=None):
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--preflight',action='store_true')
     parser.add_argument('--archive-directory');parser.add_argument('--data-directory');parser.add_argument('--result-poll-seconds',type=int,default=300)
     parser.add_argument('--nba-model');parser.add_argument('--nba-model-sha')
@@ -1082,7 +1083,14 @@ def main():
     parser.add_argument('--forward-euroleague-directory');parser.add_argument('--forward-nba-ledger')
     parser.add_argument('--europe-directory',help='Isolated EuroLeague/EuroCup registries and offline model directory')
     parser.add_argument('--nba-replay-packet');parser.add_argument('--replay-only',action='store_true')
-    args=parser.parse_args();config=configuration(os.environ)
+    return parser.parse_args(argv)
+
+
+def build_candidate_application(args, build_app, *, staging=False):
+    """Configure a single authorized candidate process for either polling lifecycle."""
+    config=configuration(os.environ)
+    if staging and (config['status']=='NOT_CONFIGURED' or args.preflight or args.replay_only or not args.nba_model):
+        raise ValueError('STAGING_REQUIRES_DEDICATED_BOT_AND_PINNED_NBA_MODEL')
     # Capture dedicated data credentials before blanking the legacy production
     # bootstrap key. Never inject data keys into main.py or its scheduler.
     from hybrid_engine.provider_access import credentials,ProviderAccess
@@ -1108,17 +1116,13 @@ def main():
         from hybrid_engine.decision_integration import read_audit_report
         if not args.decision_layer:raise ValueError('AUDIT_REQUIRES_DECISION_LAYER')
         audit_report=read_audit_report(local_path(args.decision_audit),args.decision_audit_sha)
-    archive=FrozenArchive(args.archive_directory);root=local_path(args.data_directory);root.mkdir(parents=True,exist_ok=True)
-    os.environ['TELEGRAM_BOT_TOKEN']=os.environ['ZEYNAL_TEST_BOT_TOKEN']
+    archive=FrozenArchive(local_path(args.archive_directory));root=local_path(args.data_directory);root.mkdir(parents=True,exist_ok=True)
     os.environ['PREDICTION_LEDGER_DB']=str(root/'unused-live-ledger.sqlite')
     os.environ['API_SPORTS_KEY']='';os.environ['ENABLE_LEGACY_SCHEDULER']='0'
     os.chdir(root)
-    import main as application
-    application.TELEGRAM_BOT_TOKEN=os.environ['ZEYNAL_TEST_BOT_TOKEN']
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');transport=ControlledTransport(fetch_document,reuse_seconds=30)
-    original=application.Application
     tasks=[]
-    from hybrid_engine.isolated_execution import IsolatedExecutor,background_task
+    from hybrid_engine.isolated_execution import background_task
     async def ready(app):
         me=await app.bot.get_me()
         if me.id!=config['bot_id'] or me.username!=config['username']:raise ValueError('TEST_BOT_SERVER_IDENTITY_MISMATCH')
@@ -1161,12 +1165,9 @@ def main():
     async def stop(app):
         for task in tasks:task.cancel()
         await asyncio.gather(*tasks,return_exceptions=True)
-    class IsolatedApplication:
-        @staticmethod
-        def builder():return Application.builder().request(AuditedRequest(journal,expected_identity=config)).post_init(ready).post_shutdown(stop)
-    application.Application=IsolatedApplication
-    try:app=application.build_app()
-    finally:application.Application=original
+    builder=(Application.builder().request(AuditedRequest(journal,expected_identity=config))
+             .post_init(ready).post_shutdown(stop))
+    app=build_app(candidate_builder=builder)
     nba_service=None
     if args.nba_model:
         from hybrid_engine.live_nba import PreparedBayes,LiveNBAHybridService
@@ -1182,6 +1183,17 @@ def main():
         decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only,forward_el=forward_el,provider_bridge=provider_bridge,
         europe_directory=None if args.replay_only else local_path(args.europe_directory) if args.europe_directory else root/'europe')
     app.bot_data['test_results']=results
+    app.bot_data['entry_profile']='MAIN_STAGING' if staging else 'ISOLATED_TEST_BOT'
+    return app
+
+
+def main():
+    args=candidate_args()
+    from main import build_app
+    app=build_candidate_application(args,build_app)
+    if app is None:
+        return
+    from hybrid_engine.isolated_execution import IsolatedExecutor
     # Commands must arrive from the authorized HUMAN test chat; bot self-messages
     # are never counted as real command-input E2E evidence.
     loop=asyncio.new_event_loop();asyncio.set_event_loop(loop)

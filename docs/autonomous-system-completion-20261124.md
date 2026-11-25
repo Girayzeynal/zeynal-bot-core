@@ -538,3 +538,32 @@ sayfalanması fazladan boşluk oluşturuyordu.
 - Tam regresyonda eski fiyat kartının “önceki kontrol” bilgisini isteyen
   test, kısaltılmış uyarıda bu bilginin eksildiğini gösterdi. Bilgi kart
   metnine geri eklendi. İlgili iki arşiv uyarısı testi geçti.
+
+## 25 Kasım · Ana giriş noktasından izole cihaz kabulü
+
+Üretim imajı `python -u main.py` ile açılır. Test botu Avrupa servislerini
+ve Telegram düğmelerini kendi başlatıcısında kuruyordu. Önceki cihaz
+çıktıları bu servislerin ana giriş noktasında da kurulduğunu göstermiyordu.
+
+- [x] `main.py --staging` aynı aday servislerini ve PTB düğmelerini kurar.
+  Telegram test hesabının kimliği ve webhook durumu arka plan işleri ve
+  polling öncesinde kontrol edilir. UserLAnd başlatıcısı iki modda da aynı
+  süreç kilidini, model SHA’sını ve izole arşiv yollarını kullanır.
+  Staging sağlık uçları yalnız cihazın loopback adresinde dinler.
+- [x] `tests/test_main_staging.py` yerel Bot API üzerinden polling açar.
+  NBA, EuroLeague ve EuroCup arşiv maçlarına komut gönderir. İkinci
+  açılışta önceki EuroCup kartının Periyotlar düğmesini kullanır ve
+  Avrupa paketindeki JSON dosyalarının SHA değerlerini karşılaştırır.
+  Bu testte zamanlanmış veri toplama işleri bekletilir.
+- [ ] Gerçek Telegram ve UserLAnd kabulü. Çalışan izole botu kendi
+  terminalinde Ctrl+C ile durdurup entegrasyon kopyasında
+  `bash scripts/run_isolated_test_bot.sh --staging` çalıştır.
+  Telegram’da `/test runtime` ile `MAIN_STAGING` ve beklenen commit’i
+  kontrol et. NBA, EuroLeague ve EuroCup menülerinden birer fikstür seç.
+  Analiz, periyot, piyasa, kadro, karşılaştırma ve sonuç yanıtlarını maç
+  kimliğiyle kaydet. Aynı komutla bir kez yeniden başlatıp eski kartı aç.
+- [ ] Bu sürüm için canlı fiyatın sağlayıcı/maç/ödeme sözleşmesiyle eşleşmesi,
+  oyuncu katkısının hangi aday skora uygulandığı ve ileri performans ayrı
+  kabul maddeleridir. Staging kaydı üretim dağıtım onayı vermez.
+
+GitHub Actions çalıştırmaları ve test sonuçları [PR #162](https://github.com/Girayzeynal/zeynal-bot-core/pull/162) üzerinde ilgili commit’e bağlıdır.

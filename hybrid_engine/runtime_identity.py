@@ -65,6 +65,7 @@ def describe(state):
         path=Path(folder).absolute()
         location='DATA_VOLUME_PATH' if path==Path('/data') or Path('/data') in path.parents else 'APPLICATION_FILESYSTEM_PATH'
     return dict(format='READ_ONLY_ANALYSIS_RUNTIME_IDENTITY_V1',reported_release_sha=_pin(os.getenv('ZEYNAL_RELEASE_SHA'),40),
+        entry_profile=state.get('entry_profile'),
         service_chain=chain,last_analysis=state.get('last_analysis_identity',{}),
         last_analysis_failure=state.get('last_analysis_failure',{}),
         identity_status='REPORT_OBSERVED' if state.get('last_analysis_identity') else 'SERVICE_LOADED_ANALYSIS_NOT_OBSERVED',
