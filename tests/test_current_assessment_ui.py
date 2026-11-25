@@ -233,9 +233,9 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         install_dual_clock_display(state,a)
         with patch("hybrid_engine.current_assessment_ui.time.time",return_value=NOW):
             out=await state["verified_analysis_service"].analyze("NBA","date","home","away")
-        self.assertIn("GÜNCEL NBA TAHMİNİ",out["html"])
-        self.assertIn("KAYITLI V3, YENİ HESAP DEĞİL",out["html"])
-        self.assertIn("Toplam 218.00",out["html"])
+        self.assertIn("<b>Home – Away</b>",out["html"])
+        self.assertIn("Kayıtlı V3 · ",out["html"])
+        self.assertIn("Beklenen toplam  218,0",out["html"])
         self.assertNotIn("INITIAL V1 220",out["html"])
         self.assertIn("INITIAL V1 220",state["premium_reports"][token]["sections"]["archive"])
         self.assertNotIn("INITIAL V1 220",state["premium_reports"][token]["sections"]["audit"])
@@ -280,9 +280,9 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
                 out=await asyncio.wait_for(
                     state['verified_analysis_service'].analyze('NBA','day','Home','Away'),
                     timeout=1.5)
-            self.assertIn('GÜNCEL NBA TAHMİNİ',out['html'])
-            self.assertIn('Toplam 218.00',out['html'])
-            self.assertIn('P50 218.0',state['premium_reports'][token]['sections']['ranges'])
+            self.assertIn('Kayıtlı V3 · ',out['html'])
+            self.assertIn('Beklenen toplam  218,0',out['html'])
+            self.assertIn('Medyan 218',state['premium_reports'][token]['sections']['ranges'])
             assessments.latest.assert_called_once_with(ctx)
         finally:
             release.set()
@@ -310,7 +310,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
             out=await state['verified_analysis_service'].analyze('NBA','date','Home','Away')
         self.assertIn('GÜNCEL TAHMİN BEKLENİYOR',out['html'])
         self.assertIn('CURRENT_RESEARCH_BACKGROUND_PENDING',out['html'])
-        self.assertNotIn('GÜNCEL NBA TAHMİNİ',out['html'])
+        self.assertNotIn('Beklenen toplam  ',out['html'])
         self.assertIn('ORIGINAL',state['premium_reports'][token]['sections']['archive'])
         self.assertIn('İLK KAYITLI V1 REFERANSI — V3 DEĞİL',out['html'])
         a.refresh_fixture.assert_not_called()
@@ -387,7 +387,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
                     timeout=.7)
             self.assertIn('CURRENT_READ_TIMEOUT',result['html'])
             self.assertIn('GÜNCEL TAHMİN BEKLENİYOR',result['html'])
-            self.assertNotIn('GÜNCEL NBA TAHMİNİ',result['html'])
+            self.assertNotIn('Beklenen toplam  ',result['html'])
             entry=state['premium_reports'][token]
             self.assertIn('V1 FIRST Q',entry['sections']['archive'])
             self.assertIn('V1 BANDS',entry['sections']['archive'])
@@ -424,7 +424,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         a.refresh_fixture.assert_not_called()
         a.latest.assert_called_once_with(ctx)
         self.assertIn('CURRENT_RESEARCH_BACKGROUND_PENDING',out['html'])
-        self.assertNotIn('GÜNCEL NBA TAHMİNİ',out['html'])
+        self.assertNotIn('Beklenen toplam  ',out['html'])
         entry=state['premium_reports'][token]
         self.assertIn('CURRENT_ASSESSMENT_NOT_PUBLISHED',entry['sections']['period'])
         self.assertIn('İLK V1 REFERANSI — GÜNCEL V3 DEĞİL',entry['sections']['ranges'])
@@ -486,6 +486,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         from core.team_identity import digest
         from telegram import InlineKeyboardButton,InlineKeyboardMarkup
         context,current=CurrentPanelsTests().setup_case()
+        current['source_available_max_utc']=NOW-70
         context.update(league='NBA',fixture_id='x',season='2026/2027',
             home=dict(provider_id='1',official_name='Home'),
             away=dict(provider_id='2',official_name='Away'),
@@ -496,7 +497,8 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
             period='FULL',market='TOTAL',line=219.5,mean=218.,
             model_digest='bound-research-model',prediction_utc=current['prediction_generated_at_utc'],
             available_at_utc=NOW-30,asof_utc=NOW-20,valid_until_utc=NOW+60,
-            prices=dict(over=1.91,under=1.91))
+            prices=dict(over=1.91,under=1.91),bookmaker=dict(name='Test Book'),
+            side='under',probability=.54)
         market_snapshot=dict(current_assessment_sha256=digest(current),
             linked_original_snapshot_sha256=digest(context),
             fixture_id='x',fixture_start_utc=context['fixture_start_utc'],
@@ -518,6 +520,16 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
                 patch('hybrid_engine.market_direction_ui.order',side_effect=lambda values:values):
             await state['verified_analysis_service'].analyze('NBA','day','Home','Away')
         market=state['premium_reports'][token]['sections']['market']
+        from hybrid_engine.telegram_premium_ui import page_view
+        fresh, _ = page_view(entry,'summary',0,now=NOW)
+        expired, _ = page_view(entry,'summary',0,now=NOW+60)
+        self.assertIn('Piyasa gözlemi</b> · Test Book',fresh)
+        self.assertIn('Barem 219,5',fresh)
+        self.assertIn('Ham %54,0',fresh)
+        self.assertIn('Ödeme kapsamı doğrulanmadı',fresh)
+        self.assertLess(expired.index('Beklenen toplam'),expired.index('Arşiv fiyatı'))
+        self.assertNotIn('Piyasa gözlemi',expired)
+        self.assertLess(len(fresh),600)
         self.assertIn('VERIFIED 219.5',market)
         self.assertIn('ZAMAN DAMGALI FİYAT GÖZLEMİ',market)
         self.assertIn('Ham NORMAL SÜRE simülasyonu',market)
@@ -555,11 +567,19 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
             result=await state['verified_analysis_service'].analyze('NBA','day','Home','Away')
         entry=state['premium_reports'][token]
-        self.assertIn('Toplam 218.00',result['html'])
-        self.assertIn('Toplam 218.00',entry['summary'])
-        self.assertIn('<b>1Q</b> 27.00 – 28.00',entry['sections']['period'])
-        self.assertIn('P50 218.0',entry['sections']['ranges'])
-        self.assertIn('bu komutta yeni hesap yok',entry['sections']['period'])
+        self.assertIn('Beklenen toplam  218,0',result['html'])
+        self.assertIn('Beklenen toplam  218,0',entry['summary'])
+        self.assertIn('1. çeyrek   27,0 – 28,0',entry['sections']['period'])
+        self.assertIn('Medyan 218',entry['sections']['ranges'])
+        self.assertIn('Kayıtlı V3',entry['sections']['period'])
+        pages = entry['section_pages']['ranges']
+        self.assertEqual(len(pages),3)
+        self.assertIn('Maç ve takımlar',pages[0])
+        self.assertIn('Çeyrekler',pages[1])
+        self.assertIn('Yarılar',pages[2])
+        self.assertTrue(all(len(page)<640 for page in pages))
+        self.assertEqual(entry['section_pages']['period'],[entry['sections']['period']])
+        self.assertTrue(result['compact_candidate_summary'])
         self.assertNotIn('ORIGINAL P50 220',entry['sections']['ranges'])
         self.assertIn('ORIGINAL P50 220',entry['sections']['archive'])
         self.assertNotIn('ORIGINAL P50 220',entry['sections']['audit'])
@@ -580,7 +600,7 @@ class DualClockDisplayTests(unittest.IsolatedAsyncioTestCase):
         archived,count=page_view(entry,'archive',1,now=NOW)
         self.assertGreaterEqual(count,4)
         self.assertIn('ORIGINAL 1Q 51',archived)
-        self.assertNotIn('P50 218.0',archived)
+        self.assertNotIn('Medyan 218',archived)
         a.latest.assert_called_once_with(context)
 
 
@@ -593,7 +613,7 @@ class CurrentPanelsTests(unittest.TestCase):
         def band(mid):
             return dict(p50=mid,p25=mid-5,p75=mid+5,p10=mid-10,
                         p90=mid+10,p05=mid-15,p95=mid+15)
-        row=dict(candidate=candidate,prediction_generated_at_utc=NOW-60,
+        row=dict(candidate=candidate,prediction_generated_at_utc=NOW-60,source_available_max_utc=NOW-70,
             parameter_fit_cutoff_utc=NOW-3600,
             intervals=dict(markets=dict(TOTAL=band(218),HOME=band(108),
                 AWAY=band(110),MARGIN=band(-2),**{'1Q':band(55),'2Q':band(54),
@@ -638,9 +658,9 @@ class CurrentPanelsTests(unittest.TestCase):
         context,row=self.setup_case()
         panels=current_panels(context,row,now=NOW)
         self.assertTrue(panels['fresh'])
-        self.assertIn('<b>Maç toplamı:</b> 218.00',panels['period'])
-        self.assertIn('<b>1Q</b> 27.00 – 28.00',panels['period'])
-        self.assertIn('P50 218.0',panels['ranges'])
+        self.assertIn('<b>Maç toplamı  218,0',panels['period'])
+        self.assertIn('1. çeyrek   27,0 – 28,0',panels['period'])
+        self.assertIn('Medyan 218',panels['ranges'])
         self.assertNotIn('220.00',panels['period']+panels['ranges'])
         self.assertEqual(panels['valid_until'],NOW+2640)
 
@@ -680,7 +700,7 @@ class CurrentPanelsTests(unittest.TestCase):
         panels=current_panels(context,broken,now=NOW)
         self.assertFalse(panels['fresh'])
         self.assertIn('CURRENT_PERIOD_PATHS_NOT_VERIFIED',panels['period'])
-        self.assertNotIn('220.',panels['period'])
+        self.assertNotIn('220,0',panels['period'])
         self.assertIn('V1 İlk Tahmin',panels['ranges'])
 
     def test_expired_button_view_is_explicitly_archived(self):
@@ -737,7 +757,7 @@ class EuropeCurrentDisplayTests(unittest.IsolatedAsyncioTestCase):
         with patch('hybrid_engine.current_assessment_ui.time.time',return_value=NOW):
             out=await state['verified_analysis_service'].analyze('EUROLEAGUE','day','h','a')
         self.assertIn('AVRUPA GÜNCEL TEMPO',out['html'])
-        self.assertIn('218.00',entry['sections']['period'])
+        self.assertIn('218,0',entry['sections']['period'])
         self.assertNotIn('OLD Q',entry['sections']['period'])
         self.assertNotIn('OLD RANGE',entry['sections']['ranges'])
         self.assertIn('OLD Q',entry['sections']['archive'])

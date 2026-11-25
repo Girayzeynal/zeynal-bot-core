@@ -93,6 +93,24 @@ class DeliveryTests(IsolatedAsyncioTestCase):
             self.assertEqual(sent['timeline']['snapshot_created_at_utc'],100)
             self.assertEqual(p['created_at_utc'],100)
 
+    async def test_compact_candidate_keeps_first_forecast_clocks_in_journal(self):
+        with TemporaryDirectory() as tmp:
+            journal = DeliveryJournal(Path(tmp)/'delivery.sqlite')
+            send = AsyncMock(return_value=SimpleNamespace(date=datetime.now(timezone.utc),message_id=4))
+            update = SimpleNamespace(update_id=8,effective_chat=SimpleNamespace(id=17),
+                                     message=SimpleNamespace(reply_text=send,text='/analyze NBA'))
+            ctx = SimpleNamespace(application=SimpleNamespace(bot_data={'delivery_journal':journal}))
+            card = 'Beklenen toplam  241,1\nKayıtlı V3'
+            report = dict(html=card, compact_candidate_summary=True,
+                          timeline=dict(prediction_generated_at_utc=100,first_archived_at_utc=101))
+            await reply_analysis(update,ctx,report,SimpleNamespace())
+            self.assertEqual(send.await_args.args[0],card)
+            event = journal.read()[-1]
+            self.assertEqual(event['timeline']['prediction_generated_at_utc'],100)
+            self.assertEqual(event['timeline']['first_archived_at_utc'],101)
+            self.assertEqual(event['message_sha256'],digest(card))
+            self.assertEqual(event['status'],'TELEGRAM_ACCEPTED')
+
     async def test_timeout_does_not_claim_actual_delivery(self):
         with TemporaryDirectory() as tmp:
             journal=DeliveryJournal(Path(tmp)/'d.sqlite')
