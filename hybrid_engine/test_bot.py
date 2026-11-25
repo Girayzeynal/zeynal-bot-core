@@ -592,8 +592,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
-        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime','integrations','engines','predictions','playerimpact'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test integrations, /test predictions, /test all')
+        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','providers','runtime','integrations','engines','predictions','playerimpact'):
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test providers [check], /test runtime, /test integrations, /test predictions, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',
@@ -726,20 +726,24 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             value=json.dumps(describe(app.bot_data),ensure_ascii=False,indent=2)
             for part in split_blocks(value.splitlines(),limit=3200):await message.reply_text(part,parse_mode=None)
             raise ApplicationHandlerStop
+        if mode=='providers' and (len(args)>3 or len(args)==3 and args[2].lower()!='check'):
+            await message.reply_text('Kullanım: /test providers veya /test providers check')
+            raise ApplicationHandlerStop
+        if mode in ('all','data','providers'):
+            from hybrid_engine.provider_health import inspect as inspect_providers,render as render_providers
+            bridge=provider_bridge or getattr(app.bot_data.get('europe_data_review'),'bridge',None)
+            check=mode=='providers' and len(args)==3
+            if check:
+                await message.reply_text('Temel sağlayıcı kontrolü başladı. Mevcut anahtarlarla katalog/hesap durumuna bakılıyor; tahmin değiştirilmiyor.')
+            health=await inspect_providers(bridge,include_storage=mode in ('all','data'),check=check)
+            app.bot_data['last_provider_health']=health
+            lines.extend(render_providers(health))
         if mode in ('all','data'):
             lines.extend(['VERİ / MODEL BAĞLANTISI',
-                'Ana skor: kayıtlı tahmin veya sabit parametreli takım modeli.',
-                'V2/V3 adayları ayrı araştırmadır; otomatik ana model değişimi yok.',
+                'Ana görünüm: güncel aday varsa ayrı skor; yoksa ilk tahmin açıkça arşiv olarak gösterilir.',
+                'V2/V3 adayları ayrı araştırmadır; otomatik model terfisi yok.',
                 'Piyasa ve Kadro düğmeleri mevcut skor hesabını güncellemez.',
                 'Avrupa kadro kaynağı: resmî haber metni; doğrulanmış oyuncu durum akışı değil.'])
-            bridge=provider_bridge or getattr(app.bot_data.get('europe_data_review'),'bridge',None)
-            if bridge is not None:
-                for provider,state in bridge.access.runtime_status().items():
-                    remaining=state['provider_reported_remaining']
-                    lines.append(provider+': yerel istek '+str(state['local_calls_today'])+'/'+str(state['local_daily_limit'])+
-                        ' · sağlayıcının bildirdiği kalan '+('bilinmiyor' if remaining is None else str(remaining)))
-                usage=await asyncio.to_thread(bridge.storage_status)
-                lines.append('Yerel sağlayıcı kanıtı: '+str(usage['files'])+'/'+str(usage['maximum_files'])+' belge · '+usage['status'])
         worker=app.bot_data.get('adaptive_v2_worker')
         if worker and mode in ('all','research'):
             lines.extend(worker.render().splitlines())

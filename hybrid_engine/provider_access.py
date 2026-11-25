@@ -167,12 +167,20 @@ class ProviderAccess:
     def runtime_status(self):
         """Credential-free diagnostics; never probes a provider or raises quota."""
         now=int(self.clock())
-        with self.lock:
+        if not self.lock.acquire(blocking=False):
+            # A native HTTP read owns this lock. Never block Telegram's event
+            # loop behind it or report unknown counters as zero.
+            return {p:dict(configuration=state,snapshot_status='BUSY',local_calls_today=None,
+                local_daily_limit=self.max_calls,local_counter_resets_at_utc=(now//86400+1)*86400,
+                provider_reported_remaining=None,cooldown_until_utc=None)
+                for p,state in self.configuration().items()}
+        try:
             self._refresh_daily_quota(now)
-            return {p:dict(configuration=state,local_calls_today=self.calls.get((p,now//86400),0),
+            return {p:dict(configuration=state,snapshot_status='READY',local_calls_today=self.calls.get((p,now//86400),0),
                 local_daily_limit=self.max_calls,local_counter_resets_at_utc=(now//86400+1)*86400,
                 provider_reported_remaining=self.remaining.get(p),cooldown_until_utc=self.cooldown.get(p))
                 for p,state in self.configuration().items()}
+        finally:self.lock.release()
 
     def get(self, provider, path, params=None, *, ttl=120, deadline=None):
         if provider not in ORIGINS or not path.startswith('/') or '..' in path or '?' in path or '#' in path:

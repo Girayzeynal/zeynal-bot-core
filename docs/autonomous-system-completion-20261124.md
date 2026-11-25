@@ -409,3 +409,66 @@ sayılmaz. Üç lig handler/callback testleri local HTTP/sentetik native yanıt
 Bu teslim sistemin tamamlandığı veya modelin üstün olduğu onayı değildir.
 Erişim gerektirmeyen yeni düzeltmeler kaydedildi; yukarıdaki canlı ve bilimsel
 kanıt eksikleri PR kabulünden ve üretim kararından ayrı tutulur.
+
+## 25 Kasım — cihaz kabulü / yanıtsız sağlayıcı tanılaması
+
+- Kullanıcı UserLAnd'da temiz ayrı clone ile `a9ce6a5` başlattı; Telegram
+  `/test runtime` aynı release SHA'yı bildirdi. `/features` ve `/test research`
+  yanıtları kullanıcı tarafından paylaşıldı. Bu, bütün `/analyze`/callback
+  akışının bağımsız Telegram API/journal doğrulaması sayılmaz.
+- Paylaşılan ekranda 06:37 ve 06:39 `/test data` mesajlarına yanıt görünmüyor.
+  Kaynakta doğrulanmış sözleşme hatası: `ProviderBridge.storage_status()`
+  bölüm başına kapasite döndürürken `/test data` kaldırılmış `maximum_files`
+  anahtarını okuyor. KeyError reply gönderilmeden önce oluşuyor; genel hata
+  handler'ı yalnız journal'a yazdığı için kullanıcıya açıklama ulaşmıyor.
+- İkinci kod bulgusu: `ProviderAccess.runtime_status()` eşzamanlı provider
+  network isteğinin tuttuğu lock'u event loop üzerinde sınırsız bekleyebilir.
+  Telefon ekranı bu ikinci nedenin gerçekleştiğini tek başına kanıtlamıyor.
+- Düzeltme planı: kaldırılmış alanı uydurmadan segment kapasitesini doğru
+  göster; provider lock'u beklemeyen snapshot; bounded opsiyonel disk okuma;
+  yalnız çalışan süreç metadata'sını gösteren `/test providers`. Tanılamada
+  yeni API isteği/ücret, anahtar gösterimi veya geçmiş tahmin yazımı yok.
+- Önce gerçek PTB handler ve lock-contention regresyonu ile yeniden üret;
+  sonra hedefli ve tam Python/Docker kontrolleri. Cihazdaki asıl sağlayıcı
+  yetki/kota/fiyat kapsamı bu düzeltme yapılmadan doğrulanmış sayılmaz.
+
+### 25 Kasım düzeltme ve test kanıtı
+
+- Düzeltme öncesi yeni üç regresyon: **2 failed, 1 passed in 1.77s**.
+  Gerçek PTB `/test data` handler'ı sıfır yanıt verdi; gerçek provider lock'u
+  snapshot'ı 0.20 sn tuttu. Telefon günlüğü alınmadığı için cihazdaki kesin
+  traceback görülmedi; kod hatası ve aynı yanıtsız davranış testte üretildi.
+- `provider_health.py` mevcut çalışan bridge anahtarının **varlık durumunu**
+  gösterir; key değerleri veya environment/private-file içeriği çıkarılmaz.
+  `/test providers` dosya taramaz/API çağırmaz. `/test data`, `/test all` ve
+  `/test` eski `maximum_files` anahtarını varsaymadan segment kapasitesini
+  gösterir. Depo taraması opsiyonel işçi yolunda en fazla 1.5 sn beklenir;
+  hata/zaman aşımında anahtar durumu ve açıklama yine gönderilir.
+- `runtime_status` kilidi beklemez; busy snapshot sayaç/kotayı **None / bilinmiyor**
+  döndürür. Bekleyen API isteği Telegram event loop'unu tutmaz.
+- `/test providers check`, yalnız yetkili sohbetin açık isteğiyle, mevcut
+  paylaşılan erişim bütçesinde sabit `/v4/sports/` ve `/status` uçlarını kontrol
+  eder. Önce ilerleme yanıtı gönderilir; toplam bekleme 7 sn, native çağrı
+  başına en fazla 3 sn ve mevcut kredi/cache/lock sınırları korunur. Süre
+  dolduktan sonra devam eden thread ikinci sağlayıcıya yeni istek başlatmaz.
+  Son sayaçlar tekrar okunur; busy durumda eski sıfır sayaç gösterilmez.
+- Katalog/hesap sonucu fiyat, lig/sezon, Nesine ödeme kuralı veya oyuncu
+  etkisi doğrulaması değildir. Yerel API probe sonucu yalnız enum/HTTP/hata
+  sınıfıdır; native hesap gövdesi, exception metni, URL ve anahtar gönderilmez.
+- Yeni/legacy sağlayıcı, actual PTB handler, ayrı worker ve UI hedefli koşusu:
+  **85 passed in 11.26s**. Son API/roster/journal hedefli koşusu:
+  **25 passed in 10.86s**. Yeni probe testinde farklı fixture gününün native
+  makbuz saati kullanılması önce `PROVIDER_RECEIPT_INVALID` verdi; fixture
+  saatleri eşleştirildi, gelecek-makbuz reddi değiştirilmedi. Timeout testi
+  gerçek 50 ms native-call rezervini koruyarak transport'a girdikten sonra
+  200 ms toplam süre aşımını sınar; guard gevşetilmedi.
+- Yeni regresyonlar: gerçek segment şemasıyla `/test data`/`all`/varsayılan,
+  yetkisiz sohbet, key varlığı/absansı, açık probe ve plan hatası, kota reddi,
+  bozuk/okunamayan/yavaş depo, native timeout sonrası ikinci istek yasağı,
+  sıradaki `/test runtime` yanıtı, zero API/writes ve secret sızıntı kontrolleri.
+- V1 **27**, V2 **13**, V3 **9**, Avrupa **6**, NBA sampler **6** pin dosyası
+  `a9ce6a5` ile byte/hash olarak aynı. `current_assessment.py` ve beş dakika
+  politikası değişmedi; bu düzeltme yeni current namespace/boş sayaç başlatmaz.
+- Tam Python koşusu ve son commit Docker/cgroup kontrolleri sürüyor. Gerçek
+  kullanıcı cihazında yeni `/test data` ve `/test providers check` yanıtı
+  henüz alınmadı; asıl sağlayıcı bağlantısı halen **NOT_VERIFIED**.
