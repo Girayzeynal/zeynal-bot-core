@@ -518,3 +518,23 @@ kanıt eksikleri PR kabulünden ve üretim kararından ayrı tutulur.
   mevcut `vs` komutuyla gerçek Piyasa panelini paylaşması soruldu. Bu gözlem
   tahmin, bahis çizgisi, ödeme sözleşmesi veya ilk yayın kanıtı değildir.
 - Tam Python ve exact-head Docker/cgroup sonuçları PR #162'de izlenir.
+
+## 25 Kasım · Telegram mobil kartları
+
+Philadelphia–Miami için paylaşılan cihaz ekranında kullanıcı skordan önce uzun
+arşiv açıklamasını okuyordu. Periyot görünümünde her satırın ayrı blok olarak
+sayfalanması fazladan boşluk oluşturuyordu.
+
+- NBA özetinde maç, normal süre skoru, toplam ve ortadaki %50 aralık önce
+  gösterilir. Doğrulanmış maç toplamı fiyatı varsa şirket, barem, erişim
+  zamanı ve ham model yönü aynı bölümde yer alır. Fiyat eskidiğinde bu bölüm
+  arşiv olarak etiketlenir. Adayın geçerlilik süresi ayrıca denetlenir.
+- Sayısal düğmeler kaydedilmiş adayın periyotlarını bir sayfada, dağılım
+  aralıklarını üç kısa sayfada sunar. İlk V1 kaydının kendi arşiv düğmesi,
+  eğitim ve kaynak saatlerinin Model / Kaynak görünümü korunur.
+- Kısa V3 yanıtının Telegram teslim kaydındaki ilk üretim ve ilk arşiv
+  zamanları ayrıca sınandı. Sentetik teslim testi ile telefondaki gerçek
+  görünümün kabulü ayrı izlenir.
+- Tam regresyonda eski fiyat kartının “önceki kontrol” bilgisini isteyen
+  test, kısaltılmış uyarıda bu bilginin eksildiğini gösterdi. Bilgi kart
+  metnine geri eklendi. İlgili iki arşiv uyarısı testi geçti.

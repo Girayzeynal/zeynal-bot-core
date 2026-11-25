@@ -145,7 +145,7 @@ def page_view(entry,section,page,*,now):
                     'Piyasa gözlemi eskidi; Piyasa düğmesiyle yeniden kontrol edin.')
                 return text,len(values)
             text=('⛔ <b>ARŞİV PİYASA GÖZLEMİ — GÜNCEL ORAN DEĞİL</b>\n'
-                  'Arşiv görünümü · Fiyat yeniden sorgulanmadı. Yenilemek için /analyze kullanın.\n\n'+text)
+                  'Arşiv görünümü · Ölçüm önceki kontrolden, fiyat yeniden sorgulanmadı. Güncellemek için /analyze kullanın.\n\n'+text)
     return text,len(values)
 
 def period_table(section_html):
