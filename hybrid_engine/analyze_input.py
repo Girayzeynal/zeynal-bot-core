@@ -6,6 +6,7 @@ from telegram.ext import ApplicationHandlerStop
 
 
 USAGE = ('Kullanım: /analyze NBA YYYY-MM-DD Ev Sahibi vs Deplasman\n'
+         'Takımlar arasında vs veya boşluklarla ayrılmış – / — kullanılabilir.\n'
          'Her mesajda yalnız bir /analyze komutu gönderin.\n'
          'Tarih Türkiye takvim günüdür (TSİ). Doğru tarihli komutları '
          '/nba YYYY-MM-DD veya /euroleague YYYY-MM-DD listesinden alabilirsiniz.\n'

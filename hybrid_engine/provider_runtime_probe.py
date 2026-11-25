@@ -42,6 +42,7 @@ def main():
         unittest.defaultTestLoader.loadTestsFromName('tests.test_forecast_error_review'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_market_direction_ui'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_analyze_input_guard'),
+        unittest.defaultTestLoader.loadTestsFromName('tests.test_analyze_fixture_delimiters'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_current_roster'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_nba_official_canonical_redirect'),
         unittest.defaultTestLoader.loadTestsFromName('tests.test_current_roster_telegram'),

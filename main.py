@@ -68,10 +68,17 @@ def parse_analyze(text: str) -> Tuple[str, str, str, str]:
     rest = parts[3:]
 
     lower = [p.lower() for p in rest]
-    if "vs" not in lower:
-        raise ValueError("'vs' bulunamadi")
-
-    i = lower.index("vs")
+    if "vs" in lower:
+        # Preserve the explicit-vs contract, including punctuation inside a
+        # team name. Do not rewrite the date or replace hyphens globally.
+        i = lower.index("vs")
+    else:
+        # Fixture menus display a spaced Unicode dash. Accept that exact
+        # pasted separator; multiple possible boundaries must not be guessed.
+        separators = [j for j,token in enumerate(rest) if token in ("–", "—")]
+        if len(separators) != 1:
+            raise ValueError("Takımlar arasında tek vs, – veya — ayracı zorunludur")
+        i = separators[0]
     # Strip accidental wrapping/pasted quotes, not punctuation inside team names.
     home = " ".join(rest[:i]).strip().strip().strip(chr(34) + chr(39) + "“”‘’").strip()
     away = " ".join(rest[i + 1 :]).strip().strip().strip(chr(34) + chr(39) + "“”‘’").strip()

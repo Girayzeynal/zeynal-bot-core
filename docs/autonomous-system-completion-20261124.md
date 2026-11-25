@@ -472,3 +472,49 @@ kanıt eksikleri PR kabulünden ve üretim kararından ayrı tutulur.
 - Tam Python koşusu ve son commit Docker/cgroup kontrolleri sürüyor. Gerçek
   kullanıcı cihazında yeni `/test data` ve `/test providers check` yanıtı
   henüz alınmadı; asıl sağlayıcı bağlantısı halen **NOT_VERIFIED**.
+
+## 25 Kasım — sağlayıcı yanıtı ve fikstürden kopyalanan uzun tire
+
+- Kullanıcı `a714067` güncellemesini başlattı ve `/test providers check`
+  çıktısını paylaştı: The Odds API `SPORTS_CATALOG_RECEIVED / HTTP 200`,
+  bildirilen kalan 304; API-Basketball `ACCOUNT_STATUS_RECEIVED / HTTP 200`,
+  bildirilen kalan 100. İki bridge anahtarı çalışan süreçte yüklü; yerel istek
+  sayaçları her biri 1/24. Bu **kullanıcı tarafından paylaşılan temel uç nokta
+  kanıtıdır**; tam fiyat/lig/sezon/Nesine/ödeme/oyuncu kapsamı sayılmaz.
+- Sonraki ekran: `/nba` bugünün tamamlanmış/canlı maçlarını gösteriyor.
+  Kullanıcı görüntülenen `Orlando Magic – Detroit Pistons` takım çiftini
+  `/analyze` içine kopyaladı. `main.parse_analyze` yalnız `vs` kabul ettiği
+  için hem 25 hem 26 Kasım komutu biçim hatası aldı. Tarihi elle değiştirmek
+  resmî bir eşleşme oluşturmaz; tarih/kimlik doğrulaması korunmalı.
+- Önce yeniden üretim; düzeltme kapsamı: mevcut explicit `vs` davranışını
+  koruyarak tek bağımsız en/em dash token'ını kabul et, takım adlarının
+  içindeki tireleri değiştirme. NBA listesinde yeni maç öncesi hedef yoksa
+  bir sonraki TSİ gününün **liste komutunu** öner; yeni maç/tahmin üretme.
+  Biten/canlı maç için yalnız varsa kayıtlı karşılaştırmaya yönlendir.
+- Kullanıcı cihazına komut gönderilmedi. Sağlayıcıya anahtarlı yeni istek,
+  ilk tahmin yazımı veya geçmiş tarih değiştirme planlanmadı.
+
+### Uzun tire düzeltmesi / doğrulama
+
+- Düzeltme öncesi: **3 failed, 4 passed in 2.97s**; kullanıcıdaki Unicode
+  komut, gerçek PTB route ve bitmiş maç listesinin sonraki güne yönlendirmesi
+  yeniden üretildi. Düzeltme sonrası parser/guard/menu/Avrupa kimliği:
+  **49 passed in 10.31s**.
+- Explicit `vs` (case-insensitive) aynı davranışta kalır; yoksa tam bir
+  whitespace token'ı olan tek `–` / `—` ayracı kabul edilir. Takım içi ASCII
+  tireler ve ad/tarih metni değiştirilmez. Birden fazla Unicode aday sınırında
+  tahmin yürütülmez. Batch komutlar hâlâ servise ulaşmadan reddedilir.
+- NBA fikstür listesi bitmiş/canlı maçta yalnız `/compare NBA <native_id>`
+  gösterir; kayıt yoksa bu komut yeni tahmin oluşturmaz. Başlamamış maç
+  görünmüyorsa bir sonraki TSİ gününün `/nba YYYY-MM-DD` liste komutu vardır.
+  Sonraki güne yeni maç, takım çifti veya tahmin uydurulmaz; ilave otomatik
+  provider sorgusu yapılmaz. Ay/yıl sınırı bir sonraki takvim günüdür.
+- İki farklı tarihle aynı Unicode takım çiftinin servise **aynı verilen
+  tarihle** tek kez ulaşması ve eski arşivin byte eşitliği sınandı. Bu parser
+  testi, yanlış günün maç kimliğinin native serviste kabul edildiği anlamına
+  gelmez; resmî fixture/time kontrolleri ve beş dakika sınırı değişmedi.
+- Ayrı salt-okunur ESPN scoreboard gözlemi: 26 Kasım 01:00 TSİ Philadelphia
+  76ers–Miami Heat, native `401909317`, `STATUS_SCHEDULED`. Kullanıcıya bu
+  mevcut `vs` komutuyla gerçek Piyasa panelini paylaşması soruldu. Bu gözlem
+  tahmin, bahis çizgisi, ödeme sözleşmesi veya ilk yayın kanıtı değildir.
+- Tam Python ve exact-head Docker/cgroup sonuçları PR #162'de izlenir.
