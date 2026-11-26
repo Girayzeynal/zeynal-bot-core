@@ -63,7 +63,10 @@ if [[ "${1:-}" == "--settle-results" || "${1:-}" == "--results-review" ]]; then
   exec "${test_python}" -B -m scripts.settle_all_leagues --data-directory "${HOME}/zeynal-test-isolated/data" "${result_args[@]}"
 fi
 if [[ "${1:-}" == "--verification-review" ]]; then
-  if [[ "$#" -gt 2 ]]; then echo "USAGE: --verification-review [FULL_RELEASE_SHA]" >&2; exit 2; fi
+  if [[ "$#" -gt 2 || ( "$#" -eq 2 && ! "${2:-}" =~ ^[0-9a-f]{40}$ ) ]]; then
+    echo "INVALID_LAUNCHER_ARGUMENTS: --verification-review [FULL_RELEASE_SHA]" >&2
+    exit 2
+  fi
   export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
   verification_args=()
   if [[ "$#" -eq 2 ]]; then verification_args=(--release-sha "$2"); fi
