@@ -117,14 +117,22 @@ class ResearchCycle:
         return fid in self.requested_deadlines
 
     async def _stage(self,name,call,app,asynchronous=False):
+        queued = time.monotonic()
         state=dict(status='QUEUED',queued_at_utc=int(time.time()))
+        def start():
+            started = time.monotonic()
+            state.update(status='RUNNING',started_at_utc=int(time.time()),queued_seconds=round(started-queued,3))
+            return started
+        running = None
         self.stages[name]=state
         def sync():
-            state.update(status='RUNNING',started_at_utc=int(time.time()))
+            nonlocal running
+            running = start()
             return call()
         try:
             if asynchronous:
-                state.update(status='RUNNING',started_at_utc=int(time.time()));value=await call()
+                running = start()
+                value = await call()
             else:value=await asyncio.to_thread(sync)
             state.update(status='COMPLETED',completed_at_utc=int(time.time()))
             app.bot_data['last_'+name+'_poll']=value
@@ -138,6 +146,9 @@ class ResearchCycle:
             if name=='issue90':self.study.last_report=value
             elif name=='adaptive_v2':self.worker.last_report=value
             elif name=='current_assessment' and self.assessments:self.assessments.last_report=value
+        finally:
+            if running is not None:
+                state['work_seconds']=round(time.monotonic()-running,3)
 
     async def once(self,app):
         # Keep stages serial so fitted source snapshots and provider budgets
@@ -146,9 +157,6 @@ class ResearchCycle:
         # Existing V2 player inputs can be incorporated on the next cycle;
         # this current score is explicitly NOT a player-impact forecast.
         players=getattr(getattr(self.worker,'research',None),'players',None)
-        if players is not None:
-            from hybrid_engine.player_shadow import readiness
-            await self._stage('player_shadow',lambda:readiness(players),app)
         # First publish a genuinely current score using the prefit/fixed-slot
         # research model. The independent V3 shadow-calibration sweep must not
         # delay the score's pre-tipoff publication until after its deadline.
@@ -176,6 +184,9 @@ class ResearchCycle:
                     self.requested_fixtures=[fid for fid in self.requested_fixtures if fid!=preferred]
                     self.requested_deadlines.pop(preferred,None)
         # Collect native player inputs after the time-sensitive current score.
+        if players is not None:
+            from hybrid_engine.player_shadow import readiness
+            await self._stage('player_shadow',lambda:readiness(players),app)
         await self._stage('adaptive_v2',self.worker.tick,app,asynchronous=True)
         if players is not None:
             await self._stage('player_shadow',lambda:readiness(players),app)
@@ -191,11 +202,11 @@ class ResearchCycle:
             await self.once(app);await asyncio.sleep(RESEARCH_POLL_SECONDS)
 
     def render(self):
-        lines=['Araştırma işçisi: oyuncu hazırlık denetimi → güncel skor (en erken maç öncelikli) → V2 → oyuncu denetimi → ayrı V3 denetimi']
+        lines=['Araştırma işçisi: güncel skor → oyuncu hazırlığı → V2 → oyuncu denetimi → V3 deneyi']
         for name in ('adaptive_v2','player_shadow','issue90','current_assessment','player_history'):
             s=self.stages.get(name)
             if not s:lines.append(name+': İLK TUR BEKLENİYOR');continue
-            elapsed=max(0,int(time.time())-s.get('started_at_utc',s['queued_at_utc']))
-            lines.append(name+': '+s['status']+' · aşama başlangıcından '+str(elapsed)+' sn')
+            elapsed=s.get('work_seconds',max(0,int(time.time())-s.get('started_at_utc',s['queued_at_utc'])))
+            lines.append(f"{name} · {s['status']} · kuyruk {s.get('queued_seconds',0):.1f} sn · işlem {elapsed:.1f} sn")
             if s.get('reason'):lines.append('Aşama engeli: '+s['reason'])
         return '\n'.join(lines)

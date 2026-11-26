@@ -622,3 +622,117 @@ RMSE 15,66. 13 maç −2…+3 bandında, 7 maç en az 25 sayı sapmıştır.
 NBA'deki yedi arşiv maçında toplam MAE 10,65. Medyan düzeltmesi iki
 ligde de eşleştirilmiş örnekte hatayı artırdığı için reddedildi.
 Yerel inceleme `python -m hybrid_engine.total_bias_study docs/hybrid-phase845-walk-forward-20261113.json.gz` ile tekrarlanabilir.
+
+## 26 Kasım · Telegram cihaz geri bildirimi ve yeni düzeltme
+
+Cihazdan bildirilen çalışan sürüm `1dd714f`. Kullanıcının `/results all`
+çıktısı NBA 74, EuroLeague 29, EuroCup 13 sonuç eşleşmesi bildiriyor.
+Telefonun SQLite dosyası, genişletilmiş SQLite hata kodu ve bu test botunun
+kimlik bilgileri Cloud ortamında bulunmadı.
+
+### P0 · Rapor okuma ve teslim
+
+- [x] Bir önceki SQLite okuyucu, sorgu imlecini açık tuttuğu sürede Python
+  tarafındaki JSON, SHA ve kaynak doğrulamasını da aynı bir saniyeye dahil
+  ediyordu. 74 kayıtlı yerel deneyde satır doğrulamasına gecikme eklenince
+  `SQLITE_INTERRUPT/9` üretildi. Telefon logundaki yalın
+  `OperationalError` söz konusu hatanın cihazda da aynı kodla
+  gerçekleştiğini doğrulamak için yeterli değil.
+- [x] Yeni çalışma zamanı okuyucusu veri okumasını doğrulamadan ayırır.
+  Mevcut bileşik birincil anahtarlarla bağlanan sorgu aynı SQL süre
+  sınırına sahiptir. Boyut ve satır sınırları uygulanır. JSON ve native
+  doğrulama salt okunur SQLite işlemi kapandıktan sonra yapılır.
+  Önceki kalite kartı yalnız ilgili fit ve tahmin zamanına kadar
+  arşivlenmiş sonuçlu satırları denetler. Deneylerin sabitlenmiş
+  okuyucusu kendi dosyasında kalır.
+- [x] Yerel deneyde kilit için `SQLITE_BUSY/5`, geçersiz dosya için
+  `SQLITE_NOTADB/26` ayrı doğrulandı. Loglar SQLite'ın birincil
+  sınıfını, genişletilmiş adını ve sayısal kodunu kaydeder. Erişim,
+  G/Ç, kesinti ve bütünlük sınıfları ayrıdır.
+- [x] `/accuracy all` ligleri, güncel aday ve İddaa bölümlerini bağımsız
+  değerlendirir. Bir lig veya aday okuyucusu hata verirse başarılı
+  liglerin sonuçları teslim edilir. Başarısız lig sıfır örnek göstermez.
+  Sağlayıcı zaman aşımı ayrı kodla ve süreyle raporlanır.
+- [x] Telegram HTTP 502 yanıtı doğrulanmamış teslim olarak kaydedilir.
+  HTML hata gövdesi teslim JSON'u gibi ayrıştırılmaz. İstek
+  kütüphanesinin HTTP hata işlemesi devam eder.
+- [ ] Cihazda `/accuracy all` tekrar kabulü ve telefon SQLite kodu.
+  Yerel PTB testi kontrollü Bot API ile gerçekleştirilir.
+
+### P1 · Model hatası ve kronolojik eşleştirme
+
+Kullanıcı tarafından bildirilen cihaz örneklerinde NBA V2'nin dört
+maçında V1 MAE 18,91. Sabit tempo 21,41, tahmini tempo 21,78, güncel
+takım 21,62 ve aynı box kohortundaki takım kontrolü 21,27. EuroLeague
+on maçında V1 11,31, tahmini tempo 11,95 ve sabit tempo 12,14. Bir NBA
+güncel aday eşleşmesinde V1 12,08 ve V3 26,13. Bunlar ilk teşhis için
+yeterli gözlemler. Tekil oyuncu, rakip veya parametre katkısını edinmek
+için eşleşen tahmin ve kaynak kayıtlarına ihtiyaç var.
+
+- [x] `paired_dynamic_replay` gelecekte erişilen etiket ve box-score
+  verilerini dışlayarak gün bazında yeniden fit dener. Hesabın gerçek
+  hazırlanma zamanı saklanır. Geçmiş replay ile yeni maç öncesi yayın
+  ayrı sözleşmelerdir. Her iki modelin başarılı tahmin ettiği maçlar
+  aynı normal süre sonuçlarıyla değerlendirilir.
+- [x] Arşivdeki 100 ESPN belgesiyle sıkı koşu 210 final adayı inceledi.
+  174 maçta origin öncesi 30 doğrulanmış sonuç koşulu sağlanmadı. 36
+  maçta takımların doğrulanmış origin geçmişi yetersizdi. Eşleşmiş
+  V1/V3 test skoru üretilmedi. Paket özeti `d13222a535342062a95acf94635b97045ea3e5a15cc5aec9722d9ad5067d2ba3`.
+- [x] Önceden tanımlı 24 saat kaynak erişim varsayımlı keşif replay'i aynı
+  64 maçta Bayes V1 çekirdeği toplam MAE 14,48 / RMSE 17,55 ve
+  güncellenmiş takım çekirdeği 14,28 / 17,63 verdi. Box temponun aynı
+  beş maçlık çekirdek denemesinde sabit tempo MAE 17,07 ve güncel
+  tempo MAE 16,07. Bulgular küçük örnek ve farklı erişim koşullarına
+  bağlıdır. Saha verisi güncel temponun NBA örneğinde ters yönde
+  hareket ettiğini gösteriyor.
+- [x] İleri aday raporu eşleşen maçlarda puan kaymasının yönünü, toplam
+  hata varyasyonunu, fit yaşını, mevcut box tempo tahminini ve kayıt
+  varsa çeyrek hatasını ölçer. V3'te 14 günlük yarı ömür ve son on
+  maçtan tahmini tempo skor ortalamasına doğrudan girer. Küçültülmüş
+  kovaryans ve parametre belirsizliği örnek yollarını ve aralıkları
+  etkiler. Bu ölçümler etki nedenini tek başına kanıtlamaz.
+- [ ] Telefonun 116 eşleşme tabanında ve ayrı V2/V3 artefaktlarında
+  bağımsız karşılaştırma. Kadro, ölçülmüş tempo, gerçek piyasa ve
+  rakip etkisine tekil nedensel hata payı atanmadı.
+
+Sıkı replay komutu:
+
+```bash
+python -m hybrid_engine.paired_dynamic_replay --receipts-directory /tmp/zeynal-p1-native --year 2026
+```
+
+### P2 · Oyuncu kimliği ve rotasyon
+
+- [x] `CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY` koşulu mevcut
+  kadrodaki bir kimlik için son altı uygun aynı takım box-score
+  maçında satır bulunmadığında ve iki kaynaktan doğrulanmış OUT kaydı
+  da bulunmadığında oluşur. Tarihsel fit oyuncu sayısı, bugün oynanacak
+  maçtaki dakika kanıtını sağlamaz.
+- [x] Sınırlı ek geçmiş yolu, son altı maçta bulunmayan oyuncu için
+  geçerli maç raporunda açık `Available`, kesin ESPN kimliği ve aynı
+  takımda en az üç doğrulanmış pozitif dakika kaydı gerektirir. Altı
+  eski box-score adayı en fazla 30 günlük geçmişten seçilir. Kullanılan
+  ham dakika, kaynak saati ve SHA ile tekrar denetlenir. Kadro ve
+  rapor saatleri yeniden kontrol edilir. Önceki takımdaki dakikalar
+  taşınmaz. Yakın maçta ek kaynak işi başlatılmaz ve beş dakikalık
+  kalıcı kayıt sınırı geçilemez.
+- [x] Eksik kimlik denetimi daha eski aynı takım satırı, incelenen
+  box'larda başka takım satırı ve incelenen box'larda hiç satır
+  olmaması şeklinde kanıtı gösterir.
+- [ ] Telefonun gerçek blokajına yol açan kimlikler, ilk saha dakika
+  yayını ve bağımsız hücum, rakip savunması ve tempo ölçümü. Mevcut
+  oyuncu adayının sayısal kapsamı kendi takımının sayı katkısıdır.
+
+### P3 · Araştırma sırası
+
+- [x] Güncel skor üretimi hazırlık ve V2 işlerinden önce çalışır.
+  Kayıtlı V3 deneyinin kendi turunda skor işi gölge fitinden önce
+  çalışır. 100 örnek gereksinimi yalnız gölge kalibrasyona uygulanır.
+  Sonuç okuma hatasında adayın yayın bilgisi ve hedef maç durumu
+  raporda kalır. Aşamalar işlem süresi ve kuyruk beklemesini ayrı
+  ölçer. Beş dakika kuralı ve kayıt sırası korunur.
+- [x] Yeni araştırma kaynak pinleri ayrı protokol dizinlerine gider.
+  Önceki planlar, yayınlar ve dakika arşivi kendi kayıtlarıyla durur.
+  Önceki ve yeni protokol sayaçları ortak ileri deney gibi sayılmaz.
+- [ ] Android ve gerçek Telegram üzerinde yeni sürümün kuyruk süreleri,
+  otomatik maç öncesi skor kaydı ve teslim kabulü.

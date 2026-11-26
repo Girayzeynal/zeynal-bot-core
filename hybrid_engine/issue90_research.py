@@ -5,6 +5,7 @@ All candidate publications link an authenticated original and native fixture.
 """
 import asyncio
 import hashlib
+import sqlite3
 from pathlib import Path
 import time
 
@@ -230,7 +231,7 @@ class Research:
     def tick(self):
         plan=self.plan();cases=[c for c in self.worker.cases() if c['code']=='NBA'];captures=[];now=int(time.time())
         for c in cases:self.admit(c,plan)
-        latest={};labels=self.worker.labels();calibrators={};state='CHECKED';shadow_captures=[]
+        latest={};calibrators={};state='CHECKED';shadow_captures=[]
         # Expensive audited calibration fits run at most once per six-hour slot.
         slot=now//21600
         saved={r['payload']['fixture']['canonical_id'] for r in self.registry.records()}
@@ -241,43 +242,53 @@ class Research:
         # Result-blind fair rotation: two unsupported early fixtures cannot
         # monopolize every later tick. The admission denominator stays intact.
         ready.sort(key=lambda c:(self.last_attempt.get(c['target']['fixture_id'],0),c['target']['fixture_start_utc'],c['target']['fixture_id']))
-        for c in ready[:2]:
+        score_queue = [c for c in ready if c['target']['fixture_id'] not in saved
+                       and self.retry_after.get(('score',c['target']['fixture_id']),0)<=now]
+        for c in score_queue[:2]:
             fid=c['target']['fixture_id'];self.last_attempt[fid]=now
-            shadow_ready=fid not in shadow_saved and self.retry_after.get(('shadow',fid),0)<=now
             try:
-                if not shadow_ready:raise Abstain('SHADOW_NOT_DUE')
+                if c['target']['season'] not in latest:latest[c['target']['season']]=self.fit(c['target']['season'])[0]
+                p,new=self.capture(c,latest[c['target']['season']],plan)
+                captures.append(dict(fixture_id=c['target']['fixture_id'],status='ARCHIVED' if new else 'REPLAY',sha256=digest(p)))
+            except (ValueError,KeyError,TypeError,OSError,RuntimeError,sqlite3.Error) as exc:
+                self.retry_after[('score',fid)]=now+300
+                state='PARTIAL_ABSTAIN';captures.append(dict(fixture_id=c['target']['fixture_id'],status='ABSTAIN',reason=reason(exc),error_type=type(exc).__name__))
+        # Shadow-only work has its own quota and cannot delay a due score.
+        shadow_queue = [c for c in ready if c['target']['fixture_id'] not in shadow_saved
+                        and self.retry_after.get(('shadow',c['target']['fixture_id']),0)<=now]
+        for c in shadow_queue[:2]:
+            fid=c['target']['fixture_id'];self.last_attempt.setdefault(fid,now)
+            try:
                 season=c['target']['season']
-                md=c['snapshot']['model_digest'];ck=digest(dict(slot=slot,model=md,season=season));cp=self.root/('calibrator-'+ck+'.json')
-                if cp.exists():calibrators[md]=read_wrapper(cp)
+                md=c['snapshot']['model_digest'];scope=(md,season)
+                ck=digest(dict(slot=slot,model=md,season=season));cp=self.root/('calibrator-'+ck+'.json')
+                if cp.exists():calibrators[scope]=read_wrapper(cp)
                 elif (slot,md,season) not in self.calibration_attempted:
                     self.calibration_attempted={key for key in self.calibration_attempted if key[0]==slot}
                     if len(self.calibration_attempted)>=128:raise Abstain('SHADOW_MODEL_SCOPE_BUDGET')
                     self.calibration_attempted.add((slot,md,season))
                     audit=audit_ledger(self.worker.nba.ledger.path,assets_directory=self.worker.nba.assets)
                     try:
-                        calibrators[md]=shadow_learning.fit(audit,model_digest=md,season=season);publish_json(cp,calibrators[md])
+                        calibrators[scope]=shadow_learning.fit(audit,model_digest=md,season=season);publish_json(cp,calibrators[scope])
                     except Abstain:pass
-                if md in calibrators:
-                    p,new=self.capture_shadow(c,calibrators[md],plan)
+                if scope in calibrators:
+                    p,new=self.capture_shadow(c,calibrators[scope],plan)
                     shadow_captures.append(dict(fixture_id=c['target']['fixture_id'],status='ARCHIVED' if new else 'REPLAY',sha256=digest(p)))
                 else:
                     self.retry_after[('shadow',fid)]=now+900
                     shadow_captures.append(dict(fixture_id=fid,status='ABSTAIN',reason='SHADOW_HUNDRED_NATIVE_SETTLED_ORIGINALS_REQUIRED'))
-            except (ValueError,KeyError,TypeError,OSError,RuntimeError) as exc:
-                if shadow_ready:
-                    self.retry_after[('shadow',fid)]=now+900
-                    state='PARTIAL_ABSTAIN';shadow_captures.append(dict(fixture_id=fid,status='ABSTAIN',reason=reason(exc),error_type=type(exc).__name__))
-            if fid in saved or self.retry_after.get(('score',fid),0)>now:continue
-            try:
-                if c['target']['season'] not in latest:latest[c['target']['season']]=self.fit(c['target']['season'])[0]
-                p,new=self.capture(c,latest[c['target']['season']],plan)
-                captures.append(dict(fixture_id=c['target']['fixture_id'],status='ARCHIVED' if new else 'REPLAY',sha256=digest(p)))
-            except (ValueError,KeyError,TypeError,OSError,RuntimeError) as exc:
-                self.retry_after[('score',fid)]=now+300
-                state='PARTIAL_ABSTAIN';captures.append(dict(fixture_id=c['target']['fixture_id'],status='ABSTAIN',reason=reason(exc),error_type=type(exc).__name__))
+            except (ValueError,KeyError,TypeError,OSError,RuntimeError,sqlite3.Error) as exc:
+                self.retry_after[('shadow',fid)]=now+900
+                state='PARTIAL_ABSTAIN';shadow_captures.append(dict(fixture_id=fid,status='ABSTAIN',reason=reason(exc),error_type=type(exc).__name__))
         if any(c['status']=='ABSTAIN' for c in shadow_captures):state='PARTIAL_ABSTAIN'
-        self.last_report=dict(status=state,evaluation_version=POLICY['version'],observed_at_utc=int(time.time()),protocol_sha256=plan['sha256'],captures=captures,shadow_captures=shadow_captures,
-            performance=self.performance(labels,plan),actual_telegram_delivery_verified=False,production_changed=False)
+        self.last_report=dict(status=state,evaluation_version=POLICY['version'],observed_at_utc=int(time.time()),
+            protocol_sha256=plan['sha256'],captures=captures,shadow_captures=shadow_captures,
+            actual_telegram_delivery_verified=False,production_changed=False)
+        try:
+            self.last_report['performance']=self.performance(self.worker.labels(),plan)
+        except (ValueError,KeyError,TypeError,OSError,RuntimeError,sqlite3.Error) as exc:
+            from hybrid_engine.runtime_reports import failure
+            self.last_report.update(status='PARTIAL_ABSTAIN',performance_issue=failure(exc))
         p=self.last_report
         if any(c['status']=='ARCHIVED' for c in captures+shadow_captures) or int(time.time())-self.last_journal>=3600:
             if len(list(self.root.glob('report-*.json')))<4096:

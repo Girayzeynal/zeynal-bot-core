@@ -88,6 +88,15 @@ def _official_only_diagnostic_permission(review,records,now):
         records[0].get('status_updated_at_utc')==timestamp)
 
 
+def official_available(review, row, now):
+    return (review.get('official_pdf_clock_verified') is True and review.get('official_stage')=='FIXTURE_ROWS'
+            and review.get('official_code')=='SOURCE_ROWS_MATCHED_NOT_MEDICALLY_VERIFIED'
+            and row.get('status')=='Available' and row.get('source')=='NBA_OFFICIAL_PDF'
+            and row.get('identity_status')=='EXACT_ESPN_ROSTER_MATCH'
+            and type(row.get('status_updated_at_utc')) is int
+            and 0<=now-row['status_updated_at_utc']<=1800)
+
+
 def projection(context,review,rosters,boxes,*,generated_at_utc,diagnostic_official_only=False):
     """Accept only actually available sources. No model is trained here."""
     now=stamp(generated_at_utc); start=stamp(context['fixture_start_utc'])
@@ -105,7 +114,7 @@ def projection(context,review,rosters,boxes,*,generated_at_utc,diagnostic_offici
         raise ValueError('SAME_PLAYER_ON_BOTH_CURRENT_TEAMS')
     if type(diagnostic_official_only) is not bool:
         raise ValueError('DIAGNOSTIC_MODE_BOOLEAN_REQUIRED')
-    result={}; history=[]; directory_pins={}; provisional_out=[]
+    result={}; history=[]; directory_pins={}; provisional_out=[]; extended_players=[]
     for side in SIDES:
         team=context[side]['provider_id']; directory=rosters[side]
         players=directory['players']; observed=stamp(directory['observed_at_utc'])
@@ -127,7 +136,9 @@ def projection(context,review,rosters,boxes,*,generated_at_utc,diagnostic_offici
             eligible.append(box)
         if len({b['fixture_id'] for b in eligible})!=len(eligible):
             raise ValueError('DUPLICATE_PLAYER_HISTORY_GAME')
-        eligible=sorted(eligible,key=lambda b:(b['fixture_start_utc'],b['fixture_id']))[-6:]
+        ordered=sorted(eligible,key=lambda b:(b['fixture_start_utc'],b['fixture_id']))
+        older=ordered[:-6]
+        eligible=ordered[-6:]
         if len(eligible)<6: raise Abstain('SIX_PAST_REGULATION_BOXES_PER_TEAM_REQUIRED')
         if now-eligible[-1]['fixture_start_utc']>14*86400:
             raise Abstain('PLAYER_ROTATION_HISTORY_STALE')
@@ -168,13 +179,40 @@ def projection(context,review,rosters,boxes,*,generated_at_utc,diagnostic_offici
                     else:
                         raise Abstain('ABSENCE_REQUIRES_BOTH_SOURCE_OBSERVATIONS')
                 excluded.add(pid)
-        if set(players)-present-excluded:
+        missing=set(players)-present-excluded
+        extra={}
+        for pid in sorted(missing):
+            # The same-team prior is only used with explicit fixture availability.
+            # A transferred or new player cannot inherit a different team's role.
+            if not any(official_available(review,r,now) for r in notes.get(pid,[])):
+                continue
+            verified=[]
+            for box in older[-6:]:
+                if now-box['fixture_start_utc'] > 30*86400:
+                    continue
+                rows=[p for p in box['players'] if p['team_id']==team]
+                if len(rows)!=len({p['player_id'] for p in rows}):
+                    raise ValueError('DUPLICATE_BOX_PLAYER')
+                minutes={p['player_id']:historical_minutes(p) for p in rows}
+                if abs(sum(minutes.values())-240)>3:
+                    raise Abstain('PAST_DISPLAY_MINUTES_DO_NOT_RECONCILE')
+                if minutes.get(pid,0)>0:
+                    verified.append((box,minutes[pid]))
+            if len(verified)>=3:
+                extra[pid]=sum(m for _,m in verified)/len(verified)
+                extended_players.append(pid)
+                for box,_ in verified:
+                    witness=dict(fixture_id=box['fixture_id'],team_id=team,
+                        available_at_utc=max(box['source']['observed_at_utc'],box['source']['ingested_at_utc']),box_sha256=digest(box))
+                    if witness not in history: history.append(witness)
+        if missing-extra.keys():
             raise Abstain('CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY')
-        weights=[0. if p in excluded else sum(values[p])/len(eligible) for p in players]
+        weights=[0. if p in excluded else extra.get(p,sum(values[p])/len(eligible)) for p in players]
         minutes=capped_rotation(weights)
         result[side]=[dict(player_id=p,expected_minutes=m,
             status=('OUT_OFFICIAL_ONLY_DIAGNOSTIC_NOT_CORROBORATED' if p in provisional_out else
                 'OUT_SOURCE_CORROBORATED') if p in excluded else
+                'OLDER_SAME_TEAM_PRIOR_OFFICIAL_AVAILABLE' if p in extra else
                 'PAST_ROTATION_PRIOR_NOT_CONFIRMED_AVAILABLE') for p,m in zip(players,minutes)]
         directory_pins[side]=directory['source_sha256']
         source_times.append(observed)
@@ -194,9 +232,12 @@ def projection(context,review,rosters,boxes,*,generated_at_utc,diagnostic_offici
             'SOURCE_CORROBORATION_IS_NOT_INDEPENDENT_MEDICAL_VERIFICATION',
             'HISTORICAL_DISPLAY_MINUTES_ARE_ROUNDED',
             'NO_LINEUP_OR_MINUTE_UNCERTAINTY_CALIBRATION']+
+            (['OLDER_SAME_TEAM_OBSERVED_MINUTES_FOR_OFFICIALLY_AVAILABLE_PLAYER'] if extended_players else [])+
             (['SINGLE_SOURCE_OFFICIAL_NOT_CORROBORATED_DIAGNOSTIC_UNARCHIVABLE']
              if diagnostic_official_only else []),
         actual=None,lineup_verified=False,confidence_index=None,**result)
+    if extended_players:
+        payload['extended_rotation_player_ids']=sorted(extended_players)
     return dict(payload=payload,sha256=digest(payload))
 
 
@@ -218,10 +259,15 @@ def validate_minutes(wrapped,*,asof_utc,fixture=None):
                 any(type(pid) is not str or not pid.strip() for pid in ids) or
                 any(type(r['expected_minutes']) not in (int,float) or not math.isfinite(r['expected_minutes']) or
                     not 0<=r['expected_minutes']<=48+1e-8 for r in rows) or
-                any(r.get('status') not in ('OUT_SOURCE_CORROBORATED','PAST_ROTATION_PRIOR_NOT_CONFIRMED_AVAILABLE') or
+                any(r.get('status') not in ('OUT_SOURCE_CORROBORATED','PAST_ROTATION_PRIOR_NOT_CONFIRMED_AVAILABLE',
+                                          'OLDER_SAME_TEAM_PRIOR_OFFICIAL_AVAILABLE') or
                     r['status']=='OUT_SOURCE_CORROBORATED' and r['expected_minutes']!=0 for r in rows) or
                 abs(sum(r['expected_minutes'] for r in rows)-240)>1e-6):
             raise ValueError('COMPLETE_UNIQUE_PLAYER_MINUTES_REQUIRED')
+    extended = sorted(row['player_id'] for side in SIDES for row in p[side]
+                      if row['status']=='OLDER_SAME_TEAM_PRIOR_OFFICIAL_AVAILABLE')
+    if extended!=p.get('extended_rotation_player_ids',[]):
+        raise ValueError('PLAYER_MINUTES_EXTENDED_HISTORY_IDENTITY')
     return deepcopy(p)
 
 

@@ -21,7 +21,7 @@ from hybrid_engine.player_inputs import collect as collect_player_inputs
 from hybrid_engine.prediction_audit import Assets,audit_snapshot
 from hybrid_engine.source_policy import ControlledTransport
 from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
-from ledger_reports import LedgerReports
+from hybrid_engine.runtime_reports import RuntimeLedgerReports
 from season_archive_collect import fetch_document
 from universal_analysis import require_fresh_source
 from telegram_delivery import tsi
@@ -143,7 +143,12 @@ class AdaptiveWorker:
         return receipt
 
     def labels(self):
-        rows=LedgerReports(self.nba.ledger.path).read('NBA')['forecasts'] if self.nba is not None else []
+        rows=[]
+        if self.nba is not None:
+            nba=RuntimeLedgerReports(self.nba.ledger.path).read('NBA',settled_only=True,summarize=False)
+            if nba['status']!='VERIFIED_LIVE_REPORT':
+                raise ValueError(nba['status'])
+            rows.extend(nba['forecasts'])
         for service in self.europe.values():rows.extend(EuropeanReports(service).read()['forecasts'])
         return rows
 

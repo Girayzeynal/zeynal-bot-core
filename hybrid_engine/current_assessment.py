@@ -6,6 +6,7 @@ These periodically refreshed assessments have their own clock and descriptive re
 from collections import defaultdict
 from copy import deepcopy
 import hashlib
+import sqlite3
 import html
 from pathlib import Path
 import time
@@ -271,8 +272,12 @@ class CurrentAssessments:
             observed_at_utc=int(time.time()),captures=captures,originals_changed=False,
             candidate_published_count=published,capture_attempt_count=len(captures),
             eligible_not_yet_saved_count=len(ready),
-            requested_fixture_id=preferred_fixture_id,requested_fixture_status=targeted,
-            performance=self.performance(self.worker.labels()))
+            requested_fixture_id=preferred_fixture_id,requested_fixture_status=targeted)
+        try:
+            self.last_report['performance']=self.performance(self.worker.labels())
+        except (ValueError, KeyError, TypeError, OSError, RuntimeError, sqlite3.Error) as exc:
+            from hybrid_engine.runtime_reports import failure
+            self.last_report['performance_issue']=failure(exc)
         return self.last_report
 
     def performance(self,labels):
@@ -307,7 +312,9 @@ class CurrentAssessments:
                     p.get('original_model_digest') and r['model_digest']!=p['original_model_digest']):
                 raise ValueError('CURRENT_ASSESSMENT_NATIVE_LABEL_BINDING')
             q=p['candidate']
-            current=dict(prediction=[q['home'],q['away']],actual=r['actual'],
+            current=dict(fixture_id=r['fixture_id'],prediction=[q['home'],q['away']],actual=r['actual'],
+                estimated_possessions=q.get('metadata',{}).get('box_pace'),
+                parameter_age_seconds=p['prediction_generated_at_utc']-p['parameter_fit_cutoff_utc'],
                 actual_periods=r['actual_periods'],predicted_quarters=q['quarters'],winner=q['winner'],
                 intervals=p['intervals'],fixture_start_utc=r['fixture_start_utc'],
                 prediction_generated_at_utc=p['prediction_generated_at_utc'],label_available_utc=r['label_available_utc'])
@@ -324,14 +331,16 @@ class CurrentAssessments:
                     all(type(v) in (int,float) and np.isfinite(v) and v>=0 for v in original)):
                 baseline=dict(prediction=list(original),actual=r['actual'],
                     actual_periods=r['actual_periods'],fixture_start_utc=r['fixture_start_utc'],
-                    prediction_generated_at_utc=issued,label_available_utc=r['label_available_utc'])
+                    predicted_quarters=r.get('predicted_quarters'),prediction_generated_at_utc=issued,label_available_utc=r['label_available_utc'])
                 paired[group].append((current,baseline))
         results=[]
         for group,values in sorted(groups.items()):
             pairs=paired[group]
             candidate_pair=metrics([v[0] for v in pairs]) if pairs else None
             baseline_pair=metrics([v[1] for v in pairs]) if pairs else None
+            from hybrid_engine.paired_error_axes import summarize
             results.append(dict(league=group[0],season=group[1],model=group[2],
+                paired_error_axes=summarize(pairs),
                 metrics=metrics(values),paired_n=len(pairs),
                 paired=dict(status='PAIRED_DESCRIPTIVE_ONLY' if pairs else 'NO_VERIFIED_FIRST_FORECAST_PAIR',
                     first_forecast_total_mae=None if not pairs else baseline_pair['total']['mae'],
@@ -350,7 +359,10 @@ class CurrentAssessments:
         lines=['GÜNCEL DEĞERLENDİRMELER | AYRI BETİMSEL PERFORMANS',
             'Her maç/strateji için ilk değerlendirme; sonraki güncellemeler örnek sayısını artırmaz.']
         if not self.last_report or 'performance' not in self.last_report:
-            return '\n'.join(lines+['Bu süreçte doğrulanmış rapor henüz hazırlanmadı.'])
+            issue=(self.last_report or {}).get('performance_issue')
+            lines.append('Aday sonuçları okunamadı · '+issue if issue else
+                         'Bu süreçte doğrulanmış rapor henüz hazırlanmadı.')
+            return '\n'.join(lines)
         groups=self.last_report['performance']['groups']
         for g in groups:
             m=g['metrics'];lines.append(g['league']+' '+g['model']+
@@ -362,6 +374,11 @@ class CurrentAssessments:
                     f"{pair['first_forecast_total_mae']:.2f}"+' · Güncel aday toplam MAE '+
                     f"{pair['candidate_total_mae']:.2f}"+' · Hata azalması (pozitif=aday iyi) '+
                     f"{pair['total_mae_delta']:+.2f}")
+                axes=g.get('paired_error_axes')
+                if axes:
+                    lines.append(f"Toplam bias ilk → aday {axes['original_total_bias']:+.2f} → "
+                                 f"{axes['candidate_total_bias']:+.2f} · Aday ortalama skor değişimi "
+                                 f"{axes['mean_total_revision']:+.2f}")
             else:
                 lines.append('İlk tahminle yayın saati doğrulanmış karşılaştırma: 0 eşleşen maç.')
         if not groups:lines.append('Henüz doğrulanmış sonuçla eşleşme yok.')
