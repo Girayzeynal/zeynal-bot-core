@@ -101,7 +101,8 @@ def evaluate(observation,distribution,*,asof_utc,native_quotes=(),rules=None):
         if captured is None:item['reasons'].append('SOURCE_CAPTURE_TIME_UNKNOWN')
         elif not captured<=p['available_at_utc']<=asof_utc:item['reasons'].append('PRICE_NOT_AVAILABLE_AT_REVIEW')
         elif asof_utc-captured>POLICY['quote_max_age_seconds']:item['reasons'].append('STALE_AT_DECISION_TIME')
-        if published is not None and not 0<=asof_utc-published<=POLICY['quote_max_age_seconds']:
+        if published is None:item['reasons'].append('PUBLISHER_PRICE_TIME_UNKNOWN')
+        elif not 0<=asof_utc-published<=POLICY['quote_max_age_seconds']:
             item['reasons'].append('STALE_PUBLISHER_PRICE_AT_DECISION_TIME')
         cutoff=fixture['tipoff_utc']
         clock=p['source'].get('event_clock_binding')

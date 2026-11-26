@@ -24,6 +24,7 @@ MESSAGES={
  'SOURCE_AVAILABLE_AFTER_ORIGINAL_FORECAST':'Fiyat ilk tahminden sonra alındı; eski tahminin girdisi sayılmaz',
  'LATER_PRICE_CURRENT_REVIEW':'Sonradan alınan fiyat, ayrı güncel değerlendirmede kullanılıyor',
  'STALE_AT_DECISION_TIME':'Kaynak gözlemi bu değerlendirme için eskimiş',
+ 'PUBLISHER_PRICE_TIME_UNKNOWN':'Fiyatın yayın saati bilinmiyor',
  'STALE_PUBLISHER_PRICE_AT_DECISION_TIME':'Sağlayıcının fiyat güncellemesi eskimiş',
  'SOURCE_CAPTURE_TIME_UNKNOWN':'Kaynağın alınma zamanı bilinmiyor',
  'MANUAL_TRANSCRIPTION_NOT_INDEPENDENTLY_VERIFIED':'Elle aktarılan alanlar bağımsız doğrulanmadı',

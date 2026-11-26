@@ -96,6 +96,14 @@ class DirectionCardTests(unittest.TestCase):
         c=self.make(v)[0];self.assertFalse(c['current'])
         self.assertIn('ARŞİV MODEL YÖNÜ',render(c));self.assertIn('arşiv gözlemi',render(c))
 
+    def test_unknown_publisher_clock_is_archival_even_after_a_fresh_retrieval(self):
+        view = deepcopy(self.view)
+        view['source']['published_at_utc'] = None
+        card = self.make(view)[0]
+        self.assertFalse(card['current'])
+        self.assertIsNone(card['valid_until_utc'])
+        self.assertIn('ARŞİV MODEL YÖNÜ', render(card))
+
     def test_post_tipoff_is_archival_even_with_provider_later_start(self):
         v=deepcopy(self.view);v['decision_utc']=self.h.snap['fixture_start_utc']
         c=self.make(v)[0];self.assertFalse(c['current']);self.assertTrue(c['post_tipoff'])

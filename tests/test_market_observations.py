@@ -231,6 +231,13 @@ class ConditionalMarketViewTests(TestCase):
         self.assertIsNone(r['expected_value']);self.assertIsNone(r['recommended_direction'])
         self.assertIn('Ham normal süre',render(v));self.assertIn('NOT_CALIBRATED',render(v))
 
+    def test_capture_with_no_publication_clock_cannot_be_reused_as_a_current_price(self):
+        with patch('time.time',return_value=NOW+1):
+            v=assess(self.observation,self.distribution,asof_utc=NOW+1,
+                     native_quote=self.quote,rule=rule_for(self.quote))
+        self.assertIsNone(v['rows'][0]['expected_value'])
+        self.assertIn('PUBLISHER_PRICE_TIME_UNKNOWN',v['rows'][0]['reasons'])
+
     def test_model_direction_changes_with_actual_distribution_mass(self):
         for line,direction in [(100.5,'over'),(300.5,'under')]:
             p=deepcopy(self.observation['payload']);p['quotes'][0]['line']=line

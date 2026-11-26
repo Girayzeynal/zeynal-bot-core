@@ -69,3 +69,18 @@ def test_wrong_league_never_counted():
     else:
         raise AssertionError("wrong league was accepted")
     assert unwrap(dict(report=dict(report=bad)))==bad
+
+
+def test_total_error_band_uses_signed_regulation_error_per_proven_cohort():
+    games = [row("NBA", str(i), 100, actual=[80, 90]) for i in range(6)]
+    for game, error in zip(games, [-2, 3, -3, 4, 25, -25]):
+        game['prediction'] = [80 + error, 90]
+        game['final_with_ot'] = [88, 102]
+    games.append(dict(games[0], fixture_id="legacy", eligible_for_live_performance=False))
+    games.append(dict(games[0], fixture_id="pending", actual=None))
+    group = dict(season="2026/2027", model_version="MODEL", model_digest="digest-MODEL",
+                 n=6, team_mae=2., total_mae=10.)
+    data = {league: dict(forecasts=games if league == 'NBA' else [],
+                         groups=[group] if league == 'NBA' else []) for league in LEAGUES}
+    report = render_performance(data)
+    assert "−2…+3 içinde 2/6" in report and "25+ sayı mutlak hata 2/6" in report

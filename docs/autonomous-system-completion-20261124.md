@@ -567,3 +567,57 @@ ve Telegram düğmelerini kendi başlatıcısında kuruyordu. Önceki cihaz
   kabul maddeleridir. Staging kaydı üretim dağıtım onayı vermez.
 
 GitHub Actions çalıştırmaları ve test sonuçları [PR #162](https://github.com/Girayzeynal/zeynal-bot-core/pull/162) üzerinde ilgili commit’e bağlıdır.
+
+## 26 Kasım · İddaa bülteni ve toplam hata incelemesi
+
+- [x] Nesine'nin incelenen bültenindeki 131 maçın piyasa listeleri
+  boştu. Bilyoner ve Misli incelemesinde maç, barem, oran ve yayın
+  zamanı birlikte doğrulanamadı. İddaa'nın genel basketbol bülteninde
+  maç ve ilk yarı toplamları okundu. 26 Kasım 03.44 TSİ kontrolünde
+  beş NBA maçı bulundu. Golden State – Sacramento için maç toplamı
+  215,5, ilk yarı toplamı 110,5'ti. EuroLeague ve EuroCup için o anda
+  uygun maç öncesi toplam baremi bulunamadı.
+  [İddaa basketbol bülteni](https://www.iddaa.com/program/basketbol)
+- [x] İzole botta `/barem NBA`, `/barem EUROLEAGUE` ve
+  `/barem EUROCUP` bülteni açar. Gelecekteki bir maçla tekil eşleşme
+  sağlandığında Piyasa menüsündeki İddaa düğmesinde ilk tahmin ile
+  ilk yarı baremi arasındaki sayı farkı gösterilir. İddaa maç toplamı
+  uzatmayı içerir. Karşılaştırma yalnız ilk yarı kapsamına uygulanır.
+- [x] Barem kaydında kaynak belgelerinin SHA-256 özetleri, erişim zamanı,
+  platform, lig, maç ve piyasa kimlikleri saklanır. İlk açılış ve
+  fiyatın yayın zamanı belirsizdir. Güncel fiyat kabulü, sağlayıcının
+  yayın zamanı kanıtını gerektirir. Yayın saati eksik eski fiyatlar
+  arşiv etiketiyle okunabilir.
+- [x] Çalışan izole süreçte ilk yarı denetimi 30 dakikada bir
+  gerçekleşir. İlk okuma için yaklaşık bir dakika beklenir.
+  `ZEYNAL_TEST_IDDAA_AUTO_ENABLED=0` otomatik denetimi kapatır.
+  Aynı maç için otomatik kontrolde ilk kayıt muhafaza edilir.
+  Karşılaştırmaya alınacak bülten kaydı maçtan beş dakikadan daha önce
+  arşivlenmiş olmalıdır. Tahminin ilk kalıcı kaydı da bültenin erişim
+  saatinde mevcut olmalıdır. Karşılaştırma, doğrulanmış ilk iki
+  periyodun toplamından aynı maç için model ve bülten MAE'sini üretir.
+- [x] `/accuracy all`, normal süre toplamı için tahmin eksi sonuç
+  hatası −2 ile +3 arasında kalan ve mutlak hata en az 25 olan maçları
+  doğrulanmış model grubu başına sayar.
+- [x] Arşivdeki aynı maçlar üzerinde medyan sapma düzeltmesi denendi.
+  Her test diliminde yalnız önceki test dilimlerinin, kesitten önce
+  doğrulanmış etiketleriyle düzeltme hesaplandı. Aşağıdaki rakamlar
+  arşiv raporundan yeniden üretilebilir.
+- [ ] İddaa için gerçek UserLAnd ve Telegram kabulü, Avrupa liglerinde
+  aktif maç kapsaması ve ilk yarı baremiyle eşleşmiş saha performansı
+  bekleniyor. Kaynak doğrulaması Codex Cloud'dan gerçekleştirildi.
+  Sağlayıcının açılış fiyatı yayın saati ve uzatma dahil ödeme
+  doğrulaması eksik olduğundan tam maç bahis olasılığı veya avantaj
+  hesaplamak için yeterli kanıt yok.
+
+| Kronolojik Bayes QMC karşılaştırması | Maç | İlk model toplam MAE | Düzeltme toplam MAE | −2…+3 ilk → düzeltme |
+| --- | ---: | ---: | ---: | ---: |
+| EuroLeague aynı maçlar | 54 | 12,29 | 12,50 | 8 → 3 |
+| NBA aynı maçlar | 3 | 5,34 | 15,23 | 1 → 0 |
+| EuroCup uygun dilim | 0 | — | — | — |
+
+EuroLeague arşivinin tamamında 77 maçta toplam MAE 11,83 ve toplam
+RMSE 15,66. 13 maç −2…+3 bandında, 7 maç en az 25 sayı sapmıştır.
+NBA'deki yedi arşiv maçında toplam MAE 10,65. Medyan düzeltmesi iki
+ligde de eşleştirilmiş örnekte hatayı artırdığı için reddedildi.
+Yerel inceleme `python -m hybrid_engine.total_bias_study docs/hybrid-phase845-walk-forward-20261113.json.gz` ile tekrarlanabilir.

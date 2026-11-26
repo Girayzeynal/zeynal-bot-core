@@ -347,6 +347,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 try:
                     from hybrid_engine.current_roster import context_for
                     entry['roster_context']=context_for(snapshot)
+                    halves=snapshot.get('prediction',{}).get('halves')
+                    if halves:
+                        entry['iddaa_first_half_total']=sum(halves[0])
                     entry['original_roster_html']='🏥 <b>İLK TAHMİN ANINDAKİ KADRO KANITI</b>\n'+sections['roster']
                 except (ValueError,KeyError,TypeError):
                     entry['roster_context']=None
@@ -850,6 +853,25 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         for part in split_blocks(lines,limit=3200):await message.reply_text(part.replace('\n\n','\n'),parse_mode=None)
         raise ApplicationHandlerStop
     from telegram.ext import CommandHandler, CallbackQueryHandler
+    from hybrid_engine.iddaa_bulletin import Bulletin, LEAGUES as bulletin_leagues
+    bulletin = Bulletin(root/'iddaa-bulletin')
+
+    async def read_bulletin(league, fixture=None):
+        try:
+            return await asyncio.wait_for(optional_source_thread(bulletin.review, league, fixture), timeout=12)
+        except asyncio.TimeoutError:
+            return 'İddaa · Bülten okuma süresi doldu.'
+
+    async def bulletin_command(update, context):
+        league = context.args[0].upper() if len(context.args)==1 else ''
+        body = (await read_bulletin(league) if league in bulletin_leagues else
+                'Kullanım: /barem NBA, /barem EUROLEAGUE veya /barem EUROCUP')
+        await update.effective_message.reply_text(body, parse_mode='HTML')
+        raise ApplicationHandlerStop
+
+    if not replay_only:
+        app.bot_data['iddaa_bulletin'] = bulletin
+        app.add_handler(CommandHandler('barem', bulletin_command), group=-50)
     async def research_command(update,context):
         args=context.args or [];worker=app.bot_data.get('adaptive_v2_worker')
         if not worker or len(args)>2 or (args and args[0].upper() not in ('NBA','EUROLEAGUE','EUROCUP')):
@@ -953,6 +975,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         try:
             reports=await _three_league_reports()
             value=await asyncio.to_thread(render_performance,reports)
+            if (bulletin.root/'first-half').is_dir():
+                from hybrid_engine.iddaa_comparison import render_comparison
+                try:
+                    value+='\n\n'+await asyncio.to_thread(render_comparison, bulletin.root, reports)
+                except (ValueError, KeyError, TypeError, OSError):
+                    value+='\nİddaa ilk yarı karşılaştırması için arşiv doğrulanamadı.'
             assessments=app.bot_data.get('current_assessments')
             if assessments:value+='\n\n'+assessments.render_performance()
         except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,RuntimeError) as exc:
@@ -985,10 +1013,27 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         if entry is None or entry['chat_id']!=chat_id:
             await query.answer('Bu raporun oturumu sona erdi. /analyze ile tekrar açın.',show_alert=True)
             return
+        if section=='iddaa':
+            from hybrid_engine.telegram_premium_ui import keyboard
+            await query.answer()
+            fixture = entry.get('europe_context') or entry.get('roster_context')
+            if replay_only or not fixture:
+                body = 'Bu kart için bülten eşleşmesi yok.'
+            else:
+                body = await read_bulletin(fixture['league'], dict(fixture, first_half_total=entry.get('iddaa_first_half_total')))
+            try:
+                await query.edit_message_text(body, parse_mode='HTML',
+                    reply_markup=keyboard(token, include_archive='archive' in entry['sections']))
+            except Exception as exc:
+                if 'Message is not modified' not in str(exc):
+                    raise
+            return
         if section!='summary' and section not in entry['sections']:
             await query.answer('Bölüm bulunamadı.',show_alert=True)
             return
         from hybrid_engine.telegram_premium_ui import keyboard,page_view
+        iddaa_available = (section=='market' and not replay_only and (entry.get('tipoff_utc') or 0)>int(time.time())
+                           and bool(entry.get('europe_context') or entry.get('roster_context')))
         answered=False
         if section in ('market','roster') and page==0 and entry.get('europe_context'):
             await query.answer('Güncel Avrupa kaynakları kontrol ediliyor…')
@@ -1022,7 +1067,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 logging.getLogger(__name__).warning('European source review unavailable: %s',type(exc).__name__)
                 await query.edit_message_text('Avrupa veri kaynağı denetlenemedi veya süre aşıldı. '
                     'Veri yokluğu tam kadro/NO EDGE anlamına gelmez. İlk tahmin korunuyor. Kod: EUROPE_SOURCE_REVIEW_UNAVAILABLE',
-                    reply_markup=keyboard(token,include_archive='archive' in entry.get('sections',{})))
+                    reply_markup=keyboard(token,include_iddaa=iddaa_available,include_archive='archive' in entry.get('sections',{})))
                 return
         if section=='roster' and page==0 and entry.get('roster_auto_ready') and (
                 int(time.time())<entry.get('roster_valid_until_utc',0)):
@@ -1064,12 +1109,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         if not answered:await query.answer()
         try:
             await query.edit_message_text(body,parse_mode='HTML',
-                disable_web_page_preview=True,reply_markup=keyboard(token,section=section,page=page,pages=page_count,
+                disable_web_page_preview=True,reply_markup=keyboard(token,section=section,page=page,pages=page_count,include_iddaa=iddaa_available,
                     include_archive='archive' in entry.get('sections',{})))
         except Exception as exc:
             if 'Message is not modified' not in str(exc):
                 raise
-    app.add_handler(CallbackQueryHandler(premium_callback,pattern=r'^zui:[0-9a-f]{12}:(summary|period|market|ranges|audit|roster|archive)(?::[0-9]{1,3})?$'),group=-50)
+    app.add_handler(CallbackQueryHandler(premium_callback,pattern=r'^zui:[0-9a-f]{12}:(summary|period|market|ranges|audit|roster|archive|iddaa)(?::[0-9]{1,3})?$'),group=-50)
     app.add_handler(CommandHandler('test',self_test),group=-50)
     app.add_handler(TypeHandler(Update,authorized),group=-100);app.add_error_handler(error)
     return journal,results
@@ -1132,6 +1177,11 @@ def build_candidate_application(args, build_app, *, staging=False):
         auto_europe=os.getenv('ZEYNAL_TEST_EUROPE_AUTO_ENABLED','1')=='1'
         app.bot_data['europe_auto_scheduler_enabled']=bool(scheduler and not args.replay_only and auto_europe)
         if app.bot_data['europe_auto_scheduler_enabled']:tasks.append(background_task(scheduler.run(app)))
+        bulletin=app.bot_data.get('iddaa_bulletin')
+        if bulletin and os.getenv('ZEYNAL_TEST_IDDAA_AUTO_ENABLED','1')=='1':
+            from hybrid_engine.iddaa_bulletin import collect_bulletins
+            tasks.append(asyncio.create_task(collect_bulletins(bulletin)))
+            app.bot_data['iddaa_auto_enabled']=True
         overnight=app.bot_data.get('nba_overnight_scheduler')
         if overnight and not args.replay_only:tasks.append(background_task(overnight.run(app)))
         adaptive=app.bot_data.get('adaptive_v2_worker')

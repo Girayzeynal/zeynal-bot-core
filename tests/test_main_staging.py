@@ -116,6 +116,7 @@ class MainStagingTests(IsolatedAsyncioTestCase):
                 builder=lambda: Application.builder().base_url(f"http://127.0.0.1:{port}/bot"))))
             stack.enter_context(patch.object(isolated_execution, "background_task", idle_worker))
             download = stack.enter_context(patch.object(test_bot, "fetch_document", side_effect=AssertionError("offline replay")))
+            bulletin = stack.enter_context(patch("hybrid_engine.iddaa_bulletin.Bulletin.review", return_value="İddaa · örnek bülten"))
             callback = None
             for boot in range(2):
                 ready.clear()
@@ -126,6 +127,9 @@ class MainStagingTests(IsolatedAsyncioTestCase):
                     self.assertTrue(app.running and app.updater.running)
                     self.assertEqual(app.bot_data["entry_profile"], "MAIN_STAGING")
                     if boot == 0:
+                        await command("/barem NBA", 90)
+                        self.assertEqual(responses[-1]["text"], "İddaa · örnek bülten")
+                        bulletin.assert_called_once_with("NBA", None)
                         await command(COMMANDS[0], 1)
                         self.assertTrue(any("NBA ARŞİV REPLAY" in r["text"] for r in responses))
                         for i, row in enumerate(rows, 2):

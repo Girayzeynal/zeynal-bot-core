@@ -152,6 +152,7 @@ def present(report,league,cache,chat_id,*,service=None,forward_service=None,rost
     if len(summary.encode('utf-16-le'))//2>3500:raise ValueError('EUROPE_UI_SUMMARY_BUDGET')
     from hybrid_engine.europe_data import context
     entry['europe_context']=context(v,league)
+    entry['iddaa_first_half_total']=sum(q['halves'][0])
     entry['europe_original_sections']={k:sections[k] for k in ('market','roster')}
     cache_report(cache,token,entry)
     return dict(report,html_parts=[summary],html=summary,reply_markup=keyboard(token),presentation_version=VERSION)

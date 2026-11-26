@@ -109,9 +109,23 @@ def render_performance(reports):
         report = unwrap(reports[league])
         groups = report.get("groups", [])
         lines.append(f"{league}: {len(groups)} model kohortu")
+        errors = defaultdict(dict)
+        for forecast in report['forecasts']:
+            if (forecast.get('actual') is None or forecast.get('legacy_publication_clock_unrecorded')
+                    or forecast.get('eligible_for_live_performance') is False):
+                continue
+            cohort = (forecast['league'], forecast['season'], forecast['model_digest'], forecast['model_version'])
+            errors[cohort][forecast['fixture_id']] = sum(forecast['prediction']) - sum(forecast['actual'])
         for row in groups:
             lines.append(f"  {row['model_version']} | N={row['n']} "
                          f"| Takım MAE {row['team_mae']:.2f} | Toplam MAE {row['total_mae']:.2f}")
+            cohort = (league, row.get('season'), row.get('model_digest'), row['model_version'])
+            residuals = errors[cohort].values()
+            if len(residuals) == row['n'] and residuals:
+                near = sum(-2 <= error <= 3 for error in residuals)
+                large = sum(abs(error) >= 25 for error in residuals)
+                lines.append(f"  Toplam (tahmin − sonuç): −2…+3 içinde {near}/{len(residuals)}"
+                             f" · 25+ sayı mutlak hata {large}/{len(residuals)}")
     lines.append("Eski EuroLeague arşivi ilk yayın zamanı belirsizse metrik dışıdır.")
     lines.append("NOT_CALIBRATED | Güven yüzdesi ya da bahis başarısı değildir.")
     return "\n".join(lines)

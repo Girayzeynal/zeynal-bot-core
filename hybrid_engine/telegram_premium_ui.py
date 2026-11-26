@@ -62,7 +62,7 @@ def compact_summary(snapshot,evidence,*,replayed,health=None,market_note=None,di
         '<i>İzole araştırma · Üretim değil</i>'])
     return '\n'.join(lines)
 
-def keyboard(token,*,section=None,page=0,pages=1,include_archive=False):
+def keyboard(token,*,section=None,page=0,pages=1,include_archive=False,include_iddaa=False):
     from telegram import InlineKeyboardButton,InlineKeyboardMarkup
     rows=[
         [InlineKeyboardButton('📊 Periyotlar',callback_data='zui:'+token+':period'),
@@ -73,6 +73,8 @@ def keyboard(token,*,section=None,page=0,pages=1,include_archive=False):
         [InlineKeyboardButton('🏠 Özet',callback_data='zui:'+token+':summary')]]
     if include_archive:
         rows.insert(-1,[InlineKeyboardButton('🗃 V1 İlk Tahmin — Arşiv',callback_data='zui:'+token+':archive')])
+    if include_iddaa:
+        rows.insert(0,[InlineKeyboardButton('🇹🇷 İddaa baremleri',callback_data='zui:'+token+':iddaa')])
     if pages>1 and section is not None:
         nav=[]
         if page>0:nav.append(InlineKeyboardButton('‹ Önceki',callback_data=f'zui:{token}:{section}:{page-1}'))

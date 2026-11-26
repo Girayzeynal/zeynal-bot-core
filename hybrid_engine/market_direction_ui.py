@@ -39,7 +39,7 @@ def cards(view,forecast,*,tipoff_utc,fixture_id,batch=None):
     deadline=min(tipoff_utc,clock['payload']['prematch_deadline_utc']) if clock else tipoff_utc
     current=(source['method']=='NATIVE_RETRIEVAL' and type(captured) is int and
         captured<=available<=asof<deadline and 0<=asof-captured<=POLICY['quote_max_age_seconds'] and
-        (published is None or 0<=asof-published<=POLICY['quote_max_age_seconds']) and
+        (type(published) is int and 0<published<=captured and asof-published<=POLICY['quote_max_age_seconds']) and
         (batch is None or batch['payload']['record_class']=='PREGAME_CURRENT_REVIEW'))
     if 'parameter_fit_age_seconds' in view:
         from hybrid_engine.time_policy import MAXIMUM_V3_MODEL_AGE_SECONDS
@@ -63,7 +63,7 @@ def cards(view,forecast,*,tipoff_utc,fixture_id,batch=None):
         mean=projection_mean(forecast,row['period'],row['market'])
         side=None if abs(p['under']-p['over'])<1e-12 or p['push']>=max(p['under'],p['over']) else 'over' if p['over']>p['under'] else 'under'
         native=current and 'NATIVE_PRICE_EVIDENCE_REQUIRED' not in row.get('reasons',[])
-        expiry=min(deadline,captured+POLICY['quote_max_age_seconds'],published+POLICY['quote_max_age_seconds'] if published is not None else deadline) if native else None
+        expiry=min(deadline,captured+POLICY['quote_max_age_seconds'],published+POLICY['quote_max_age_seconds']) if native else None
         out.append(dict(fixture_id=fixture_id,tipoff_utc=tipoff_utc,model_digest=view['model_digest'],
             league=league,regulation_minutes=minutes,
             period=row['period'],market=row['market'],line=row['line'],prices=dict(row['prices']),

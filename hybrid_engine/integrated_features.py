@@ -25,6 +25,9 @@ def features(state):
         'V2 güncel takım / box tempo adayları: '+loaded('adaptive_v2_worker'),
         'V3 rakip / form / korelasyonlu periyot adayı: '+loaded('issue90_research'),
         'Güncel değerlendirme / tam ortak yollar / ana analiz görünümü: '+loaded('current_assessments'),
+        'Türkiye basketbol bülteni: '+('/barem NBA · /barem EUROLEAGUE · /barem EUROCUP'
+            if state.get('iddaa_bulletin') is not None else 'Bu süreçte kapalı'),
+        'İddaa ilk yarı bülteni otomatik kontrolü: '+('30 dakikada bir' if state.get('iddaa_auto_enabled') else 'kapalı'),
         'Üç lig sonuç ve performans: /results all · /accuracy all',
         'Modellerin ayrı çıktıları: /models NBA MAÇ_KİMLİĞİ',
         'Kadro ve piyasa panelleri: doğrulanmış veri varsa kullanılır.',
