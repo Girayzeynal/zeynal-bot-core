@@ -194,6 +194,14 @@ class CurrentReviewJournal:
             manifest['native_price_context']=deepcopy(native_context)
             if native_pin!=digest(snapshot):
                 manifest['evaluation_context']=deepcopy(snapshot)
+            if any(row.get('raw_contract_probabilities') is not None
+                   for review in reviews for row in review['rows']):
+                from hybrid_engine.market_sample_evidence import capture
+                try:manifest['contract_sample_evidence']=capture(distribution)
+                except (ValueError,TypeError,AttributeError):
+                    # An unsupported sample codec must not turn a valid raw
+                    # source observation into verified settlement evidence.
+                    manifest['contract_sample_evidence_status']='UNSUPPORTED_SAMPLE_EVIDENCE'
         key=digest(manifest);filename='review-'+key+'.json'
         legacy=local_path(self.root/filename)
         segment=fixture_journal_directory(self.root,snapshot['league'],snapshot['fixture_id'])

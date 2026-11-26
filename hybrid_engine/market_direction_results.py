@@ -16,6 +16,7 @@ from hybrid_engine.provider_identity import archived_price_clock
 from hybrid_engine.provider_bridge import odds_observations,fixture_for
 from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 from hybrid_engine.unified_results_view import unwrap,normalized_rows
+from hybrid_engine.market_sample_evidence import replay,contract_mass
 
 MAX_FILES=1024
 MAX_BYTES=32*1024*1024
@@ -74,10 +75,13 @@ def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None):
     require(all(r['actual_periods']==result['actual_periods'] and r['actual']==result['actual']
                 and r['final_with_ot']==result['final_with_ot'] for r in matches),
             'CONFLICTING_NATIVE_FINALS')
+    first_deadline=p['prediction_utc'] if p.get('forecast_record_type') else decision
     require(type(result.get('first_archived_at_utc')) is int and
             type(result.get('prediction_generated_at_utc')) is int and
-            0<result['prediction_generated_at_utc']<=result['first_archived_at_utc']<=p['prediction_utc'] and
-            type(result.get('label_available_utc')) is int and f['tipoff_utc']<result['label_available_utc']<=now,
+            result['prediction_generated_at_utc']==native['prediction_generated_at_utc'] and
+            0<result['prediction_generated_at_utc']<=result['first_archived_at_utc']<=first_deadline and
+            type(result.get('label_available_utc')) is int and f['tipoff_utc']<result['label_available_utc']<=now and
+            (f['league']!='NBA' or result.get('model_digest')==native['model_digest']),
             'ORIGINAL_OR_FINAL_CLOCK_UNVERIFIED')
     periods=result['actual_periods']
     # Verify regulation and full score agreement, valid preceding OT ties and
@@ -93,7 +97,7 @@ def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None):
         require(digest(evaluation)==digest(native) and p['prediction_utc']==result['prediction_generated_at_utc'],
                 'FIRST_MODEL_REVIEW_CONTEXT_CONFLICT')
     rules=bridge.rule_book.rules(decision)
-    parsed={};rows=[];excluded=Counter()
+    parsed={};rows=[];excluded=Counter();sample_paths=None
     for review in p['reviews']:
         require(review['fixture']==f and review['decision_utc']==decision and
                 review['prediction_utc']==p['prediction_utc'] and
@@ -149,7 +153,14 @@ def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None):
                         all(type(v) in (int,float) and math.isfinite(v) and 0<=v<=1 for v in mass.values()) and
                         abs(sum(mass.values())-1)<1e-8 and float(2*row['line']).is_integer(),
                         'VERIFIED_CONTRACT_PROBABILITIES_REQUIRED')
-                if mass['under']==mass['over'] or mass['push']>=max(mass['under'],mass['over']):
+                require('contract_sample_evidence' in p,'CONTRACT_SAMPLE_EVIDENCE_MISSING')
+                if sample_paths is None:
+                    sample_paths=replay(p['contract_sample_evidence'],p['sample_sha256'])
+                require(review['sample_count']==len(sample_paths[0]),'CONTRACT_SAMPLE_COUNT_MISMATCH')
+                calculated=contract_mass(sample_paths,row['market'],row['line'],rp['include_overtime'])
+                require(all(abs(mass[k]-calculated[k])<=1e-12 for k in mass),
+                        'CONTRACT_PROBABILITY_REPLAY_MISMATCH')
+                if abs(mass['under']-mass['over'])<1e-12 or mass['push']>=max(mass['under'],mass['over']):
                     excluded['NO_DISTINCT_DIRECTION']+=1;continue
                 side='under' if mass['under']>mass['over'] else 'over'
                 v=settled_value(periods,row['period'],row['market'],include_overtime=rp['include_overtime'])
@@ -158,14 +169,15 @@ def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None):
                        row['market'],rp['include_overtime'],row['line'])
                 rows.append(dict(group=group,fixture_id=f['fixture_id'],decision_utc=decision,
                     completed_at_utc=completed,batch_sha256=w['sha256'],quote_sha256=row['quote_sha256'],
-                    direction=side,outcome='PUSH' if actual=='push' else 'WIN' if side==actual else 'LOSS'))
+                    direction=side,prices=dict(row['prices']),model_digest=review['model_digest'],
+                    outcome='PUSH' if actual=='push' else 'WIN' if side==actual else 'LOSS'))
             except (ValueError,KeyError,TypeError,AttributeError) as exc:
                 reason=str(exc)
                 excluded[reason if reason.isupper() and len(reason)<100 else 'MARKET_ROW_VALIDATION_FAILED']+=1
     return rows,excluded
 
 def candidate_checker(assessments):
-    entries=None;checked=set()
+    entries=None;checked={}
     def check(p,evaluation,completed):
         nonlocal entries
         require(assessments is not None,'CANDIDATE_ARCHIVE_UNAVAILABLE')
@@ -186,8 +198,16 @@ def candidate_checker(assessments):
             ref=next((r for r in c['assets'] if r['file'].startswith('joint-paths-')),None)
             require(ref is not None,'CANDIDATE_SAMPLE_ASSET_REQUIRED')
             asset=assessments.registry.read_asset(ref)
-            require(asset['model_artifact_sha256']==evaluation['model_digest'],'CANDIDATE_MODEL_PIN_CONFLICT')
-            checked.add(pin)
+            key=digest(dict(fixture=f['canonical_id'],version=c['version']))
+            receipt=read_wrapper(assessments.registry.root/('assessment-commit-'+key+'.json'),65536)['payload']
+            require(receipt['forecast_sha256']==pin and
+                    receipt['publication_sha256']==digest(entry['publication']) and receipt['eligible'] is True,
+                    'CANDIDATE_COMMIT_PIN_CONFLICT')
+            checked[pin]=(asset['model_artifact_sha256'],receipt['completed_at_utc'])
+        model_pin,committed=checked[pin]
+        require(model_pin==evaluation['model_digest'] and type(committed) is int and
+                entry['publication']['first_archived_at_utc']<=committed<=p['decision_utc'],
+                'CANDIDATE_MODEL_OR_COMMIT_CLOCK_CONFLICT')
     return check
 
 def audit(root,reports,*,bridge,assessments=None):
@@ -223,9 +243,11 @@ def audit(root,reports,*,bridge,assessments=None):
             for row in rows:
                 k=(row['group'],row['fixture_id']);rank=(row['completed_at_utc'],row['decision_utc'])
                 old=groups.get(k)
-                if old is not None and rank==(old['completed_at_utc'],old['decision_utc']) and                         (row['direction'],row['outcome'])!=(old['direction'],old['outcome']):
+                if old is None or rank<(old['completed_at_utc'],old['decision_utc']):
+                    groups[k]=row;conflicts.discard(k)
+                elif rank==(old['completed_at_utc'],old['decision_utc']) and any(
+                        row[field]!=old[field] for field in ('direction','outcome','prices','model_digest')):
                     conflicts.add(k)
-                if old is None or rank<(old['completed_at_utc'],old['decision_utc']):groups[k]=row
         except ERRORS as exc:
             reason=str(exc)
             excluded[reason if reason.isupper() and len(reason)<100 else 'MARKET_BATCH_VALIDATION_FAILED']+=1

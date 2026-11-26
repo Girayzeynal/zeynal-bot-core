@@ -57,6 +57,12 @@ def render_batch(batch):
                 else:
                     mass=row['raw_contract_probabilities']
                     lines.append(f"Kuralı eşleşmiş ham ödeme: {under} %{100*mass['under']:.1f} · İADE %{100*mass['push']:.1f} · {over} %{100*mass['over']:.1f}")
+                    if kind in ('WINNER','TOTAL') and row['period']=='FULL':
+                        side=('DENGELİ' if abs(mass['under']-mass['over'])<1e-12 or
+                              mass['push']>=max(mass['under'],mass['over']) else
+                              under if mass['under']>mass['over'] else over)
+                        lines.append('Sözleşme yönü (araştırma): '+side+
+                            ' · Nihai başarı denetimi için kaynak, kayıt ve sonuç bağı ayrıca aranır.')
                     lines.append('Ham model beklenen getirisi (1 birim tutar): '+', '.join(
                         (under if s=='under' else over)+f' {v:+.3f}' for s,v in row['expected_value'].items()))
                 lines.append('Durum: '+html.escape(message(row['status'],technical=row['status']=='NO_EDGE')))

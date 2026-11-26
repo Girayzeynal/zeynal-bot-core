@@ -65,7 +65,9 @@ def inspect_accuracy(record, command, acknowledgments, *, expected_release, now)
             details['error'] = sanitized_error(row['error'])
         leagues[league] = details
     optional = {}
-    for name in ('candidate','iddaa'):
+    names=['candidate','iddaa']
+    if 'market_directions' in record['report']['optional']:names.append('market_directions')
+    for name in names:
         row = record['report']['optional'][name]
         if row['status'] not in ('RENDERED','FAILED','UNAVAILABLE'):
             raise ValueError('ACCURACY_OPTIONAL_STATUS_INVALID')
