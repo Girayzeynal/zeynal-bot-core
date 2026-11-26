@@ -63,10 +63,12 @@ if [[ "${1:-}" == "--settle-results" || "${1:-}" == "--results-review" ]]; then
   exec "${test_python}" -B -m scripts.settle_all_leagues --data-directory "${HOME}/zeynal-test-isolated/data" "${result_args[@]}"
 fi
 if [[ "${1:-}" == "--verification-review" ]]; then
-  if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
-  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  if [[ "$#" -gt 2 ]]; then echo "USAGE: --verification-review [FULL_RELEASE_SHA]" >&2; exit 2; fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+  verification_args=()
+  if [[ "$#" -eq 2 ]]; then verification_args=(--release-sha "$2"); fi
   exec "${test_python}" -B -m hybrid_engine.device_verification \
-    --data-directory "${HOME}/zeynal-test-isolated/data"
+    --data-directory "${HOME}/zeynal-test-isolated/data" "${verification_args[@]}"
 fi
 if [[ "${1:-}" == "--pipeline-audit" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi

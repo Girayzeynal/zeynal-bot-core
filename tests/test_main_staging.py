@@ -107,7 +107,9 @@ class MainStagingTests(IsolatedAsyncioTestCase):
             rows = json.loads(next(europe.glob("capture-*.json")).read_text())["payload"]["results"]
             args = test_bot.candidate_args(["--data-directory", tmp, "--archive-directory", str(ARCHIVE),
                 "--europe-directory", str(europe), "--nba-model", prepared["path"], "--nba-model-sha", prepared["sha256"]])
-            stack.enter_context(patch.dict(os.environ, {k: v for k, v in ENV.items() if k.startswith("ZEYNAL_TEST_")}, clear=True))
+            isolated_env={k:v for k,v in ENV.items() if k.startswith("ZEYNAL_TEST_")}
+            isolated_env['ZEYNAL_RELEASE_SHA']='a'*40
+            stack.enter_context(patch.dict(os.environ, isolated_env, clear=True))
             stack.enter_context(patch.object(Application, "process_update", observe))
             stack.enter_context(patch.object(main, "PORT", 0))
             stack.enter_context(patch.object(main, "TELEGRAM_BOT_TOKEN", None))
@@ -154,6 +156,15 @@ class MainStagingTests(IsolatedAsyncioTestCase):
                         self.assertIn("EUROCUP: 0 model", responses[-1]["text"])
                         self.assertIn("EUROLEAGUE · Arşiv okunamadı", responses[-1]["text"])
                         self.assertIn("REPORT_TIMEOUT", responses[-1]["text"])
+                        await command('/test acceptance',91)
+                        result=json.loads(responses[-1]['text'])
+                        proof=result['accuracy']
+                        self.assertEqual(result['running_release_sha'],'a'*40)
+                        self.assertEqual(proof['report_status'],'PARTIAL_REPORT')
+                        self.assertEqual(proof['leagues']['EUROLEAGUE']['error'],'REPORT_NATIVE_SCORE_CONFLICT')
+                        self.assertEqual(proof['returned_parts'],proof['expected_parts'])
+                        self.assertEqual(proof['verified_parts'],0)
+                        self.assertEqual(proof['status'],'UNCONFIRMED')  # loopback API
                     else:
                         self.assertIsNotNone(callback)
                         await dispatch(dict(update_id=10, callback_query={

@@ -134,31 +134,49 @@ def render_performance(reports):
 
 
 
-def accuracy_sections(reader, *, candidate=None, market=None):
+def accuracy_sections(reader, *, candidate=None, market=None, receipt=None):
     """One league or optional performance section can fail independently."""
     import logging
+    import time
     from hybrid_engine.runtime_reports import REPORT_ERRORS, failure
     log = logging.getLogger(__name__)
     verified, unavailable = {}, []
+    leagues, optional = {}, {}
     for league in LEAGUES:
+        started = time.monotonic()
         try:
             report = unwrap(reader.read(league, None))
-            normalized_rows(report, league)
+            fixtures = normalized_rows(report, league)
             render_performance({league: report})
+            settled = [rows for rows in fixtures if any(r.get('actual') is not None for r in rows)]
+            eligible = sum(any(r.get('actual') is not None and not r.get('legacy_publication_clock_unrecorded')
+                               and r.get('eligible_for_live_performance') is not False for r in rows)
+                           for rows in settled)
         except REPORT_ERRORS as exc:
             issue = failure(exc)
             log.warning('Accuracy archive %s unavailable: %s', league, issue)
             unavailable.append(f'{league} · Arşiv okunamadı · {issue}')
+            leagues[league] = dict(status='FAILED', error=issue)
         else:
             verified[league] = report
+            leagues[league] = dict(status='READ', matched=len(settled), eligible=eligible)
+        leagues[league]['elapsed_ms'] = round((time.monotonic()-started)*1000)
     parts = [render_performance(verified), *unavailable]
-    for label, render in (('Güncel aday performansı', candidate), ('İddaa ilk yarı karşılaştırması', market)):
+    for key, label, render, args in (
+            ('candidate', 'Güncel aday performansı', candidate, ()),
+            ('iddaa', 'İddaa ilk yarı karşılaştırması', market, (verified,))):
         if render is None:
+            optional[key] = dict(status='UNAVAILABLE')
             continue
         try:
-            parts.append(render(verified) if label=='İddaa ilk yarı karşılaştırması' else render())
+            parts.append(render(*args))
         except REPORT_ERRORS as exc:
             issue = failure(exc)
             log.warning('Accuracy optional section %s unavailable: %s', label, issue)
             parts.append(f'{label} · Okunamadı · {issue}')
+            optional[key] = dict(status='FAILED', error=issue)
+        else:
+            optional[key] = dict(status='RENDERED')
+    if receipt is not None:
+        receipt.update(leagues=leagues, optional=optional)
     return '\n\n'.join(parts)

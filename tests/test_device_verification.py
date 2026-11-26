@@ -139,6 +139,77 @@ class DeviceReviewTests(TestCase):
             result=read_journal(p,asof_utc=200)
         self.assertEqual(result['status'],'NOT_VERIFIED_JOURNAL_SIZE_LIMIT')
 
+    def test_accuracy_acceptance_gates_each_part_release_and_report_independently(self):
+        from hybrid_engine.accuracy_delivery import inspect_accuracy, read_accuracy
+        command, ack = suite()[5:7]
+        command.update(received_at_utc=100,request_sha256=digest('/accuracy all'))
+        ack2 = dict(ack,telegram_message_id=42,request_text_sha256=digest('second'),
+                    message_sha256=digest('second'))
+        release = 'b'*40
+        data = dict(leagues={'NBA':dict(status='READ',matched=74,eligible=74,elapsed_ms=68),
+                             'EUROLEAGUE':dict(status='FAILED',error='SQLITE_BUSY (SQLITE_BUSY/5)',elapsed_ms=200),
+                             'EUROCUP':dict(status='READ',matched=13,eligible=12,elapsed_ms=55)},
+                    optional={'candidate':dict(status='FAILED',error='REPORT_TIMEOUT'),
+                              'iddaa':dict(status='UNAVAILABLE')})
+        record = dict(kind='ACCURACY_ALL_DELIVERY',update_id=command['update_id'],
+                      chat_id=17,request_sha256=command['request_sha256'],release_sha=release,
+                      prepared_at_utc=100,completed_at_utc=103,report=data,
+                      expected_parts=2,send_status='ALL_PARTS_RETURNED',
+                      parts=[dict(message_id=e['telegram_message_id'],request_text_sha256=e['request_text_sha256'])
+                             for e in (ack,ack2)])
+        def probe(bound, sha=release, original=command):
+            return inspect_accuracy(record,original,bound,expected_release=sha,now=200)
+        good = probe([ack,ack2])
+        self.assertEqual(good['status'],'LOCAL_OFFICIAL_API_RECEIPTS_VERIFIED')
+        self.assertEqual(good['report_status'],'PARTIAL_REPORT')
+        self.assertEqual(good['leagues']['NBA']['matched'],74)
+        self.assertEqual(good['leagues']['EUROLEAGUE']['error'],'SQLITE_BUSY (SQLITE_BUSY/5)')
+        for altered in ([ack], [ack,dict(ack2,transport='MOCK_OR_UNATTESTED_ENDPOINT')],
+                        [ack,dict(ack2,request_text_sha256='a'*64)], [ack,dict(ack2,bot_id=222)],
+                        [ack,dict(ack2,ack_at_utc=104)]):
+            self.assertEqual(probe(altered)['status'],'UNCONFIRMED')
+        self.assertEqual(probe([ack,ack2],sha='c'*40)['status'],'RELEASE_UNCONFIRMED')
+        self.assertEqual(probe([ack,ack2],original=dict(command,request_sha256='a'*64))['status'],'UNCONFIRMED')
+        p=self.root/'telegram-delivery.sqlite'
+        journal=DeliveryJournal(p)
+        journal.append('received:'+str(record['update_id']),command)
+        for e in (ack,ack2):
+            journal.append(digest(dict(chat=e['chat_id'],message=e['telegram_message_id'])),e)
+        journal.append('accuracy-all:'+str(record['update_id']),record)
+        before=p.read_bytes()
+        with patch.dict('os.environ',{'ZEYNAL_RELEASE_SHA':release}), patch('time.time',return_value=200):
+            self.assertEqual(read_accuracy(journal,record['update_id']),good)
+        offline=read_journal(p,asof_utc=200,expected_release=release)
+        self.assertEqual(offline['latest_accuracy_all'],good)
+        self.assertEqual(read_journal(p,asof_utc=200,expected_release='c'*40)['latest_accuracy_all']['status'],'NOT_OBSERVED')
+        self.assertEqual(before,p.read_bytes())
+        compact=json.dumps(offline)
+        for field in ('chat_id','message_id','request_text','bot_id','update_id'):
+            self.assertNotIn(field,compact)
+
+    def test_mid_report_gateway_failure_is_retained_with_returned_part_count(self):
+        import asyncio
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+        from telegram.error import NetworkError
+        from hybrid_engine.accuracy_delivery import send_accuracy
+
+        async def exercise():
+            update=SimpleNamespace(update_id=10,effective_chat=SimpleNamespace(id=17))
+            message=SimpleNamespace(text='/accuracy all',
+                reply_text=AsyncMock(side_effect=[SimpleNamespace(message_id=3),NetworkError('Bad Gateway')]))
+            write=AsyncMock()
+            with self.assertRaises(NetworkError):
+                await send_accuracy(update,message,['part 1','part 2'],{},write)
+            key, row=write.await_args.args
+            self.assertEqual(key,'accuracy-all:10')
+            self.assertEqual(row['send_status'],'INCOMPLETE')
+            self.assertEqual(row['expected_parts'],2)
+            self.assertEqual(row['parts'],[dict(message_id=3,request_text_sha256=digest('part 1'))])
+            self.assertNotIn('Bad Gateway',json.dumps(row))
+
+        asyncio.run(exercise())
+
     def test_launcher_review_precedes_polling_lock_git_and_credentials(self):
         import os,subprocess,sys
         checkout=self.root/'zeynal-hybrid-844';binary=checkout/'.venv/bin/python';binary.parent.mkdir(parents=True)
@@ -151,4 +222,8 @@ class DeviceReviewTests(TestCase):
         result=subprocess.run(['bash',str(installed),'--verification-review'],env=dict(os.environ,HOME=str(self.root)),
             text=True,capture_output=True,check=True,timeout=5)
         self.assertEqual(json.loads(result.stdout),['--data-directory',str(self.root/'zeynal-test-isolated/data')])
+        explicit=subprocess.run(['bash',str(installed),'--verification-review','a'*40],
+            env=dict(os.environ,HOME=str(self.root)),text=True,capture_output=True,check=True,timeout=5)
+        self.assertEqual(json.loads(explicit.stdout),['--data-directory',str(self.root/'zeynal-test-isolated/data'),
+                                                      '--release-sha','a'*40])
         self.assertFalse((self.root/'zeynal-test-isolated').exists())

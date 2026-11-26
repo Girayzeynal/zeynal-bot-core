@@ -610,8 +610,19 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
+        if mode=='acceptance' and len(args)==2:
+            from hybrid_engine.accuracy_delivery import read_accuracy, release_sha
+            from hybrid_engine.runtime_reports import REPORT_ERRORS
+            try:
+                status=await asyncio.to_thread(read_accuracy,journal,app.bot_data.get('last_accuracy_all_update'))
+            except REPORT_ERRORS as exc:
+                status=dict(status='JOURNAL_READ_FAILED', error=failure(exc))
+            report=dict(format='ISOLATED_ACCURACY_ACCEPTANCE_V1',running_release_sha=release_sha(),
+                        entry_profile=app.bot_data.get('entry_profile'),accuracy=status)
+            await message.reply_text(json.dumps(report,ensure_ascii=False,indent=2))
+            raise ApplicationHandlerStop
         if mode not in ('all','nba','euroleague','eurocup','roster','research','data','providers','runtime','integrations','engines','predictions','playerimpact'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test providers [check], /test runtime, /test integrations, /test predictions, /test all')
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test providers [check], /test runtime, /test integrations, /test predictions, /test acceptance, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',
@@ -991,11 +1002,13 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         def review_iddaa(reports):
             from hybrid_engine.iddaa_comparison import render_comparison
             return render_comparison(bulletin.root,reports)
+        from hybrid_engine.accuracy_delivery import send_accuracy
+        receipt={}
         value=await asyncio.to_thread(accuracy_sections,reader,
             candidate=candidate.render_performance if candidate else None,
-            market=review_iddaa if (bulletin.root/'first-half').is_dir() else None)
-        for part in split_plain(value,limit=3200):
-            await update.effective_message.reply_text(part,parse_mode=None,disable_web_page_preview=True)
+            market=review_iddaa if (bulletin.root/'first-half').is_dir() else None, receipt=receipt)
+        app.bot_data['last_accuracy_all_update']=update.update_id
+        await send_accuracy(update,update.effective_message,list(split_plain(value,limit=3200)),receipt,journal_write)
         raise ApplicationHandlerStop
     app.add_handler(CommandHandler('results',results_all_command),group=-50)
     app.add_handler(CommandHandler('accuracy',accuracy_all_command),group=-50)

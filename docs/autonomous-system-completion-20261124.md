@@ -736,3 +736,28 @@ python -m hybrid_engine.paired_dynamic_replay --receipts-directory /tmp/zeynal-p
   Önceki ve yeni protokol sayaçları ortak ileri deney gibi sayılmaz.
 - [ ] Android ve gerçek Telegram üzerinde yeni sürümün kuyruk süreleri,
   otomatik maç öncesi skor kaydı ve teslim kabulü.
+
+### 26 Kasım · Cihazda performans raporu kabulü
+
+- [x] İzole Telegram'da `/accuracy all` yanıtı, çalışan sürüm SHA'sı
+  ve beklenen bölüm sayısıyla teslim günlüğüne bağlanır. Gönderim yarıda
+  kalırsa Telegram'ın döndürdüğü bölüm sayısı kalır. Her bölüm için yetkili
+  sohbet, bot, güncelleme, içerik ve Bot API kabulü denetlenir.
+- [x] `/test acceptance` aynı çalışan süreçte son `/accuracy all`
+  isteğinin kısa kanıtını döndürür. Lig başına doğrulanmış benzersiz
+  sonuç eşleşmesi ve ilk yayın kanıtıyla ölçüme uygun eşleşme sayısı
+  ayrı gösterilir. Bir lig okunamazsa sayı yerine hata sınıfı ve varsa
+  genişletilmiş SQLite kodu gösterilir. Aday ve İddaa raporları
+  bağımsız bölüm durumuna sahiptir.
+- [x] Özel kimlikler, komut metni, API gövdesi ve arşiv yolları
+  kabul özetine çıkmaz. Tam resmi API makbuzu, yerel teslim günlüğü
+  kanıtıdır. Loopback yanıtı teslim kanıtına yükseltilmez.
+- [x] Yeniden başlatmadan önceki kayıt gerekirse
+  `bash scripts/run_isolated_test_bot.sh --verification-review TAM_SHA`
+  aynı SHA'ya ilişkin son `/accuracy all` teslimini arşivden okur.
+  Salt okunur SQLite işlemi JSON ve SHA doğrulaması öncesinde kapanır.
+- [ ] Telefon kabulü. Güncel sürümü mevcut UserLAnd çalışma
+  kopyasından başlatıp Telegram'da `/accuracy all` ve ardından
+  `/test acceptance` gönder. SHA, `THREE_LEAGUES_READ` ve
+  `LOCAL_OFFICIAL_API_RECEIPTS_VERIFIED` alanlarını kontrol et.
+  Tam kabul için dönen yerel özet gerekir. Bu ölçüm modeli terfi ettirmez.
