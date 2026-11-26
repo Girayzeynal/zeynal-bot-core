@@ -165,6 +165,12 @@ class MainStagingTests(IsolatedAsyncioTestCase):
                         self.assertEqual(proof['returned_parts'],proof['expected_parts'])
                         self.assertEqual(proof['verified_parts'],0)
                         self.assertEqual(proof['status'],'UNCONFIRMED')  # loopback API
+                        await command('/test modelaudit',92)
+                        audit_message=responses[-1]['text']
+                        self.assertIn('YAYIMLANMIŞ ADAYLARIN EŞLEŞTİRİLMİŞ HATA DENETİMİ',audit_message)
+                        self.assertIn('NBA · uygun sonuçlu maç 0',audit_message)
+                        self.assertIn('EUROCUP · uygun sonuçlu maç 0',audit_message)
+                        self.assertIn('EUROLEAGUE · Arşiv okunamadı · REPORT_NATIVE_SCORE_CONFLICT',audit_message)
                     else:
                         self.assertIsNotNone(callback)
                         await dispatch(dict(update_id=10, callback_query={

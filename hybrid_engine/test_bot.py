@@ -610,6 +610,18 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
+        if mode=='modelaudit' and len(args)==2:
+            from hybrid_engine.paired_archive_audit import audit, render
+            from hybrid_engine.predictions_command import split_plain
+            from hybrid_engine.runtime_reports import REPORT_ERRORS
+            try:
+                result=await optional_source_thread(audit,root,app.bot_data['ledger_reports'])
+                value=render(result)
+            except REPORT_ERRORS as exc:
+                value='Aday arşivi denetlenemedi · '+failure(exc)
+            for part in split_plain(value,limit=3200):
+                await message.reply_text(part,parse_mode=None)
+            raise ApplicationHandlerStop
         if mode=='acceptance' and len(args)==2:
             from hybrid_engine.accuracy_delivery import read_accuracy, release_sha
             from hybrid_engine.runtime_reports import REPORT_ERRORS
@@ -622,7 +634,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             await message.reply_text(json.dumps(report,ensure_ascii=False,indent=2))
             raise ApplicationHandlerStop
         if mode not in ('all','nba','euroleague','eurocup','roster','research','data','providers','runtime','integrations','engines','predictions','playerimpact'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test providers [check], /test runtime, /test integrations, /test predictions, /test acceptance, /test all')
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test providers [check], /test runtime, /test integrations, /test predictions, /test acceptance, /test modelaudit, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',

@@ -17,7 +17,8 @@ class IntegratedLauncherTests(TestCase):
         self.script=self.new/'scripts/run_isolated_test_bot.sh';self.script.parent.mkdir(parents=True)
         self.script.write_bytes(original.read_bytes())
         for checkout,marker in ((self.old,'WRONG_OLD_MODULE'),(self.new,'NEW_WORKTREE_MODULE')):
-            for package,module in (('hybrid_engine','device_verification'),('scripts','settle_all_leagues')):
+            for package,module in (('hybrid_engine','device_verification'),('hybrid_engine','paired_archive_audit'),
+                                   ('scripts','settle_all_leagues')):
                 folder=checkout/package;folder.mkdir(exist_ok=True)
                 (folder/'__init__.py').write_text('')
                 (folder/(module+'.py')).write_text('import json,sys\nprint(json.dumps(dict(marker='+repr(marker)+',argv=sys.argv[1:])))')
@@ -27,17 +28,18 @@ class IntegratedLauncherTests(TestCase):
         return subprocess.run(['bash',str(self.script),*args],env=env,capture_output=True,text=True,timeout=10)
 
     def test_readonly_modes_borrow_venv_but_run_new_worktree_modules_without_git_token_or_lock(self):
-        for flag in ('--verification-review','--results-review','--settle-results'):
+        for flag in ('--verification-review','--results-review','--settle-results','--model-audit','--model-audit-json'):
             with self.subTest(flag=flag):
                 p=self.call(flag);self.assertEqual(p.returncode,0,p.stderr);r=json.loads(p.stdout)
                 self.assertEqual(r['marker'],'NEW_WORKTREE_MODULE')
                 self.assertIn(str(self.home/'zeynal-test-isolated/data'),r['argv'])
                 self.assertEqual('--apply' in r['argv'],flag=='--settle-results')
+                self.assertEqual('--json' in r['argv'],flag=='--model-audit-json')
         self.assertFalse((self.home/'.zeynal-elite-test-token').exists())
         self.assertFalse((self.home/'zeynal-test-isolated').exists())
 
     def test_extra_arguments_cannot_silently_settle_or_start_bot(self):
-        for flag in ('--verification-review','--results-review','--settle-results'):
+        for flag in ('--verification-review','--results-review','--settle-results','--model-audit','--model-audit-json'):
             p=self.call(flag,'extra');self.assertEqual(p.returncode,2)
             self.assertIn('INVALID_LAUNCHER_ARGUMENTS',p.stderr);self.assertEqual(p.stdout,'')
 

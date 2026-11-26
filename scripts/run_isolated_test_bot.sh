@@ -62,6 +62,14 @@ if [[ "${1:-}" == "--settle-results" || "${1:-}" == "--results-review" ]]; then
   if [[ "$1" == "--settle-results" ]]; then result_args=(--apply); fi
   exec "${test_python}" -B -m scripts.settle_all_leagues --data-directory "${HOME}/zeynal-test-isolated/data" "${result_args[@]}"
 fi
+if [[ "${1:-}" == "--model-audit" || "${1:-}" == "--model-audit-json" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+  model_audit_args=()
+  if [[ "$1" == "--model-audit-json" ]]; then model_audit_args=(--json); fi
+  exec "${test_python}" -B -m hybrid_engine.paired_archive_audit \
+    --data-directory "${HOME}/zeynal-test-isolated/data" "${model_audit_args[@]}"
+fi
 if [[ "${1:-}" == "--verification-review" ]]; then
   if [[ "$#" -gt 2 || ( "$#" -eq 2 && ! "${2:-}" =~ ^[0-9a-f]{40}$ ) ]]; then
     echo "INVALID_LAUNCHER_ARGUMENTS: --verification-review [FULL_RELEASE_SHA]" >&2

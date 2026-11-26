@@ -783,3 +783,30 @@ python -m hybrid_engine.paired_dynamic_replay --receipts-directory /tmp/zeynal-p
   yapılmaz. Kaydı değiştirilmiş kaynak reddedilir.
 - [ ] Yeni okuyucu için telefonda süre karşılaştırması. Yukarıdaki
   24.395/10.651 ms değerleri kabulü alınan önceki sürüme aittir.
+
+### 26 Kasım · İlk tahmin ve araştırma adaylarının aynı maçlarda denetimi
+
+- [x] `/test modelaudit`, kayıtlı V2, kayıtlı NBA V3 ve güncel ayrı skor
+  arşivlerindeki eski ve yeni protokolleri tarar. Telefonda ikinci terminal
+  gerekmez. Aynı kaydın ayrıntılı çevrimdışı görünümü için
+  `bash scripts/run_isolated_test_bot.sh --model-audit-json` kullanılır.
+- [x] Sonuç, ilk tahmin ve aday; lig, sezon, native maç kimlikleri, UTC
+  başlangıcı ve ilk arşiv SHA'sı üzerinden bağlanır. NBA uzatma sayıları
+  eşleştirilmiş normal süre hatasına girmez. Kalıcı yayını beş dakika
+  sınırını geçen aday ve yetersiz zaman kanıtı ölçüm dışı kalır. Güncel
+  değerlendirmede maç ve strateji için ilk doğrulanmış yayın ölçülür.
+- [x] Protokol bazında örnek sayısı, toplam MAE, RMSE, sapma, hata dağılımı,
+  çeyrek ve yarı MAE, bant kapsaması ve varsa ham üç sınıflı Brier/log loss
+  izlenir. JSON görünümü tempo tahmininin kapsamını, parametre yaşını ve
+  en büyük eşleştirilmiş regresyonları da gösterir. Ortak maç varsa V2
+  PACE_EFFICIENCY ve ayrı V3/güncel aday ilk tahminle aynı kümede
+  ölçülür. V2 ve V3 kalibrasyonu ve piyasaya göre edge bu denetimin
+  çıktısı değildir.
+- [x] Sentetik arşiv testi, uzatma skorunun dışarıda tutulmasını ve
+  farklı kohortların aynı maça indirgenmesini doğruladı. Geç yayın ve
+  bozuk kaynak test edildi. İlk canlı kayıt dosyaları salt okunur açılır.
+  Loopback Telegram komutu, bir ligde hata varken diğer liglerin ve
+  teşhis yanıtının gösterildiğini doğruladı.
+- [ ] UserLAnd'de bu yeni komutun gerçek Telegram teslimi ve eski/yeni aday
+  eşleşmeleri. Cloud ortamında telefonun aday arşivi bulunmadı. Model
+  terfisi için ayrı ileriye dönük doğrulama bekliyor.
