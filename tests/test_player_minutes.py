@@ -2,7 +2,6 @@
 from copy import deepcopy
 from datetime import datetime,timezone
 import json
-import pytest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -61,6 +60,31 @@ class PlayerMinutesTests(TestCase):
             self.assertTrue(all(r['expected_minutes']==30 for r in p[s]))
         self.assertFalse(p['lineup_verified']); self.assertIsNone(p['confidence_index'])
         self.assertIn('UNREPORTED_AVAILABILITY_IS_NOT_CONFIRMED_AVAILABLE',p['assumptions'])
+
+    def test_missing_recent_player_uses_older_same_team_games_only_with_official_availability(self):
+        data=inputs()
+        data['rosters']['home']['players'].append('999')
+        data['review'].update(official_pdf_clock_verified=True,official_stage='FIXTURE_ROWS',
+                              official_code='SOURCE_ROWS_MATCHED_NOT_MEDICALLY_VERIFIED')
+        data['review']['records']=[dict(team_id='1',player_id='999',status='Available',
+            source='NBA_OFFICIAL_PDF',identity_status='EXACT_ESPN_ROSTER_MATCH',status_updated_at_utc=NOW-20)]
+        for i in range(3):
+            older=deepcopy(data['boxes'][0])
+            earlier=NOW-(7+i)*86400
+            older.update(fixture_id='older-'+str(i),fixture_start_utc=earlier,
+                         source=dict(observed_at_utc=earlier+12000,ingested_at_utc=earlier+12001))
+            older['players'][0]['player_id']='999'
+            data['boxes'].append(older)
+        with patch('time.time',return_value=NOW), TemporaryDirectory() as folder:
+            observed=projection(**data)
+            self.assertEqual(observed['payload']['extended_rotation_player_ids'],['999'])
+            self.assertAlmostEqual(sum(p['expected_minutes'] for p in observed['payload']['home']),240)
+            self.assertEqual(validate_witness(archive_inputs(folder,data),folder),observed['payload'])
+            for box in data['boxes'][-3:]:
+                box['home_team_id']='4'  # Native minutes on another club do not transfer.
+                box['players'][0]['team_id']='4'
+            with self.assertRaisesRegex(Abstain,'CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY'):
+                projection(**data)
 
     def test_only_both_source_out_observations_remove_player_and_redistribute(self):
         data=inputs(); data['review']['records']=[dict(team_id='1',player_id='100',status='Out',
@@ -297,29 +321,3 @@ class PlayerMinutesTests(TestCase):
         data['rosters']['home']['observed_at_utc']=NOW-6
         packet=projection(**data)['payload']
         self.assertEqual(packet['source_available_max_utc'],NOW-6)
-
-
-def test_missing_recent_player_uses_older_same_team_games_only_with_official_availability():
-    data=inputs()
-    data['rosters']['home']['players'].append('999')
-    data['review'].update(official_pdf_clock_verified=True,official_stage='FIXTURE_ROWS',
-                          official_code='SOURCE_ROWS_MATCHED_NOT_MEDICALLY_VERIFIED')
-    data['review']['records']=[dict(team_id='1',player_id='999',status='Available',
-        source='NBA_OFFICIAL_PDF',identity_status='EXACT_ESPN_ROSTER_MATCH',status_updated_at_utc=NOW-20)]
-    for i in range(3):
-        older=deepcopy(data['boxes'][0])
-        earlier=NOW-(7+i)*86400
-        older.update(fixture_id='older-'+str(i),fixture_start_utc=earlier,
-                     source=dict(observed_at_utc=earlier+12000,ingested_at_utc=earlier+12001))
-        older['players'][0]['player_id']='999'
-        data['boxes'].append(older)
-    with patch('time.time',return_value=NOW), TemporaryDirectory() as folder:
-        observed=projection(**data)
-        assert observed['payload']['extended_rotation_player_ids']==['999']
-        assert sum(p['expected_minutes'] for p in observed['payload']['home'])==pytest.approx(240)
-        assert validate_witness(archive_inputs(folder,data),folder)==observed['payload']
-        for box in data['boxes'][-3:]:
-            box['home_team_id']='4'  # Native minutes on another club do not transfer.
-            box['players'][0]['team_id']='4'
-        with pytest.raises(Abstain,match='CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY'):
-            projection(**data)
