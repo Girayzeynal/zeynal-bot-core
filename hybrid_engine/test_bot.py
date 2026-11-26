@@ -1014,11 +1014,16 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         def review_iddaa(reports):
             from hybrid_engine.iddaa_comparison import render_comparison
             return render_comparison(bulletin.root,reports)
+        def review_market_directions(reports):
+            from hybrid_engine.market_direction_results import render
+            bridge=provider_bridge or getattr(app.bot_data.get('europe_data_review'),'bridge',None)
+            return render(root,reports,bridge=bridge,assessments=candidate)
         from hybrid_engine.accuracy_delivery import send_accuracy
         receipt={}
         value=await asyncio.to_thread(accuracy_sections,reader,
             candidate=candidate.render_performance if candidate else None,
-            market=review_iddaa if (bulletin.root/'first-half').is_dir() else None, receipt=receipt)
+            market=review_iddaa if (bulletin.root/'first-half').is_dir() else None,
+            market_directions=review_market_directions, receipt=receipt)
         app.bot_data['last_accuracy_all_update']=update.update_id
         await send_accuracy(update,update.effective_message,list(split_plain(value,limit=3200)),receipt,journal_write)
         raise ApplicationHandlerStop

@@ -291,5 +291,63 @@ class CurrentReviewTests(unittest.TestCase):
         self.assertIn('The Odds API: Gerçek fiyatlar alındı',text);self.assertEqual(before,digest(report))
         self.assertEqual(report['providers']['THE_ODDS_API']['status'],'OBSERVED_RULES_AND_CALIBRATION_PENDING')
 
+    def test_prematch_market_direction_exact_capture_and_verified_rule(self):
+        from hybrid_engine.market_direction_results import audit_batch
+        from types import SimpleNamespace
+        rule=self.rule();rules=self.with_rule(rule)
+        bridge=ProviderBridge(ProviderAccess({}),self.root/'receipts',
+                              rule_book=SimpleNamespace(rules=lambda at:rules))
+        bridge._save(self.catalog);bridge._save(self.detail)
+        r=self.review(rules=rules)
+        directory=self.root/'decisions'
+        w=CurrentReviewJournal(directory).record(self.snap,self.dist,[r],decision_utc=NOW,native_context=self.snap)
+        path=directory/('review-'+w['manifest_sha256']+'.json')
+        start=self.snap['fixture_start_utc']
+        label=dict(league=self.snap['league'],season=self.snap['season'],fixture_id=self.snap['fixture_id'],
+            fixture_start_utc=start,snapshot_sha256=digest(self.snap),intervals=self.snap['intervals'],
+            prediction_generated_at_utc=self.snap['prediction_generated_at_utc'],
+            first_archived_at_utc=self.snap['prediction_generated_at_utc'],
+            label_available_utc=start+3600,actual=[120,100],final_with_ot=[120,100],
+            actual_periods=dict(home=[30]*4,away=[25]*4))
+        with patch('time.time',return_value=start+4000):
+            rows,excluded=audit_batch(path,bridge,[label])
+            self.assertEqual(len(rows),1)
+            self.assertEqual(rows[0]['group'][4],'TOTAL')
+            self.assertFalse(rows[0]['group'][5])
+            # Replaying at actual postgame time does not weaken live admission.
+            with self.assertRaises(ValueError):
+                admit_odds(self.obs,self.snap,self.catalog,self.detail)
+            bridge.rule_book=SimpleNamespace(rules=lambda at:{})
+            rows,excluded=audit_batch(path,bridge,[label])
+            self.assertEqual(rows,[]);self.assertEqual(excluded['SETTLEMENT_RULE_UNVERIFIED'],1)
+            bridge.rule_book=SimpleNamespace(rules=lambda at:self.with_rule(self.rule(overtime=True)))
+            rows,excluded=audit_batch(path,bridge,[label])
+            self.assertEqual(rows,[]);self.assertEqual(excluded['SETTLEMENT_RULE_SCOPE_OR_PIN_MISMATCH'],1)
+            with self.assertRaisesRegex(ValueError,'FINAL_OR_ORIGINAL_MISSING'):
+                audit_batch(path,bridge,[])
+        # No postgame recovery of the original publication witness.
+        witness=directory/('market-commit-'+w['manifest_sha256']+'.json')
+        witness.unlink()
+        self.assertEqual(CurrentReviewJournal(directory).record(self.snap,self.dist,[r],
+            decision_utc=NOW,native_context=self.snap),w)
+        self.assertFalse(witness.exists())
+        with patch('time.time',return_value=start+4000),self.assertRaisesRegex(ValueError,'DURABLE_COMMIT_MISSING'):
+            audit_batch(path,bridge,[label])
+
+    def test_market_decision_commit_at_five_minute_boundary_is_not_eligible(self):
+        r=self.review();directory=self.root/'decisions'
+        # The writer must classify using the clock after the durable write.
+        cutoff=self.snap['fixture_start_utc']-300
+        from hybrid_engine.boxes import publish_json as original_publish
+        clock=[NOW]
+        def publish(path,value):
+            original_publish(path,value)
+            if path.name.startswith('review-'):clock[0]=cutoff
+        with patch('time.time',side_effect=lambda:clock[0]),patch('hybrid_engine.current_market_review.publish_json',side_effect=publish):
+            w=CurrentReviewJournal(directory).record(self.snap,self.dist,[r],decision_utc=NOW,native_context=self.snap)
+        p=json.loads((directory/('market-commit-'+w['manifest_sha256']+'.json')).read_text())['payload']
+        self.assertFalse(p['eligible'])
+        self.assertEqual(p['completed_at_utc'],cutoff)
+
 
 if __name__=='__main__':unittest.main()

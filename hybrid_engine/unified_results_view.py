@@ -134,7 +134,7 @@ def render_performance(reports):
 
 
 
-def accuracy_sections(reader, *, candidate=None, market=None, receipt=None):
+def accuracy_sections(reader, *, candidate=None, market=None, market_directions=None, receipt=None):
     """One league or optional performance section can fail independently."""
     import logging
     import time
@@ -164,7 +164,8 @@ def accuracy_sections(reader, *, candidate=None, market=None, receipt=None):
     parts = [render_performance(verified), *unavailable]
     for key, label, render, args in (
             ('candidate', 'Güncel aday performansı', candidate, ()),
-            ('iddaa', 'İddaa ilk yarı karşılaştırması', market, (verified,))):
+            ('iddaa', 'İddaa ilk yarı karşılaştırması', market, (verified,)),
+            ('market_directions', 'Maç sonucu / Alt-Üst yön denetimi', market_directions, (verified,))):
         if render is None:
             optional[key] = dict(status='UNAVAILABLE')
             continue

@@ -7,11 +7,29 @@ quote retains both clocks, the event ID, the discovery pin and earliest cutoff.
 from datetime import datetime, timezone
 import re
 import time
+from contextvars import ContextVar
+from contextlib import contextmanager
 from urllib.parse import urlsplit
 
 from core.team_identity import digest
 
 RULE='NBA_ORDERED_UNIQUE_PAIR_PLUS600_V1'
+_REPLAY_CLOCK=ContextVar('native_price_replay_clock',default=None)
+
+def evidence_clock():
+    at=_REPLAY_CLOCK.get()
+    return int(time.time()) if at is None else at
+
+@contextmanager
+def archived_price_clock(at):
+    """Read-only source replay at an explicit historical decision clock.
+    Never patches global time; live fetch and publication retain actual clocks.
+    """
+    if type(at) is not int or not 0<at<=int(time.time()):
+        raise ValueError('PRICE_REPLAY_CLOCK_INVALID')
+    token=_REPLAY_CLOCK.set(at)
+    try:yield
+    finally:_REPLAY_CLOCK.reset(token)
 
 
 def pair(event,snapshot):
@@ -24,7 +42,7 @@ def pair(event,snapshot):
 
 def bind(receipt,snapshot,*,asof_utc=None):
     from hybrid_engine.provider_bridge import SPORTS,utc,matches
-    now=int(time.time()) if asof_utc is None else asof_utc
+    now=evidence_clock() if asof_utc is None else asof_utc
     sport=SPORTS.get(snapshot['league'])
     expected='https://api.the-odds-api.com/v4/sports/'+str(sport)+'/events'
     if (receipt.get('provider')!='THE_ODDS_API' or receipt.get('source_url')!=expected or
@@ -131,7 +149,7 @@ def verify_detail(discovery,detail,snapshot):
         raise ValueError('DISCOVERY_AND_ODDS_DETAIL_IDENTITY_CONFLICT')
     observed=detail.get('observed_at_utc');ingested=detail.get('ingested_at_utc')
     if (type(observed) is not int or type(ingested) is not int or
-            not discovery['observed_at_utc']<=observed<=ingested<=int(time.time())<b['prematch_deadline_utc']):
+            not discovery['ingested_at_utc']<=observed<=ingested<=evidence_clock()<b['prematch_deadline_utc']):
         raise ValueError('ODDS_DETAIL_AFTER_EARLIEST_START_OR_INVALID_CLOCK')
     return binding
 

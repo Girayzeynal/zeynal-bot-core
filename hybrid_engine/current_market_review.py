@@ -152,11 +152,11 @@ class CurrentReviewJournal:
     """Separate immutable files; no SQL, prediction table or model edits."""
     def __init__(self,directory):self.root=local_path(directory)
 
-    def record(self,snapshot,distribution,reviews,*,decision_utc):
+    def record(self,snapshot,distribution,reviews,*,decision_utc,native_context=None):
         with _JOURNAL_LOCK:
-            return self._record(snapshot,distribution,reviews,decision_utc=decision_utc)
+            return self._record(snapshot,distribution,reviews,decision_utc=decision_utc,native_context=native_context)
 
-    def _record(self,snapshot,distribution,reviews,*,decision_utc):
+    def _record(self,snapshot,distribution,reviews,*,decision_utc,native_context=None):
         from hybrid_engine.intervals import prediction_intervals
         from hybrid_engine.decision_audit import trace_for
         if distribution.trace!=trace_for(snapshot):raise ValueError('CURRENT_REVIEW_ORIGINAL_TRACE_PIN')
@@ -178,6 +178,22 @@ class CurrentReviewJournal:
             manifest.update(forecast_record_type=snapshot['record_type'],
                 linked_original_snapshot_sha256=snapshot['linked_original_snapshot_sha256'],
                 current_assessment_sha256=snapshot['current_assessment_sha256'])
+        if native_context is not None:
+            # Context is the exact object used by the native event/price parser,
+            # not a later reconstructed fixture or current team catalogue.
+            from hybrid_engine.provider_bridge import fixture_for
+            if fixture_for(native_context)!=fixture_for(snapshot):
+                raise ValueError('MARKET_NATIVE_CONTEXT_FIXTURE_CONFLICT')
+            native_pin=digest(native_context)
+            for review in reviews:
+                clock=review['source'].get('event_clock_binding')
+                if (not clock or digest(clock['payload'])!=clock['sha256'] or
+                        clock['payload']['original_snapshot_sha256']!=native_pin or
+                        review['source']['method']!='NATIVE_RETRIEVAL'):
+                    raise ValueError('MARKET_NATIVE_CONTEXT_BINDING_REQUIRED')
+            manifest['native_price_context']=deepcopy(native_context)
+            if native_pin!=digest(snapshot):
+                manifest['evaluation_context']=deepcopy(snapshot)
         key=digest(manifest);filename='review-'+key+'.json'
         legacy=local_path(self.root/filename)
         segment=fixture_journal_directory(self.root,snapshot['league'],snapshot['fixture_id'])
@@ -212,4 +228,14 @@ class CurrentReviewJournal:
             path=rollover
             if full(segment):raise ValueError('CURRENT_REVIEW_STORAGE_BUDGET')
         path.parent.mkdir(parents=True,exist_ok=True);publish_json(path,body)
+        if native_context is not None:
+            # Capture the clock AFTER the immutable decision file's fsync.
+            # Replays never synthesize a missing completion receipt.
+            from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
+            completed=int(time.time())
+            proof=dict(format='CURRENT_MARKET_DURABLE_COMMIT_V1',batch_sha256=body['sha256'],
+                       manifest_sha256=key,completed_at_utc=completed,
+                       eligible=archived<=completed<cutoff-PREMATCH_MINIMUM_LEAD_SECONDS)
+            publish_json(path.parent/('market-commit-'+key+'.json'),
+                         dict(payload=proof,sha256=digest(proof)))
         return body

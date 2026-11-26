@@ -200,7 +200,7 @@ class EuropeanDataReview:
                 reviews=[evaluate_bound(self.bridge,o,distribution,evaluation_context,asof_utc=now,
                     native_quotes=admit_odds(o,ctx,discovery,detail)) for o in observations]
                 if int(self.clock())>=ctx['fixture_start_utc']:raise ValueError('TIPOFF_DURING_PROVIDER_REVIEW')
-                batch=CurrentReviewJournal(self.root/'market').record(evaluation_context,distribution,reviews,decision_utc=now)
+                batch=CurrentReviewJournal(self.root/'market').record(evaluation_context,distribution,reviews,decision_utc=now,native_context=ctx)
                 from hybrid_engine.market_direction_ui import cards,order,render
                 ranked=order([card for review in reviews for card in cards(review,distribution.forecast,
                     tipoff_utc=ctx['fixture_start_utc'],fixture_id=ctx['fixture_id'],batch=batch)])

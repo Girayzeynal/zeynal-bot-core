@@ -57,7 +57,8 @@ def official_registry(snapshot):
     if league not in ('EUROLEAGUE','EUROCUP'):raise ValueError('EUROPE_ALIAS_LEAGUE_REQUIRED')
     season=snapshot['season'];m=re.fullmatch(r'(20[0-9]{2})/(20[0-9]{2})',season)
     if m is None or int(m[2])!=int(m[1])+1:raise ValueError('EUROPE_ALIAS_SEASON_REQUIRED')
-    bundle=snapshot['european_team_catalog'];now=int(time.time())
+    from hybrid_engine.provider_identity import evidence_clock
+    bundle=snapshot['european_team_catalog'];now=evidence_clock()
     docs=bundle['documents']
     for r in docs.values():
         if (type(r.get('observed_at_utc')) is not int or type(r.get('ingested_at_utc')) is not int or

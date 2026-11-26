@@ -341,7 +341,8 @@ class ProviderBridge:
             return dict(status='LEAGUE_NOT_MAPPED', observations=[])
         sports = access.get('THE_ODDS_API', '/v4/sports/', deadline=deadline, ttl=3600)
         if sports['status'] != 'DOCUMENT_RECEIVED':
-            return dict(status=sports['status'], observations=[])
+            return dict(status=sports['status'], observations=[],http_status=sports.get('http_status'),
+                        error_codes=['PROVIDER_HTTP_503'] if sports.get('http_status')==503 else [])
         if not isinstance(sports['document'], list):
             return dict(status='INVALID_PROVIDER_SCHEMA', observations=[], catalog_source_pin=self._save(sports))
         if not any(
@@ -353,7 +354,8 @@ class ProviderBridge:
                         active_basketball_sports=candidates[:12],catalog_source_pin=self._save(sports))
         events = access.get('THE_ODDS_API', f'/v4/sports/{sport}/events', deadline=deadline)
         if events['status'] != 'DOCUMENT_RECEIVED':
-            return dict(status=events['status'], observations=[])
+            return dict(status=events['status'], observations=[],http_status=events.get('http_status'),
+                        error_codes=['PROVIDER_HTTP_503'] if events.get('http_status')==503 else [])
         if not isinstance(events['document'], list):
             return dict(status='INVALID_PROVIDER_SCHEMA', observations=[])
         from hybrid_engine.provider_identity import bind
@@ -401,7 +403,9 @@ class ProviderBridge:
             r=access.get('THE_ODDS_API', f'/v4/sports/{sport}/events/{event_id}/odds',
                          dict(regions=regions,markets=','.join(markets),oddsFormat='decimal'),deadline=deadline)
         if r['status'] != 'DOCUMENT_RECEIVED':
-            return dict(status=r['status'], observations=[],requested_markets=list(markets),requested_regions=list(self.regions),
+            return dict(status=r['status'], observations=[],http_status=r.get('http_status'),
+                        error_codes=['PROVIDER_HTTP_503'] if r.get('http_status')==503 else [],
+                        requested_markets=list(markets),requested_regions=list(self.regions),
                         extended_reduced_for_credit_budget=scope_reduced)
         try:
             observations, rejected = odds_observations(r, snapshot,discovery=events)
@@ -436,6 +440,7 @@ class ProviderBridge:
                 except (ValueError,KeyError,TypeError,OSError,TimeoutError):
                     props=dict(status='PLAYER_PROP_SOURCE_OR_IDENTITY_REFUSED',rows=[],model_input=False)
         return dict(status='OBSERVED_RULES_AND_CALIBRATION_PENDING' if observations else 'NO_FRESH_SUPPORTED_PRICES',
+                    error_codes=[] if observations else ['EMPTY_OR_UNSUPPORTED_ODDS_ROWS'],
                     player_props=props,observations=observations, rejected_markets=rejected, requested_markets=list(markets),
                     market_coverage=native_market_coverage(r['document'],markets,observations),
                     requested_regions=list(self.regions),extended_reduced_for_credit_budget=scope_reduced,
@@ -755,7 +760,7 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
                      for o,q in zip(observations,quotes)]
             try:
                 batch=CurrentReviewJournal(bridge.root.parent/'current-market-reviews').record(
-                    evaluation_snapshot,distribution,reviews,decision_utc=decision_utc)
+                    evaluation_snapshot,distribution,reviews,decision_utc=decision_utc,native_context=snapshot)
             except (OSError,ValueError,KeyError,TypeError):
                 parts.append(message('CURRENT_REVIEW_ARCHIVE_FAILED'))
             else:
