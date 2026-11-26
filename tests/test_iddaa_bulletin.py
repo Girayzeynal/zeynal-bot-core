@@ -136,7 +136,8 @@ def test_first_half_benchmark_matches_prematch_observation_only_once_and_verifie
     state['now'] += 65
     b.review('NBA')
     assert 'Barem 0.50' in render_comparison(b.root, report())
-    for exclusions in ({'first_archived_at_utc':1001}, {'actual':None}, {'eligible_for_live_performance':False},
+    assert 'Barem 0.50' in render_comparison(b.root, report(first_archived_at_utc=1001))
+    for exclusions in ({'first_archived_at_utc':2000}, {'actual':None}, {'eligible_for_live_performance':False},
                        {'home':forecast['away']}, {'fixture_start_utc':1999}):
         assert 'Eşleşmiş sonuç henüz yok' in render_comparison(b.root, report(**exclusions))
     receipt, = (b.root/'first-half').rglob('*.json')

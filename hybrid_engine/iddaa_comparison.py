@@ -55,8 +55,10 @@ def read_event(root, path, forecast, documents):
     if (doc['platform'] != 'İddaa' or doc['league'] != forecast['league']
             or not 0 < doc['observed_at_utc'] <= p['indexed_at_utc'] < start - PREMATCH_MINIMUM_LEAD_SECONDS):
         raise ValueError('Invalid bulletin scope or cutoff')
+    # The reference is the first local pregame line, which can be
+    # observed before the original forecast was issued.
     if (doc['fixture_id'] not in (None, forecast['fixture_id'])
-            or not 0 < forecast['first_archived_at_utc'] <= doc['observed_at_utc']):
+            or not 0 < (forecast.get('first_archived_at_utc') or 0) < start):
         return None
     ctx = dict(league=forecast['league'], fixture_start_utc=start,
                home={'official_name':forecast['home']}, away={'official_name':forecast['away']})
@@ -86,9 +88,10 @@ def render_comparison(root, reports):
             actual = sum(sum(r['actual_periods'][side][:2]) for side in ('home', 'away'))
             model = sum(r['predicted_halves'][0])
             errors[(league,r['season'],r['model_version'],r['model_digest'])].append((model-actual, lines[0]-actual))
-    text = ['İddaa · İlk yarı toplamı · Aynı maçlarda ortalama mutlak hata']
+    text = ['İddaa · İlk yarı toplamı · Aynı maçlarda ortalama mutlak hata',
+            'İlk kayıtlı tahmin ve ilk gözlenen barem. Maç öncesi kayıt saatleri farklı olabilir.']
     if not errors:
-        return text[0]+'\nEşleşmiş sonuç henüz yok.'
+        return '\n'.join([*text, 'Eşleşmiş sonuç henüz yok.'])
     for (league, season, version, pin), pairs in sorted(errors.items()):
         model, market = zip(*pairs)
         text.append(f'{league} {season} · {version} {pin[:8]} · {len(pairs)} maç · '

@@ -593,9 +593,10 @@ GitHub Actions çalıştırmaları ve test sonuçları [PR #162](https://github.
   `ZEYNAL_TEST_IDDAA_AUTO_ENABLED=0` otomatik denetimi kapatır.
   Aynı maç için otomatik kontrolde ilk kayıt muhafaza edilir.
   Karşılaştırmaya alınacak bülten kaydı maçtan beş dakikadan daha önce
-  arşivlenmiş olmalıdır. Tahminin ilk kalıcı kaydı da bültenin erişim
-  saatinde mevcut olmalıdır. Karşılaştırma, doğrulanmış ilk iki
-  periyodun toplamından aynı maç için model ve bülten MAE'sini üretir.
+  arşivlenmiş olmalıdır. İlk tahminin de maç öncesi kalıcı kayıt
+  kanıtı gerekir. İki kaydın farklı saatlerde alınabildiği raporda
+  belirtilir. Karşılaştırma, doğrulanmış ilk iki periyodun toplamından
+  aynı maç için model ve bülten MAE'sini üretir.
 - [x] `/accuracy all`, normal süre toplamı için tahmin eksi sonuç
   hatası −2 ile +3 arasında kalan ve mutlak hata en az 25 olan maçları
   doğrulanmış model grubu başına sayar.
