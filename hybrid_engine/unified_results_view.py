@@ -106,6 +106,8 @@ def render_performance(reports):
     lines = ["ZEYNAL | ÜÇ LİG AYRI MODEL PERFORMANSI | NORMAL SÜRE",
              "Yalnız ilk yayın zamanı kanıtlı prospektif örneklem; karşılaştırmalı üstünlük kanıtı değil"]
     for league in LEAGUES:
+        if league not in reports:
+            continue
         report = unwrap(reports[league])
         groups = report.get("groups", [])
         lines.append(f"{league}: {len(groups)} model kohortu")
@@ -129,3 +131,34 @@ def render_performance(reports):
     lines.append("Eski EuroLeague arşivi ilk yayın zamanı belirsizse metrik dışıdır.")
     lines.append("NOT_CALIBRATED | Güven yüzdesi ya da bahis başarısı değildir.")
     return "\n".join(lines)
+
+
+
+def accuracy_sections(reader, *, candidate=None, market=None):
+    """One league or optional performance section can fail independently."""
+    import logging
+    from hybrid_engine.runtime_reports import REPORT_ERRORS, failure
+    log = logging.getLogger(__name__)
+    verified, unavailable = {}, []
+    for league in LEAGUES:
+        try:
+            report = unwrap(reader.read(league, None))
+            normalized_rows(report, league)
+            render_performance({league: report})
+        except REPORT_ERRORS as exc:
+            issue = failure(exc)
+            log.warning('Accuracy archive %s unavailable: %s', league, issue)
+            unavailable.append(f'{league} · Arşiv okunamadı · {issue}')
+        else:
+            verified[league] = report
+    parts = [render_performance(verified), *unavailable]
+    for label, render in (('Güncel aday performansı', candidate), ('İddaa ilk yarı karşılaştırması', market)):
+        if render is None:
+            continue
+        try:
+            parts.append(render(verified) if label=='İddaa ilk yarı karşılaştırması' else render())
+        except REPORT_ERRORS as exc:
+            issue = failure(exc)
+            log.warning('Accuracy optional section %s unavailable: %s', label, issue)
+            parts.append(f'{label} · Okunamadı · {issue}')
+    return '\n\n'.join(parts)

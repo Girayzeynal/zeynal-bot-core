@@ -86,6 +86,11 @@ class AuditedRequest(HTTPXRequest):
                 await self.append_journal(self.journal,digest(dict(update=_update.get(),kind='SEND_UNCONFIRMED')),
                     dict(kind='SEND_UNCONFIRMED',update_id=_update.get(),error_type=type(exc).__name__,observed_at_utc=int(time.time())))
             raise
+        if name=='sendMessage' and status!=200:
+            await self.append_journal(self.journal,digest(dict(update=_update.get(),kind='SEND_UNCONFIRMED',status=status)),
+                dict(kind='SEND_UNCONFIRMED',update_id=_update.get(),http_status=status,
+                     error_type='TELEGRAM_HTTP_RESPONSE',observed_at_utc=int(time.time())))
+            return status,body
         from hybrid_engine.telegram_evidence import official_endpoint,plaintext
         identity=self.expected_identity or {}
         official=official_endpoint(url,identity.get('bot_id'),name)
@@ -200,10 +205,11 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             assets=getattr(nba_service,'assets',None),directory=root/'player-shadow',
             chat_id=chat_id,cooldown_seconds=300)
     from hybrid_engine.isolated_execution import optional_source_thread
+    from hybrid_engine.runtime_reports import RuntimeLedgerReports, failure
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');results=ProspectiveResults(archive,root/'official-results')
     frozen=FrozenHybridService(archive)
     if nba_service is not None:
-        from ledger_reports import LedgerReports,render_accuracy,render_compare
+        from ledger_reports import render_accuracy,render_compare
         class Dispatch:
             ledger=nba_service.ledger
             async def analyze(self,league,*args):
@@ -226,12 +232,17 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 from hybrid_engine.quality_monitor import monitor
                 from hybrid_engine.health_card import build as build_health, render as render_health
                 def prior_quality():
-                    report=LedgerReports(nba_service.ledger.path).read('NBA')
-                    return monitor(report['forecasts'],asof_utc=response['snapshot']['prediction_generated_at_utc'])
+                    snapshot=response['snapshot']
+                    asof=snapshot['prediction_generated_at_utc']
+                    report=RuntimeLedgerReports(nba_service.ledger.path).read('NBA',
+                        fit=snapshot['model_digest'],archived_by=asof,settled_only=True,summarize=False)
+                    if report['status']!='VERIFIED_LIVE_REPORT':
+                        raise ValueError(report['status'])
+                    return monitor(report['forecasts'],asof_utc=asof)
                 try:
                     prior=await asyncio.wait_for(optional_source_thread(prior_quality),timeout=2)
                 except Exception as exc:
-                    logging.getLogger(__name__).warning('Prior quality read unavailable: %s',type(exc).__name__)
+                    logging.getLogger(__name__).warning('Prior quality read unavailable: %s',failure(exc))
                     prior=None
                 health=build_health(response['snapshot'],quality,prior_quality=prior)
                 if not health['publication_allowed']:
@@ -265,6 +276,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 market_candidate_cards=[]
                 market_source_status='PROVIDER_NOT_CONFIGURED' if provider_bridge is None else 'PROVIDER_REVIEW_PENDING'
                 if provider_bridge is not None:
+                    started=time.monotonic()
                     try:
                         from hybrid_engine.provider_bridge import nba_provider_panel
                         provider_panel=await asyncio.wait_for(
@@ -275,9 +287,11 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                         market_candidate_cards=provider_panel['cards'][:128] if market_candidate_snapshot else []
                         market_source_status=provider_panel.get('market_source_status','PROVIDER_STATUS_UNAVAILABLE')
                     except Exception as exc:
-                        logging.getLogger(__name__).warning('Provider review unavailable: %s',type(exc).__name__)
-                        market_lines.append('Sağlayıcı denetimi tamamlanamadı: PROVIDER_REVIEW_UNAVAILABLE. Bu durum NO EDGE değildir; skor tahmini korunuyor.')
-                        market_source_status='PROVIDER_REVIEW_UNAVAILABLE'
+                        market_source_status=('PROVIDER_REVIEW_TIMEOUT' if isinstance(exc,TimeoutError)
+                                              else 'PROVIDER_REVIEW_UNAVAILABLE')
+                        logging.getLogger(__name__).warning('Provider review unavailable: %s after %.2fs',
+                            market_source_status,time.monotonic()-started)
+                        market_lines.append('Sağlayıcı denetimi tamamlanamadı. Kod: '+market_source_status+'.')
                 market_note=None
                 from hybrid_engine.market_panels import nba_panel
                 try:
@@ -358,7 +372,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 response['reply_markup']=keyboard(token)
                 return response
         class Reports:
-            def __init__(self):self.live=LedgerReports(nba_service.ledger.path);self.frozen=ResearchReports(results)
+            def __init__(self):self.live=RuntimeLedgerReports(nba_service.ledger.path);self.frozen=ResearchReports(results)
             def read(self,league=None,fixture_id=None):
                 live=league is None or league.upper()=='NBA'
                 return dict(live=live,report=(self.live if live else self.frozen).read('NBA' if live else league,fixture_id))
@@ -937,12 +951,11 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             await update.effective_message.reply_text('Fikstür kaynağı doğrulanamadı veya tarih geçersiz. Kullanım: '+command+' YYYY-MM-DD. Tahmin üretilmedi.')
         raise ApplicationHandlerStop
     from hybrid_engine.predictions_command import PredictionsCommand
-    from ledger_reports import LedgerReports
-    predictions=PredictionsCommand(LedgerReports(nba_service.ledger.path) if nba_service is not None else None,journal,chat_id,
+    predictions=PredictionsCommand(RuntimeLedgerReports(nba_service.ledger.path) if nba_service is not None else None,journal,chat_id,
         league_reports=europe_readers,journal_writer=journal_write)
     app.bot_data['predictions_command']=predictions
     app.add_handler(CommandHandler('predictions',predictions.handle),group=-50)
-    from hybrid_engine.unified_results_view import LEAGUES,render_all,render_performance
+    from hybrid_engine.unified_results_view import LEAGUES,render_all
     from hybrid_engine.predictions_command import split_plain
     async def _three_league_reports():
         reader=app.bot_data['ledger_reports']
@@ -972,20 +985,15 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         if [x.lower() for x in (context.args or [])]!=['all']:
             return  # /accuracy NBA and /accuracy EUROCUP keep their existing handlers.
-        try:
-            reports=await _three_league_reports()
-            value=await asyncio.to_thread(render_performance,reports)
-            if (bulletin.root/'first-half').is_dir():
-                from hybrid_engine.iddaa_comparison import render_comparison
-                try:
-                    value+='\n\n'+await asyncio.to_thread(render_comparison, bulletin.root, reports)
-                except (ValueError, KeyError, TypeError, OSError):
-                    value+='\nİddaa ilk yarı karşılaştırması için arşiv doğrulanamadı.'
-            assessments=app.bot_data.get('current_assessments')
-            if assessments:value+='\n\n'+assessments.render_performance()
-        except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,RuntimeError) as exc:
-            logging.getLogger(__name__).warning('Three-league accuracy unavailable: %s',type(exc).__name__)
-            value='Üç lig için doğrulanmış performans raporu alınamadı; başarı yüzdesi uydurulmadı.'
+        from hybrid_engine.unified_results_view import accuracy_sections
+        candidate=app.bot_data.get('current_assessments')
+        reader=app.bot_data['ledger_reports']
+        def review_iddaa(reports):
+            from hybrid_engine.iddaa_comparison import render_comparison
+            return render_comparison(bulletin.root,reports)
+        value=await asyncio.to_thread(accuracy_sections,reader,
+            candidate=candidate.render_performance if candidate else None,
+            market=review_iddaa if (bulletin.root/'first-half').is_dir() else None)
         for part in split_plain(value,limit=3200):
             await update.effective_message.reply_text(part,parse_mode=None,disable_web_page_preview=True)
         raise ApplicationHandlerStop

@@ -140,6 +140,20 @@ class MainStagingTests(IsolatedAsyncioTestCase):
                             if row["league"] == "EUROCUP":
                                 buttons = json.loads(card["reply_markup"])["inline_keyboard"]
                                 callback = next(b["callback_data"] for line in buttons for b in line if ":period" in b["callback_data"])
+                        class PartialReports:
+                            def read(self, league, fixture):
+                                if league == "EUROLEAGUE":
+                                    raise ValueError("REPORT_NATIVE_SCORE_CONFLICT")
+                                return {"status":"VERIFIED_LIVE_REPORT","forecasts":[],"groups":[]}
+                        def bad_candidate():
+                            raise TimeoutError
+                        app.bot_data["ledger_reports"] = PartialReports()
+                        app.bot_data["current_assessments"] = SimpleNamespace(render_performance=bad_candidate)
+                        await command("/accuracy all", 89)
+                        self.assertIn("NBA: 0 model", responses[-1]["text"])
+                        self.assertIn("EUROCUP: 0 model", responses[-1]["text"])
+                        self.assertIn("EUROLEAGUE · Arşiv okunamadı", responses[-1]["text"])
+                        self.assertIn("REPORT_TIMEOUT", responses[-1]["text"])
                     else:
                         self.assertIsNotNone(callback)
                         await dispatch(dict(update_id=10, callback_query={
