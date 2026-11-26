@@ -761,3 +761,25 @@ python -m hybrid_engine.paired_dynamic_replay --receipts-directory /tmp/zeynal-p
   `/test acceptance` gönder. SHA, `THREE_LEAGUES_READ` ve
   `LOCAL_OFFICIAL_API_RECEIPTS_VERIFIED` alanlarını kontrol et.
   Tam kabul için dönen yerel özet gerekir. Bu ölçüm modeli terfi ettirmez.
+
+### 26 Kasım · Telefonda üç lig kabulü ve Avrupa arşiv okuma maliyeti
+
+- [x] Kullanıcının Telegram çıktısı, `139e978` ile `MAIN_STAGING`
+  sürecinde `/accuracy all` için `THREE_LEAGUES_READ` ve
+  `LOCAL_OFFICIAL_API_RECEIPTS_VERIFIED` gösterdi. Beklenen ve
+  doğrulanan bölüm sayısı 1/1. NBA 83/83, EuroLeague 29/24,
+  EuroCup 13/13 doğrulanmış sonuç eşleşmesi / ölçüme uygun maç.
+  Toplam 125 eşleşme, 120 ölçüme uygun maç. Aday ve İddaa ilk yarı
+  bölümlerinin ikisinde de o anda eşleşmiş sonuç yoktu.
+- [x] Cihazın lig bazında rapor okuma süreleri NBA 474 ms,
+  EuroLeague 24.395 ms ve EuroCup 10.651 ms. Avrupa okuyucusu bir
+  rapor boyunca aynı doğrulanmış kaynak belgesini bir kez
+  çözümleyip sezon fikstürü için indeksler. İlk yayın, kaynak
+  özeti, kimlik, saat, sonuç, normal süre ve uzatma denetimleri
+  uygulanır. Dosya kimliği değişirse yeniden okunur.
+- [x] Her iki Avrupa liginde aynı belgeleri paylaşan iki maçlık
+  test raporu önceki okuyucuyla aynıdır. Ortak fikstür ve sonuç
+  katalogları toplam iki kez çözülür. Yeni kaynak çağrısı
+  yapılmaz. Kaydı değiştirilmiş kaynak reddedilir.
+- [ ] Yeni okuyucu için telefonda süre karşılaştırması. Yukarıdaki
+  24.395/10.651 ms değerleri kabulü alınan önceki sürüme aittir.
