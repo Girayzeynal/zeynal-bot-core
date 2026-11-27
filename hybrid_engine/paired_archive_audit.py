@@ -18,10 +18,11 @@ from hybrid_engine.runtime_reports import REPORT_ERRORS, RuntimeLedgerReports, f
 from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 from hybrid_engine.unified_results_view import LEAGUES, normalized_rows, unwrap
 from projection_integrity import assert_projection
+from hybrid_engine.chronological_blend import evaluate
 
 FOLDERS = {'adaptive-v2': ('adaptive-v2',), 'nba-v3': ('nba-research-v3-integrity-v2',),
            'current-assessment': ('current-assessments-v1',)}
-MAX_PROTOCOLS = 32
+MAX_PROTOCOLS = 256  # bounded mobile audit; independent of number of matches
 MAX_SLOTS = 1024
 MAX_ASSET_BYTES = 32 * 1024 * 1024
 
@@ -195,7 +196,7 @@ def report_protocol(family, folder, labels, now):
                     first[key] = (rank,ref['sha256'],p,q,bands,label,registry)
     pairs = defaultdict(list)
     fits = {}
-    for key,(_,candidate_sha,p,q,bands,label,registry) in first.items():
+    for key,(next_rank,candidate_sha,p,q,bands,label,registry) in first.items():
         metadata = q.get('metadata', {})
         if candidate_sha not in fits:
             fit = p.get('parameter_fit_cutoff_utc', metadata.get('fit_cutoff_utc'))
@@ -217,6 +218,7 @@ def report_protocol(family, folder, labels, now):
                          predicted_quarters=q.get('quarters'),predicted_halves=q.get('halves'),
                          winner=q.get('winner'),intervals=bands,
                          prediction_generated_at_utc=p['prediction_generated_at_utc'],
+                         candidate_archived_at_utc=next_rank[0],
                          estimated_possessions=metadata.get('box_pace', metadata.get('pace_mean')),
                          parameter_age_seconds=p['prediction_generated_at_utc']-fit if type(fit) is int else None)
         pairs[key[:-1]].append((candidate,label))
@@ -283,15 +285,23 @@ def audit(root, reader, *, now=None):
         except REPORT_ERRORS as exc:
             reviews.append(dict(family=family,status='FAILED',reason=failure(exc)))
     return dict(format='PAIRED_PUBLISHED_CANDIDATE_AUDIT_V1',archives=archives,protocols=reviews,
-                common_fixtures=common_fixture_comparisons(comparisons),scope='REGULATION_ONLY',automatic_promotion=False,fit_performed=False,read_only=True)
+                common_fixtures=common_fixture_comparisons(comparisons),
+                unique_chronological_blend=evaluate(comparisons),scope='REGULATION_ONLY',automatic_promotion=False,fit_performed=False,read_only=True)
 
 
-def render(report):
+def render(report, *, compact=False):
     lines = ['ZEYNAL | YAYIMLANMIŞ ADAYLARIN EŞLEŞTİRİLMİŞ HATA DENETİMİ']
     for league, item in report['archives'].items():
         lines.append(f"{league} · uygun sonuçlu maç {item['eligible_fixtures']}" if item['status']=='READ'
                      else f"{league} · Arşiv okunamadı · {item['reason']}")
-    for protocol in report['protocols']:
+    if compact:
+        counts=Counter(p['status'] for p in report['protocols'])
+        lines.append('Protokol durumları · '+ ' · '.join(f'{k} {v}' for k,v in sorted(counts.items())))
+        for p in report['protocols']:
+            if p['status']=='FAILED':
+                lines.append(f"{p['family']} · DENETİM HATASI · {p.get('reason','UNKNOWN')}")
+        lines.append('Protokol ayrıntıları için --model-audit veya --model-audit-json.')
+    for protocol in ([] if compact else report['protocols']):
         key = protocol.get('protocol_sha256','')[:12]
         lines.append(f"\n{protocol['family']} {key} · {protocol['status']}")
         if protocol.get('exclusions'):
@@ -308,12 +318,30 @@ def render(report):
     if not report['protocols']:
         lines.append('Yayımlanmış araştırma protokolü bulunamadı.')
     lines.append('\nİlk tahmin · V2 tempo · Diğer aday | Ortak maçlar')
-    for row in report['common_fixtures']:
+    for row in ([] if compact else report['common_fixtures']):
         lines.append(f"{row['league']} · {row['n']} maç · {row['v2_protocol_sha256'][:8]} / "
             f"{row['candidate_protocol_sha256'][:8]} · Toplam MAE {row['original_total_mae']:.2f} / "
             f"{row['v2_total_mae']:.2f} / {row['candidate_total_mae']:.2f}")
     if not report['common_fixtures']:
         lines.append('Üç tahminin de doğrulandığı ortak maç henüz yok.')
+    blend = report['unique_chronological_blend']
+    lines.append('\nBENZERSİZ MAÇ | KRONOLOJİK V1/V2/V3 BİRLEŞİMİ (ARAŞTIRMA)')
+    lines.append(f"Ortak benzersiz maç {blend['n']} · Tekrarlı kayıt {blend['duplicate_records']} · Çakışma dışlama {blend['conflicts']}")
+    for g in blend['groups']:
+        lines.append(f"{g['league']} · {g['season']} · {g['n']} maç · geçmişe dayalı ağırlık {g['trained_n']}")
+        for name, m in g['metrics'].items():
+            lines.append(f"{name}: Toplam MAE {m['total_mae']:.2f} · RMSE {m['total_rmse']:.2f} · Bias {m['bias']:+.2f} · Takım MAE {m['team_mae']:.2f} · Fark MAE {m['margin_mae']:.2f}")
+        for name, m in g['metrics'].items():
+            if m['quarter_mae'] is not None:
+                lines.append(name+f" · Çeyrek MAE (N={m['quarter_n']}) "+ ' / '.join(f'{v:.2f}' for v in m['quarter_mae']))
+                lines.append(name+' · Yarı MAE '+ ' / '.join(f'{v:.2f}' for v in m['half_mae']))
+        lines.append(f"Geçmiş artık hatayla düzeltilebilen maç: {g['residual_calibration_n']}")
+        for market,levels in g['interval_research'].items():
+            lines.append(market+' · Ampirik bant: '+ ' / '.join(
+                f"{level} N={v['n']} kapsam={v['coverage']:.3f} genişlik={v['mean_width']:.2f}"
+                if v['n'] else f"{level} N=0" for level,v in levels.items()))
+        lines.append(f"Birleşim daha iyi/eşit/kötü (V1): {g['improved']}/{g['unchanged']}/{g['worsened']}")
+    lines.append('Geriye dönük kronolojik araştırma; yeni prospektif yayın veya kalibrasyon kanıtı değil.')
     lines.append('Betimsel ölçüm · Normal süre · Her protokol ve ilk tahmin sürümü ayrı')
     return '\n'.join(lines)
 
@@ -335,6 +363,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--data-directory',type=Path, required=True)
     parser.add_argument('--json',action='store_true')
+    parser.add_argument('--compact',action='store_true')
     args=parser.parse_args()
     root=local_path(args.data_directory)
 
@@ -348,7 +377,7 @@ def main():
             return EuropeanReports(ReadOnlyEurope(league,folder)).read(league,fixture)
 
     result=audit(root,Reader())
-    print(json.dumps(result,ensure_ascii=False,allow_nan=False) if args.json else render(result))
+    print(json.dumps(result,ensure_ascii=False,allow_nan=False) if args.json else render(result, compact=args.compact))
 
 
 if __name__=='__main__':
