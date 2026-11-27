@@ -62,7 +62,7 @@ def compact_summary(snapshot,evidence,*,replayed,health=None,market_note=None,di
         '<i>İzole araştırma · Üretim değil</i>'])
     return '\n'.join(lines)
 
-def keyboard(token,*,section=None,page=0,pages=1,include_archive=False):
+def keyboard(token,*,section=None,page=0,pages=1,include_archive=False,include_iddaa=False):
     from telegram import InlineKeyboardButton,InlineKeyboardMarkup
     rows=[
         [InlineKeyboardButton('📊 Periyotlar',callback_data='zui:'+token+':period'),
@@ -73,6 +73,8 @@ def keyboard(token,*,section=None,page=0,pages=1,include_archive=False):
         [InlineKeyboardButton('🏠 Özet',callback_data='zui:'+token+':summary')]]
     if include_archive:
         rows.insert(-1,[InlineKeyboardButton('🗃 V1 İlk Tahmin — Arşiv',callback_data='zui:'+token+':archive')])
+    if include_iddaa:
+        rows.insert(0,[InlineKeyboardButton('🇹🇷 İddaa baremleri',callback_data='zui:'+token+':iddaa')])
     if pages>1 and section is not None:
         nav=[]
         if page>0:nav.append(InlineKeyboardButton('‹ Önceki',callback_data=f'zui:{token}:{section}:{page-1}'))
@@ -101,12 +103,18 @@ def page_view(entry,section,page,*,now):
     text=values[page]
     tipoff_expired=(entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc'])
     quote_expired=(entry.get('quote_valid_until_utc') is not None and now>=entry['quote_valid_until_utc'])
+    compact_market = '📈 <b>Piyasa gözlemi</b>'
+    if section=='summary' and (quote_expired or tipoff_expired or entry.get('restored_archive_session')):
+        text=text.replace(compact_market, '📈 <b>Arşiv fiyatı</b>')
     if section=='market' and (tipoff_expired or quote_expired):
         # Re-label text only; do not alter immutable quote/decision records.
         text=text.replace('GÜNCEL ARAŞTIRMA ADAYI | DOĞRULANMIŞ FİYATLAR',
                           'ARŞİV ARAŞTIRMA ADAYI | ÖNCEKİ FİYAT GÖZLEMİ')
         text=text.replace('V3 ARAŞTIRMA ADAYI | ZAMAN DAMGALI FİYAT GÖZLEMİ',
                           'ARŞİV V3 PİYASA GÖZLEMİ | ÖNCEKİ FİYATLAR')
+        text=text.replace('GÜNCEL AVRUPA TEMPO/VERİMLİLİK ADAYI | PİYASA KARŞILAŞTIRMASI',
+                          'ARŞİV AVRUPA TEMPO/VERİMLİLİK ADAYI | ÖNCEKİ FİYATLAR')
+        text=text.replace('GÜNCEL PİYASA DEĞERLENDİRMESİ','ARŞİV PİYASA DEĞERLENDİRMESİ')
         text=text.replace('🎯 <b>MODEL YÖNÜ:', '🎯 <b>ARŞİV MODEL YÖNÜ:')
     if entry.get('restored_archive_session') is True:
         text=('🗃 <b>YENİDEN BAŞLATMADAN KORUNMUŞ RAPOR — ARŞİV</b>\n'
@@ -129,11 +137,17 @@ def page_view(entry,section,page,*,now):
         if entry.get('tipoff_utc') is not None and now>=entry['tipoff_utc']:
             text='Maç başladı; yalnız arşiv görünümü.\n\n'+text
         elif entry.get('quote_valid_until_utc') is not None and now>=entry['quote_valid_until_utc']:
+            if section=='summary' and (compact_market in values[page] or
+                    'Piyasa · Doğrulanmış maç toplamı baremi yok.' in values[page]):
+                return text,len(values)
+            if section=='summary' and entry.get('europe_context'):
+                # Europe summary has no numerical direction from the quote.
+                # Only relabel the price note, not the independent score.
+                text=text.replace('Güncel piyasa kaynak gözlemleri Piyasa düğmesinde; kapsam ve kalibrasyon durumuna bakın.',
+                    'Piyasa gözlemi eskidi; Piyasa düğmesiyle yeniden kontrol edin.')
+                return text,len(values)
             text=('⛔ <b>ARŞİV PİYASA GÖZLEMİ — GÜNCEL ORAN DEĞİL</b>\n'
-                  'Arşiv görünümü; piyasa fiyatları yeniden sorgulanmadı.\n'
-                  'Barem, fiyat ve ham model yüzdesi önceki kontrol anına aittir; '
-                  'bu an için doğrulanmış bahis avantajı veya geçerli fiyat değildir. '
-                  'Yeni fiyat kontrolü için yeniden /analyze gerekir.\n\n'+text)
+                  'Arşiv görünümü · Ölçüm önceki kontrolden, fiyat yeniden sorgulanmadı. Güncellemek için /analyze kullanın.\n\n'+text)
     return text,len(values)
 
 def period_table(section_html):

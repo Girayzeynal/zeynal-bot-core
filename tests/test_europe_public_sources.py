@@ -145,3 +145,39 @@ class SourceHubUnitTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+
+class PublicCoverageRepairTests(unittest.TestCase):
+    def test_partial_index_reads_late_table_with_one_bounded_retry(self):
+        from hybrid_engine.europe_injury_public_sources import MAX_BYTES,MAX_INDEX_BYTES
+        spec=sources_for(CTX)[0]
+        late=b'<table><tr><th>Player</th><th>Team</th><th>Status</th></tr><tr><td>Josh Nebo</td><td>Barcelona</td><td>Out</td></tr></table>'
+        page=b'<html><body>'+b' '*MAX_BYTES+late+b'</body></html>'
+        calls=[]
+        def get(url,*,mime,limit):
+            calls.append((url,limit))
+            if url.endswith('/robots.txt'):return dict(status='RECEIVED',body=ROBOTS)
+            return dict(status='RECEIVED_PARTIAL' if limit<len(page) else 'RECEIVED',body=page[:limit])
+        r=probe(spec,requester=get,now=TIME)
+        self.assertEqual(r['candidate_count'],1)
+        self.assertEqual(r['unverified_player_candidates'][0]['player_text'],'Josh Nebo')
+        self.assertFalse(r['incomplete_html'])
+        self.assertEqual([x[1] for x in calls[1:]],[MAX_BYTES,MAX_INDEX_BYTES])
+
+    def test_editorial_source_reuse_across_matches_keeps_original_source_clock(self):
+        calls=[]
+        clock=[TIME+60]
+        def get(url,**kwargs):
+            calls.append(url);return fake_http(url,**kwargs)
+        hub=PublicEuroInjuryNewsHub(clock=lambda:clock[0],requester=get,enabled=True)
+        first=hub.review(CTX);count=len(calls);clock[0]+=10
+        second=hub.review(dict(CTX,fixture_id='other-fixture'))
+        self.assertEqual(len(calls),count)
+        self.assertEqual(first['sources'],second['sources'])
+        self.assertFalse(second['model_input'])
+
+    def test_current_sponsor_club_alias_selects_both_club_sources(self):
+        ctx=dict(CTX,league='EUROLEAGUE',home={'official_name':'FC Barcelona'},
+                 away={'official_name':'Fenerbahce Tarfin Istanbul'})
+        names={r['name'] for r in sources_for(ctx)}
+        self.assertIn('euroleague_fc_barcelona',names)
+        self.assertIn('euroleague_fenerbahce_istanbul',names)

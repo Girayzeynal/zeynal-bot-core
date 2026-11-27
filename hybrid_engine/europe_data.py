@@ -178,14 +178,20 @@ class EuropeanDataReview:
 
     def market(self,ctx,owner,p):
         report=self.bridge.collect(ctx);parts=[render_provider(report)];observations=report['providers'].get('THE_ODDS_API',{}).get('observations',[])
-        accepted=0
+        accepted=0;quote_expiry=None
         if observations:
             from hybrid_engine.current_market_review import admit_odds,evaluate,CurrentReviewJournal
             from hybrid_engine.current_market_render import render_batch
-            row=report['providers']['THE_ODDS_API'];discovery=self.bridge.read_receipt(row['discovery_source_pin'])
-            detail=self.bridge.read_receipt(row['source_pin'])
+            row=report['providers']['THE_ODDS_API']
             try:
-                assessment=self.bridge.assessments.available_market_context(ctx) if getattr(self.bridge,'assessments',None) else None
+                discovery=self.bridge.read_receipt(row['discovery_source_pin'])
+                detail=self.bridge.read_receipt(row['source_pin'])
+                assessment=None
+                if getattr(self.bridge,'assessments',None):
+                    try:assessment=self.bridge.assessments.available_market_context(ctx)
+                    except (ValueError,KeyError,TypeError,OSError,TimeoutError):
+                        parts.append('Güncel aday bağlamı doğrulanamadı: EUROPE_CURRENT_MODEL_CONTEXT_UNAVAILABLE. '
+                                     'Bağımsız ilk model fiyat karşılaştırması korunuyor.')
                 if getattr(self.bridge,'assessments',None) and assessment is None:
                     parts.append('Güncel değerlendirme yolları hazır/güncel değil; ilk tahminin dağılımı ayrı referans olarak kullanıldı.')
                 evaluation_context,distribution=assessment if assessment else (ctx,self.distribution(owner,p,ctx))
@@ -194,12 +200,32 @@ class EuropeanDataReview:
                 reviews=[evaluate_bound(self.bridge,o,distribution,evaluation_context,asof_utc=now,
                     native_quotes=admit_odds(o,ctx,discovery,detail)) for o in observations]
                 if int(self.clock())>=ctx['fixture_start_utc']:raise ValueError('TIPOFF_DURING_PROVIDER_REVIEW')
-                batch=CurrentReviewJournal(self.root/'market').record(evaluation_context,distribution,reviews,decision_utc=now)
+                batch=CurrentReviewJournal(self.root/'market').record(evaluation_context,distribution,reviews,decision_utc=now,native_context=ctx)
+                from hybrid_engine.market_direction_ui import cards,order,render
+                ranked=order([card for review in reviews for card in cards(review,distribution.forecast,
+                    tipoff_utc=ctx['fixture_start_utc'],fixture_id=ctx['fixture_id'],batch=batch)])
+                label=('GÜNCEL AVRUPA TEMPO/VERİMLİLİK ADAYI' if assessment else 'İLK KAYITLI AVRUPA BAYES MODELİ')
+                parts.append('<b>'+label+' | PİYASA KARŞILAŞTIRMASI</b>\n'
+                             'Ham normal süre model yönü; kalibre güven endeksi değildir.')
+                parts.extend(render(card) for card in ranked[:12])
+                if len(ranked)>12:
+                    parts.append('Özet kart sınırı: 12 / '+str(len(ranked))+
+                                 ' satır; kabul edilen diğer satırlar ayrıntılı değerlendirmede.')
+                expiries=[card['valid_until_utc'] for card in ranked
+                          if card['current'] and type(card['valid_until_utc']) is int]
+                quote_expiry=min(expiries) if expiries else now
+                if assessment:
+                    from hybrid_engine.time_policy import V3_FRESHNESS_SECONDS,MAXIMUM_V3_MODEL_AGE_SECONDS
+                    quote_expiry=min(quote_expiry,
+                        evaluation_context['prediction_generated_at_utc']+V3_FRESHNESS_SECONDS,
+                        evaluation_context['parameter_fit_cutoff_utc']+MAXIMUM_V3_MODEL_AGE_SECONDS)
+                parts.append('Ortak fiyat/model görünümü son geçerlilik: '+tsi(quote_expiry))
                 parts.append(render_batch(batch));accepted=len(observations)
             except (ValueError,KeyError,TypeError,OSError):
                 parts.append('Kaynak fiyatı veya arşiv dağılımı doğrulanamadı; yüzde/edge üretilmedi. Kod: EUROPE_MARKET_REPLAY_OR_ADMISSION_BLOCKED')
         if not accepted:parts.append('Doğrulanmış ve eşleşmiş piyasa değerlendirmesi yok; barem veya olasılık uydurulmadı.')
-        return '\n\n'.join(parts),dict(provider_report=report,admitted_observations=accepted)
+        return '\n\n'.join(parts),dict(provider_report=report,admitted_observations=accepted,
+            quote_valid_until_utc=quote_expiry)
 
     def roster(self,ctx):
         # Telegram's European roster callback has a 20s ceiling. Reserve
@@ -290,6 +316,9 @@ class EuropeanDataReview:
                 public_news=dict(status='PUBLIC_NEWS_SOURCE_UNAVAILABLE',sources=[],
                                  player_status_verified=False,model_input=False)
             lines.extend(['',html.escape(render_public_news(public_news))])
+        from hybrid_engine.europe_player_identity_audit import match_candidates,render_matches
+        player_identity_audit=match_candidates(ctx,native_report,public_news)
+        lines.extend(['',html.escape(render_matches(player_identity_audit))])
         if verified_records:
             lines.extend(['',evidence_view,
                           'Bu paket ilk tahmin kesitinden önce yayımlanmış kanıtı gösterir; dakika/rotasyon/model etkisi değildir.'])
@@ -304,6 +333,7 @@ class EuropeanDataReview:
             native_season_player_directory=native_report,
             secondary_current_injury_advisory=advisory,
             public_news_candidate_review=public_news,
+            public_news_player_identity_audit=player_identity_audit,
             public_news_model_input=False,
             secondary_injury_adapter_attached=(league=='EUROLEAGUE' and self.injury_advisory_getter is not None),
             secondary_injury_last_status=advisory['status'] if advisory else 'NOT_QUERIED',

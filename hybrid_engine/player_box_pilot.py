@@ -16,9 +16,10 @@ import numpy as np
 
 from core.team_identity import digest
 from hybrid_engine.availability import effective_box_time
-from hybrid_engine.data import STRICT,available_at,regulation,local_path
+from hybrid_engine.data import STRICT,Abstain,available_at,regulation,local_path
 from hybrid_engine.player_minutes import historical_minutes,capped_rotation
 from hybrid_engine.boxes import checked_stats
+from hybrid_engine.evaluation import point_metrics
 from ledger_reports import LedgerReports
 
 VERSION="HISTORICAL_NBA_PLAYER_BOX_ASSOCIATION_PILOT_V1"
@@ -225,7 +226,7 @@ def scenario(model,games,fixture,asof_utc):
         first_forecast_unchanged=True,production_enabled=False)
 
 
-def paired_holdout(games,*,now_utc,assumed_availability=False):
+def paired_holdout(games,*,now_utc,assumed_availability=False,candidate_fitter=None):
     """Single frozen chronological split, never optimize on the test scores.
 
     With assumed_availability=True only, historical finalized scores/box minutes
@@ -234,6 +235,7 @@ def paired_holdout(games,*,now_utc,assumed_availability=False):
     """
     if type(assumed_availability) is not bool or type(now_utc) is not int:
         raise ValueError("PLAYER_HOLDOUT_VALID_POLICY_REQUIRED")
+    if candidate_fitter is not None and not callable(candidate_fitter):raise ValueError('PLAYER_HOLDOUT_CANDIDATE_FITTER')
     ordered=sorted(games,key=lambda g:(g["fixture_start_utc"],g["fixture_id"]))
     out=dict(status="INSUFFICIENT_DISJOINT_TRAINING_AND_TEST",
         evidence_class="ASSUMED_HISTORICAL_AVAILABILITY_NOT_PIT" if assumed_availability else
@@ -241,7 +243,8 @@ def paired_holdout(games,*,now_utc,assumed_availability=False):
         model_selected_after_actuals=True,prospective_accuracy_evidence=False,
         actual_preforecast_publication_verified=False,calibrated=False,
         automatic_promotion=False,original_forecasts_unchanged=True,
-        total_games=len(games),train_games=0,matched_test_games=0)
+        total_games=len(games),train_games=0,matched_test_games=0,paired_score_metrics=None,
+        probability_metrics_status='UNSUPPORTED_POINT_MODEL_NO_RAW_PROBABILITIES')
     if len(ordered)<60:return out
     split=ordered[int(len(ordered)*.70)]["fixture_start_utc"]
     cutoff=split-900
@@ -257,11 +260,12 @@ def paired_holdout(games,*,now_utc,assumed_availability=False):
         out["status"]="NO_SUFFICIENT_PRETEST_SOURCE_OBSERVATIONS"
         return out
     try:
-        with_player=fit_box_association(train,cutoff,include_players=True)
+        with_player=(fit_box_association(train,cutoff,include_players=True) if candidate_fitter is None else candidate_fitter(train,cutoff))
         team_only=fit_box_association(train,cutoff,include_players=False)
-    except (ValueError,KeyError,TypeError):
+    except (ValueError,KeyError,TypeError,Abstain):
         out["status"]="MODEL_FIT_ABSTAINED";return out
     tested=0;errors=dict(player_team=0.,team_team=0.,player_total=0.,team_total=0.)
+    paired_errors={'candidate':[],'control':[]}
     missing=Counter()
     for target in source:
         if target["fixture_start_utc"]<split:continue
@@ -278,6 +282,8 @@ def paired_holdout(games,*,now_utc,assumed_availability=False):
         if any(not math.isfinite(v) or v<=0 or v>=300 for v in p+b):
             missing["OUT_OF_RANGE_PREDICTION"]+=1;continue
         y=target["score"]
+        paired_errors['candidate'].append([p[i]-y[i] for i in range(2)])
+        paired_errors['control'].append([b[i]-y[i] for i in range(2)])
         errors["player_team"]+=sum(abs(p[i]-y[i]) for i in range(2))
         errors["team_team"]+=sum(abs(b[i]-y[i]) for i in range(2))
         errors["player_total"]+=abs(sum(p)-sum(y))
@@ -288,6 +294,12 @@ def paired_holdout(games,*,now_utc,assumed_availability=False):
     out["player_coefficients"]=len(with_player["players"])
     if not tested:
         out["status"]="NO_VALID_MATCHED_PREGAME_ROTATION_TEST";return out
+    out['paired_score_metrics']={}
+    for name,values in paired_errors.items():
+        e=np.asarray(values)
+        out['paired_score_metrics'][name]=dict(n=tested,team_scores=point_metrics(e),
+            home=point_metrics(e[:,0]),away=point_metrics(e[:,1]),
+            total=point_metrics(e.sum(axis=1)),margin=point_metrics(e[:,0]-e[:,1]))
     out.update(status="ASSUMED_AVAILABILITY_RESEARCH_ONLY" if assumed_availability
             else "RETROSPECTIVE_PIT_ELIGIBLE_NOT_PROSPECTIVE",
         candidate_team_mae=round(errors["player_team"]/(2*tested),4),
@@ -328,6 +340,18 @@ def run_readonly(data_directory,*,now_utc=None):
     report["retrospective_validation"]=dict(
         strict=paired_holdout(games,now_utc=now),
         assumed=paired_holdout(games,now_utc=now,assumed_availability=True))
+    # Separate outcome-blind capacity candidate; never replace the reference
+    # or fit/publish a live player adjustment from historical actual minutes.
+    from hybrid_engine.player_contrast_research import fit as contrast_fit,fit_for_comparison
+    try:
+        contrast=contrast_fit(games,now)['payload']
+        report['contrast_candidate']=dict(status='FITTED_RESEARCH_ONLY_NOT_PROMOTED',
+            model=contrast['format'],players=len(contrast['players']),parameters=contrast['estimated_parameters'],
+            score_observations=contrast['score_observations'],base_rank=contrast['base_design_rank'],
+            full_rank=contrast['full_design_rank'],live_player_effect_applied=False,
+            strict=paired_holdout(games,now_utc=now,candidate_fitter=fit_for_comparison))
+    except (ValueError,KeyError,TypeError,Abstain):
+        report['contrast_candidate']=dict(status='ABSTAIN_NO_IDENTIFIABLE_PLAYER_CONTRAST',live_player_effect_applied=False)
     live=LedgerReports(ledger).read("NBA")
     if live["status"]!="VERIFIED_LIVE_REPORT":
         report["status"]="FROZEN_FORECAST_LEDGER_NOT_VERIFIED";return report

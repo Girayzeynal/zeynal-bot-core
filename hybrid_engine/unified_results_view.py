@@ -106,12 +106,78 @@ def render_performance(reports):
     lines = ["ZEYNAL | ÜÇ LİG AYRI MODEL PERFORMANSI | NORMAL SÜRE",
              "Yalnız ilk yayın zamanı kanıtlı prospektif örneklem; karşılaştırmalı üstünlük kanıtı değil"]
     for league in LEAGUES:
+        if league not in reports:
+            continue
         report = unwrap(reports[league])
         groups = report.get("groups", [])
         lines.append(f"{league}: {len(groups)} model kohortu")
+        errors = defaultdict(dict)
+        for forecast in report['forecasts']:
+            if (forecast.get('actual') is None or forecast.get('legacy_publication_clock_unrecorded')
+                    or forecast.get('eligible_for_live_performance') is False):
+                continue
+            cohort = (forecast['league'], forecast['season'], forecast['model_digest'], forecast['model_version'])
+            errors[cohort][forecast['fixture_id']] = sum(forecast['prediction']) - sum(forecast['actual'])
         for row in groups:
             lines.append(f"  {row['model_version']} | N={row['n']} "
                          f"| Takım MAE {row['team_mae']:.2f} | Toplam MAE {row['total_mae']:.2f}")
+            cohort = (league, row.get('season'), row.get('model_digest'), row['model_version'])
+            residuals = errors[cohort].values()
+            if len(residuals) == row['n'] and residuals:
+                near = sum(-2 <= error <= 3 for error in residuals)
+                large = sum(abs(error) >= 25 for error in residuals)
+                lines.append(f"  Toplam (tahmin − sonuç): −2…+3 içinde {near}/{len(residuals)}"
+                             f" · 25+ sayı mutlak hata {large}/{len(residuals)}")
     lines.append("Eski EuroLeague arşivi ilk yayın zamanı belirsizse metrik dışıdır.")
     lines.append("NOT_CALIBRATED | Güven yüzdesi ya da bahis başarısı değildir.")
     return "\n".join(lines)
+
+
+
+def accuracy_sections(reader, *, candidate=None, market=None, market_directions=None, receipt=None):
+    """One league or optional performance section can fail independently."""
+    import logging
+    import time
+    from hybrid_engine.runtime_reports import REPORT_ERRORS, failure
+    log = logging.getLogger(__name__)
+    verified, unavailable = {}, []
+    leagues, optional = {}, {}
+    for league in LEAGUES:
+        started = time.monotonic()
+        try:
+            report = unwrap(reader.read(league, None))
+            fixtures = normalized_rows(report, league)
+            render_performance({league: report})
+            settled = [rows for rows in fixtures if any(r.get('actual') is not None for r in rows)]
+            eligible = sum(any(r.get('actual') is not None and not r.get('legacy_publication_clock_unrecorded')
+                               and r.get('eligible_for_live_performance') is not False for r in rows)
+                           for rows in settled)
+        except REPORT_ERRORS as exc:
+            issue = failure(exc)
+            log.warning('Accuracy archive %s unavailable: %s', league, issue)
+            unavailable.append(f'{league} · Arşiv okunamadı · {issue}')
+            leagues[league] = dict(status='FAILED', error=issue)
+        else:
+            verified[league] = report
+            leagues[league] = dict(status='READ', matched=len(settled), eligible=eligible)
+        leagues[league]['elapsed_ms'] = round((time.monotonic()-started)*1000)
+    parts = [render_performance(verified), *unavailable]
+    for key, label, render, args in (
+            ('candidate', 'Güncel aday performansı', candidate, ()),
+            ('iddaa', 'İddaa ilk yarı karşılaştırması', market, (verified,)),
+            ('market_directions', 'Maç sonucu / Alt-Üst yön denetimi', market_directions, (verified,))):
+        if render is None:
+            optional[key] = dict(status='UNAVAILABLE')
+            continue
+        try:
+            parts.append(render(*args))
+        except REPORT_ERRORS as exc:
+            issue = failure(exc)
+            log.warning('Accuracy optional section %s unavailable: %s', label, issue)
+            parts.append(f'{label} · Okunamadı · {issue}')
+            optional[key] = dict(status='FAILED', error=issue)
+        else:
+            optional[key] = dict(status='RENDERED')
+    if receipt is not None:
+        receipt.update(leagues=leagues, optional=optional)
+    return '\n\n'.join(parts)

@@ -1,7 +1,7 @@
 """Human-readable upcoming fixture commands for the isolated bot only."""
 import html
 import time
-from datetime import datetime
+from datetime import datetime,timedelta
 from zoneinfo import ZoneInfo
 from hybrid_engine.elite_render import split_blocks
 from hybrid_engine.forward_validation import verified_catalog
@@ -11,12 +11,20 @@ from hybrid_engine.prospective_results import OFFICIAL
 
 def nba_blocks(games,day):
     blocks=['<b>NBA | '+html.escape(day)+' | Türkiye saati</b>\nKaynak: ESPN | Fikstür (tahmin değil)']
+    now=time.time();upcoming=False
     for g in games:
         b=html.escape(f"{g['start']:%H:%M} | {g['home']} – {g['away']} | {g['status']} | ESPN {g['id']}")
-        if g['status']=='Başlamadı' and g['start'].timestamp()>time.time():
+        if g['status']=='Başlamadı' and g['start'].timestamp()>now:
+            upcoming=True
             b+='\n<code>'+html.escape(f"/analyze NBA {g['start']:%Y-%m-%d} {g['home']} vs {g['away']}")+'</code>'
+        elif g['status'] in ('Canlı','Tamamlandı'):
+            b+='\nKayıtlı tahmin karşılaştırması (varsa): <code>'+html.escape(f"/compare NBA {g['id']}")+'</code>'
         blocks.append(b)
     if not games:blocks.append('Bu Türkiye takvim gününde doğrulanmış maç yok.')
+    if not upcoming:
+        next_day=(datetime.strptime(day,'%Y-%m-%d')+timedelta(days=1)).date().isoformat()
+        blocks.append('Bu listede başlamamış maç görünmüyor. Sonraki Türkiye takvim gününün resmî listesini açın:\n'
+            '<code>/nba '+next_day+'</code>\nAynı takım çiftinin tarihini elle değiştirerek yeni maç oluşturmayın.')
     return split_blocks(blocks)
 
 

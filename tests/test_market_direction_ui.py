@@ -96,6 +96,14 @@ class DirectionCardTests(unittest.TestCase):
         c=self.make(v)[0];self.assertFalse(c['current'])
         self.assertIn('ARŞİV MODEL YÖNÜ',render(c));self.assertIn('arşiv gözlemi',render(c))
 
+    def test_unknown_publisher_clock_is_archival_even_after_a_fresh_retrieval(self):
+        view = deepcopy(self.view)
+        view['source']['published_at_utc'] = None
+        card = self.make(view)[0]
+        self.assertFalse(card['current'])
+        self.assertIsNone(card['valid_until_utc'])
+        self.assertIn('ARŞİV MODEL YÖNÜ', render(card))
+
     def test_post_tipoff_is_archival_even_with_provider_later_start(self):
         v=deepcopy(self.view);v['decision_utc']=self.h.snap['fixture_start_utc']
         c=self.make(v)[0];self.assertFalse(c['current']);self.assertTrue(c['post_tipoff'])
@@ -276,3 +284,43 @@ class PaginationAndCacheTests(unittest.TestCase):
         with self.assertRaises(ValueError):cache_report({},'one',e,max_bytes=30)
 
 if __name__=='__main__':unittest.main()
+
+class LeagueDurationPresentationTests(unittest.TestCase):
+    def setUp(self):
+        self.h=synthetic.CurrentReviewTests('runTest');self.h.setUp();self.addCleanup(self.h.doCleanups)
+        self.view=self.h.review()
+    def make(self,view):
+        return cards(view,self.h.dist.forecast,tipoff_utc=self.h.snap['fixture_start_utc'],fixture_id=self.h.snap['fixture_id'])
+    def test_league_duration_comes_from_market_fixture_not_nba_default(self):
+        for league,minutes in [('NBA',48),('EUROLEAGUE',40),('EUROCUP',40)]:
+            view=deepcopy(self.view)
+            view['fixture']=dict(view.get('fixture',{}),league=league)
+            card=self.make(view)[0]
+            self.assertEqual(card['regulation_minutes'],minutes)
+            self.assertIn(f'NORMAL SÜRE ({minutes} dk)',render(card))
+            self.assertNotIn(f'NORMAL SÜRE ({40 if minutes==48 else 48} dk)',render(card))
+            self.assertEqual(card['probabilities'],self.view['rows'][0]['conditional_regulation_probabilities'])
+
+class EuropeanExpiryLabelTests(unittest.TestCase):
+    def test_expired_european_headers_and_direction_are_archival_without_mutating_cache(self):
+        body=('GÜNCEL AVRUPA TEMPO/VERİMLİLİK ADAYI | PİYASA KARŞILAŞTIRMASI\n'
+              '🎯 <b>MODEL YÖNÜ: ALT 173,5</b>\nGÜNCEL PİYASA DEĞERLENDİRMESİ')
+        entry=dict(summary='summary',sections=dict(market=body),section_pages=dict(market=[body]),
+                   quote_valid_until_utc=120,tipoff_utc=1000)
+        fresh,_=page_view(entry,'market',0,now=119)
+        stale,_=page_view(entry,'market',0,now=120)
+        self.assertEqual(fresh,body)
+        self.assertIn('ARŞİV AVRUPA TEMPO/VERİMLİLİK ADAYI',stale)
+        self.assertIn('ARŞİV PİYASA DEĞERLENDİRMESİ',stale)
+        self.assertIn('ARŞİV MODEL YÖNÜ',stale)
+        self.assertEqual(entry['sections']['market'],body)
+
+class EuropeSummaryPriceExpiryTests(unittest.TestCase):
+    def test_expired_price_does_not_relabel_independent_current_score(self):
+        note='Güncel piyasa kaynak gözlemleri Piyasa düğmesinde; kapsam ve kalibrasyon durumuna bakın.'
+        e=dict(summary='CURRENT SCORE\n'+note,sections={},section_pages={},europe_context={'league':'EUROLEAGUE'},
+               quote_valid_until_utc=120,tipoff_utc=1000,current_assessment_panels=True,current_assessment_valid_until_utc=500)
+        body,_=page_view(e,'summary',0,now=121)
+        self.assertIn('CURRENT SCORE',body)
+        self.assertIn('Piyasa gözlemi eskidi',body)
+        self.assertNotIn('ARŞİV PİYASA GÖZLEMİ',body)

@@ -5,6 +5,7 @@ Fly secrets, production .env files, or Telegram credentials. Provider documents
 are additional observations, never edits to an issued forecast.
 """
 from copy import deepcopy
+from email.utils import parsedate_to_datetime
 import argparse
 import json
 import os
@@ -77,6 +78,18 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
+def retry_delay(value,*,now,default=300,maximum=3600):
+    """RFC Retry-After delta/date, bounded without trusting malformed hints."""
+    if type(value) is int:return min(maximum,max(0,value))
+    if type(value) is str:
+        if value.isdigit() and len(value)<=10:return min(maximum,int(value))
+        try:
+            date=parsedate_to_datetime(value)
+            if date.tzinfo is not None:return min(maximum,max(0,int(date.timestamp()-now)))
+        except (ValueError,TypeError,OverflowError):pass
+    return default
+
+
 def get_document(provider, url, key, *, timeout):
     """No secret in URLs, logs, exception strings or returned HTTP bodies."""
     if provider not in ORIGINS or not url.startswith(ORIGINS[provider]+'/'):
@@ -116,7 +129,7 @@ def get_document(provider, url, key, *, timeout):
         retry = exc.headers.get('Retry-After', '')
         exc.close()
         return dict(status=status, http_status=exc.code,
-                    retry_after_seconds=min(3600, int(retry)) if retry.isdigit() else 300)
+                    retry_after_seconds=retry_delay(retry,now=int(time.time())))
     except Exception:
         return dict(status='PROVIDER_NETWORK_OR_RESPONSE_ERROR')
 
@@ -131,6 +144,7 @@ class ProviderAccess:
         self.cache = {}
         self.cooldown = {}
         self.remaining = {}
+        self.remaining_day = {}
         self.calls = {}
         self.lock = threading.Lock()
 
@@ -141,14 +155,32 @@ class ProviderAccess:
         return {p: ('CONFIGURED_NOT_TESTED' if self._keys.get(p) else 'KEY_NOT_AVAILABLE_IN_TEST_PROCESS')
                 for p in KEYS}
 
+    def _refresh_daily_quota(self, now):
+        # API-Sports resets its daily quota at 00:00 UTC. Odds API quota
+        # is subscription-period based: never assume it resets daily.
+        p = 'API_BASKETBALL'
+        day = self.remaining_day.get(p)
+        if day is not None and now//86400 > day:
+            self.remaining.pop(p, None)
+            self.remaining_day.pop(p, None)
+
     def runtime_status(self):
         """Credential-free diagnostics; never probes a provider or raises quota."""
         now=int(self.clock())
-        with self.lock:
-            return {p:dict(configuration=state,local_calls_today=self.calls.get((p,now//86400),0),
+        if not self.lock.acquire(blocking=False):
+            # A native HTTP read owns this lock. Never block Telegram's event
+            # loop behind it or report unknown counters as zero.
+            return {p:dict(configuration=state,snapshot_status='BUSY',local_calls_today=None,
+                local_daily_limit=self.max_calls,local_counter_resets_at_utc=(now//86400+1)*86400,
+                provider_reported_remaining=None,cooldown_until_utc=None)
+                for p,state in self.configuration().items()}
+        try:
+            self._refresh_daily_quota(now)
+            return {p:dict(configuration=state,snapshot_status='READY',local_calls_today=self.calls.get((p,now//86400),0),
                 local_daily_limit=self.max_calls,local_counter_resets_at_utc=(now//86400+1)*86400,
                 provider_reported_remaining=self.remaining.get(p),cooldown_until_utc=self.cooldown.get(p))
                 for p,state in self.configuration().items()}
+        finally:self.lock.release()
 
     def get(self, provider, path, params=None, *, ttl=120, deadline=None):
         if provider not in ORIGINS or not path.startswith('/') or '..' in path or '?' in path or '#' in path:
@@ -158,8 +190,18 @@ class ProviderAccess:
         if params and any(n.lower() in ('apikey','api_key','key','token') for n in params):
             return dict(status='CREDENTIAL_QUERY_FORBIDDEN')
         url = ORIGINS[provider]+path+('?' + urlencode(params) if params else '')
-        now = int(self.clock())
-        with self.lock:
+        # A queued caller must not inherit the clock from before lock wait.
+        # Even callers without an explicit deadline have a bounded lock wait.
+        wait=3. if deadline is None else min(3.,deadline-self.clock())
+        if wait<=.05:
+            return dict(status='PROVIDER_TIME_BUDGET')
+        if not self.lock.acquire(timeout=wait):
+            return dict(status='PROVIDER_ACCESS_LOCK_BUSY')
+        try:
+            if deadline is not None and deadline-self.clock()<=.05:
+                return dict(status='PROVIDER_TIME_BUDGET')
+            now=int(self.clock())
+            self._refresh_daily_quota(now)
             old = self.cache.get(url)
             if old and 0 <= now-old['observed_at_utc'] <= ttl:
                 # A cache hit must not alter the source receipt or its hash.
@@ -168,6 +210,12 @@ class ProviderAccess:
                 return dict(status='PROVIDER_COOLDOWN', retry_after_seconds=self.cooldown[provider]-now)
             if self.remaining.get(provider, 1) <= 0:
                 return dict(status='PROVIDER_QUOTA_EXHAUSTED')
+            if (provider=='THE_ODDS_API' and path.endswith('/odds') and
+                    provider in self.remaining and params and 'markets' in params and 'regions' in params):
+                cost=len(set(params['markets'].split(',')))*len(set(params['regions'].split(',')))
+                if cost>self.remaining[provider]:
+                    return dict(status='ODDS_ESTIMATED_CREDIT_BUDGET',estimated_maximum_credits=cost,
+                                provider_reported_remaining=self.remaining[provider])
             budget_key = (provider, now//86400)
             if self.calls.get(budget_key, 0) >= self.max_calls:
                 return dict(status='LOCAL_DAILY_REQUEST_BUDGET')
@@ -180,6 +228,8 @@ class ProviderAccess:
                 result = self.getter(provider, url, self._keys[provider], timeout=timeout)
             except Exception:
                 result = dict(status='PROVIDER_NETWORK_OR_RESPONSE_ERROR')
+            if not isinstance(result,dict) or not isinstance(result.get('status'),str):
+                result=dict(status='PROVIDER_NETWORK_OR_RESPONSE_ERROR')
             if result.get('status') == 'DOCUMENT_RECEIVED':
                 if (result.get('source_url') != url or result.get('provider') != provider or
                         result.get('document_sha256') != digest(result.get('document')) or
@@ -187,15 +237,25 @@ class ProviderAccess:
                         type(result.get('ingested_at_utc')) is not int or
                         not 0 < result['observed_at_utc'] <= result['ingested_at_utc'] <= int(self.clock())):
                     return dict(status='PROVIDER_RECEIPT_INVALID')
+                quota=result.get('quota')
+                quota=quota if isinstance(quota,dict) else {}
                 for name in ('x-requests-remaining','x-ratelimit-requests-remaining'):
-                    if name in result.get('quota', {}):
-                        self.remaining[provider] = result['quota'][name]
+                    remaining=quota.get(name)
+                    if type(remaining) is int and remaining>=0:
+                        self.remaining[provider]=remaining
+                        self.remaining_day[provider]=int(self.clock())//86400
+                # A completed late read may have spent provider credits, but
+                # cannot be admitted as an in-budget result or cached as such.
+                if deadline is not None and self.clock()>=deadline:
+                    return dict(status='PROVIDER_RESPONSE_AFTER_DEADLINE')
                 if len(self.cache) >= 12:
                     self.cache.pop(next(iter(self.cache)))
                 self.cache[url] = deepcopy(result)
             else:
-                self.cooldown[provider] = now+min(3600, max(30, result.get('retry_after_seconds', 60)))
+                self.cooldown[provider] = int(self.clock())+max(30,retry_delay(result.get('retry_after_seconds'),now=int(self.clock()),default=60))
             return result
+        finally:
+            self.lock.release()
 
 
 def preflight(*, check=False):

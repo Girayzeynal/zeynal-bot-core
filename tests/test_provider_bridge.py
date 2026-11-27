@@ -154,6 +154,26 @@ class AccessTests(unittest.TestCase):
         access.get('THE_ODDS_API', '/one')
         self.assertEqual(access.get('THE_ODDS_API', '/two')['status'], 'PROVIDER_QUOTA_EXHAUSTED')
 
+    def test_api_sports_daily_exhaustion_recovers_after_utc_midnight_only(self):
+        now = [NOW]
+        seen = []
+        def getter(p, u, k, **kw):
+            seen.append(p)
+            r = receipt([], p, u)
+            r.update(observed_at_utc=now[0], ingested_at_utc=now[0],
+                     quota={'x-ratelimit-requests-remaining': 0 if len(seen) <= 2 else 99})
+            return r
+        access = ProviderAccess({'API_BASKETBALL': SECRET,'THE_ODDS_API': SECRET},
+                                getter=getter,clock=lambda:now[0])
+        access.get('API_BASKETBALL','/one')
+        access.get('THE_ODDS_API','/one')
+        self.assertEqual(access.get('API_BASKETBALL','/two')['status'],'PROVIDER_QUOTA_EXHAUSTED')
+        now[0]=(NOW//86400+1)*86400
+        self.assertIsNone(access.runtime_status()['API_BASKETBALL']['provider_reported_remaining'])
+        self.assertEqual(access.get('API_BASKETBALL','/two')['status'],'DOCUMENT_RECEIVED')
+        self.assertEqual(access.get('THE_ODDS_API','/two')['status'],'PROVIDER_QUOTA_EXHAUSTED')
+        self.assertEqual(len(seen),3)
+
     def test_bad_receipt_or_secret_query_refused(self):
         self.assertEqual(self.access.get('THE_ODDS_API', '/one', dict(apiKey=SECRET))['status'], 'CREDENTIAL_QUERY_FORBIDDEN')
         self.access.getter = lambda *a, **kw: dict(receipt([]), source_url='https://other.invalid')
@@ -162,6 +182,34 @@ class AccessTests(unittest.TestCase):
     def test_deadline_refuses_request(self):
         self.assertEqual(self.access.get('THE_ODDS_API', '/one', deadline=NOW)['status'], 'PROVIDER_TIME_BUDGET')
         self.assertFalse(self.fake.calls)
+
+    def test_busy_access_lock_respects_deadline_without_network(self):
+        self.access.lock.acquire()
+        try:
+            r=self.access.get('THE_ODDS_API','/one',deadline=NOW+.06)
+            self.assertEqual(r['status'],'PROVIDER_ACCESS_LOCK_BUSY')
+            self.assertFalse(self.fake.calls)
+        finally:self.access.lock.release()
+
+    def test_late_native_receipt_updates_credit_but_is_not_cached_or_admitted(self):
+        clock=[NOW]
+        def get(provider,url,key,*,timeout):
+            r=receipt([],provider,url);clock[0]+=4
+            r['ingested_at_utc']=clock[0]
+            r['quota']={'x-requests-remaining':7}
+            return r
+        access=ProviderAccess({'THE_ODDS_API':SECRET},getter=get,clock=lambda:clock[0])
+        r=access.get('THE_ODDS_API','/one',deadline=NOW+3)
+        self.assertEqual(r['status'],'PROVIDER_RESPONSE_AFTER_DEADLINE')
+        self.assertEqual(access.remaining['THE_ODDS_API'],7)
+        self.assertFalse(access.cache)
+        self.assertFalse(access.lock.locked())
+
+    def test_expired_deadline_does_not_return_cached_receipt(self):
+        self.access.get('THE_ODDS_API','/v4/sports/')
+        r=self.access.get('THE_ODDS_API','/v4/sports/',deadline=NOW)
+        self.assertEqual(r['status'],'PROVIDER_TIME_BUDGET')
+        self.assertEqual(len(self.fake.calls),1)
 
     def test_transport_headers_and_no_secret_url(self):
         response = Mock(); response.read.return_value = b'[]'; response.status = 200; response.headers = {}
@@ -301,6 +349,39 @@ class BridgeTests(unittest.TestCase):
             self.assertEqual(wrapper['sha256'],digest(wrapper['payload']))
             self.assertEqual(self.bridge.read_receipt(wrapper['sha256']),wrapper['payload'])
             self.assertNotIn(SECRET,path.read_text())
+
+    def test_primary_time_budget_leaves_backup_reserve(self):
+        from unittest.mock import Mock
+        self.bridge._odds=Mock(return_value=dict(status='RATE_LIMITED',observations=[]))
+        self.bridge._basketball=Mock(return_value=dict(status='BACKUP_DIAGNOSTIC'))
+        self.bridge.collect(SNAPSHOT)
+        self.bridge._odds.assert_called_once_with(SNAPSHOT,NOW+9)
+        self.bridge._basketball.assert_called_once_with(SNAPSHOT,NOW+12,backup_prices=True)
+
+    def test_interactive_primary_success_defers_secondary_queries(self):
+        self.bridge._odds=Mock(return_value=dict(status='OBSERVED',observations=[{}]))
+        self.bridge._basketball=Mock()
+        r=self.bridge.collect(SNAPSHOT,primary_priority=True)
+        self.bridge._odds.assert_called_once_with(SNAPSHOT,NOW+12)
+        self.bridge._basketball.assert_not_called()
+        self.assertEqual(r['providers']['API_BASKETBALL']['status'],'PRIMARY_PRICES_PRESENT_SECONDARY_DEFERRED')
+        from hybrid_engine.market_turkish import message
+        label=message(r['providers']['API_BASKETBALL']['status'])
+        self.assertIn('ikinci kaynak sorgusu ertelendi',label)
+        self.assertIn('ikinci kaynaktan doğrulanmadı',label)
+        self.assertNotEqual(label,message('PREMATCH_FIXTURE_CROSSCHECKED'))
+
+    def test_interactive_primary_failure_gives_backup_independent_budget(self):
+        clock=[NOW]
+        self.bridge.clock=lambda:clock[0]
+        def primary(snapshot,deadline):
+            self.assertEqual(deadline,NOW+12)
+            clock[0]+=11
+            return dict(status='PROVIDER_TIME_BUDGET',observations=[])
+        self.bridge._odds=primary
+        self.bridge._basketball=Mock(return_value=dict(status='BACKUP_DIAGNOSTIC'))
+        self.bridge.collect(SNAPSHOT,primary_priority=True)
+        self.bridge._basketball.assert_called_once_with(SNAPSHOT,NOW+23,backup_prices=True)
 
     def test_no_keys_no_network_and_clear_status_not_no_edge(self):
         bridge = ProviderBridge(ProviderAccess({}, getter=self.fake), self.root/'empty', clock=lambda: NOW)
@@ -458,7 +539,12 @@ class ProviderTelegramTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn('Henüz yeterince doğrulanmadı',edits[0])
                 body = '\n'.join(sent+edits)
                 self.assertIn('The Odds API: Gerçek fiyatlar alındı; ödeme kuralı ve kalibrasyon bekleniyor', body)
-                self.assertIn('API-Basketball: Başlamamış maç ikinci kaynaktan doğrulandı', body)
+                # The interactive primary-first path deliberately skips the
+                # redundant secondary request when native primary prices exist.
+                # Do not claim a cross-check that did not actually happen.
+                self.assertIn('API-Basketball: Birincil fiyatlar alındı; ikinci kaynak sorgusu ertelendi, maç ikinci kaynaktan doğrulanmadı', body)
+                self.assertNotIn('API-Basketball: Başlamamış maç ikinci kaynaktan doğrulandı', body)
+                self.assertFalse(any(p == 'API_BASKETBALL' for p, _ in fake.calls))
                 self.assertIn('GÜNCEL PİYASA DEĞERLENDİRMESİ',body)
                 self.assertIn('Karar SHA:',body)
                 self.assertTrue(list((root/'current-market-reviews').glob('review-*.json')))
@@ -502,3 +588,130 @@ class ProviderTelegramTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class ExpandedObservationScopeTests(unittest.TestCase):
+    def test_late_period_scope_not_starved_by_first_twelve_native_observations(self):
+        doc=priced_event()
+        doc['bookmakers']=[
+            dict(key='book'+str(i),title='Book '+str(i),last_update=iso(NOW-5),
+                 markets=[market('totals'),market('totals_h1',110.5),market('totals_h2',111.5)])
+            for i in range(4)]
+        doc['bookmakers'].append(dict(key='late',title='Late',last_update=iso(NOW-5),
+            markets=[market('totals_q4',52.5),market('totals_q1',53.5)]))
+        old,_=odds_observations(receipt(doc),SNAPSHOT)
+        self.assertEqual(len(old),12)
+        expanded,_=odds_observations(receipt(doc,url='https://api.the-odds-api.com/v4/sports/basketball_nba/events/synthetic-event/odds?markets=totals,totals_h1,totals_h2,totals_q1,totals_q4'),SNAPSHOT)
+        # Receipt hashes differ because the request URL is distinct; native
+        # quote contents and historic enumeration remain identical.
+        self.assertEqual([r['payload']['quotes'] for r in expanded[:12]],
+                         [r['payload']['quotes'] for r in old])
+        scopes={(q['period'],q['market']) for r in expanded for q in r['payload']['quotes']}
+        self.assertTrue({('1Q','TOTAL'),('4Q','TOTAL')}<=scopes)
+        self.assertEqual(len(expanded),14)
+
+class FullMarketCoverageTests(unittest.TestCase):
+    def test_alternate_period_team_total_is_scoped_not_full_game(self):
+        with patch('time.time',return_value=NOW):
+            e=priced_event();m=market('alternate_team_totals_q2',22.5)
+            for o in m['outcomes']:o['description']=SNAPSHOT['home']['official_name']
+            e['bookmakers'][0]['markets']=[m]
+            r=receipt(e,url='https://api.the-odds-api.com/v4/synthetic?markets=alternate_team_totals_q2')
+            rows,_=odds_observations(r,SNAPSHOT)
+            q=rows[0]['payload']['quotes'][0]
+            self.assertEqual((q['period'],q['market'],q['line']),('2Q','HOME',22.5))
+            self.assertFalse(odds_observations(receipt(e),SNAPSHOT)[0])
+
+    def test_known_credit_budget_refuses_expensive_request_without_network(self):
+        fake=Mock(side_effect=AssertionError('NO_UNBUDGETED_NETWORK'))
+        access=ProviderAccess({'THE_ODDS_API':SECRET},getter=fake,clock=lambda:NOW)
+        access.remaining['THE_ODDS_API']=2
+        r=access.get('THE_ODDS_API','/v4/sports/basketball_nba/events/e/odds',
+            dict(regions='us,eu',markets='h2h,totals'))
+        self.assertEqual(r['status'],'ODDS_ESTIMATED_CREDIT_BUDGET')
+        self.assertEqual(r['estimated_maximum_credits'],4)
+        fake.assert_not_called()
+
+    def test_regions_are_explicit_bounded(self):
+        from hybrid_engine.provider_bridge import odds_regions
+        self.assertEqual(odds_regions('us,eu'),('us','eu'))
+        for v in ('us,us','us,eu,uk','unknown',''):
+            with self.assertRaises(ValueError):odds_regions(v)
+
+
+def test_provider_panel_preserves_native_status_when_distribution_fails():
+    from types import SimpleNamespace
+    from hybrid_engine.provider_bridge import nba_provider_panel
+    bridge=SimpleNamespace(collect=lambda snapshot:dict(status='CURRENT_OBSERVATIONS_NOT_HISTORICAL_FORECAST_INPUTS',
+        providers={'THE_ODDS_API':dict(status='SYNTHETIC_OBSERVED',observations=[{}],
+                                       discovery_source_pin='a',source_pin='b')}),
+        read_receipt=lambda pin:{})
+    with patch('hybrid_engine.provider_bridge.render',return_value='NATIVE_SOURCE_REPORT'), \
+         patch('hybrid_engine.current_market_review.admit_odds',return_value={}), \
+         patch('hybrid_engine.market_views.replay_nba',side_effect=RuntimeError(SECRET)):
+        report=nba_provider_panel({},None,bridge,structured=True)
+    assert report['market_source_status']=='SYNTHETIC_OBSERVED'
+    assert report['market_review_status']=='MODEL_DISTRIBUTION_UNAVAILABLE'
+    assert report['market_native_observations']==1
+    assert report['cards']==[] and report['market_candidate_snapshot'] is None
+    assert 'NATIVE_SOURCE_REPORT' in report['html']
+    assert SECRET not in json.dumps(report)
+
+
+def test_provider_panel_refuses_bad_native_admission_without_model_replay():
+    from types import SimpleNamespace
+    from hybrid_engine.provider_bridge import nba_provider_panel
+    bridge=SimpleNamespace(collect=lambda snapshot:dict(status='CURRENT_OBSERVATIONS_NOT_HISTORICAL_FORECAST_INPUTS',
+        providers={'THE_ODDS_API':dict(status='SYNTHETIC_OBSERVED',observations=[{}],
+                                       discovery_source_pin='a',source_pin='b')}),
+        read_receipt=lambda pin:{})
+    with patch('hybrid_engine.provider_bridge.render',return_value='NATIVE_SOURCE_REPORT'), \
+         patch('hybrid_engine.current_market_review.admit_odds',side_effect=ValueError(SECRET)), \
+         patch('hybrid_engine.market_views.replay_nba') as replay:
+        report=nba_provider_panel({},None,bridge,structured=True)
+    replay.assert_not_called()
+    assert report['market_review_status']=='NATIVE_PRICE_ADMISSION_FAILED'
+    assert report['cards']==[]
+    assert SECRET not in json.dumps(report)
+
+
+def test_two_stage_review_keeps_native_evidence_on_model_timeout():
+    import asyncio
+    from types import SimpleNamespace
+    from hybrid_engine.provider_bridge import nba_provider_review,nba_provider_panel
+    report=dict(status='CURRENT_OBSERVATIONS_NOT_HISTORICAL_FORECAST_INPUTS',
+                providers={'THE_ODDS_API':dict(status='OBSERVED',observations=[{}])})
+    bridge=SimpleNamespace(collect=Mock(return_value=report))
+    calls=[]
+    async def fake_thread(fn,*args,**kwargs):
+        calls.append(fn)
+        if fn is nba_provider_panel:
+            assert kwargs['source_report'] is report
+            raise asyncio.TimeoutError()
+        return fn(*args,**kwargs)
+    with patch('hybrid_engine.isolated_execution.optional_source_thread',side_effect=fake_thread), \
+         patch('hybrid_engine.provider_bridge.render',return_value='NATIVE_SOURCE_REPORT'):
+        value=asyncio.run(nba_provider_review({},None,bridge))
+    bridge.collect.assert_called_once_with({},primary_priority=True)
+    assert len(calls)==2
+    assert value['market_source_status']=='OBSERVED'
+    assert value['market_review_status']=='MARKET_MODEL_REVIEW_TIMEOUT'
+    assert value['market_native_observations']==1
+    assert value['cards']==[] and value['market_candidate_snapshot'] is None
+    assert 'NATIVE_SOURCE_REPORT' in value['html']
+
+
+def test_two_stage_no_prices_does_not_run_model():
+    import asyncio
+    from types import SimpleNamespace
+    from hybrid_engine.provider_bridge import nba_provider_review
+    report=dict(status='CURRENT_OBSERVATIONS_NOT_HISTORICAL_FORECAST_INPUTS',
+                providers={'THE_ODDS_API':dict(status='RATE_LIMITED',observations=[])})
+    bridge=SimpleNamespace(collect=Mock(return_value=report))
+    async def fake_thread(fn,*args,**kwargs):
+        return fn(*args,**kwargs)
+    with patch('hybrid_engine.isolated_execution.optional_source_thread',side_effect=fake_thread) as work, \
+         patch('hybrid_engine.provider_bridge.render',return_value='RATE_LIMIT_REPORT'):
+        value=asyncio.run(nba_provider_review({},None,bridge))
+    assert work.call_count==1
+    assert value['market_source_status']=='RATE_LIMITED'
+    assert value['cards']==[] and value['market_native_observations']==0

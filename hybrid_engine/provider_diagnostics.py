@@ -34,7 +34,7 @@ def failure(receipt, operation):
 
 
 def fixture_diagnostic(events,snapshot,*,basketball=False):
-    from hybrid_engine.provider_bridge import name, utc, matches
+    from hybrid_engine.provider_bridge import name, utc, matches, team_side
     home=name(snapshot['home']['official_name']);away=name(snapshot['away']['official_name'])
     target=snapshot['fixture_start_utc'];same=[];reversed_rows=[];near=[];invalid=0;starts=[];exact=0
     for e in events[:1000]:
@@ -50,8 +50,14 @@ def fixture_diagnostic(events,snapshot,*,basketball=False):
             row=dict(provider_fixture_id=pid,home=h[:120],away=a[:120],
                      start_utc=datetime.fromtimestamp(start,timezone.utc).isoformat(),
                      delta_seconds=start-target)
-            if hn==home and an==away:same.append(row)
-            elif hn==away and an==home:reversed_rows.append(row)
+            hs=as_=None
+            try:hs=team_side(h,snapshot)
+            except (ValueError,KeyError,TypeError):pass
+            try:as_=team_side(a,snapshot)
+            except (ValueError,KeyError,TypeError):pass
+            row['home_identity_side']=hs;row['away_identity_side']=as_
+            if (hn==home and an==away) or (hs=='home' and as_=='away'):same.append(row)
+            elif (hn==away and an==home) or (hs=='away' and as_=='home'):reversed_rows.append(row)
             elif abs(start-target)<=86400:near.append(row)
             exact+=int(matches(e,snapshot,basketball=basketball))
         except (ValueError,KeyError,TypeError,OverflowError):invalid+=1

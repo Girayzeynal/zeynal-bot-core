@@ -6,6 +6,7 @@ These periodically refreshed assessments have their own clock and descriptive re
 from collections import defaultdict
 from copy import deepcopy
 import hashlib
+import sqlite3
 import html
 from pathlib import Path
 import time
@@ -14,10 +15,12 @@ import numpy as np
 from core.team_identity import digest
 from hybrid_engine import adaptive_models,nba_dynamic
 from hybrid_engine.adaptive_research import Registry,read_wrapper
+from hybrid_engine.assessment_storage import encode_paths,decode_paths,native_asset,restore_native
 from hybrid_engine.boxes import publish_json
 from hybrid_engine.data import Abstain,local_path
 from hybrid_engine.distributions import Forecast
 from hybrid_engine.europe_prematch import publication_lock
+from hybrid_engine.forward_validation import ForwardRegistry
 from hybrid_engine.intervals import prediction_intervals
 from hybrid_engine.issue90_research import pins,reason
 from hybrid_engine.time_policy import (PREMATCH_MINIMUM_LEAD_SECONDS, V3_REFRESH_SECONDS,
@@ -103,8 +106,19 @@ class AssessmentRegistry(Registry):
         return out
 
     def record(self,payload):
-        p,new=super().record(payload)
-        if new:
+        # Per-fixture lookup keeps a slow/corrupt unrelated path asset out of
+        # the publication's critical section. The inherited durable writer is
+        # retained, with the current five-minute guard on both commit clocks.
+        from hybrid_engine.europe_prematch import safe_lead
+        with publication_lock(self.root):
+            old=self.for_version(payload['fixture']['canonical_id'],payload['version'])
+            if old:
+                self.validate_assets(old['payload']);return old['payload'],False
+            if len(list(self.root.glob('first-*.json')))>=POLICY['maximum_records']:
+                raise Abstain('CURRENT_ASSESSMENT_STORAGE_BUDGET')
+            safe_lead(payload)
+            p,new=ForwardRegistry.record(self,payload)
+            if not new:raise Abstain('CURRENT_ASSESSMENT_COMMIT_UNCONFIRMED')
             key=digest(dict(fixture=p['fixture']['canonical_id'],version=p['version']))
             publication=self.publication(self.root/('first-'+key+'.json'));completed=int(time.time())
             receipt=dict(forecast_sha256=publication['forecast']['sha256'],publication_sha256=digest(publication),
@@ -113,17 +127,21 @@ class AssessmentRegistry(Registry):
             if not receipt['eligible']:raise Abstain('CURRENT_ASSESSMENT_LATE_COMMIT_EXCLUDED')
         return p,new
 
+    def for_version(self,fid,version):
+        slot=self.root/('first-'+digest(dict(fixture=fid,version=version))+'.json')
+        return self._verified_slot(slot) if slot.is_file() else None
+
     def validate_assets(self,p):
         for ref in p['assets']:
             if Path(ref['file']).name!=ref['file'] or (self.root/ref['file']).stat().st_size>16*1024*1024:
                 raise ValueError('CURRENT_ASSET_PATH_OR_SIZE')
-            self.read_asset(ref)
+            restore_native(self.read_asset(ref))
 
 
 class CurrentAssessments:
     def __init__(self,directory,worker,study):
         self.root=local_path(directory);self.registry=AssessmentRegistry(self.root/'records')
-        self.worker=worker;self.study=study;self.last_report=None
+        self.worker=worker;self.study=study;self.last_report=None;self.attempted={}
 
     def plan(self,create=False):
         path=self.root/'policy.json'
@@ -141,8 +159,8 @@ class CurrentAssessments:
     def _capture(self,case,model,plan):
         target=case['target'];now=int(time.time());slot=now//POLICY['refresh_seconds']
         version=plan['sha256']+':'+str(slot)
-        old=next((r['payload'] for r in self.registry.records() if r['payload']['version']==version and
-                  r['payload']['fixture']['canonical_id']==target['fixture_id']),None)
+        entry=self.registry.for_version(target['fixture_id'],version)
+        old=None if entry is None else entry['payload']
         if old:
             if old['original_snapshot_sha256']!=case['original']:raise Abstain('CURRENT_ASSESSMENT_ORIGINAL_CONFLICT')
             self.registry.validate_assets(old);return old,False
@@ -157,13 +175,13 @@ class CurrentAssessments:
         final=self.worker.verify(target);generated=int(time.time())
         if generated>=target['fixture_start_utc']-POLICY['minimum_lead_seconds']:raise Abstain('CURRENT_ASSESSMENT_SAFE_WINDOW_CLOSED')
         files=[f for f in self.registry.root.iterdir() if f.is_file()]
-        if len(self.registry.records())>=POLICY['maximum_records'] or sum(f.stat().st_size for f in files)>POLICY['maximum_bytes']-4*1024*1024:
+        if len(list(self.registry.root.glob('first-*.json')))>=POLICY['maximum_records'] or sum(f.stat().st_size for f in files)>POLICY['maximum_bytes']-4*1024*1024:
             raise Abstain('CURRENT_ASSESSMENT_STORAGE_BUDGET')
         bands=prediction_intervals(forecast);q=forecast.summary()
-        paths=dict(format='INTEGER_JOINT_REGULATION_PATHS_V1',samples=forecast.samples.tolist(),
-            dtype=forecast.samples.dtype.str,summary=q,intervals=bands,model_artifact_sha256=model['sha256'],feature_cutoff_utc=now)
-        refs=[self.registry.asset('model',model),self.registry.asset('native-before',first),
-              self.registry.asset('native-after',final),self.registry.asset('joint-paths',paths)]
+        paths=dict(encode_paths(forecast.samples),summary=q,intervals=bands,
+            model_artifact_sha256=model['sha256'],feature_cutoff_utc=now)
+        refs=[self.registry.asset('model',model),self.registry.asset('native-source',native_asset(first)),
+              self.registry.asset('native-source',native_asset(final)),self.registry.asset('joint-paths',paths)]
         m=q['metadata'];features=dict(team_efficiency='APPLIED',
             box_pace='APPLIED_BOX_ESTIMATE_NOT_MEASURED_PBP',
             opponent_form='APPLIED' if m.get('opponent_adjusted') else 'TEAM_MODEL_ONLY',
@@ -214,8 +232,10 @@ class CurrentAssessments:
                 or not 0<len(preferred_fixture_id)<=160):
             raise ValueError('CURRENT_PREFERRED_FIXTURE_ID_INVALID')
         plan=self.plan(create=True);cases=self.worker.cases();captures=[];now=int(time.time())
-        saved={(r['payload']['fixture']['canonical_id'],r['payload']['version']) for r in self.registry.records()}
-        ready=[c for c in cases if (c['target']['fixture_id'],plan['sha256']+':'+str(now//POLICY['refresh_seconds'])) not in saved]
+        ready=[c for c in cases if self.registry.for_version(c['target']['fixture_id'],plan['sha256']+':'+str(now//POLICY['refresh_seconds'])) is None]
+        active={c['target']['fixture_id'] for c in cases}
+        self.attempted={k:v for k,v in self.attempted.items() if k in active}
+        ready.sort(key=lambda c:(self.attempted.get(c['target']['fixture_id'],0),c['target']['fixture_start_utc'],c['target']['fixture_id']))
         if preferred_fixture_id:
             ready.sort(key=lambda c:c['target']['fixture_id']!=preferred_fixture_id)
             if not any(c['target']['fixture_id']==preferred_fixture_id for c in cases):
@@ -228,6 +248,7 @@ class CurrentAssessments:
             targeted=('IN_PROCESSING_BATCH' if in_ready else
                       'NOT_ELIGIBLE' if not eligible else 'ALREADY_RECORDED_THIS_HOUR')
         for c in ready[:2]:
+            self.attempted[c['target']['fixture_id']]=now
             try:
                 t=c['target']
                 if t['league']=='NBA':model=self.study.fit(t['season'])[0]
@@ -251,8 +272,12 @@ class CurrentAssessments:
             observed_at_utc=int(time.time()),captures=captures,originals_changed=False,
             candidate_published_count=published,capture_attempt_count=len(captures),
             eligible_not_yet_saved_count=len(ready),
-            requested_fixture_id=preferred_fixture_id,requested_fixture_status=targeted,
-            performance=self.performance(self.worker.labels()))
+            requested_fixture_id=preferred_fixture_id,requested_fixture_status=targeted)
+        try:
+            self.last_report['performance']=self.performance(self.worker.labels())
+        except (ValueError, KeyError, TypeError, OSError, RuntimeError, sqlite3.Error) as exc:
+            from hybrid_engine.runtime_reports import failure
+            self.last_report['performance_issue']=failure(exc)
         return self.last_report
 
     def performance(self,labels):
@@ -287,7 +312,9 @@ class CurrentAssessments:
                     p.get('original_model_digest') and r['model_digest']!=p['original_model_digest']):
                 raise ValueError('CURRENT_ASSESSMENT_NATIVE_LABEL_BINDING')
             q=p['candidate']
-            current=dict(prediction=[q['home'],q['away']],actual=r['actual'],
+            current=dict(fixture_id=r['fixture_id'],prediction=[q['home'],q['away']],actual=r['actual'],
+                estimated_possessions=q.get('metadata',{}).get('box_pace'),
+                parameter_age_seconds=p['prediction_generated_at_utc']-p['parameter_fit_cutoff_utc'],
                 actual_periods=r['actual_periods'],predicted_quarters=q['quarters'],winner=q['winner'],
                 intervals=p['intervals'],fixture_start_utc=r['fixture_start_utc'],
                 prediction_generated_at_utc=p['prediction_generated_at_utc'],label_available_utc=r['label_available_utc'])
@@ -304,14 +331,16 @@ class CurrentAssessments:
                     all(type(v) in (int,float) and np.isfinite(v) and v>=0 for v in original)):
                 baseline=dict(prediction=list(original),actual=r['actual'],
                     actual_periods=r['actual_periods'],fixture_start_utc=r['fixture_start_utc'],
-                    prediction_generated_at_utc=issued,label_available_utc=r['label_available_utc'])
+                    predicted_quarters=r.get('predicted_quarters'),prediction_generated_at_utc=issued,label_available_utc=r['label_available_utc'])
                 paired[group].append((current,baseline))
         results=[]
         for group,values in sorted(groups.items()):
             pairs=paired[group]
             candidate_pair=metrics([v[0] for v in pairs]) if pairs else None
             baseline_pair=metrics([v[1] for v in pairs]) if pairs else None
+            from hybrid_engine.paired_error_axes import summarize
             results.append(dict(league=group[0],season=group[1],model=group[2],
+                paired_error_axes=summarize(pairs),
                 metrics=metrics(values),paired_n=len(pairs),
                 paired=dict(status='PAIRED_DESCRIPTIVE_ONLY' if pairs else 'NO_VERIFIED_FIRST_FORECAST_PAIR',
                     first_forecast_total_mae=None if not pairs else baseline_pair['total']['mae'],
@@ -330,7 +359,10 @@ class CurrentAssessments:
         lines=['GÜNCEL DEĞERLENDİRMELER | AYRI BETİMSEL PERFORMANS',
             'Her maç/strateji için ilk değerlendirme; sonraki güncellemeler örnek sayısını artırmaz.']
         if not self.last_report or 'performance' not in self.last_report:
-            return '\n'.join(lines+['Bu süreçte doğrulanmış rapor henüz hazırlanmadı.'])
+            issue=(self.last_report or {}).get('performance_issue')
+            lines.append('Aday sonuçları okunamadı · '+issue if issue else
+                         'Bu süreçte doğrulanmış rapor henüz hazırlanmadı.')
+            return '\n'.join(lines)
         groups=self.last_report['performance']['groups']
         for g in groups:
             m=g['metrics'];lines.append(g['league']+' '+g['model']+
@@ -342,6 +374,11 @@ class CurrentAssessments:
                     f"{pair['first_forecast_total_mae']:.2f}"+' · Güncel aday toplam MAE '+
                     f"{pair['candidate_total_mae']:.2f}"+' · Hata azalması (pozitif=aday iyi) '+
                     f"{pair['total_mae_delta']:+.2f}")
+                axes=g.get('paired_error_axes')
+                if axes:
+                    lines.append(f"Toplam bias ilk → aday {axes['original_total_bias']:+.2f} → "
+                                 f"{axes['candidate_total_bias']:+.2f} · Aday ortalama skor değişimi "
+                                 f"{axes['mean_total_revision']:+.2f}")
             else:
                 lines.append('İlk tahminle yayın saati doğrulanmış karşılaştırma: 0 eşleşen maç.')
         if not groups:lines.append('Henüz doğrulanmış sonuçla eşleşme yok.')
@@ -412,11 +449,7 @@ class CurrentAssessments:
         if now-p['parameter_fit_cutoff_utc']>POLICY['maximum_model_age_seconds']:raise Abstain('CURRENT_MODEL_TOO_OLD')
         ref=next(r for r in p['assets'] if r['file'].startswith('joint-paths-'))
         asset=self.registry.read_asset(ref);q=p['candidate']
-        samples=np.asarray(asset['samples'])
-        if samples.shape!=(10000,4,2) or not np.issubdtype(samples.dtype,np.integer):raise ValueError('CURRENT_JOINT_PATH_SHAPE')
-        if asset['dtype'] not in ('<i4','>i4','<i8','>i8') or np.any(samples<0) or np.any(samples>1000):
-            raise ValueError('CURRENT_JOINT_PATH_DTYPE_OR_RANGE')
-        samples=samples.astype(asset['dtype'])
+        samples=decode_paths(asset)
         forecast=Forecast(q['model'],np.asarray(q['quarters']),samples=samples,metadata=q['metadata'])
         if asset['summary']!=q or prediction_intervals(forecast)!=p['intervals']:
             raise ValueError('CURRENT_JOINT_PATH_PIN')

@@ -87,8 +87,9 @@ class ObservedResearch:
 
 class ResearchCycle:
     """Serial, independently observed stages; V3 need not wait for V2 acquisition."""
-    def __init__(self,worker,study,assessments=None):
+    def __init__(self,worker,study,assessments=None,player_history=None):
         self.worker=worker;self.study=study;self.assessments=assessments;self.stages={}
+        self.player_history=player_history
         self.requested_fixtures=[];self.requested_deadlines={}
 
     def request_fixture(self,context):
@@ -96,30 +97,42 @@ class ResearchCycle:
 
         No model fitting, network request, or ledger write in the Telegram handler.
         """
-        if not isinstance(context,dict) or context.get('league')!='NBA':
+        if not isinstance(context,dict) or context.get('league') not in ('NBA','EUROLEAGUE','EUROCUP'):
             return False
         fid=context.get('fixture_id')
         tip=context.get('fixture_start_utc')
         if (not isinstance(fid,str) or not 0<len(fid)<=160 or
                 type(tip) is not int or int(time.time())>=tip-PREMATCH_MINIMUM_LEAD_SECONDS):
             return False
-        if fid not in self.requested_fixtures:
-            if len(self.requested_fixtures)>=16:
-                dropped=self.requested_fixtures.pop(0)
-                self.requested_deadlines.pop(dropped,None)
-            self.requested_fixtures.append(fid)
+        now=int(time.time())
+        self.requested_fixtures=[x for x in self.requested_fixtures
+                                 if now<self.requested_deadlines.get(x,0)]
+        self.requested_deadlines={x:self.requested_deadlines[x] for x in self.requested_fixtures}
+        if fid not in self.requested_fixtures:self.requested_fixtures.append(fid)
         self.requested_deadlines[fid]=tip-PREMATCH_MINIMUM_LEAD_SECONDS
-        return True
+        self.requested_fixtures.sort(key=lambda x:(self.requested_deadlines[x],x))
+        if len(self.requested_fixtures)>16:
+            dropped=self.requested_fixtures.pop()
+            self.requested_deadlines.pop(dropped,None)
+        return fid in self.requested_deadlines
 
     async def _stage(self,name,call,app,asynchronous=False):
+        queued = time.monotonic()
         state=dict(status='QUEUED',queued_at_utc=int(time.time()))
+        def start():
+            started = time.monotonic()
+            state.update(status='RUNNING',started_at_utc=int(time.time()),queued_seconds=round(started-queued,3))
+            return started
+        running = None
         self.stages[name]=state
         def sync():
-            state.update(status='RUNNING',started_at_utc=int(time.time()))
+            nonlocal running
+            running = start()
             return call()
         try:
             if asynchronous:
-                state.update(status='RUNNING',started_at_utc=int(time.time()));value=await call()
+                running = start()
+                value = await call()
             else:value=await asyncio.to_thread(sync)
             state.update(status='COMPLETED',completed_at_utc=int(time.time()))
             app.bot_data['last_'+name+'_poll']=value
@@ -132,7 +145,10 @@ class ResearchCycle:
             app.bot_data['last_'+name+'_poll']=value
             if name=='issue90':self.study.last_report=value
             elif name=='adaptive_v2':self.worker.last_report=value
-            elif self.assessments:self.assessments.last_report=value
+            elif name=='current_assessment' and self.assessments:self.assessments.last_report=value
+        finally:
+            if running is not None:
+                state['work_seconds']=round(time.monotonic()-running,3)
 
     async def once(self,app):
         # Keep stages serial so fitted source snapshots and provider budgets
@@ -141,9 +157,6 @@ class ResearchCycle:
         # Existing V2 player inputs can be incorporated on the next cycle;
         # this current score is explicitly NOT a player-impact forecast.
         players=getattr(getattr(self.worker,'research',None),'players',None)
-        if players is not None:
-            from hybrid_engine.player_shadow import readiness
-            await self._stage('player_shadow',lambda:readiness(players),app)
         # First publish a genuinely current score using the prefit/fixed-slot
         # research model. The independent V3 shadow-calibration sweep must not
         # delay the score's pre-tipoff publication until after its deadline.
@@ -156,6 +169,7 @@ class ResearchCycle:
                                      if now<self.requested_deadlines.get(fid,0)]
             self.requested_deadlines={fid:self.requested_deadlines[fid]
                                       for fid in self.requested_fixtures}
+            self.requested_fixtures.sort(key=lambda x:(self.requested_deadlines[x],x))
             preferred=(self.requested_fixtures.pop(0) if self.requested_fixtures else None)
             publish=(self.assessments.tick if preferred is None else
                      lambda:self.assessments.tick(preferred_fixture_id=preferred))
@@ -165,25 +179,34 @@ class ResearchCycle:
                 published=outcome.get('requested_fixture_status') in (
                     'PUBLISHED_OR_REPLAYED','ALREADY_RECORDED_THIS_HOUR')
                 if not published and int(time.time())<self.requested_deadlines.get(preferred,0):
-                    self.requested_fixtures.append(preferred)
+                    if preferred not in self.requested_fixtures:self.requested_fixtures.append(preferred)
                 else:
+                    self.requested_fixtures=[fid for fid in self.requested_fixtures if fid!=preferred]
                     self.requested_deadlines.pop(preferred,None)
         # Collect native player inputs after the time-sensitive current score.
+        if players is not None:
+            from hybrid_engine.player_shadow import readiness
+            await self._stage('player_shadow',lambda:readiness(players),app)
         await self._stage('adaptive_v2',self.worker.tick,app,asynchronous=True)
         if players is not None:
             await self._stage('player_shadow',lambda:readiness(players),app)
         if self.study:await self._stage('issue90',self.study.tick,app)
+        if self.player_history:
+            # Late in the serial cycle; never fit in a command or delay a
+            # known imminent publication for this optional research diagnostic.
+            def history():return self.player_history.tick(case_loader=self.worker.cases)
+            await self._stage('player_history',history,app)
 
     async def run(self,app):
         while True:
             await self.once(app);await asyncio.sleep(RESEARCH_POLL_SECONDS)
 
     def render(self):
-        lines=['Araştırma işçisi: oyuncu kanıtı → V2 → oyuncu kanıtı tekrar → güncel skor → ayrı V3 denetimi']
-        for name in ('adaptive_v2','player_shadow','issue90','current_assessment'):
+        lines=['Araştırma işçisi: güncel skor → oyuncu hazırlığı → V2 → oyuncu denetimi → V3 deneyi']
+        for name in ('adaptive_v2','player_shadow','issue90','current_assessment','player_history'):
             s=self.stages.get(name)
             if not s:lines.append(name+': İLK TUR BEKLENİYOR');continue
-            elapsed=max(0,int(time.time())-s.get('started_at_utc',s['queued_at_utc']))
-            lines.append(name+': '+s['status']+' · aşama başlangıcından '+str(elapsed)+' sn')
+            elapsed=s.get('work_seconds',max(0,int(time.time())-s.get('started_at_utc',s['queued_at_utc'])))
+            lines.append(f"{name} · {s['status']} · kuyruk {s.get('queued_seconds',0):.1f} sn · işlem {elapsed:.1f} sn")
             if s.get('reason'):lines.append('Aşama engeli: '+s['reason'])
         return '\n'.join(lines)

@@ -39,7 +39,7 @@ def cards(view,forecast,*,tipoff_utc,fixture_id,batch=None):
     deadline=min(tipoff_utc,clock['payload']['prematch_deadline_utc']) if clock else tipoff_utc
     current=(source['method']=='NATIVE_RETRIEVAL' and type(captured) is int and
         captured<=available<=asof<deadline and 0<=asof-captured<=POLICY['quote_max_age_seconds'] and
-        (published is None or 0<=asof-published<=POLICY['quote_max_age_seconds']) and
+        (type(published) is int and 0<published<=captured and asof-published<=POLICY['quote_max_age_seconds']) and
         (batch is None or batch['payload']['record_class']=='PREGAME_CURRENT_REVIEW'))
     if 'parameter_fit_age_seconds' in view:
         from hybrid_engine.time_policy import MAXIMUM_V3_MODEL_AGE_SECONDS
@@ -48,6 +48,12 @@ def cards(view,forecast,*,tipoff_utc,fixture_id,batch=None):
             view.get('model_fit_age_limit_seconds')==MAXIMUM_V3_MODEL_AGE_SECONDS)
         ceiling=MAXIMUM_V3_MODEL_AGE_SECONDS if v3 else 21600
         current=current and type(age) is int and 0<=age<=ceiling
+    # League comes from the admitted market fixture, not the model name.
+    # Older presentation-only views may omit it: never guess 48 minutes.
+    league=(view.get('fixture') or {}).get('league')
+    if league is None and clock:
+        league=clock['payload'].get('league')
+    minutes={'NBA':48,'EUROLEAGUE':40,'EUROCUP':40}.get(str(league).upper())
     out=[]
     for row in view['rows']:
         p=row['conditional_regulation_probabilities']
@@ -57,8 +63,9 @@ def cards(view,forecast,*,tipoff_utc,fixture_id,batch=None):
         mean=projection_mean(forecast,row['period'],row['market'])
         side=None if abs(p['under']-p['over'])<1e-12 or p['push']>=max(p['under'],p['over']) else 'over' if p['over']>p['under'] else 'under'
         native=current and 'NATIVE_PRICE_EVIDENCE_REQUIRED' not in row.get('reasons',[])
-        expiry=min(deadline,captured+POLICY['quote_max_age_seconds'],published+POLICY['quote_max_age_seconds'] if published is not None else deadline) if native else None
+        expiry=min(deadline,captured+POLICY['quote_max_age_seconds'],published+POLICY['quote_max_age_seconds']) if native else None
         out.append(dict(fixture_id=fixture_id,tipoff_utc=tipoff_utc,model_digest=view['model_digest'],
+            league=league,regulation_minutes=minutes,
             period=row['period'],market=row['market'],line=row['line'],prices=dict(row['prices']),
             probabilities=dict(p),side=side,probability=None if side is None else p[side],mean=mean,
             bookmaker=dict(view['bookmaker']),provider=source['provider_name'],method=source['method'],
@@ -108,7 +115,9 @@ def render(card):
     lines.extend([mean_label+': '+number(card['mean']),
         f"Ham normal süre: {under} %{number(100*p['under'])} · {over} %{number(100*p['over'])}"])
     if p['push']>0:lines.append(('Normal süre eşitliği' if kind=='WINNER' else 'Baremle eşit skor')+': %'+number(100*p['push']))
-    lines.append('⚠️ SÖZLEŞME UYUMU DOĞRULANMADI: Model NORMAL SÜRE (48 dk) hesaplar; '
+    minutes=card.get('regulation_minutes')
+    duration=(' ('+str(minutes)+' dk)') if minutes in (40,48) else ''
+    lines.append('⚠️ SÖZLEŞME UYUMU DOĞRULANMADI: Model NORMAL SÜRE'+duration+' hesaplar; '
                  'bahis şirketinin uzatma dahil olma ve ödeme kuralları bu model yüzdelerine '
                  'eşlenmedi. Yüzde, doğrulanmış bahis kazanma olasılığı değildir.')
     if kind=='WINNER':

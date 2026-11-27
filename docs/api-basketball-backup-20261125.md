@@ -1,0 +1,3 @@
+# API-Basketball backup market lane
+Source contract: https://api-sports.io/documentation/basketball/basketball-v1.yaml (Odds, /odds game parameter; example league/game/bookmakers/bets/values; documented daily update).
+Automatic attempt only when primary has no admitted observations, existing key configured, exact league/season/team/time scheduled game and deadline/quota permit. One optional request before stats. Native labels and decimal strings retained in separate receipt, capped; no conversion into The Odds API or current-price model. Publication timestamp not verified. API plan rejection still prevents any fixture-bound query. Synthetic tests are not live access evidence. No new keys or paid subscriptions. Existing initial forecasts remain unchanged.

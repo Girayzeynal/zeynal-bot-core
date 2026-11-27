@@ -102,7 +102,10 @@ async def reply_analysis(update,context,report,service):
     if 'quarters' in p:assert_projection(p)
     times=await asyncio.to_thread(timeline,report,service,now)
     parts=list(report.get('html_parts') or [report['html']])
-    parts[-1]=render_timeline(parts[-1],times)
+    # The mobile candidate already identifies its own clock. The delivery
+    # journal below still binds the immutable original and Telegram response.
+    if not report.get('compact_candidate_summary'):
+        parts[-1]=render_timeline(parts[-1],times)
     journal=context.application.bot_data.get('delivery_journal')
     key=digest(dict(update_id=update.update_id,chat=update.effective_chat.id,kind='ANALYZE')) if journal else None
     for i,text in enumerate(parts):

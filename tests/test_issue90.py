@@ -116,6 +116,18 @@ class DynamicModelTests(TestCase):
         np.testing.assert_allclose(rq.samples.mean(axis=0),mc.samples.mean(axis=0),atol=.5)
         self.assertEqual(rq.metadata['method'],'RQMC_HALTON_8D')
 
+    def test_historical_replay_keeps_real_preparation_time_and_reuses_score_equations(self):
+        original=nba_dynamic.predict(self.artifact,self.target,cutoff_utc=self.now)
+        late=max(self.target['fixture_start_utc']+100,self.now+100)
+        with patch('time.time',return_value=late):
+            fitted=nba_dynamic.fit(self.rows,cutoff_utc=self.now)
+            replay=nba_dynamic.historical_replay(fitted,self.target,origin_utc=self.now)
+            self.assertEqual(replay.metadata['prepared_at_utc'],late)
+            self.assertTrue(replay.metadata['historical_replay'])
+            np.testing.assert_array_equal(original.samples,replay.samples)
+            with self.assertRaisesRegex(Abstain,'HISTORICAL_ORIGIN_INVALID'):
+                nba_dynamic.historical_replay(fitted,self.target,origin_utc=self.now-1)
+
     def test_box_estimate_is_never_labeled_measured_pbp(self):
         f=nba_dynamic.predict(self.artifact,self.target,cutoff_utc=self.now)
         self.assertFalse(f.metadata['measured_pbp']);self.assertFalse(f.metadata['player_effects'])

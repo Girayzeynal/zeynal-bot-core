@@ -28,7 +28,8 @@ SAFE_FAILURE_CODES=frozenset(('TEST_BOT_SERVER_IDENTITY_MISMATCH','TEST_BOT_HAS_
     'DEDICATED_TEST_BOT_IDENTITY_REQUIRED','EXPLICIT_TEST_IDENTITY_REQUIRED','ISOLATED_DIRECTORIES_REQUIRED',
     'REPLAY_ONLY_FORBIDS_LIVE_MODELS_AND_RESULT_COLLECTION','BOUNDED_RESULT_POLL_INTERVAL_REQUIRED',
     'NBA_REPLAY_PACKET_REQUIRED_OR_TOO_LARGE','NBA_REPLAY_PACKET_SHA256','NBA_REPLAY_CAPTURE_PIN_OR_COUNT',
-    'NBA_REPLAY_NATIVE_FIXTURE_IDENTITY'))
+    'STAGING_REQUIRES_DEDICATED_BOT_AND_PINNED_NBA_MODEL','EXPLICIT_NBA_MODEL_AND_TRUSTED_PIN_REQUIRED',
+    'ISOLATED_LOCAL_RESEARCH_PATH_REQUIRED','PREPARED_ARTIFACT_TRUSTED_PIN','NBA_REPLAY_NATIVE_FIXTURE_IDENTITY'))
 
 
 def failure_report(exc):
@@ -85,6 +86,11 @@ class AuditedRequest(HTTPXRequest):
                 await self.append_journal(self.journal,digest(dict(update=_update.get(),kind='SEND_UNCONFIRMED')),
                     dict(kind='SEND_UNCONFIRMED',update_id=_update.get(),error_type=type(exc).__name__,observed_at_utc=int(time.time())))
             raise
+        if name=='sendMessage' and status!=200:
+            await self.append_journal(self.journal,digest(dict(update=_update.get(),kind='SEND_UNCONFIRMED',status=status)),
+                dict(kind='SEND_UNCONFIRMED',update_id=_update.get(),http_status=status,
+                     error_type='TELEGRAM_HTTP_RESPONSE',observed_at_utc=int(time.time())))
+            return status,body
         from hybrid_engine.telegram_evidence import official_endpoint,plaintext
         identity=self.expected_identity or {}
         official=official_endpoint(url,identity.get('bot_id'),name)
@@ -199,10 +205,11 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             assets=getattr(nba_service,'assets',None),directory=root/'player-shadow',
             chat_id=chat_id,cooldown_seconds=300)
     from hybrid_engine.isolated_execution import optional_source_thread
+    from hybrid_engine.runtime_reports import RuntimeLedgerReports, failure
     journal=DeliveryJournal(root/'telegram-delivery.sqlite');results=ProspectiveResults(archive,root/'official-results')
     frozen=FrozenHybridService(archive)
     if nba_service is not None:
-        from ledger_reports import LedgerReports,render_accuracy,render_compare
+        from ledger_reports import render_accuracy,render_compare
         class Dispatch:
             ledger=nba_service.ledger
             async def analyze(self,league,*args):
@@ -225,12 +232,17 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 from hybrid_engine.quality_monitor import monitor
                 from hybrid_engine.health_card import build as build_health, render as render_health
                 def prior_quality():
-                    report=LedgerReports(nba_service.ledger.path).read('NBA')
-                    return monitor(report['forecasts'],asof_utc=response['snapshot']['prediction_generated_at_utc'])
+                    snapshot=response['snapshot']
+                    asof=snapshot['prediction_generated_at_utc']
+                    report=RuntimeLedgerReports(nba_service.ledger.path).read('NBA',
+                        fit=snapshot['model_digest'],archived_by=asof,settled_only=True,summarize=False)
+                    if report['status']!='VERIFIED_LIVE_REPORT':
+                        raise ValueError(report['status'])
+                    return monitor(report['forecasts'],asof_utc=asof)
                 try:
                     prior=await asyncio.wait_for(optional_source_thread(prior_quality),timeout=2)
                 except Exception as exc:
-                    logging.getLogger(__name__).warning('Prior quality read unavailable: %s',type(exc).__name__)
+                    logging.getLogger(__name__).warning('Prior quality read unavailable: %s',failure(exc))
                     prior=None
                 health=build_health(response['snapshot'],quality,prior_quality=prior)
                 if not health['publication_allowed']:
@@ -264,19 +276,29 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 market_candidate_cards=[]
                 market_source_status='PROVIDER_NOT_CONFIGURED' if provider_bridge is None else 'PROVIDER_REVIEW_PENDING'
                 if provider_bridge is not None:
+                    started=time.monotonic()
                     try:
-                        from hybrid_engine.provider_bridge import nba_provider_panel
-                        provider_panel=await asyncio.wait_for(
-                            optional_source_thread(nba_provider_panel,snapshot,nba_service,provider_bridge,structured=True),timeout=4)
+                        from hybrid_engine.provider_bridge import nba_provider_review
+                        provider_panel=await nba_provider_review(snapshot,nba_service,provider_bridge)
                         market_lines.append(provider_panel['html'])
                         direction_cards.extend(provider_panel['cards'])
                         market_candidate_snapshot=provider_panel.get('market_candidate_snapshot')
                         market_candidate_cards=provider_panel['cards'][:128] if market_candidate_snapshot else []
                         market_source_status=provider_panel.get('market_source_status','PROVIDER_STATUS_UNAVAILABLE')
+                        review_state=provider_panel.get('market_review_status')
+                        if review_state in ('NATIVE_PRICE_ADMISSION_FAILED','MODEL_DISTRIBUTION_UNAVAILABLE',
+                                'CONTRACT_EVALUATION_FAILED','CURRENT_REVIEW_ARCHIVE_FAILED','CURRENT_REVIEW_RENDER_FAILED',
+                                'MARKET_MODEL_REVIEW_TIMEOUT'):
+                            market_source_status=review_state
                     except Exception as exc:
-                        logging.getLogger(__name__).warning('Provider review unavailable: %s',type(exc).__name__)
-                        market_lines.append('Sağlayıcı denetimi tamamlanamadı: PROVIDER_REVIEW_UNAVAILABLE. Bu durum NO EDGE değildir; skor tahmini korunuyor.')
-                        market_source_status='PROVIDER_REVIEW_UNAVAILABLE'
+                        market_source_status=('PROVIDER_REVIEW_TIMEOUT' if isinstance(exc,(asyncio.TimeoutError,TimeoutError))
+                            else 'PROVIDER_REVIEW_STORAGE_OR_IO' if isinstance(exc,OSError)
+                            else 'PROVIDER_REVIEW_SQLITE_ERROR' if isinstance(exc,sqlite3.Error)
+                            else 'PROVIDER_REVIEW_VALIDATION_FAILED' if isinstance(exc,(ValueError,KeyError,TypeError))
+                            else 'PROVIDER_REVIEW_UNAVAILABLE')
+                        logging.getLogger(__name__).warning('Provider review unavailable: %s after %.2fs',
+                            market_source_status,time.monotonic()-started)
+                        market_lines.append('Sağlayıcı denetimi tamamlanamadı. Kod: '+market_source_status+'.')
                 market_note=None
                 from hybrid_engine.market_panels import nba_panel
                 try:
@@ -346,6 +368,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 try:
                     from hybrid_engine.current_roster import context_for
                     entry['roster_context']=context_for(snapshot)
+                    halves=snapshot.get('prediction',{}).get('halves')
+                    if halves:
+                        entry['iddaa_first_half_total']=sum(halves[0])
                     entry['original_roster_html']='🏥 <b>İLK TAHMİN ANINDAKİ KADRO KANITI</b>\n'+sections['roster']
                 except (ValueError,KeyError,TypeError):
                     entry['roster_context']=None
@@ -354,7 +379,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 response['reply_markup']=keyboard(token)
                 return response
         class Reports:
-            def __init__(self):self.live=LedgerReports(nba_service.ledger.path);self.frozen=ResearchReports(results)
+            def __init__(self):self.live=RuntimeLedgerReports(nba_service.ledger.path);self.frozen=ResearchReports(results)
             def read(self,league=None,fixture_id=None):
                 live=league is None or league.upper()=='NBA'
                 return dict(live=live,report=(self.live if live else self.frozen).read('NBA' if live else league,fixture_id))
@@ -546,9 +571,19 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             adaptive_v2=str(adaptive_protocol),nba_v3=str(v3_protocol) if app.bot_data['adaptive_v2_worker'].nba is not None else None,
             current_assessment=str(assessment_protocol))
         app.bot_data['current_assessments']=assessments
-        app.bot_data['research_cycle']=ResearchCycle(app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'),assessments)
+        history=None
+        if app.bot_data['adaptive_v2_worker'].nba is not None:
+            from hybrid_engine.player_history_review import HistoricalPlayerReview
+            history=HistoricalPlayerReview(root)
+            app.bot_data['historical_player_review']=history
+        app.bot_data['research_cycle']=ResearchCycle(app.bot_data['adaptive_v2_worker'],app.bot_data.get('issue90_research'),assessments,history)
+        # A presentation-only reader shares the already registered protocol.
+        # Do not edit/hash-bump the scientific current_assessment module for
+        # an indexed price read; that would create an empty new namespace.
+        from hybrid_engine.current_market_lookup import IndexedMarketReader
+        market_reader=IndexedMarketReader(assessments)
         for bridge in (provider_bridge,getattr(app.bot_data.get('europe_data_review'),'bridge',None)):
-            if bridge is not None:bridge.assessments=assessments
+            if bridge is not None:bridge.assessments=market_reader
         from hybrid_engine.current_assessment_ui import install_dual_clock_display
         install_dual_clock_display(app.bot_data,assessments)
     async def journal_write(key,event):
@@ -582,8 +617,46 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
-        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','runtime','integrations','engines','predictions','playerimpact'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test runtime, /test integrations, /test predictions, /test all')
+        if mode=='overtime':
+            from hybrid_engine.overtime_archive_audit import audit,render
+            from hybrid_engine.runtime_reports import REPORT_ERRORS,failure
+            worker=app.bot_data.get('adaptive_v2_worker')
+            if len(args)!=4 or args[2].upper() not in ('NBA','EUROLEAGUE','EUROCUP') or not args[3].isascii() or not args[3].isdigit() or len(args[3])!=4:
+                await message.reply_text('Kullanım: /test overtime NBA 2026 (veya EUROLEAGUE / EUROCUP)')
+            elif worker is None:
+                await message.reply_text('OVERTIME_NATIVE_ARCHIVE_UNAVAILABLE')
+            else:
+                try:
+                    value=await asyncio.wait_for(optional_source_thread(audit,worker.store,args[2].upper(),int(args[3])),timeout=30)
+                    await message.reply_text(render(value),parse_mode=None)
+                except (REPORT_ERRORS + (asyncio.TimeoutError,)) as exc:
+                    await message.reply_text('Uzatma arşivi denetlenemedi · '+failure(exc),parse_mode=None)
+            raise ApplicationHandlerStop
+        if mode=='modelaudit' and len(args)==2:
+            from hybrid_engine.paired_archive_audit import audit, render
+            from hybrid_engine.predictions_command import split_plain
+            from hybrid_engine.runtime_reports import REPORT_ERRORS
+            try:
+                result=await optional_source_thread(audit,root,app.bot_data['ledger_reports'])
+                value=render(result)
+            except REPORT_ERRORS as exc:
+                value='Aday arşivi denetlenemedi · '+failure(exc)
+            for part in split_plain(value,limit=3200):
+                await message.reply_text(part,parse_mode=None)
+            raise ApplicationHandlerStop
+        if mode=='acceptance' and len(args)==2:
+            from hybrid_engine.accuracy_delivery import read_accuracy, release_sha
+            from hybrid_engine.runtime_reports import REPORT_ERRORS
+            try:
+                status=await asyncio.to_thread(read_accuracy,journal,app.bot_data.get('last_accuracy_all_update'))
+            except REPORT_ERRORS as exc:
+                status=dict(status='JOURNAL_READ_FAILED', error=failure(exc))
+            report=dict(format='ISOLATED_ACCURACY_ACCEPTANCE_V1',running_release_sha=release_sha(),
+                        entry_profile=app.bot_data.get('entry_profile'),accuracy=status)
+            await message.reply_text(json.dumps(report,ensure_ascii=False,indent=2))
+            raise ApplicationHandlerStop
+        if mode not in ('all','nba','euroleague','eurocup','roster','research','data','providers','runtime','integrations','engines','predictions','playerimpact'):
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test providers [check], /test runtime, /test integrations, /test predictions, /test acceptance, /test modelaudit, /test overtime NBA 2026, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',
@@ -634,6 +707,9 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 progress.get('player_input_status','NO_ATTEMPT_OBSERVED')
                 if isinstance(progress,dict) else 'NOT_OBSERVED')
             record['live_player_model_coefficients_applied']=False
+            history=app.bot_data.get('historical_player_review')
+            record['historical_player_box_diagnostic']=(history.snapshot() if history else
+                dict(status='NOT_LOADED_NO_LIVE_EFFECT_CLAIM'))
             # Verify the REAL archived inputs separately from the synthetic
             # smoke. A roster row or a made-up injury never counts as a
             # prospective training example.
@@ -713,20 +789,24 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             value=json.dumps(describe(app.bot_data),ensure_ascii=False,indent=2)
             for part in split_blocks(value.splitlines(),limit=3200):await message.reply_text(part,parse_mode=None)
             raise ApplicationHandlerStop
+        if mode=='providers' and (len(args)>3 or len(args)==3 and args[2].lower()!='check'):
+            await message.reply_text('Kullanım: /test providers veya /test providers check')
+            raise ApplicationHandlerStop
+        if mode in ('all','data','providers'):
+            from hybrid_engine.provider_health import inspect as inspect_providers,render as render_providers
+            bridge=provider_bridge or getattr(app.bot_data.get('europe_data_review'),'bridge',None)
+            check=mode=='providers' and len(args)==3
+            if check:
+                await message.reply_text('Temel sağlayıcı kontrolü başladı. Mevcut anahtarlarla katalog/hesap durumuna bakılıyor; tahmin değiştirilmiyor.')
+            health=await inspect_providers(bridge,include_storage=mode in ('all','data'),check=check)
+            app.bot_data['last_provider_health']=health
+            lines.extend(render_providers(health))
         if mode in ('all','data'):
             lines.extend(['VERİ / MODEL BAĞLANTISI',
-                'Ana skor: kayıtlı tahmin veya sabit parametreli takım modeli.',
-                'V2/V3 adayları ayrı araştırmadır; otomatik ana model değişimi yok.',
+                'Ana görünüm: güncel aday varsa ayrı skor; yoksa ilk tahmin açıkça arşiv olarak gösterilir.',
+                'V2/V3 adayları ayrı araştırmadır; otomatik model terfisi yok.',
                 'Piyasa ve Kadro düğmeleri mevcut skor hesabını güncellemez.',
                 'Avrupa kadro kaynağı: resmî haber metni; doğrulanmış oyuncu durum akışı değil.'])
-            bridge=provider_bridge or getattr(app.bot_data.get('europe_data_review'),'bridge',None)
-            if bridge is not None:
-                for provider,state in bridge.access.runtime_status().items():
-                    remaining=state['provider_reported_remaining']
-                    lines.append(provider+': yerel istek '+str(state['local_calls_today'])+'/'+str(state['local_daily_limit'])+
-                        ' · sağlayıcının bildirdiği kalan '+('bilinmiyor' if remaining is None else str(remaining)))
-                usage=await asyncio.to_thread(bridge.storage_status)
-                lines.append('Yerel sağlayıcı kanıtı: '+str(usage['files'])+'/'+str(usage['maximum_files'])+' belge · '+usage['status'])
         worker=app.bot_data.get('adaptive_v2_worker')
         if worker and mode in ('all','research'):
             lines.extend(worker.render().splitlines())
@@ -740,6 +820,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             if study:lines.extend(study.render().splitlines())
             cycle=app.bot_data.get('research_cycle')
             if cycle:lines.extend(cycle.render().splitlines())
+            history=app.bot_data.get('historical_player_review')
+            if history:lines.extend(history.render().splitlines())
             assessments=app.bot_data.get('current_assessments')
             if assessments:
                 last=assessments.last_report or {}
@@ -769,6 +851,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             lines.append('Kabul deneyi kaydı otomatik; gece komut vermek veya botu durdurmak gerekmez.')
             last=app.bot_data.get('last_nba_overnight_poll') or overnight.last_report or {}
             lines.append('Son NBA otomatik kontrol: '+str(last.get('status','HENÜZ_ÇALIŞMADI')))
+            for issue in last.get('stage_errors',[])[:12]:
+                lines.append('NBA otomatik aşama: '+issue['stage']+' · '+issue['error']+' · '+issue['error_type'])
+            for key in ('acceptance','progress'):
+                state=last.get(key) or {}
+                if state.get('retry_at_utc'):
+                    lines.append(key+' yeniden deneme UTC: '+str(state['retry_at_utc']))
             progress=last.get('progress') or {}
             lines.append('İleri deney: '+str(progress.get('status','HENÜZ_DOĞRULANMADI'))+
                 ' · Sonuçlu '+str(progress.get('settled','?'))+' · Bekleyen '+str(progress.get('pending','?')))
@@ -830,6 +918,25 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         for part in split_blocks(lines,limit=3200):await message.reply_text(part.replace('\n\n','\n'),parse_mode=None)
         raise ApplicationHandlerStop
     from telegram.ext import CommandHandler, CallbackQueryHandler
+    from hybrid_engine.iddaa_bulletin import Bulletin, LEAGUES as bulletin_leagues
+    bulletin = Bulletin(root/'iddaa-bulletin')
+
+    async def read_bulletin(league, fixture=None):
+        try:
+            return await asyncio.wait_for(optional_source_thread(bulletin.review, league, fixture), timeout=12)
+        except asyncio.TimeoutError:
+            return 'İddaa · Bülten okuma süresi doldu.'
+
+    async def bulletin_command(update, context):
+        league = context.args[0].upper() if len(context.args)==1 else ''
+        body = (await read_bulletin(league) if league in bulletin_leagues else
+                'Kullanım: /barem NBA, /barem EUROLEAGUE veya /barem EUROCUP')
+        await update.effective_message.reply_text(body, parse_mode='HTML')
+        raise ApplicationHandlerStop
+
+    if not replay_only:
+        app.bot_data['iddaa_bulletin'] = bulletin
+        app.add_handler(CommandHandler('barem', bulletin_command), group=-50)
     async def research_command(update,context):
         args=context.args or [];worker=app.bot_data.get('adaptive_v2_worker')
         if not worker or len(args)>2 or (args and args[0].upper() not in ('NBA','EUROLEAGUE','EUROCUP')):
@@ -895,12 +1002,11 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             await update.effective_message.reply_text('Fikstür kaynağı doğrulanamadı veya tarih geçersiz. Kullanım: '+command+' YYYY-MM-DD. Tahmin üretilmedi.')
         raise ApplicationHandlerStop
     from hybrid_engine.predictions_command import PredictionsCommand
-    from ledger_reports import LedgerReports
-    predictions=PredictionsCommand(LedgerReports(nba_service.ledger.path) if nba_service is not None else None,journal,chat_id,
+    predictions=PredictionsCommand(RuntimeLedgerReports(nba_service.ledger.path) if nba_service is not None else None,journal,chat_id,
         league_reports=europe_readers,journal_writer=journal_write)
     app.bot_data['predictions_command']=predictions
     app.add_handler(CommandHandler('predictions',predictions.handle),group=-50)
-    from hybrid_engine.unified_results_view import LEAGUES,render_all,render_performance
+    from hybrid_engine.unified_results_view import LEAGUES,render_all
     from hybrid_engine.predictions_command import split_plain
     async def _three_league_reports():
         reader=app.bot_data['ledger_reports']
@@ -930,16 +1036,24 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         if [x.lower() for x in (context.args or [])]!=['all']:
             return  # /accuracy NBA and /accuracy EUROCUP keep their existing handlers.
-        try:
-            reports=await _three_league_reports()
-            value=await asyncio.to_thread(render_performance,reports)
-            assessments=app.bot_data.get('current_assessments')
-            if assessments:value+='\n\n'+assessments.render_performance()
-        except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,RuntimeError) as exc:
-            logging.getLogger(__name__).warning('Three-league accuracy unavailable: %s',type(exc).__name__)
-            value='Üç lig için doğrulanmış performans raporu alınamadı; başarı yüzdesi uydurulmadı.'
-        for part in split_plain(value,limit=3200):
-            await update.effective_message.reply_text(part,parse_mode=None,disable_web_page_preview=True)
+        from hybrid_engine.unified_results_view import accuracy_sections
+        candidate=app.bot_data.get('current_assessments')
+        reader=app.bot_data['ledger_reports']
+        def review_iddaa(reports):
+            from hybrid_engine.iddaa_comparison import render_comparison
+            return render_comparison(bulletin.root,reports)
+        def review_market_directions(reports):
+            from hybrid_engine.market_direction_results import render
+            bridge=provider_bridge or getattr(app.bot_data.get('europe_data_review'),'bridge',None)
+            return render(root,reports,bridge=bridge,assessments=candidate)
+        from hybrid_engine.accuracy_delivery import send_accuracy
+        receipt={}
+        value=await asyncio.to_thread(accuracy_sections,reader,
+            candidate=candidate.render_performance if candidate else None,
+            market=review_iddaa if (bulletin.root/'first-half').is_dir() else None,
+            market_directions=review_market_directions, receipt=receipt)
+        app.bot_data['last_accuracy_all_update']=update.update_id
+        await send_accuracy(update,update.effective_message,list(split_plain(value,limit=3200)),receipt,journal_write)
         raise ApplicationHandlerStop
     app.add_handler(CommandHandler('results',results_all_command),group=-50)
     app.add_handler(CommandHandler('accuracy',accuracy_all_command),group=-50)
@@ -965,10 +1079,27 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         if entry is None or entry['chat_id']!=chat_id:
             await query.answer('Bu raporun oturumu sona erdi. /analyze ile tekrar açın.',show_alert=True)
             return
+        if section=='iddaa':
+            from hybrid_engine.telegram_premium_ui import keyboard
+            await query.answer()
+            fixture = entry.get('europe_context') or entry.get('roster_context')
+            if replay_only or not fixture:
+                body = 'Bu kart için bülten eşleşmesi yok.'
+            else:
+                body = await read_bulletin(fixture['league'], dict(fixture, first_half_total=entry.get('iddaa_first_half_total')))
+            try:
+                await query.edit_message_text(body, parse_mode='HTML',
+                    reply_markup=keyboard(token, include_archive='archive' in entry['sections']))
+            except Exception as exc:
+                if 'Message is not modified' not in str(exc):
+                    raise
+            return
         if section!='summary' and section not in entry['sections']:
             await query.answer('Bölüm bulunamadı.',show_alert=True)
             return
         from hybrid_engine.telegram_premium_ui import keyboard,page_view
+        iddaa_available = (section=='market' and not replay_only and (entry.get('tipoff_utc') or 0)>int(time.time())
+                           and bool(entry.get('europe_context') or entry.get('roster_context')))
         answered=False
         if section in ('market','roster') and page==0 and entry.get('europe_context'):
             await query.answer('Güncel Avrupa kaynakları kontrol ediliyor…')
@@ -988,8 +1119,10 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 entry['sections'][section]=review['html']+'\n\n<b>İLK TAHMİN / ARŞİV KANITI</b>\n'+original
                 entry['section_pages'][section]=split_blocks(entry['sections'][section].splitlines(),limit=3200)
                 if section=='market':
-                    entry['quote_valid_until_utc']=review['valid_until_utc']
-                    if review.get('details',{}).get('admitted_observations'):
+                    details=review.get('details',{})
+                    # 120-second review cache TTL is not the native price expiry.
+                    entry['quote_valid_until_utc']=details.get('quote_valid_until_utc',review['valid_until_utc'])
+                    if details.get('admitted_observations'):
                         entry['summary']=entry['summary'].replace('Güncel doğrulanmış barem yok; piyasa ayrıntıları butonda.',
                             'Güncel piyasa kaynak gözlemleri Piyasa düğmesinde; kapsam ve kalibrasyon durumuna bakın.')
                 if section=='roster':
@@ -1000,7 +1133,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 logging.getLogger(__name__).warning('European source review unavailable: %s',type(exc).__name__)
                 await query.edit_message_text('Avrupa veri kaynağı denetlenemedi veya süre aşıldı. '
                     'Veri yokluğu tam kadro/NO EDGE anlamına gelmez. İlk tahmin korunuyor. Kod: EUROPE_SOURCE_REVIEW_UNAVAILABLE',
-                    reply_markup=keyboard(token,include_archive='archive' in entry.get('sections',{})))
+                    reply_markup=keyboard(token,include_iddaa=iddaa_available,include_archive='archive' in entry.get('sections',{})))
                 return
         if section=='roster' and page==0 and entry.get('roster_auto_ready') and (
                 int(time.time())<entry.get('roster_valid_until_utc',0)):
@@ -1042,18 +1175,18 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         if not answered:await query.answer()
         try:
             await query.edit_message_text(body,parse_mode='HTML',
-                disable_web_page_preview=True,reply_markup=keyboard(token,section=section,page=page,pages=page_count,
+                disable_web_page_preview=True,reply_markup=keyboard(token,section=section,page=page,pages=page_count,include_iddaa=iddaa_available,
                     include_archive='archive' in entry.get('sections',{})))
         except Exception as exc:
             if 'Message is not modified' not in str(exc):
                 raise
-    app.add_handler(CallbackQueryHandler(premium_callback,pattern=r'^zui:[0-9a-f]{12}:(summary|period|market|ranges|audit|roster|archive)(?::[0-9]{1,3})?$'),group=-50)
+    app.add_handler(CallbackQueryHandler(premium_callback,pattern=r'^zui:[0-9a-f]{12}:(summary|period|market|ranges|audit|roster|archive|iddaa)(?::[0-9]{1,3})?$'),group=-50)
     app.add_handler(CommandHandler('test',self_test),group=-50)
     app.add_handler(TypeHandler(Update,authorized),group=-100);app.add_error_handler(error)
     return journal,results
 
 
-def main():
+def candidate_args(argv=None):
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--preflight',action='store_true')
     parser.add_argument('--archive-directory');parser.add_argument('--data-directory');parser.add_argument('--result-poll-seconds',type=int,default=300)
     parser.add_argument('--nba-model');parser.add_argument('--nba-model-sha')
@@ -1061,7 +1194,14 @@ def main():
     parser.add_argument('--forward-euroleague-directory');parser.add_argument('--forward-nba-ledger')
     parser.add_argument('--europe-directory',help='Isolated EuroLeague/EuroCup registries and offline model directory')
     parser.add_argument('--nba-replay-packet');parser.add_argument('--replay-only',action='store_true')
-    args=parser.parse_args();config=configuration(os.environ)
+    return parser.parse_args(argv)
+
+
+def build_candidate_application(args, build_app, *, staging=False):
+    """Configure a single authorized candidate process for either polling lifecycle."""
+    config=configuration(os.environ)
+    if staging and (config['status']=='NOT_CONFIGURED' or args.preflight or args.replay_only or not args.nba_model):
+        raise ValueError('STAGING_REQUIRES_DEDICATED_BOT_AND_PINNED_NBA_MODEL')
     # Capture dedicated data credentials before blanking the legacy production
     # bootstrap key. Never inject data keys into main.py or its scheduler.
     from hybrid_engine.provider_access import credentials,ProviderAccess
@@ -1087,24 +1227,27 @@ def main():
         from hybrid_engine.decision_integration import read_audit_report
         if not args.decision_layer:raise ValueError('AUDIT_REQUIRES_DECISION_LAYER')
         audit_report=read_audit_report(local_path(args.decision_audit),args.decision_audit_sha)
-    archive=FrozenArchive(args.archive_directory);root=local_path(args.data_directory);root.mkdir(parents=True,exist_ok=True)
-    os.environ['TELEGRAM_BOT_TOKEN']=os.environ['ZEYNAL_TEST_BOT_TOKEN']
+    archive=FrozenArchive(local_path(args.archive_directory));root=local_path(args.data_directory);root.mkdir(parents=True,exist_ok=True)
     os.environ['PREDICTION_LEDGER_DB']=str(root/'unused-live-ledger.sqlite')
     os.environ['API_SPORTS_KEY']='';os.environ['ENABLE_LEGACY_SCHEDULER']='0'
     os.chdir(root)
-    import main as application
-    application.TELEGRAM_BOT_TOKEN=os.environ['ZEYNAL_TEST_BOT_TOKEN']
-    journal=DeliveryJournal(root/'telegram-delivery.sqlite');transport=ControlledTransport(fetch_document)
-    original=application.Application
+    journal=DeliveryJournal(root/'telegram-delivery.sqlite');transport=ControlledTransport(fetch_document,reuse_seconds=30)
     tasks=[]
-    from hybrid_engine.isolated_execution import IsolatedExecutor,background_task
+    from hybrid_engine.isolated_execution import background_task
     async def ready(app):
         me=await app.bot.get_me()
         if me.id!=config['bot_id'] or me.username!=config['username']:raise ValueError('TEST_BOT_SERVER_IDENTITY_MISMATCH')
         hook=await app.bot.get_webhook_info()
         if hook.url:raise ValueError('TEST_BOT_HAS_WEBHOOK_POLLING_NOT_STARTED')
         scheduler=app.bot_data.get('europe_prematch_scheduler')
-        if scheduler and not args.replay_only:tasks.append(background_task(scheduler.run(app)))
+        auto_europe=os.getenv('ZEYNAL_TEST_EUROPE_AUTO_ENABLED','1')=='1'
+        app.bot_data['europe_auto_scheduler_enabled']=bool(scheduler and not args.replay_only and auto_europe)
+        if app.bot_data['europe_auto_scheduler_enabled']:tasks.append(background_task(scheduler.run(app)))
+        bulletin=app.bot_data.get('iddaa_bulletin')
+        if bulletin and os.getenv('ZEYNAL_TEST_IDDAA_AUTO_ENABLED','1')=='1':
+            from hybrid_engine.iddaa_bulletin import collect_bulletins
+            tasks.append(asyncio.create_task(collect_bulletins(bulletin)))
+            app.bot_data['iddaa_auto_enabled']=True
         overnight=app.bot_data.get('nba_overnight_scheduler')
         if overnight and not args.replay_only:tasks.append(background_task(overnight.run(app)))
         adaptive=app.bot_data.get('adaptive_v2_worker')
@@ -1138,12 +1281,9 @@ def main():
     async def stop(app):
         for task in tasks:task.cancel()
         await asyncio.gather(*tasks,return_exceptions=True)
-    class IsolatedApplication:
-        @staticmethod
-        def builder():return Application.builder().request(AuditedRequest(journal,expected_identity=config)).post_init(ready).post_shutdown(stop)
-    application.Application=IsolatedApplication
-    try:app=application.build_app()
-    finally:application.Application=original
+    builder=(Application.builder().request(AuditedRequest(journal,expected_identity=config))
+             .post_init(ready).post_shutdown(stop))
+    app=build_app(candidate_builder=builder)
     nba_service=None
     if args.nba_model:
         from hybrid_engine.live_nba import PreparedBayes,LiveNBAHybridService
@@ -1152,11 +1292,24 @@ def main():
     if not args.replay_only:
         from hybrid_engine.provider_bridge import ProviderBridge
         provider_bridge=ProviderBridge(data_access,root/'provider-evidence',
-            extended=os.getenv('ZEYNAL_TEST_ODDS_EXTENDED','0')=='1')
+            extended=os.getenv('ZEYNAL_TEST_ODDS_EXTENDED','0')=='1',
+            regions=os.getenv('ZEYNAL_TEST_ODDS_REGIONS','us'),
+            player_props=os.getenv('ZEYNAL_TEST_ODDS_PLAYER_PROPS','0')=='1')
     _,results=install_isolated_services(app,archive,root,chat_id=config['chat_id'],transport=transport,nba_service=nba_service,
         decision_layer=args.decision_layer,audit_report=audit_report,nba_replay=nba_replay,replay_only=args.replay_only,forward_el=forward_el,provider_bridge=provider_bridge,
         europe_directory=None if args.replay_only else local_path(args.europe_directory) if args.europe_directory else root/'europe')
     app.bot_data['test_results']=results
+    app.bot_data['entry_profile']='MAIN_STAGING' if staging else 'ISOLATED_TEST_BOT'
+    return app
+
+
+def main():
+    args=candidate_args()
+    from main import build_app
+    app=build_candidate_application(args,build_app)
+    if app is None:
+        return
+    from hybrid_engine.isolated_execution import IsolatedExecutor
     # Commands must arrive from the authorized HUMAN test chat; bot self-messages
     # are never counted as real command-input E2E evidence.
     loop=asyncio.new_event_loop();asyncio.set_event_loop(loop)

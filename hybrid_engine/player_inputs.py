@@ -14,7 +14,8 @@ from core.team_identity import digest
 from hybrid_engine.boxes import collect_boxes,publish_json
 from hybrid_engine.current_roster import CurrentRosterReview,context_for,PREFIX,roster_ids,review_diagnostics
 from hybrid_engine.data import Abstain,local_path
-from hybrid_engine.player_minutes import MinutesArchive,projection
+from hybrid_engine.player_minutes import MinutesArchive,projection,official_available
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 from hybrid_engine.prediction_audit import audit_snapshot
 from ledger_reports import LedgerReports
 from live_analysis_ledger import LiveAnalysisLedger
@@ -59,8 +60,14 @@ def rotation_coverage_diagnostics(context,review,rosters,boxes,now):
             {r.get('status') for r in items} <= {'Out','Suspended'} and
             {'ESPN','NBA_OFFICIAL_PDF'} <= {r.get('source') for r in items}}
         unknown=sorted(set(rosters[side]['players'])-previously_listed-two_source_out)
+        known_other_team={p['player_id'] for box in boxes for p in box['players'] if p.get('team_id')!=team}
+        earlier_team={p['player_id'] for box in boxes if box not in eligible for p in box['players']
+                      if p.get('team_id')==team}
         result[side]=dict(past_regulation_games=len(eligible),
             missing_history_player_ids=unknown,missing_history_count=len(unknown),
+            observed_older_same_team_player_ids=sorted(set(unknown)&earlier_team),
+            observed_other_team_player_ids=sorted(set(unknown)&known_other_team),
+            no_native_row_in_examined_boxes_ids=sorted(set(unknown)-earlier_team-known_other_team),
             actual_minutes_assumed=False,unverified_players_given_zero_minutes=False)
     return result
 
@@ -101,22 +108,41 @@ def collect(snapshot,assets,directory,*,reviewer=None,box_collector=collect_boxe
             if len(ids)!=len(document['athletes']): raise Abstain('AMBIGUOUS_ROSTER_DIRECTORY')
             rosters[side]=dict(team_id=team,season=context['season'],players=sorted(ids.values()),
                 observed_at_utc=r['observed_at_utc'],source_sha256=r['body_sha256'])
-        targets={}
+        targets={}; older_targets={}
         for side in ('home','away'):
             team=context[side]['provider_id']
             history=[r for r in cut['history'] if team in (r['home_team_id'],r['away_team_id']) and
                 r['fixture_id']!=context['fixture_id'] and r['fixture_start_utc']<now and
                 r['periods'] and len(r['periods']['home'])==len(r['periods']['away'])==4]
-            history=sorted(history,key=lambda r:(r['fixture_start_utc'],r['fixture_id']))[-6:]
+            history=sorted(history,key=lambda r:(r['fixture_start_utc'],r['fixture_id']))[-12:]
             if len(history)<6: raise Abstain('SIX_PREVIOUS_REGULATION_GAMES_REQUIRED')
-            for row in history: targets[row['fixture_id']]=row
+            older_targets[side]=[row for row in history[:-6] if now-row['fixture_start_utc']<=30*86400]
+            for row in history[-6:]: targets[row['fixture_id']]=row
         box_dir=root/'past-boxes'; box_dir.mkdir(exist_ok=True)
         _,collected=box_collector([[r] for r in targets.values()],box_dir,workers=1,interval=.1)
         boxes,failures=collected['games'],collected['failures']
         if failures or len(boxes)!=len(targets): raise Abstain('INCOMPLETE_NATIVE_PAST_PLAYER_BOXES')
         generated=int(time.time())
         try:
-            packet=projection(context,review,rosters,boxes,generated_at_utc=generated)
+            try:
+                packet=projection(context,review,rosters,boxes,generated_at_utc=generated)
+            except Abstain as already_blocked:
+                if str(already_blocked)!='CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY':
+                    raise
+                diagnosis=rotation_coverage_diagnostics(context,review,rosters,boxes,generated)
+                available={
+                    row['player_id'] for row in review['records']
+                    if row.get('player_id') and official_available(review,row,generated)
+                }
+                needed={r['fixture_id']:r for side,older in older_targets.items()
+                        if available.intersection(diagnosis[side]['missing_history_player_ids'])
+                        for r in older if r['fixture_id'] not in targets}
+                if not needed or generated>=context['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:
+                    raise
+                _,extra=box_collector([[r] for r in needed.values()],box_dir,workers=1,interval=.1)
+                boxes=[*boxes,*extra['games']]
+                generated=int(time.time())
+                packet=projection(context,review,rosters,boxes,generated_at_utc=generated)
         except Abstain as exc:
             if str(exc)=='CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY':
                 result['rotation_diagnostics']=rotation_coverage_diagnostics(

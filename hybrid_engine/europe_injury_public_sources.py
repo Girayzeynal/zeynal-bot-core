@@ -26,6 +26,7 @@ SITE_URLS=(
 )
 UA="ZeynalBasketballSourceAudit/1.0"
 MAX_BYTES=256*1024
+MAX_INDEX_BYTES=1024*1024
 MAX_ROBOTS=32768
 MAX_FETCH_SECONDS=2.0
 COOLDOWN=900
@@ -48,6 +49,8 @@ KNOWN_ALIASES={
     "panathinaikosaktor":"euroleague_panathinaikos_athens",
     "fenerbahcebeko":"euroleague_fenerbahce_istanbul",
     "fenerbahcebekoistanbul":"euroleague_fenerbahce_istanbul",
+    "fenerbahcetarfinistanbul":"euroleague_fenerbahce_istanbul",
+    "crvenazvezdameridianbetbelgrade":"euroleague_crvena_zvezda_belgrade",
     "anadoluefes":"euroleague_anadolu_efes_istanbul",
     "anadoluefesistanbul":"euroleague_anadolu_efes_istanbul",
     "olympiacospiraeus":"euroleague_olympiacos",
@@ -210,7 +213,7 @@ def request(url,*,mime="text/html",limit=MAX_BYTES):
 
 
 def _title(body):
-    soup=BeautifulSoup(body[:MAX_BYTES],"html.parser")
+    soup=BeautifulSoup(body[:MAX_INDEX_BYTES],"html.parser")
     title=soup.title.get_text(" ",strip=True) if soup.title else ""
     return re.sub(r"\s+"," ",title)[:160]
 
@@ -221,7 +224,7 @@ def _page_candidates(body,source_url):
     Whitelist table statuses, drop conflicting duplicates and retain short
     metadata only. Article links are same HTTPS host and never followed here.
     """
-    soup=BeautifulSoup(body[:MAX_BYTES],"html.parser")
+    soup=BeautifulSoup(body[:MAX_INDEX_BYTES],"html.parser")
     statuses={"out":"OUT_SITE_REPORTED","doubtful":"DOUBTFUL_SITE_REPORTED",
               "day to day":"DAY_TO_DAY_SITE_REPORTED","cleared":"CLEARED_SITE_REPORTED",
               "questionable":"QUESTIONABLE_SITE_REPORTED"}
@@ -320,21 +323,37 @@ def probe(spec,*,requester=request,now=None,read_article=False):
     if not robots_absent:
         if policy.get("status")!="RECEIVED" or not isinstance(policy.get("body"),bytes):
             return dict(result,status="SOURCE_ROBOTS_UNAVAILABLE",
-                        robots_status=policy.get("status"))
+                        robots_status=policy.get("status"),http_status=policy.get("http_status"))
         try:
             robot=RobotFileParser()
-            robot.parse(policy["body"].decode("utf-8","replace").splitlines())
+            robots_text=policy["body"].decode("utf-8","replace")
+            # Never treat an HTML challenge or malformed nonempty policy as allow.
+            if robots_text.strip() and not re.search(r'(?im)^\s*(user-agent|sitemap)\s*:',robots_text):
+                return dict(result,status="SOURCE_ROBOTS_INVALID")
+            robot.parse(robots_text.splitlines())
             if not robot.can_fetch(UA,url):
                 return dict(result,status="SOURCE_ROBOTS_DISALLOW")
         except (ValueError,TypeError,UnicodeError):
             return dict(result,status="SOURCE_ROBOTS_INVALID")
     response=requester(url,mime="text/html",limit=MAX_BYTES)
+    # Only an actual truncated HTML receipt allows one larger bounded read.
+    # Never retry an access denial, 429, robots refusal or network timeout.
+    limit=MAX_BYTES
+    prefix=response.get("body")
+    if (response.get("status")=="RECEIVED_PARTIAL" and
+            type(prefix) is bytes and len(prefix)==MAX_BYTES):
+        wider=requester(url,mime="text/html",limit=MAX_INDEX_BYTES)
+        if (wider.get("status") in ("RECEIVED","RECEIVED_PARTIAL")
+                and type(wider.get("body")) is bytes and len(wider["body"])<=MAX_INDEX_BYTES
+                and (len(wider["body"])>len(prefix) or
+                     (wider["status"]=="RECEIVED" and len(wider["body"])==len(prefix)))):
+            response=wider;limit=MAX_INDEX_BYTES
     if response.get("status") not in ("RECEIVED","RECEIVED_PARTIAL"):
         return dict(result,status=response.get("status","SOURCE_UNREACHABLE"),
                     http_status=response.get("http_status"))
     partial=response.get("status")=="RECEIVED_PARTIAL"
     body=response.get("body")
-    if type(body) is not bytes or len(body)>MAX_BYTES:
+    if type(body) is not bytes or len(body)>limit:
         return dict(result,status="SOURCE_BODY_INVALID")
     candidates,links=_page_candidates(body,url)
     articles=[]
@@ -345,7 +364,7 @@ def probe(spec,*,requester=request,now=None,read_article=False):
         articles=[observe_article(spec,links[0],requester=requester,now=timestamp)]
     return dict(result,status=("SOURCE_INDEX_PARTIAL_CANDIDATES_ONLY" if partial
                                 else "SOURCE_INDEX_OBSERVED_CANDIDATES_ONLY"),
-                incomplete_html=partial,captured_bytes=len(body),
+                incomplete_html=partial,captured_bytes=len(body),index_byte_limit=limit,
                 title=_title(body),document_sha256=hashlib.sha256(body).hexdigest(),
                 published_at_utc=None,source_publication_clock_verified=False,
                 unverified_player_candidates=candidates,
@@ -363,6 +382,7 @@ class PublicEuroInjuryNewsHub:
         self.enabled=enabled is True
         self._lock=threading.Lock()
         self._cache={}
+        self._source_cache={}
         self._valid_until=0
         self._last=[]
     def public_status(self):
@@ -389,19 +409,21 @@ class PublicEuroInjuryNewsHub:
             if key in self._cache and when<self._valid_until:
                 return dict(self._cache[key])
             specs=sources_for(ctx)
-            rows=[]
-            # The three editorial sources and at most two official club indexes
-            # run concurrently under a strict callback budget. Each worker makes
-            # at most a robots and an index request (no redirects).
-            with ThreadPoolExecutor(max_workers=5) as pool:
-                futures=[pool.submit(probe,x,requester=self.requester,now=when,read_article=True) for x in specs]
-                for future,spec in zip(futures,specs):
-                    try:
-                        rows.append(future.result(timeout=TIME_BUDGET))
-                    except Exception:
-                        rows.append(dict(source=spec["name"],url=spec["url"],
-                                         kind=spec["kind"],status="SOURCE_TIMEOUT_OR_INVALID",
-                                         player_status_verified=False,model_input=False))
+            # Share observations between matches without changing their clocks.
+            # Each source has its own TTL; failed sources also cool down.
+            self._source_cache={k:v for k,v in self._source_cache.items() if when<v[0]}
+            missing=[x for x in specs if x["url"] not in self._source_cache]
+            if missing:
+                with ThreadPoolExecutor(max_workers=5) as pool:
+                    futures=[pool.submit(probe,x,requester=self.requester,now=when,read_article=True) for x in missing]
+                    for future,spec in zip(futures,missing):
+                        try:row=future.result(timeout=TIME_BUDGET)
+                        except Exception:
+                            row=dict(source=spec["name"],url=spec["url"],kind=spec["kind"],
+                                     status="SOURCE_TIMEOUT_OR_INVALID",observed_at_utc=when,
+                                     player_status_verified=False,model_input=False)
+                        self._source_cache[spec["url"]]=(when+COOLDOWN,row)
+            rows=[self._source_cache[x["url"]][1] for x in specs]
             report=dict(status="PUBLIC_NEWS_SOURCES_REVIEWED_CANDIDATES_ONLY",
                         league=ctx["league"],
                         selected_team_keys=[x["name"] for x in specs
@@ -412,7 +434,8 @@ class PublicEuroInjuryNewsHub:
                         model_input=False,original_forecast_modified=False)
             self._last=rows
             self._cache={key:report}
-            self._valid_until=min(when+COOLDOWN,ctx["fixture_start_utc"])
+            self._valid_until=min([when+COOLDOWN,ctx["fixture_start_utc"]]+
+                                  [self._source_cache[x["url"]][0] for x in specs])
             return dict(report)
 
 
@@ -467,7 +490,13 @@ def render(report):
         if r.get("title"):
             lines.append("Sayfa başlığı: "+r["title"])
         if r.get("incomplete_html"):
-            lines.append("UYARI: Sayfanın yalnız ilk 256 KB bölümü okundu; eksik bilgiler sağlıklı/uygun kadro kanıtı DEĞİLDİR.")
+            limit=r.get("index_byte_limit",MAX_BYTES)
+            captured=r.get("captured_bytes")
+            amount=(str(captured)+" bayt" if type(captured) is int and 0<=captured<=limit
+                    else "miktarı doğrulanmadı")
+            lines.append("UYARI: Kısmi HTML; okunan içerik: "+amount+
+                         " (okuma üst sınırı "+str(limit//1024)+
+                         " KB). Eksik bilgiler sağlıklı/uygun kadro kanıtı DEĞİLDİR.")
         # Only short, explicitly UNVERIFIED secondary player hints. Never
         # attribute these to the requested fixture or infer healthy status.
         candidates=r.get("unverified_player_candidates",[])

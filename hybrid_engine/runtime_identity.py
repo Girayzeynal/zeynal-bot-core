@@ -47,6 +47,8 @@ class ObservedAnalysis:
         self.state.setdefault('last_analysis_identity',{})[code]=dict(
             observed_at_utc=int(time.time()),service_class=_class(self.base),status=_label(report.get('status')),
             model_version=_label(version),model_digest=_pin(model,64),snapshot_sha256=_pin(pin,64),
+            reason=_label(report.get('reason') or (report.get('preflight') or {}).get('reason')),
+            fixture_id=_label(p.get('fixture_id') or (p.get('fixture') or {}).get('canonical_id')),
             new_record=report.get('new_record') is True,
             evidence='LAST_REPORT_RETURNED_TO_HANDLER_NOT_TELEGRAM_DELIVERY',actual_telegram_delivery_verified=False)
 
@@ -63,10 +65,14 @@ def describe(state):
         path=Path(folder).absolute()
         location='DATA_VOLUME_PATH' if path==Path('/data') or Path('/data') in path.parents else 'APPLICATION_FILESYSTEM_PATH'
     return dict(format='READ_ONLY_ANALYSIS_RUNTIME_IDENTITY_V1',reported_release_sha=_pin(os.getenv('ZEYNAL_RELEASE_SHA'),40),
+        entry_profile=state.get('entry_profile'),
         service_chain=chain,last_analysis=state.get('last_analysis_identity',{}),
         last_analysis_failure=state.get('last_analysis_failure',{}),
         identity_status='REPORT_OBSERVED' if state.get('last_analysis_identity') else 'SERVICE_LOADED_ANALYSIS_NOT_OBSERVED',
         legacy_baseline_location=location,data_mount_present=os.path.ismount('/data'),
+        europe_auto_scheduler_enabled=state.get('europe_auto_scheduler_enabled'),
+        provider_queries_scope='THIS_DIAGNOSTIC_ONLY',
+        data_mount_scope='CHECKS_LITERAL_/data_NOT_USERLAND_ARCHIVE',
         ledger_path_exposed=False,provider_queries=0,forecasts_recomputed=False,production_changed=False)
 
 

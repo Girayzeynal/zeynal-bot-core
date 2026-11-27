@@ -102,3 +102,13 @@ class IsolatedRuntimeCommandTests(IsolatedAsyncioTestCase):
                 self.assertIn('SERVICE_LOADED_ANALYSIS_NOT_OBSERVED',text)
                 never.assert_not_called()
             finally:await app.shutdown()
+
+class RuntimeBusyReasonTests(IsolatedAsyncioTestCase):
+    async def test_runtime_shows_latest_busy_reason_not_previous_success(self):
+        base=SimpleNamespace(analyze=AsyncMock(return_value=dict(status='ABSTAIN',reason='EUROPE_PREMATCH_INFERENCE_BUSY')))
+        state=dict(europe_auto_scheduler_enabled=False)
+        await ObservedAnalysis(base,state).analyze('EUROLEAGUE')
+        report=describe(state)
+        self.assertEqual(report['last_analysis']['EUROLEAGUE']['reason'],'EUROPE_PREMATCH_INFERENCE_BUSY')
+        self.assertFalse(report['europe_auto_scheduler_enabled'])
+        self.assertEqual(report['provider_queries_scope'],'THIS_DIAGNOSTIC_ONLY')

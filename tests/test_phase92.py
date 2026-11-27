@@ -223,6 +223,10 @@ class CalibrationBridgeTests(TestCase):
         out=review(self.audit)
         self.assertEqual(out['groups'][0]['status'],'BLOCKED_NO_REGISTERED_FORWARD_CALIBRATION_PLAN')
         self.assertFalse(out['calibration_applied_to_forecasts'])
+        self.assertEqual(out['groups'][0]['observed_raw_metrics']['n'],1)
+        self.assertAlmostEqual(out['groups'][0]['observed_raw_metrics']['brier'],.3048)
+        self.assertEqual(out['groups'][0]['observed_raw_metrics_scope'],'DESCRIPTIVE_ONLY_NOT_CALIBRATION')
+        self.assertIsNone(out['confidence_index'])
 
     def test_new_plan_does_not_turn_old_observation_into_forward_test(self):
         out=review(self.audit,plan=CalibrationPlan.register())

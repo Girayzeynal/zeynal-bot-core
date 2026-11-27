@@ -7,11 +7,29 @@ quote retains both clocks, the event ID, the discovery pin and earliest cutoff.
 from datetime import datetime, timezone
 import re
 import time
+from contextvars import ContextVar
+from contextlib import contextmanager
 from urllib.parse import urlsplit
 
 from core.team_identity import digest
 
 RULE='NBA_ORDERED_UNIQUE_PAIR_PLUS600_V1'
+_REPLAY_CLOCK=ContextVar('native_price_replay_clock',default=None)
+
+def evidence_clock():
+    at=_REPLAY_CLOCK.get()
+    return int(time.time()) if at is None else at
+
+@contextmanager
+def archived_price_clock(at):
+    """Read-only source replay at an explicit historical decision clock.
+    Never patches global time; live fetch and publication retain actual clocks.
+    """
+    if type(at) is not int or not 0<at<=int(time.time()):
+        raise ValueError('PRICE_REPLAY_CLOCK_INVALID')
+    token=_REPLAY_CLOCK.set(at)
+    try:yield
+    finally:_REPLAY_CLOCK.reset(token)
 
 
 def pair(event,snapshot):
@@ -24,7 +42,7 @@ def pair(event,snapshot):
 
 def bind(receipt,snapshot,*,asof_utc=None):
     from hybrid_engine.provider_bridge import SPORTS,utc,matches
-    now=int(time.time()) if asof_utc is None else asof_utc
+    now=evidence_clock() if asof_utc is None else asof_utc
     sport=SPORTS.get(snapshot['league'])
     expected='https://api.the-odds-api.com/v4/sports/'+str(sport)+'/events'
     if (receipt.get('provider')!='THE_ODDS_API' or receipt.get('source_url')!=expected or
@@ -83,6 +101,29 @@ def bind(receipt,snapshot,*,asof_utc=None):
         # Version only this newly authorized native event alias; preserve all
         # historic V1 bindings, immutable receipts and original forecasts.
         from core.league_identity import normalize_name
+        from hybrid_engine.europe_provider_identity import (OBSERVED_LABELS,CATALOG_OBSERVED_LABELS,
+            official_registry,observed_catalog_anchor)
+        used={normalize_name(event[k]):OBSERVED_LABELS[normalize_name(event[k])][0]
+              for k in ('home_team','away_team') if normalize_name(event[k]) in OBSERVED_LABELS}
+        if used and snapshot['league']=='EUROLEAGUE' and snapshot['season']=='2026/2027':
+            payload['rule']='EUROPE_OBSERVED_PROVIDER_LABELS_E2026_V3'
+            payload['team_identity']['observed_exact_provider_aliases']=used
+        # Only a newly used fallback changes the binding format; direct
+        # official aliases and earlier accepted bindings retain their pins.
+        if snapshot['league']=='EUROLEAGUE' and snapshot['season']=='2026/2027':
+            from core.team_identity import IdentityRefusal
+            registry,_,at=official_registry(snapshot);extra={}
+            for side in ('home_team','away_team'):
+                label=event[side];key=normalize_name(label)
+                if key not in CATALOG_OBSERVED_LABELS:continue
+                try:registry.resolve(snapshot['league'],snapshot['season'],label,asof_utc=at)
+                except IdentityRefusal as exc:
+                    if str(exc)!='TEAM_ALIAS_NOT_REGISTERED':raise
+                    team=observed_catalog_anchor(label,snapshot,registry,at)
+                    extra[key]=team.provider_ids[0][1]
+            if extra:
+                payload['rule']='EUROPE_OBSERVED_CATALOG_ANCHORS_E2026_V4'
+                payload['team_identity']['observed_catalog_anchor_aliases']=extra
         if (snapshot['league']=='EUROLEAGUE' and
                 snapshot['season']=='2026/2027' and
                 (normalize_name(event['home_team'])=='kkpartizannis' or
@@ -108,7 +149,7 @@ def verify_detail(discovery,detail,snapshot):
         raise ValueError('DISCOVERY_AND_ODDS_DETAIL_IDENTITY_CONFLICT')
     observed=detail.get('observed_at_utc');ingested=detail.get('ingested_at_utc')
     if (type(observed) is not int or type(ingested) is not int or
-            not discovery['observed_at_utc']<=observed<=ingested<=int(time.time())<b['prematch_deadline_utc']):
+            not discovery['ingested_at_utc']<=observed<=ingested<=evidence_clock()<b['prematch_deadline_utc']):
         raise ValueError('ODDS_DETAIL_AFTER_EARLIEST_START_OR_INVALID_CLOCK')
     return binding
 

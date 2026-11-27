@@ -223,3 +223,92 @@ class EuropeanProviderIdentityTests(TestCase):
             self.assertEqual(side_for('Beşiktaş J.K.',s),'home')
             self.assertEqual(side_for('Real Madrid',s),'away')
             self.assertEqual(binding_evidence(s)['catalog_sha256'],p['catalog_sha256'])
+
+class ObservedRedVirLabelTests(TestCase):
+    def test_exact_live_observed_labels_bind_official_ids_and_time(self):
+        with patch('time.time',return_value=NOW):
+            clubs=[dict(code='RED',name='Crvena Zvezda Meridianbet Belgrade',abbreviatedName='Crvena Zvezda',
+                       editorialName='Crvena Zvezda',clubPermanentName='Crvena Zvezda Belgrade',city='Belgrade',isVirtual=False),
+                   dict(code='VIR',name='Virtus Bologna',abbreviatedName='Virtus Bologna',
+                       editorialName='Virtus Bologna',clubPermanentName='Virtus Bologna',city='Bologna',isVirtual=False)]
+            s=snapshot(clubs=clubs)
+            s['home']=dict(provider_id='RED',official_name=clubs[0]['name'])
+            s['away']=dict(provider_id='VIR',official_name=clubs[1]['name'])
+            d,q=dubai_partizan_receipts(s,home='KK Crvena zvezda',away='Virtus Segafredo Bologna')
+            self.assertTrue(matches(d['document'][0],s))
+            _,b=bind(d,s)
+            self.assertEqual(b['payload']['rule'],'EUROPE_OBSERVED_PROVIDER_LABELS_E2026_V3')
+            self.assertEqual(b['payload']['delta_seconds'],0)
+            self.assertEqual(verify_detail(d,q,s),b)
+            self.assertEqual(len(odds_observations(q,s,discovery=d)[0]),1)
+            for label in ('KK Crvena zvezda Youth','Virtus Segafredo Roma'):
+                with self.assertRaises(ValueError):side_for(label,s)
+            wrong=deepcopy(s);wrong['away']['provider_id']='RED'
+            self.assertFalse(matches(d['document'][0],wrong))
+            for off in (1,600):
+                d2,_=dubai_partizan_receipts(s,home='KK Crvena zvezda',away='Virtus Segafredo Bologna',offset=off)
+                with self.assertRaises(ValueError):bind(d2,s)
+
+class ObservedBarUlkLabelTests(TestCase):
+    def test_barcelona_fenerbahce_exact_live_labels(self):
+        with patch('time.time',return_value=NOW):
+            clubs=[dict(code='BAR',name='FC Barcelona',abbreviatedName='Barcelona',
+                       editorialName='Barcelona',clubPermanentName='FC Barcelona',city='Barcelona',isVirtual=False),
+                   dict(code='ULK',name='Fenerbahce Tarfin Istanbul',abbreviatedName='Fenerbahce',
+                       editorialName='Fenerbahce',clubPermanentName='Fenerbahce Istanbul',city='Istanbul',isVirtual=False)]
+            s=snapshot(clubs=clubs)
+            s['home']=dict(provider_id='BAR',official_name=clubs[0]['name'])
+            s['away']=dict(provider_id='ULK',official_name=clubs[1]['name'])
+            d,q=dubai_partizan_receipts(s,home='FC Barcelona Bàsquet',away='Fenerbahce SK')
+            self.assertTrue(matches(d['document'][0],s))
+            _,b=bind(d,s)
+            self.assertEqual(b['payload']['team_identity']['observed_exact_provider_aliases'],
+                             {'fcbarcelonabasquet':'BAR','fenerbahcesk':'ULK'})
+            self.assertEqual(verify_detail(d,q,s),b)
+            self.assertEqual(len(odds_observations(q,s,discovery=d)[0]),1)
+            wrong=deepcopy(s);wrong['away']['provider_id']='BAR'
+            self.assertFalse(matches(d['document'][0],wrong))
+            for off in (1,600):
+                d2,_=dubai_partizan_receipts(s,home='FC Barcelona Bàsquet',away='Fenerbahce SK',offset=off)
+                with self.assertRaises(ValueError):bind(d2,s)
+
+class ObservedSlateCatalogTests(TestCase):
+    def test_new_exact_catalog_anchors_and_full_slate_audit(self):
+        from hybrid_engine.europe_provider_identity import audit_slate
+        with patch('time.time',return_value=NOW):
+            clubs=[dict(code=code,name=label,abbreviatedName=short,editorialName=short,
+                        clubPermanentName=label,city=city,isVirtual=False)
+                   for code,label,short,city in (
+                     ('ASV','LDLC ASVEL Villeurbanne','ASVEL','Villeurbanne'),
+                     ('MIL','EA7 Emporio Armani Milan','Armani Milan','Milan'),
+                     ('BAY','FC Bayern Munich','Bayern','Munich'),
+                     ('MAC','Maccabi Tel Aviv','Maccabi','Tel Aviv'),
+                     ('OTH','Other Club','Other','Other City'))]
+            s=snapshot(clubs=clubs)
+            s['home']=dict(provider_id='ASV',official_name=clubs[0]['name'])
+            s['away']=dict(provider_id='MIL',official_name=clubs[1]['name'])
+            d,q=dubai_partizan_receipts(s,home='ASVEL Lyon Villeurbanne',away='Pallacanestro Olimpia Milano')
+            other=deepcopy(d['document'][0]);other.update(id='other',home_team='FC Bayern München',
+                                                         away_team='Maccabi Tel Aviv')
+            unknown=deepcopy(other);unknown.update(id='unknown',home_team='Unregistered Club')
+            d['document'] += [other,unknown];d['document_sha256']=digest(d['document'])
+            _,binding=bind(d,s)
+            self.assertEqual(binding['payload']['rule'],'EUROPE_OBSERVED_CATALOG_ANCHORS_E2026_V4')
+            self.assertEqual(binding['payload']['team_identity']['observed_catalog_anchor_aliases'],
+                             {'asvellyonvilleurbanne':'ASV','pallacanestroolimpiamilano':'MIL'})
+            self.assertEqual(verify_detail(d,q,s),binding)
+            audit=audit_slate(d,s)
+            self.assertEqual(audit['resolved_label_count'],4)
+            self.assertEqual(audit['observed_label_count'],5)
+            self.assertEqual(audit['not_observed_official_ids'],['OTH'])
+            self.assertEqual(audit['unresolved'][0]['label'],'Unregistered Club')
+            self.assertFalse(audit['full_season_provider_coverage_verified'])
+            self.assertFalse(audit['fixture_binding_verified_by_audit'])
+            self.assertFalse(audit['model_input'])
+            self.assertEqual(audit['additional_network_requests'],0)
+            wrong=deepcopy(s);wrong['away']['provider_id']='ASV'
+            self.assertFalse(matches(d['document'][0],wrong))
+            shifted,_=dubai_partizan_receipts(s,home='ASVEL Lyon Villeurbanne',away='Pallacanestro Olimpia Milano',offset=1)
+            with self.assertRaises(ValueError):bind(shifted,s)
+            d['document_sha256']='0'*64
+            with self.assertRaises(ValueError):audit_slate(d,s)

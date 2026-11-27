@@ -14,6 +14,7 @@ import logging
 CURRENT_READ_DEADLINE_SECONDS=2.0
 
 from telegram_delivery import tsi
+from hybrid_engine.market_direction_ui import number, line_number
 from hybrid_engine.current_assessment import POLICY
 from hybrid_engine.time_policy import MODEL_AGE_WARNING_SECONDS
 
@@ -122,39 +123,53 @@ def current_panels(context, assessment, *, now):
                         for i in range(len(quantiles)-1)) for k in required)):
         return unavailable('CURRENT_DISTRIBUTION_NOT_VERIFIED')
     validity=min(stamp+POLICY['candidate_freshness_seconds'],cutoff+POLICY['maximum_model_age_seconds'],tip)
-    source=('Hesap: '+tsi(stamp)+' · Model: '+html.escape(str(candidate.get('model','DOĞRULANMADI')))+
-            '\nÖnceden kaydedilmiş V3 adayının tekrar gösterimi; bu komutta yeni hesap yok.'+
-             '\nOyuncu etkisi uygulanmadı · NOT_CALIBRATED'+
-             ('\n⚠️ Model eğitim kesiti 6 saatten eski; yeni kaynak/fit kontrol edilmeli.'
-              if now-cutoff>=MODEL_AGE_WARNING_SECONDS else ''))
-    lines=['📊 <b>GÜNCEL ADAY | PERİYOT VE SAYILAR</b>',source,'Ev – Deplasman · Normal süre']
-    for label,values in [('1Q',quarters[0]),('2Q',quarters[1]),('1H',halves[0]),
-                         ('3Q',quarters[2]),('4Q',quarters[3]),('2H',halves[1])]:
-        h,a=values
-        lines.extend(['',f'<b>{label}</b> {h:.2f} – {a:.2f} | Toplam {h+a:.2f}'])
-        b=bands.get(label)
-        if isinstance(b,dict) and all(type(b.get(k)) in (int,float) and math.isfinite(b[k])
-                                       for k in ('p25','p75','p05','p95')):
-            lines.append(f"P25–P75 {b['p25']:.1f}–{b['p75']:.1f} · P05–P95 {b['p05']:.1f}–{b['p95']:.1f}")
-    lines.extend(['','<b>Maç toplamı:</b> '+f"{candidate['total']:.2f}",
-                  'Rakamlar tek V3 aday kaydındandır; V1 periyotları kullanılmadı, bu istekte yeniden hesaplanmadı.'])
-    labels=[('TOTAL','Maç toplamı'),('HOME','Ev toplamı'),('AWAY','Deplasman toplamı'),
-            ('MARGIN','Ev farkı'),('1Q','1. çeyrek'),('2Q','2. çeyrek'),
-            ('3Q','3. çeyrek'),('4Q','4. çeyrek'),('1H','İlk yarı'),('2H','İkinci yarı')]
-    rng=['🎯 <b>GÜNCEL ADAY | SAYI ARALIKLARI</b>',source]
-    for key,label in labels:
-        b=bands.get(key)
-        if not isinstance(b,dict) or not all(type(b.get(k)) in (int,float) and math.isfinite(b[k])
-                                             for k in quantiles):
-            continue
-        rng.extend(['','<b>'+label+'</b>',
-                    f"P50 {b['p50']:.1f} · P25–P75 {b['p25']:.1f}–{b['p75']:.1f}",
-                    f"P10–P90 {b['p10']:.1f}–{b['p90']:.1f} · P05–P95 {b['p05']:.1f}–{b['p95']:.1f}"])
-    rng.extend(['','Nominal simülasyon bantlarıdır; kalibre edilmiş güven olasılığı değildir.',
-                'İlk tahminin aralıkları Model / Kaynak arşivindedir.'])
-    return dict(period='\n'.join(lines),ranges='\n'.join(rng),
-                fresh=True,valid_until=validity)
+    model_label = 'V3' if context.get('league', 'NBA') == 'NBA' else 'Avrupa adayı'
+    source = f"Kayıtlı {model_label} · {tsi(stamp)}"
+    if now-cutoff >= MODEL_AGE_WARNING_SECONDS:
+        source += '\n⚠️ Model eğitim kesiti 6 saatten eski.'
+    quarter_names = ['1. çeyrek', '2. çeyrek', '3. çeyrek', '4. çeyrek']
+    half_names = ['İlk yarı', 'İkinci yarı']
+    lines = ['📊 <b>Periyot tahminleri</b>', 'Ev – Deplasman · Toplam sayı', 'Normal süre', '']
+    for names, pairs in ((quarter_names, quarters), (half_names, halves)):
+        for label, (home, away) in zip(names, pairs):
+            lines.append(f'{label}   {number(home)} – {number(away)}   ·   {number(home+away)}')
+        lines.append('')
+    lines.extend([f"<b>Maç toplamı  {number(candidate['total'])}</b>", source])
+    groups = (
+        ('Maç ve takımlar', [('TOTAL', 'Maç toplamı'), ('HOME', 'Ev sahibi'),
+                             ('AWAY', 'Deplasman'), ('MARGIN', 'Ev farkı')]),
+        ('Çeyrekler', list(zip(('1Q','2Q','3Q','4Q'), quarter_names))),
+        ('Yarılar', list(zip(('1H','2H'), half_names))),
+    )
+    range_pages = []
+    for title, markets in groups:
+        rows = [f'🎯 <b>Sayı aralıkları · {title}</b>', 'Normal süre · Ham simülasyon']
+        for key, label in markets:
+            band = bands[key]
+            rows.extend(['', f"<b>{label}</b> · Medyan {line_number(band['p50'])}",
+                         f"Orta %50   {line_number(band['p25'])}–{line_number(band['p75'])}",
+                         f"%80   {line_number(band['p10'])}–{line_number(band['p90'])}   ·   "
+                         f"%90   {line_number(band['p05'])}–{line_number(band['p95'])}"])
+        rows.extend(['', source, 'Bantların geçmiş maçlardaki kapsaması doğrulanmadı.'])
+        range_pages.append('\n'.join(rows))
+    return dict(period='\n'.join(lines), ranges='\n\n'.join(range_pages),
+                range_pages=range_pages, fresh=True, valid_until=validity)
 
+
+def mobile_score(context, assessment, now):
+    candidate = assessment['candidate']
+    band = assessment['intervals']['markets']['TOTAL']
+    names = [html.escape(context[side]['official_name']) for side in ('home','away')]
+    lines = [f'🏀 <b>{names[0]} – {names[1]}</b>',
+             'NBA · ' + tsi(context['fixture_start_utc']) + ' · Normal süre', '',
+             f"Ev {number(candidate['home'])}   ·   Deplasman {number(candidate['away'])}",
+             f"<b>Beklenen toplam  {number(candidate['total'])}</b>",
+             f"Orta %50 aralık   {line_number(band['p25'])}–{line_number(band['p75'])}", '',
+             'Kayıtlı V3 · ' + tsi(assessment['prediction_generated_at_utc']),
+             'Oyuncu etkisi uygulanmadı · Kalibrasyon bekliyor.']
+    if now-assessment['parameter_fit_cutoff_utc'] >= MODEL_AGE_WARNING_SECONDS:
+        lines.append('⚠️ Model eğitim kesiti 6 saatten eski.')
+    return '\n'.join(lines)
 
 
 def bound_current_market_cards(context, assessment, entry, *, now):
@@ -228,7 +243,18 @@ def missing_current_market_card(assessment,entry,panels):
         'PROVIDER_NOT_CONFIGURED':'Piyasa sağlayıcı adaptörü bu testte bağlı değil.',
         'KEY_NOT_AVAILABLE_IN_TEST_PROCESS':'The Odds API anahtarı bu test sürecinde yok.',
         'PROVIDER_REVIEW_PENDING':'Sağlayıcı denetimi henüz sonuçlanmadı.',
-        'PROVIDER_REVIEW_UNAVAILABLE':'Sağlayıcı denetimi zamanında tamamlanamadı.',
+        'PROVIDER_REVIEW_UNAVAILABLE':'Sağlayıcı denetimi tamamlanamadı; kesin neden doğrulanmadı.',
+        'PROVIDER_REVIEW_TIMEOUT':'Sağlayıcı denetimi süre sınırına ulaştı.',
+        'PROVIDER_REVIEW_STORAGE_OR_IO':'Yerel kanıt deposu veya dosya erişimi başarısız.',
+        'PROVIDER_REVIEW_SQLITE_ERROR':'Yerel SQLite denetimi başarısız.',
+        'PROVIDER_REVIEW_VALIDATION_FAILED':'Kaynak veya rapor doğrulaması başarısız.',
+        'NATIVE_PRICE_ADMISSION_FAILED':'Kaynak fiyatlarının kimlik veya zaman kanıtı kabul edilmedi.',
+        'MODEL_DISTRIBUTION_UNAVAILABLE':'Kaynak gözlemi var; eşleşen model dağılımı doğrulanamadı.',
+        'CONTRACT_EVALUATION_FAILED':'Kaynak gözlemi var; sözleşme hesabı tamamlanamadı.',
+        'CURRENT_REVIEW_ARCHIVE_FAILED':'Kaynak gözlemi var; karar arşivi doğrulanamadı.',
+        'CURRENT_REVIEW_RENDER_FAILED':'Karar raporu görüntüye dönüştürülemedi.',
+        'MARKET_MODEL_REVIEW_TIMEOUT':'Kaynak gözlemi alındı; model dağılımı süre sınırına ulaştı.',
+        'PRIMARY_PRICES_PRESENT_SECONDARY_DEFERRED':'Birincil fiyatlar alındı; ikincil sorgular ertelendi.',
         'PROVIDER_STATUS_UNAVAILABLE':'Sağlayıcı durum raporu alınamadı.',
         'LOCAL_DAILY_REQUEST_BUDGET':'Yerel günlük sağlayıcı istek bütçesi doldu.',
         'PROVIDER_QUOTA_EXHAUSTED':'Sağlayıcının istek kotası doldu.',
@@ -337,7 +363,7 @@ def install_dual_clock_display(state,assessments):
         def __init__(self):self.base=base
         async def analyze(self,league,*args):
             response=await base.analyze(league,*args)
-            if response.get('status')!='ANALYSIS_OK':return response
+            if response.get('status') not in ('ANALYSIS_OK','EUROPE_HYBRID_OK','FORWARD_EUROLEAGUE_OK','FROZEN_REPLAY_OK'):return response
             context=response.get('snapshot');entry=None
             keyboard=response.get('reply_markup')
             if keyboard:
@@ -348,6 +374,8 @@ def install_dual_clock_display(state,assessments):
                 except (AttributeError,IndexError,TypeError,KeyError):
                     pass
             if context is None:return response
+            if entry and entry.get('europe_context'):
+                context=entry['europe_context']
             # /analyze must not run slow model fits. The serial research
             # cycle publishes its own verified candidates independently.
             # A failed/missing read is a visible blocker, never a fallback V1
@@ -369,6 +397,7 @@ def install_dual_clock_display(state,assessments):
             # Before Python 3.11 asyncio.TimeoutError is NOT the built-in
             # TimeoutError. UserLAnd can run Python 3.10; catch both explicitly.
             except (ValueError,KeyError,TypeError,OSError,asyncio.TimeoutError,TimeoutError) as exc:
+                selected=None
                 logging.getLogger(__name__).warning(
                     'Current V3 read unavailable after bounded lookup: %s',
                     type(exc).__name__)
@@ -405,18 +434,31 @@ def install_dual_clock_display(state,assessments):
                 # the main headline. Never present replayed V1 as latest.
                 old=entry.get('summary','')
                 from hybrid_engine.elite_render import split_blocks
-                is_current='GÜNCEL AYRI ARAŞTIRMA SKORU' in content
-                heading=('🏀 ZEYNAL | GÜNCEL NBA TAHMİNİ — KAYITLI V3, YENİ HESAP DEĞİL' if is_current else
-                         '🏀 ZEYNAL | GÜNCEL TAHMİN BEKLENİYOR')
-                headline=('<b>'+heading+'</b>\n'+
-                    html.escape(str(context['home']['official_name']))+' 🆚 '+
-                    html.escape(str(context['away']['official_name']))+'\n\n'+
-                    prefix)
+                if panels['fresh']:
+                    headline = mobile_score(context, selected, int(time.time()))
+                    result['compact_candidate_summary'] = True
+                else:
+                    headline = ('<b>🏀 ZEYNAL | GÜNCEL TAHMİN BEKLENİYOR</b>\n'+
+                                html.escape(str(context['home']['official_name']))+' 🆚 '+
+                                html.escape(str(context['away']['official_name']))+'\n\n'+prefix)
                 original_period=entry['sections'].get('period','')
                 original_ranges=entry['sections'].get('ranges','')
                 original_market=entry['sections'].get('market','')
-                entry['summary']=headline
+                original_market_pages=list(entry['section_pages'].get('market') or
+                    split_blocks(original_market.splitlines(),limit=3000))
+                original_quote_expiry=entry.get('quote_valid_until_utc')
+                # Preserve the usable prior presentation when V3 is pending.
+                # Never advertise its immutable score as a freshly calculated V3.
+                if not panels['fresh'] and old:
+                    fallback=('📊 <b>İLK KAYITLI V1 REFERANSI — V3 DEĞİL</b>\n'+old)
+                    if len((headline+fallback).encode('utf-16-le'))//2<=3500:
+                        headline+=fallback
                 audit=bound_audit_provenance(entry['sections'].get('audit',''),selected,panels)
+                if panels['fresh'] and isinstance(context.get('prediction'), dict):
+                    original_total = context['prediction'].get('total')
+                    if type(original_total) in (int, float):
+                        delta = selected['candidate']['total'] - original_total
+                        audit += f'\nV3 toplamının ilk V1 tahmininden farkı: {delta:+.2f} sayı.'
                 # Model / Kaynak holds model provenance and V1 health evidence,
                 # not all V1 numeric pages. The numerical first forecast is
                 # explicitly navigable under its own archive button.
@@ -436,31 +478,63 @@ def install_dual_clock_display(state,assessments):
                     for page in split_blocks(block.splitlines(),limit=3200)]
                 for section in ('period','ranges'):
                     entry['sections'][section]=panels[section]
-                    entry['section_pages'][section]=split_blocks(panels[section].splitlines(),limit=3200)
-                # The first-model quotes belong in audit. Show separate
-                # research-model reviews ONLY if their verified model+clock
-                # identity matches this candidate and the native quote is live.
+                    entry['section_pages'][section]=(panels.get('range_pages') if section=='ranges' else None) or [panels[section]]
+                    if not panels['fresh']:
+                        prior=original_period if section=='period' else original_ranges
+                        if prior:
+                            fallback=('📊 <b>İLK V1 REFERANSI — GÜNCEL V3 DEĞİL</b>\n'+prior)
+                            entry['sections'][section]+='\n\n'+fallback
+                            entry['section_pages'][section].extend(
+                                split_blocks(fallback.splitlines(),limit=3200))
+                # Keep independently labelled prior price cards accessible.
+                # Only a matching model/clock can be a V3 price comparison.
                 matching=(bound_current_market_cards(context,selected,entry,now=int(time.time()))
                           if panels['fresh'] else [])
                 if matching:
                     from hybrid_engine.market_direction_ui import render as market_render,order as market_order
                     ranked=market_order(matching)[:32]
                     header=('📈 <b>V3 ARAŞTIRMA ADAYI | ZAMAN DAMGALI FİYAT GÖZLEMİ</b>\n'
-                            'Aday SHA/model ve yerel piyasa erişim zamanı eşleşti; '
-                            'skor bu fiyatlarla yeniden hesaplanmadı.\n'
-                            'Ham NORMAL SÜRE simülasyonu · NOT_CALIBRATED · Güven endeksi yok.\n'
-                            'Bahis şirketinin uzatma ve ödeme kuralları doğrulanmadı; '
-                            'ham yüzde bahis kazanma olasılığı veya bahis avantajı değildir.\n'
-                            'Sağlayıcı maç başlangıç saati farklıysa saat uyuşmazlığı ayrıca denetlenmelidir.\n'
-                            'İlk V1 piyasa kayıtları ayrı V1 İlk Tahmin — Arşiv düğmesindedir.')
+                            'Ham NORMAL SÜRE simülasyonu · uzatma ve ödeme kuralları doğrulanmadı.')
                     market_pages=[header+'\n\n'+market_render(card) for card in ranked]
                     entry['section_pages']['market']=market_pages
                     entry['sections']['market']='\n\n'.join(market_pages)
                     entry['quote_valid_until_utc']=min(card['valid_until_utc'] for card in ranked)
+                    # Restore the concise direction on the score headline only
+                    # for a FULL TOTAL card bound to this exact V3 model.
+                    total=next((c for c in ranked if c['period']=='FULL' and c['market']=='TOTAL'),None)
+                    if total is not None:
+                        try:
+                            from hybrid_engine.market_direction_ui import direction as model_direction
+                            direction = ('\n\n📈 <b>Piyasa gözlemi</b> · '+html.escape(total['bookmaker']['name'])+
+                                         '\nBarem '+line_number(total['line'])+'   ·   '+tsi(total['available_at_utc'])+
+                                         '\nModel yönü: '+model_direction(total))
+                            if total['probability'] is not None:
+                                direction += '   ·   Ham %'+number(100*total['probability'])
+                            direction += '\nNormal süre · Ödeme kapsamı doğrulanmadı.'
+                            if len((headline+direction).encode('utf-16-le'))//2<=3500:
+                                headline+=direction
+                        except (KeyError,TypeError,ValueError):
+                            pass
                 else:
                     entry['sections']['market']=missing_current_market_card(selected,entry,panels)
                     entry['section_pages']['market']=[entry['sections']['market']]
-                    entry['quote_valid_until_utc']=None  # Old quote is archive-only.
+                    entry['quote_valid_until_utc']=None
+                if panels['fresh'] and '📈 <b>Piyasa gözlemi</b>' not in headline:
+                    headline += '\n\nPiyasa · Doğrulanmış maç toplamı baremi yok.'
+                # Retain the original independent review pages, with their
+                # own model/date labels. They are never V3-bound by proximity.
+                if original_market_pages:
+                    legacy_header=('📈 <b>BAĞIMSIZ ÖNCEKİ MODEL / PİYASA İNCELEMESİ</b>\n'
+                        'Bu kart V3 ile eşleştirilmiş sayılmaz. Kendi model ve fiyat zamanını esas alın.\n\n')
+                    legacy_pages=[page for old_page in original_market_pages
+                        for page in split_blocks((legacy_header+old_page).splitlines(),limit=3200)]
+                    entry['section_pages']['market'].extend(legacy_pages)
+                    entry['sections']['market']='\n\n'.join(entry['section_pages']['market'])
+                    expiries=[x for x in (entry.get('quote_valid_until_utc'),original_quote_expiry)
+                              if type(x) is int]
+                    # Earliest expiry is conservative for mixed pages.
+                    entry['quote_valid_until_utc']=min(expiries) if expiries else None
+                entry['summary']=headline
                 entry['current_assessment_valid_until_utc']=panels['valid_until']
                 entry['current_assessment_panels']=panels['fresh']
                 # Persist the FINAL bound render, not the earlier first-model
@@ -473,6 +547,53 @@ def install_dual_clock_display(state,assessments):
                 from hybrid_engine.telegram_premium_ui import keyboard as premium_keyboard
                 result['reply_markup']=premium_keyboard(token,include_archive=True)
                 parts=[headline]
+            elif entry and context.get('league') in ('EUROLEAGUE','EUROCUP'):
+                from hybrid_engine.elite_render import split_blocks
+                panels=current_panels(context,selected,now=int(time.time()))
+                if panels['fresh']:
+                    q=selected['candidate']
+                    extra=('🧪 <b>AVRUPA GÜNCEL TEMPO / VERİMLİLİK ADAYI</b>\n'
+                           +html.escape(str(q.get('model','')))+'\n'
+                           +f"Ev {q['home']:.2f} · Dep {q['away']:.2f} · Toplam {q['total']:.2f}\n"
+                           +'Hesap: '+tsi(selected['prediction_generated_at_utc'])+'\n'
+                           +'NBA V3 değildir; oyuncu etkisi ve kalibrasyon doğrulanmadı.\n'
+                           +f"Güncel toplam P25–P75: {selected['intervals']['markets']['TOTAL']['p25']:.1f}–{selected['intervals']['markets']['TOTAL']['p75']:.1f}\n"
+                           +f"Güncel toplam P05–P95: {selected['intervals']['markets']['TOTAL']['p05']:.1f}–{selected['intervals']['markets']['TOTAL']['p95']:.1f}\n"
+                           +'İlk kayıtlı Bayes tahmini aşağıda ayrı referanstır.\n\n')
+                    old_summary=entry.get('summary','')
+                    parts[0]=parts[0].replace('TOPLAM SAYI ARALIKLARI','İLK BAYES TOPLAM SAYI ARALIKLARI')
+                    archive_blocks=['<b>İLK KAYITLI BAYES — ARŞİV</b>\n'+old_summary]
+                    for section in ('period','ranges'):
+                        prior=entry['sections'][section]
+                        archive_blocks.append('<b>İLK KAYITLI BAYES — ARŞİV</b>\n'+prior)
+                        value=panels[section].replace('V3 aday','Avrupa aday').replace('Model / Kaynak arşivindedir','İlk Tahmin — Arşiv düğmesindedir')
+                        entry['section_pages'][section]=panels['range_pages'] if section=='ranges' else [value]
+                        entry['sections'][section]=value
+                    entry['sections']['archive']='\n\n'.join(archive_blocks)
+                    entry['section_pages']['archive']=[page for block in archive_blocks
+                        for page in split_blocks(block.splitlines(),limit=3200)]
+                    from hybrid_engine.telegram_premium_ui import keyboard as premium_keyboard
+                    result['reply_markup']=premium_keyboard(token,include_archive=True)
+                    entry['current_assessment_panels']=True
+                    entry['current_assessment_valid_until_utc']=panels['valid_until']
+                else:
+                    extra=('⚠️ <b>AVRUPA GÜNCEL ARAŞTIRMA ADAYI YAYIMLANMADI</b>\n'
+                           'İlk kayıtlı Bayes tahmini korunuyor. NBA V3 bu ligin modeli değildir.\n\n')
+                    cycle=state.get('research_cycle')
+                    request=getattr(cycle,'request_fixture',None)
+                    if callable(request):
+                        try:request(context)
+                        except (ValueError,KeyError,TypeError,RuntimeError):pass
+                if len((extra+parts[0]).encode('utf-16-le'))//2<=3500:
+                    parts[0]=extra+parts[0];entry['summary']=parts[0]
+                else:parts.insert(0,extra)
+                entry['sections']['audit']+='\n\n'+extra
+                entry['section_pages']['audit']=split_blocks(entry['sections']['audit'].splitlines(),limit=3200)
+                try:
+                    from hybrid_engine.telegram_premium_ui import cache_report
+                    cache_report(state.get('premium_reports',{}),token,entry)
+                except (OSError,ValueError,TypeError):
+                    pass
             elif len((prefix+parts[0]).encode('utf-16-le'))//2<=3500:
                 parts[0]=prefix+parts[0]
             else:parts.insert(0,prefix)

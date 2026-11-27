@@ -98,7 +98,29 @@ def predict(wrapper,target, *, cutoff_utc,method='RQMC_HALTON_8D',require_all_fe
     if target['fixture_id'] in p['training_ids'] or (target['league'],target['season'])!=('NBA',p['season']):
         raise ValueError('DYNAMIC_TARGET_TRAINING_OR_COHORT')
     if p['training_available_max']>p['cutoff_utc']:raise ValueError('DYNAMIC_FUTURE_TRAINING_LABEL')
-    history=p['training'];gw=np.asarray([2**(-(cutoff_utc-r['start'])/(14*86400)) for r in history])
+    return _simulate(wrapper,target,cutoff_utc,method)
+
+
+def historical_replay(wrapper,target,*,origin_utc,method='RQMC_HALTON_8D'):
+    """Use the same score equations with strictly as-of labels, on a replay clock."""
+    p=wrapper['payload']
+    if (digest(p)!=wrapper['sha256'] or p['format']!=VERSION or p['policy']!=POLICY or
+            p['production_enabled'] is not False):
+        raise ValueError('DYNAMIC_MODEL_PIN')
+    if (not 0<p['training_available_max']<=p['cutoff_utc']<=origin_utc<p['prepared_at_utc']<=int(time.time())
+            or origin_utc>=target['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS
+            or target['fixture_start_utc']>=int(time.time())):
+        raise Abstain('DYNAMIC_HISTORICAL_ORIGIN_INVALID')
+    if target['fixture_id'] in p['training_ids'] or (target['league'],target['season'])!=('NBA',p['season']):
+        raise ValueError('DYNAMIC_TARGET_TRAINING_OR_COHORT')
+    f=_simulate(wrapper,target,origin_utc,method)
+    f.metadata.update(historical_replay=True,prepared_at_utc=p['prepared_at_utc'],
+                      verified_asof_origin_utc=origin_utc)
+    return f
+
+
+def _simulate(wrapper,target,cutoff_utc,method):
+    p=wrapper['payload'];history=p['training']
     profiles=[];counts=[]
     for side in ('home','away'):
         tid=target[side+'_team_id'];entries=[r for r in history if tid in (r['home'],r['away'])]

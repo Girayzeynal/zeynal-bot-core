@@ -101,7 +101,8 @@ def evaluate(observation,distribution,*,asof_utc,native_quotes=(),rules=None):
         if captured is None:item['reasons'].append('SOURCE_CAPTURE_TIME_UNKNOWN')
         elif not captured<=p['available_at_utc']<=asof_utc:item['reasons'].append('PRICE_NOT_AVAILABLE_AT_REVIEW')
         elif asof_utc-captured>POLICY['quote_max_age_seconds']:item['reasons'].append('STALE_AT_DECISION_TIME')
-        if published is not None and not 0<=asof_utc-published<=POLICY['quote_max_age_seconds']:
+        if published is None:item['reasons'].append('PUBLISHER_PRICE_TIME_UNKNOWN')
+        elif not 0<=asof_utc-published<=POLICY['quote_max_age_seconds']:
             item['reasons'].append('STALE_PUBLISHER_PRICE_AT_DECISION_TIME')
         cutoff=fixture['tipoff_utc']
         clock=p['source'].get('event_clock_binding')
@@ -141,15 +142,21 @@ def evaluate(observation,distribution,*,asof_utc,native_quotes=(),rules=None):
     return result
 
 
+def fixture_journal_directory(root,league,fixture_id):
+    # The exact canonical identity determines a bounded rollover directory.
+    # Never use caller-controlled fixture strings as path components.
+    return local_path(root/'fixtures'/digest(dict(league=league,fixture_id=fixture_id)))
+
+
 class CurrentReviewJournal:
     """Separate immutable files; no SQL, prediction table or model edits."""
     def __init__(self,directory):self.root=local_path(directory)
 
-    def record(self,snapshot,distribution,reviews,*,decision_utc):
+    def record(self,snapshot,distribution,reviews,*,decision_utc,native_context=None):
         with _JOURNAL_LOCK:
-            return self._record(snapshot,distribution,reviews,decision_utc=decision_utc)
+            return self._record(snapshot,distribution,reviews,decision_utc=decision_utc,native_context=native_context)
 
-    def _record(self,snapshot,distribution,reviews,*,decision_utc):
+    def _record(self,snapshot,distribution,reviews,*,decision_utc,native_context=None):
         from hybrid_engine.intervals import prediction_intervals
         from hybrid_engine.decision_audit import trace_for
         if distribution.trace!=trace_for(snapshot):raise ValueError('CURRENT_REVIEW_ORIGINAL_TRACE_PIN')
@@ -171,7 +178,37 @@ class CurrentReviewJournal:
             manifest.update(forecast_record_type=snapshot['record_type'],
                 linked_original_snapshot_sha256=snapshot['linked_original_snapshot_sha256'],
                 current_assessment_sha256=snapshot['current_assessment_sha256'])
-        key=digest(manifest);path=local_path(self.root/('review-'+key+'.json'))
+        if native_context is not None:
+            # Context is the exact object used by the native event/price parser,
+            # not a later reconstructed fixture or current team catalogue.
+            from hybrid_engine.provider_bridge import fixture_for
+            if fixture_for(native_context)!=fixture_for(snapshot):
+                raise ValueError('MARKET_NATIVE_CONTEXT_FIXTURE_CONFLICT')
+            native_pin=digest(native_context)
+            for review in reviews:
+                clock=review['source'].get('event_clock_binding')
+                if (not clock or digest(clock['payload'])!=clock['sha256'] or
+                        clock['payload']['original_snapshot_sha256']!=native_pin or
+                        review['source']['method']!='NATIVE_RETRIEVAL'):
+                    raise ValueError('MARKET_NATIVE_CONTEXT_BINDING_REQUIRED')
+            manifest['native_price_context']=deepcopy(native_context)
+            if native_pin!=digest(snapshot):
+                manifest['evaluation_context']=deepcopy(snapshot)
+            if any(row.get('raw_contract_probabilities') is not None
+                   for review in reviews for row in review['rows']):
+                from hybrid_engine.market_sample_evidence import capture
+                try:manifest['contract_sample_evidence']=capture(distribution)
+                except (ValueError,TypeError,AttributeError):
+                    # An unsupported sample codec must not turn a valid raw
+                    # source observation into verified settlement evidence.
+                    manifest['contract_sample_evidence_status']='UNSUPPORTED_SAMPLE_EVIDENCE'
+        key=digest(manifest);filename='review-'+key+'.json'
+        legacy=local_path(self.root/filename)
+        segment=fixture_journal_directory(self.root,snapshot['league'],snapshot['fixture_id'])
+        rollover=local_path(segment/filename)
+        if legacy.exists() and rollover.exists():
+            raise ValueError('CURRENT_REVIEW_DUPLICATE_ARCHIVE_LOCATION')
+        path=legacy if legacy.exists() else rollover if rollover.exists() else legacy
         if path.exists():
             if path.stat().st_size>2*1024*1024:raise ValueError('CURRENT_REVIEW_RECORD_SIZE')
             old=json.loads(path.read_text())
@@ -188,10 +225,25 @@ class CurrentReviewJournal:
                      record_class='PREGAME_CURRENT_REVIEW' if archived<cutoff else 'POST_TIPOFF_REVIEW_ONLY',
                      eligible_for_current_prematch_metrics=False)
         body=dict(payload=payload,sha256=digest(payload),manifest_sha256=key)
-        if len(json.dumps(body).encode())>2*1024*1024:raise ValueError('CURRENT_REVIEW_RECORD_SIZE')
-        if self.root.exists():
-            files=list(self.root.glob('review-*.json'))
-            if len(files)>=256 or sum(f.stat().st_size for f in files)+len(json.dumps(body).encode())>16*1024*1024:
-                raise ValueError('CURRENT_REVIEW_STORAGE_BUDGET')
-        self.root.mkdir(parents=True,exist_ok=True);publish_json(path,body)
+        size=len((json.dumps(body,sort_keys=True,allow_nan=False)+'\n').encode())
+        if size>2*1024*1024:raise ValueError('CURRENT_REVIEW_RECORD_SIZE')
+        def full(directory):
+            files=list(directory.glob('review-*.json')) if directory.exists() else []
+            return len(files)>=256 or sum(local_path(f).stat().st_size for f in files)+size>16*1024*1024
+        # Do not delete, relocate or rewrite existing root files. Once a
+        # fixture rolls over, keep new records in its own bounded directory.
+        if segment.exists() or full(self.root):
+            path=rollover
+            if full(segment):raise ValueError('CURRENT_REVIEW_STORAGE_BUDGET')
+        path.parent.mkdir(parents=True,exist_ok=True);publish_json(path,body)
+        if native_context is not None:
+            # Capture the clock AFTER the immutable decision file's fsync.
+            # Replays never synthesize a missing completion receipt.
+            from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
+            completed=int(time.time())
+            proof=dict(format='CURRENT_MARKET_DURABLE_COMMIT_V1',batch_sha256=body['sha256'],
+                       manifest_sha256=key,completed_at_utc=completed,
+                       eligible=archived<=completed<cutoff-PREMATCH_MINIMUM_LEAD_SECONDS)
+            publish_json(path.parent/('market-commit-'+key+'.json'),
+                         dict(payload=proof,sha256=digest(proof)))
         return body

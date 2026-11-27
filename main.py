@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import html
 import logging
+import sys
 import asyncio
 from datetime import datetime, timezone
 from typing import Any, Dict, Tuple
@@ -49,9 +50,6 @@ API_SPORTS_BASE = os.getenv("API_SPORTS_BASE", "https://v1.basketball.api-sports
 
 PORT = int(os.getenv("PORT", "8080"))
 
-if not TELEGRAM_BOT_TOKEN:
-    raise RuntimeError("TELEGRAM_BOT_TOKEN missing")
-
 # ============================
 # HELPERS
 # ============================
@@ -68,10 +66,17 @@ def parse_analyze(text: str) -> Tuple[str, str, str, str]:
     rest = parts[3:]
 
     lower = [p.lower() for p in rest]
-    if "vs" not in lower:
-        raise ValueError("'vs' bulunamadi")
-
-    i = lower.index("vs")
+    if "vs" in lower:
+        # Preserve the explicit-vs contract, including punctuation inside a
+        # team name. Do not rewrite the date or replace hyphens globally.
+        i = lower.index("vs")
+    else:
+        # Fixture menus display a spaced Unicode dash. Accept that exact
+        # pasted separator; multiple possible boundaries must not be guessed.
+        separators = [j for j,token in enumerate(rest) if token in ("–", "—")]
+        if len(separators) != 1:
+            raise ValueError("Takımlar arasında tek vs, – veya — ayracı zorunludur")
+        i = separators[0]
     # Strip accidental wrapping/pasted quotes, not punctuation inside team names.
     home = " ".join(rest[:i]).strip().strip().strip(chr(34) + chr(39) + "“”‘’").strip()
     away = " ".join(rest[i + 1 :]).strip().strip().strip(chr(34) + chr(39) + "“”‘’").strip()
@@ -500,15 +505,26 @@ async def start_health(app: Application):
 
     runner = web.AppRunner(web_app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
-    await site.start()
+    host = "127.0.0.1" if app.bot_data.get("entry_profile") == "MAIN_STAGING" else "0.0.0.0"
+    site = web.TCPSite(runner, host, PORT)
+    try:
+        await site.start()
+    except BaseException:
+        await runner.cleanup()
+        raise
     return runner
 
 # ============================
 # BOOT
 # ============================
-def build_app() -> Application:
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+def build_app(*, candidate_builder=None) -> Application:
+    if candidate_builder is None:
+        token = TELEGRAM_BOT_TOKEN or os.getenv("TELEGRAM_BOT_TOKEN")
+        if not token:
+            raise RuntimeError("TELEGRAM_BOT_TOKEN missing")
+        app = Application.builder().token(token).build()
+    else:
+        app = candidate_builder.token(os.environ['ZEYNAL_TEST_BOT_TOKEN']).build()
 
     baseline_store = TeamBaselineStore()
     bootstrapper = TeamBaselineBootstrapper(
@@ -517,16 +533,18 @@ def build_app() -> Application:
     )
 
     faz13 = Faz13Engine(
-        api_sports_key=API_SPORTS_KEY,
+        api_sports_key=API_SPORTS_KEY if candidate_builder is None else None,
         api_sports_base=API_SPORTS_BASE,
         baseline_store=baseline_store,
     )
 
+    if candidate_builder is None:
+        app.bot_data["entry_profile"] = "MAIN_DEFAULT"
     app.bot_data["baseline_store"] = baseline_store
     app.bot_data['team_identity_service']=UniversalAnalyzeService()
     app.bot_data['verified_analysis_service']=production_service()
     # Disabled by default. Research-only output; production=False remains intact.
-    if os.getenv('ZEYNAL_HYBRID_NBA_RESEARCH','0')=='1':
+    if candidate_builder is None and os.getenv('ZEYNAL_HYBRID_NBA_RESEARCH','0')=='1':
         from hybrid_engine.live_nba import PreparedBayes,LiveNBAHybridService
         prepared_path=os.environ['ZEYNAL_HYBRID_PREPARED_PATH']
         prepared_sha=os.environ['ZEYNAL_HYBRID_PREPARED_SHA256']
@@ -563,10 +581,17 @@ async def scheduler_loop(engines):
         await asyncio.Event().wait()
 
 
-async def main_async():
-    app = build_app()
-    from hybrid_engine.production_parity import install as install_production_parity
-    install_production_parity(app)
+async def main_async(staging_args=None):
+    staging = staging_args is not None
+    if staging:
+        from hybrid_engine.isolated_execution import IsolatedExecutor
+        from hybrid_engine.test_bot import build_candidate_application
+        asyncio.get_running_loop().set_default_executor(IsolatedExecutor())
+        app = build_candidate_application(staging_args, build_app, staging=True)
+    else:
+        app = build_app()
+        from hybrid_engine.production_parity import install as install_production_parity
+        install_production_parity(app)
     runner = None
     initialized = False
     started = False
@@ -577,14 +602,24 @@ async def main_async():
         runner = await start_health(app)
         await app.initialize()
         initialized = True
-        await app.bot.delete_webhook(drop_pending_updates=True)
+        if staging:
+            # Verify the dedicated bot and webhook before polling or launching workers.
+            await app.post_init(app)
+        else:
+            await app.bot.delete_webhook(drop_pending_updates=True)
         await app.start()
         started = True
         if app.updater is None:
             raise RuntimeError("Telegram polling updater unavailable")
-        await app.updater.start_polling()
+        if staging:
+            await app.updater.start_polling(bootstrap_retries=0, drop_pending_updates=False)
+        else:
+            await app.updater.start_polling()
         polling = True
         logger.info("Bot polling started")
+        if staging:
+            await asyncio.Event().wait()
+            return
         if os.getenv('ZEYNAL_VERIFIED_RESULT_POLL','0')=='1':
             from hybrid_engine.production_results import run as verified_result_poll
             verified_result_task=asyncio.create_task(verified_result_poll(app),name='verified-result-poll')
@@ -612,14 +647,28 @@ async def main_async():
                     if started:
                         await app.stop()
                 finally:
-                    if initialized:
-                        await app.shutdown()
+                    try:
+                        if staging:
+                            await app.post_shutdown(app)
+                    finally:
+                        if initialized:
+                            await app.shutdown()
         finally:
             if runner is not None:
                 await runner.cleanup()
 
 def main():
-    asyncio.run(main_async())
+    if sys.argv[1:2] == ['--staging']:
+        from hybrid_engine.test_bot import candidate_args, failure_report
+        try:
+            asyncio.run(main_async(candidate_args(sys.argv[2:])))
+        except Exception as exc:
+            logger.error("Staging startup: %s", failure_report(exc)['reason'])
+            raise SystemExit(2) from None
+    elif sys.argv[1:]:
+        raise SystemExit("Usage: python main.py [--staging <candidate options>]")
+    else:
+        asyncio.run(main_async())
 
 if __name__ == "__main__":
     main()

@@ -33,19 +33,25 @@ class EuropeanReports:
                         legacy_publication_clock_unrecorded=True,eligible_for_live_performance=False)
                     if outcome:r.update(actual_periods=outcome['periods'],final_with_ot=outcome['final_with_ot'])
                     rows.append(r)
-        sources=[(service,item) for service in (self.service,*self.extra_services) for item in service.registry.independent_records()]
-        sources.sort(key=lambda v:(v[1]['publication']['first_archived_at_utc'],digest(v[1]['payload'])))
+        from hybrid_engine.europe_report_assets import reporting_assets
+        sources = []
+        for service in (self.service, *self.extra_services):
+            assets = reporting_assets(service)
+            registry = assets.registry if assets is not None else service.registry
+            sources.extend((service, assets, item) for item in registry.independent_records())
+        sources.sort(key=lambda v:(v[2]['publication']['first_archived_at_utc'],digest(v[2]['payload'])))
         seen=set(legacy_fids)
-        for service,item in sources:
+        for service,assets,item in sources:
             p=item['payload'];g=p['fixture'];fid=g['canonical_id'];ids=g['provider_fixture_ids']
             if fid in seen or (fixture_id and fixture_id not in [fid,*ids]):continue
             seen.add(fid)
-            pair=service.pair(p);outcome=service.registry.outcome(p)
-            snapshot_pin=digest(p);label_clock=None
-            if outcome and any(m['status']=='FORECAST_CREATED' for m in p['components'].values()):
-                # All components share this exact native final witness. Validate
-                # and read it once, retaining the same source/identity checks.
-                label_clock=service.registry.read_asset(outcome['source'])['ingested_at_utc']
+            if assets is None:
+                pair=service.pair(p);outcome=service.registry.outcome(p)
+                has_forecast = any(m['status']=='FORECAST_CREATED' for m in p['components'].values())
+                label_clock=service.registry.read_asset(outcome['source'])['ingested_at_utc'] if outcome and has_forecast else None
+            else:
+                pair=assets.pair(p);outcome,label_clock=assets.outcome(p)
+            snapshot_pin=digest(p)
             for name,m in p['components'].items():
                 if m['status']!='FORECAST_CREATED':continue
                 q=m['prediction'];version=digest(dict(version=p['version'],component=name))

@@ -11,6 +11,7 @@ import math
 import re
 import threading
 import time
+from urllib.parse import parse_qs,urlsplit
 
 from core.league_identity import normalize_name
 from core.team_identity import digest
@@ -22,9 +23,69 @@ from hybrid_engine.provider_access import ProviderAccess
 SPORTS = {'NBA': 'basketball_nba', 'EUROLEAGUE': 'basketball_euroleague', 'EUROCUP': 'basketball_eurocup'}
 # Requests beyond the three featured markets require explicit local opt-in.
 CORE_MARKETS = ('h2h', 'spreads', 'totals')
-EXTRA_MARKETS = ('alternate_spreads', 'alternate_totals', 'team_totals',
+LEGACY_EXTRA_MARKETS = ('alternate_spreads', 'alternate_totals', 'team_totals',
                  'totals_h1', 'totals_h2', 'totals_q1', 'totals_q2', 'totals_q3', 'totals_q4')
+# Documented native keys, not an assertion of league/book coverage.
+PARTS=('h1','h2','q1','q2','q3','q4')
+EXTRA_MARKETS=(*LEGACY_EXTRA_MARKETS,'alternate_team_totals',
+    *(kind+'_'+part for kind in ('spreads','h2h','team_totals','alternate_totals',
+                                 'alternate_spreads','alternate_team_totals') for part in PARTS))
+ALLOWED_REGIONS={'us','us2','eu','uk','au'}
+
+def odds_regions(value):
+    regions=tuple(value.split(','))
+    if not 1<=len(regions)<=2 or len(set(regions))!=len(regions) or not set(regions)<=ALLOWED_REGIONS:
+        raise ValueError('ODDS_REGIONS_EXPLICIT_ONE_OR_TWO_SUPPORTED')
+    return regions
+
+def requested_market_keys(receipt):
+    values=parse_qs(urlsplit(receipt.get('source_url','')).query).get('markets',[])
+    return set(values[0].split(',')) if len(values)==1 else set()
 ALIASES = {'losangelesclippers': 'laclippers'}
+# Keep core receipts' historic parser behavior. Expanded native requests
+# can retain more distinct scopes, within a fixed report/storage budget.
+CORE_OBSERVATION_LIMIT=12
+EXPANDED_OBSERVATION_LIMIT=32
+EXPANDED_QUOTE_LIMIT=128
+
+def expanded_request(receipt):
+    return bool(requested_market_keys(receipt) & set(EXTRA_MARKETS))
+
+def bounded_expanded_observations(rows):
+    # Retain the exact previous first 12 for receipt replay compatibility.
+    # Then cover previously unseen period/team market scopes before repeats.
+    kept=list(rows[:CORE_OBSERVATION_LIMIT])
+    remaining=list(rows[CORE_OBSERVATION_LIMIT:])
+    def scopes(row):
+        return {(q['period'],q['market']) for q in row['payload']['quotes']}
+    seen=set().union(*(scopes(r) for r in kept))
+    count=sum(len(r['payload']['quotes']) for r in kept)
+    while remaining and len(kept)<EXPANDED_OBSERVATION_LIMIT:
+        eligible=[(i,r) for i,r in enumerate(remaining)
+                  if count+len(r['payload']['quotes'])<=EXPANDED_QUOTE_LIMIT]
+        if not eligible:break
+        i,r=max(eligible,key=lambda p:(len(scopes(p[1])-seen),-p[0]))
+        kept.append(remaining.pop(i));seen.update(scopes(r))
+        count+=len(r['payload']['quotes'])
+    return kept
+
+
+def native_market_coverage(document,requested,observations):
+    """Distinct requested, returned and admitted scopes; no inferred prices."""
+    books=document.get('bookmakers',[])
+    if not isinstance(books,list):books=[]
+    returned={m['key'] for b in books if isinstance(b,dict)
+              for m in (b['markets'] if isinstance(b.get('markets'),list) else [])
+              if isinstance(m,dict) and isinstance(m.get('key'),str)}
+    scopes={}
+    for o in observations:
+        for q in o['payload']['quotes']:
+            key=q['period']+'/'+q['market']
+            scopes[key]=scopes.get(key,0)+1
+    return dict(requested=list(requested),returned=sorted(returned),
+                not_returned=sorted(set(requested)-returned),
+                admitted_quote_counts=scopes,
+                player_props_requested=False,coverage_is_not_guaranteed=True)
 
 
 class EvidenceCapacityError(ValueError):
@@ -75,6 +136,21 @@ def fixture_for(snapshot):
                              ('league', 'season', 'fixture_id', 'home_team_id', 'away_team_id', 'tipoff_utc')})
 
 
+def native_objects(values,*,limit):
+    """Isolate malformed/ambiguous siblings; never pick one conflicting price."""
+    if not isinstance(values,list):raise ValueError('NATIVE_PRICE_COLLECTION_SCHEMA')
+    unique={};conflicts=set();rejected=0
+    for item in values[:limit]:
+        if not isinstance(item,dict) or not isinstance(item.get('key'),str) or not item['key']:
+            rejected+=1;continue
+        key=item['key']
+        if key in unique:
+            rejected+=1
+            if unique[key]!=item:conflicts.add(key)
+        else:unique[key]=item
+    return [v for k,v in unique.items() if k not in conflicts],rejected
+
+
 def odds_observations(receipt, snapshot, *, discovery=None):
     """Match exact teams+tipoff; keep actual books, alternative lines and periods."""
     if digest(receipt['document']) != receipt['document_sha256']:
@@ -89,17 +165,28 @@ def odds_observations(receipt, snapshot, *, discovery=None):
     fixture = fixture_for(snapshot)
     result = []
     rejected = 0
-    for book in event.get('bookmakers', [])[:6]:
+    expanded=expanded_request(receipt)
+    requested=requested_market_keys(receipt)
+    full_scope=bool(requested-set(CORE_MARKETS)-set(LEGACY_EXTRA_MARKETS))
+    books,bad=native_objects(event.get('bookmakers',[]),limit=6);rejected+=bad
+    for book in books:
         if not isinstance(book.get('key'), str) or not isinstance(book.get('title'), str):
             rejected += 1
             continue
-        for market in book.get('markets', [])[:32]:
+        try:markets,bad=native_objects(book.get('markets',[]),limit=64 if full_scope else 32)
+        except ValueError:rejected+=1;continue
+        rejected+=bad
+        for market in markets:
             try:
                 updated = utc(market.get('last_update') or book.get('last_update'))
                 if not 0 <= receipt['observed_at_utc']-updated <= 300:
                     raise ValueError('STALE_OR_FUTURE_NATIVE_ODDS')
                 key = market['key']
                 period = 'FULL'
+                # Decode newly requested alternate period keys, without changing
+                # historical receipt replay for previously unrequested keys.
+                if key.startswith('alternate_') and key in requested:
+                    key=key.removeprefix('alternate_')
                 match = re.fullmatch(r'(totals|spreads|h2h|team_totals)_(q[1-4]|h[12])', key)
                 if match:
                     key, part = match.groups()
@@ -108,7 +195,9 @@ def odds_observations(receipt, snapshot, *, discovery=None):
                 if key not in ('totals', 'spreads', 'h2h', 'team_totals'):
                     continue
                 grouped = {}
-                for outcome in market.get('outcomes', [])[:128]:
+                outcomes=market.get('outcomes',[])
+                if not isinstance(outcomes,list):raise ValueError('NATIVE_OUTCOME_COLLECTION_SCHEMA')
+                for outcome in outcomes[:128]:
                     price = outcome['price']
                     if type(price) not in (int, float) or not math.isfinite(price) or not 1 < price <= 1001:
                         raise ValueError('DECIMAL_PRICE_REQUIRED')
@@ -162,18 +251,21 @@ def odds_observations(receipt, snapshot, *, discovery=None):
                     validate(payload)
                     if binding is not None:payload['source']['event_clock_binding']=binding
                     result.append(dict(payload=payload, sha256=digest(payload)))
-                    if len(result) >= 12:
+                    if not expanded and len(result) >= CORE_OBSERVATION_LIMIT:
                         return result, rejected
             except (KeyError, TypeError, ValueError):
                 rejected += 1
+    if expanded:result=bounded_expanded_observations(result)
     return result, rejected
 
 
 class ProviderBridge:
-    def __init__(self, access, directory, *, extended=False, clock=time.time, diagnostic_only=False, rule_book=None):
+    def __init__(self, access, directory, *, extended=False, clock=time.time, diagnostic_only=False, rule_book=None,regions='us',player_props=False):
         self.access = access
         self.root = local_path(directory)
         self.extended = extended
+        self.player_props=bool(player_props)
+        self.regions=odds_regions(regions)
         self.diagnostic_only = diagnostic_only
         self.clock = clock
         self.lock = threading.Lock()
@@ -249,7 +341,8 @@ class ProviderBridge:
             return dict(status='LEAGUE_NOT_MAPPED', observations=[])
         sports = access.get('THE_ODDS_API', '/v4/sports/', deadline=deadline, ttl=3600)
         if sports['status'] != 'DOCUMENT_RECEIVED':
-            return dict(status=sports['status'], observations=[])
+            return dict(status=sports['status'], observations=[],http_status=sports.get('http_status'),
+                        error_codes=['PROVIDER_HTTP_503'] if sports.get('http_status')==503 else [])
         if not isinstance(sports['document'], list):
             return dict(status='INVALID_PROVIDER_SCHEMA', observations=[], catalog_source_pin=self._save(sports))
         if not any(
@@ -261,10 +354,18 @@ class ProviderBridge:
                         active_basketball_sports=candidates[:12],catalog_source_pin=self._save(sports))
         events = access.get('THE_ODDS_API', f'/v4/sports/{sport}/events', deadline=deadline)
         if events['status'] != 'DOCUMENT_RECEIVED':
-            return dict(status=events['status'], observations=[])
+            return dict(status=events['status'], observations=[],http_status=events.get('http_status'),
+                        error_codes=['PROVIDER_HTTP_503'] if events.get('http_status')==503 else [])
         if not isinstance(events['document'], list):
             return dict(status='INVALID_PROVIDER_SCHEMA', observations=[])
         from hybrid_engine.provider_identity import bind
+        slate={}
+        if snapshot.get('european_team_catalog') is not None and snapshot['league'] in ('EUROLEAGUE','EUROCUP'):
+            try:
+                from hybrid_engine.europe_provider_identity import audit_slate
+                slate={'slate_identity_audit':audit_slate(events,snapshot)}
+            except (ValueError,KeyError,TypeError):
+                slate={'slate_identity_audit':{'status':'SLATE_IDENTITY_AUDIT_REFUSED'}}
         try:
             event,binding=bind(events,snapshot,asof_utc=int(self.clock()))
         except (ValueError,KeyError,TypeError) as exc:
@@ -279,7 +380,7 @@ class ProviderBridge:
                         matching_events=sum(matches(e,snapshot) for e in events['document']),
                         error_codes=[code if code in codes else 'NATIVE_EVENT_BINDING_REFUSED'],
                         operation='EVENT_DISCOVERY',fixture_diagnostic=fixture_diagnostic(events['document'],snapshot),
-                        source_pin=self._save(events))
+                        source_pin=self._save(events),**slate)
         event_id = event.get('id')
         if not isinstance(event_id, str) or not re.fullmatch('[a-zA-Z0-9_-]{1,80}', event_id):
             return dict(status='PROVIDER_EVENT_ID_INVALID', observations=[])
@@ -287,12 +388,25 @@ class ProviderBridge:
         if self.diagnostic_only:
             return dict(status='EXACT_FIXTURE_MATCH_CONFIRMED' if binding['payload']['delta_seconds']==0 else 'NBA_PROVIDER_OFFSET_BOUND',
                         observations=[],provider_fixture_id=event_id,event_clock_binding=binding,
-                        odds_requests_made=0,source_pin=discovery_pin)
+                        odds_requests_made=0,source_pin=discovery_pin,**slate)
         markets = (*CORE_MARKETS, *EXTRA_MARKETS) if self.extended else CORE_MARKETS
+        # Query only the explicitly opted-in regions. Budget is checked against
+        # the worst-case cost, never inferred from an earlier match.
+        regions=','.join(self.regions)
         r = access.get('THE_ODDS_API', f'/v4/sports/{sport}/events/{event_id}/odds',
-                       dict(regions='us', markets=','.join(markets), oddsFormat='decimal'), deadline=deadline)
+                       dict(regions=regions, markets=','.join(markets), oddsFormat='decimal'), deadline=deadline)
+        # A conservative budget refusal may fall back to basic markets only.
+        # It has spent no credits and is distinct from HTTP/provider failure.
+        scope_reduced=False
+        if r['status']=='ODDS_ESTIMATED_CREDIT_BUDGET' and self.extended:
+            markets=CORE_MARKETS;scope_reduced=True
+            r=access.get('THE_ODDS_API', f'/v4/sports/{sport}/events/{event_id}/odds',
+                         dict(regions=regions,markets=','.join(markets),oddsFormat='decimal'),deadline=deadline)
         if r['status'] != 'DOCUMENT_RECEIVED':
-            return dict(status=r['status'], observations=[])
+            return dict(status=r['status'], observations=[],http_status=r.get('http_status'),
+                        error_codes=['PROVIDER_HTTP_503'] if r.get('http_status')==503 else [],
+                        requested_markets=list(markets),requested_regions=list(self.regions),
+                        extended_reduced_for_credit_budget=scope_reduced)
         try:
             observations, rejected = odds_observations(r, snapshot,discovery=events)
         except (ValueError,KeyError,TypeError) as exc:
@@ -303,13 +417,38 @@ class ProviderBridge:
             return dict(status='ODDS_DETAIL_REJECTED',operation='ODDS_DETAIL_PARSING',observations=[],
                         error_codes=[code if code in codes else 'NATIVE_ODDS_DETAIL_VALIDATION_FAILED'],
                         event_clock_binding=binding,source_pin=self._save(r),discovery_source_pin=discovery_pin)
+        # Persist the independently useful team prices before optional props.
+        detail_pin=self._save(r)
+        props=dict(status='NOT_REQUESTED',rows=[],model_input=False)
+        if self.player_props:
+            if snapshot['league']!='NBA':
+                props['status']='LEAGUE_PLAYER_PROP_COVERAGE_NOT_ATTESTED'
+            elif not observations and access.configuration()['API_BASKETBALL']!='KEY_NOT_AVAILABLE_IN_TEST_PROCESS':
+                props['status']='PLAYER_PROP_DEFERRED_FOR_BACKUP_SOURCE'
+            elif self.clock()>=deadline or int(self.clock())>=binding['payload']['prematch_deadline_utc']:
+                props['status']='PLAYER_PROP_DEADLINE_REACHED'
+            else:
+                try:
+                    from hybrid_engine.native_player_props import MARKETS,parse
+                    pr=access.get('THE_ODDS_API',f'/v4/sports/{sport}/events/{event_id}/odds',
+                        dict(regions=regions,markets=','.join(MARKETS),oddsFormat='decimal'),deadline=deadline)
+                    props=dict(status=pr['status'],rows=[],model_input=False,requested_markets=list(MARKETS))
+                    if pr['status']=='DOCUMENT_RECEIVED':
+                        props=parse(events,pr,snapshot)
+                        props['source_pin']=self._save(pr)
+                    if pr.get('quota'):props['quota']=pr['quota']
+                except (ValueError,KeyError,TypeError,OSError,TimeoutError):
+                    props=dict(status='PLAYER_PROP_SOURCE_OR_IDENTITY_REFUSED',rows=[],model_input=False)
         return dict(status='OBSERVED_RULES_AND_CALIBRATION_PENDING' if observations else 'NO_FRESH_SUPPORTED_PRICES',
-                    observations=observations, rejected_markets=rejected, requested_markets=list(markets),
-                    quota=r.get('quota', {}), source_pin=self._save(r),
+                    error_codes=[] if observations else ['EMPTY_OR_UNSUPPORTED_ODDS_ROWS'],
+                    player_props=props,observations=observations, rejected_markets=rejected, requested_markets=list(markets),
+                    market_coverage=native_market_coverage(r['document'],markets,observations),
+                    requested_regions=list(self.regions),extended_reduced_for_credit_budget=scope_reduced,
+                    quota=props.get('quota',r.get('quota', {})), source_pin=detail_pin,
                     provider_fixture_id=event_id, event_clock_binding=binding,
-                    discovery_source_pin=discovery_pin,forecast_inputs_changed=False)
+                    discovery_source_pin=discovery_pin,forecast_inputs_changed=False,**slate)
 
-    def _basketball(self, snapshot, deadline):
+    def _basketball(self, snapshot, deadline, *, backup_prices=False):
         access = self.access
         coverage_key=(snapshot['league'],snapshot['season'])
         old=self.coverage_blocks.get(coverage_key)
@@ -368,6 +507,25 @@ class ProviderBridge:
         if self.diagnostic_only:
             return dict(status='PREMATCH_FIXTURE_CROSSCHECKED',provider_fixture_id=g['id'],
                         statistics_requests_made=0,source_pin=self._save(r),**season_info)
+        fixture_pin=self._save(r)
+        backup=dict(status='NOT_REQUESTED_PRIMARY_PRICES_PRESENT',rows=[],current_prices_verified=False)
+        if backup_prices:
+            if str(g.get('league',{}).get('season'))!=season:
+                backup=dict(status='BACKUP_FIXTURE_SEASON_NOT_VERIFIED',rows=[],current_prices_verified=False)
+            elif int(self.clock())>=snapshot['fixture_start_utc'] or self.clock()>=deadline:
+                backup=dict(status='BACKUP_PRICE_DEADLINE_REACHED',rows=[],current_prices_verified=False)
+            else:
+                try:
+                    from hybrid_engine.api_basketball_odds import inspect_receipt
+                    pr=access.get('API_BASKETBALL','/odds',dict(game=g['id']),deadline=deadline,ttl=120)
+                    backup=dict(status=pr['status'],rows=[],current_prices_verified=False)
+                    if pr['status']=='DOCUMENT_RECEIVED':
+                        backup=inspect_receipt(r,pr,snapshot,league_id=lid,season=season,game_id=g['id'],now=int(self.clock()))
+                        backup['source_pin']=self._save(pr)
+                    if pr.get('quota'):backup['quota']=pr['quota']
+                    backup['fixture_source_pin']=fixture_pin
+                except (ValueError,KeyError,TypeError,OSError,TimeoutError):
+                    backup=dict(status='BACKUP_PRICE_EVIDENCE_REFUSED',rows=[],current_prices_verified=False)
         stats = []
         # A current season aggregate is an additional observation, not a PIT
         # training row and not proof of measured pace or a confirmed lineup.
@@ -398,12 +556,12 @@ class ProviderBridge:
         else:
             stats.append(dict(status='STATISTICS_SEASON_NOT_VERIFIED'))
         return dict(status='PREMATCH_FIXTURE_CROSSCHECKED', provider_fixture_id=g['id'],
-                    source_pin=self._save(r), observed_at_utc=r['observed_at_utc'],
+                    source_pin=fixture_pin, observed_at_utc=r['observed_at_utc'],backup_prices=backup,
                     # Fixture data cannot certify injuries, lineup or efficiency.
                     injuries_verified=False, lineups_verified=False, pace_verified=False,
                     forecast_inputs_changed=False, statistics=stats,**season_info)
 
-    def collect(self, snapshot):
+    def collect(self, snapshot, *, primary_priority=False):
         now = int(self.clock())
         config = self.access.configuration()
         report = dict(format='ISOLATED_PROVIDER_REVIEW_V1', fixture_id=snapshot['fixture_id'],
@@ -425,13 +583,35 @@ class ProviderBridge:
                 report['providers']={p:dict(status='LOCAL_EVIDENCE_STORAGE_FULL' if
                     state!='KEY_NOT_AVAILABLE_IN_TEST_PROCESS' else state,observations=[]) for p,state in config.items()}
                 return report
-            deadline = self.clock()+12
+            started=self.clock()
+            deadline=started+12
+            # Reserve up to three seconds for the other configured provider.
+            # No promise that a cold three-endpoint backup fits this budget.
+            # Never shorten the primary solely because an unconfigured key exists.
+            primary_deadline=(started+9 if
+                config['API_BASKETBALL']!='KEY_NOT_AVAILABLE_IN_TEST_PROCESS' and not self.diagnostic_only
+                else deadline)
+            # Interactive NBA pricing must not spend its primary time budget
+            # on optional secondary statistics. Keep the legacy collector
+            # contract for all other consumers.
+            if primary_priority:primary_deadline=deadline
             for provider, method in [('THE_ODDS_API', self._odds), ('API_BASKETBALL', self._basketball)]:
                 if config[provider] == 'KEY_NOT_AVAILABLE_IN_TEST_PROCESS':
                     report['providers'][provider] = dict(status=config[provider])
                     continue
                 try:
-                    report['providers'][provider] = method(snapshot, deadline)
+                    if provider=='API_BASKETBALL':
+                        primary=report['providers'].get('THE_ODDS_API',{})
+                        if primary_priority and primary.get('observations'):
+                            report['providers'][provider]=dict(status='PRIMARY_PRICES_PRESENT_SECONDARY_DEFERRED',observations=[])
+                            continue
+                        # A cold backup receives its own bounded request window,
+                        # rather than an unusable remainder of the primary's.
+                        secondary_deadline=self.clock()+12 if primary_priority else deadline
+                        report['providers'][provider]=method(snapshot,secondary_deadline,
+                            backup_prices=not self.diagnostic_only and not primary.get('observations'))
+                    else:
+                        report['providers'][provider] = method(snapshot, primary_deadline)
                 except EvidenceCapacityError:
                     report['providers'][provider] = dict(status='LOCAL_EVIDENCE_STORAGE_FULL',observations=[])
                 except Exception:
@@ -494,8 +674,49 @@ def render(report):
             for candidate in detail['candidates'][:3]:
                 lines.append(html.escape(candidate['home']+' – '+candidate['away']+' | '+candidate['start_utc']+
                                          ' | Saat farkı (sn): '+str(candidate['delta_seconds'])))
+        slate=row.get('slate_identity_audit')
+        if slate:
+            if slate.get('status')=='OBSERVED_SLATE_IDENTITY_AUDIT_ONLY':
+                lines.append('Lig listesi kimlik denetimi: '+str(slate['resolved_label_count'])+'/'+
+                             str(slate['observed_label_count'])+' sağlayıcı etiketi; '+str(len(slate['observed_official_ids']))+
+                             '/'+str(slate['official_participant_count'])+' resmî kulüp gözlendi.')
+                for item in slate['unresolved'][:12]:
+                    lines.append('Eşleşmeyen etiket: '+html.escape(item['label']+' · '+item['reason']))
+                lines.append('Bu maç listesinin kapsamıdır; bütün sezon veya bütün baremler doğrulandı anlamına gelmez.')
+            else:lines.append('Lig listesi kimlik denetimi doğrulanamadı.')
+        if row.get('requested_regions'):
+            lines.append('Sorgu bölgeleri: '+html.escape(', '.join(row['requested_regions'])))
+        if row.get('extended_reduced_for_credit_budget'):
+            lines.append('Kredi koruması: geniş kapsam yerine yalnız temel piyasa sorgulandı.')
+        if provider=='THE_ODDS_API' and row.get('requested_markets'):
+            requested=row['requested_markets']
+            lines.append('Sorgu kapsamı: '+html.escape(', '.join(requested)))
+            if set(requested)==set(CORE_MARKETS):
+                lines.append('Temel sorgu: periyot, yarı ve takım toplamı baremleri bu istekte sorgulanmadı.')
+            observed=sorted({q['period']+'/'+q['market'] for o in row.get('observations',[])
+                             for q in o['payload']['quotes']})
+            lines.append('Kabul edilen piyasa türleri: '+html.escape(', '.join(observed) if observed else 'yok'))
+            if set(requested)!=set(CORE_MARKETS):
+                lines.append('Geniş kapsam: sağlayıcı kapsamı ve yerel gözlem sınırı nedeniyle eksik türler olabilir; '
+                             'sorgulanmış olması fiyat alındığını kanıtlamaz.')
+        coverage=row.get('market_coverage')
+        if coverage:
+            lines.append('Sağlayıcının döndürdüğü türler: '+html.escape(', '.join(coverage['returned']) or 'yok'))
+            lines.append('Sorgulandığı halde dönmeyen türler: '+html.escape(', '.join(coverage['not_returned']) or 'yok'))
+            lines.append('Kabul edilen satır sayıları: '+html.escape(', '.join(
+                k+' '+str(v) for k,v in sorted(coverage['admitted_quote_counts'].items())) or 'yok'))
+        props=row.get('player_props')
+        if props and props['status']!='NOT_REQUESTED':
+            from hybrid_engine.native_player_props import render as render_props
+            lines.append(render_props(props))
+        elif coverage:
+            lines.append('Oyuncu performans baremleri bu adaptörde sorgulanmadı.')
         if row.get('quota'):
             lines.append('Kota (sağlayıcı yanıtı): '+html.escape(str(row['quota'])))
+        backup=row.get('backup_prices')
+        if backup and backup['status']!='NOT_REQUESTED_PRIMARY_PRICES_PRESENT':
+            from hybrid_engine.api_basketball_odds import render as render_backup
+            lines.append(render_backup(backup))
         for stat in row.get('statistics', []):
             side={'home':'ev sahibi','away':'deplasman'}.get(stat.get('side'),'takım')
             lines.append(html.escape('İstatistik '+side+': '+message(stat['status'])))
@@ -505,52 +726,97 @@ def render(report):
     return '\n'.join(lines)
 
 
-def nba_provider_panel(snapshot, service, bridge, *, structured=False):
+def nba_provider_panel(snapshot, service, bridge, *, structured=False, source_report=None, cancel=None):
+    """Keep native retrieval evidence independent of downstream model failures."""
     from hybrid_engine.market_views import replay_nba
-    from hybrid_engine.current_market_review import admit_odds,evaluate,CurrentReviewJournal
+    from hybrid_engine.current_market_review import admit_odds,CurrentReviewJournal
     from hybrid_engine.current_market_render import render_batch
-    from hybrid_engine.market_turkish import message
-    report = bridge.collect(snapshot)
-    parts = [render(report)]
-    direction_cards=[]
-    # Exact source/model context used to evaluate returned direction cards.
-    # Expose only an authenticated current-assessment snapshot, never the old first-model pin.
-    market_candidate_snapshot=None
-    observations = report['providers'].get('THE_ODDS_API', {}).get('observations', [])
+    report=bridge.collect(snapshot) if source_report is None else source_report
+    parts=[render(report)]
+    direction_cards=[];market_candidate_snapshot=None
+    row=report['providers'].get('THE_ODDS_API',{})
+    observations=row.get('observations',[])
+    source_state=row.get('status') or report.get('status','UNKNOWN')
+    review_state='NO_NATIVE_OBSERVATIONS'
     if observations:
-        assessment=bridge.assessments.available_market_context(snapshot) if getattr(bridge,'assessments',None) else None
-        if getattr(bridge,'assessments',None) and assessment is None:
-            parts.append('Güncel değerlendirme yolları hazır/güncel değil; piyasa ilk tahminin dağılımıyla ayrı referans olarak gösteriliyor.')
-        evaluation_snapshot,distribution=assessment if assessment else (snapshot,replay_nba(snapshot,service))
-        if assessment is not None:
-            market_candidate_snapshot=evaluation_snapshot
-        row=report['providers']['THE_ODDS_API']
+        stage='NATIVE_PRICE_ADMISSION'
         try:
             discovery=bridge.read_receipt(row['discovery_source_pin'])
             detail=bridge.read_receipt(row['source_pin'])
             quotes=[admit_odds(o,snapshot,discovery,detail) for o in observations]
-        except (OSError,ValueError,KeyError,TypeError):
-            parts.append(message('NATIVE_PRICE_ADMISSION_FAILED'))
-        else:
-            # The old prediction time is immutable; later quotes use a new
-            # actual decision clock and never enter original forecast metrics.
+            stage='MODEL_DISTRIBUTION'
+            assessment=None
+            if getattr(bridge,'assessments',None):
+                try:assessment=bridge.assessments.available_market_context(snapshot)
+                except Exception:
+                    # The external exception may contain a secret or private path.
+                    parts.append('V3 fiyat bağlamı doğrulanamadı: V3_MARKET_CONTEXT_UNAVAILABLE.')
+                if assessment is None:
+                    parts.append('Güncel değerlendirme yolları hazır/güncel değil; ilk model ayrı referanstır.')
+            evaluation_snapshot,distribution=assessment if assessment else (snapshot,replay_nba(snapshot,service))
+            stage='CONTRACT_EVALUATION'
             decision_utc=int(time.time())
             from hybrid_engine.settlement_rules import evaluate_bound
             reviews=[evaluate_bound(bridge,o,distribution,evaluation_snapshot,asof_utc=decision_utc,native_quotes=q)
                      for o,q in zip(observations,quotes)]
-            try:
-                batch=CurrentReviewJournal(bridge.root.parent/'current-market-reviews').record(
-                    evaluation_snapshot,distribution,reviews,decision_utc=decision_utc)
-            except (OSError,ValueError,KeyError,TypeError):
-                parts.append(message('CURRENT_REVIEW_ARCHIVE_FAILED'))
-            else:
-                parts.append(render_batch(batch))
-                from hybrid_engine.market_direction_ui import cards
-                for review in reviews:
-                    direction_cards.extend(cards(review,distribution.forecast,
-                        tipoff_utc=snapshot['fixture_start_utc'],fixture_id=snapshot['fixture_id'],batch=batch))
+            stage='REVIEW_ARCHIVE'
+            if cancel is not None and cancel.is_set():
+                raise TimeoutError('MARKET_MODEL_REVIEW_CANCELLED')
+            batch=CurrentReviewJournal(bridge.root.parent/'current-market-reviews').record(
+                evaluation_snapshot,distribution,reviews,decision_utc=decision_utc,native_context=snapshot)
+            stage='REVIEW_RENDER'
+            from hybrid_engine.market_direction_ui import cards
+            rendered=render_batch(batch)
+            ready=[]
+            for review in reviews:
+                ready.extend(cards(review,distribution.forecast,
+                    tipoff_utc=snapshot['fixture_start_utc'],fixture_id=snapshot['fixture_id'],batch=batch))
+            parts.append(rendered)
+            direction_cards=ready
+            if assessment is not None:market_candidate_snapshot=evaluation_snapshot
+            review_state='REVIEW_ARCHIVED'
+        except Exception:
+            review_state={'NATIVE_PRICE_ADMISSION':'NATIVE_PRICE_ADMISSION_FAILED',
+                'MODEL_DISTRIBUTION':'MODEL_DISTRIBUTION_UNAVAILABLE',
+                'CONTRACT_EVALUATION':'CONTRACT_EVALUATION_FAILED',
+                'REVIEW_ARCHIVE':'CURRENT_REVIEW_ARCHIVE_FAILED',
+                'REVIEW_RENDER':'CURRENT_REVIEW_RENDER_FAILED'}[stage]
+            parts.append('Piyasa inceleme aşaması: '+review_state+
+                         '. Kaynak raporu korundu; doğrulanmamış yön yayımlanmadı.')
     full='\n\n'.join(parts)
-    source_state=(report.get('providers',{}).get('THE_ODDS_API') or {}).get('status') or report.get('status','UNKNOWN')
     return (dict(html=full,cards=direction_cards,market_candidate_snapshot=market_candidate_snapshot,
-                 market_source_status=source_state,market_native_observations=len(observations))
+                 market_source_status=source_state,market_native_observations=len(observations),
+                 market_review_status=review_state)
             if structured else full)
+
+
+async def nba_provider_review(snapshot,service,bridge):
+    """Two independently bounded stages; never re-fetch a collected source report.
+
+    Source access keeps the shared quota/cache/cooldown. If model computation
+    runs late, the native observation remains visible and no direction is
+    returned. Python cannot forcibly cancel an already-running worker thread.
+    """
+    import asyncio
+    from hybrid_engine.isolated_execution import optional_source_thread
+    report=await asyncio.wait_for(
+        optional_source_thread(bridge.collect,snapshot,primary_priority=True),timeout=28)
+    row=report.get('providers',{}).get('THE_ODDS_API',{})
+    observations=row.get('observations',[])
+    if not observations:
+        return dict(html=render(report),cards=[],market_candidate_snapshot=None,
+                    market_source_status=row.get('status') or report.get('status','UNKNOWN'),
+                    market_native_observations=0,market_review_status='NO_NATIVE_OBSERVATIONS')
+    cancel=threading.Event()
+    try:
+        return await asyncio.wait_for(optional_source_thread(nba_provider_panel,snapshot,service,bridge,
+            structured=True,source_report=report,cancel=cancel),timeout=20)
+    except (asyncio.TimeoutError,TimeoutError):
+        cancel.set()
+        return dict(html=render(report)+'\n\nPiyasa dağılımı süre sınırına ulaştı; kaynak gözlemi korundu.',
+                    cards=[],market_candidate_snapshot=None,
+                    market_source_status=row.get('status') or report.get('status','UNKNOWN'),
+                    market_native_observations=len(observations),market_review_status='MARKET_MODEL_REVIEW_TIMEOUT')
+    except asyncio.CancelledError:
+        cancel.set()
+        raise

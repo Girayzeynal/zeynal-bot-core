@@ -209,12 +209,37 @@ class CurrentReviewTests(unittest.TestCase):
             with self.assertRaises(OSError):self.batch()
         self.assertFalse(list((self.root/'decisions').glob('review-*.json')))
 
-    def test_journal_storage_budget_refuses_without_deleting_old_records(self):
+    def test_journal_rolls_over_full_legacy_without_deleting_old_records(self):
+        from hybrid_engine.current_market_review import fixture_journal_directory
         directory=self.root/'decisions';directory.mkdir()
         for i in range(256):(directory/f'review-{i:064x}.json').write_text('{}')
+        before={p:p.read_bytes() for p in directory.glob('review-*.json')}
+        first=self.batch()
+        segment=fixture_journal_directory(directory,self.snap['league'],self.snap['fixture_id'])
+        self.assertEqual(len(list(segment.glob('review-*.json'))),1)
+        self.assertEqual(before,{p:p.read_bytes() for p in directory.glob('review-*.json')})
+        self.assertEqual(first,self.batch())
+
+    def test_full_fixture_segment_refuses_without_deleting(self):
+        from hybrid_engine.current_market_review import fixture_journal_directory
+        segment=fixture_journal_directory(self.root/'decisions',self.snap['league'],self.snap['fixture_id'])
+        segment.mkdir(parents=True)
+        for i in range(256):(segment/f'review-{i:064x}.json').write_text('{}')
         with self.assertRaisesRegex(ValueError,'STORAGE_BUDGET'):self.batch()
-        self.assertEqual(len(list(directory.iterdir())),256)
-        self.assertTrue(all(p.read_text()=='{}' for p in directory.iterdir()))
+        self.assertEqual(len(list(segment.glob('review-*.json'))),256)
+
+    def test_invalid_optional_rule_manifest_preserves_raw_native_review(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from hybrid_engine.settlement_rules import evaluate_bound
+        bridge=SimpleNamespace(rule_book=SimpleNamespace(rules=Mock(side_effect=ValueError('RULE_PIN'))))
+        r=evaluate_bound(bridge,self.obs,self.dist,self.snap,asof_utc=NOW,native_quotes=self.quotes)
+        q=r['rows'][0]
+        self.assertIn('CONFIGURED_SETTLEMENT_RULES_INVALID',q['reasons'])
+        self.assertAlmostEqual(sum(q['conditional_regulation_probabilities'].values()),1.)
+        self.assertIsNone(q['expected_value'])
+        self.assertIsNone(q['confidence_index'])
+        self.assertFalse(r['selection_enabled'])
 
     def test_journal_does_not_write_sqlite_or_other_existing_files(self):
         existing=self.root/'research.sqlite';existing.write_bytes(b'SYNTHETIC_SENTINEL_NOT_A_DATABASE')
@@ -265,6 +290,220 @@ class CurrentReviewTests(unittest.TestCase):
         report=b.collect(self.snap);before=digest(report);text=provider_render(report)
         self.assertIn('The Odds API: Gerçek fiyatlar alındı',text);self.assertEqual(before,digest(report))
         self.assertEqual(report['providers']['THE_ODDS_API']['status'],'OBSERVED_RULES_AND_CALIBRATION_PENDING')
+
+    def test_prematch_market_direction_exact_capture_and_verified_rule(self):
+        from hybrid_engine.market_direction_results import audit_batch
+        from types import SimpleNamespace
+        rule=self.rule();rules=self.with_rule(rule)
+        bridge=ProviderBridge(ProviderAccess({}),self.root/'receipts',
+                              rule_book=SimpleNamespace(rules=lambda at:rules))
+        bridge._save(self.catalog);bridge._save(self.detail)
+        r=self.review(rules=rules)
+        directory=self.root/'decisions'
+        w=CurrentReviewJournal(directory).record(self.snap,self.dist,[r],decision_utc=NOW,native_context=self.snap)
+        path=directory/('review-'+w['manifest_sha256']+'.json')
+        start=self.snap['fixture_start_utc']
+        label=dict(league=self.snap['league'],season=self.snap['season'],fixture_id=self.snap['fixture_id'],
+            fixture_start_utc=start,snapshot_sha256=digest(self.snap),intervals=self.snap['intervals'],
+            prediction_generated_at_utc=self.snap['prediction_generated_at_utc'],
+            first_archived_at_utc=self.snap['prediction_generated_at_utc']+1,
+            model_digest=self.snap['model_digest'],
+            label_available_utc=start+3600,actual=[120,100],final_with_ot=[120,100],
+            actual_periods=dict(home=[30]*4,away=[25]*4))
+        with patch('time.time',return_value=start+4000):
+            rows,excluded=audit_batch(path,bridge,[label])
+            self.assertEqual(len(rows),1)
+            self.assertEqual(rows[0]['group'][4],'TOTAL')
+            self.assertFalse(rows[0]['group'][5])
+            # Replaying at actual postgame time does not weaken live admission.
+            with self.assertRaises(ValueError):
+                admit_odds(self.obs,self.snap,self.catalog,self.detail)
+            bridge.rule_book=SimpleNamespace(rules=lambda at:{})
+            rows,excluded=audit_batch(path,bridge,[label])
+            self.assertEqual(rows,[]);self.assertEqual(excluded['SETTLEMENT_RULE_UNVERIFIED'],1)
+            bridge.rule_book=SimpleNamespace(rules=lambda at:self.with_rule(self.rule(overtime=True)))
+            rows,excluded=audit_batch(path,bridge,[label])
+            self.assertEqual(rows,[]);self.assertEqual(excluded['SETTLEMENT_RULE_SCOPE_OR_PIN_MISMATCH'],1)
+            with self.assertRaisesRegex(ValueError,'FINAL_OR_ORIGINAL_MISSING'):
+                audit_batch(path,bridge,[])
+        # No postgame recovery of the original publication witness.
+        witness=directory/('market-commit-'+w['manifest_sha256']+'.json')
+        witness.unlink()
+        self.assertEqual(CurrentReviewJournal(directory).record(self.snap,self.dist,[r],
+            decision_utc=NOW,native_context=self.snap),w)
+        self.assertFalse(witness.exists())
+        with patch('time.time',return_value=start+4000),self.assertRaisesRegex(ValueError,'DURABLE_COMMIT_MISSING'):
+            audit_batch(path,bridge,[label])
+
+    def test_market_decision_commit_at_five_minute_boundary_is_not_eligible(self):
+        r=self.review();directory=self.root/'decisions'
+        # The writer must classify using the clock after the durable write.
+        cutoff=self.snap['fixture_start_utc']-300
+        from hybrid_engine.boxes import publish_json as original_publish
+        clock=[NOW]
+        def publish(path,value):
+            original_publish(path,value)
+            if path.name.startswith('review-'):clock[0]=cutoff
+        with patch('time.time',side_effect=lambda:clock[0]),patch('hybrid_engine.current_market_review.publish_json',side_effect=publish):
+            w=CurrentReviewJournal(directory).record(self.snap,self.dist,[r],decision_utc=NOW,native_context=self.snap)
+        p=json.loads((directory/('market-commit-'+w['manifest_sha256']+'.json')).read_text())['payload']
+        self.assertFalse(p['eligible'])
+        self.assertEqual(p['completed_at_utc'],cutoff)
+
+    def test_direction_report_regulation_push_and_overtime_are_separate(self):
+        from hybrid_engine.market_direction_results import audit_batch
+        from hybrid_engine.decision_layer import DecisionDistribution
+        from types import SimpleNamespace
+        detail=deepcopy(self.detail)
+        detail['source_url']=detail['source_url'].replace('markets=totals','markets=h2h')
+        market=detail['document']['bookmakers'][0]['markets'][0]
+        market['key']='h2h'
+        market['outcomes']=[dict(name=self.snap['home']['official_name'],price=1.8),
+                            dict(name=self.snap['away']['official_name'],price=2.05)]
+        detail['document_sha256']=digest(detail['document'])
+        self.obs=odds_observations(detail,self.snap,discovery=self.catalog)[0][0]
+        self.quotes=admit_odds(self.obs,self.snap,self.catalog,detail)
+        bridge=ProviderBridge(ProviderAccess({}),self.root/'receipts',
+                              rule_book=SimpleNamespace(rules=lambda at:{}))
+        bridge._save(self.catalog);bridge._save(detail)
+        start=self.snap['fixture_start_utc']
+        result=dict(league=self.snap['league'],season=self.snap['season'],fixture_id=self.snap['fixture_id'],
+            fixture_start_utc=start,snapshot_sha256=digest(self.snap),intervals=self.snap['intervals'],
+            model_digest=self.snap['model_digest'],
+            prediction_generated_at_utc=self.snap['prediction_generated_at_utc'],
+            first_archived_at_utc=self.snap['prediction_generated_at_utc']+1,
+            label_available_utc=start+3600,actual=[100,100],final_with_ot=[110,105],
+            actual_periods=dict(home=[25]*4+[10],away=[25]*4+[5]))
+        for include_ot in (False,True):
+            rule=self.rule(overtime=include_ot);rules=self.with_rule(rule)
+            distribution=self.dist
+            if include_ot:
+                reg=self.dist.paths.sum(axis=1)
+                ot=np.zeros((len(reg),2),dtype=np.int64)
+                ot[reg[:,0]==reg[:,1],0]=1
+                distribution=DecisionDistribution(self.dist.forecast,self.dist.trace,overtime_paths=ot)
+            review=evaluate(self.obs,distribution,asof_utc=NOW,native_quotes=self.quotes,rules=rules)
+            directory=self.root/('ot' if include_ot else 'reg')
+            w=CurrentReviewJournal(directory).record(self.snap,distribution,[review],
+                decision_utc=NOW,native_context=self.snap)
+            path=directory/('review-'+w['manifest_sha256']+'.json')
+            bridge.rule_book=SimpleNamespace(rules=lambda at:rules)
+            with patch('time.time',return_value=start+4000):
+                rows,_=audit_batch(path,bridge,[result])
+            self.assertEqual(len(rows),1)
+            self.assertEqual(rows[0]['group'][4],'WINNER')
+            self.assertEqual(rows[0]['group'][5],include_ot)
+            self.assertEqual(rows[0]['outcome'],('WIN' if rows[0]['direction']=='over' else 'LOSS') if include_ot else 'PUSH')
+
+    def test_market_report_refuses_rehashed_quote_or_contract_probability_mutation(self):
+        from hybrid_engine.market_direction_results import audit_batch
+        from types import SimpleNamespace
+        rule=self.rule();rules=self.with_rule(rule)
+        bridge=ProviderBridge(ProviderAccess({}),self.root/'receipts',
+                              rule_book=SimpleNamespace(rules=lambda at:rules))
+        bridge._save(self.catalog);bridge._save(self.detail)
+        r=self.review(rules=rules)
+        directory=self.root/'decisions'
+        w=CurrentReviewJournal(directory).record(self.snap,self.dist,[r],decision_utc=NOW,native_context=self.snap)
+        start=self.snap['fixture_start_utc']
+        label=dict(league=self.snap['league'],season=self.snap['season'],fixture_id=self.snap['fixture_id'],
+            fixture_start_utc=start,snapshot_sha256=digest(self.snap),intervals=self.snap['intervals'],
+            model_digest=self.snap['model_digest'],
+            prediction_generated_at_utc=self.snap['prediction_generated_at_utc'],
+            first_archived_at_utc=self.snap['prediction_generated_at_utc']+1,
+            label_available_utc=start+3600,actual=[120,100],final_with_ot=[120,100],
+            actual_periods=dict(home=[30]*4,away=[25]*4))
+        # Rehash every wrapper, including the commit witness: a self-consistent
+        # local hash alone is not proof of native quote membership or sample math.
+        for field,change,reason in (
+            ('prices',dict(under=1.01,over=3.0),'PRICE_CAPTURE_QUOTE_MISMATCH'),
+            ('raw_contract_probabilities',dict(under=1.,push=0.,over=0.),'CONTRACT_PROBABILITY_REPLAY_MISMATCH')):
+            p=deepcopy(w['payload']);p['reviews'][0]['rows'][0][field]=change
+            key=digest({k:v for k,v in p.items() if k not in
+                ('recorded_at_utc','record_class','eligible_for_current_prematch_metrics')})
+            forged=dict(payload=p,sha256=digest(p),manifest_sha256=key)
+            path=directory/('review-'+key+'.json');path.write_text(json.dumps(forged))
+            proof=dict(format='CURRENT_MARKET_DURABLE_COMMIT_V1',batch_sha256=forged['sha256'],
+                       manifest_sha256=key,completed_at_utc=NOW,eligible=True)
+            (directory/('market-commit-'+key+'.json')).write_text(json.dumps(dict(payload=proof,sha256=digest(proof))))
+            with patch('time.time',return_value=start+4000):
+                rows,excluded=audit_batch(path,bridge,[label])
+            self.assertEqual(rows,[])
+            self.assertEqual(excluded[reason],1)
+
+    def test_market_pending_final_never_counts_as_settled(self):
+        from hybrid_engine.market_direction_results import audit,render
+        from types import SimpleNamespace
+        rules=self.with_rule(self.rule())
+        bridge=ProviderBridge(ProviderAccess({}),self.root/'receipts',
+                              rule_book=SimpleNamespace(rules=lambda at:rules))
+        bridge._save(self.catalog);bridge._save(self.detail)
+        directory=self.root/'current-market-reviews'
+        CurrentReviewJournal(directory).record(self.snap,self.dist,[self.review(rules=rules)],
+                                               decision_utc=NOW,native_context=self.snap)
+        label=dict(league=self.snap['league'],season=self.snap['season'],fixture_id=self.snap['fixture_id'],
+            fixture_start_utc=self.snap['fixture_start_utc'],snapshot_sha256=digest(self.snap),
+            intervals=self.snap['intervals'],model_digest=self.snap['model_digest'],
+            prediction_generated_at_utc=self.snap['prediction_generated_at_utc'],
+            first_archived_at_utc=self.snap['prediction_generated_at_utc']+1,actual=None)
+        reports={self.snap['league']:dict(status='VERIFIED_LIVE_REPORT',forecasts=[label])}
+        pending=audit(self.root,reports,bridge=bridge)
+        self.assertEqual(pending['native_context_batches'],1)
+        self.assertEqual(pending['pending_final_fixtures'],1)
+        self.assertEqual(pending['pending_final_directions'],1)
+        self.assertEqual(pending['independent_fixtures'],0)
+        self.assertEqual(pending['groups'],[])
+        self.assertIn('FINAL bekleyen maç: 1',render(self.root,reports,bridge=bridge))
+        bridge.rule_book=SimpleNamespace(rules=lambda at:{})
+        blocked=audit(self.root,reports,bridge=bridge)
+        self.assertEqual(blocked['pending_final_fixtures'],0)
+        self.assertEqual(blocked['excluded']['SETTLEMENT_RULE_UNVERIFIED'],1)
+        self.assertEqual(blocked['independent_fixtures'],0)
+        scope=blocked['contract_coverage'][0]
+        self.assertEqual(scope['scope'],[self.snap['league'],self.snap['season'],
+            self.quotes[0].payload['bookmaker_id'],'FULL','TOTAL'])
+        self.assertEqual(scope['fixture_counts'],{'SETTLEMENT_RULE_UNVERIFIED':1})
+        self.assertEqual(pending['contract_coverage'][0]['fixture_counts'],{'CONTRACT_REPLAY_VERIFIED':1})
+        # A broken rule manifest cannot hide the independently replayed quote scope.
+        def invalid(at):raise ValueError('RULE_MANIFEST_TRUSTED_PIN')
+        bridge.rule_book=SimpleNamespace(rules=invalid)
+        bad=audit(self.root,reports,bridge=bridge)
+        self.assertEqual(bad['excluded']['CONFIGURED_SETTLEMENT_RULES_INVALID'],1)
+        self.assertEqual(bad['contract_coverage'][0]['fixture_counts'],{'CONFIGURED_SETTLEMENT_RULES_INVALID':1})
+        self.assertEqual(bad['groups'],[])
+        bridge.rule_book=SimpleNamespace(rules=lambda at:rules)
+        start=label['fixture_start_utc']
+        label.update(label_available_utc=start+3600,actual=[120,100],final_with_ot=[120,100],
+                     actual_periods=dict(home=[30]*4,away=[25]*4))
+        with patch('time.time',return_value=start+4000):
+            final=audit(self.root,reports,bridge=bridge)
+        self.assertEqual(final['pending_final_fixtures'],0)
+        self.assertEqual(final['independent_fixtures'],1)
+        self.assertEqual(final['groups'][0]['group'][7],self.snap['model_digest'])
+        self.assertEqual(final['groups'][0]['group'][8],next(iter(rules.values())).sha256)
+
+    def test_overtime_rule_without_paths_has_specific_blocker_and_no_outcome(self):
+        from hybrid_engine.market_direction_results import audit_batch
+        from types import SimpleNamespace
+        rules=self.with_rule(self.rule(overtime=True))
+        bridge=ProviderBridge(ProviderAccess({}),self.root/'receipts',
+                              rule_book=SimpleNamespace(rules=lambda at:rules))
+        bridge._save(self.catalog);bridge._save(self.detail)
+        directory=self.root/'decisions'
+        w=CurrentReviewJournal(directory).record(self.snap,self.dist,[self.review(rules=rules)],
+                                                decision_utc=NOW,native_context=self.snap)
+        label=dict(league=self.snap['league'],season=self.snap['season'],fixture_id=self.snap['fixture_id'],
+            fixture_start_utc=self.snap['fixture_start_utc'],snapshot_sha256=digest(self.snap),
+            intervals=self.snap['intervals'],model_digest=self.snap['model_digest'],
+            prediction_generated_at_utc=self.snap['prediction_generated_at_utc'],
+            first_archived_at_utc=self.snap['prediction_generated_at_utc']+1,actual=None)
+        coverage=set()
+        rows,excluded=audit_batch(directory/('review-'+w['manifest_sha256']+'.json'),bridge,[label],
+                                   allow_pending=True,coverage=coverage)
+        self.assertEqual(rows,[])
+        self.assertEqual(excluded['NO_VERIFIED_OVERTIME_SIMULATION_PATHS'],1)
+        self.assertEqual(len(coverage),1)
+        self.assertEqual(next(iter(coverage))[2],'NO_VERIFIED_OVERTIME_SIMULATION_PATHS')
 
 
 if __name__=='__main__':unittest.main()

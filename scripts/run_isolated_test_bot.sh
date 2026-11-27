@@ -12,6 +12,23 @@ if [[ ! -x "${test_python}" ]]; then echo "ISOLATED_PYTHON_NOT_FOUND" >&2; exit 
 if [[ "${1:-}" == "--provider-check" ]]; then
   exec "${test_python}" -m hybrid_engine.provider_access --check
 fi
+# Read-only history of locally captured prices; never claims opening/closing lines.
+if [[ "${1:-}" == "--market-history" ]]; then
+  if [[ "$#" -ne 3 ]]; then echo "USAGE: --market-history LEAGUE FIXTURE_ID" >&2; exit 2; fi
+  exec "${test_python}" -B -m hybrid_engine.native_market_history \
+    --data-directory "${HOME}/zeynal-test-isolated/data" --league "$2" --fixture-id "$3"
+fi
+# Explicit source inventory, no secrets or network by default.
+if [[ "${1:-}" == "--source-inventory" ]]; then
+  if [[ "$#" -ne 1 ]]; then echo "INVALID_SOURCE_INVENTORY_ARGS" >&2; exit 2; fi
+  exec "${test_python}" -B -m hybrid_engine.source_inventory
+fi
+# Explicit robots-gated club entry audit, never player status or model input.
+if [[ "${1:-}" == "--club-source-check" ]]; then
+  shift
+  if [[ "$#" -gt 1 || ( "$#" -eq 1 && "$1" != "--problems-only" ) ]]; then echo "INVALID_CLUB_SOURCE_CHECK_ARGS" >&2; exit 2; fi
+  exec "${test_python}" -B -m hybrid_engine.official_all_82_club_batch --live --summary "$@"
+fi
 # Offline PDF replay is read-only and can run WHILE the isolated bot polls.
 # Never refreshes expired medical evidence, never updates git or predictions.
 # Explicit synthetic offline PLAYER_BAYES smoke. Never starts Telegram,
@@ -45,11 +62,24 @@ if [[ "${1:-}" == "--settle-results" || "${1:-}" == "--results-review" ]]; then
   if [[ "$1" == "--settle-results" ]]; then result_args=(--apply); fi
   exec "${test_python}" -B -m scripts.settle_all_leagues --data-directory "${HOME}/zeynal-test-isolated/data" "${result_args[@]}"
 fi
-if [[ "${1:-}" == "--verification-review" ]]; then
+if [[ "${1:-}" == "--model-audit" || "${1:-}" == "--model-audit-json" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
-  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+  model_audit_args=()
+  if [[ "$1" == "--model-audit-json" ]]; then model_audit_args=(--json); fi
+  exec "${test_python}" -B -m hybrid_engine.paired_archive_audit \
+    --data-directory "${HOME}/zeynal-test-isolated/data" "${model_audit_args[@]}"
+fi
+if [[ "${1:-}" == "--verification-review" ]]; then
+  if [[ "$#" -gt 2 || ( "$#" -eq 2 && ! "${2:-}" =~ ^[0-9a-f]{40}$ ) ]]; then
+    echo "INVALID_LAUNCHER_ARGUMENTS: --verification-review [FULL_RELEASE_SHA]" >&2
+    exit 2
+  fi
+  export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+  verification_args=()
+  if [[ "$#" -eq 2 ]]; then verification_args=(--release-sha "$2"); fi
   exec "${test_python}" -B -m hybrid_engine.device_verification \
-    --data-directory "${HOME}/zeynal-test-isolated/data"
+    --data-directory "${HOME}/zeynal-test-isolated/data" "${verification_args[@]}"
 fi
 if [[ "${1:-}" == "--pipeline-audit" ]]; then
   if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi
@@ -122,7 +152,7 @@ if ! flock -n 9; then
 fi
 branch="$(git branch --show-current)"
 case "$branch" in
-  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118|feature/europe-alias-replay-ui-20261118|feature/model-data-pipeline-audit-20261118|feature/issue90-chronological-engine-audit-20261118|feature/integrated-test-bot-20261119|feature/three-league-roster-integration-20261121|fix/telegram-current-panels-20261122|fix/v3-before-slow-v2-20261124|feat/first-forecast-walkforward-20261124|integration/nba-v3-calibration-20261124) ;;
+  feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118|feature/europe-alias-replay-ui-20261118|feature/model-data-pipeline-audit-20261118|feature/issue90-chronological-engine-audit-20261118|feature/integrated-test-bot-20261119|feature/three-league-roster-integration-20261121|fix/telegram-current-panels-20261122|fix/v3-before-slow-v2-20261124|feat/first-forecast-walkforward-20261124|integration/nba-v3-calibration-20261124|feat/first-forecast-paired-diagnostics-20261124|feat/first-forecast-period-errors-20261124|integration/nba-three-axis-release-candidate-20261124) ;;
   *) echo "WRONG_BRANCH: checkout an isolated test branch first" >&2; exit 2 ;;
 esac
 launcher_path="${PWD}/scripts/run_isolated_test_bot.sh"
@@ -144,7 +174,7 @@ fi
 case "${1:-}" in
   "")
     if [[ "$#" -ne 0 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
-  --player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup|--challenger-review|--challenger-summary|--challenger-plan|--challenger-capture|--challenger-results|--prepare-europe)
+  --staging|--player-inputs-plan|--player-inputs-all|--player-shadow-review|--player-shadow-results|--roster-setup|--challenger-review|--challenger-summary|--challenger-plan|--challenger-capture|--challenger-results|--prepare-europe)
     if [[ "$#" -ne 1 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
   --europe-data-check)
     if [[ "$#" -ne 3 ]]; then echo "INVALID_LAUNCHER_ARGUMENTS" >&2; exit 2; fi ;;
@@ -253,10 +283,15 @@ export ZEYNAL_RELEASE_SHA="$(git rev-parse --verify HEAD)"
 # Bounded public-source index probes, each behind robots.txt; override with 0.
 export ZEYNAL_PUBLIC_EURO_NEWS_ENABLED="${ZEYNAL_PUBLIC_EURO_NEWS_ENABLED:-1}"
 export PYTHONPATH="$PWD"
-exec "${test_python}" -m hybrid_engine.test_bot \
+candidate_args=(
   --archive-directory "${HOME}/zeynal-test-isolated/archive" \
   --data-directory "${HOME}/zeynal-test-isolated/data" \
   --nba-model "${model}" \
   --nba-model-sha ae4e578f441770883247e648314c1a7a29c86caa76ab4aa6af006fda4b10254e \
   --europe-directory "${HOME}/zeynal-test-isolated/data/europe" \
   --result-poll-seconds 300
+)
+if [[ "${1:-}" == "--staging" ]]; then
+  exec "${test_python}" -B main.py --staging "${candidate_args[@]}"
+fi
+exec "${test_python}" -m hybrid_engine.test_bot "${candidate_args[@]}"

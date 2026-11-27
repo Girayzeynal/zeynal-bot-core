@@ -49,3 +49,30 @@ class ResearchDiagnosticsTests(TestCase):
         self.assertNotIn('private.invalid',observed.render())
         self.assertIn('UNCLASSIFIED_RESEARCH_BLOCK',observed.render())
         self.assertNotIn('ARCHIVED',observed.render())
+
+
+def test_score_attempt_precedes_shadow_threshold_and_label_errors(tmp_path,monkeypatch):
+    from hybrid_engine.data import Abstain
+    from hybrid_engine.issue90_research import Research
+    import sqlite3
+    stage=[]
+    case=dict(code='NBA',target=dict(fixture_id='game',fixture_start_utc=10000000000,season='2026/2027'),
+              snapshot=dict(model_digest='a'*64))
+    worker=SimpleNamespace(cases=lambda:[case], labels=Mock(side_effect=sqlite3.OperationalError()),
+                           nba=SimpleNamespace(ledger=SimpleNamespace(path=tmp_path/'nba'),assets=tmp_path))
+    study=Research(tmp_path/'v3',worker)
+    monkeypatch.setattr(study,'plan',lambda:{'sha256':'b'*64})
+    monkeypatch.setattr(study,'admit',lambda *args:None)
+    monkeypatch.setattr(study,'fit',lambda season:({},True))
+    monkeypatch.setattr(study,'capture',lambda *args:(stage.append('score') or {'sample':1},True))
+    def audit(*args,**kwargs):
+        stage.append('shadow')
+        return {}
+    monkeypatch.setattr('hybrid_engine.issue90_research.audit_ledger',audit)
+    monkeypatch.setattr('hybrid_engine.issue90_research.shadow_learning.fit',
+                        Mock(side_effect=Abstain('SHADOW_HUNDRED_NATIVE_SETTLED_ORIGINALS_REQUIRED')))
+    report=study.tick()
+    assert stage==['score','shadow']
+    assert report['captures'][0]['status']=='ARCHIVED'
+    assert report['shadow_captures'][0]['reason']=='SHADOW_HUNDRED_NATIVE_SETTLED_ORIGINALS_REQUIRED'
+    assert report['performance_issue']=='SQLITE_OTHER'

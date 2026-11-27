@@ -1,0 +1,51 @@
+# Market direction settlement audit — 27 November 2026
+Base 75951ce. The previous Cloud session's uncommitted market_direction_results module was not in the GitHub tree. This implementation starts from the verified remote head. New native current-market batches preserve exact native and evaluation contexts and get a commit receipt after durable publication. Read-only /accuracy all section replays the native event and quote at the recorded decision time (context-local clock), requires the actual configured rule pin, matching original/candidate sample identity and verified final. At or after T-300 is excluded. Only FULL WINNER and TOTAL measured separately; regulation vs OT, push vs win/loss, exact line/book/model strategy cohorts kept distinct; no selection, pooled hit rate, or calibration claim. Missing old context/witness is not reconstructed. The configured rule manifest remains mandatory. No actual sportsbook rule receipt, authorized device, Telegram token, or native local archive was accessed in this change. CI and device acceptance required; no main merge/deploy.
+
+## Follow-up: independent sample and clock checks
+When a contract mass was produced, the new batch also stores a bounded lossless copy of its exact regulation paths and, if present, coherent OT paths. The regulation sample hash is checked against the archived model's sample pin. The audit recomputes contract probabilities from the stored paths before measuring direction; it does not run a fresh forecast. The OT path test is synthetic, not evidence that a real OT model is active. The first model's archive receipt may naturally be later than generation; it must still precede the review, while a candidate must follow the original archive and have its own verified commit before the review. The delivery receipt includes the optional market section. No rule was guessed or configured.
+
+## Staging acceptance follow-up
+User-provided Telegram output from 21707ac confirms /accuracy all delivered, with 77 legacy batches excluded and zero eligible settled directions. Rule registry remains unconfigured. This follow-up distinguishes archived native contexts, verified pending-final directions and settled outcomes; pending rows cannot enter win/loss/push metrics. Exact model digest and rule pin separate reported cohorts while earliest admissible decision per fixture and strategy is retained. Synthetic test exercises pending, missing rule and final transitions. No rule configured or old record backfilled; real market settlement remains blocked.
+
+## Overtime native archive acceptance
+The previous regression runs #2169/#2170 and offline source contract #402 passed; live Europe source audit skipped. The new /test overtime NBA 2026 (also EUROLEAGUE, EUROCUP) diagnostic replays stored native catalogue receipts only, keeps the earliest verified availability for identical finals and excludes conflicting finals. It reports real conditional OT research fit and walk-forward metrics without granting live market admission or changing existing model namespaces. No bookmaker rule receipts configured. Source rules reference only: https://www.iddaa.com/yardim/basketbol/detay/mac-sonucu-283 and https://www.iddaa.com/yardim/basketbol/detay/toplam-sayi-a-u-284 describe OT inclusion for their own markets; they do not attest third-party provider quote identity or all payment cases.
+
+## Contract coverage diagnostics
+The new audit lists exact league/season/bookmaker/period/market scopes only after replay of native quote identity. Counts are distinct fixture/reason, not price count or success. Missing and invalid configured rule receipts, missing OT paths, and successful contract replay are separate. Legacy evidence remains excluded and no rule or simulation was activated. Public house-rule text alone does not prove the jurisdiction/contract of the supplied price.
+
+## Real staging evidence and NBA scheduler recovery
+User-provided d8cec59 staging logs on 27 Nov 2026: NBA OT archive 239 games, 14 OT, only 2 chronological pairs; team MAE 3.9792, Brier .6302 vs fair .5. EuroLeague 136 games, 9 OT, 2 pairs; team MAE 3.25, Brier .5102 vs fair .5. EuroCup OT response not provided. Both fitted research baselines remain unpromoted. Market report: 0 new contexts, 77 legacy, no rule registry. NBA overnight loop logged OperationalError; exact SQLite cause unknown. Scheduler now isolates discovery/original archive read, fixture, optional research capture/progress and journal failures, reports sanitized stage/error codes, retries failed captures/progress and discovery after 300 seconds and preserves first forecasts. No pinned research modules or archives modified. Synthetic regression tests cover failure/recovery; actual device test still required.
+
+## CI privacy regression correction
+CI #2178 on 0df1dcf: both Python and Docker 2326 passed, 1 failed. Existing capture-failure test rejected disclosure of an uppercase synthetic private detail. The new scheduler's generic error-code helper no longer passes through exception text or SQLite error names, only fixed category codes mapped from native numeric result codes. The original privacy assertion is retained and strengthened to cover logging; tests cover uppercase private strings, timeouts, and numeric SQLite categories. No data or pinned research code changed.
+
+## Staging result-health reader alignment
+User-reported ec74564: native Telegram accuracy receipt verified, NBA automatic control CHECKED, registered protocol 60 settled / 11 pending. /test nba then showed ARCHIVE_NOT_VERIFIED despite earlier /accuracy all reading 83 eligible NBA finals. Code inspection found result-health still used old LedgerReports with its validation-time query deadline; runtime accuracy uses RuntimeLedgerReports. Exact device exception was not exposed, so causality is not asserted. Result-health now uses the same verified runtime reader with summarize=False and fixed safe error classes. Tests exercise slow validation, redacted SQLite and validation failures. Provider catalog/account HTTP 200 observed, not a price or contract receipt. No forecasts, archives, quota settings or rule manifests changed.
+
+## Interactive NBA provider deadline isolation (27 Nov)
+The real Knicks–Heat report showed PROVIDER_REVIEW_UNAVAILABLE. Exact
+exception not recorded. Inspection established a concrete design flaw:
+a 12s source budget and the model computation shared a 14s outer deadline,
+and a cold secondary provider had only a 3s reserve. Interactive NBA now
+uses a primary-first source budget, defers redundant secondary work when
+primary prices exist, gives a failed-primary backup a separate bounded
+window, and separates source and model await deadlines. The same source
+report is passed to the computation without refetch. If computation times
+out, native evidence remains visible and no direction is returned; a
+cancellation flag prevents a not-yet-started journal write. In-flight
+threads cannot be forcibly stopped, and existing durable deadline proof
+still governs archival eligibility. Existing API quotas, source checks,
+scientific pins, initial forecasts and settlement rules are unchanged.
+Tests cover priority, independent backup budget and source preservation
+under simulated timeout. Real provider access is not established by CI.
+
+## Regression #2188: truthful deferred-provider rendering
+Both unit and Docker regression jobs failed the same Telegram assertion at
+`tests/test_provider_bridge.py:537`; Docker image build itself succeeded.
+The primary-first policy intentionally deferred the secondary call, but its
+new status had no shared Turkish renderer mapping and the integration test
+still expected a successful second-source cross-check. Map the exact deferred
+status and assert both truthful output and zero secondary HTTP calls in this
+path. Preserve the existing non-priority cross-check and backup budget tests.
+No score, forecast archive, quota, or settlement logic was changed. New CI and
+native staging delivery remain to be verified.
