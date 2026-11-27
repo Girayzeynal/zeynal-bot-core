@@ -29,9 +29,10 @@ class RotationCycleTests(TestCase):
         rows=[self.row(1),self.row(2)];capture=Mock(side_effect=[ValueError('SOURCE_BLOCK'), 'b'*64])
         with TemporaryDirectory() as tmp:
             ledger=Path(tmp)/'ledger';ledger.touch()
-            cycle=RotationCycle(tmp,ledger,None,capture=capture,clock=lambda:1000)
+            clock=[1000]
+            cycle=RotationCycle(tmp,ledger,None,capture=capture,clock=lambda:clock[0])
             with patch('ledger_reports.LedgerReports.read',return_value=dict(status='VERIFIED_LIVE_REPORT',forecasts=rows)),patch('hybrid_engine.rotation_report.records',return_value=([],{},0)):
                 r=cycle.tick();self.assertEqual(r['retry_at_utc'],1300)
+                clock[0]=1300
                 self.assertEqual(cycle.tick()['fixture_id'],'2')
-                self.assertEqual(cycle.tick()['status'],'IDLE')
                 self.assertEqual(capture.call_count,2)

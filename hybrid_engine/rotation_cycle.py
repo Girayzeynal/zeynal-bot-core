@@ -29,7 +29,7 @@ def publish(folder,prefix,payload,tip):
     publish_json(folder/(prefix+pin+'.json'),dict(payload=payload,sha256=pin))
     return pin
 
-def capture_one(root,ledger,row,rows,transport):
+def capture_one(root,ledger,row,rows,transport,*,source_cutoff):
     from hybrid_engine import rotation_efficiency as factor
     from hybrid_engine import rotation_periods as period
     from hybrid_engine import rotation_joint as joint
@@ -45,7 +45,7 @@ def capture_one(root,ledger,row,rows,transport):
     cutoff=int(time.time())
     if cutoff>=tip-START_LEAD_SECONDS:raise Abstain('ROTATION_AUTO_START_WINDOW_CLOSED')
     # Check historical residual availability before any new provider requests.
-    pool=joint.residual_pool(rows,row,cutoff)
+    pool=joint.residual_pool(rows,row,source_cutoff)
     store=FeatureStore(root/'adaptive-v2/inputs',[root/'live-nba/assets'],
         lambda *a,**k: (_ for _ in ()).throw(RuntimeError('NETWORK_FORBIDDEN')))
     cohort=store.cohort('NBA',int(snapshot['season'].split('/')[0]),cutoff)
@@ -74,13 +74,12 @@ def capture_one(root,ledger,row,rows,transport):
     # Keep the exact source-time residual pool; new labels after the initial
     # decision are deliberately not admitted into this forecast.
     decision=int(time.time())
-    pool=joint.residual_pool(rows,row,decision)
     sim=joint.simulate(result['player_allocation']['quarters'],pool)
     pool_pin=publish(folder,'joint-pool-',pool,tip)
     receipt=dict(format=joint.VERSION,status='FORWARD_JOINT_RESEARCH',fixture_id=fid,
         fixture_start_utc=tip,generated_at_utc=decision,original_snapshot_sha256=row['snapshot_sha256'],
         period_sha256=period_pin,original_model_version=row['model_version'],
-        residual_games=len(pool),residual_pool_sha256=pool_pin,
+        residual_games=len(pool),residual_pool_sha256=pool_pin,residual_cutoff_utc=source_cutoff,
         residual_model_digests=len({v['model_digest'] for v in pool}),simulation=sim,
         production_enabled=False,forecast_changed=False,calibrated=False)
     return publish(folder,'joint-score-',receipt,tip)
@@ -88,7 +87,7 @@ def capture_one(root,ledger,row,rows,transport):
 class RotationCycle:
     def __init__(self,root,ledger,transport,*,capture=capture_one,clock=time.time):
         self.root=local_path(root);self.ledger=local_path(ledger);self.transport=transport
-        self.capture=capture;self.clock=clock;self.retry={};self.completed=set()
+        self.capture=capture;self.clock=clock;self.retry={};self.attempted={};self.completed=set()
         self.last=dict(status='WAITING',enabled=True)
     def tick(self):
         from ledger_reports import LedgerReports
@@ -101,7 +100,9 @@ class RotationCycle:
         keys={(r['fixture_id'],r['snapshot_sha256']) for r in rows}
         self.completed.intersection_update(keys)
         self.retry={k:v for k,v in self.retry.items() if k in keys}
-        for row in rows:
+        self.attempted={k:v for k,v in self.attempted.items() if k in keys}
+        # Never let a repeatedly failing earliest fixture monopolize the lane.
+        for row in sorted(rows,key=lambda r:(self.attempted.get((r['fixture_id'],r['snapshot_sha256']),-1),r['fixture_start_utc'],r['fixture_id'])):
             key=(row['fixture_id'],row['snapshot_sha256'])
             if key in self.completed or self.retry.get(key,0)>now:continue
             # Check the archive on restart. A valid first receipt is immutable.
@@ -109,7 +110,8 @@ class RotationCycle:
             if any(e[4]['snapshot_sha256']==key[1] for e in existing):
                 self.completed.add(key);continue
             try:
-                pin=self.capture(self.root,self.ledger,row,report['forecasts'],self.transport)
+                self.attempted[key]=now
+                pin=self.capture(self.root,self.ledger,row,report['forecasts'],self.transport,source_cutoff=now)
                 self.completed.add(key)
                 return dict(status='CAPTURED',eligible=len(rows),fixture_id=key[0],
                     receipt_sha256=pin,completed=len(self.completed),calibrated=False)

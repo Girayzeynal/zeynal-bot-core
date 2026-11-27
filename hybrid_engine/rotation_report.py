@@ -54,7 +54,10 @@ def records(root,ledger,*,now=None,selector=None):
             if not np.allclose(replay['player_allocation']['quarters'],period['player_allocation']['quarters'],rtol=0,atol=1e-6):
                 raise ValueError('ROTATION_PERIOD_REPLAY')
             pool=read(root,'joint-pool-',p['residual_pool_sha256'])
-            reconstructed=residual_pool(native['forecasts'],row,g)
+            cutoff=p.get('residual_cutoff_utc',g)
+            if type(cutoff) is not int or not row['prediction_generated_at_utc']<=cutoff<=g:
+                raise ValueError('ROTATION_RESIDUAL_CUTOFF')
+            reconstructed=residual_pool(native['forecasts'],row,cutoff)
             if digest(reconstructed)!=p['residual_pool_sha256'] or len(pool)!=p['residual_games']:
                 raise ValueError('ROTATION_RESIDUAL_POOL_REPLAY')
             sim=simulate(replay['player_allocation']['quarters'],pool)
