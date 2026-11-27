@@ -844,6 +844,12 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             lines.append('Kabul deneyi kaydı otomatik; gece komut vermek veya botu durdurmak gerekmez.')
             last=app.bot_data.get('last_nba_overnight_poll') or overnight.last_report or {}
             lines.append('Son NBA otomatik kontrol: '+str(last.get('status','HENÜZ_ÇALIŞMADI')))
+            for issue in last.get('stage_errors',[])[:12]:
+                lines.append('NBA otomatik aşama: '+issue['stage']+' · '+issue['error']+' · '+issue['error_type'])
+            for key in ('acceptance','progress'):
+                state=last.get(key) or {}
+                if state.get('retry_at_utc'):
+                    lines.append(key+' yeniden deneme UTC: '+str(state['retry_at_utc']))
             progress=last.get('progress') or {}
             lines.append('İleri deney: '+str(progress.get('status','HENÜZ_DOĞRULANMADI'))+
                 ' · Sonuçlu '+str(progress.get('settled','?'))+' · Bekleyen '+str(progress.get('pending','?')))
