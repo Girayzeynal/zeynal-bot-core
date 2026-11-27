@@ -17,7 +17,7 @@ from hybrid_engine.europe_prematch import EuropeanPrematchScheduler
 from hybrid_engine.forward_nba_results import read_confirmed
 from hybrid_engine.live_nba import LiveNBAHybridService
 from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
-from hybrid_engine.runtime_reports import REPORT_ERRORS,failure
+from hybrid_engine.runtime_reports import REPORT_ERRORS
 
 LOG=logging.getLogger(__name__)
 LOOKAHEAD=36*3600
@@ -27,9 +27,19 @@ STAGE_ERRORS=REPORT_ERRORS+(asyncio.TimeoutError,)
 
 
 def error_code(exc):
-    # Python 3.10 may not expose SQLite extended codes. Never log raw SQL or paths.
-    if isinstance(exc,asyncio.TimeoutError):return 'REPORT_TIMEOUT'
-    return failure(exc)
+    # Exception text is untrusted even when it looks like an uppercase code.
+    # Only native SQLite primary/extended numbers and fixed categories may leave this worker.
+    if isinstance(exc,(asyncio.TimeoutError,TimeoutError)):return 'REPORT_TIMEOUT'
+    if isinstance(exc,sqlite3.Error):
+        extended=getattr(exc,'sqlite_errorcode',None)
+        primary=extended & 0xff if type(extended) is int else None
+        return {5:'SQLITE_BUSY',6:'SQLITE_LOCKED',9:'SQLITE_INTERRUPT',
+                11:'SQLITE_INTEGRITY',26:'SQLITE_INTEGRITY',14:'SQLITE_ACCESS',
+                3:'SQLITE_ACCESS',8:'SQLITE_ACCESS',23:'SQLITE_ACCESS',
+                10:'SQLITE_IO',13:'SQLITE_FULL'}.get(primary,'SQLITE_OTHER')
+    if isinstance(exc,OSError):return 'REPORT_FILE_ACCESS_OR_IO'
+    if isinstance(exc,(ValueError,KeyError,TypeError)):return 'REPORT_VALIDATION_FAILED'
+    return 'REPORT_RUNTIME_FAILURE'
 
 
 def stage_failure(report,stage,exc):

@@ -117,9 +117,13 @@ class NBAOvernightTests(IsolatedAsyncioTestCase):
             self.assertEqual(r['predictions'],[]);self.assertEqual(self.service.ledger.integrity()['snapshots'],0)
 
     async def test_capture_failure_does_not_destroy_original_or_publish_fake_progress(self):
-        with patch.object(self.scheduler,'capture',side_effect=ValueError('SYNTHETIC_PRIVATE_DETAIL')):r=await self.scheduler.tick()
+        with self.assertLogs('hybrid_engine.nba_overnight',level='WARNING') as logs:
+            with patch.object(self.scheduler,'capture',side_effect=ValueError('SYNTHETIC_PRIVATE_DETAIL')):
+                r=await self.scheduler.tick()
         self.assertEqual(self.service.ledger.integrity()['snapshots'],1)
         self.assertEqual(r['status'],'PARTIAL_ABSTAIN');self.assertNotIn('SYNTHETIC_PRIVATE_DETAIL',json.dumps(r))
+        self.assertNotIn('SYNTHETIC_PRIVATE_DETAIL',' '.join(logs.output))
+        self.assertEqual(r['acceptance']['error'],'REPORT_VALIDATION_FAILED')
         self.assertEqual(r['progress']['pending'],0)
 
     async def test_sqlite_discovery_failure_blocks_new_forecast_and_recovers(self):
@@ -188,6 +192,22 @@ class NBAWindowAndCommitTests(TestCase):
             with patch('time.time',return_value=NOW+602):
                 with self.assertRaises(ValueError):ledger.commit(live_payload(NOW+901))
                 self.assertEqual(ledger.get(p['league'],p['fixture_id'],p['model_digest']),p)
+
+    def test_error_codes_never_echo_untrusted_exception_text(self):
+        from hybrid_engine.nba_overnight import error_code
+        for exc,expected in ((ValueError('PRIVATE_UPPERCASE_TOKEN'),'REPORT_VALIDATION_FAILED'),
+                             (RuntimeError('PRIVATE_RUNTIME_TOKEN'),'REPORT_RUNTIME_FAILURE'),
+                             (OSError('PRIVATE_PATH'),'REPORT_FILE_ACCESS_OR_IO'),
+                             (asyncio.TimeoutError('PRIVATE_TIMEOUT'),'REPORT_TIMEOUT'),
+                             (TimeoutError('PRIVATE_TIMEOUT'),'REPORT_TIMEOUT'),
+                             (sqlite3.OperationalError('PRIVATE_SQL'),'SQLITE_OTHER')):
+            self.assertEqual(error_code(exc),expected)
+        exc=sqlite3.OperationalError('PRIVATE_SQL')
+        exc.sqlite_errorcode=5
+        exc.sqlite_errorname='SQLITE_PRIVATE_TOKEN'
+        self.assertEqual(error_code(exc),'SQLITE_BUSY')
+        exc.sqlite_errorcode=266
+        self.assertEqual(error_code(exc),'SQLITE_IO')
 
     def test_overnight_age_policy_is_not_a_one_hour_before_tipoff_requirement(self):
         p=dict(feature_cutoff_utc=NOW,prediction_generated_at_utc=NOW,fixture_start_utc=NOW+LOOKAHEAD)
