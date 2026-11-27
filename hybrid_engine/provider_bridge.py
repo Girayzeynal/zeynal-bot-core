@@ -717,60 +717,62 @@ def render(report):
 
 
 def nba_provider_panel(snapshot, service, bridge, *, structured=False):
+    """Keep native retrieval evidence independent of downstream model failures."""
     from hybrid_engine.market_views import replay_nba
-    from hybrid_engine.current_market_review import admit_odds,evaluate,CurrentReviewJournal
+    from hybrid_engine.current_market_review import admit_odds,CurrentReviewJournal
     from hybrid_engine.current_market_render import render_batch
-    from hybrid_engine.market_turkish import message
-    report = bridge.collect(snapshot)
-    parts = [render(report)]
-    direction_cards=[]
-    # Exact source/model context used to evaluate returned direction cards.
-    # Expose only an authenticated current-assessment snapshot, never the old first-model pin.
-    market_candidate_snapshot=None
-    observations = report['providers'].get('THE_ODDS_API', {}).get('observations', [])
+    report=bridge.collect(snapshot)
+    parts=[render(report)]
+    direction_cards=[];market_candidate_snapshot=None
+    row=report['providers'].get('THE_ODDS_API',{})
+    observations=row.get('observations',[])
+    source_state=row.get('status') or report.get('status','UNKNOWN')
+    review_state='NO_NATIVE_OBSERVATIONS'
     if observations:
-        assessment=None
-        # A broken/missing V3 context must not take the existing, independently
-        # verified V1 price review down with it. The fallback uses only V1 paths
-        # and its own original model/clock, never a relabelled V3 direction.
-        if getattr(bridge,'assessments',None):
-            try:
-                assessment=bridge.assessments.available_market_context(snapshot)
-            except (OSError,ValueError,KeyError,TypeError,TimeoutError):
-                parts.append('V3 fiyat bağlamı doğrulanamadı: V3_MARKET_CONTEXT_UNAVAILABLE. '
-                             'İlk modelin bağımsız fiyat incelemesi korunuyor.')
-        if getattr(bridge,'assessments',None) and assessment is None:
-            parts.append('Güncel değerlendirme yolları hazır/güncel değil; piyasa ilk tahminin dağılımıyla ayrı referans olarak gösteriliyor.')
-        evaluation_snapshot,distribution=assessment if assessment else (snapshot,replay_nba(snapshot,service))
-        if assessment is not None:
-            market_candidate_snapshot=evaluation_snapshot
-        row=report['providers']['THE_ODDS_API']
+        stage='NATIVE_PRICE_ADMISSION'
         try:
             discovery=bridge.read_receipt(row['discovery_source_pin'])
             detail=bridge.read_receipt(row['source_pin'])
             quotes=[admit_odds(o,snapshot,discovery,detail) for o in observations]
-        except (OSError,ValueError,KeyError,TypeError):
-            parts.append(message('NATIVE_PRICE_ADMISSION_FAILED'))
-        else:
-            # The old prediction time is immutable; later quotes use a new
-            # actual decision clock and never enter original forecast metrics.
+            stage='MODEL_DISTRIBUTION'
+            assessment=None
+            if getattr(bridge,'assessments',None):
+                try:assessment=bridge.assessments.available_market_context(snapshot)
+                except Exception:
+                    # The external exception may contain a secret or private path.
+                    parts.append('V3 fiyat bağlamı doğrulanamadı: V3_MARKET_CONTEXT_UNAVAILABLE.')
+                if assessment is None:
+                    parts.append('Güncel değerlendirme yolları hazır/güncel değil; ilk model ayrı referanstır.')
+            evaluation_snapshot,distribution=assessment if assessment else (snapshot,replay_nba(snapshot,service))
+            stage='CONTRACT_EVALUATION'
             decision_utc=int(time.time())
             from hybrid_engine.settlement_rules import evaluate_bound
             reviews=[evaluate_bound(bridge,o,distribution,evaluation_snapshot,asof_utc=decision_utc,native_quotes=q)
                      for o,q in zip(observations,quotes)]
-            try:
-                batch=CurrentReviewJournal(bridge.root.parent/'current-market-reviews').record(
-                    evaluation_snapshot,distribution,reviews,decision_utc=decision_utc,native_context=snapshot)
-            except (OSError,ValueError,KeyError,TypeError):
-                parts.append(message('CURRENT_REVIEW_ARCHIVE_FAILED'))
-            else:
-                parts.append(render_batch(batch))
-                from hybrid_engine.market_direction_ui import cards
-                for review in reviews:
-                    direction_cards.extend(cards(review,distribution.forecast,
-                        tipoff_utc=snapshot['fixture_start_utc'],fixture_id=snapshot['fixture_id'],batch=batch))
+            stage='REVIEW_ARCHIVE'
+            batch=CurrentReviewJournal(bridge.root.parent/'current-market-reviews').record(
+                evaluation_snapshot,distribution,reviews,decision_utc=decision_utc,native_context=snapshot)
+            stage='REVIEW_RENDER'
+            from hybrid_engine.market_direction_ui import cards
+            rendered=render_batch(batch)
+            ready=[]
+            for review in reviews:
+                ready.extend(cards(review,distribution.forecast,
+                    tipoff_utc=snapshot['fixture_start_utc'],fixture_id=snapshot['fixture_id'],batch=batch))
+            parts.append(rendered)
+            direction_cards=ready
+            if assessment is not None:market_candidate_snapshot=evaluation_snapshot
+            review_state='REVIEW_ARCHIVED'
+        except Exception:
+            review_state={'NATIVE_PRICE_ADMISSION':'NATIVE_PRICE_ADMISSION_FAILED',
+                'MODEL_DISTRIBUTION':'MODEL_DISTRIBUTION_UNAVAILABLE',
+                'CONTRACT_EVALUATION':'CONTRACT_EVALUATION_FAILED',
+                'REVIEW_ARCHIVE':'CURRENT_REVIEW_ARCHIVE_FAILED',
+                'REVIEW_RENDER':'CURRENT_REVIEW_RENDER_FAILED'}[stage]
+            parts.append('Piyasa inceleme aşaması: '+review_state+
+                         '. Kaynak raporu korundu; doğrulanmamış yön yayımlanmadı.')
     full='\n\n'.join(parts)
-    source_state=(report.get('providers',{}).get('THE_ODDS_API') or {}).get('status') or report.get('status','UNKNOWN')
     return (dict(html=full,cards=direction_cards,market_candidate_snapshot=market_candidate_snapshot,
-                 market_source_status=source_state,market_native_observations=len(observations))
+                 market_source_status=source_state,market_native_observations=len(observations),
+                 market_review_status=review_state)
             if structured else full)

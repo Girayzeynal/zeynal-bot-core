@@ -286,9 +286,16 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                         market_candidate_snapshot=provider_panel.get('market_candidate_snapshot')
                         market_candidate_cards=provider_panel['cards'][:128] if market_candidate_snapshot else []
                         market_source_status=provider_panel.get('market_source_status','PROVIDER_STATUS_UNAVAILABLE')
+                        review_state=provider_panel.get('market_review_status')
+                        if review_state in ('NATIVE_PRICE_ADMISSION_FAILED','MODEL_DISTRIBUTION_UNAVAILABLE',
+                                'CONTRACT_EVALUATION_FAILED','CURRENT_REVIEW_ARCHIVE_FAILED','CURRENT_REVIEW_RENDER_FAILED'):
+                            market_source_status=review_state
                     except Exception as exc:
-                        market_source_status=('PROVIDER_REVIEW_TIMEOUT' if isinstance(exc,TimeoutError)
-                                              else 'PROVIDER_REVIEW_UNAVAILABLE')
+                        market_source_status=('PROVIDER_REVIEW_TIMEOUT' if isinstance(exc,(asyncio.TimeoutError,TimeoutError))
+                            else 'PROVIDER_REVIEW_STORAGE_OR_IO' if isinstance(exc,OSError)
+                            else 'PROVIDER_REVIEW_SQLITE_ERROR' if isinstance(exc,sqlite3.Error)
+                            else 'PROVIDER_REVIEW_VALIDATION_FAILED' if isinstance(exc,(ValueError,KeyError,TypeError))
+                            else 'PROVIDER_REVIEW_UNAVAILABLE')
                         logging.getLogger(__name__).warning('Provider review unavailable: %s after %.2fs',
                             market_source_status,time.monotonic()-started)
                         market_lines.append('Sağlayıcı denetimi tamamlanamadı. Kod: '+market_source_status+'.')

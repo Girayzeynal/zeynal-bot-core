@@ -606,3 +606,39 @@ class FullMarketCoverageTests(unittest.TestCase):
         self.assertEqual(odds_regions('us,eu'),('us','eu'))
         for v in ('us,us','us,eu,uk','unknown',''):
             with self.assertRaises(ValueError):odds_regions(v)
+
+
+def test_provider_panel_preserves_native_status_when_distribution_fails():
+    from types import SimpleNamespace
+    from hybrid_engine.provider_bridge import nba_provider_panel
+    bridge=SimpleNamespace(collect=lambda snapshot:dict(status='CURRENT_OBSERVATIONS_NOT_HISTORICAL_FORECAST_INPUTS',
+        providers={'THE_ODDS_API':dict(status='SYNTHETIC_OBSERVED',observations=[{}],
+                                       discovery_source_pin='a',source_pin='b')}),
+        read_receipt=lambda pin:{})
+    with patch('hybrid_engine.provider_bridge.render',return_value='NATIVE_SOURCE_REPORT'), \
+         patch('hybrid_engine.current_market_review.admit_odds',return_value={}), \
+         patch('hybrid_engine.market_views.replay_nba',side_effect=RuntimeError(SECRET)):
+        report=nba_provider_panel({},None,bridge,structured=True)
+    assert report['market_source_status']=='SYNTHETIC_OBSERVED'
+    assert report['market_review_status']=='MODEL_DISTRIBUTION_UNAVAILABLE'
+    assert report['market_native_observations']==1
+    assert report['cards']==[] and report['market_candidate_snapshot'] is None
+    assert 'NATIVE_SOURCE_REPORT' in report['html']
+    assert SECRET not in json.dumps(report)
+
+
+def test_provider_panel_refuses_bad_native_admission_without_model_replay():
+    from types import SimpleNamespace
+    from hybrid_engine.provider_bridge import nba_provider_panel
+    bridge=SimpleNamespace(collect=lambda snapshot:dict(status='CURRENT_OBSERVATIONS_NOT_HISTORICAL_FORECAST_INPUTS',
+        providers={'THE_ODDS_API':dict(status='SYNTHETIC_OBSERVED',observations=[{}],
+                                       discovery_source_pin='a',source_pin='b')}),
+        read_receipt=lambda pin:{})
+    with patch('hybrid_engine.provider_bridge.render',return_value='NATIVE_SOURCE_REPORT'), \
+         patch('hybrid_engine.current_market_review.admit_odds',side_effect=ValueError(SECRET)), \
+         patch('hybrid_engine.market_views.replay_nba') as replay:
+        report=nba_provider_panel({},None,bridge,structured=True)
+    replay.assert_not_called()
+    assert report['market_review_status']=='NATIVE_PRICE_ADMISSION_FAILED'
+    assert report['cards']==[]
+    assert SECRET not in json.dumps(report)
