@@ -950,6 +950,17 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 await update.effective_message.reply_text('V2 araştırma arşivi doğrulanamadı. Eski tahminler korunuyor.')
         raise ApplicationHandlerStop
     app.add_handler(CommandHandler('research',research_command),group=-50)
+    if nba_service is not None and not replay_only:
+        async def rotation_command(update,context):
+            try:
+                from hybrid_engine.rotation_report import render
+                parts=await asyncio.to_thread(render,root/'player-shadow',nba_service.ledger.path,context.args)
+                for part in parts:
+                    await update.effective_message.reply_text(part,parse_mode=None)
+            except (ValueError,KeyError,TypeError,OSError):
+                await update.effective_message.reply_text('Oyuncu araştırma kaydı doğrulanamadı. Yeni tahmin üretilmedi.',parse_mode=None)
+            raise ApplicationHandlerStop
+        app.add_handler(CommandHandler('rotation',rotation_command),group=-50)
     async def feature_command(update,context):
         if update.effective_chat is None or update.effective_chat.id!=chat_id:return
         from hybrid_engine.integrated_features import features
