@@ -610,6 +610,21 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             return
         args=(message.text or '').split()
         mode=args[1].lower() if len(args)>1 else 'all'
+        if mode=='overtime':
+            from hybrid_engine.overtime_archive_audit import audit,render
+            from hybrid_engine.runtime_reports import REPORT_ERRORS,failure
+            worker=app.bot_data.get('adaptive_v2_worker')
+            if len(args)!=4 or args[2].upper() not in ('NBA','EUROLEAGUE','EUROCUP') or not args[3].isascii() or not args[3].isdigit() or len(args[3])!=4:
+                await message.reply_text('Kullanım: /test overtime NBA 2026 (veya EUROLEAGUE / EUROCUP)')
+            elif worker is None:
+                await message.reply_text('OVERTIME_NATIVE_ARCHIVE_UNAVAILABLE')
+            else:
+                try:
+                    value=await asyncio.wait_for(optional_source_thread(audit,worker.store,args[2].upper(),int(args[3])),timeout=30)
+                    await message.reply_text(render(value),parse_mode=None)
+                except (REPORT_ERRORS + (asyncio.TimeoutError,)) as exc:
+                    await message.reply_text('Uzatma arşivi denetlenemedi · '+failure(exc),parse_mode=None)
+            raise ApplicationHandlerStop
         if mode=='modelaudit' and len(args)==2:
             from hybrid_engine.paired_archive_audit import audit, render
             from hybrid_engine.predictions_command import split_plain
@@ -634,7 +649,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
             await message.reply_text(json.dumps(report,ensure_ascii=False,indent=2))
             raise ApplicationHandlerStop
         if mode not in ('all','nba','euroleague','eurocup','roster','research','data','providers','runtime','integrations','engines','predictions','playerimpact'):
-            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test providers [check], /test runtime, /test integrations, /test predictions, /test acceptance, /test modelaudit, /test all')
+            await message.reply_text('Kullanım: /test, /test nba, /test euroleague, /test eurocup, /test roster, /test research, /test data, /test providers [check], /test runtime, /test integrations, /test predictions, /test acceptance, /test modelaudit, /test overtime NBA 2026, /test all')
             raise ApplicationHandlerStop
         lines=['ZEYNAL | İZOLE TEST BOTU | ÜRETİM DEĞİL',
             'Telegram komut alımı: OK',
