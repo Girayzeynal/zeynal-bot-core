@@ -16,7 +16,7 @@ def error_reason(exc):
         if primary==9 or msg=='interrupted':return 'SQLITE_QUERY_INTERRUPTED'
         if primary==14 or 'unable to open database file' in msg:return 'SQLITE_CANTOPEN'
         if primary==10 or 'disk i/o error' in msg:return 'SQLITE_IOERR'
-        if primary==1 and 'no such table' in msg:return 'SQLITE_SCHEMA_MISSING'
+        if (primary is None or primary==1) and msg.startswith('no such table:'):return 'SQLITE_SCHEMA_MISSING'
         return 'SQLITE_OPERATIONAL_ERROR'
     reason=str(exc)
     return reason if reason.isupper() and len(reason)<100 and reason.replace('_','').isalnum() else type(exc).__name__

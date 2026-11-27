@@ -91,11 +91,11 @@ class RotationCycle:
         self.selective_enabled=selective_enabled;self.forward_enabled=forward_enabled;self.capture=capture;self.clock=clock;self.retry={};self.attempted={};self.completed=set()
         self.last=dict(status='WAITING',enabled=True)
     def tick(self):
-        from ledger_reports import LedgerReports
+        from hybrid_engine.runtime_reports import RuntimeLedgerReports
         from hybrid_engine.rotation_report import records
         now=int(self.clock())
         if not self.ledger.is_file():return dict(status='LEDGER_NOT_PRESENT',eligible=0)
-        report=LedgerReports(self.ledger).read('NBA')
+        report=RuntimeLedgerReports(self.ledger).read('NBA',summarize=False)
         if report['status']!='VERIFIED_LIVE_REPORT':raise ValueError('ROTATION_AUTO_LEDGER_UNVERIFIED')
         rows=eligible(report['forecasts'],now)
         keys={(r['fixture_id'],r['snapshot_sha256']) for r in rows}

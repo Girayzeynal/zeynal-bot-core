@@ -13,13 +13,13 @@ from hybrid_engine.rotation_joint import VERSION,MARKETS,residual_pool,simulate
 from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 
 def records(root,ledger,*,now=None,selector=None,diagnostics=None):
-    from ledger_reports import LedgerReports
+    from hybrid_engine.runtime_reports import RuntimeLedgerReports
     from hybrid_engine.player_inputs import load_snapshot
     root=local_path(root);ledger=local_path(ledger)
     now=int(time.time()) if now is None else now
     if type(now) is not int or now>int(time.time()):raise ValueError('ROTATION_REVIEW_CLOCK')
     if not ledger.is_file():return [],{'LEDGER_NOT_PRESENT':1},0
-    native=LedgerReports(ledger).read('NBA')
+    native=RuntimeLedgerReports(ledger).read('NBA',summarize=False)
     if native['status']!='VERIFIED_LIVE_REPORT':raise ValueError('ROTATION_LEDGER_UNVERIFIED')
     originals={(r['fixture_id'],r['snapshot_sha256']):r for r in native['forecasts']}
     counts=Counter(r['fixture_id'] for r in native['forecasts'])

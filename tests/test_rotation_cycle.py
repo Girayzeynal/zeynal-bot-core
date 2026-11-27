@@ -14,7 +14,7 @@ class RotationCycleTests(TestCase):
         with TemporaryDirectory() as tmp:
             ledger=Path(tmp)/'ledger';ledger.touch()
             cycle=RotationCycle(tmp,ledger,None,capture=capture,clock=lambda:1000)
-            with patch('ledger_reports.LedgerReports.read',return_value=dict(status='VERIFIED_LIVE_REPORT',forecasts=rows)),patch('hybrid_engine.rotation_report.records',return_value=([],{},0)):
+            with patch('hybrid_engine.runtime_reports.RuntimeLedgerReports.read',return_value=dict(status='VERIFIED_LIVE_REPORT',forecasts=rows)),patch('hybrid_engine.rotation_report.records',return_value=([],{},0)):
                 self.assertEqual(cycle.tick()['fixture_id'],'1')
                 self.assertEqual(cycle.tick()['fixture_id'],'2')
                 self.assertEqual(cycle.tick()['status'],'IDLE')
@@ -22,7 +22,7 @@ class RotationCycleTests(TestCase):
             cycle=RotationCycle(tmp,ledger,None,capture=capture,clock=lambda:1000)
             def existing(*a,selector,**k):
                 return ([(0,0,'p',{},r) for r in rows if r['fixture_id']==selector],{},0)
-            with patch('ledger_reports.LedgerReports.read',return_value=dict(status='VERIFIED_LIVE_REPORT',forecasts=rows)),patch('hybrid_engine.rotation_report.records',side_effect=existing):
+            with patch('hybrid_engine.runtime_reports.RuntimeLedgerReports.read',return_value=dict(status='VERIFIED_LIVE_REPORT',forecasts=rows)),patch('hybrid_engine.rotation_report.records',side_effect=existing):
                 self.assertEqual(cycle.tick()['status'],'IDLE')
                 self.assertEqual(capture.call_count,2)
     def test_failure_retries_without_starving_next(self):
@@ -31,7 +31,7 @@ class RotationCycleTests(TestCase):
             ledger=Path(tmp)/'ledger';ledger.touch()
             clock=[1000]
             cycle=RotationCycle(tmp,ledger,None,capture=capture,clock=lambda:clock[0])
-            with patch('ledger_reports.LedgerReports.read',return_value=dict(status='VERIFIED_LIVE_REPORT',forecasts=rows)),patch('hybrid_engine.rotation_report.records',return_value=([],{},0)):
+            with patch('hybrid_engine.runtime_reports.RuntimeLedgerReports.read',return_value=dict(status='VERIFIED_LIVE_REPORT',forecasts=rows)),patch('hybrid_engine.rotation_report.records',return_value=([],{},0)):
                 r=cycle.tick();self.assertEqual(r['retry_at_utc'],1300)
                 clock[0]=1300
                 self.assertEqual(cycle.tick()['fixture_id'],'2')
