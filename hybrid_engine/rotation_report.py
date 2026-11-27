@@ -12,7 +12,7 @@ from hybrid_engine.rotation_periods import read,capture
 from hybrid_engine.rotation_joint import VERSION,MARKETS,residual_pool,simulate
 from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 
-def records(root,ledger,*,now=None,selector=None):
+def records(root,ledger,*,now=None,selector=None,diagnostics=None):
     from ledger_reports import LedgerReports
     from hybrid_engine.player_inputs import load_snapshot
     root=local_path(root);ledger=local_path(ledger)
@@ -30,6 +30,9 @@ def records(root,ledger,*,now=None,selector=None):
         if not m:continue
         try:
             pin=m[1];p=read(root,'joint-score-',pin)
+            # A concurrent writer can publish after the report clock was frozen.
+            # This is not a failed historical receipt; review on the next call.
+            if type(p.get('generated_at_utc')) is int and p['generated_at_utc']>now:continue
             row=originals[(p['fixture_id'],p['original_snapshot_sha256'])]
             if selector and selector!=row['fixture_id'] and selector not in row['provider_fixture_ids']:continue
             tip=row['fixture_start_utc'];g=p['generated_at_utc']
@@ -60,11 +63,15 @@ def records(root,ledger,*,now=None,selector=None):
             reconstructed=residual_pool(native['forecasts'],row,cutoff)
             if digest(reconstructed)!=p['residual_pool_sha256'] or len(pool)!=p['residual_games']:
                 raise ValueError('ROTATION_RESIDUAL_POOL_REPLAY')
-            sim=simulate(replay['player_allocation']['quarters'],pool)
+            # Original capture simulates the stored period point scores. The
+            # independent tolerance check above still guards the period replay.
+            sim=simulate(period['player_allocation']['quarters'],pool)
             if digest(sim)!=digest(p['simulation']):raise ValueError('ROTATION_SIMULATION_REPLAY')
             chosen[(row['season'],row['fixture_id'])].append((g,path.stat().st_mtime,pin,p,row))
         except (ValueError,KeyError,TypeError,OSError,IndexError,np.linalg.LinAlgError) as exc:
-            reason=str(exc);excluded[reason if reason.isupper() and len(reason)<100 else type(exc).__name__]+=1
+            reason=str(exc);reason=reason if reason.isupper() and len(reason)<100 and reason.replace('_','').isalnum() else type(exc).__name__
+            excluded[reason]+=1
+            if diagnostics is not None:diagnostics.append(dict(receipt=m[1],reason=reason))
     selected=[min(v,key=lambda x:x[:3]) for v in chosen.values()]
     return sorted(selected,key=lambda x:(x[4]['fixture_start_utc'],x[4]['fixture_id'])),dict(excluded),sum(len(v)-1 for v in chosen.values())
 
@@ -106,11 +113,19 @@ def render(root,ledger,args=(),*,now=None):
     now=int(time.time()) if now is None else now
     args=list(args or [])
     if args and args[0].upper()=='NBA':args=args[1:]
-    if len(args)>1 or (args and args[0] not in ('results','calibration','list','forward','selective') and not re.fullmatch(r'(?:[0-9]{1,15}|[0-9a-f]{64})',args[0])):
-        return ['Kullanım: /rotation [NBA] [ESPN maç kimliği, results, calibration, forward, selective veya list]']
-    review=bool(args and args[0] in ('results','calibration','list','forward','selective'))
-    entries,excluded,duplicates=records(root,ledger,now=now,selector=args[0] if args and not review else None)
+    if len(args)>1 or (args and args[0] not in ('results','calibration','list','forward','selective','audit') and not re.fullmatch(r'(?:[0-9]{1,15}|[0-9a-f]{64})',args[0])):
+        return ['Kullanım: /rotation [NBA] [ESPN maç kimliği, results, calibration, forward, selective, audit veya list]']
+    review=bool(args and args[0] in ('results','calibration','list','forward','selective','audit'))
+    details=[]
+    entries,excluded,duplicates=records(root,ledger,now=now,selector=args[0] if args and not review else None,diagnostics=details)
     warning='ARAŞTIRMA • KALİBRE EDİLMEDİ • Normal süre • Eski tahmin değişmedi.'
+    if args==['audit']:
+        from hybrid_engine.elite_render import split_blocks
+        lines=[warning,'ROTASYON ARŞİV DENETİMİ',f'Benzersiz: {len(entries)} | Tekrarlı: {duplicates} | Dışlanan: {sum(excluded.values())}']
+        for reason,n in sorted(excluded.items()):lines.append(f'{reason}: {n}')
+        for d in details[:40]:lines.append(d['receipt'][:16]+' | '+d['reason'])
+        if len(details)>40:lines.append(f'{len(details)-40} ek dışlanan kayıt; terminal denetimi gerekli.')
+        return split_blocks(lines,limit=3200)
     if args==['selective']:
         from hybrid_engine.rotation_selective import render as render_selective
         return render_selective(root,entries,now)
@@ -132,13 +147,15 @@ def render(root,ledger,args=(),*,now=None):
         return split_blocks(lines,limit=3200)
     if review:
         lines=[warning,'ORTAK SİMÜLASYON SONUÇ DENETİMİ',f'Tekrarlı kayıt: {duplicates} | Dışlanan: {sum(excluded.values())}']
-        for season,v in result_metrics(entries,now).items():
+        for reason,n in sorted(excluded.items()):lines.append(f'Dışlama: {reason} ({n})')
+        metrics=result_metrics(entries,now)
+        for season,v in metrics.items():
             lines.append(f"{season}: {v['matched']} sonuçlandı / {v['pending']} bekliyor")
             for k,m in v['markets'].items():
                 lines.append(f"{k}: MAE {m['mae']:.2f} | RMSE {m['rmse']:.2f} | Bias {m['bias']:+.2f} | gözlenen %80 kapsama {m['coverage80']:.1%}")
             if v['original_total_mae'] is not None:lines.append(f"İlk model aynı maçlarda toplam MAE {v['original_total_mae']:.2f}")
         if not entries:lines.append('Doğrulanmış araştırma kaydı yok.')
-        if not any(v['matched'] for v in result_metrics(entries,now).values()):lines.append('Henüz gerçek hata veya kapsama ölçülemedi.')
+        if not any(v['matched'] for v in metrics.values()):lines.append('Henüz gerçek hata veya kapsama ölçülemedi.')
         return ['\n'.join(lines)]
     if not args:entries=[e for e in entries if now<e[4]['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS]
     messages=[]

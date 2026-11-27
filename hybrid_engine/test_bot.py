@@ -958,11 +958,17 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     cycle=app.bot_data.get('rotation_cycle')
                     parts=[cycle.render_status() if cycle else 'Otomatik rotasyon araştırması kapalı.']
                 else:
+                    await update.effective_message.reply_text('Rotasyon arşiv denetimi başladı. Bu komut yeni tahmin üretmez.',parse_mode=None)
                     parts=await asyncio.to_thread(render,root/'player-shadow',nba_service.ledger.path,context.args)
+                if not parts:raise ValueError('ROTATION_EMPTY_REPLY')
                 for part in parts:
                     await update.effective_message.reply_text(part,parse_mode=None)
-            except (ValueError,KeyError,TypeError,OSError):
-                await update.effective_message.reply_text('Oyuncu araştırma kaydı doğrulanamadı. Yeni tahmin üretilmedi.',parse_mode=None)
+            except Exception as exc:
+                import logging
+                reason=str(exc)
+                safe=reason if reason.isupper() and len(reason)<100 and reason.replace('_','').isalnum() else type(exc).__name__
+                logging.getLogger(__name__).warning('Rotation command failed: %s',safe)
+                await update.effective_message.reply_text('Oyuncu araştırma kaydı doğrulanamadı. Yeni tahmin üretilmedi. Engel: '+safe,parse_mode=None)
             raise ApplicationHandlerStop
         app.add_handler(CommandHandler('rotation',rotation_command),group=-50)
     async def feature_command(update,context):

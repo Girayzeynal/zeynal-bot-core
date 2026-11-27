@@ -18,3 +18,19 @@ class RotationReportTests(TestCase):
         self.assertEqual((m['matched'],m['pending']),(1,1))
         self.assertEqual(m['markets']['FULL']['mae'],0)
         self.assertEqual(m['original_total_mae'],1)
+
+    def test_audit_reason_visible(self):
+        def fake(*args,diagnostics,**kwargs):
+            diagnostics.append(dict(receipt='a'*64,reason='ROTATION_SIMULATION_REPLAY'))
+            return [],{'ROTATION_SIMULATION_REPLAY':1},4
+        with patch('hybrid_engine.rotation_report.records',side_effect=fake):
+            s=' '.join(render('/tmp/a','/tmp/b',['audit']))
+            self.assertIn('ROTATION_SIMULATION_REPLAY',s)
+            self.assertIn('aaaaaaaaaaaaaaaa',s)
+            self.assertIn('Dışlanan: 1',s)
+    def test_list_all_and_no_future_recomputation(self):
+        rows=[(1,1,str(i),{},dict(fixture_start_utc=9999999999,home='Home'+str(i),away='Away',provider_fixture_ids=[str(i)],fixture_id=str(i))) for i in range(11)]
+        with patch('hybrid_engine.rotation_report.records',return_value=(rows,{},0)):
+            s=' '.join(render('/tmp/a','/tmp/b',['list'],now=1))
+            self.assertIn('Home10',s)
+            self.assertIn('/rotation 10',s)
