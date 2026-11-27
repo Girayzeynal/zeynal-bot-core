@@ -33,7 +33,7 @@ def read_wrapper(path,maximum=MAX_FILE_BYTES):
     require(digest(w['payload'])==w['sha256'],'MARKET_REVIEW_PIN')
     return w
 
-def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None,allow_pending=False):
+def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None,allow_pending=False,coverage=None):
     now=int(time.time()) if now is None else now
     require(type(now) is int and 0<now<=int(time.time()),'MARKET_AUDIT_ACTUAL_CLOCK')
     w=read_wrapper(path);p=w['payload'];key=w['manifest_sha256']
@@ -103,7 +103,10 @@ def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None,allow_pendin
     else:
         require(digest(evaluation)==digest(native) and p['prediction_utc']==result['prediction_generated_at_utc'],
                 'FIRST_MODEL_REVIEW_CONTEXT_CONFLICT')
-    rules=bridge.rule_book.rules(decision)
+    rules_issue=None
+    try:rules=bridge.rule_book.rules(decision)
+    except (ValueError,KeyError,TypeError,OSError):
+        rules={};rules_issue='CONFIGURED_SETTLEMENT_RULES_INVALID'
     parsed={};rows=[];excluded=Counter();sample_paths=None
     for review in p['reviews']:
         require(review['fixture']==f and review['decision_utc']==decision and
@@ -136,11 +139,14 @@ def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None,allow_pendin
         native_rows={q.sha256:q.payload for q in quotes}
         for row in review['rows']:
             if row['period']!='FULL' or row['market'] not in ('WINNER','TOTAL'):continue
+            scope=None
             try:
                 q=native_rows.get(row.get('quote_sha256'))
                 require(q is not None and all(q[k]==row[k] for k in ('period','market','line','prices')),
                         'PRICE_CAPTURE_QUOTE_MISMATCH')
                 require(set(row['prices'])=={'under','over'},'EMPTY_OR_UNSUPPORTED_ODDS_ROWS')
+                scope=(f['league'],f['season'],review['bookmaker']['id'],row['period'],row['market'])
+                require(rules_issue is None,rules_issue)
                 r=rules.get((review['bookmaker']['id'],f['league'],row['period'],row['market']))
                 require(isinstance(r,RuleEvidence),'SETTLEMENT_RULE_UNVERIFIED')
                 RuleEvidence.validate(r.payload)
@@ -153,6 +159,8 @@ def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None,allow_pendin
                         (rp['effective_until_utc'] is None or decision<rp['effective_until_utc']),
                         'SETTLEMENT_RULE_SCOPE_OR_PIN_MISMATCH')
                 mass=row.get('raw_contract_probabilities')
+                if rp['include_overtime'] and mass is None and 'NO_VERIFIED_OVERTIME_SIMULATION_PATHS' in row.get('reasons',[]):
+                    raise ValueError('NO_VERIFIED_OVERTIME_SIMULATION_PATHS')
                 require(row.get('conditional_probability_is_contract_settlement') is True and
                         row.get('price_benchmarks',{}).get('settlement_scope_verified') is True and
                         set(row.get('reasons',[]))<= {'NO_APPROVED_DISJOINT_CALIBRATION'} and
@@ -167,6 +175,7 @@ def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None,allow_pendin
                 calculated=contract_mass(sample_paths,row['market'],row['line'],rp['include_overtime'])
                 require(all(abs(mass[k]-calculated[k])<=1e-12 for k in mass),
                         'CONTRACT_PROBABILITY_REPLAY_MISMATCH')
+                if coverage is not None:coverage.add((scope,f['fixture_id'],'CONTRACT_REPLAY_VERIFIED'))
                 if abs(mass['under']-mass['over'])<1e-12 or mass['push']>=max(mass['under'],mass['over']):
                     excluded['NO_DISTINCT_DIRECTION']+=1;continue
                 side='under' if mass['under']>mass['over'] else 'over'
@@ -183,7 +192,9 @@ def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None,allow_pendin
                     outcome=outcome))
             except (ValueError,KeyError,TypeError,AttributeError) as exc:
                 reason=str(exc)
-                excluded[reason if reason.isupper() and len(reason)<100 else 'MARKET_ROW_VALIDATION_FAILED']+=1
+                reason=reason if reason.isupper() and len(reason)<100 else 'MARKET_ROW_VALIDATION_FAILED'
+                excluded[reason]+=1
+                if coverage is not None and scope is not None:coverage.add((scope,f['fixture_id'],reason))
     return rows,excluded
 
 def candidate_checker(assessments):
@@ -222,7 +233,7 @@ def candidate_checker(assessments):
 
 def audit(root,reports,*,bridge,assessments=None):
     excluded=Counter();labels=[];fixtures=set();groups={};conflicts=set()
-    native_batches=0;legacy_batches=0
+    native_batches=0;legacy_batches=0;coverage=set()
     if bridge is None:return dict(status='BLOCKED_PROVIDER_ARCHIVE_UNAVAILABLE',groups=[],excluded={},independent_fixtures=0)
     for league,report in reports.items():
         try:
@@ -250,8 +261,10 @@ def audit(root,reports,*,bridge,assessments=None):
                 legacy_batches+=1;excluded['LEGACY_PRICE_CONTEXT_MISSING']+=1;continue
             native_batches+=1
             ctx=p['native_price_context']
+            local_coverage=set()
             rows,skips=audit_batch(path,bridge,by_fixture[(ctx['league'],ctx['fixture_id'])],
-                                   candidate_lookup=check,allow_pending=True)
+                                   candidate_lookup=check,allow_pending=True,coverage=local_coverage)
+            coverage.update(local_coverage)
             excluded.update(skips)
             for row in rows:
                 # Keep the earliest admissible decision per strategy/fixture,
@@ -277,7 +290,10 @@ def audit(root,reports,*,bridge,assessments=None):
         n=c['WIN']+c['LOSS']
         out.append(dict(group=list(key),win=c['WIN'],loss=c['LOSS'],push=c['PUSH'],
                         independent_fixtures=sum(c.values()),hit_rate=c['WIN']/n if n else None))
+    scopes=defaultdict(Counter)
+    for scope,fixture_id,reason in coverage:scopes[scope][reason]+=1
     return dict(status='DESCRIPTIVE_VERIFIED_PREMATCH_DIRECTIONS' if out else 'NO_VERIFIED_PREMATCH_DIRECTIONS',
+                contract_coverage=[dict(scope=list(k),fixture_counts=dict(sorted(v.items()))) for k,v in sorted(scopes.items())],
                 groups=out,excluded=dict(excluded),independent_fixtures=len(unique),
                 pending_final_fixtures=len(pending),pending_final_directions=pending_directions,
                 native_context_batches=native_batches,legacy_context_batches=legacy_batches,
@@ -297,6 +313,14 @@ def render(root,reports,*,bridge,assessments=None):
     book=getattr(bridge,'rule_book',None)
     status=getattr(book,'status',None)
     if callable(status):lines.append('Ödeme kuralı yapılandırması: '+status())
+    scopes=r.get('contract_coverage',[])
+    if scopes:
+        lines.append('Kaynağı tekrar doğrulanan sözleşme kapsamları (benzersiz maç / neden; başarı değil):')
+        for item in scopes[:24]:
+            league,season,book,period,market=item['scope']
+            reasons=', '.join(f'{k}={v}' for k,v in item['fixture_counts'].items())
+            lines.append(f'{league} {season} | {book} | {period} {market} | {reasons}')
+        if len(scopes)>24:lines.append(f'Kapsam özet sınırı: 24/{len(scopes)}')
     for market in ('WINNER','TOTAL'):
         rows=[g for g in r['groups'] if g['group'][4]==market]
         lines.append(('Maç sonucu (ML)' if market=='WINNER' else 'Alt/Üst')+' · '+str(len(rows))+' ayrı kohort')

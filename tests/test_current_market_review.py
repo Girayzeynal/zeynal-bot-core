@@ -459,6 +459,18 @@ class CurrentReviewTests(unittest.TestCase):
         self.assertEqual(blocked['pending_final_fixtures'],0)
         self.assertEqual(blocked['excluded']['SETTLEMENT_RULE_UNVERIFIED'],1)
         self.assertEqual(blocked['independent_fixtures'],0)
+        scope=blocked['contract_coverage'][0]
+        self.assertEqual(scope['scope'],[self.snap['league'],self.snap['season'],
+            self.quotes[0].payload['bookmaker_id'],'FULL','TOTAL'])
+        self.assertEqual(scope['fixture_counts'],{'SETTLEMENT_RULE_UNVERIFIED':1})
+        self.assertEqual(pending['contract_coverage'][0]['fixture_counts'],{'CONTRACT_REPLAY_VERIFIED':1})
+        # A broken rule manifest cannot hide the independently replayed quote scope.
+        def invalid(at):raise ValueError('RULE_MANIFEST_TRUSTED_PIN')
+        bridge.rule_book=SimpleNamespace(rules=invalid)
+        bad=audit(self.root,reports,bridge=bridge)
+        self.assertEqual(bad['excluded']['CONFIGURED_SETTLEMENT_RULES_INVALID'],1)
+        self.assertEqual(bad['contract_coverage'][0]['fixture_counts'],{'CONFIGURED_SETTLEMENT_RULES_INVALID':1})
+        self.assertEqual(bad['groups'],[])
         bridge.rule_book=SimpleNamespace(rules=lambda at:rules)
         start=label['fixture_start_utc']
         label.update(label_available_utc=start+3600,actual=[120,100],final_with_ot=[120,100],
@@ -469,6 +481,29 @@ class CurrentReviewTests(unittest.TestCase):
         self.assertEqual(final['independent_fixtures'],1)
         self.assertEqual(final['groups'][0]['group'][7],self.snap['model_digest'])
         self.assertEqual(final['groups'][0]['group'][8],next(iter(rules.values())).sha256)
+
+    def test_overtime_rule_without_paths_has_specific_blocker_and_no_outcome(self):
+        from hybrid_engine.market_direction_results import audit_batch
+        from types import SimpleNamespace
+        rules=self.with_rule(self.rule(overtime=True))
+        bridge=ProviderBridge(ProviderAccess({}),self.root/'receipts',
+                              rule_book=SimpleNamespace(rules=lambda at:rules))
+        bridge._save(self.catalog);bridge._save(self.detail)
+        directory=self.root/'decisions'
+        w=CurrentReviewJournal(directory).record(self.snap,self.dist,[self.review(rules=rules)],
+                                                decision_utc=NOW,native_context=self.snap)
+        label=dict(league=self.snap['league'],season=self.snap['season'],fixture_id=self.snap['fixture_id'],
+            fixture_start_utc=self.snap['fixture_start_utc'],snapshot_sha256=digest(self.snap),
+            intervals=self.snap['intervals'],model_digest=self.snap['model_digest'],
+            prediction_generated_at_utc=self.snap['prediction_generated_at_utc'],
+            first_archived_at_utc=self.snap['prediction_generated_at_utc']+1,actual=None)
+        coverage=set()
+        rows,excluded=audit_batch(directory/('review-'+w['manifest_sha256']+'.json'),bridge,[label],
+                                   allow_pending=True,coverage=coverage)
+        self.assertEqual(rows,[])
+        self.assertEqual(excluded['NO_VERIFIED_OVERTIME_SIMULATION_PATHS'],1)
+        self.assertEqual(len(coverage),1)
+        self.assertEqual(next(iter(coverage))[2],'NO_VERIFIED_OVERTIME_SIMULATION_PATHS')
 
 
 if __name__=='__main__':unittest.main()
