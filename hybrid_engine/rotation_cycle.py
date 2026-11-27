@@ -85,9 +85,9 @@ def capture_one(root,ledger,row,rows,transport,*,source_cutoff):
     return publish(folder,'joint-score-',receipt,tip)
 
 class RotationCycle:
-    def __init__(self,root,ledger,transport,*,capture=capture_one,clock=time.time,forward_enabled=False):
+    def __init__(self,root,ledger,transport,*,capture=capture_one,clock=time.time,forward_enabled=False,selective_enabled=False):
         self.root=local_path(root);self.ledger=local_path(ledger);self.transport=transport
-        self.forward_enabled=forward_enabled;self.capture=capture;self.clock=clock;self.retry={};self.attempted={};self.completed=set()
+        self.selective_enabled=selective_enabled;self.forward_enabled=forward_enabled;self.capture=capture;self.clock=clock;self.retry={};self.attempted={};self.completed=set()
         self.last=dict(status='WAITING',enabled=True)
     def tick(self):
         from ledger_reports import LedgerReports
@@ -121,8 +121,16 @@ class RotationCycle:
                     except Exception as exc:
                         reason=str(exc)
                         forward=dict(status='ABSTAIN',reason=reason if reason.isupper() and len(reason)<100 and reason.replace('_','').isalnum() else type(exc).__name__)
+                selective=dict(status='DISABLED')
+                if self.selective_enabled:
+                    try:
+                        from hybrid_engine.rotation_selective import capture_new
+                        selective=capture_new(self.root,self.ledger,pin)
+                    except Exception as exc:
+                        reason=str(exc)
+                        selective=dict(status='ABSTAIN',reason=reason if reason.isupper() and len(reason)<100 and reason.replace('_','').isalnum() else type(exc).__name__)
                 return dict(status='CAPTURED',eligible=len(rows),fixture_id=key[0],
-                    receipt_sha256=pin,completed=len(self.completed),calibrated=False,forward_correction=forward)
+                    receipt_sha256=pin,completed=len(self.completed),calibrated=False,forward_correction=forward,selective=selective)
             except Exception as exc:
                 # Isolate failures per fixture; no new forecast is reported.
                 self.retry[key]=int(self.clock())+RETRY_SECONDS
@@ -156,4 +164,8 @@ class RotationCycle:
             f=r['forward_correction'];lines.append('İleri düzeltme: '+f['status'])
             if f.get('reason'):lines.append('Düzeltme engeli: '+f['reason'])
             if f.get('prior_n'):lines.append('Önceki sonuç: '+str(f['prior_n']))
+        if r.get('selective'):
+            s=r['selective'];lines.append('Seçici gölge: '+s['status'])
+            if s.get('reason'):lines.append('Seçici engel: '+s['reason'])
+            if s.get('screen'):lines.append('Regresyon elemesi: '+s['screen'])
         return '\n'.join(lines)
