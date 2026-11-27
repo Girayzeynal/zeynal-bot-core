@@ -106,11 +106,24 @@ def render(root,ledger,args=(),*,now=None):
     now=int(time.time()) if now is None else now
     args=list(args or [])
     if args and args[0].upper()=='NBA':args=args[1:]
-    if len(args)>1 or (args and args[0]!='results' and not re.fullmatch(r'(?:[0-9]{1,15}|[0-9a-f]{64})',args[0])):
-        return ['Kullanım: /rotation [NBA] [ESPN maç kimliği veya results]']
-    review=bool(args and args[0]=='results')
+    if len(args)>1 or (args and args[0] not in ('results','calibration','list') and not re.fullmatch(r'(?:[0-9]{1,15}|[0-9a-f]{64})',args[0])):
+        return ['Kullanım: /rotation [NBA] [ESPN maç kimliği, results, calibration veya list]']
+    review=bool(args and args[0] in ('results','calibration','list'))
     entries,excluded,duplicates=records(root,ledger,now=now,selector=args[0] if args and not review else None)
     warning='ARAŞTIRMA • KALİBRE EDİLMEDİ • Normal süre • Eski tahmin değişmedi.'
+    if args==['calibration']:
+        from hybrid_engine.rotation_calibration import render as render_calibration
+        return render_calibration(entries,now,excluded,duplicates)
+    if args==['list']:
+        lines=[warning,'DOĞRULANMIŞ YAKLAŞAN MAÇLAR']
+        for _,_,pin,p,row in entries:
+            if now>=row['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:continue
+            clock=datetime.fromtimestamp(row['fixture_start_utc'],ZoneInfo('Europe/Istanbul')).strftime('%d.%m %H:%M')
+            ids=row['provider_fixture_ids']
+            lines.append(f"{clock} | {row['home']} – {row['away']} | /rotation {ids[0] if ids else row['fixture_id']}")
+        if len(lines)==2:lines.append('Uygun kayıt yok.')
+        from hybrid_engine.elite_render import split_blocks
+        return split_blocks(lines,limit=3200)
     if review:
         lines=[warning,'ORTAK SİMÜLASYON SONUÇ DENETİMİ',f'Tekrarlı kayıt: {duplicates} | Dışlanan: {sum(excluded.values())}']
         for season,v in result_metrics(entries,now).items():
