@@ -184,6 +184,25 @@ class EuropeanAutomaticPrematchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sum((a['new_record'],b['new_record'])),1)
         self.assertEqual(a['forecast_sha256'],b['forecast_sha256']);self.assertEqual(len(service.registry.records()),1)
 
+    async def test_identical_concurrent_slot_is_replay_not_new_publication(self):
+        await self.analyze()
+        p=self.services['EUROCUP'].registry.records()[0]['payload']
+        directory=self.root/'identical-slot-race';directory.mkdir()
+        for ref in p['assets']:shutil.copy2(self.root/'EUROCUP'/ref['file'],directory/ref['file'])
+        registry=SinglePrematchRegistry(directory,'EUROCUP')
+        from hybrid_engine.boxes import publish_json as real_publish
+        from hybrid_engine.forward_validation import ForwardRegistry
+        def concurrent_publish(path,value):
+            if path.name.startswith('first-'):
+                self.assertTrue(real_publish(path,value))
+                return real_publish(path,value)
+            return real_publish(path,value)
+        with patch('hybrid_engine.forward_validation.publish_json',side_effect=concurrent_publish):
+            result,created=ForwardRegistry.record(registry,p)
+        self.assertFalse(created)
+        self.assertEqual(len(registry.records()),1)
+        self.assertEqual(result,registry.records()[0]['payload'])
+
     async def test_process_publication_race_has_one_immutable_first_record(self):
         await self.analyze();p=self.services['EUROCUP'].registry.records()[0]['payload'];directory=self.root/'process-race';directory.mkdir()
         for ref in p['assets']:shutil.copy2(self.root/'EUROCUP'/ref['file'],directory/ref['file'])

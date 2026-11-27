@@ -67,8 +67,10 @@ class ForwardRegistry:
         ref=self.asset('forecast',p);published=int(time.time())
         publication=dict(forecast=ref,first_archived_at_utc=published,
             eligible_for_prospective_audit=published<tip,classification='PREMATCH' if published<tip else 'LATE_COMMIT_EXCLUDED')
-        try:publish_json(slot,dict(payload=publication,sha256=digest(publication)))
+        try:created=publish_json(slot,dict(payload=publication,sha256=digest(publication)))
         except ValueError:
+            prior=self.publication(slot);return self.read_asset(prior['forecast']),False
+        if not created:
             prior=self.publication(slot);return self.read_asset(prior['forecast']),False
         return p,True
     def records(self):
