@@ -954,7 +954,11 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         async def rotation_command(update,context):
             try:
                 from hybrid_engine.rotation_report import render
-                parts=await asyncio.to_thread(render,root/'player-shadow',nba_service.ledger.path,context.args)
+                if list(context.args or [])==['status']:
+                    cycle=app.bot_data.get('rotation_cycle')
+                    parts=[cycle.render_status() if cycle else 'Otomatik rotasyon araştırması kapalı.']
+                else:
+                    parts=await asyncio.to_thread(render,root/'player-shadow',nba_service.ledger.path,context.args)
                 for part in parts:
                     await update.effective_message.reply_text(part,parse_mode=None)
             except (ValueError,KeyError,TypeError,OSError):
@@ -1266,6 +1270,11 @@ def build_candidate_application(args, build_app, *, staging=False):
             cycle=app.bot_data.get('research_cycle')
             if cycle:tasks.append(background_task(cycle.run(app)))
             else:tasks.append(background_task(adaptive.run(app)))
+        if staging and not args.replay_only and nba_service is not None and os.getenv('ZEYNAL_TEST_ROTATION_AUTO_ENABLED','0')=='1':
+            from hybrid_engine.rotation_cycle import RotationCycle
+            rotation_cycle=RotationCycle(root,nba_service.ledger.path,transport)
+            app.bot_data['rotation_cycle']=rotation_cycle
+            tasks.append(background_task(rotation_cycle.run()))
         async def collect():
             while True:
                 from hybrid_engine.result_poll import poll_once
