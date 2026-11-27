@@ -15,6 +15,7 @@ from hybrid_engine.boxes import collect_boxes,publish_json
 from hybrid_engine.current_roster import CurrentRosterReview,context_for,PREFIX,roster_ids,review_diagnostics
 from hybrid_engine.data import Abstain,local_path
 from hybrid_engine.player_minutes import MinutesArchive,projection,official_available
+from hybrid_engine.conditional_rotation import conditional_rotation,BLOCKS
 from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 from hybrid_engine.prediction_audit import audit_snapshot
 from ledger_reports import LedgerReports
@@ -148,6 +149,23 @@ def collect(snapshot,assets,directory,*,reviewer=None,box_collector=collect_boxe
                 generated=int(time.time())
                 packet=projection(context,review,rosters,boxes,generated_at_utc=generated)
         except Abstain as exc:
+            if str(exc) in BLOCKS:
+                # Do not throw away verified past boxes when availability is
+                # unavailable. Keep counterfactual research outside MinutesArchive.
+                try:
+                    scenario=conditional_rotation(context,review,rosters,boxes,now=int(time.time()))
+                    pin=digest(scenario)
+                    publish_json(root/('conditional-rotation-'+pin+'.json'),dict(payload=scenario,sha256=pin))
+                    result['conditional_rotation']=dict(status=scenario['status'],sha256=pin,
+                        training_eligible=False,score_computed=False,
+                        teams={s:dict(unseen_players=len(v['unseen_current_roster_players']),
+                                      scenario_count=len(v['counterfactuals']))
+                               for s,v in scenario['teams'].items()})
+                except (ValueError,KeyError,TypeError,OSError) as scenario_error:
+                    reason=str(scenario_error)
+                    result['conditional_rotation']=dict(status='UNAVAILABLE',
+                        reason=reason if reason.replace('_','').isalnum() and len(reason)<=100 else 'INVALID_RESEARCH_INPUT',
+                        training_eligible=False,score_computed=False)
             if str(exc)=='CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY':
                 result['rotation_diagnostics']=rotation_coverage_diagnostics(
                     context,review,rosters,boxes,generated)
@@ -293,7 +311,7 @@ def collect_batch(ledger,assets,directory,*,maximum=4,minimum_lead_seconds=900,
                 if digest(snapshot)!=row['snapshot_sha256']:
                     raise ValueError('PLAYER_BATCH_SNAPSHOT_CHANGED_DURING_READ')
                 one=collect_one(snapshot,assets,root)
-                item={k:one.get(k) for k in ('fixture_id','status','reason','projection','new_record','roster_diagnostics','rotation_diagnostics','official_only_diagnostic')}
+                item={k:one.get(k) for k in ('fixture_id','status','reason','projection','new_record','roster_diagnostics','rotation_diagnostics','official_only_diagnostic','conditional_rotation')}
             except (ValueError,KeyError,TypeError,OSError,sqlite3.Error):
                 item=dict(fixture_id=row['fixture_id'],status='BLOCKED',reason='PLAYER_BATCH_ARCHIVE_OR_SOURCE_UNAVAILABLE')
             result['results'].append(item)
