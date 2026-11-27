@@ -278,9 +278,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                 if provider_bridge is not None:
                     started=time.monotonic()
                     try:
-                        from hybrid_engine.provider_bridge import nba_provider_panel
-                        provider_panel=await asyncio.wait_for(
-                            optional_source_thread(nba_provider_panel,snapshot,nba_service,provider_bridge,structured=True),timeout=14)
+                        from hybrid_engine.provider_bridge import nba_provider_review
+                        provider_panel=await nba_provider_review(snapshot,nba_service,provider_bridge)
                         market_lines.append(provider_panel['html'])
                         direction_cards.extend(provider_panel['cards'])
                         market_candidate_snapshot=provider_panel.get('market_candidate_snapshot')
@@ -288,7 +287,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                         market_source_status=provider_panel.get('market_source_status','PROVIDER_STATUS_UNAVAILABLE')
                         review_state=provider_panel.get('market_review_status')
                         if review_state in ('NATIVE_PRICE_ADMISSION_FAILED','MODEL_DISTRIBUTION_UNAVAILABLE',
-                                'CONTRACT_EVALUATION_FAILED','CURRENT_REVIEW_ARCHIVE_FAILED','CURRENT_REVIEW_RENDER_FAILED'):
+                                'CONTRACT_EVALUATION_FAILED','CURRENT_REVIEW_ARCHIVE_FAILED','CURRENT_REVIEW_RENDER_FAILED',
+                                'MARKET_MODEL_REVIEW_TIMEOUT'):
                             market_source_status=review_state
                     except Exception as exc:
                         market_source_status=('PROVIDER_REVIEW_TIMEOUT' if isinstance(exc,(asyncio.TimeoutError,TimeoutError))

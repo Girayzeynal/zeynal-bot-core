@@ -253,6 +253,8 @@ def missing_current_market_card(assessment,entry,panels):
         'CONTRACT_EVALUATION_FAILED':'Kaynak gözlemi var; sözleşme hesabı tamamlanamadı.',
         'CURRENT_REVIEW_ARCHIVE_FAILED':'Kaynak gözlemi var; karar arşivi doğrulanamadı.',
         'CURRENT_REVIEW_RENDER_FAILED':'Karar raporu görüntüye dönüştürülemedi.',
+        'MARKET_MODEL_REVIEW_TIMEOUT':'Kaynak gözlemi alındı; model dağılımı süre sınırına ulaştı.',
+        'PRIMARY_PRICES_PRESENT_SECONDARY_DEFERRED':'Birincil fiyatlar alındı; ikincil sorgular ertelendi.',
         'PROVIDER_STATUS_UNAVAILABLE':'Sağlayıcı durum raporu alınamadı.',
         'LOCAL_DAILY_REQUEST_BUDGET':'Yerel günlük sağlayıcı istek bütçesi doldu.',
         'PROVIDER_QUOTA_EXHAUSTED':'Sağlayıcının istek kotası doldu.',

@@ -358,6 +358,26 @@ class BridgeTests(unittest.TestCase):
         self.bridge._odds.assert_called_once_with(SNAPSHOT,NOW+9)
         self.bridge._basketball.assert_called_once_with(SNAPSHOT,NOW+12,backup_prices=True)
 
+    def test_interactive_primary_success_defers_secondary_queries(self):
+        self.bridge._odds=Mock(return_value=dict(status='OBSERVED',observations=[{}]))
+        self.bridge._basketball=Mock()
+        r=self.bridge.collect(SNAPSHOT,primary_priority=True)
+        self.bridge._odds.assert_called_once_with(SNAPSHOT,NOW+12)
+        self.bridge._basketball.assert_not_called()
+        self.assertEqual(r['providers']['API_BASKETBALL']['status'],'PRIMARY_PRICES_PRESENT_SECONDARY_DEFERRED')
+
+    def test_interactive_primary_failure_gives_backup_independent_budget(self):
+        clock=[NOW]
+        self.bridge.clock=lambda:clock[0]
+        def primary(snapshot,deadline):
+            self.assertEqual(deadline,NOW+12)
+            clock[0]+=11
+            return dict(status='PROVIDER_TIME_BUDGET',observations=[])
+        self.bridge._odds=primary
+        self.bridge._basketball=Mock(return_value=dict(status='BACKUP_DIAGNOSTIC'))
+        self.bridge.collect(SNAPSHOT,primary_priority=True)
+        self.bridge._basketball.assert_called_once_with(SNAPSHOT,NOW+23,backup_prices=True)
+
     def test_no_keys_no_network_and_clear_status_not_no_edge(self):
         bridge = ProviderBridge(ProviderAccess({}, getter=self.fake), self.root/'empty', clock=lambda: NOW)
         r = bridge.collect(SNAPSHOT)
@@ -642,3 +662,46 @@ def test_provider_panel_refuses_bad_native_admission_without_model_replay():
     assert report['market_review_status']=='NATIVE_PRICE_ADMISSION_FAILED'
     assert report['cards']==[]
     assert SECRET not in json.dumps(report)
+
+
+def test_two_stage_review_keeps_native_evidence_on_model_timeout():
+    import asyncio
+    from types import SimpleNamespace
+    from hybrid_engine.provider_bridge import nba_provider_review,nba_provider_panel
+    report=dict(status='CURRENT_OBSERVATIONS_NOT_HISTORICAL_FORECAST_INPUTS',
+                providers={'THE_ODDS_API':dict(status='OBSERVED',observations=[{}])})
+    bridge=SimpleNamespace(collect=Mock(return_value=report))
+    calls=[]
+    async def fake_thread(fn,*args,**kwargs):
+        calls.append(fn)
+        if fn is nba_provider_panel:
+            assert kwargs['source_report'] is report
+            raise asyncio.TimeoutError()
+        return fn(*args,**kwargs)
+    with patch('hybrid_engine.isolated_execution.optional_source_thread',side_effect=fake_thread), \
+         patch('hybrid_engine.provider_bridge.render',return_value='NATIVE_SOURCE_REPORT'):
+        value=asyncio.run(nba_provider_review({},None,bridge))
+    bridge.collect.assert_called_once_with({},primary_priority=True)
+    assert len(calls)==2
+    assert value['market_source_status']=='OBSERVED'
+    assert value['market_review_status']=='MARKET_MODEL_REVIEW_TIMEOUT'
+    assert value['market_native_observations']==1
+    assert value['cards']==[] and value['market_candidate_snapshot'] is None
+    assert 'NATIVE_SOURCE_REPORT' in value['html']
+
+
+def test_two_stage_no_prices_does_not_run_model():
+    import asyncio
+    from types import SimpleNamespace
+    from hybrid_engine.provider_bridge import nba_provider_review
+    report=dict(status='CURRENT_OBSERVATIONS_NOT_HISTORICAL_FORECAST_INPUTS',
+                providers={'THE_ODDS_API':dict(status='RATE_LIMITED',observations=[])})
+    bridge=SimpleNamespace(collect=Mock(return_value=report))
+    async def fake_thread(fn,*args,**kwargs):
+        return fn(*args,**kwargs)
+    with patch('hybrid_engine.isolated_execution.optional_source_thread',side_effect=fake_thread) as work, \
+         patch('hybrid_engine.provider_bridge.render',return_value='RATE_LIMIT_REPORT'):
+        value=asyncio.run(nba_provider_review({},None,bridge))
+    assert work.call_count==1
+    assert value['market_source_status']=='RATE_LIMITED'
+    assert value['cards']==[] and value['market_native_observations']==0

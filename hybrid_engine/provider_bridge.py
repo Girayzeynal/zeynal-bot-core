@@ -561,7 +561,7 @@ class ProviderBridge:
                     injuries_verified=False, lineups_verified=False, pace_verified=False,
                     forecast_inputs_changed=False, statistics=stats,**season_info)
 
-    def collect(self, snapshot):
+    def collect(self, snapshot, *, primary_priority=False):
         now = int(self.clock())
         config = self.access.configuration()
         report = dict(format='ISOLATED_PROVIDER_REVIEW_V1', fixture_id=snapshot['fixture_id'],
@@ -591,6 +591,10 @@ class ProviderBridge:
             primary_deadline=(started+9 if
                 config['API_BASKETBALL']!='KEY_NOT_AVAILABLE_IN_TEST_PROCESS' and not self.diagnostic_only
                 else deadline)
+            # Interactive NBA pricing must not spend its primary time budget
+            # on optional secondary statistics. Keep the legacy collector
+            # contract for all other consumers.
+            if primary_priority:primary_deadline=deadline
             for provider, method in [('THE_ODDS_API', self._odds), ('API_BASKETBALL', self._basketball)]:
                 if config[provider] == 'KEY_NOT_AVAILABLE_IN_TEST_PROCESS':
                     report['providers'][provider] = dict(status=config[provider])
@@ -598,7 +602,13 @@ class ProviderBridge:
                 try:
                     if provider=='API_BASKETBALL':
                         primary=report['providers'].get('THE_ODDS_API',{})
-                        report['providers'][provider]=method(snapshot,deadline,
+                        if primary_priority and primary.get('observations'):
+                            report['providers'][provider]=dict(status='PRIMARY_PRICES_PRESENT_SECONDARY_DEFERRED',observations=[])
+                            continue
+                        # A cold backup receives its own bounded request window,
+                        # rather than an unusable remainder of the primary's.
+                        secondary_deadline=self.clock()+12 if primary_priority else deadline
+                        report['providers'][provider]=method(snapshot,secondary_deadline,
                             backup_prices=not self.diagnostic_only and not primary.get('observations'))
                     else:
                         report['providers'][provider] = method(snapshot, primary_deadline)
@@ -716,12 +726,12 @@ def render(report):
     return '\n'.join(lines)
 
 
-def nba_provider_panel(snapshot, service, bridge, *, structured=False):
+def nba_provider_panel(snapshot, service, bridge, *, structured=False, source_report=None, cancel=None):
     """Keep native retrieval evidence independent of downstream model failures."""
     from hybrid_engine.market_views import replay_nba
     from hybrid_engine.current_market_review import admit_odds,CurrentReviewJournal
     from hybrid_engine.current_market_render import render_batch
-    report=bridge.collect(snapshot)
+    report=bridge.collect(snapshot) if source_report is None else source_report
     parts=[render(report)]
     direction_cards=[];market_candidate_snapshot=None
     row=report['providers'].get('THE_ODDS_API',{})
@@ -750,6 +760,8 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
             reviews=[evaluate_bound(bridge,o,distribution,evaluation_snapshot,asof_utc=decision_utc,native_quotes=q)
                      for o,q in zip(observations,quotes)]
             stage='REVIEW_ARCHIVE'
+            if cancel is not None and cancel.is_set():
+                raise TimeoutError('MARKET_MODEL_REVIEW_CANCELLED')
             batch=CurrentReviewJournal(bridge.root.parent/'current-market-reviews').record(
                 evaluation_snapshot,distribution,reviews,decision_utc=decision_utc,native_context=snapshot)
             stage='REVIEW_RENDER'
@@ -776,3 +788,35 @@ def nba_provider_panel(snapshot, service, bridge, *, structured=False):
                  market_source_status=source_state,market_native_observations=len(observations),
                  market_review_status=review_state)
             if structured else full)
+
+
+async def nba_provider_review(snapshot,service,bridge):
+    """Two independently bounded stages; never re-fetch a collected source report.
+
+    Source access keeps the shared quota/cache/cooldown. If model computation
+    runs late, the native observation remains visible and no direction is
+    returned. Python cannot forcibly cancel an already-running worker thread.
+    """
+    import asyncio
+    from hybrid_engine.isolated_execution import optional_source_thread
+    report=await asyncio.wait_for(
+        optional_source_thread(bridge.collect,snapshot,primary_priority=True),timeout=28)
+    row=report.get('providers',{}).get('THE_ODDS_API',{})
+    observations=row.get('observations',[])
+    if not observations:
+        return dict(html=render(report),cards=[],market_candidate_snapshot=None,
+                    market_source_status=row.get('status') or report.get('status','UNKNOWN'),
+                    market_native_observations=0,market_review_status='NO_NATIVE_OBSERVATIONS')
+    cancel=threading.Event()
+    try:
+        return await asyncio.wait_for(optional_source_thread(nba_provider_panel,snapshot,service,bridge,
+            structured=True,source_report=report,cancel=cancel),timeout=20)
+    except (asyncio.TimeoutError,TimeoutError):
+        cancel.set()
+        return dict(html=render(report)+'\n\nPiyasa dağılımı süre sınırına ulaştı; kaynak gözlemi korundu.',
+                    cards=[],market_candidate_snapshot=None,
+                    market_source_status=row.get('status') or report.get('status','UNKNOWN'),
+                    market_native_observations=len(observations),market_review_status='MARKET_MODEL_REVIEW_TIMEOUT')
+    except asyncio.CancelledError:
+        cancel.set()
+        raise

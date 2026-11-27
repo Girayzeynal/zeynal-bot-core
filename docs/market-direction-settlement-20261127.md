@@ -21,3 +21,20 @@ CI #2178 on 0df1dcf: both Python and Docker 2326 passed, 1 failed. Existing capt
 
 ## Staging result-health reader alignment
 User-reported ec74564: native Telegram accuracy receipt verified, NBA automatic control CHECKED, registered protocol 60 settled / 11 pending. /test nba then showed ARCHIVE_NOT_VERIFIED despite earlier /accuracy all reading 83 eligible NBA finals. Code inspection found result-health still used old LedgerReports with its validation-time query deadline; runtime accuracy uses RuntimeLedgerReports. Exact device exception was not exposed, so causality is not asserted. Result-health now uses the same verified runtime reader with summarize=False and fixed safe error classes. Tests exercise slow validation, redacted SQLite and validation failures. Provider catalog/account HTTP 200 observed, not a price or contract receipt. No forecasts, archives, quota settings or rule manifests changed.
+
+## Interactive NBA provider deadline isolation (27 Nov)
+The real Knicks–Heat report showed PROVIDER_REVIEW_UNAVAILABLE. Exact
+exception not recorded. Inspection established a concrete design flaw:
+a 12s source budget and the model computation shared a 14s outer deadline,
+and a cold secondary provider had only a 3s reserve. Interactive NBA now
+uses a primary-first source budget, defers redundant secondary work when
+primary prices exist, gives a failed-primary backup a separate bounded
+window, and separates source and model await deadlines. The same source
+report is passed to the computation without refetch. If computation times
+out, native evidence remains visible and no direction is returned; a
+cancellation flag prevents a not-yet-started journal write. In-flight
+threads cannot be forcibly stopped, and existing durable deadline proof
+still governs archival eligibility. Existing API quotas, source checks,
+scientific pins, initial forecasts and settlement rules are unchanged.
+Tests cover priority, independent backup budget and source preservation
+under simulated timeout. Real provider access is not established by CI.
