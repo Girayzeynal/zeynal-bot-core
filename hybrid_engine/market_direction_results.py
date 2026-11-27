@@ -33,7 +33,7 @@ def read_wrapper(path,maximum=MAX_FILE_BYTES):
     require(digest(w['payload'])==w['sha256'],'MARKET_REVIEW_PIN')
     return w
 
-def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None):
+def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None,allow_pending=False):
     now=int(time.time()) if now is None else now
     require(type(now) is int and 0<now<=int(time.time()),'MARKET_AUDIT_ACTUAL_CLOCK')
     w=read_wrapper(path);p=w['payload'];key=w['manifest_sha256']
@@ -64,32 +64,39 @@ def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None):
     matches=[r for r in labels if r['snapshot_sha256']==original and
              (r['league'],r['season'],r['fixture_id'],r['fixture_start_utc'])==
              (f['league'],f['season'],f['fixture_id'],f['tipoff_utc']) and
-             r.get('actual') is not None and not r.get('legacy_publication_clock_unrecorded') and
+             (allow_pending or r.get('actual') is not None) and not r.get('legacy_publication_clock_unrecorded') and
              r.get('eligible_for_live_performance') is not False]
     require(bool(matches),'VERIFIED_FINAL_OR_ORIGINAL_MISSING')
     # Europe rows share one original snapshot, but each component has its own sample pin.
     suitable=[r for r in matches if (r.get('intervals') or {}).get('sample_sha256')==
               native['intervals']['sample_sha256']]
     require(bool(suitable),'ORIGINAL_SAMPLE_NOT_VERIFIED')
-    result=suitable[0]
-    require(all(r['actual_periods']==result['actual_periods'] and r['actual']==result['actual']
-                and r['final_with_ot']==result['final_with_ot'] for r in matches),
-            'CONFLICTING_NATIVE_FINALS')
+    finals=[r for r in matches if r.get('actual') is not None]
+    suitable_finals=[r for r in suitable if r.get('actual') is not None]
+    require(not finals or bool(suitable_finals),'ORIGINAL_SAMPLE_FINAL_NOT_VERIFIED')
+    pending=not finals
+    result=suitable[0] if pending else suitable_finals[0]
+    if not pending:
+        require(all(r['actual_periods']==result['actual_periods'] and r['actual']==result['actual']
+                    and r['final_with_ot']==result['final_with_ot'] for r in finals),
+                'CONFLICTING_NATIVE_FINALS')
     first_deadline=p['prediction_utc'] if p.get('forecast_record_type') else decision
     require(type(result.get('first_archived_at_utc')) is int and
             type(result.get('prediction_generated_at_utc')) is int and
             result['prediction_generated_at_utc']==native['prediction_generated_at_utc'] and
             0<result['prediction_generated_at_utc']<=result['first_archived_at_utc']<=first_deadline and
-            type(result.get('label_available_utc')) is int and f['tipoff_utc']<result['label_available_utc']<=now and
+            (pending or (type(result.get('label_available_utc')) is int and
+                         f['tipoff_utc']<result['label_available_utc']<=now)) and
             (f['league']!='NBA' or result.get('model_digest')==native['model_digest']),
             'ORIGINAL_OR_FINAL_CLOCK_UNVERIFIED')
-    periods=result['actual_periods']
-    # Verify regulation and full score agreement, valid preceding OT ties and
-    # a completed, non-tied full result before classifying any direction.
-    settled_value(periods,'FULL','TOTAL',include_overtime=True)
-    require([sum(periods[s][:4]) for s in ('home','away')]==result['actual'] and
-            [sum(periods[s]) for s in ('home','away')]==result['final_with_ot'] and
-            result['final_with_ot'][0]!=result['final_with_ot'][1],'NATIVE_FINAL_SCORE_CONFLICT')
+    periods=None
+    if not pending:
+        periods=result['actual_periods']
+        # Only a verified, completed final is ever settled.
+        settled_value(periods,'FULL','TOTAL',include_overtime=True)
+        require([sum(periods[s][:4]) for s in ('home','away')]==result['actual'] and
+                [sum(periods[s]) for s in ('home','away')]==result['final_with_ot'] and
+                result['final_with_ot'][0]!=result['final_with_ot'][1],'NATIVE_FINAL_SCORE_CONFLICT')
     if p.get('forecast_record_type'):
         require(candidate_lookup is not None,'CANDIDATE_ARCHIVE_UNAVAILABLE')
         candidate_lookup(p,evaluation,completed)
@@ -163,14 +170,17 @@ def audit_batch(path,bridge,labels,*,candidate_lookup=None,now=None):
                 if abs(mass['under']-mass['over'])<1e-12 or mass['push']>=max(mass['under'],mass['over']):
                     excluded['NO_DISTINCT_DIRECTION']+=1;continue
                 side='under' if mass['under']>mass['over'] else 'over'
-                v=settled_value(periods,row['period'],row['market'],include_overtime=rp['include_overtime'])
-                actual='push' if v==row['line'] else 'under' if v<row['line'] else 'over'
+                outcome='PENDING_FINAL'
+                if not pending:
+                    v=settled_value(periods,row['period'],row['market'],include_overtime=rp['include_overtime'])
+                    actual='push' if v==row['line'] else 'under' if v<row['line'] else 'over'
+                    outcome='PUSH' if actual=='push' else 'WIN' if side==actual else 'LOSS'
                 group=(f['league'],f['season'],review['model_version'],review['bookmaker']['id'],
-                       row['market'],rp['include_overtime'],row['line'])
+                       row['market'],rp['include_overtime'],row['line'],review['model_digest'],r.sha256)
                 rows.append(dict(group=group,fixture_id=f['fixture_id'],decision_utc=decision,
                     completed_at_utc=completed,batch_sha256=w['sha256'],quote_sha256=row['quote_sha256'],
                     direction=side,prices=dict(row['prices']),model_digest=review['model_digest'],
-                    outcome='PUSH' if actual=='push' else 'WIN' if side==actual else 'LOSS'))
+                    outcome=outcome))
             except (ValueError,KeyError,TypeError,AttributeError) as exc:
                 reason=str(exc)
                 excluded[reason if reason.isupper() and len(reason)<100 else 'MARKET_ROW_VALIDATION_FAILED']+=1
@@ -212,6 +222,7 @@ def candidate_checker(assessments):
 
 def audit(root,reports,*,bridge,assessments=None):
     excluded=Counter();labels=[];fixtures=set();groups={};conflicts=set()
+    native_batches=0;legacy_batches=0
     if bridge is None:return dict(status='BLOCKED_PROVIDER_ARCHIVE_UNAVAILABLE',groups=[],excluded={},independent_fixtures=0)
     for league,report in reports.items():
         try:
@@ -236,24 +247,30 @@ def audit(root,reports,*,bridge,assessments=None):
             # Route only to the actual verified result cohort, never another fixture.
             p=read_wrapper(path)['payload']
             if 'native_price_context' not in p:
-                excluded['LEGACY_PRICE_CONTEXT_MISSING']+=1;continue
+                legacy_batches+=1;excluded['LEGACY_PRICE_CONTEXT_MISSING']+=1;continue
+            native_batches+=1
             ctx=p['native_price_context']
-            rows,skips=audit_batch(path,bridge,by_fixture[(ctx['league'],ctx['fixture_id'])],candidate_lookup=check)
+            rows,skips=audit_batch(path,bridge,by_fixture[(ctx['league'],ctx['fixture_id'])],
+                                   candidate_lookup=check,allow_pending=True)
             excluded.update(skips)
             for row in rows:
-                k=(row['group'],row['fixture_id']);rank=(row['completed_at_utc'],row['decision_utc'])
+                # Keep the earliest admissible decision per strategy/fixture,
+                # even if a later model digest or rule receipt changes.
+                k=(row['group'][:7],row['fixture_id']);rank=(row['completed_at_utc'],row['decision_utc'])
                 old=groups.get(k)
                 if old is None or rank<(old['completed_at_utc'],old['decision_utc']):
                     groups[k]=row;conflicts.discard(k)
                 elif rank==(old['completed_at_utc'],old['decision_utc']) and any(
-                        row[field]!=old[field] for field in ('direction','outcome','prices','model_digest')):
+                        row[field]!=old[field] for field in ('direction','outcome','prices','group')):
                     conflicts.add(k)
         except ERRORS as exc:
             reason=str(exc)
             excluded[reason if reason.isupper() and len(reason)<100 else 'MARKET_BATCH_VALIDATION_FAILED']+=1
-    results=defaultdict(Counter);unique=set()
+    results=defaultdict(Counter);unique=set();pending=set();pending_directions=0
     for k,row in groups.items():
         if k in conflicts:excluded['CONFLICTING_FIRST_DIRECTION']+=1;continue
+        if row['outcome']=='PENDING_FINAL':
+            pending.add((row['group'][0],row['fixture_id']));pending_directions+=1;continue
         results[row['group']][row['outcome']]+=1;unique.add((row['group'][0],row['fixture_id']))
     out=[]
     for key,c in sorted(results.items()):
@@ -262,6 +279,8 @@ def audit(root,reports,*,bridge,assessments=None):
                         independent_fixtures=sum(c.values()),hit_rate=c['WIN']/n if n else None))
     return dict(status='DESCRIPTIVE_VERIFIED_PREMATCH_DIRECTIONS' if out else 'NO_VERIFIED_PREMATCH_DIRECTIONS',
                 groups=out,excluded=dict(excluded),independent_fixtures=len(unique),
+                pending_final_fixtures=len(pending),pending_final_directions=pending_directions,
+                native_context_batches=native_batches,legacy_context_batches=legacy_batches,
                 forecast_changed=False,calibration_verified=False)
 
 def render(root,reports,*,bridge,assessments=None):
@@ -269,13 +288,22 @@ def render(root,reports,*,bridge,assessments=None):
     lines=['ZEYNAL | MAÇ SONUCU (ML) / ALT-ÜST | AYRI PİYASA KARAR DENETİMİ',
            r['status'],'Bağımsız doğrulanmış maç: '+str(r['independent_fixtures']),
            'İlk tahmin başarısına eklenmez. Gerçek bahis veya kalibrasyon başarısı değildir.']
+    if 'native_context_batches' in r:
+        lines.append('Yeni kaynak bağlamlı kayıt: '+str(r['native_context_batches'])+
+                     ' · Eski bağlamsız kayıt: '+str(r['legacy_context_batches']))
+        lines.append('Sözleşme ve karar kanıtı denetlenmiş, FINAL bekleyen maç: '+
+                     str(r['pending_final_fixtures'])+' · Yön: '+str(r['pending_final_directions'])+
+                     ' (başarı hesabına alınmadı)')
+    book=getattr(bridge,'rule_book',None)
+    status=getattr(book,'status',None)
+    if callable(status):lines.append('Ödeme kuralı yapılandırması: '+status())
     for market in ('WINNER','TOTAL'):
         rows=[g for g in r['groups'] if g['group'][4]==market]
         lines.append(('Maç sonucu (ML)' if market=='WINNER' else 'Alt/Üst')+' · '+str(len(rows))+' ayrı kohort')
         for g in rows[:32]:
-            l,s,model,book,_,ot,line=g['group']
+            l,s,model,book,_,ot,line,model_pin,rule_pin=g['group']
             rate='yok' if g['hit_rate'] is None else f"{100*g['hit_rate']:.1f}%"
-            lines.append(f"{l} {s} | {model} | {book} | {'Uzatma dahil' if ot else 'Normal süre'} | {line:g} | "
+            lines.append(f"{l} {s} | {model} [{model_pin[:12]}] | {book} | {'Uzatma dahil' if ot else 'Normal süre'} | {line:g} | kural {rule_pin[:12]} | "
                          f"D {g['win']} Y {g['loss']} İade {g['push']} | İade dışı isabet {rate}")
         if len(rows)>32:lines.append(f"Özet sınırı: 32/{len(rows)} kohort; toplu başarı yüzdesi hesaplanmadı.")
     lines.append('Dışlanan kayıt/satır nedenleri: '+(', '.join(f'{k}={v}' for k,v in sorted(r['excluded'].items())) or 'yok'))

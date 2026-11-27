@@ -431,5 +431,44 @@ class CurrentReviewTests(unittest.TestCase):
             self.assertEqual(rows,[])
             self.assertEqual(excluded[reason],1)
 
+    def test_market_pending_final_never_counts_as_settled(self):
+        from hybrid_engine.market_direction_results import audit,render
+        from types import SimpleNamespace
+        rules=self.with_rule(self.rule())
+        bridge=ProviderBridge(ProviderAccess({}),self.root/'receipts',
+                              rule_book=SimpleNamespace(rules=lambda at:rules))
+        bridge._save(self.catalog);bridge._save(self.detail)
+        directory=self.root/'current-market-reviews'
+        CurrentReviewJournal(directory).record(self.snap,self.dist,[self.review(rules=rules)],
+                                               decision_utc=NOW,native_context=self.snap)
+        label=dict(league=self.snap['league'],season=self.snap['season'],fixture_id=self.snap['fixture_id'],
+            fixture_start_utc=self.snap['fixture_start_utc'],snapshot_sha256=digest(self.snap),
+            intervals=self.snap['intervals'],model_digest=self.snap['model_digest'],
+            prediction_generated_at_utc=self.snap['prediction_generated_at_utc'],
+            first_archived_at_utc=self.snap['prediction_generated_at_utc']+1,actual=None)
+        reports={self.snap['league']:dict(status='VERIFIED_LIVE_REPORT',forecasts=[label])}
+        pending=audit(self.root,reports,bridge=bridge)
+        self.assertEqual(pending['native_context_batches'],1)
+        self.assertEqual(pending['pending_final_fixtures'],1)
+        self.assertEqual(pending['pending_final_directions'],1)
+        self.assertEqual(pending['independent_fixtures'],0)
+        self.assertEqual(pending['groups'],[])
+        self.assertIn('FINAL bekleyen maç: 1',render(self.root,reports,bridge=bridge))
+        bridge.rule_book=SimpleNamespace(rules=lambda at:{})
+        blocked=audit(self.root,reports,bridge=bridge)
+        self.assertEqual(blocked['pending_final_fixtures'],0)
+        self.assertEqual(blocked['excluded']['SETTLEMENT_RULE_UNVERIFIED'],1)
+        self.assertEqual(blocked['independent_fixtures'],0)
+        bridge.rule_book=SimpleNamespace(rules=lambda at:rules)
+        start=label['fixture_start_utc']
+        label.update(label_available_utc=start+3600,actual=[120,100],final_with_ot=[120,100],
+                     actual_periods=dict(home=[30]*4,away=[25]*4))
+        with patch('time.time',return_value=start+4000):
+            final=audit(self.root,reports,bridge=bridge)
+        self.assertEqual(final['pending_final_fixtures'],0)
+        self.assertEqual(final['independent_fixtures'],1)
+        self.assertEqual(final['groups'][0]['group'][7],self.snap['model_digest'])
+        self.assertEqual(final['groups'][0]['group'][8],next(iter(rules.values())).sha256)
+
 
 if __name__=='__main__':unittest.main()
