@@ -10,7 +10,8 @@ from hybrid_engine.data import local_path
 from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 
 KINDS={'HISTORICAL_FIVE_PLAYER_SCORE_RESEARCH_V1':'CONTRAST64',
-       'HISTORICAL_FIVE_BROAD_PLAYER_SCORE_RESEARCH_V1':'BROAD_RIDGE'}
+       'HISTORICAL_FIVE_BROAD_PLAYER_SCORE_RESEARCH_V1':'BROAD_RIDGE',
+       'NBA_ROTATION_PACE_EFFICIENCY_RESEARCH_V1':'PACE_EFFICIENCY'}
 NAMES=('original_prediction','team_control','player_candidate')
 
 def metrics(rows):
@@ -40,12 +41,12 @@ def evaluate(root,ledger,*,now=None):
         w=json.loads(path.read_text());p=w['payload']
         if digest(p)!=w['sha256'] or w['sha256']!=pin:raise ValueError('ARCHIVE_PIN')
         return p
-    for path in root.glob('historical-score-*.json'):
-        m=re.fullmatch(r'historical-score-(broad-)?([0-9a-f]{64})\.json',path.name)
+    for path in sorted([*root.glob('historical-score-*.json'),*root.glob('factor-score-*.json')]):
+        m=re.fullmatch(r'(historical-score-|historical-score-broad-|factor-score-)([0-9a-f]{64})\.json',path.name)
         if not m:continue
         try:
             p=read(path,m[2]);kind=KINDS[p['format']]
-            if bool(m[1])!=(kind=='BROAD_RIDGE'):raise ValueError('FORMAT_NAME')
+            if m[1]!={'CONTRAST64':'historical-score-','BROAD_RIDGE':'historical-score-broad-','PACE_EFFICIENCY':'factor-score-'}[kind]:raise ValueError('FORMAT_NAME')
             row=originals[(p['fixture_id'],p['original_snapshot_sha256'])]
             tip=row['fixture_start_utc'];generated=p['generated_at_utc']
             # Local filesystem receipt time is not an external timestamp attestation.
@@ -57,23 +58,37 @@ def evaluate(root,ledger,*,now=None):
                 raise ValueError('LOCAL_PUBLICATION_CLOCK')
             if p['production_enabled'] or p['forecast_changed']:raise ValueError('RESEARCH_SCOPE')
             rotation=read(root/('historical-five-'+p['rotation_sha256']+'.json'),p['rotation_sha256'])
-            model=read(root/('historical-score-model-'+p['model_sha256']+'.json'),p['model_sha256'])
-            control=read(root/('historical-score-control-'+p['control_sha256']+'.json'),p['control_sha256'])
+            factor=kind=='PACE_EFFICIENCY'
+            model=read(root/(('factor-model-' if factor else 'historical-score-model-')+p['model_sha256']+'.json'),p['model_sha256'])
+            control=read(root/(('factor-model-' if factor else 'historical-score-control-')+p['control_sha256']+'.json'),p['control_sha256'])
             if (rotation['fixture_id']!=p['fixture_id'] or rotation['original_snapshot_sha256']!=p['original_snapshot_sha256']
-                or not model['cutoff_utc']==control['cutoff_utc']==p['training_cutoff_utc']<=rotation['generated_at_utc']<=generated
-                or model['training_sha256']!=control['training_sha256'] or model['training_sha256']!=p['training_sha256']
-                or p['fixture_id'] in model['training_fixture_ids'] or model['training_fixture_ids']!=control['training_fixture_ids']):
+                or rotation['fixture_start_utc']!=tip
+                or not rotation['generated_at_utc']<=generated
+                or not model['cutoff_utc']==control['cutoff_utc']<=generated
+                or model['training_sha256']!=control['training_sha256']
+                or p['fixture_id'] in model['training_fixture_ids'] or model['training_fixture_ids']!=control['training_fixture_ids']
+                or model['season']!=row['season'] or control['season']!=row['season']):
                 raise ValueError('MODEL_ROTATION_BINDING')
+            if not factor and (model['cutoff_utc']!=p['training_cutoff_utc'] or model['cutoff_utc']>rotation['generated_at_utc']
+                    or model['training_sha256']!=p['training_sha256']):
+                raise ValueError('HISTORICAL_SCORE_TRAINING_BINDING')
             if any(abs(p['original_prediction'][s]-row['prediction'][i])>1e-6 for i,s in enumerate(('home','away'))):
                 raise ValueError('ORIGINAL_PREDICTION_MISMATCH')
             from hybrid_engine.historical_five_score import rotation_from_summary
             from hybrid_engine.player_box_pilot import projected_pair
             teams=[rotation['teams'][s]['team_id'] for s in ('home','away')]
             rotations=[rotation_from_summary(rotation['teams'][s]) for s in ('home','away')]
-            for name,fit in (('team_control',control),('player_candidate',model)):
-                pair=projected_pair(fit,*teams,*rotations)
-                if any(not math.isfinite(v) or abs(v-p[name][s])>1e-6 for v,s in zip(pair,('home','away'))):
-                    raise ValueError('SCORE_REPLAY_MISMATCH')
+            for name,fit,pin in (('team_control',control,p['control_sha256']),('player_candidate',model,p['model_sha256'])):
+                if factor:
+                    from hybrid_engine.rotation_efficiency import predict
+                    replay=predict(dict(payload=fit,sha256=pin),*teams,rotations)
+                    keys=('home','away','total','estimated_shared_possessions','home_points_per_100','away_points_per_100')
+                    if any(not math.isfinite(replay[k]) or not math.isfinite(p[name][k]) or abs(replay[k]-p[name][k])>1e-6 for k in keys):
+                        raise ValueError('FACTOR_SCORE_REPLAY_MISMATCH')
+                else:
+                    pair=projected_pair(fit,*teams,*rotations)
+                    if any(not math.isfinite(v) or abs(v-p[name][s])>1e-6 for v,s in zip(pair,('home','away'))):
+                        raise ValueError('SCORE_REPLAY_MISMATCH')
             records[(kind,row['season'],p['fixture_id'])].append((generated,modified,m[2],p,row))
         except (ValueError,KeyError,TypeError,OSError,IndexError) as e:
             reason=str(e);exclusions[reason if reason.isupper() and len(reason)<100 else type(e).__name__]+=1
@@ -90,7 +105,14 @@ def evaluate(root,ledger,*,now=None):
         g['settled'].append(q)
         detail.append(dict(kind=kind,fixture_id=fid,home=row['home'],away=row['away'],actual=actual,
             original=p['original_prediction']['total'],control=p['team_control']['total'],candidate=p['player_candidate']['total'],receipt=pin))
-    return dict(format='HISTORICAL_FIVE_FORWARD_LOCAL_AUDIT_V1',groups=[
+    # Compare families only on the same settled fixtures, separately by season.
+    common=[]
+    for season in sorted({k[1] for k in groups}):
+        families={k[0]:{p['fixture_id']:p for p in v['settled']} for k,v in groups.items() if k[1]==season}
+        if set(families)!=set(KINDS.values()):continue
+        shared=set.intersection(*(set(v) for v in families.values()))
+        common.append(dict(season=season,n=len(shared),models={k:metrics([v[fid] for fid in sorted(shared)]) for k,v in families.items()}))
+    return dict(format='HISTORICAL_FIVE_FORWARD_LOCAL_AUDIT_V1',common_all_three_families=common,groups=[
         dict(kind=k[0],season=k[1],matched=len(v['settled']),pending=v['pending'],duplicate_receipts=v['duplicates'],
              metrics=metrics(v['settled'])) for k,v in sorted(groups.items())],
         exclusions=dict(exclusions),results=detail,publication_evidence='LOCAL_FILE_CLOCK_NOT_EXTERNAL_ATTESTATION',
