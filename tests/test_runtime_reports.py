@@ -26,7 +26,11 @@ def test_validation_does_not_consume_sqlite_query_deadline_or_hold_read_lock(tmp
     monkeypatch.setattr(LiveAnalysisLedger, '_decode', staticmethod(slow_validate))
     with pytest.raises(sqlite3.OperationalError) as err:
         LedgerReports(path).read('NBA')
-    assert err.value.sqlite_errorcode == sqlite3.SQLITE_INTERRUPT
+    if hasattr(err.value, 'sqlite_errorcode'):
+        assert err.value.sqlite_errorcode == getattr(sqlite3, 'SQLITE_INTERRUPT', 9)
+    else:
+        assert str(err.value).lower() == 'interrupted'
+        assert failure(err.value) == 'SQLITE_INTERRUPT'
 
     def exclusive_validate(*args, **kwargs):
         with sqlite3.connect(path, timeout=0) as writer:
@@ -49,11 +53,19 @@ def test_actual_sqlite_error_classes_distinguish_busy_and_corruption(tmp_path):
     with sqlite3.connect(path) as db, pytest.raises(sqlite3.OperationalError) as err:
         db.execute('BEGIN EXCLUSIVE')
         RuntimeLedgerReports(path).read('NBA')
-    assert failure(err.value) == 'SQLITE_BUSY (SQLITE_BUSY/5)'
+    if hasattr(err.value, 'sqlite_errorcode'):
+        assert failure(err.value) == 'SQLITE_BUSY (SQLITE_BUSY/5)'
+    else:
+        assert str(err.value).lower() == 'database is locked'
+        assert failure(err.value) == 'SQLITE_BUSY'
     path.write_bytes(b'not a database'*100)
     with pytest.raises(sqlite3.DatabaseError) as err:
         RuntimeLedgerReports(path).read('NBA')
-    assert 'SQLITE_INTEGRITY (SQLITE_NOTADB/26)' == failure(err.value)
+    if hasattr(err.value, 'sqlite_errorcode'):
+        assert 'SQLITE_INTEGRITY (SQLITE_NOTADB/26)' == failure(err.value)
+    else:
+        assert str(err.value).lower() == 'file is not a database'
+        assert failure(err.value) == 'SQLITE_INTEGRITY'
 
 
 def test_accuracy_isolates_native_reader_candidate_and_market_failures(tmp_path):
@@ -173,3 +185,19 @@ def test_nba_result_health_failure_is_explicit_and_redacted(tmp_path, monkeypatc
     health = inspect(path, asof_utc=NOW)
     assert health['error_code'] == 'REPORT_VALIDATION_FAILED'
     assert 'PRIVATE_UPPERCASE_TOKEN' not in str(health)
+
+
+@pytest.mark.parametrize('message,expected',[
+    ('database is locked','SQLITE_BUSY'),
+    ('database table is locked','SQLITE_LOCKED'),
+    ('interrupted','SQLITE_INTERRUPT'),
+    ('file is not a database','SQLITE_INTEGRITY'),
+    ('database disk image is malformed','SQLITE_INTEGRITY'),
+    ('unable to open database file','SQLITE_ACCESS'),
+    ('disk I/O error','SQLITE_IO'),
+    ('private path containing database is locked','SQLITE_OTHER'),
+])
+def test_legacy_sqlite_exact_message_fallback(message,expected):
+    exc=sqlite3.OperationalError(message)
+    assert not hasattr(exc,'sqlite_errorcode')
+    assert failure(exc)==expected

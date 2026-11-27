@@ -26,7 +26,20 @@ def failure(exc):
         # nor all result-code constants. Diagnostic failures must not abort a
         # recovery loop. Numeric fallbacks are stable SQLite primary codes.
         if primary is None:
-            return 'SQLITE_OTHER'
+            # Python 3.10 lacks the extended-code attributes. Recognize only
+            # fixed SQLite diagnostics, never echo arbitrary exception text or
+            # fabricate numeric codes that were not provided by the driver.
+            return {
+                'database is locked': 'SQLITE_BUSY',
+                'database is busy': 'SQLITE_BUSY',
+                'database table is locked': 'SQLITE_LOCKED',
+                'interrupted': 'SQLITE_INTERRUPT',
+                'file is not a database': 'SQLITE_INTEGRITY',
+                'database disk image is malformed': 'SQLITE_INTEGRITY',
+                'unable to open database file': 'SQLITE_ACCESS',
+                'attempt to write a readonly database': 'SQLITE_ACCESS',
+                'disk i/o error': 'SQLITE_IO',
+            }.get(str(exc).strip().lower(), 'SQLITE_OTHER')
         kind = {
             getattr(sqlite3, 'SQLITE_BUSY', 5): 'SQLITE_BUSY',
             getattr(sqlite3, 'SQLITE_LOCKED', 6): 'SQLITE_LOCKED',
