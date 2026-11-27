@@ -85,9 +85,9 @@ def capture_one(root,ledger,row,rows,transport,*,source_cutoff):
     return publish(folder,'joint-score-',receipt,tip)
 
 class RotationCycle:
-    def __init__(self,root,ledger,transport,*,capture=capture_one,clock=time.time):
+    def __init__(self,root,ledger,transport,*,capture=capture_one,clock=time.time,forward_enabled=False):
         self.root=local_path(root);self.ledger=local_path(ledger);self.transport=transport
-        self.capture=capture;self.clock=clock;self.retry={};self.attempted={};self.completed=set()
+        self.forward_enabled=forward_enabled;self.capture=capture;self.clock=clock;self.retry={};self.attempted={};self.completed=set()
         self.last=dict(status='WAITING',enabled=True)
     def tick(self):
         from ledger_reports import LedgerReports
@@ -113,8 +113,16 @@ class RotationCycle:
                 self.attempted[key]=now
                 pin=self.capture(self.root,self.ledger,row,report['forecasts'],self.transport,source_cutoff=now)
                 self.completed.add(key)
+                forward=dict(status='DISABLED')
+                if self.forward_enabled:
+                    try:
+                        from hybrid_engine.rotation_forward_calibration import capture_new
+                        forward=capture_new(self.root,self.ledger,pin)
+                    except Exception as exc:
+                        reason=str(exc)
+                        forward=dict(status='ABSTAIN',reason=reason if reason.isupper() and len(reason)<100 and reason.replace('_','').isalnum() else type(exc).__name__)
                 return dict(status='CAPTURED',eligible=len(rows),fixture_id=key[0],
-                    receipt_sha256=pin,completed=len(self.completed),calibrated=False)
+                    receipt_sha256=pin,completed=len(self.completed),calibrated=False,forward_correction=forward)
             except Exception as exc:
                 # Isolate failures per fixture; no new forecast is reported.
                 self.retry[key]=int(self.clock())+RETRY_SECONDS
@@ -144,4 +152,8 @@ class RotationCycle:
         if r.get('retry_at_utc'):
             lines.append('Yeniden deneme: '+datetime.fromtimestamp(r['retry_at_utc'],ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y %H:%M TSİ'))
         if r.get('receipt_sha256'):lines.append('Kayıt: '+r['receipt_sha256'][:16])
+        if r.get('forward_correction'):
+            f=r['forward_correction'];lines.append('İleri düzeltme: '+f['status'])
+            if f.get('reason'):lines.append('Düzeltme engeli: '+f['reason'])
+            if f.get('prior_n'):lines.append('Önceki sonuç: '+str(f['prior_n']))
         return '\n'.join(lines)
