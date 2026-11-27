@@ -190,15 +190,12 @@ class EuropeanAutomaticPrematchTests(unittest.IsolatedAsyncioTestCase):
         directory=self.root/'identical-slot-race';directory.mkdir()
         for ref in p['assets']:shutil.copy2(self.root/'EUROCUP'/ref['file'],directory/ref['file'])
         registry=SinglePrematchRegistry(directory,'EUROCUP')
-        from hybrid_engine.boxes import publish_json as real_publish
-        from hybrid_engine.forward_validation import ForwardRegistry
+        from hybrid_engine.europe_prematch import publish_first_slot
         def concurrent_publish(path,value):
-            if path.name.startswith('first-'):
-                self.assertTrue(real_publish(path,value))
-                return real_publish(path,value)
-            return real_publish(path,value)
-        with patch('hybrid_engine.forward_validation.publish_json',side_effect=concurrent_publish):
-            result,created=ForwardRegistry.record(registry,p)
+            self.assertTrue(publish_first_slot(path,value))
+            return publish_first_slot(path,value)
+        with patch('hybrid_engine.europe_prematch.publish_first_slot',side_effect=concurrent_publish):
+            result,created=registry.record(p)
         self.assertFalse(created)
         self.assertEqual(len(registry.records()),1)
         self.assertEqual(result,registry.records()[0]['payload'])

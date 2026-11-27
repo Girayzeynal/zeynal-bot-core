@@ -21,13 +21,11 @@ def publish_json(path, value):
     path = local_path(path)
     body = (json.dumps(value, sort_keys=True, allow_nan=False)+'\n').encode()
     temporary = None
-    created = False
     try:
         with tempfile.NamedTemporaryFile(dir=path.parent, prefix='.box-', delete=False) as f:
             temporary = Path(f.name); f.write(body); f.flush(); os.fsync(f.fileno())
         try:
             os.link(temporary, path)
-            created = True
         except FileExistsError:
             if path.is_symlink() or path.read_bytes() != body:
                 raise ValueError('BOX_ARCHIVE_CONTENT_CONFLICT')
@@ -36,7 +34,6 @@ def publish_json(path, value):
         finally: os.close(fd)
     finally:
         if temporary is not None: temporary.unlink(missing_ok=True)
-    return created
 
 
 def seconds(value):
