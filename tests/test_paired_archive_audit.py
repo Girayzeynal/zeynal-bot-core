@@ -96,6 +96,8 @@ class ArchiveAuditTests(TestCase):
         self.assertEqual((shared['n'],shared['original_total_mae'],shared['v2_total_mae'],
                           shared['candidate_total_mae']),(1,16,4,8))
         self.assertIn('16.00 / 4.00 / 8.00',render(report))
+        self.assertEqual(report['unique_chronological_blend']['n'],1)
+        self.assertIn('Ortak benzersiz maç 1',render(report,compact=True))
         self.assertEqual(before,{f.relative_to(self.root):f.read_bytes() for f in self.root.rglob('*.json')})
 
     def test_late_original_and_late_candidate_do_not_become_pairs(self):
@@ -115,7 +117,9 @@ class ArchiveAuditTests(TestCase):
         reg=self.capture('adaptive-v2',v2,plan2,'1',100,104)
         self.capture('nba-v3',v3,plan3,'1',100,104)
         next(reg.root.glob('source-*.json')).write_text('{}')
-        p2,p3=audit(self.root,self,now=13000)['protocols']
+        report=audit(self.root,self,now=13000)
+        p2,p3=report['protocols']
+        self.assertIn('DENETİM HATASI',render(report,compact=True))
         self.assertEqual(p2['status'],'FAILED')
         self.assertEqual(p3['status'],'PAIRED')
 

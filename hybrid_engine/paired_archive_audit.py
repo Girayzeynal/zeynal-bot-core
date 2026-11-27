@@ -294,6 +294,13 @@ def render(report, *, compact=False):
     for league, item in report['archives'].items():
         lines.append(f"{league} · uygun sonuçlu maç {item['eligible_fixtures']}" if item['status']=='READ'
                      else f"{league} · Arşiv okunamadı · {item['reason']}")
+    if compact:
+        counts=Counter(p['status'] for p in report['protocols'])
+        lines.append('Protokol durumları · '+ ' · '.join(f'{k} {v}' for k,v in sorted(counts.items())))
+        for p in report['protocols']:
+            if p['status']=='FAILED':
+                lines.append(f"{p['family']} · DENETİM HATASI · {p.get('reason','UNKNOWN')}")
+        lines.append('Protokol ayrıntıları için --model-audit veya --model-audit-json.')
     for protocol in ([] if compact else report['protocols']):
         key = protocol.get('protocol_sha256','')[:12]
         lines.append(f"\n{protocol['family']} {key} · {protocol['status']}")
@@ -326,7 +333,8 @@ def render(report, *, compact=False):
             lines.append(f"{name}: Toplam MAE {m['total_mae']:.2f} · RMSE {m['total_rmse']:.2f} · Bias {m['bias']:+.2f} · Takım MAE {m['team_mae']:.2f} · Fark MAE {m['margin_mae']:.2f}")
         for name, m in g['metrics'].items():
             if m['quarter_mae'] is not None:
-                lines.append(name+' · Çeyrek MAE '+ ' / '.join(f'{v:.2f}' for v in m['quarter_mae']))
+                lines.append(name+f" · Çeyrek MAE (N={m['quarter_n']}) "+ ' / '.join(f'{v:.2f}' for v in m['quarter_mae']))
+                lines.append(name+' · Yarı MAE '+ ' / '.join(f'{v:.2f}' for v in m['half_mae']))
         lines.append(f"Birleşim daha iyi/eşit/kötü (V1): {g['improved']}/{g['unchanged']}/{g['worsened']}")
     lines.append('Geriye dönük kronolojik araştırma; yeni prospektif yayın veya kalibrasyon kanıtı değil.')
     lines.append('Betimsel ölçüm · Normal süre · Her protokol ve ilk tahmin sürümü ayrı')

@@ -53,7 +53,10 @@ def _metrics(rows, name):
                 bias=mean(totals), team_mae=mean(abs(e) for pair in errors for e in pair),
                 margin_mae=mean(abs(h-a) for h,a in errors), quarter_n=len(quarters),
                 quarter_mae=[mean(abs(sum(r['quarters'][name][q])-r['actual_quarters'][q])
-                                  for r in quarters) for q in range(4)] if quarters else None)
+                                  for r in quarters) for q in range(4)] if quarters else None,
+                half_mae=[mean(abs(sum(sum(r['quarters'][name][q])-r['actual_quarters'][q]
+                                      for q in (2*h,2*h+1))) for r in quarters)
+                          for h in range(2)] if quarters else None)
 
 
 def evaluate(protocols):
@@ -134,4 +137,5 @@ def evaluate(protocols):
                                        weights=list(r['weights'])) for r in trace]))
     return dict(version=VERSION,n=sum(g['n'] for g in groups),duplicate_records=duplicates,
                 conflicts=conflicts,groups=groups,production_enabled=False,
-                prospective_publication=False,calibrated=False)
+                prospective_publication=False,calibrated=False,
+                weight_fit_performed=any(g['trained_n']>0 for g in groups))
