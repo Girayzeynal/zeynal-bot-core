@@ -335,6 +335,11 @@ def render(report, *, compact=False):
             if m['quarter_mae'] is not None:
                 lines.append(name+f" · Çeyrek MAE (N={m['quarter_n']}) "+ ' / '.join(f'{v:.2f}' for v in m['quarter_mae']))
                 lines.append(name+' · Yarı MAE '+ ' / '.join(f'{v:.2f}' for v in m['half_mae']))
+        lines.append(f"Geçmiş artık hatayla düzeltilebilen maç: {g['residual_calibration_n']}")
+        for market,levels in g['interval_research'].items():
+            lines.append(market+' · Ampirik bant: '+ ' / '.join(
+                f"{level} N={v['n']} kapsam={v['coverage']:.3f} genişlik={v['mean_width']:.2f}"
+                if v['n'] else f"{level} N=0" for level,v in levels.items()))
         lines.append(f"Birleşim daha iyi/eşit/kötü (V1): {g['improved']}/{g['unchanged']}/{g['worsened']}")
     lines.append('Geriye dönük kronolojik araştırma; yeni prospektif yayın veya kalibrasyon kanıtı değil.')
     lines.append('Betimsel ölçüm · Normal süre · Her protokol ve ilk tahmin sürümü ayrı')

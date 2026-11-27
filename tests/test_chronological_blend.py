@@ -30,6 +30,8 @@ class ChronologicalBlendTests(TestCase):
         self.assertEqual(g['trace'][1]['weights'],list(EQUAL))
         self.assertGreater(g['trace'][2]['weights'][1],g['trace'][2]['weights'][0])
         self.assertFalse(r['production_enabled'])
+        self.assertEqual([x['calibration_n'] for x in g['trace']],[0,0,2])
+        self.assertLess(g['metrics']['CALIBRATED_SHADOW']['total_mae'],g['metrics']['BLEND']['total_mae'])
         self.assertEqual(g['metrics']['V2']['quarter_mae'],[0]*4)
 
     def test_earliest_publication_not_best_outcome(self):
