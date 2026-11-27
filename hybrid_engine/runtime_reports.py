@@ -21,19 +21,24 @@ def failure(exc):
         extended = getattr(exc, 'sqlite_errorcode', None)
         name = getattr(exc, 'sqlite_errorname', None)
         primary = extended & 0xff if type(extended) is int else None
+        # Older Python SQLite bindings expose neither result-code attributes
+        # nor all result-code constants. Diagnostic failures must not abort a
+        # recovery loop. Numeric fallbacks are stable SQLite primary codes.
+        if primary is None:
+            return 'SQLITE_OTHER'
         kind = {
-            sqlite3.SQLITE_BUSY: 'SQLITE_BUSY',
-            sqlite3.SQLITE_LOCKED: 'SQLITE_LOCKED',
-            sqlite3.SQLITE_INTERRUPT: 'SQLITE_INTERRUPT',
-            sqlite3.SQLITE_CORRUPT: 'SQLITE_INTEGRITY',
-            sqlite3.SQLITE_NOTADB: 'SQLITE_INTEGRITY',
-            sqlite3.SQLITE_CANTOPEN: 'SQLITE_ACCESS',
-            sqlite3.SQLITE_PERM: 'SQLITE_ACCESS',
-            sqlite3.SQLITE_READONLY: 'SQLITE_ACCESS',
-            sqlite3.SQLITE_AUTH: 'SQLITE_ACCESS',
-            sqlite3.SQLITE_IOERR: 'SQLITE_IO',
+            getattr(sqlite3, 'SQLITE_BUSY', 5): 'SQLITE_BUSY',
+            getattr(sqlite3, 'SQLITE_LOCKED', 6): 'SQLITE_LOCKED',
+            getattr(sqlite3, 'SQLITE_INTERRUPT', 9): 'SQLITE_INTERRUPT',
+            getattr(sqlite3, 'SQLITE_CORRUPT', 11): 'SQLITE_INTEGRITY',
+            getattr(sqlite3, 'SQLITE_NOTADB', 26): 'SQLITE_INTEGRITY',
+            getattr(sqlite3, 'SQLITE_CANTOPEN', 14): 'SQLITE_ACCESS',
+            getattr(sqlite3, 'SQLITE_PERM', 3): 'SQLITE_ACCESS',
+            getattr(sqlite3, 'SQLITE_READONLY', 8): 'SQLITE_ACCESS',
+            getattr(sqlite3, 'SQLITE_AUTH', 23): 'SQLITE_ACCESS',
+            getattr(sqlite3, 'SQLITE_IOERR', 10): 'SQLITE_IO',
         }.get(primary, 'SQLITE_OTHER')
-        return kind + (f' ({name}/{extended})' if name is not None else '')
+        return kind + (f' ({name}/{extended})' if type(name) is str and re.fullmatch(r'SQLITE_[A-Z0-9_]+', name) else '')
     if isinstance(exc, TimeoutError):
         return 'REPORT_TIMEOUT'
     if isinstance(exc, OSError):

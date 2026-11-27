@@ -117,3 +117,14 @@ def test_pair_diagnostics_measure_pace_fit_age_and_period_errors_below_promotion
     assert result['quarters'][0]['candidate_mae']==3 and result['quarters'][0]['original_mae']==1
     assert result['mean_estimated_possessions']==99 and result['parameter_age_range_seconds']==[120,120]
     assert result['causal_attribution'] is False
+
+
+def test_sqlite_diagnostic_works_without_new_python_result_constants(monkeypatch):
+    legacy = sqlite3.OperationalError('private path or query')
+    monkeypatch.delattr(sqlite3, 'SQLITE_BUSY', raising=False)
+    assert failure(legacy) == 'SQLITE_OTHER'
+    legacy.sqlite_errorcode = 5
+    legacy.sqlite_errorname = 'SQLITE_BUSY'
+    assert failure(legacy) == 'SQLITE_BUSY (SQLITE_BUSY/5)'
+    legacy.sqlite_errorname = 'private path'
+    assert failure(legacy) == 'SQLITE_BUSY'
