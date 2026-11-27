@@ -2,15 +2,22 @@
 import time
 import sqlite3
 
-from ledger_reports import LedgerReports
+from hybrid_engine.runtime_reports import RuntimeLedgerReports, REPORT_ERRORS, failure
 
 
 def inspect(path, *, asof_utc=None):
     now=int(time.time()) if asof_utc is None else asof_utc
     if type(now) is not int or not 0<now<=int(time.time()):raise ValueError('RESULT_HEALTH_ACTUAL_CLOCK')
-    try:report=LedgerReports(path).read('NBA')
-    except (ValueError,OSError,sqlite3.Error) as exc:
-        return dict(status='ARCHIVE_NOT_VERIFIED',source='LIVE_NBA_LEDGER',error_type=type(exc).__name__,query_read_only=True)
+    try:
+        # Same verified reader as /accuracy all; no model aggregates needed.
+        report=RuntimeLedgerReports(path).read('NBA',summarize=False)
+    except REPORT_ERRORS as exc:
+        # Never forward raw validation text or exception-provided SQLite names.
+        code=(failure(exc).split(' ',1)[0] if isinstance(exc,sqlite3.Error) else
+              'REPORT_TIMEOUT' if isinstance(exc,TimeoutError) else
+              'REPORT_FILE_ACCESS_OR_IO' if isinstance(exc,OSError) else 'REPORT_VALIDATION_FAILED')
+        return dict(status='ARCHIVE_NOT_VERIFIED',source='LIVE_NBA_LEDGER',
+                    error_type=type(exc).__name__,error_code=code,query_read_only=True)
     if report['status']!='VERIFIED_LIVE_REPORT':
         return dict(status=report['status'],source='LIVE_NBA_LEDGER',query_read_only=True)
     rows=report['forecasts'];pending=[r for r in rows if r['actual'] is None]
@@ -27,6 +34,8 @@ def inspect(path, *, asof_utc=None):
 def render(health, poll=None):
     lines=['NBA sonuç kaynağı: canlı değişmez tahmin arşivi',
            'Sonuç denetimi: '+health['status']]
+    if health.get('error_code'):
+        lines.append('Sonuç arşivi hata sınıfı: '+health['error_code']+' · '+health['error_type'])
     if 'settled_forecasts' in health:
         lines.append(f"Sonuçlu tahmin {health['settled_forecasts']} · Bekleyen tahmin {health['pending_forecasts']}")
         lines.append(f"Bekleyen maç: başlamış {health['pending_started_fixtures']} · gelecekte {health['pending_future_fixtures']}")

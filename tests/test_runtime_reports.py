@@ -128,3 +128,48 @@ def test_sqlite_diagnostic_works_without_new_python_result_constants(monkeypatch
     assert failure(legacy) == 'SQLITE_BUSY (SQLITE_BUSY/5)'
     legacy.sqlite_errorname = 'private path'
     assert failure(legacy) == 'SQLITE_BUSY'
+
+
+def test_nba_result_health_uses_runtime_reader_without_old_validation_deadline(tmp_path, monkeypatch):
+    from hybrid_engine.results_health import inspect, render
+    path = tmp_path/'games.sqlite'
+    ten_game_ledger(path, count=12)
+    decode = LiveAnalysisLedger._decode
+    elapsed = [0.]
+    monkeypatch.setattr('time.monotonic', lambda:elapsed[0])
+    def slow_validate(*args, **kwargs):
+        elapsed[0] += .2
+        return decode(*args, **kwargs)
+    monkeypatch.setattr(LiveAnalysisLedger, '_decode', staticmethod(slow_validate))
+    before = path.read_bytes()
+    health = inspect(path, asof_utc=NOW)
+    assert health['status'] == 'CHECKED'
+    assert health['settled_forecasts'] == 1
+    assert health['pending_forecasts'] == 11
+    assert health['pending_future_fixtures'] == 11
+    assert 'Sonuçlu tahmin 1' in render(health)
+    assert path.read_bytes() == before
+
+
+def test_nba_result_health_failure_is_explicit_and_redacted(tmp_path, monkeypatch):
+    from hybrid_engine.results_health import inspect, render
+    path = tmp_path/'games.sqlite'
+    ten_game_ledger(path, count=1)
+    def locked(*args, **kwargs):
+        exc = sqlite3.OperationalError('PRIVATE_SQLITE_PATH')
+        exc.sqlite_errorcode = 5
+        exc.sqlite_errorname = 'SQLITE_BUSY'
+        raise exc
+    monkeypatch.setattr(RuntimeLedgerReports, 'read', locked)
+    health = inspect(path, asof_utc=NOW)
+    assert health['status'] == 'ARCHIVE_NOT_VERIFIED'
+    assert health['error_code'] == 'SQLITE_BUSY'
+    assert 'settled_forecasts' not in health
+    assert 'PRIVATE_SQLITE_PATH' not in str(health)
+    assert 'SQLITE_BUSY' in render(health)
+    def invalid(*args, **kwargs):
+        raise ValueError('PRIVATE_UPPERCASE_TOKEN')
+    monkeypatch.setattr(RuntimeLedgerReports, 'read', invalid)
+    health = inspect(path, asof_utc=NOW)
+    assert health['error_code'] == 'REPORT_VALIDATION_FAILED'
+    assert 'PRIVATE_UPPERCASE_TOKEN' not in str(health)
