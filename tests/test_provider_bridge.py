@@ -365,6 +365,11 @@ class BridgeTests(unittest.TestCase):
         self.bridge._odds.assert_called_once_with(SNAPSHOT,NOW+12)
         self.bridge._basketball.assert_not_called()
         self.assertEqual(r['providers']['API_BASKETBALL']['status'],'PRIMARY_PRICES_PRESENT_SECONDARY_DEFERRED')
+        from hybrid_engine.market_turkish import message
+        label=message(r['providers']['API_BASKETBALL']['status'])
+        self.assertIn('ikinci kaynak sorgusu ertelendi',label)
+        self.assertIn('ikinci kaynaktan doğrulanmadı',label)
+        self.assertNotEqual(label,message('PREMATCH_FIXTURE_CROSSCHECKED'))
 
     def test_interactive_primary_failure_gives_backup_independent_budget(self):
         clock=[NOW]
@@ -534,7 +539,12 @@ class ProviderTelegramTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn('Henüz yeterince doğrulanmadı',edits[0])
                 body = '\n'.join(sent+edits)
                 self.assertIn('The Odds API: Gerçek fiyatlar alındı; ödeme kuralı ve kalibrasyon bekleniyor', body)
-                self.assertIn('API-Basketball: Başlamamış maç ikinci kaynaktan doğrulandı', body)
+                # The interactive primary-first path deliberately skips the
+                # redundant secondary request when native primary prices exist.
+                # Do not claim a cross-check that did not actually happen.
+                self.assertIn('API-Basketball: Birincil fiyatlar alındı; ikinci kaynak sorgusu ertelendi, maç ikinci kaynaktan doğrulanmadı', body)
+                self.assertNotIn('API-Basketball: Başlamamış maç ikinci kaynaktan doğrulandı', body)
+                self.assertFalse(any(p == 'API_BASKETBALL' for p, _ in fake.calls))
                 self.assertIn('GÜNCEL PİYASA DEĞERLENDİRMESİ',body)
                 self.assertIn('Karar SHA:',body)
                 self.assertTrue(list((root/'current-market-reviews').glob('review-*.json')))

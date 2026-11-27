@@ -64,6 +64,7 @@ MESSAGES={
  'ODDS_DETAIL_REJECTED':'Fiyat detayının kimliği veya zamanı doğrulanamadı',
  'CURRENT_OBSERVATIONS_NOT_HISTORICAL_FORECAST_INPUTS':'Güncel kaynak gözlemleri; eski tahminin girdileri değişmedi',
  'PREMATCH_FIXTURE_CROSSCHECKED':'Başlamamış maç ikinci kaynaktan doğrulandı',
+ 'PRIMARY_PRICES_PRESENT_SECONDARY_DEFERRED':'Birincil fiyatlar alındı; ikinci kaynak sorgusu ertelendi, maç ikinci kaynaktan doğrulanmadı',
  'CURRENT_STATISTICS_ARCHIVED_NOT_MODEL_INPUT':'Güncel istatistik kaydedildi; mevcut modele eklenmedi',
  'LEAGUE_NOT_MAPPED':'Lig bu kaynağa bağlanmamış',
  'LEAGUE_NOT_AVAILABLE_FROM_PROVIDER':'Lig sağlayıcının mevcut kapsamında bulunamadı',

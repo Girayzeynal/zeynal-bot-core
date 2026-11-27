@@ -38,3 +38,14 @@ still governs archival eligibility. Existing API quotas, source checks,
 scientific pins, initial forecasts and settlement rules are unchanged.
 Tests cover priority, independent backup budget and source preservation
 under simulated timeout. Real provider access is not established by CI.
+
+## Regression #2188: truthful deferred-provider rendering
+Both unit and Docker regression jobs failed the same Telegram assertion at
+`tests/test_provider_bridge.py:537`; Docker image build itself succeeded.
+The primary-first policy intentionally deferred the secondary call, but its
+new status had no shared Turkish renderer mapping and the integration test
+still expected a successful second-source cross-check. Map the exact deferred
+status and assert both truthful output and zero secondary HTTP calls in this
+path. Preserve the existing non-priority cross-check and backup budget tests.
+No score, forecast archive, quota, or settlement logic was changed. New CI and
+native staging delivery remain to be verified.
