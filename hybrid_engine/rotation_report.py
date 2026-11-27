@@ -22,6 +22,7 @@ def records(root,ledger,*,now=None,selector=None,diagnostics=None):
     native=LedgerReports(ledger).read('NBA')
     if native['status']!='VERIFIED_LIVE_REPORT':raise ValueError('ROTATION_LEDGER_UNVERIFIED')
     originals={(r['fixture_id'],r['snapshot_sha256']):r for r in native['forecasts']}
+    counts=Counter(r['fixture_id'] for r in native['forecasts'])
     paths=sorted(root.glob('joint-score-*.json'))
     if len(paths)>4096:raise ValueError('ROTATION_RECEIPT_SCAN_BUDGET')
     chosen=defaultdict(list);excluded=Counter()
@@ -50,7 +51,8 @@ def records(root,ledger,*,now=None,selector=None,diagnostics=None):
             factor=read(root,'factor-score-',period['factor_sha256'])
             a=read(root,'period-model-',period['control_sha256'])
             b=read(root,'period-model-',period['model_sha256'])
-            snapshot=load_snapshot(ledger,row['fixture_id'])
+            if counts[row['fixture_id']]!=1:raise ValueError('EXACTLY_ONE_ARCHIVED_NBA_MODEL_REQUIRED')
+            snapshot=load_snapshot(ledger,row['fixture_id'],verified_row=row)
             replay=capture(root,factor,period['factor_sha256'],snapshot,
                 dict(payload=a,sha256=period['control_sha256']),
                 dict(payload=b,sha256=period['model_sha256']),period['generated_at_utc'])

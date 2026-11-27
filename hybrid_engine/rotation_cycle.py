@@ -6,6 +6,7 @@ import time
 import logging
 from core.team_identity import digest
 from hybrid_engine.data import Abstain,local_path
+from hybrid_engine.sqlite_read_guard import error_reason
 from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 
 RETRY_SECONDS=300
@@ -39,7 +40,7 @@ def capture_one(root,ledger,row,rows,transport,*,source_cutoff):
     from hybrid_engine.player_inputs import load_snapshot
     root=local_path(root);folder=root/'player-shadow'
     tip=row['fixture_start_utc'];fid=row['fixture_id']
-    snapshot=load_snapshot(ledger,fid)
+    snapshot=load_snapshot(ledger,fid,verified_row=row)
     if digest(snapshot)!=row['snapshot_sha256'] or snapshot['fixture_start_utc']!=tip:
         raise ValueError('ROTATION_AUTO_SNAPSHOT_BINDING')
     cutoff=int(time.time())
@@ -120,7 +121,7 @@ class RotationCycle:
                         forward=capture_new(self.root,self.ledger,pin)
                     except Exception as exc:
                         reason=str(exc)
-                        forward=dict(status='ABSTAIN',reason=reason if reason.isupper() and len(reason)<100 and reason.replace('_','').isalnum() else type(exc).__name__)
+                        forward=dict(status='ABSTAIN',reason=error_reason(exc))
                 selective=dict(status='DISABLED')
                 if self.selective_enabled:
                     try:
@@ -128,14 +129,14 @@ class RotationCycle:
                         selective=capture_new(self.root,self.ledger,pin)
                     except Exception as exc:
                         reason=str(exc)
-                        selective=dict(status='ABSTAIN',reason=reason if reason.isupper() and len(reason)<100 and reason.replace('_','').isalnum() else type(exc).__name__)
+                        selective=dict(status='ABSTAIN',reason=error_reason(exc))
                 return dict(status='CAPTURED',eligible=len(rows),fixture_id=key[0],
                     receipt_sha256=pin,completed=len(self.completed),calibrated=False,forward_correction=forward,selective=selective)
             except Exception as exc:
                 # Isolate failures per fixture; no new forecast is reported.
                 self.retry[key]=int(self.clock())+RETRY_SECONDS
                 reason=str(exc)
-                safe=reason if reason.isupper() and len(reason)<100 and reason.replace('_','').isalnum() else type(exc).__name__
+                safe=error_reason(exc)
                 return dict(status='ABSTAIN',eligible=len(rows),fixture_id=key[0],reason=safe,
                     retry_at_utc=self.retry[key],completed=len(self.completed))
         return dict(status='IDLE',eligible=len(rows),completed=len(self.completed),
@@ -145,8 +146,9 @@ class RotationCycle:
             try:self.last=await asyncio.to_thread(self.tick)
             except asyncio.CancelledError:raise
             except Exception as exc:
-                self.last=dict(status='ABSTAIN',reason=type(exc).__name__)
-                log.warning('Rotation cycle tick failed: %s',type(exc).__name__)
+                self.last=dict(status='ABSTAIN',reason=error_reason(exc),eligible=self.last.get('eligible',0),
+                    completed=self.last.get('completed',0),counts_stale=True,retry_at_utc=int(self.clock())+RETRY_SECONDS)
+                log.warning('Rotation cycle tick failed: %s',error_reason(exc))
             await asyncio.sleep(RETRY_SECONDS)
 
     def render_status(self):
@@ -156,6 +158,7 @@ class RotationCycle:
         lines=['NBA OTOMATİK ROTASYON — İZOLE ARAŞTIRMA','Kalibre edilmedi; üretim tahmini değişmedi.',
             'Durum: '+r['status'], 'Uygun maç: '+str(r.get('eligible',0)),
             'Doğrulanmış/üretilmiş kayıt: '+str(r.get('completed',0))]
+        if r.get('counts_stale'):lines.append('Sayılar son başarılı döngüden; güncel okuma başarısız.')
         if r.get('reason'):lines.append('Engel: '+r['reason'])
         if r.get('retry_at_utc'):
             lines.append('Yeniden deneme: '+datetime.fromtimestamp(r['retry_at_utc'],ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y %H:%M TSİ'))

@@ -13,6 +13,8 @@ from core.team_identity import digest
 from live_analysis_ledger import LiveAnalysisLedger
 from season_archive_inventory import archive_catalog
 
+from hybrid_engine.sqlite_read_guard import BUSY_SECONDS,bounded_rows,retry_read
+
 MAX_ROWS = 1000
 MAX_PAYLOAD_BYTES = 512*1024
 
@@ -46,16 +48,17 @@ class LedgerReports:
         return r
 
     def read(self, league=None, fixture_id=None):
+        return retry_read(lambda:self._read_once(league,fixture_id))
+
+    def _read_once(self, league=None, fixture_id=None):
         code=None if league is None else resolve_league(league).code
         if fixture_id is not None and (not isinstance(fixture_id,str) or not 1<=len(fixture_id)<=128 or any(c.isspace() for c in fixture_id)):
             raise ValueError('REPORT_FIXTURE_ID_REQUIRED')
         if not self.path.is_file():return dict(status='ARCHIVE_UNAVAILABLE',groups=[],forecasts=[])
         if self.path.resolve()!=self.path:raise ValueError('REPORT_SYMLINK_REFUSED')
-        with closing(sqlite3.connect(self.path.as_uri()+'?mode=ro',uri=True,timeout=.2)) as db:
+        with closing(sqlite3.connect(self.path.as_uri()+'?mode=ro',uri=True,timeout=BUSY_SECONDS)) as db:
             db.execute('PRAGMA query_only=ON');db.execute('BEGIN')
-            deadline=time.monotonic()+1
-            db.set_progress_handler(lambda: int(time.monotonic()>deadline),1000)
-            tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            tables={r[0] for r in bounded_rows(db,"SELECT name FROM sqlite_master WHERE type='table'")}
             if not {'live_analysis_snapshots','live_analysis_commit_receipts','verified_analysis_results'}<=tables:
                 return dict(status='NO_VERIFIED_LIVE_SCHEMA',groups=[],forecasts=[])
             where=[];args=[]
@@ -71,7 +74,7 @@ class LedgerReports:
             if where:sql+=' WHERE '+' AND '.join(where)
             sql+=' ORDER BY s.league,s.fixture_id,s.model_digest LIMIT ?';args.append(MAX_ROWS+1)
             forecasts=[];groups=defaultdict(list);identities=set()
-            for row in db.execute(sql,args):
+            for row in bounded_rows(db,sql,args):
                 league,fixture,model,raw,pin,receipt,completed,outcome,opin,size,osize=row
                 if len(forecasts)>=MAX_ROWS:raise ValueError('REPORT_SCAN_LIMIT')
                 if size>MAX_PAYLOAD_BYTES or (osize or 0)>MAX_PAYLOAD_BYTES:raise ValueError('REPORT_PAYLOAD_LIMIT')

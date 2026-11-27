@@ -1,6 +1,8 @@
 """Explicit offline collection of prospective NBA player inputs; ledger is read-only."""
 import argparse
 from collections import Counter,defaultdict
+from contextlib import closing
+from hybrid_engine.sqlite_read_guard import BUSY_SECONDS,retry_read
 import hashlib
 import heapq
 import json
@@ -22,17 +24,23 @@ from ledger_reports import LedgerReports
 from live_analysis_ledger import LiveAnalysisLedger
 
 
-def load_snapshot(ledger,fixture_id):
+def load_snapshot(ledger,fixture_id,*,verified_row=None):
     path=local_path(ledger)
-    report=LedgerReports(path).read('NBA',fixture_id)
-    rows=report.get('forecasts',[])
-    if len(rows)!=1: raise ValueError('EXACTLY_ONE_ARCHIVED_NBA_MODEL_REQUIRED')
-    row=rows[0]
-    with sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=.2) as db:
-        db.execute('PRAGMA query_only=ON')
-        raw,pin=db.execute('SELECT payload,sha256 FROM live_analysis_snapshots WHERE league=? AND fixture_id=? AND model_digest=?',
-            ('NBA',row['fixture_id'],row['model_digest'])).fetchone()
-    return LiveAnalysisLedger._decode(raw,pin,expected=('NBA',row['fixture_id'],row['model_digest']))
+    if verified_row is None:
+        rows=LedgerReports(path).read('NBA',fixture_id).get('forecasts',[])
+        if len(rows)!=1: raise ValueError('EXACTLY_ONE_ARCHIVED_NBA_MODEL_REQUIRED')
+        row=rows[0]
+    else:
+        row=verified_row
+        if row['league']!='NBA' or row['fixture_id']!=fixture_id:raise ValueError('SNAPSHOT_REPORT_IDENTITY')
+    def read():
+        with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=BUSY_SECONDS)) as db:
+            db.execute('PRAGMA query_only=ON')
+            item=db.execute('SELECT s.payload,s.sha256,r.snapshot_sha256 FROM live_analysis_snapshots s JOIN live_analysis_commit_receipts r USING(league,fixture_id,model_digest) WHERE s.league=? AND s.fixture_id=? AND s.model_digest=?',
+                ('NBA',row['fixture_id'],row['model_digest'])).fetchone()
+        if item is None or item[1]!=row['snapshot_sha256'] or item[2]!=item[1]:raise ValueError('SNAPSHOT_REPORT_PIN')
+        return LiveAnalysisLedger._decode(item[0],item[1],expected=('NBA',row['fixture_id'],row['model_digest']))
+    return retry_read(read)
 
 
 def rotation_coverage_diagnostics(context,review,rosters,boxes,now):

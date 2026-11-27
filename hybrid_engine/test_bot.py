@@ -965,8 +965,8 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
                     await update.effective_message.reply_text(part,parse_mode=None)
             except Exception as exc:
                 import logging
-                reason=str(exc)
-                safe=reason if reason.isupper() and len(reason)<100 and reason.replace('_','').isalnum() else type(exc).__name__
+                from hybrid_engine.sqlite_read_guard import error_reason
+                safe=error_reason(exc)
                 logging.getLogger(__name__).warning('Rotation command failed: %s',safe)
                 await update.effective_message.reply_text('Oyuncu araştırma kaydı doğrulanamadı. Yeni tahmin üretilmedi. Engel: '+safe,parse_mode=None)
             raise ApplicationHandlerStop
