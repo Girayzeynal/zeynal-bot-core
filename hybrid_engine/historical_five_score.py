@@ -40,7 +40,7 @@ def rotation_from_summary(summary):
         capped_rotation([r['average_minutes'] for r in rows])))
 
 
-def compare(summary,snapshot,prepared,*,now):
+def compare(summary,snapshot,prepared,*,now,broad=False):
     if (summary['format']!='NBA_HISTORICAL_MAIN_FIVE_V1'
         or summary['status']!='HISTORICAL_ROTATION_READY'
         or summary['fixture_id']!=snapshot['fixture_id']
@@ -66,10 +66,15 @@ def compare(summary,snapshot,prepared,*,now):
     if not any(v>0 for v in represented):
         raise Abstain('HISTORICAL_SCORE_NO_FITTED_PLAYER_EXPOSURE')
     baseline=projected_pair(control,*teams,*rotations)
-    point=conditional_pair(candidate,*teams,*rotations)['prediction']
+    if broad:
+        if (digest(model)!=candidate['sha256'] or model['fit_kind']!='HISTORICAL_PLAYER_ASSOCIATION'):
+            raise ValueError('BROAD_PLAYER_MODEL_PIN')
+        point=projected_pair(model,*teams,*rotations)
+    else:
+        point=conditional_pair(candidate,*teams,*rotations)['prediction']
     if any(not math.isfinite(x) or not 0<x<300 for x in point+baseline):
         raise Abstain('HISTORICAL_SCORE_OUT_OF_RANGE')
-    return dict(format='HISTORICAL_FIVE_PLAYER_SCORE_RESEARCH_V1',
+    return dict(format='HISTORICAL_FIVE_BROAD_PLAYER_SCORE_RESEARCH_V1' if broad else 'HISTORICAL_FIVE_PLAYER_SCORE_RESEARCH_V1',
         status='FORWARD_CONDITIONAL_SCORE_RESEARCH',fixture_id=snapshot['fixture_id'],
         fixture_start_utc=snapshot['fixture_start_utc'],generated_at_utc=now,
         original_snapshot_sha256=digest(snapshot),rotation_sha256=summary['sha256'],
@@ -84,9 +89,9 @@ def compare(summary,snapshot,prepared,*,now):
         causal_effect=False,production_enabled=False,forecast_changed=False)
 
 
-def archive_score(root,summary,snapshot,prepared):
+def archive_score(root,summary,snapshot,prepared,*,broad=False):
     now=int(time.time())
-    result=compare(summary,snapshot,prepared,now=now)
+    result=compare(summary,snapshot,prepared,now=now,broad=broad)
     root=local_path(root)
     # Retain reproducible model and control evidence independently of the original score.
     model=prepared['candidate'];control=prepared['control'];cpin=digest(control)
@@ -95,7 +100,8 @@ def archive_score(root,summary,snapshot,prepared):
     if int(time.time())>=snapshot['fixture_start_utc']-PREMATCH_MINIMUM_LEAD_SECONDS:
         raise Abstain('HISTORICAL_SCORE_PUBLICATION_WINDOW_CLOSED')
     pin=digest(result)
-    publish_json(root/('historical-score-'+pin+'.json'),dict(payload=result,sha256=pin))
+    prefix='historical-score-broad-' if broad else 'historical-score-'
+    publish_json(root/(prefix+pin+'.json'),dict(payload=result,sha256=pin))
     return dict(result,sha256=pin)
 
 

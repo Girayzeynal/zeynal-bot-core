@@ -114,7 +114,9 @@ def main():
     p.add_argument('--data-directory',required=True)
     p.add_argument('--maximum',type=int,default=4)
     p.add_argument('--score-research',action='store_true')
+    p.add_argument('--broad-player-research',action='store_true')
     args=p.parse_args()
+    if args.broad_player_research and not args.score_research:p.error('--broad-player-research requires --score-research')
     if not 1<=args.maximum<=8:p.error('--maximum must be 1..8')
     root=local_path(args.data_directory);ledger=root/'live-nba/nba-hybrid.sqlite'
     before=file_sha256(ledger);now=int(time.time())
@@ -125,7 +127,7 @@ def main():
     rows=sorted((v[0] for v in grouped.values() if len(v)==1 and v[0]['actual'] is None
                  and now+900<=v[0]['fixture_start_utc']<=now+48*3600),
                 key=lambda r:(r['fixture_start_utc'],r['fixture_id']))
-    results=[]; fits={}; fit_errors={}; reviews={}
+    results=[]; fits={}; fit_errors={}; reviews={}; broad_fits={}; broad_errors={}
     for row in rows[:args.maximum]:
         try:
             snapshot=load_snapshot(ledger,row['fixture_id'])
@@ -136,6 +138,16 @@ def main():
                     fits[season]=prepare(root,season,int(time.time()))
                 except (ValueError,KeyError,TypeError,OSError) as exc:
                     fit_errors[season]=str(exc) if str(exc).replace('_','').isalnum() and len(str(exc))<=100 else type(exc).__name__
+            if args.broad_player_research and season in fits and season not in broad_fits and season not in broad_errors:
+                from hybrid_engine.player_box_pilot import fit_box_association
+                try:
+                    base=fits[season]
+                    model=fit_box_association(base['games'],base['control']['cutoff_utc'],include_players=True)
+                    if model['status']!='REAL_HISTORICAL_BOX_MODEL_FITTED_RESEARCH_ONLY':
+                        raise Abstain('BROAD_PLAYER_FIT_UNAVAILABLE')
+                    broad_fits[season]=dict(base,candidate=dict(payload=model,sha256=digest(model)))
+                except (ValueError,KeyError,TypeError,OSError) as exc:
+                    broad_errors[season]=type(exc).__name__
             out=collect_historical(snapshot,root/'live-nba/assets',root/'player-shadow')
             if args.score_research:
                 from hybrid_engine.historical_five_score import archive_score
@@ -146,6 +158,16 @@ def main():
                         out['score_research']=archive_score(root/'player-shadow',out,snapshot,fits[season])
                     except (ValueError,KeyError,TypeError,OSError) as exc:
                         out['score_research']=dict(status='BLOCKED',reason=str(exc) if str(exc).replace('_','').isalnum() and len(str(exc))<=100 else type(exc).__name__)
+            if args.broad_player_research:
+                if season in broad_fits:
+                    try:
+                        # Use the original rotation receipt, not the enriched display.
+                        summary={k:v for k,v in out.items() if k!='score_research'}
+                        out['broad_score_research']=archive_score(root/'player-shadow',summary,snapshot,broad_fits[season],broad=True)
+                    except (ValueError,KeyError,TypeError,OSError) as exc:
+                        out['broad_score_research']=dict(status='BLOCKED',reason=str(exc) if str(exc).replace('_','').isalnum() else type(exc).__name__)
+                else:
+                    out['broad_score_research']=dict(status='BLOCKED',reason=broad_errors.get(season,'NO_NATIVE_FIT'))
         except (ValueError,KeyError,TypeError,OSError) as exc:
             reason=str(exc);out=dict(status='BLOCKED',reason=reason if reason.replace('_','').isalnum() and len(reason)<=100 else type(exc).__name__)
         results.append(dict(home=row['home'],away=row['away'],**out))
@@ -157,6 +179,7 @@ def main():
                 reviews[season]=dict(status='BLOCKED',reason=type(exc).__name__)
     print(json.dumps(dict(format='NBA_HISTORICAL_FIVE_BATCH_V1',eligible=len(rows),
         score_research_requested=args.score_research,score_fit_errors=fit_errors,
+        broad_player_research_requested=args.broad_player_research,broad_fit_errors=broad_errors,
         historical_score_review=reviews,
         ready=sum(r['status']=='HISTORICAL_ROTATION_READY' for r in results),
         results=results,database_bytes_unchanged=file_sha256(ledger)==before,
