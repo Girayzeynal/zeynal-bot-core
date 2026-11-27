@@ -113,6 +113,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--data-directory',required=True)
     p.add_argument('--maximum',type=int,default=4)
+    p.add_argument('--score-research',action='store_true')
     args=p.parse_args()
     if not 1<=args.maximum<=8:p.error('--maximum must be 1..8')
     root=local_path(args.data_directory);ledger=root/'live-nba/nba-hybrid.sqlite'
@@ -124,14 +125,39 @@ def main():
     rows=sorted((v[0] for v in grouped.values() if len(v)==1 and v[0]['actual'] is None
                  and now+900<=v[0]['fixture_start_utc']<=now+48*3600),
                 key=lambda r:(r['fixture_start_utc'],r['fixture_id']))
-    results=[]
+    results=[]; fits={}; fit_errors={}; reviews={}
     for row in rows[:args.maximum]:
         try:
-            out=collect_historical(load_snapshot(ledger,row['fixture_id']),root/'live-nba/assets',root/'player-shadow')
+            snapshot=load_snapshot(ledger,row['fixture_id'])
+            season=snapshot['season']
+            if args.score_research and season not in fits and season not in fit_errors:
+                from hybrid_engine.historical_five_score import prepare,review
+                try:
+                    fits[season]=prepare(root,season,int(time.time()))
+                except (ValueError,KeyError,TypeError,OSError) as exc:
+                    fit_errors[season]=str(exc) if str(exc).replace('_','').isalnum() and len(str(exc))<=100 else type(exc).__name__
+            out=collect_historical(snapshot,root/'live-nba/assets',root/'player-shadow')
+            if args.score_research:
+                from hybrid_engine.historical_five_score import archive_score
+                if season in fit_errors:
+                    out['score_research']=dict(status='BLOCKED',reason=fit_errors[season])
+                else:
+                    try:
+                        out['score_research']=archive_score(root/'player-shadow',out,snapshot,fits[season])
+                    except (ValueError,KeyError,TypeError,OSError) as exc:
+                        out['score_research']=dict(status='BLOCKED',reason=str(exc) if str(exc).replace('_','').isalnum() and len(str(exc))<=100 else type(exc).__name__)
         except (ValueError,KeyError,TypeError,OSError) as exc:
             reason=str(exc);out=dict(status='BLOCKED',reason=reason if reason.replace('_','').isalnum() and len(reason)<=100 else type(exc).__name__)
         results.append(dict(home=row['home'],away=row['away'],**out))
+    if args.score_research:
+        from hybrid_engine.historical_five_score import review
+        for season,prepared in fits.items():
+            try:reviews[season]=review(prepared,int(time.time()))
+            except (ValueError,KeyError,TypeError,OSError) as exc:
+                reviews[season]=dict(status='BLOCKED',reason=type(exc).__name__)
     print(json.dumps(dict(format='NBA_HISTORICAL_FIVE_BATCH_V1',eligible=len(rows),
+        score_research_requested=args.score_research,score_fit_errors=fit_errors,
+        historical_score_review=reviews,
         ready=sum(r['status']=='HISTORICAL_ROTATION_READY' for r in results),
         results=results,database_bytes_unchanged=file_sha256(ledger)==before,
         injury_source_calls=0,production_changed=False),ensure_ascii=False,indent=2,allow_nan=False))
