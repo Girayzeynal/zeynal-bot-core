@@ -1283,7 +1283,8 @@ def build_candidate_application(args, build_app, *, staging=False):
             from hybrid_engine.rotation_cycle import RotationCycle
             rotation_cycle=RotationCycle(root,nba_service.ledger.path,transport,
                 forward_enabled=os.getenv('ZEYNAL_TEST_ROTATION_FORWARD_CALIBRATION','0')=='1',
-                selective_enabled=os.getenv('ZEYNAL_TEST_ROTATION_SELECTIVE','0')=='1')
+                selective_enabled=os.getenv('ZEYNAL_TEST_ROTATION_SELECTIVE','0')=='1',
+                refresh_enabled=os.getenv('ZEYNAL_TEST_ROTATION_REFRESH','0')=='1')
             app.bot_data['rotation_cycle']=rotation_cycle
             tasks.append(background_task(rotation_cycle.run()))
         async def collect():

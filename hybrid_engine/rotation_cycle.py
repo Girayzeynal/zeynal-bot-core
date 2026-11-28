@@ -86,9 +86,10 @@ def capture_one(root,ledger,row,rows,transport,*,source_cutoff):
     return publish(folder,'joint-score-',receipt,tip)
 
 class RotationCycle:
-    def __init__(self,root,ledger,transport,*,capture=capture_one,clock=time.time,forward_enabled=False,selective_enabled=False):
+    def __init__(self,root,ledger,transport,*,capture=capture_one,clock=time.time,forward_enabled=False,selective_enabled=False,refresh_enabled=False):
         self.root=local_path(root);self.ledger=local_path(ledger);self.transport=transport
         self.selective_enabled=selective_enabled;self.forward_enabled=forward_enabled;self.capture=capture;self.clock=clock;self.retry={};self.attempted={};self.completed=set()
+        self.refresh_enabled=refresh_enabled;self.refresh_turn=True;self.refresh_last=None
         self.last=dict(status='WAITING',enabled=True)
     def tick(self):
         from hybrid_engine.runtime_reports import RuntimeLedgerReports
@@ -102,6 +103,18 @@ class RotationCycle:
         self.completed.intersection_update(keys)
         self.retry={k:v for k,v in self.retry.items() if k in keys}
         self.attempted={k:v for k,v in self.attempted.items() if k in keys}
+        # Alternate refresh and first-capture lanes. A refresh failure never
+        # prevents an ordinary first forecast from being captured.
+        if self.refresh_enabled:
+            turn=self.refresh_turn;self.refresh_turn=not turn
+            if turn:
+                try:
+                    from hybrid_engine.rotation_refresh import refresh_one
+                    self.refresh_last=refresh_one(self.root,self.ledger)
+                except Exception as exc:
+                    self.refresh_last=dict(status='ABSTAIN',reason=error_reason(exc))
+                if self.refresh_last['status']=='CAPTURED_REFRESH':
+                    return dict(status='REFRESHED',eligible=len(rows),completed=len(self.completed),refresh=self.refresh_last)
         # Never let a repeatedly failing earliest fixture monopolize the lane.
         for row in sorted(rows,key=lambda r:(self.attempted.get((r['fixture_id'],r['snapshot_sha256']),-1),r['fixture_start_utc'],r['fixture_id'])):
             key=(row['fixture_id'],row['snapshot_sha256'])
@@ -140,7 +153,7 @@ class RotationCycle:
                 return dict(status='ABSTAIN',eligible=len(rows),fixture_id=key[0],reason=safe,
                     retry_at_utc=self.retry[key],completed=len(self.completed))
         return dict(status='IDLE',eligible=len(rows),completed=len(self.completed),
-                    retrying=sum(v>now for v in self.retry.values()))
+                    retrying=sum(v>now for v in self.retry.values()),refresh=self.refresh_last)
     async def run(self):
         while True:
             try:self.last=await asyncio.to_thread(self.tick)
@@ -171,4 +184,10 @@ class RotationCycle:
             s=r['selective'];lines.append('Seçici gölge: '+s['status'])
             if s.get('reason'):lines.append('Seçici engel: '+s['reason'])
             if s.get('screen'):lines.append('Regresyon elemesi: '+s['screen'])
+        if self.refresh_enabled:
+            f=self.refresh_last or dict(status='WAITING')
+            lines.append('Sonuç sonrası güncelleme: '+f['status'])
+            if f.get('prior_n'):lines.append('Güncellemede öğrenilen sonuç: '+str(f['prior_n']))
+            if f.get('fixture_id'):lines.append('Güncellenen maç: '+f['fixture_id'])
+            if f.get('reason'):lines.append('Güncelleme engeli: '+f['reason'])
         return '\n'.join(lines)
