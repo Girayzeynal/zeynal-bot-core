@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest import TestCase,IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock,patch
 from core.team_identity import digest
-from hybrid_engine.rotation_premium import panels,present,install,LABELS
+from hybrid_engine.rotation_premium import panels,present,install,LABELS,unique_market_pages
 from hybrid_engine.telegram_premium_ui import page_view
 
 NOW=1796000000
@@ -58,3 +58,32 @@ class PremiumInstallTests(IsolatedAsyncioTestCase):
         with patch('hybrid_engine.rotation_premium.lookup') as lookup:
             self.assertIs(await state['verified_analysis_service'].analyze('EUROLEAGUE'),res)
             lookup.assert_not_called()
+
+class RefreshDisplayTests(TestCase):
+    def test_shadow_visible_without_replacing_raw(self):
+        res,cache,r=response()
+        p=dict(fixture_id='f',raw_receipt_sha256=r[2],original_snapshot_sha256=digest(res['snapshot']),
+            fixture_start_utc=res['snapshot']['fixture_start_utc'],generated_at_utc=NOW-4,
+            production_enabled=False,forecast_changed=False,calibrated=False,prior_n=11,
+            screen={'status':'INSUFFICIENT_CHRONOLOGICAL_EVIDENCE'},simulation=deepcopy(r[3]['simulation']))
+        p['simulation']['markets']['FULL']['total']['mean']=190.
+        refresh=(NOW-4,NOW-3,'b'*64,p,r)
+        out=present(res,cache,r,NOW,refresh=refresh)
+        self.assertIn('200,00',out['html'])
+        self.assertIn('190,00',out['html'])
+        self.assertIn('11 doğrulanmış sonuç',out['html'])
+        e=cache['123456789abc']
+        self.assertEqual(e['rotation_refresh_receipt_sha256'],'b'*64)
+        self.assertIn('Öğrenme sonrası',e['section_pages']['period'][0])
+        self.assertIn('Periyot tahminleri',e['section_pages']['period'][1])
+        self.assertEqual(len(e['section_pages']['ranges']),14)
+        self.assertNotIn('MODEL YÖNÜ:',e['section_pages']['market'][0])
+        p['raw_receipt_sha256']='c'*64
+        with self.assertRaisesRegex(ValueError,'REFRESH_BINDING'):
+            present(res,cache,r,NOW,refresh=refresh)
+
+    def test_market_repeat_by_observation_and_decision(self):
+        a='V3 fiyat\nGözlem SHA: abcdef123456\nKarar SHA: 123456abcdef'
+        b='Eski rapor\n'+a
+        c=a.replace('123456abcdef','234567abcdef')
+        self.assertEqual(unique_market_pages([a,b,c]),[a,c])
