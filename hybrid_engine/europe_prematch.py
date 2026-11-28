@@ -11,6 +11,7 @@ import fcntl
 import json
 import logging
 import os
+import tempfile
 import time
 from zoneinfo import ZoneInfo
 
@@ -71,6 +72,25 @@ def assert_unstarted(receipt,fixture):
             raise Abstain('EUROPE_NONZERO_LIVE_SCORE_REFUSED')
 
 
+def publish_first_slot(path,value):
+    """Return actual exclusive link creation; identical bytes are a replay."""
+    path=local_path(path)
+    body=(json.dumps(value,sort_keys=True,allow_nan=False)+'\n').encode()
+    temporary=None
+    try:
+        with tempfile.NamedTemporaryFile(dir=path.parent,prefix='.europe-first-',delete=False) as f:
+            temporary=f.name
+            f.write(body);f.flush();os.fsync(f.fileno())
+        try:os.link(temporary,path)
+        except FileExistsError:return False
+        fd=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY)
+        try:os.fsync(fd)
+        finally:os.close(fd)
+        return True
+    finally:
+        if temporary is not None:os.unlink(temporary)
+
+
 class SinglePrematchRegistry(EuropeanRegistry):
     """One publication per fixture across versions and independent processes."""
     def __init__(self,*args,prior_registries=(),legacy_archive=None,**kwargs):
@@ -101,7 +121,24 @@ class SinglePrematchRegistry(EuropeanRegistry):
                     if payload['fixture'] not in bundle['payload']['fixtures']:
                         raise Abstain('EUROPE_SOURCE_FIXTURE_CHANGED')
                     assert_unstarted(receipt,payload['fixture'])
-            return super().record(payload)
+            # Preserve the sealed shared ForwardRegistry implementation.
+            # Only this European publisher needs an exclusive creation receipt.
+            key=digest(dict(fixture=payload['fixture']['canonical_id'],version=payload['version']))
+            slot=self.root/('first-'+key+'.json')
+            p=dict(payload);now=int(time.time());tip=p['fixture']['start_ts_utc']
+            if not 0<p['source_available_max_utc']<=p['prediction_generated_at_utc']<=now<tip:
+                raise ValueError('FORWARD_PRETIPOFF_CLOCK')
+            if p['actual'] is not None:raise ValueError('FORWARD_TARGET_LABEL_FORBIDDEN')
+            p['snapshot_created_at_utc']=now
+            for ref in p['assets']:self.read_asset(ref)
+            ref=self.asset('forecast',p);published=int(time.time())
+            safe_lead(p)
+            publication=dict(forecast=ref,first_archived_at_utc=published,
+                eligible_for_prospective_audit=published<tip,
+                classification='PREMATCH' if published<tip else 'LATE_COMMIT_EXCLUDED')
+            if not publish_first_slot(slot,dict(payload=publication,sha256=digest(publication))):
+                old=self.publication(slot);return self.read_asset(old['forecast']),False
+            return p,True
 
 
 class AutomaticEuropeanService(EuropeanService):

@@ -1,0 +1,2 @@
+# Conditional period outcome review
+Local read-only first receipt per fixture and season; verifies original snapshot binding, pre-tipoff local file clock, deterministic model and allocation replay, and native regulation outcome. Reports quarter/half team, margin, total errors and descriptive conditional interval hits. Local timestamps are not external attestations. Fixed-total intervals are not unconditional calibrated forecast intervals. No promotion, training, or forecast edits. Native evaluation and full CI pending.

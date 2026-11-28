@@ -10,6 +10,7 @@ from core.league_identity import resolve_league
 from core.team_identity import digest
 from hybrid_engine.live_metrics import metrics
 from ledger_reports import LedgerReports, MAX_PAYLOAD_BYTES, MAX_ROWS
+from hybrid_engine.sqlite_read_guard import BUSY_SECONDS,bounded_rows,retry_read
 from live_analysis_ledger import LiveAnalysisLedger
 
 MAX_READ_BYTES = 48 * 1024 * 1024
@@ -25,7 +26,20 @@ def failure(exc):
         # nor all result-code constants. Diagnostic failures must not abort a
         # recovery loop. Numeric fallbacks are stable SQLite primary codes.
         if primary is None:
-            return 'SQLITE_OTHER'
+            # Python 3.10 lacks the extended-code attributes. Recognize only
+            # fixed SQLite diagnostics, never echo arbitrary exception text or
+            # fabricate numeric codes that were not provided by the driver.
+            return {
+                'database is locked': 'SQLITE_BUSY',
+                'database is busy': 'SQLITE_BUSY',
+                'database table is locked': 'SQLITE_LOCKED',
+                'interrupted': 'SQLITE_INTERRUPT',
+                'file is not a database': 'SQLITE_INTEGRITY',
+                'database disk image is malformed': 'SQLITE_INTEGRITY',
+                'unable to open database file': 'SQLITE_ACCESS',
+                'attempt to write a readonly database': 'SQLITE_ACCESS',
+                'disk i/o error': 'SQLITE_IO',
+            }.get(str(exc).strip().lower(), 'SQLITE_OTHER')
         kind = {
             getattr(sqlite3, 'SQLITE_BUSY', 5): 'SQLITE_BUSY',
             getattr(sqlite3, 'SQLITE_LOCKED', 6): 'SQLITE_LOCKED',
@@ -51,12 +65,13 @@ class RuntimeLedgerReports(LedgerReports):
     """Operational reader. The experiment's pinned reader remains reproducible."""
 
     def _read_rows(self, league, fixture_id, fit, archived_by, settled_only):
-        with closing(sqlite3.connect(self.path.as_uri()+'?mode=ro', uri=True, timeout=.2)) as db:
+        return retry_read(lambda:self._read_rows_once(league,fixture_id,fit,archived_by,settled_only))
+
+    def _read_rows_once(self, league, fixture_id, fit, archived_by, settled_only):
+        with closing(sqlite3.connect(self.path.as_uri()+'?mode=ro', uri=True, timeout=BUSY_SECONDS)) as db:
             db.execute('PRAGMA query_only=ON')
             db.execute('BEGIN')
-            deadline = time.monotonic() + 1
-            db.set_progress_handler(lambda: int(time.monotonic() > deadline), 1000)
-            tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            tables = {row[0] for row in bounded_rows(db,"SELECT name FROM sqlite_master WHERE type='table'")}
             if not {'live_analysis_snapshots','live_analysis_commit_receipts','verified_analysis_results'} <= tables:
                 return None
             where, params = [], []
@@ -81,7 +96,7 @@ class RuntimeLedgerReports(LedgerReports):
                 LEFT JOIN verified_analysis_results o ON o.league=s.league AND o.fixture_id=s.fixture_id AND o.scope='REGULATION_ONLY'
                 {clause} ORDER BY s.league,s.fixture_id,s.model_digest LIMIT ?'''
             rows, size = [], 0
-            for row in db.execute(sql, [*params, MAX_ROWS+1]):
+            for row in bounded_rows(db,sql,[*params, MAX_ROWS+1]):
                 if len(rows) >= MAX_ROWS:
                     raise ValueError('REPORT_SCAN_LIMIT')
                 if row[-2] > MAX_PAYLOAD_BYTES or (row[-1] or 0) > MAX_PAYLOAD_BYTES:

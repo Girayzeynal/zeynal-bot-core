@@ -1,0 +1,213 @@
+"""Opt-in isolated NBA rotation research cycle; no production or ledger writes."""
+import asyncio
+from collections import defaultdict
+from functools import partial
+import time
+import logging
+from core.team_identity import digest
+from hybrid_engine.data import Abstain,local_path
+from hybrid_engine.sqlite_read_guard import error_reason
+from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
+
+RETRY_SECONDS=300
+HORIZON_SECONDS=36*3600
+START_LEAD_SECONDS=900
+log=logging.getLogger(__name__)
+
+def eligible(rows,now):
+    grouped=defaultdict(list)
+    for r in rows:grouped[r['fixture_id']].append(r)
+    return sorted((v[0] for v in grouped.values() if len(v)==1
+        and v[0]['league']=='NBA' and v[0]['actual'] is None
+        and now+START_LEAD_SECONDS<=v[0]['fixture_start_utc']<=now+HORIZON_SECONDS),
+        key=lambda r:(r['fixture_start_utc'],r['fixture_id']))
+
+def publish(folder,prefix,payload,tip):
+    from hybrid_engine.boxes import publish_json
+    if int(time.time())>=tip-PREMATCH_MINIMUM_LEAD_SECONDS:
+        raise Abstain('ROTATION_AUTO_PUBLICATION_WINDOW_CLOSED')
+    pin=digest(payload)
+    publish_json(folder/(prefix+pin+'.json'),dict(payload=payload,sha256=pin))
+    return pin
+
+def capture_one(root,ledger,row,rows,transport,*,source_cutoff):
+    from hybrid_engine import rotation_efficiency as factor
+    from hybrid_engine import rotation_periods as period
+    from hybrid_engine import rotation_joint as joint
+    from hybrid_engine.adaptive_data import FeatureStore
+    from hybrid_engine.historical_five import collect_historical
+    from hybrid_engine.boxes import collect_boxes
+    from hybrid_engine.player_inputs import load_snapshot
+    root=local_path(root);folder=root/'player-shadow'
+    tip=row['fixture_start_utc'];fid=row['fixture_id']
+    snapshot=load_snapshot(ledger,fid,verified_row=row)
+    if digest(snapshot)!=row['snapshot_sha256'] or snapshot['fixture_start_utc']!=tip:
+        raise ValueError('ROTATION_AUTO_SNAPSHOT_BINDING')
+    cutoff=int(time.time())
+    if cutoff>=tip-START_LEAD_SECONDS:raise Abstain('ROTATION_AUTO_START_WINDOW_CLOSED')
+    # Check historical residual availability before any new provider requests.
+    pool=joint.residual_pool(rows,row,source_cutoff)
+    store=FeatureStore(root/'adaptive-v2/inputs',[root/'live-nba/assets'],
+        lambda *a,**k: (_ for _ in ()).throw(RuntimeError('NETWORK_FORBIDDEN')))
+    cohort=store.cohort('NBA',int(snapshot['season'].split('/')[0]),cutoff)
+    games,_=factor.training_rows(cohort,cutoff)
+    games=[g for g in games if g['season']==snapshot['season']]
+    control=factor.fit(games,cutoff,players_enabled=False)
+    candidate=factor.fit(games,cutoff,players_enabled=True)
+    pgames,_=period.training_rows(cohort,cutoff)
+    pgames=[g for g in pgames if g['season']==snapshot['season']]
+    a=period.fit(pgames,cutoff,players_enabled=False)
+    b=period.fit(pgames,cutoff,players_enabled=True)
+    if int(time.time())>=tip-PREMATCH_MINIMUM_LEAD_SECONDS:
+        raise Abstain('ROTATION_AUTO_PUBLICATION_WINDOW_CLOSED')
+    # Existing box collector retains its cache, source cooldown and native identity checks.
+    # No current injury index or roster source calls are needed.
+    rotation=collect_historical(snapshot,root/'live-nba/assets',folder,
+        box_collector=partial(collect_boxes,fetcher=transport))
+    rotation={k:v for k,v in rotation.items() if k!='sha256'}
+    result=factor.compare(rotation,snapshot,control,candidate,int(time.time()))
+    for model in (control,candidate):
+        publish(folder,'factor-model-',model['payload'],tip)
+    factor_pin=publish(folder,'factor-score-',result,tip)
+    result=period.capture(folder,result,factor_pin,snapshot,a,b,int(time.time()))
+    for model in (a,b):publish(folder,'period-model-',model['payload'],tip)
+    period_pin=publish(folder,'period-score-',result,tip)
+    # Keep the exact source-time residual pool; new labels after the initial
+    # decision are deliberately not admitted into this forecast.
+    decision=int(time.time())
+    sim=joint.simulate(result['player_allocation']['quarters'],pool)
+    pool_pin=publish(folder,'joint-pool-',pool,tip)
+    receipt=dict(format=joint.VERSION,status='FORWARD_JOINT_RESEARCH',fixture_id=fid,
+        fixture_start_utc=tip,generated_at_utc=decision,original_snapshot_sha256=row['snapshot_sha256'],
+        period_sha256=period_pin,original_model_version=row['model_version'],
+        residual_games=len(pool),residual_pool_sha256=pool_pin,residual_cutoff_utc=source_cutoff,
+        residual_model_digests=len({v['model_digest'] for v in pool}),simulation=sim,
+        production_enabled=False,forecast_changed=False,calibrated=False)
+    return publish(folder,'joint-score-',receipt,tip)
+
+class RotationCycle:
+    def __init__(self,root,ledger,transport,*,capture=capture_one,clock=time.time,forward_enabled=False,selective_enabled=False,refresh_enabled=False,half_reference_enabled=False):
+        self.root=local_path(root);self.ledger=local_path(ledger);self.transport=transport
+        self.selective_enabled=False;self.forward_enabled=False;self.capture=capture;self.clock=clock;self.retry={};self.attempted={};self.completed=set()
+        self.refresh_enabled=False;self.refresh_turn=True;self.refresh_last=None
+        # Legacy flags cannot override direction-first policy.
+        self.half_reference_enabled=half_reference_enabled;self.half_attempted={};self.half_last='WAITING'
+        self.last=dict(status='WAITING',enabled=True)
+    def tick(self):
+        from hybrid_engine.runtime_reports import RuntimeLedgerReports
+        from hybrid_engine.rotation_report import records
+        now=int(self.clock())
+        if not self.ledger.is_file():return dict(status='LEDGER_NOT_PRESENT',eligible=0)
+        report=RuntimeLedgerReports(self.ledger).read('NBA',summarize=False)
+        if report['status']!='VERIFIED_LIVE_REPORT':raise ValueError('ROTATION_AUTO_LEDGER_UNVERIFIED')
+        rows=eligible(report['forecasts'],now)
+        keys={(r['fixture_id'],r['snapshot_sha256']) for r in rows}
+        self.completed.intersection_update(keys)
+        self.retry={k:v for k,v in self.retry.items() if k in keys}
+        self.attempted={k:v for k,v in self.attempted.items() if k in keys}
+        # One bounded, fair local first-half reference attempt per tick.
+        # Never issue a new provider request or interfere with raw capture.
+        if self.half_reference_enabled:
+            self.half_attempted={k:v for k,v in self.half_attempted.items() if k in keys}
+            try:
+                from hybrid_engine.rotation_iddaa_direction import capture_one as capture_half
+                candidates=[r for r in rows if (self.root/'iddaa-bulletin'/'first-half'/'NBA'/str(r['fixture_start_utc'])).is_dir()]
+                if candidates:
+                    r=min(candidates,key=lambda v:(self.half_attempted.get((v['fixture_id'],v['snapshot_sha256']),-1),v['fixture_start_utc'],v['fixture_id']))
+                    key=(r['fixture_id'],r['snapshot_sha256']);self.half_attempted[key]=now
+                    old,_,_=records(self.root/'player-shadow',self.ledger,now=now,selector=r['fixture_id'])
+                    matches=[e for e in old if e[4]['snapshot_sha256']==key[1]]
+                    self.half_last=capture_half(self.root,matches[0]) if len(matches)==1 else 'HOLD_NO_RAW_RECEIPT'
+                else:self.half_last='HOLD_NO_LOCAL_REFERENCE'
+            except Exception as exc:self.half_last='ABSTAIN:'+error_reason(exc)
+        # Alternate refresh and first-capture lanes. A refresh failure never
+        # prevents an ordinary first forecast from being captured.
+        if self.refresh_enabled:
+            turn=self.refresh_turn;self.refresh_turn=not turn
+            if turn:
+                try:
+                    from hybrid_engine.rotation_refresh import refresh_one
+                    self.refresh_last=refresh_one(self.root,self.ledger)
+                except Exception as exc:
+                    self.refresh_last=dict(status='ABSTAIN',reason=error_reason(exc))
+                if self.refresh_last['status']=='CAPTURED_REFRESH':
+                    return dict(status='REFRESHED',eligible=len(rows),completed=len(self.completed),refresh=self.refresh_last)
+        # Never let a repeatedly failing earliest fixture monopolize the lane.
+        for row in sorted(rows,key=lambda r:(self.attempted.get((r['fixture_id'],r['snapshot_sha256']),-1),r['fixture_start_utc'],r['fixture_id'])):
+            key=(row['fixture_id'],row['snapshot_sha256'])
+            if key in self.completed or self.retry.get(key,0)>now:continue
+            # Check the archive on restart. A valid first receipt is immutable.
+            existing,_,_=records(self.root/'player-shadow',self.ledger,now=now,selector=row['fixture_id'])
+            if any(e[4]['snapshot_sha256']==key[1] for e in existing):
+                self.completed.add(key);continue
+            try:
+                self.attempted[key]=now
+                pin=self.capture(self.root,self.ledger,row,report['forecasts'],self.transport,source_cutoff=now)
+                self.completed.add(key)
+                forward=dict(status='DISABLED')
+                if self.forward_enabled:
+                    try:
+                        from hybrid_engine.rotation_forward_calibration import capture_new
+                        forward=capture_new(self.root,self.ledger,pin)
+                    except Exception as exc:
+                        reason=str(exc)
+                        forward=dict(status='ABSTAIN',reason=error_reason(exc))
+                selective=dict(status='DISABLED')
+                if self.selective_enabled:
+                    try:
+                        from hybrid_engine.rotation_selective import capture_new
+                        selective=capture_new(self.root,self.ledger,pin)
+                    except Exception as exc:
+                        reason=str(exc)
+                        selective=dict(status='ABSTAIN',reason=error_reason(exc))
+                return dict(status='CAPTURED',eligible=len(rows),fixture_id=key[0],
+                    receipt_sha256=pin,completed=len(self.completed),calibrated=False,forward_correction=forward,selective=selective)
+            except Exception as exc:
+                # Isolate failures per fixture; no new forecast is reported.
+                self.retry[key]=int(self.clock())+RETRY_SECONDS
+                reason=str(exc)
+                safe=error_reason(exc)
+                return dict(status='ABSTAIN',eligible=len(rows),fixture_id=key[0],reason=safe,
+                    retry_at_utc=self.retry[key],completed=len(self.completed))
+        return dict(status='IDLE',eligible=len(rows),completed=len(self.completed),
+                    retrying=sum(v>now for v in self.retry.values()),refresh=self.refresh_last)
+    async def run(self):
+        while True:
+            try:self.last=await asyncio.to_thread(self.tick)
+            except asyncio.CancelledError:raise
+            except Exception as exc:
+                self.last=dict(status='ABSTAIN',reason=error_reason(exc),eligible=self.last.get('eligible',0),
+                    completed=self.last.get('completed',0),counts_stale=True,retry_at_utc=int(self.clock())+RETRY_SECONDS)
+                log.warning('Rotation cycle tick failed: %s',error_reason(exc))
+            await asyncio.sleep(RETRY_SECONDS)
+
+    def render_status(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        r=self.last
+        lines=['NBA OTOMATİK ROTASYON — İZOLE ARAŞTIRMA','Kalibre edilmedi; üretim tahmini değişmedi.',
+            'Yön öncelikli politika: AKTİF · Ortak sayı düzeltmesi: KAPALI',
+            'Öğrenme: HOLD_UNVERIFIED · /rotation direction',
+            'Durum: '+r['status'], 'Uygun maç: '+str(r.get('eligible',0)),
+            'Doğrulanmış/üretilmiş kayıt: '+str(r.get('completed',0))]
+        if self.half_reference_enabled:lines.append('İddaa ilk yarı referansı: '+self.half_last)
+        if r.get('counts_stale'):lines.append('Sayılar son başarılı döngüden; güncel okuma başarısız.')
+        if r.get('reason'):lines.append('Engel: '+r['reason'])
+        if r.get('retry_at_utc'):
+            lines.append('Yeniden deneme: '+datetime.fromtimestamp(r['retry_at_utc'],ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y %H:%M TSİ'))
+        if r.get('receipt_sha256'):lines.append('Kayıt: '+r['receipt_sha256'][:16])
+        if r.get('forward_correction'):
+            f=r['forward_correction'];lines.append('İleri düzeltme: '+f['status'])
+            if f.get('reason'):lines.append('Düzeltme engeli: '+f['reason'])
+            if f.get('prior_n'):lines.append('Önceki sonuç: '+str(f['prior_n']))
+        if r.get('selective'):
+            s=r['selective'];lines.append('Seçici gölge: '+s['status'])
+            if s.get('reason'):lines.append('Seçici engel: '+s['reason'])
+            if s.get('screen'):lines.append('Regresyon elemesi: '+s['screen'])
+        if self.refresh_enabled:
+            f=self.refresh_last or dict(status='WAITING')
+            lines.append('Sonuç sonrası güncelleme: '+f['status'])
+            if f.get('prior_n'):lines.append('Güncellemede öğrenilen sonuç: '+str(f['prior_n']))
+            if f.get('fixture_id'):lines.append('Güncellenen maç: '+f['fixture_id'])
+            if f.get('reason'):lines.append('Güncelleme engeli: '+f['reason'])
+        return '\n'.join(lines)

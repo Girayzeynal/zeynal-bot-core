@@ -151,6 +151,12 @@ if ! flock -n 9; then
   exit 0
 fi
 branch="$(git branch --show-current)"
+if [[ -z "$branch" && "${1:-}" == "--staging" && "$#" -eq 1 && "${ZEYNAL_ROTATION_STAGING_SHA:-}" =~ ^[0-9a-f]{40}$ ]]; then
+  if [[ "$(git rev-parse --verify HEAD)" != "$ZEYNAL_ROTATION_STAGING_SHA" ]]; then
+    echo "ROTATION_STAGING_SHA_MISMATCH" >&2; exit 2
+  fi
+  echo "PINNED_ROTATION_STAGING: $ZEYNAL_ROTATION_STAGING_SHA"
+else
 case "$branch" in
   feature/hybrid-market-roster-evidence-20261114|feature/issue90-nba-verification-20261118|feature/critical-integrity-audit-20261118|feature/europe-alias-replay-ui-20261118|feature/model-data-pipeline-audit-20261118|feature/issue90-chronological-engine-audit-20261118|feature/integrated-test-bot-20261119|feature/three-league-roster-integration-20261121|fix/telegram-current-panels-20261122|fix/v3-before-slow-v2-20261124|feat/first-forecast-walkforward-20261124|integration/nba-v3-calibration-20261124|feat/first-forecast-paired-diagnostics-20261124|feat/first-forecast-period-errors-20261124|integration/nba-three-axis-release-candidate-20261124) ;;
   *) echo "WRONG_BRANCH: checkout an isolated test branch first" >&2; exit 2 ;;
@@ -170,6 +176,7 @@ if [[ "$(sha256sum -- "${launcher_path}")" != "${launcher_before}" ]]; then
   echo "RESTARTING_UPDATED_LAUNCHER" >&2
   exec 9>&-
   exec bash "${launcher_path}" "$@"
+fi
 fi
 case "${1:-}" in
   "")

@@ -60,6 +60,18 @@ class PlayerInputTests(TestCase):
             return collect(self.snapshot,self.assets,self.root/'player-shadow',
                 reviewer=self.reviewer,box_collector=self.boxes)
 
+    def test_default_collector_uses_bounded_official_public_source_policy(self):
+        with patch('hybrid_engine.player_inputs.audit_snapshot',return_value=dict(status='SYNTHETIC')), \
+             patch('hybrid_engine.player_inputs.CurrentRosterReview',return_value=self.reviewer) as factory:
+            result=collect(self.snapshot,self.assets,self.root/'player-shadow',
+                box_collector=self.boxes)
+        factory.assert_called_once_with(
+            self.root/'player-shadow/current-roster',
+            report_archive=self.root/'official-reports',
+            bounded_public_pdf_fallback=True)
+        self.assertEqual(result['status'],'PROSPECTIVE_MINUTES_ARCHIVED')
+        self.assertFalse(result['forecast_changed'])
+
     def test_collection_archives_inputs_and_preserves_original_forecast(self):
         before=deepcopy(self.snapshot); result=self.run_collect()
         self.assertEqual(result['status'],'PROSPECTIVE_MINUTES_ARCHIVED')

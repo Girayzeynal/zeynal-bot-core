@@ -1,6 +1,8 @@
 """Explicit offline collection of prospective NBA player inputs; ledger is read-only."""
 import argparse
 from collections import Counter,defaultdict
+from contextlib import closing
+from hybrid_engine.sqlite_read_guard import BUSY_SECONDS,retry_read
 import hashlib
 import heapq
 import json
@@ -15,23 +17,30 @@ from hybrid_engine.boxes import collect_boxes,publish_json
 from hybrid_engine.current_roster import CurrentRosterReview,context_for,PREFIX,roster_ids,review_diagnostics
 from hybrid_engine.data import Abstain,local_path
 from hybrid_engine.player_minutes import MinutesArchive,projection,official_available
+from hybrid_engine.conditional_rotation import conditional_rotation,BLOCKS
 from hybrid_engine.time_policy import PREMATCH_MINIMUM_LEAD_SECONDS
 from hybrid_engine.prediction_audit import audit_snapshot
 from ledger_reports import LedgerReports
 from live_analysis_ledger import LiveAnalysisLedger
 
 
-def load_snapshot(ledger,fixture_id):
+def load_snapshot(ledger,fixture_id,*,verified_row=None):
     path=local_path(ledger)
-    report=LedgerReports(path).read('NBA',fixture_id)
-    rows=report.get('forecasts',[])
-    if len(rows)!=1: raise ValueError('EXACTLY_ONE_ARCHIVED_NBA_MODEL_REQUIRED')
-    row=rows[0]
-    with sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=.2) as db:
-        db.execute('PRAGMA query_only=ON')
-        raw,pin=db.execute('SELECT payload,sha256 FROM live_analysis_snapshots WHERE league=? AND fixture_id=? AND model_digest=?',
-            ('NBA',row['fixture_id'],row['model_digest'])).fetchone()
-    return LiveAnalysisLedger._decode(raw,pin,expected=('NBA',row['fixture_id'],row['model_digest']))
+    if verified_row is None:
+        rows=LedgerReports(path).read('NBA',fixture_id).get('forecasts',[])
+        if len(rows)!=1: raise ValueError('EXACTLY_ONE_ARCHIVED_NBA_MODEL_REQUIRED')
+        row=rows[0]
+    else:
+        row=verified_row
+        if row['league']!='NBA' or row['fixture_id']!=fixture_id:raise ValueError('SNAPSHOT_REPORT_IDENTITY')
+    def read():
+        with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=BUSY_SECONDS)) as db:
+            db.execute('PRAGMA query_only=ON')
+            item=db.execute('SELECT s.payload,s.sha256,r.snapshot_sha256 FROM live_analysis_snapshots s JOIN live_analysis_commit_receipts r USING(league,fixture_id,model_digest) WHERE s.league=? AND s.fixture_id=? AND s.model_digest=?',
+                ('NBA',row['fixture_id'],row['model_digest'])).fetchone()
+        if item is None or item[1]!=row['snapshot_sha256'] or item[2]!=item[1]:raise ValueError('SNAPSHOT_REPORT_PIN')
+        return LiveAnalysisLedger._decode(item[0],item[1],expected=('NBA',row['fixture_id'],row['model_digest']))
+    return retry_read(read)
 
 
 def rotation_coverage_diagnostics(context,review,rosters,boxes,now):
@@ -95,7 +104,11 @@ def collect(snapshot,assets,directory,*,reviewer=None,box_collector=collect_boxe
         cut=json.loads(path.read_text())
         if digest(cut)!=ref['sha256']: raise ValueError('PLAYER_INPUT_ASSET_PIN')
         context=context_for(snapshot)
-        service=reviewer or CurrentRosterReview(root/'current-roster',report_archive=root.parent/'official-reports')
+        # Match the isolated Telegram source policy. Public CDN access is
+        # bounded by CurrentRosterReview; no authorization or rate-limit bypass.
+        service=reviewer or CurrentRosterReview(
+            root/'current-roster',report_archive=root.parent/'official-reports',
+            bounded_public_pdf_fallback=True)
         review=service.review(context)
         result['roster_diagnostics']=review_diagnostics(review)
         if review['status']!='CURRENT_SOURCE_OBSERVATIONS': raise Abstain('CURRENT_ROSTER_SOURCE_REVIEW_REQUIRED')
@@ -144,6 +157,23 @@ def collect(snapshot,assets,directory,*,reviewer=None,box_collector=collect_boxe
                 generated=int(time.time())
                 packet=projection(context,review,rosters,boxes,generated_at_utc=generated)
         except Abstain as exc:
+            if str(exc) in BLOCKS:
+                # Do not throw away verified past boxes when availability is
+                # unavailable. Keep counterfactual research outside MinutesArchive.
+                try:
+                    scenario=conditional_rotation(context,review,rosters,boxes,now=int(time.time()))
+                    pin=digest(scenario)
+                    publish_json(root/('conditional-rotation-'+pin+'.json'),dict(payload=scenario,sha256=pin))
+                    result['conditional_rotation']=dict(status=scenario['status'],sha256=pin,
+                        training_eligible=False,score_computed=False,
+                        teams={s:dict(unseen_players=len(v['unseen_current_roster_players']),
+                                      scenario_count=len(v['counterfactuals']))
+                               for s,v in scenario['teams'].items()})
+                except (ValueError,KeyError,TypeError,OSError) as scenario_error:
+                    reason=str(scenario_error)
+                    result['conditional_rotation']=dict(status='UNAVAILABLE',
+                        reason=reason if reason.replace('_','').isalnum() and len(reason)<=100 else 'INVALID_RESEARCH_INPUT',
+                        training_eligible=False,score_computed=False)
             if str(exc)=='CURRENT_PLAYER_WITHOUT_PRIOR_ROTATION_HISTORY':
                 result['rotation_diagnostics']=rotation_coverage_diagnostics(
                     context,review,rosters,boxes,generated)
@@ -289,7 +319,7 @@ def collect_batch(ledger,assets,directory,*,maximum=4,minimum_lead_seconds=900,
                 if digest(snapshot)!=row['snapshot_sha256']:
                     raise ValueError('PLAYER_BATCH_SNAPSHOT_CHANGED_DURING_READ')
                 one=collect_one(snapshot,assets,root)
-                item={k:one.get(k) for k in ('fixture_id','status','reason','projection','new_record','roster_diagnostics','rotation_diagnostics','official_only_diagnostic')}
+                item={k:one.get(k) for k in ('fixture_id','status','reason','projection','new_record','roster_diagnostics','rotation_diagnostics','official_only_diagnostic','conditional_rotation')}
             except (ValueError,KeyError,TypeError,OSError,sqlite3.Error):
                 item=dict(fixture_id=row['fixture_id'],status='BLOCKED',reason='PLAYER_BATCH_ARCHIVE_OR_SOURCE_UNAVAILABLE')
             result['results'].append(item)
