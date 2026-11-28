@@ -588,7 +588,7 @@ def install_isolated_services(app,archive,data_directory,*,chat_id,transport=Non
         install_dual_clock_display(app.bot_data,assessments)
         if nba_service is not None and not replay_only and os.getenv('ZEYNAL_TEST_ROTATION_PREMIUM','0')=='1':
             from hybrid_engine.rotation_premium import install as install_rotation_premium
-            install_rotation_premium(app.bot_data,root/'player-shadow',nba_service.ledger.path)
+            install_rotation_premium(app.bot_data,root/'player-shadow',nba_service.ledger.path,bridge=provider_bridge)
     async def journal_write(key,event):
         request=app.bot.request
         if isinstance(request,AuditedRequest):return await request.append_journal(journal,key,event)

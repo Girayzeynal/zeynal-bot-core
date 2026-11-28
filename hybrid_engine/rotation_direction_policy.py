@@ -27,14 +27,29 @@ def audit(entries,now):
         pending=counts['pending'],verified_wins=0,verified_losses=0,
         verified_pushes=0,investigate=0,parameter_change=False,reason=BLOCK)
 
-def render(entries,now):
+def render(entries,now,*,folder=None,ledger=None):
     r=audit(entries,now)
-    return ['NBA ROTASYON — YÖN ÖNCELİKLİ ÖĞRENME\n'
-        'Başarılı yön korunur; başarısız yön kök neden incelemesine alınır.\n'
-        'Sayısal fark tek başına müdahale nedeni değildir.\n'
-        f"Sonuçlanan maç: {r['settled']} | Bekleyen: {r['pending']}\n"
-        'Doğrulanmış başarılı yön: 0 | Başarısız yön: 0 | İade: 0\n'
-        f"Yönü belirsiz sonuçlanan maç: {r['settled']}\n"
-        'HOLD_UNVERIFIED — rotasyon kaydına bağlı doğrulanmış maç öncesi karar ve ödeme kuralı yok.\n'
-        'V1/V3 fiyatları rotasyonun kanıtı değildir. Yeni katsayı veya ortak sayı düzeltmesi uygulanmadı.\n'
-        'Başarısız yön incelemesi bile otomatik katsayı değişikliği yetkisi vermez.']
+    lines=['NBA ROTASYON — YÖN ÖNCELİKLİ ÖĞRENME',
+        'Başarılı yön korunur; başarısız yön incelemeye alınır. Sayısal fark tek başına müdahale nedeni değildir.',
+        f"Sonuçlanan maç: {r['settled']} | Bekleyen: {r['pending']}"]
+    if folder is not None:
+        from hybrid_engine.rotation_direction_evidence import audit as evidence_audit
+        evidence=evidence_audit(folder,entries,now,ledger=ledger)
+        c=evidence['counts']
+        lines.extend([f"Kaynağı yeniden doğrulanan maç: {evidence['fixtures']} | Barem gözlemi: {evidence['observations']}",
+            f"Doğrulanmış yön gözlemi: başarılı {c.get('WIN',0)} | başarısız {c.get('LOSS',0)} | iade {c.get('PUSH',0)} | bekleyen {c.get('PENDING_FINAL',0)}",
+            'Gözlem sayısı maç başarı oranı değildir; farklı baremler ayrı gözlemlerdir.'])
+        for k,n in sorted(c.items()):
+            if k not in ('WIN','LOSS','PUSH','PENDING_FINAL'):lines.append(f'{k}: {n}')
+        for k,n in sorted(evidence['excluded'].items()):lines.append(f'Dışlanan: {k} ({n})')
+        for f in evidence['failures'][:30]:
+            lines.append(f"İNCELE: {f['home']} – {f['away']} | {f['period']} {f['market']} | {f['bookmaker_id']} {f['line']} | model {f['point_mean']:.2f} | gerçek {f['actual']} | kök neden henüz kanıtlanmadı.")
+        if not any(c.get(k,0) for k in ('WIN','LOSS','PUSH','PENDING_FINAL')):lines.append('HOLD_UNVERIFIED — uygun doğrulanmış normal süre karar kaydı yok.')
+    else:
+        lines.extend(['Doğrulanmış başarılı yön: 0 | Başarısız yön: 0 | İade: 0',
+            f"Yönü belirsiz sonuçlanan maç: {r['settled']}",
+            'HOLD_UNVERIFIED — rotasyon kaydına bağlı doğrulanmış maç öncesi karar ve ödeme kuralı yok.'])
+    lines.extend(['V1/V3 fiyatları tek başına rotasyonun kanıtı değildir.',
+        'Yeni katsayı veya ortak sayı düzeltmesi uygulanmadı. Başarısız yön bile otomatik değişiklik yetkisi vermez.'])
+    from hybrid_engine.elite_render import split_blocks
+    return split_blocks(lines,limit=3200)

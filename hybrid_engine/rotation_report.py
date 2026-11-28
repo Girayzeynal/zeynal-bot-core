@@ -130,7 +130,7 @@ def render(root,ledger,args=(),*,now=None):
         return split_blocks(lines,limit=3200)
     if args==['direction']:
         from hybrid_engine.rotation_direction_policy import render as render_direction
-        return render_direction(entries,now)
+        return render_direction(entries,now,folder=root,ledger=ledger)
     if args==['refresh']:
         from hybrid_engine.rotation_refresh import render as render_refresh
         return render_refresh(root,entries,now)
@@ -143,7 +143,7 @@ def render(root,ledger,args=(),*,now=None):
     if args==['calibration']:
         from hybrid_engine.rotation_calibration import render as render_calibration
         from hybrid_engine.rotation_direction_policy import render as render_direction
-        return render_direction(entries,now)
+        return render_direction(entries,now,folder=root,ledger=ledger)
     if args==['list']:
         lines=[warning,'DOĞRULANMIŞ YAKLAŞAN MAÇLAR']
         for _,_,pin,p,row in entries:

@@ -183,7 +183,7 @@ def present(response,cache,receipt,now,refresh=None):
     cache_report(cache,token,entry)
     return result
 
-def install(state,root,ledger):
+def install(state,root,ledger,bridge=None):
     base=state['verified_analysis_service']
     class Display:
         ledger=getattr(base,'ledger',None)
@@ -197,7 +197,17 @@ def install(state,root,ledger):
             try:
                 receipt=await asyncio.wait_for(optional_source_thread(lookup,root,ledger,snapshot,now),timeout=READ_TIMEOUT_SECONDS)
                 if receipt is None:return result
-                return present(result,state['premium_reports'],receipt,int(time.time()))
+                out=present(result,state['premium_reports'],receipt,int(time.time()))
+                # Bind only fresh native quotes already collected by base.analyze.
+                # Failure does not affect the preserved raw forecast.
+                if bridge is not None:
+                    try:
+                        from hybrid_engine.rotation_direction_evidence import capture
+                        status=await asyncio.wait_for(optional_source_thread(capture,root,receipt,snapshot,bridge),timeout=READ_TIMEOUT_SECONDS)
+                        logging.getLogger(__name__).info('Rotation direction evidence: %s',status)
+                    except Exception as exc:
+                        logging.getLogger(__name__).warning('Rotation direction evidence unavailable: %s',type(exc).__name__)
+                return out
             except Exception as exc:
                 logging.getLogger(__name__).warning('Rotation premium view unavailable: %s',type(exc).__name__)
                 return result
