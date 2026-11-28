@@ -86,11 +86,12 @@ def capture_one(root,ledger,row,rows,transport,*,source_cutoff):
     return publish(folder,'joint-score-',receipt,tip)
 
 class RotationCycle:
-    def __init__(self,root,ledger,transport,*,capture=capture_one,clock=time.time,forward_enabled=False,selective_enabled=False,refresh_enabled=False):
+    def __init__(self,root,ledger,transport,*,capture=capture_one,clock=time.time,forward_enabled=False,selective_enabled=False,refresh_enabled=False,half_reference_enabled=False):
         self.root=local_path(root);self.ledger=local_path(ledger);self.transport=transport
         self.selective_enabled=False;self.forward_enabled=False;self.capture=capture;self.clock=clock;self.retry={};self.attempted={};self.completed=set()
         self.refresh_enabled=False;self.refresh_turn=True;self.refresh_last=None
         # Legacy flags cannot override direction-first policy.
+        self.half_reference_enabled=half_reference_enabled;self.half_attempted={};self.half_last='WAITING'
         self.last=dict(status='WAITING',enabled=True)
     def tick(self):
         from hybrid_engine.runtime_reports import RuntimeLedgerReports
@@ -104,6 +105,21 @@ class RotationCycle:
         self.completed.intersection_update(keys)
         self.retry={k:v for k,v in self.retry.items() if k in keys}
         self.attempted={k:v for k,v in self.attempted.items() if k in keys}
+        # One bounded, fair local first-half reference attempt per tick.
+        # Never issue a new provider request or interfere with raw capture.
+        if self.half_reference_enabled:
+            self.half_attempted={k:v for k,v in self.half_attempted.items() if k in keys}
+            try:
+                from hybrid_engine.rotation_iddaa_direction import capture_one as capture_half
+                candidates=[r for r in rows if (self.root/'iddaa-bulletin'/'first-half'/'NBA'/str(r['fixture_start_utc'])).is_dir()]
+                if candidates:
+                    r=min(candidates,key=lambda v:(self.half_attempted.get((v['fixture_id'],v['snapshot_sha256']),-1),v['fixture_start_utc'],v['fixture_id']))
+                    key=(r['fixture_id'],r['snapshot_sha256']);self.half_attempted[key]=now
+                    old,_,_=records(self.root/'player-shadow',self.ledger,now=now,selector=r['fixture_id'])
+                    matches=[e for e in old if e[4]['snapshot_sha256']==key[1]]
+                    self.half_last=capture_half(self.root,matches[0]) if len(matches)==1 else 'HOLD_NO_RAW_RECEIPT'
+                else:self.half_last='HOLD_NO_LOCAL_REFERENCE'
+            except Exception as exc:self.half_last='ABSTAIN:'+error_reason(exc)
         # Alternate refresh and first-capture lanes. A refresh failure never
         # prevents an ordinary first forecast from being captured.
         if self.refresh_enabled:
@@ -174,6 +190,7 @@ class RotationCycle:
             'Öğrenme: HOLD_UNVERIFIED · /rotation direction',
             'Durum: '+r['status'], 'Uygun maç: '+str(r.get('eligible',0)),
             'Doğrulanmış/üretilmiş kayıt: '+str(r.get('completed',0))]
+        if self.half_reference_enabled:lines.append('İddaa ilk yarı referansı: '+self.half_last)
         if r.get('counts_stale'):lines.append('Sayılar son başarılı döngüden; güncel okuma başarısız.')
         if r.get('reason'):lines.append('Engel: '+r['reason'])
         if r.get('retry_at_utc'):

@@ -59,7 +59,7 @@ def panels(snapshot,receipt,now):
         f"<b>Beklenen toplam  {number(full['total']['mean'])}</b>",band(full['total']),'',stamp,
         'Geçmiş oyuncu rotasyonu ve tempo/verimlilik etkisi dahil.',
         'Güncel sakatlık ve kesin ilk beş teyitli değil.',
-        'Piyasa · Bu rotasyonla eşleşmiş doğrulanmış karar yok.',
+        'Piyasa · Ödeme kapsamı ve yön denetimi: /rotation direction.',
         'Yön öncelikli öğrenme · ortak sayı düzeltmesi kapalı.',
         'Önceki modelin piyasa gözlemleri ayrı Piyasa düğmesinde.'])
     period=['📊 <b>Periyot tahminleri</b>','Ev – Deplasman · Toplam sayı','Normal süre','']
@@ -75,7 +75,7 @@ def panels(snapshot,receipt,now):
         ranges.append('\n'.join(lines+[stamp,'Gerçek kapsama doğrulanmadı.']))
     period.extend(['',stamp])
     market='\n'.join(['📈 <b>ROTASYON MODELİ / PİYASA</b>',
-        'Bu araştırma kaydıyla eşleştirilmiş doğrulanmış barem/oran yok; Alt/Üst veya avantaj hesabı yapılmadı.',
+        'Kaynak bağlantıları ve ödeme kapsamı /rotation direction raporunda. Bu panel ödeme olasılığı veya avantaj hesabı içermez.',
         f"Maç toplamı {number(full['total']['mean'])} · Ev {number(full['home']['mean'])} · Dep {number(full['away']['mean'])}",
         f"Model ev farkı {number(full['margin']['mean'])} · İlk yarı {number(markets['1H']['total']['mean'])}",
         'Model referansı bahis baremi değildir. Oyuncu özel tahmini üretilmedi.'])
@@ -207,6 +207,12 @@ def install(state,root,ledger,bridge=None):
                         logging.getLogger(__name__).info('Rotation direction evidence: %s',status)
                     except Exception as exc:
                         logging.getLogger(__name__).warning('Rotation direction evidence unavailable: %s',type(exc).__name__)
+                try:
+                    from hybrid_engine.rotation_iddaa_direction import capture_one as capture_half
+                    status=await asyncio.wait_for(optional_source_thread(capture_half,Path(root).parent,receipt),timeout=READ_TIMEOUT_SECONDS)
+                    logging.getLogger(__name__).info('Rotation half reference: %s',status)
+                except Exception as exc:
+                    logging.getLogger(__name__).warning('Rotation half reference unavailable: %s',type(exc).__name__)
                 return out
             except Exception as exc:
                 logging.getLogger(__name__).warning('Rotation premium view unavailable: %s',type(exc).__name__)

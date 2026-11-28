@@ -49,6 +49,9 @@ def render(entries,now,*,folder=None,ledger=None):
         lines.extend(['Doğrulanmış başarılı yön: 0 | Başarısız yön: 0 | İade: 0',
             f"Yönü belirsiz sonuçlanan maç: {r['settled']}",
             'HOLD_UNVERIFIED — rotasyon kaydına bağlı doğrulanmış maç öncesi karar ve ödeme kuralı yok.'])
+    if folder is not None:
+        from hybrid_engine.rotation_iddaa_direction import render as render_half
+        lines.extend(['',*render_half(folder,entries,now)])
     lines.extend(['V1/V3 fiyatları tek başına rotasyonun kanıtı değildir.',
         'Yeni katsayı veya ortak sayı düzeltmesi uygulanmadı. Başarısız yön bile otomatik değişiklik yetkisi vermez.'])
     from hybrid_engine.elite_render import split_blocks
