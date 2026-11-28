@@ -59,7 +59,8 @@ def panels(snapshot,receipt,now):
         f"<b>Beklenen toplam  {number(full['total']['mean'])}</b>",band(full['total']),'',stamp,
         'Geçmiş oyuncu rotasyonu ve tempo/verimlilik etkisi dahil.',
         'Güncel sakatlık ve kesin ilk beş teyitli değil.',
-        'Piyasa · Doğrulanmış maç toplamı baremi yok.',
+        'Piyasa · Bu rotasyonla eşleşmiş doğrulanmış karar yok.',
+        'Yön öncelikli öğrenme · ortak sayı düzeltmesi kapalı.',
         'Önceki modelin piyasa gözlemleri ayrı Piyasa düğmesinde.'])
     period=['📊 <b>Periyot tahminleri</b>','Ev – Deplasman · Toplam sayı','Normal süre','']
     ranges=[]
@@ -151,7 +152,8 @@ def present(response,cache,receipt,now,refresh=None):
     if 'archive' not in old['sections']:raise ValueError('ROTATION_UI_ORIGINAL_ARCHIVE_REQUIRED')
     view=panels(snapshot,receipt,now)
     entry=dict(old,sections=dict(old['sections']),section_pages=dict(old['section_pages']))
-    shadow=refresh_view(snapshot,receipt,refresh,now) if refresh is not None else None
+    # Retired numerical candidates are visible only in /rotation refresh.
+    shadow=None
     if shadow:view['summary']+='\n\n'+shadow['summary']
     entry['summary']=view['summary']
     def set_pages(key,pages):
@@ -195,12 +197,7 @@ def install(state,root,ledger):
             try:
                 receipt=await asyncio.wait_for(optional_source_thread(lookup,root,ledger,snapshot,now),timeout=READ_TIMEOUT_SECONDS)
                 if receipt is None:return result
-                refresh=None
-                try:
-                    refresh=await asyncio.wait_for(optional_source_thread(lookup_refresh,root,ledger,snapshot,receipt,int(time.time())),timeout=READ_TIMEOUT_SECONDS)
-                except Exception as exc:
-                    logging.getLogger(__name__).warning('Rotation refresh display unavailable: %s',type(exc).__name__)
-                return present(result,state['premium_reports'],receipt,int(time.time()),refresh=refresh)
+                return present(result,state['premium_reports'],receipt,int(time.time()))
             except Exception as exc:
                 logging.getLogger(__name__).warning('Rotation premium view unavailable: %s',type(exc).__name__)
                 return result

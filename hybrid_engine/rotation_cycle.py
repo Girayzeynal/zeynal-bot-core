@@ -88,8 +88,9 @@ def capture_one(root,ledger,row,rows,transport,*,source_cutoff):
 class RotationCycle:
     def __init__(self,root,ledger,transport,*,capture=capture_one,clock=time.time,forward_enabled=False,selective_enabled=False,refresh_enabled=False):
         self.root=local_path(root);self.ledger=local_path(ledger);self.transport=transport
-        self.selective_enabled=selective_enabled;self.forward_enabled=forward_enabled;self.capture=capture;self.clock=clock;self.retry={};self.attempted={};self.completed=set()
-        self.refresh_enabled=refresh_enabled;self.refresh_turn=True;self.refresh_last=None
+        self.selective_enabled=False;self.forward_enabled=False;self.capture=capture;self.clock=clock;self.retry={};self.attempted={};self.completed=set()
+        self.refresh_enabled=False;self.refresh_turn=True;self.refresh_last=None
+        # Legacy flags cannot override direction-first policy.
         self.last=dict(status='WAITING',enabled=True)
     def tick(self):
         from hybrid_engine.runtime_reports import RuntimeLedgerReports
@@ -169,6 +170,8 @@ class RotationCycle:
         from zoneinfo import ZoneInfo
         r=self.last
         lines=['NBA OTOMATİK ROTASYON — İZOLE ARAŞTIRMA','Kalibre edilmedi; üretim tahmini değişmedi.',
+            'Yön öncelikli politika: AKTİF · Ortak sayı düzeltmesi: KAPALI',
+            'Öğrenme: HOLD_UNVERIFIED · /rotation direction',
             'Durum: '+r['status'], 'Uygun maç: '+str(r.get('eligible',0)),
             'Doğrulanmış/üretilmiş kayıt: '+str(r.get('completed',0))]
         if r.get('counts_stale'):lines.append('Sayılar son başarılı döngüden; güncel okuma başarısız.')

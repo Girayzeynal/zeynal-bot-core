@@ -53,10 +53,12 @@ class RefreshTests(TestCase):
             root=Path(tmp);folder=root/'player-shadow';folder.mkdir();ledger=root/'ledger';ledger.write_bytes(b'unchanged')
             pin=digest(pool);publish_json(folder/('joint-pool-'+pin+'.json'),dict(payload=pool,sha256=pin))
             with patch('hybrid_engine.rotation_refresh.records',return_value=(rows,{},0)):
-                status=refresh_one(root,ledger)
-                self.assertEqual(status['status'],'CAPTURED_REFRESH')
+                historical=candidate(folder,rows,t,now)
+                historical_pin=digest(historical)
+                publish_json(folder/(PREFIX+historical_pin+'.json'),dict(payload=historical,sha256=historical_pin))
+                self.assertEqual(refresh_one(root,ledger)['status'],'HOLD_UNVERIFIED')
                 before={p.name:p.read_bytes() for p in folder.iterdir()}
-                self.assertEqual(refresh_one(root,ledger)['status'],'IDLE')
+                self.assertEqual(refresh_one(root,ledger)['status'],'HOLD_UNVERIFIED')
                 self.assertEqual(before,{p.name:p.read_bytes() for p in folder.iterdir()})
                 self.assertEqual(ledger.read_bytes(),b'unchanged')
                 later=entry(9,now-9000,now-7000,now-5000)[0]
@@ -78,5 +80,6 @@ class RefreshTests(TestCase):
             ledger=Path(tmp)/'ledger';ledger.touch()
             cycle=RotationCycle(tmp,ledger,None,clock=lambda:1000,refresh_enabled=True)
             with patch('hybrid_engine.runtime_reports.RuntimeLedgerReports.read',return_value=dict(status='VERIFIED_LIVE_REPORT',forecasts=[])),patch('hybrid_engine.rotation_refresh.refresh_one',return_value=dict(status='CAPTURED_REFRESH',prior_n=11)):
-                self.assertEqual(cycle.tick()['status'],'REFRESHED')
                 self.assertEqual(cycle.tick()['status'],'IDLE')
+                self.assertEqual(cycle.tick()['status'],'IDLE')
+                self.assertFalse(cycle.refresh_enabled)

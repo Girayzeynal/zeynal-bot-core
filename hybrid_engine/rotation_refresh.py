@@ -92,25 +92,8 @@ def review(folder,entries,now):
     return dict(entries={k:sorted(v,key=lambda e:e[:3]) for k,v in chosen.items()},excluded=dict(excluded))
 
 def refresh_one(root,ledger):
-    from hybrid_engine.rotation_cycle import publish
-    folder=local_path(root)/'player-shadow';now=int(time.time())
-    entries,_,_=records(folder,ledger,now=now)
-    existing=review(folder,entries,now)['entries']
-    failures=Counter()
-    for t in entries:
-        row=t[4];tip=row['fixture_start_utc']
-        if row['actual'] is not None or not now<tip-PREMATCH_MINIMUM_LEAD_SECONDS or tip>now+HORIZON:continue
-        try:
-            prior=observations(entries,t,now)
-            cohort=digest(prior)
-            if any(v[3]['cohort_sha256']==cohort for v in existing.get((row['season'],row['fixture_id']),[])):continue
-            p=candidate(folder,entries,t,now,prior)
-            pin=publish(folder,PREFIX,p,tip)
-            return dict(status='CAPTURED_REFRESH',fixture_id=row['fixture_id'],receipt_sha256=pin,
-                prior_n=p['prior_n'],screen=p['screen']['status'])
-        except (ValueError,KeyError,TypeError,OSError,IndexError,np.linalg.LinAlgError) as exc:
-            failures[error_reason(exc)]+=1
-    return dict(status='ABSTAIN' if failures else 'IDLE',reason=next(iter(failures),None),failures=dict(failures))
+    from hybrid_engine.rotation_direction_policy import blocked
+    return blocked()
 
 def comparison(reviewed,now):
     # Freeze FIRST refresh for paired performance; never pick the best after
@@ -138,7 +121,8 @@ def comparison(reviewed,now):
 def render(folder,entries,now):
     from hybrid_engine.elite_render import split_blocks
     r=review(folder,entries,now)
-    lines=['NBA SONUÇ SONRASI GÜNCELLEME — GÖLGE ARAŞTIRMA',
+    lines=['NBA SONUÇ SONRASI GÜNCELLEME — ESKİ GÖLGE ARŞİVİ',
+        'PASİF — Yön öncelikli politika gereği eski sayısal adaylar kullanılmaz; yeni aday üretilmez.',
         'İlk kayıt değişmedi; yeni zamanlı aday ayrı arşivde. Kalibre edilmedi.',
         f"Benzersiz maç: {len(r['entries'])} | Dışlanan: {sum(r['excluded'].values())}"]
     for seq in r['entries'].values():

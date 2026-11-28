@@ -52,20 +52,8 @@ def candidate(entries,target,decision):
         intervals_available=False,calibrated=False,production_enabled=False,forecast_changed=False)
 
 def capture_new(root,ledger,raw_pin):
-    from hybrid_engine.rotation_report import records
-    from hybrid_engine.rotation_cycle import publish
-    folder=local_path(root)/'player-shadow'
-    now=int(time.time());entries,_,_=records(folder,ledger,now=now)
-    matches=[e for e in entries if e[2]==raw_pin]
-    if len(matches)!=1:raise Abstain('FORWARD_CORRECTION_RAW_NOT_FIRST_VERIFIED')
-    target=matches[0]
-    if target[4]['actual'] is not None:raise Abstain('FORWARD_CORRECTION_TARGET_SETTLED')
-    # This entry point is called only as a continuation of fresh automatic
-    # capture, not as a backfill of existing historical forecasts.
-    if now-target[0]>300:raise Abstain('FORWARD_CORRECTION_RAW_TOO_OLD')
-    p=candidate(entries,target,now)
-    pin=publish(folder,'correction-score-',p,p['fixture_start_utc'])
-    return dict(status='CAPTURED',receipt_sha256=pin,prior_n=p['prior_n'],corrected_total=p['corrected_total'])
+    from hybrid_engine.rotation_direction_policy import blocked
+    return blocked()
 
 def review(folder,entries,now):
     from hybrid_engine.rotation_report import actual_periods
@@ -106,7 +94,7 @@ def review(folder,entries,now):
 
 def render(folder,entries,now):
     r=review(folder,entries,now)
-    lines=['NBA ROTASYON — MAÇ ÖNCESİ DÜZELTME ADAYI','Kalibre edilmedi. Ham tahmin korunuyor.',
+    lines=['NBA ROTASYON — MAÇ ÖNCESİ DÜZELTME ADAYI','PASİF ESKİ SAYISAL ARŞİV — yeni düzeltme üretilmez. Ham tahmin korunuyor.',
         f"Tekrarlı kayıt: {r['duplicates']} | Dışlanan: {sum(r['exclusions'].values())}"]
     for g in r['groups']:
         lines.append(f"{g['season']}: {g['matched']} sonuçlandı / {g['pending']} bekliyor")

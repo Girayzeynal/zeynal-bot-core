@@ -60,27 +60,15 @@ class PremiumInstallTests(IsolatedAsyncioTestCase):
             lookup.assert_not_called()
 
 class RefreshDisplayTests(TestCase):
-    def test_shadow_visible_without_replacing_raw(self):
+    def test_retired_shadow_not_presented_as_active(self):
         res,cache,r=response()
-        p=dict(fixture_id='f',raw_receipt_sha256=r[2],original_snapshot_sha256=digest(res['snapshot']),
-            fixture_start_utc=res['snapshot']['fixture_start_utc'],generated_at_utc=NOW-4,
-            production_enabled=False,forecast_changed=False,calibrated=False,prior_n=11,
-            screen={'status':'INSUFFICIENT_CHRONOLOGICAL_EVIDENCE'},simulation=deepcopy(r[3]['simulation']))
-        p['simulation']['markets']['FULL']['total']['mean']=190.
-        refresh=(NOW-4,NOW-3,'b'*64,p,r)
-        out=present(res,cache,r,NOW,refresh=refresh)
+        out=present(res,cache,r,NOW,refresh=('retired',))
         self.assertIn('200,00',out['html'])
-        self.assertIn('190,00',out['html'])
-        self.assertIn('11 doğrulanmış sonuç',out['html'])
+        self.assertNotIn('GÖLGE ADAY',out['html'])
         e=cache['123456789abc']
-        self.assertEqual(e['rotation_refresh_receipt_sha256'],'b'*64)
-        self.assertIn('Öğrenme sonrası',e['section_pages']['period'][0])
-        self.assertIn('Periyot tahminleri',e['section_pages']['period'][1])
-        self.assertEqual(len(e['section_pages']['ranges']),14)
-        self.assertNotIn('MODEL YÖNÜ:',e['section_pages']['market'][0])
-        p['raw_receipt_sha256']='c'*64
-        with self.assertRaisesRegex(ValueError,'REFRESH_BINDING'):
-            present(res,cache,r,NOW,refresh=refresh)
+        self.assertNotIn('rotation_refresh_receipt_sha256',e)
+        self.assertEqual(len(e['section_pages']['ranges']),7)
+        self.assertIn('ortak sayı düzeltmesi kapalı',out['html'])
 
     def test_market_repeat_by_observation_and_decision(self):
         a='V3 fiyat\nGözlem SHA: abcdef123456\nKarar SHA: 123456abcdef'

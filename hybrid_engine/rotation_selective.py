@@ -127,17 +127,8 @@ def candidate(entries,target,decision):
         cause_status='RESIDUAL_PATTERN_NOT_CAUSAL_ATTRIBUTION')
 
 def capture_new(root,ledger,raw_pin):
-    from hybrid_engine.rotation_report import records
-    from hybrid_engine.rotation_cycle import publish
-    folder=local_path(root)/'player-shadow';now=int(time.time())
-    entries,_,_=records(folder,ledger,now=now)
-    matches=[e for e in entries if e[2]==raw_pin]
-    if len(matches)!=1:raise Abstain('SELECTIVE_RAW_NOT_FIRST_VERIFIED')
-    t=matches[0]
-    if t[4]['actual'] is not None or now-t[0]>300:raise Abstain('SELECTIVE_RAW_STALE_OR_SETTLED')
-    p=candidate(entries,t,now)
-    pin=publish(folder,'selective-score-',p,p['fixture_start_utc'])
-    return dict(status='CAPTURED_SHADOW',receipt_sha256=pin,prior_n=p['prior_n'],screen=p['screen']['status'])
+    from hybrid_engine.rotation_direction_policy import blocked
+    return blocked()
 
 def review(folder,entries,now):
     from hybrid_engine.rotation_report import actual_periods
@@ -185,7 +176,7 @@ def render(folder,entries,now):
         b=axes(raw_quarters(p));y=axes(a)
         for k in MARKETS:bins[(row['season'],k)][severity(y[(k,'total')]-b[(k,'total')],k)]+=1
     lines=['NBA SEÇİCİ ÖĞRENME — GÖLGE ARAŞTIRMA',
-           'Başarılı tahminler kontrol olarak korunur. Üretim değişmedi.']
+           'PASİF ESKİ SAYISAL ARAŞTIRMA — yeni düzeltme üretilmez. /rotation direction']
     for (season,k),counts in sorted(bins.items()):
         lines.append(season+' '+k+': '+' | '.join(f'{name} {counts[name]}' for name in NAMES))
     if not bins:lines.append('Hata sınıflandırması için doğrulanmış sonuç yok.')

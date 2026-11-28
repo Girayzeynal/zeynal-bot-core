@@ -115,9 +115,9 @@ def render(root,ledger,args=(),*,now=None):
     now=int(time.time()) if now is None else now
     args=list(args or [])
     if args and args[0].upper()=='NBA':args=args[1:]
-    if len(args)>1 or (args and args[0] not in ('results','calibration','list','forward','selective','audit','refresh') and not re.fullmatch(r'(?:[0-9]{1,15}|[0-9a-f]{64})',args[0])):
-        return ['Kullanım: /rotation [NBA] [ESPN maç kimliği, results, calibration, forward, selective, refresh, audit veya list]']
-    review=bool(args and args[0] in ('results','calibration','list','forward','selective','audit','refresh'))
+    if len(args)>1 or (args and args[0] not in ('results','calibration','list','forward','selective','audit','refresh','direction') and not re.fullmatch(r'(?:[0-9]{1,15}|[0-9a-f]{64})',args[0])):
+        return ['Kullanım: /rotation [NBA] [ESPN maç kimliği, results, calibration, forward, selective, refresh, direction, audit veya list]']
+    review=bool(args and args[0] in ('results','calibration','list','forward','selective','audit','refresh','direction'))
     details=[]
     entries,excluded,duplicates=records(root,ledger,now=now,selector=args[0] if args and not review else None,diagnostics=details)
     warning='ARAŞTIRMA • KALİBRE EDİLMEDİ • Normal süre • Eski tahmin değişmedi.'
@@ -128,6 +128,9 @@ def render(root,ledger,args=(),*,now=None):
         for d in details[:40]:lines.append(d['receipt'][:16]+' | '+d['reason'])
         if len(details)>40:lines.append(f'{len(details)-40} ek dışlanan kayıt; terminal denetimi gerekli.')
         return split_blocks(lines,limit=3200)
+    if args==['direction']:
+        from hybrid_engine.rotation_direction_policy import render as render_direction
+        return render_direction(entries,now)
     if args==['refresh']:
         from hybrid_engine.rotation_refresh import render as render_refresh
         return render_refresh(root,entries,now)
@@ -139,7 +142,8 @@ def render(root,ledger,args=(),*,now=None):
         return render_forward(root,entries,now)
     if args==['calibration']:
         from hybrid_engine.rotation_calibration import render as render_calibration
-        return render_calibration(entries,now,excluded,duplicates)
+        from hybrid_engine.rotation_direction_policy import render as render_direction
+        return render_direction(entries,now)
     if args==['list']:
         lines=[warning,'DOĞRULANMIŞ YAKLAŞAN MAÇLAR']
         for _,_,pin,p,row in entries:

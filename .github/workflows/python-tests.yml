@@ -76,7 +76,7 @@ jobs:
           tests/test_rotation_cycle.py tests/test_rotation_report.py
           tests/test_rotation_calibration.py tests/test_rotation_forward_calibration.py
           tests/test_rotation_selective.py tests/test_rotation_refresh.py
-          tests/test_rotation_premium.py tests/test_challenger_summary.py
+          tests/test_rotation_premium.py tests/test_rotation_direction_policy.py tests/test_challenger_summary.py
 
   docker-build:
     runs-on: ubuntu-latest
